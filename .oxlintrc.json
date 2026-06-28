@@ -1,0 +1,83 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2026": true
+  },
+  "plugins": ["eslint", "typescript", "import", "react", "jsx-a11y"],
+  "jsPlugins": [
+    { "name": "tanstack-router", "specifier": "@tanstack/eslint-plugin-router" },
+    { "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
+    { "name": "import-js", "specifier": "eslint-plugin-import" }
+  ],
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "node_modules/**",
+    ".output/**",
+    ".tanstack/**",
+    "dist/**",
+    "playwright-report/**",
+    "test-results/**"
+  ],
+  "settings": {
+    "react": {
+      "version": "19.2.7"
+    }
+  },
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react-hooks-js/set-state-in-effect": "error",
+    "react-hooks-js/set-state-in-render": "error",
+    "react-hooks-js/immutability": "error",
+    "react-hooks-js/globals": "error",
+    "react-hooks-js/refs": "error",
+    "react-hooks-js/purity": "error",
+    "react-hooks-js/static-components": "error",
+    "react-hooks-js/use-memo": "error",
+    "react-hooks-js/error-boundaries": "error",
+    "react-hooks-js/unsupported-syntax": "warn",
+    "react-hooks-js/config": "error",
+    "react-hooks-js/gating": "error",
+    "tanstack-router/create-route-property-order": "warn",
+    "tanstack-router/route-param-names": "error",
+    "react/exhaustive-deps": "error",
+    "react/rules-of-hooks": "error",
+    "react/no-array-index-key": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-explicit-any": "warn",
+    "no-unused-vars": [
+      "error",
+      {
+        "varsIgnorePattern": "^_",
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "import/no-duplicates": [
+      "error",
+      {
+        "preferInline": true
+      }
+    ],
+    "import-js/order": [
+      "error",
+      {
+        "groups": [["builtin", "external"], "unknown", ["internal", "parent", "sibling", "index"]],
+        "pathGroups": [{ "pattern": "@/**", "group": "internal" }],
+        "pathGroupsExcludedImportTypes": [],
+        "newlines-between": "ignore",
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
+        }
+      }
+    ],
+    "react/no-unescaped-entities": "off",
+    "react/react-in-jsx-scope": "off",
+    "jsx-a11y/label-has-associated-control": "error",
+    "jsx-a11y/no-aria-hidden-on-focusable": "error",
+    "jsx-a11y/prefer-tag-over-role": "warn"
+  }
+}

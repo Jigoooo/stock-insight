@@ -1,0 +1,344 @@
+.detail {
+  container: stock-detail / inline-size;
+  display: grid;
+  gap: 10px;
+}
+
+.headerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(164px, 208px);
+  gap: 12px;
+}
+
+.company {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.logo {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-strong);
+  background: var(--color-card-subtle);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.company h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(16px, 1.9cqi, 20px);
+  font-weight: 720;
+  line-height: 1.18;
+}
+
+.company p {
+  margin: 7px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.tag {
+  display: inline-flex;
+  min-height: 23px;
+  align-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  padding: 3px 6px;
+  color: var(--color-muted);
+  background: transparent;
+  font-size: 10.5px;
+  font-weight: 720;
+  line-height: 1.2;
+}
+
+.tagBlue {
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-line));
+  color: var(--color-primary-strong);
+}
+
+.tagGreen {
+  border-color: color-mix(in srgb, var(--color-positive) 34%, var(--color-line));
+  color: var(--color-positive);
+}
+
+.tagAmber {
+  border-color: color-mix(in srgb, var(--color-copper) 30%, var(--color-line));
+  color: var(--color-copper);
+}
+
+.price {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  background: var(--color-card-subtle);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.price span {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.price strong {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: clamp(17px, 2.1cqi, 21px);
+  font-weight: 720;
+  line-height: 1.12;
+}
+
+.price small {
+  display: block;
+  margin-top: 7px;
+  color: var(--color-positive);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 6px;
+}
+
+.metric {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  background: color-mix(in srgb, var(--color-card-subtle) 72%, transparent);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.metric span {
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 680;
+}
+
+.metric b {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 8px;
+}
+
+.section,
+.review {
+  min-width: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+  background: color-mix(in srgb, var(--color-card-subtle) 72%, transparent);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
+}
+
+.section h4,
+.review h4 {
+  margin: 0 0 9px;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.section p,
+.section li,
+.review p {
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.timeline {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 7px;
+}
+
+.timeline em {
+  color: var(--color-primary-strong);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.timeline span {
+  color: var(--color-ink-soft);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.rowbar {
+  display: grid;
+  grid-template-columns: minmax(70px, 88px) minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 7px;
+}
+
+.rowbar b {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.rowbar em {
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-style: normal;
+  text-align: right;
+}
+
+.track {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--color-card-muted);
+}
+
+.track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transform-origin: left center;
+}
+
+.bullet {
+  display: flex;
+  gap: 7px;
+  margin-top: 7px;
+  color: var(--color-ink-soft);
+  font-size: 11.5px;
+  line-height: 1.52;
+}
+
+.bullet svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--color-muted);
+}
+
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.reviewCard {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  background: var(--color-card);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.reviewCard span {
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 680;
+}
+
+.reviewCard b {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.38;
+}
+
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .section:hover,
+  .review:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-line));
+    box-shadow: var(--shadow-hover);
+  }
+
+  .metric:hover,
+  .reviewCard:hover,
+  .price:hover {
+    border-color: var(--color-line-strong);
+    background: var(--color-card-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .track span[data-progress-reveal] {
+    animation: progress-fill var(--duration-base) var(--ease-out) both;
+  }
+}
+
+@container stock-detail (max-width: 760px) {
+  .headerGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .company h3 {
+    font-size: 16px;
+  }
+
+  .company p {
+    font-size: 11.5px;
+  }
+
+  .price strong {
+    font-size: 17px;
+  }
+
+  .metric b,
+  .reviewCard b {
+    font-size: 12px;
+  }
+
+  .section h4,
+  .review h4 {
+    font-size: 12.5px;
+  }
+}

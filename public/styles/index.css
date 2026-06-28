@@ -1,0 +1,119 @@
+:root {
+  --color-background: #0d1117;
+  --color-background-strong: #0a0d12;
+  --color-foreground: #f4f7fb;
+  --color-ink-soft: #c6ced8;
+  --color-muted: #96a0ad;
+  --color-muted-foreground: #8c97a5;
+  --color-card: #151a21;
+  --color-card-subtle: #1b212a;
+  --color-card-muted: #242c36;
+  --color-line: #2b3440;
+  --color-line-strong: #3a4654;
+  --color-primary: #7c8cff;
+  --color-primary-strong: #a8b3ff;
+  --color-primary-soft: #20284a;
+  --color-focus: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --color-signal: #d8bd63;
+  --color-signal-soft: #332d1c;
+  --color-copper: #d38c6d;
+  --color-copper-soft: #38251f;
+  --color-positive: #65cf98;
+  --color-positive-soft: #193126;
+  --color-risk: #ff8a82;
+  --color-risk-soft: #3a2020;
+  --color-graphite: #0a0d12;
+  --color-graphite-raised: #111720;
+  --color-graphite-line: #2b3440;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.035);
+  --shadow-hover: 0 0 0 1px rgba(168, 179, 255, 0.16);
+  --shadow-raised: 0 18px 42px rgba(0, 0, 0, 0.38);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-lift: -1px;
+  --motion-press: 1px;
+  --duration-fast: 180ms;
+  --duration-base: 280ms;
+  --font-size-label: 12px;
+  --font-size-body: 14px;
+  --font-size-title: 20px;
+  color: var(--color-foreground);
+  background: var(--color-background);
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--color-background);
+}
+
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--color-background);
+  font-variant-numeric: tabular-nums;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+img,
+svg {
+  display: block;
+}
+
+.root-fallback {
+  display: grid;
+  min-height: 100svh;
+  place-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.root-fallback h1 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 40px);
+}
+
+.root-fallback p {
+  margin: 12px 0 0;
+  color: var(--color-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
