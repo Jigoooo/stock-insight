@@ -1323,7 +1323,6 @@
 
 @keyframes snapshot-rise {
   from {
-    opacity: 0.72;
     transform: scaleY(0.35);
   }
 }

@@ -1,0 +1,49 @@
+# Runtime / dependency artifacts
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+.vite/
+.cache/
+
+# Build / generated outputs
+dist/
+build/
+.output/
+**/.output/
+coverage/
+playwright-report/
+test-results/
+apps/web/src/routeTree.gen.ts
+**/routeTree.gen.ts
+**/*.gen.ts
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*secret*
+*secrets*
+
+# Databases / dumps / backups / runtime state
+data/
+state/
+backups/
+backup/
+dumps/
+dump/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+*.bak
+
+# Graphify outputs should not be re-ingested
+graphify-out/
+.graphify_*.json
+.graphify_*.txt

@@ -47,7 +47,10 @@ WITH normalized_candidates AS (
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END AS market,
-    ticker,
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END AS ticker,
     name,
     category,
     thesis,
@@ -126,7 +129,10 @@ WITH normalized_candidates AS (
         WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
         ELSE NULL
       END AS market,
-      ticker,
+      CASE
+        WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+        ELSE ticker
+      END AS ticker,
       length(coalesce(report, '')) AS deep_report_length,
       researched_at
     FROM watchlist.deep_cache

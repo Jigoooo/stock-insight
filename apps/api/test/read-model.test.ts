@@ -523,6 +523,8 @@ describe('PostgreSQL stock list read model', () => {
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /stock\.candidates/i);
+    assert.match(executedSql[0] ?? '', /regexp_replace\(ticker,/i);
+    assert.match(executedSql[0] ?? '', /KS\|KQ/);
     assert.doesNotMatch(executedSql[0] ?? '', /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i);
     assert.deepEqual(rows, [
       {
@@ -1083,6 +1085,8 @@ describe('PostgreSQL discover stocks read model', () => {
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /stock\.candidates/i);
+    assert.match(executedSql[0] ?? '', /regexp_replace\(ticker,/i);
+    assert.match(executedSql[0] ?? '', /KS\|KQ/);
     assert.match(executedSql[0] ?? '', /public\.entity_reach_cache/i);
     assert.match(executedSql[0] ?? '', /public\.user_watchlist/i);
     assert.doesNotMatch(executedSql[0] ?? '', /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i);
@@ -1179,6 +1183,8 @@ describe('PostgreSQL dashboard read model', () => {
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /stock\.candidates/i);
+    assert.match(executedSql[0] ?? '', /regexp_replace\(ticker,/i);
+    assert.match(executedSql[0] ?? '', /KS\|KQ/);
     assert.match(executedSql[0] ?? '', /stock\.market_snapshots/i);
     assert.match(executedSql[0] ?? '', /public\.v_user_feed_dedup/i);
     assert.match(executedSql[0] ?? '', /domain\s*=\s*'stock'/i);

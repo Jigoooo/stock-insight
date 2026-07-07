@@ -67,7 +67,10 @@ WITH normalized_candidates AS (
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END AS market,
-    ticker,
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END AS ticker,
     name,
     thesis,
     confidence,
@@ -97,14 +100,20 @@ WITH normalized_candidates AS (
       WHEN upper(region) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END,
-    symbol
+    CASE
+      WHEN upper(region) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(symbol, '\\.(KS|KQ)$', '', 'i')
+      ELSE symbol
+    END
   )
     CASE
       WHEN upper(region) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN 'KR'
       WHEN upper(region) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END AS market,
-    symbol AS ticker,
+    CASE
+      WHEN upper(region) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(symbol, '\\.(KS|KQ)$', '', 'i')
+      ELSE symbol
+    END AS ticker,
     value AS latest_price,
     currency,
     change_pct,
@@ -118,7 +127,10 @@ WITH normalized_candidates AS (
       WHEN upper(region) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END,
-    symbol,
+    CASE
+      WHEN upper(region) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(symbol, '\\.(KS|KQ)$', '', 'i')
+      ELSE symbol
+    END,
     coalesce(nullif(collected_at, ''), snapshot_date, '') DESC,
     id DESC
 ), active_watchlist AS (
@@ -148,14 +160,20 @@ WITH normalized_candidates AS (
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END,
-    ticker
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END
   )
     CASE
       WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN 'KR'
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END AS market,
-    ticker,
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END AS ticker,
     length(coalesce(report, '')) AS deep_report_length,
     researched_at
   FROM watchlist.deep_cache
@@ -166,7 +184,10 @@ WITH normalized_candidates AS (
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END,
-    ticker,
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END,
     researched_at DESC
 )
 SELECT
@@ -223,7 +244,18 @@ const STOCK_DETAIL_SQL = `
 WITH parsed_entity AS (
   SELECT
     split_part($1::text, ':', 1) AS market,
-    split_part($1::text, ':', 2) AS ticker
+    CASE
+      WHEN split_part($1::text, ':', 1) = 'KR' THEN regexp_replace(split_part($1::text, ':', 2), '\\.(KS|KQ)$', '', 'i')
+      ELSE split_part($1::text, ':', 2)
+    END AS ticker,
+    concat(
+      split_part($1::text, ':', 1),
+      ':',
+      CASE
+        WHEN split_part($1::text, ':', 1) = 'KR' THEN regexp_replace(split_part($1::text, ':', 2), '\\.(KS|KQ)$', '', 'i')
+        ELSE split_part($1::text, ':', 2)
+      END
+    ) AS entity_key
 ), normalized_candidates AS (
   SELECT
     CASE
@@ -231,7 +263,10 @@ WITH parsed_entity AS (
       WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
       ELSE NULL
     END AS market,
-    ticker,
+    CASE
+      WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+      ELSE ticker
+    END AS ticker,
     name,
     thesis,
     confidence,
@@ -275,7 +310,7 @@ WITH parsed_entity AS (
     entity.name
   FROM public.entities entity
   JOIN parsed_entity parsed
-    ON entity.entity_key = concat(parsed.market, ':', parsed.ticker)
+    ON entity.entity_key = parsed.entity_key
   WHERE entity.entity_type = 'ticker'
     AND entity.symbol IS NOT NULL
     AND entity.name IS NOT NULL
@@ -314,7 +349,10 @@ WITH parsed_entity AS (
         WHEN upper(region) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
         ELSE NULL
       END AS market,
-      symbol AS ticker,
+      CASE
+        WHEN upper(region) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(symbol, '\\.(KS|KQ)$', '', 'i')
+        ELSE symbol
+      END AS ticker,
       value AS latest_price,
       currency,
       change_pct,
@@ -334,7 +372,7 @@ WITH parsed_entity AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
-    AND entity_key = $1::text
+    AND entity_key = (SELECT entity_key FROM parsed_entity)
   ORDER BY entity_key, added_at DESC, id DESC
 ), open_positions AS (
   SELECT DISTINCT ON (entity_key)
@@ -343,7 +381,7 @@ WITH parsed_entity AS (
   FROM public.user_positions
   WHERE closed_at IS NULL
     AND status = 'open'
-    AND entity_key = $1::text
+    AND entity_key = (SELECT entity_key FROM parsed_entity)
   ORDER BY entity_key, opened_at DESC, id DESC
 ), deep_report AS (
   SELECT DISTINCT ON (deep.market, deep.ticker)
@@ -360,7 +398,10 @@ WITH parsed_entity AS (
         WHEN upper(market) IN ('US', 'NASDAQ', 'NYSE', 'AMEX') THEN 'US'
         ELSE NULL
       END AS market,
-      ticker,
+      CASE
+        WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN regexp_replace(ticker, '\\.(KS|KQ)$', '', 'i')
+        ELSE ticker
+      END AS ticker,
       report,
       sources,
       researched_at
@@ -390,7 +431,7 @@ WITH parsed_entity AS (
       record_id
     FROM public.v_user_feed_dedup
     WHERE domain = 'stock'
-      AND record_entity_key = $1::text
+      AND record_entity_key = (SELECT entity_key FROM parsed_entity)
       AND coalesce(title, '') <> ''
     ORDER BY coalesce(published_at, effective_date) DESC NULLS LAST, record_id DESC
     LIMIT 5
@@ -412,7 +453,7 @@ WITH parsed_entity AS (
       card.updated_at AS card_sort,
       card.id AS card_id
     FROM public.stock_learning_cards card
-    WHERE card.entity_key = $1::text
+    WHERE card.entity_key = (SELECT entity_key FROM parsed_entity)
     ORDER BY card.updated_at DESC NULLS LAST, card.id DESC
     LIMIT 8
   ) cards
@@ -427,7 +468,7 @@ WITH parsed_entity AS (
         'sources', coalesce(term.source_refs_json, '[]'::jsonb)
       ) AS term_item
     FROM public.entity_glossary_terms term
-    WHERE term.entity_key = $1::text OR term.entity_key IS NULL
+    WHERE term.entity_key = (SELECT entity_key FROM parsed_entity) OR term.entity_key IS NULL
     ORDER BY term.term ASC
     LIMIT 12
   ) terms
@@ -445,7 +486,7 @@ WITH parsed_entity AS (
       'capturedAt', profile.captured_at
     )
     FROM public.company_profiles profile
-    WHERE profile.entity_key = $1::text
+    WHERE profile.entity_key = (SELECT entity_key FROM parsed_entity)
     ORDER BY profile.updated_at DESC NULLS LAST, profile.id DESC
     LIMIT 1
   ) AS item
@@ -466,7 +507,7 @@ WITH parsed_entity AS (
       financial.reported_at AS metric_sort,
       financial.metric_group
     FROM public.company_financials financial
-    WHERE financial.entity_key = $1::text
+    WHERE financial.entity_key = (SELECT entity_key FROM parsed_entity)
     ORDER BY financial.reported_at DESC NULLS LAST, financial.id DESC
     LIMIT 8
   ) metrics
@@ -480,7 +521,7 @@ WITH parsed_entity AS (
     completed_at AS analysis_completed_at,
     error_message AS analysis_error_message
   FROM public.v_stock_learning_status
-  WHERE entity_key = $1::text
+  WHERE entity_key = (SELECT entity_key FROM parsed_entity)
   LIMIT 1
 )
 SELECT
