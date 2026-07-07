@@ -58,8 +58,9 @@ export function StockDetail({ stock }: StockDetailProps) {
       'collecting');
   const detailSource: ResponseMeta['source'] =
     detailResponse?.meta.source ?? stock.dataSource ?? 'fallback';
-  const positives = liveDetail?.checkpoints.length ? liveDetail.checkpoints : stock.positives;
-  const risks = liveDetail?.risks.length ? liveDetail.risks : stock.risks;
+  const hasLiveDatabaseDetail = Boolean(liveDetail && detailSource === 'database');
+  const positives = hasLiveDatabaseDetail ? (liveDetail?.checkpoints ?? []) : stock.positives;
+  const risks = hasLiveDatabaseDetail ? (liveDetail?.risks ?? []) : stock.risks;
 
   useEffect(() => {
     if (!stock.entityKey) return;
@@ -185,7 +186,7 @@ export function StockDetail({ stock }: StockDetailProps) {
         </div>
         <p>
           {stock.dataSource === 'database'
-            ? '전용 종목 API 데이터와 화면 보존용 fallback을 함께 표시합니다. 주문 기능은 없습니다.'
+            ? '전용 종목 API 데이터 기준으로 표시합니다. 주문 기능은 없습니다.'
             : '모든 데이터는 UI 목업용 가상/축약 데이터입니다.'}
         </p>
       </section>

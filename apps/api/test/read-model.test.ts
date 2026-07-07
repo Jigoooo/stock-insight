@@ -556,6 +556,41 @@ describe('stock read model fallback policy', () => {
           ],
           risks: ['손절가 70000원', '메모리 가격 변동성'],
           checkpoints: ['익절가 110000원', '실적 발표 확인'],
+          companyProfile: {
+            status: 'available',
+            name: '삼성전자',
+            summaryText: '삼성전자 매수하세요',
+            sources: [],
+          },
+          learningCards: [
+            {
+              cardKey: 'unsafe-title',
+              section: 'risk',
+              title: '삼성전자 매도하세요',
+              bullets: ['업황 확인'],
+              availability: 'available',
+              sources: [],
+            },
+            {
+              cardKey: 'mixed-body',
+              section: 'business',
+              title: '사업 구조 확인',
+              bodyMarkdown: 'buy now before earnings',
+              bullets: ['목표가 100000원', 'HBM 수요 확인'],
+              availability: 'available',
+              sources: [],
+            },
+          ],
+          glossaryTerms: [
+            { term: 'unsafe', definition: 'sell now after the spike', sources: [] },
+            { term: 'HBM', definition: '고대역폭 메모리', sources: [] },
+          ],
+          analysisJob: {
+            id: 'job-1',
+            status: 'failed',
+            progressPct: 20,
+            errorMessage: '매도하세요',
+          },
         };
       },
     };
@@ -572,9 +607,30 @@ describe('stock read model fallback policy', () => {
     );
     assert.deepEqual(detailResponse.data?.risks, ['메모리 가격 변동성']);
     assert.deepEqual(detailResponse.data?.checkpoints, ['실적 발표 확인']);
+    assert.equal(detailResponse.data?.companyProfile?.summaryText, undefined);
+    assert.deepEqual(
+      detailResponse.data?.learningCards?.map((card) => ({
+        cardKey: card.cardKey,
+        title: card.title,
+        bodyMarkdown: card.bodyMarkdown,
+        bullets: card.bullets,
+      })),
+      [
+        {
+          cardKey: 'mixed-body',
+          title: '사업 구조 확인',
+          bodyMarkdown: undefined,
+          bullets: ['HBM 수요 확인'],
+        },
+      ],
+    );
+    assert.deepEqual(detailResponse.data?.glossaryTerms, [
+      { term: 'HBM', definition: '고대역폭 메모리', sources: [] },
+    ]);
+    assert.equal(detailResponse.data?.analysisJob?.errorMessage, undefined);
     assert.doesNotMatch(
       JSON.stringify({ listResponse, detailResponse }),
-      /매수 추천|목표가|손절가|익절가|지금 사세요/,
+      /매수 추천|매수하세요|매도하세요|buy now|sell now|목표가|손절가|익절가|지금 사세요/,
     );
   });
 

@@ -1036,13 +1036,65 @@ function sanitizeStockListItem(item: StockListItem): StockListItem {
   return safeThesis ? { ...rest, primaryThesis: safeThesis } : rest;
 }
 
+function sanitizeGlossaryTerm(term: EntityGlossaryTerm): EntityGlossaryTerm | null {
+  return containsActionAdvice(term.term, term.definition) ? null : term;
+}
+
+function sanitizeCompanyProfile(
+  profile: StockCompanyProfile | undefined,
+): StockCompanyProfile | undefined {
+  if (!profile) return undefined;
+  const safeSummary = actionSafeText(profile.summaryText);
+  const sanitized = { ...profile };
+  if (safeSummary) {
+    sanitized.summaryText = safeSummary;
+  } else {
+    delete sanitized.summaryText;
+  }
+  return sanitized;
+}
+
+function sanitizeLearningCard(card: StockLearningCard): StockLearningCard | null {
+  if (containsActionAdvice(card.title)) return null;
+
+  const safeBodyMarkdown = actionSafeText(card.bodyMarkdown);
+  const sanitized = { ...card, bullets: filterActionSafeTexts(card.bullets) };
+  if (safeBodyMarkdown) {
+    sanitized.bodyMarkdown = safeBodyMarkdown;
+  } else {
+    delete sanitized.bodyMarkdown;
+  }
+  return sanitized;
+}
+
+function sanitizeAnalysisJob(job: StockAnalysisJob | undefined): StockAnalysisJob | undefined {
+  if (!job) return undefined;
+  const safeErrorMessage = actionSafeText(job.errorMessage);
+  const sanitized = { ...job };
+  if (safeErrorMessage) {
+    sanitized.errorMessage = safeErrorMessage;
+  } else {
+    delete sanitized.errorMessage;
+  }
+  return sanitized;
+}
+
 function sanitizeStockDetail(detail: StockDetail): StockDetail {
   const safeReportMarkdown = actionSafeText(detail.deepReport.reportMarkdown);
   const deepReport = safeReportMarkdown
     ? { ...detail.deepReport, reportMarkdown: safeReportMarkdown }
     : { status: 'missing' as const, sources: detail.deepReport.sources };
 
-  return {
+  const learningCards = detail.learningCards
+    ?.map(sanitizeLearningCard)
+    .filter((item) => item !== null);
+  const glossaryTerms = detail.glossaryTerms
+    ?.map(sanitizeGlossaryTerm)
+    .filter((item) => item !== null);
+  const companyProfile = sanitizeCompanyProfile(detail.companyProfile);
+  const analysisJob = sanitizeAnalysisJob(detail.analysisJob);
+
+  const sanitized: StockDetail = {
     ...detail,
     stock: sanitizeStockListItem(detail.stock),
     deepReport,
@@ -1052,6 +1104,32 @@ function sanitizeStockDetail(detail: StockDetail): StockDetail {
     risks: filterActionSafeTexts(detail.risks),
     checkpoints: filterActionSafeTexts(detail.checkpoints),
   };
+
+  if (companyProfile) {
+    sanitized.companyProfile = companyProfile;
+  } else {
+    delete sanitized.companyProfile;
+  }
+
+  if (detail.learningCards !== undefined) {
+    sanitized.learningCards = learningCards ?? [];
+  } else {
+    delete sanitized.learningCards;
+  }
+
+  if (detail.glossaryTerms !== undefined) {
+    sanitized.glossaryTerms = glossaryTerms ?? [];
+  } else {
+    delete sanitized.glossaryTerms;
+  }
+
+  if (analysisJob) {
+    sanitized.analysisJob = analysisJob;
+  } else {
+    delete sanitized.analysisJob;
+  }
+
+  return sanitized;
 }
 
 export type StockReadModel = {

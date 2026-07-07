@@ -14,6 +14,13 @@ describe('action-advice read-model guard', () => {
     assert.equal(containsActionAdvice('매수·매도 지시 없음'), false);
   });
 
+  it('catches direct imperative buy/sell wording in Korean and English', () => {
+    assert.equal(containsActionAdvice('삼성전자 매수하세요'), true);
+    assert.equal(containsActionAdvice('삼성전자 매도하세요'), true);
+    assert.equal(containsActionAdvice('buy now before earnings'), true);
+    assert.equal(containsActionAdvice('sell now after the spike'), true);
+  });
+
   it('does not let safe boundary wording whitelist adjacent buy/sell advice', () => {
     assert.equal(containsActionAdvice('조회 전용 안내입니다. 지금 사세요'), true);
     assert.equal(containsActionAdvice('주문 기능 없음. 목표가 100000원'), true);

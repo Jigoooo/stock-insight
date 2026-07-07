@@ -2,7 +2,7 @@ const SAFE_BOUNDARY_PATTERN =
   /(?:조회\s*전용|주문\s*(?:기능|실행|브로커|연결)?\s*(?:없|없습니다)|매수[·\s]*매도\s*지시\s*(?:없|없음|없습니다)|(?:not|no)\s+(?:investment\s+)?advice|no\s+order)/giu;
 
 const ACTION_ADVICE_PATTERN =
-  /(?:지금\s*(?:사세요|파세요|매수|매도)|(?:매수|매도)\s*(?:추천|시점|타이밍|지시|신호)|(?:목표가|손절가|익절가)\s*[0-9,.]*|\b(?:buy|sell)\s*(?:recommendation|timing|signal)\b|\b(?:target\s*price|stop[-\s]*loss|take[-\s]*profit)\b)/iu;
+  /(?:\b(?:buy|sell)\s*(?:now|recommendation|timing|signal)\b|지금\s*(?:사세요|파세요|매수|매도)|(?:매수|매도)\s*(?:하세요|하라|추천|시점|타이밍|지시|신호)|(?:목표가|손절가|익절가)\s*[0-9,.]*|\b(?:target\s*price|stop[-\s]*loss|take[-\s]*profit)\b)/iu;
 
 function stringify(value: unknown): string {
   if (typeof value === 'string') return value;
