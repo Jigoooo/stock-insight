@@ -1,0 +1,39 @@
+{
+  "name": "@stock-insight/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.ts",
+    "backfill:phase35": "node src/backfill/run-phase35.ts",
+    "backfill:phase35:apply": "node src/backfill/run-phase35.ts --apply",
+    "backfill:phase10": "node src/backfill/run-phase10.ts",
+    "backfill:phase10:apply": "node src/backfill/run-phase10.ts --apply",
+    "backfill:phase11": "node src/backfill/run-phase11.ts",
+    "backfill:phase11:apply": "node src/backfill/run-phase11.ts --apply",
+    "backfill:phase12": "node src/backfill/run-phase12.ts",
+    "backfill:phase12:apply": "node src/backfill/run-phase12.ts --apply",
+    "backfill:phase4": "node src/backfill/run-phase4.ts",
+    "backfill:phase4:apply": "node src/backfill/run-phase4.ts --apply",
+    "backfill:sec-edgar:dry-run": "node src/backfill/run-sec-edgar.ts",
+    "backfill:sec-edgar:apply": "node src/backfill/run-sec-edgar.ts --apply",
+    "lint": "oxlint src",
+    "format": "oxfmt src package.json tsconfig.json",
+    "format:check": "oxfmt --check src package.json tsconfig.json"
+  },
+  "dependencies": {
+    "@stock-insight/contracts": "workspace:*",
+    "@stock-insight/db-schema": "workspace:*",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.2",
+    "oxfmt": "^0.54.0",
+    "oxlint": "^1.69.0",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,5 +1,11 @@
 {
-  "extends": "./tsconfig.base.json",
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "references": [
+    { "path": "./packages/contracts" },
+    { "path": "./packages/api-client" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/db-schema" },
+    { "path": "./apps/api" },
+    { "path": "./apps/web" }
+  ]
 }

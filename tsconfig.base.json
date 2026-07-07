@@ -1,16 +1,20 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "strict": true,
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "noUncheckedIndexedAccess": true,
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/app/*": ["./src/app/*"],
-      "@/routes/*": ["./src/routes/*"],
-      "@/pages/*": ["./src/pages/*"],
-      "@/widgets/*": ["./src/widgets/*"],
-      "@/features/*": ["./src/features/*"],
-      "@/entities/*": ["./src/entities/*"],
-      "@/shared/*": ["./src/shared/*"]
+      "@stock-insight/contracts": ["packages/contracts/src/index.ts"],
+      "@stock-insight/api": ["apps/api/src/index.ts"],
+      "@stock-insight/api-client": ["packages/api-client/src/index.ts"],
+      "@stock-insight/ui": ["packages/ui/src/index.ts"],
+      "@stock-insight/db-schema": ["packages/db-schema/src/index.ts"]
     }
   }
 }

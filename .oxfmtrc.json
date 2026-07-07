@@ -4,11 +4,12 @@
   "trailingComma": "all",
   "printWidth": 100,
   "ignorePatterns": [
-    "src/routeTree.gen.ts",
+    "apps/web/src/routeTree.gen.ts",
     "node_modules/**",
-    ".output/**",
-    ".tanstack/**",
-    "dist/**",
+    "**/node_modules/**",
+    "**/.output/**",
+    "**/.tanstack/**",
+    "**/dist/**",
     "playwright-report/**",
     "test-results/**"
   ]

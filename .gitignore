@@ -1,11 +1,17 @@
 # Dependencies
 node_modules/
+**/node_modules/
 
 # Build outputs
 .output/
+**/.output/
 .tanstack/
+**/.tanstack/
+.turbo/
 dist/
+**/dist/
 dist-ssr/
+**/dist-ssr/
 
 # Test outputs
 playwright-report/

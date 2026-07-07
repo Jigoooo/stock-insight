@@ -32,7 +32,7 @@ Futur Insight should feel like a read-only investment research workspace, not a 
 - No pill/chip sprawl. Status metadata may exist, but it should read like small system text, not colorful badges.
 - No warm cream/beige dominant theme. Use a cool neutral work surface with graphite chrome.
 - No large rounded cards. Default radius is 4-8px.
-- No raw hardcoded colors outside `src/shared/theme/tokens.ts` or global CSS variables.
+- No raw hardcoded colors outside `apps/web/src/shared/theme/tokens.ts` or global CSS variables.
 - No investment advice wording.
 
 ## Tokens

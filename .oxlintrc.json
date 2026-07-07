@@ -12,11 +12,12 @@
     { "name": "import-js", "specifier": "eslint-plugin-import" }
   ],
   "ignorePatterns": [
-    "src/routeTree.gen.ts",
+    "apps/web/src/routeTree.gen.ts",
     "node_modules/**",
-    ".output/**",
-    ".tanstack/**",
-    "dist/**",
+    "**/node_modules/**",
+    "**/.output/**",
+    "**/.tanstack/**",
+    "**/dist/**",
     "playwright-report/**",
     "test-results/**"
   ],
@@ -65,7 +66,10 @@
       "error",
       {
         "groups": [["builtin", "external"], "unknown", ["internal", "parent", "sibling", "index"]],
-        "pathGroups": [{ "pattern": "@/**", "group": "internal" }],
+        "pathGroups": [
+          { "pattern": "@/**", "group": "internal" },
+          { "pattern": "@stock-insight/**", "group": "internal" }
+        ],
         "pathGroupsExcludedImportTypes": [],
         "newlines-between": "ignore",
         "alphabetize": {

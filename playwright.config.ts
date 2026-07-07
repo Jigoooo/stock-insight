@@ -1,11 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-import { resolveDevServerPort } from './config/dev-server';
+import { resolveDevServerPort } from './apps/web/config/dev-server';
 
-const env = loadEnv('dev', process.cwd(), '');
+const webRoot = new URL('./apps/web/', import.meta.url).pathname;
+const env = loadEnv('dev', webRoot, '');
 const serverPort = resolveDevServerPort(process.env.PLAYWRIGHT_PORT ?? env.VITE_PORT);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${serverPort}`;
+const configuredWorkers = Number.parseInt(process.env.PLAYWRIGHT_WORKERS ?? '', 10);
+const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 4;
 
 export default defineConfig({
   testDir: './e2e',
@@ -13,6 +16,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: 'list',
+  workers,
   use: {
     baseURL,
     trace: 'on-first-retry',
@@ -40,7 +44,7 @@ export default defineConfig({
     process.env.PLAYWRIGHT_SKIP_WEB_SERVER === '1'
       ? undefined
       : {
-          command: `env PLAYWRIGHT_E2E=1 pnpm exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
+          command: `env PLAYWRIGHT_E2E=1 pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
           url: baseURL,
