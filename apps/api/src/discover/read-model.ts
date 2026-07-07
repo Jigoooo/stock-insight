@@ -1,3 +1,5 @@
+import { containsActionAdvice, filterActionSafeTexts } from '../shared/action-advice.ts';
+
 import {
   discoverStocksQuerySchema,
   discoverStocksResponseSchema,
@@ -343,6 +345,7 @@ function mapDiscoverStocksDatabaseRow(row: DiscoverStocksDatabaseRow): DiscoverS
   const entityKey = text(row.entity_key) ?? `${market}:${ticker}`;
   const reasonType = normalizeReasonType(row.reason_type);
   const summary = text(row.reason_summary) ?? `${name} 후보`;
+  if (containsActionAdvice(summary, row.risks_text, row.checkpoints_text)) return null;
   const confidence = normalizeConfidence(row.confidence);
   const sources = parseSourceUrls(row.source_urls);
   const relatedToMyStocks = parseRelatedStocks(row.related_to_my_stocks);
@@ -358,12 +361,25 @@ function mapDiscoverStocksDatabaseRow(row: DiscoverStocksDatabaseRow): DiscoverS
     reasonSummary: summary,
     ...(confidence ? { confidence } : {}),
     ...(relatedToMyStocks.length ? { relatedToMyStocks } : {}),
-    topRisks: parseDelimitedText(row.risks_text),
-    checkpoints: parseDelimitedText(row.checkpoints_text),
+    topRisks: filterActionSafeTexts(parseDelimitedText(row.risks_text)),
+    checkpoints: filterActionSafeTexts(parseDelimitedText(row.checkpoints_text)),
     sourceCount: sources.length,
     sources,
     canStartAnalysis: status !== 'cached',
     analysisStatus: status,
+  };
+}
+
+function sanitizeDiscoverStockItem(item: DiscoverStockItem): DiscoverStockItem | null {
+  if (
+    containsActionAdvice(item.reasonSummary, item.topRisks.join('\n'), item.checkpoints.join('\n'))
+  ) {
+    return null;
+  }
+  return {
+    ...item,
+    topRisks: filterActionSafeTexts(item.topRisks),
+    checkpoints: filterActionSafeTexts(item.checkpoints),
   };
 }
 
@@ -385,7 +401,11 @@ export function createPostgresDiscoverStocksReadModel(
         parsed.market ?? null,
         parsed.reason ?? 'all',
       ]);
-      return rows.map(mapDiscoverStocksDatabaseRow).filter((item) => item !== null);
+      return rows
+        .map(mapDiscoverStocksDatabaseRow)
+        .filter((item) => item !== null)
+        .map(sanitizeDiscoverStockItem)
+        .filter((item) => item !== null);
     },
   };
 }
@@ -405,7 +425,9 @@ export async function getDiscoverStocks(
 
   let data: DiscoverStockItem[];
   try {
-    data = await readModel.listDiscoverStocks({ ...query, reason: query.reason ?? 'all' });
+    data = (await readModel.listDiscoverStocks({ ...query, reason: query.reason ?? 'all' }))
+      .map(sanitizeDiscoverStockItem)
+      .filter((item) => item !== null);
   } catch {
     return discoverStocksResponseSchema.parse({
       data: [],

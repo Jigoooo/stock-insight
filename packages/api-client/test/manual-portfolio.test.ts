@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import { createApiClient } from '../src/index.ts';
@@ -54,6 +55,15 @@ const digestBody: PortfolioDigestResponse = {
 };
 
 describe('manual portfolio API client', () => {
+  it('reuses manual input contract types instead of redefining client-only copies', async () => {
+    const source = await readFile(new URL('../src/index.ts', import.meta.url), 'utf8');
+
+    assert.match(source, /type\s+ManualWatchlistInput/);
+    assert.match(source, /type\s+ManualPositionInput/);
+    assert.doesNotMatch(source, /^type\s+ManualWatchlistInput\s*=/m);
+    assert.doesNotMatch(source, /^type\s+ManualPositionInput\s*=/m);
+  });
+
   it('POSTs a watchlist item and parses the refreshed me bootstrap response', async () => {
     const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
     const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -62,12 +72,19 @@ describe('manual portfolio API client', () => {
     }) as typeof fetch;
 
     const client = createApiClient({ baseUrl: 'http://stock.local', fetcher });
-    const response = await client.upsertWatchlist({ market: 'US', ticker: 'nvda', displayName: 'NVIDIA' });
+    const response = await client.upsertWatchlist({
+      market: 'US',
+      ticker: 'nvda',
+      displayName: 'NVIDIA',
+    });
 
     assert.equal(response.data.watchlist[0]?.entityKey, 'US:NVDA');
     assert.equal(calls[0]!.input.toString(), 'http://stock.local/api/watchlist');
     assert.equal(calls[0]!.init?.method, 'POST');
-    assert.equal(calls[0]!.init?.headers?.['content-type' as keyof HeadersInit], 'application/json');
+    assert.equal(
+      calls[0]!.init?.headers?.['content-type' as keyof HeadersInit],
+      'application/json',
+    );
     assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), {
       market: 'US',
       ticker: 'nvda',

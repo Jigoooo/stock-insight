@@ -1,3 +1,5 @@
+import { containsActionAdvice } from '../shared/action-advice.ts';
+
 import {
   marketNewsQuerySchema,
   marketNewsResponseSchema,
@@ -144,6 +146,7 @@ function mapMarketNewsDatabaseRow(row: MarketNewsDatabaseRow): MarketNewsItem | 
 
   const normalizedMarket = market(row.market);
   const summary = text(row.summary_text);
+  if (containsActionAdvice(title, summary)) return null;
   const signalType = text(row.record_type) ?? text(row.primary_kind);
   const magnitude = numberValue(row.relevance_score);
   const publishedAt = isoDate(row.published_at) ?? isoDate(row.effective_date);
@@ -176,7 +179,10 @@ export function createPostgresMarketNewsReadModel(
     async listMarketNews(query) {
       const parsed = marketNewsQuerySchema.parse(query);
       const rows = await executor(MARKET_NEWS_SQL, [parsed.market ?? null, parsed.type ?? 'all']);
-      return rows.map(mapMarketNewsDatabaseRow).filter((item) => item !== null);
+      return rows
+        .map(mapMarketNewsDatabaseRow)
+        .filter((item) => item !== null)
+        .filter((item) => !containsActionAdvice(item.title, item.summary));
     },
   };
 }
@@ -196,7 +202,9 @@ export async function getMarketNews(
 
   let data: MarketNewsItem[];
   try {
-    data = await readModel.listMarketNews({ ...query, type: query.type ?? 'all' });
+    data = (await readModel.listMarketNews({ ...query, type: query.type ?? 'all' })).filter(
+      (item) => !containsActionAdvice(item.title, item.summary),
+    );
   } catch {
     return marketNewsResponseSchema.parse({
       data: [],

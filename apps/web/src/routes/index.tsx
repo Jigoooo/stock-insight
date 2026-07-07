@@ -15,14 +15,13 @@ export const Route = createFileRoute('/')({
       meBootstrapResponse,
       portfolioDigestResponse,
       stockListResponse,
-    ] =
-      await Promise.all([
-        loadDashboardResponse(),
-        loadMarketNewsResponse(),
-        loadMeBootstrapResponse(),
-        loadPortfolioDigestResponse(),
-        loadStockListResponse(),
-      ]);
+    ] = await Promise.all([
+      loadDashboardResponse(),
+      loadMarketNewsResponse(),
+      loadMeBootstrapResponse(),
+      loadPortfolioDigestResponse(),
+      loadStockListResponse(),
+    ]);
 
     return {
       dashboardResponse,
@@ -42,8 +41,7 @@ function DashboardRoute() {
     meBootstrapResponse,
     portfolioDigestResponse,
     stockListResponse,
-  } =
-    Route.useLoaderData();
+  } = Route.useLoaderData();
 
   return (
     <DashboardPage

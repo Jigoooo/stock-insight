@@ -67,7 +67,8 @@ describe('manual portfolio mutation response', () => {
     };
 
     const response = await getManualPortfolioBootstrapAfterMutation({
-      mutation: () => writeModel.upsertWatchlist({ market: 'US', ticker: 'nvda', displayName: 'NVIDIA' }),
+      mutation: () =>
+        writeModel.upsertWatchlist({ market: 'US', ticker: 'nvda', displayName: 'NVIDIA' }),
       now,
       readModel: createReadModel(),
     });

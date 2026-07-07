@@ -35,8 +35,7 @@ function formatEntityId(entityKey: string): string {
     .replace(/^-|-$/g, '');
 }
 
-function deriveLogo(item: StockListItem, fallback?: DashboardStock): string {
-  if (fallback?.logo) return fallback.logo;
+function deriveLogo(item: StockListItem): string {
   if (item.market === 'US') return item.ticker.slice(0, 3).toUpperCase();
   return item.name.slice(0, 2).toUpperCase();
 }
@@ -106,20 +105,7 @@ function confidenceLabel(confidence: StockListItem['confidence']): string | unde
   }
 }
 
-function findFallbackStock(item: StockListItem, fallback: readonly DashboardStock[]) {
-  return fallback.find(
-    (stock) =>
-      ('entityKey' in stock && stock.entityKey === item.entityKey) ||
-      stock.ticker === item.ticker ||
-      stock.id === formatEntityId(item.entityKey),
-  );
-}
-
-function mapStockListItemToDashboardStock(
-  item: StockListItem,
-  fallback: readonly DashboardStock[],
-): DashboardStockView {
-  const matchedFallback = findFallbackStock(item, fallback);
+function mapStockListItemToDashboardStock(item: StockListItem): DashboardStockView {
   const statusLabel = analysisStatusLabel(item.analysisStatus);
   const analyzedAt = formatKstDate(item.lastAnalyzedAt);
   const confidence = confidenceLabel(item.confidence);
@@ -138,34 +124,26 @@ function mapStockListItemToDashboardStock(
     holding: item.isHolding,
     ticker: item.ticker,
     name: item.name,
-    logo: deriveLogo(item, matchedFallback),
-    theme: matchedFallback?.theme ?? item.primaryThesis ?? `${item.market} 리서치 후보`,
+    logo: deriveLogo(item),
+    theme: item.primaryThesis ?? `${item.market} 리서치 후보`,
     price: formatPrice(item),
     change: formatChange(item.changePct),
     stance: statusLabel,
-    summary:
-      item.primaryThesis ??
-      matchedFallback?.summary ??
-      `${item.displayName}의 구조화 리서치 요약은 아직 수집 중입니다.`,
-    founded: matchedFallback?.founded ?? FALLBACK_PENDING,
-    hq: matchedFallback?.hq ?? FALLBACK_PENDING,
-    capital: matchedFallback?.capital ?? SOURCE_PENDING,
-    shares: matchedFallback?.shares ?? SOURCE_PENDING,
-    marketCap: matchedFallback?.marketCap ?? SOURCE_PENDING,
-    sales: matchedFallback?.sales ?? SOURCE_PENDING,
-    operatingProfit: matchedFallback?.operatingProfit ?? SOURCE_PENDING,
-    debtRatio: matchedFallback?.debtRatio ?? SOURCE_PENDING,
-    roe: matchedFallback?.roe ?? SOURCE_PENDING,
-    segments: matchedFallback?.segments ?? [],
-    shareholders: matchedFallback?.shareholders ?? [],
-    history: matchedFallback?.history ?? [
-      ['수집중', '회사 연혁 구조화 데이터는 아직 준비 중입니다'],
-    ],
-    positives:
-      positiveNotes.length > 0
-        ? positiveNotes
-        : (matchedFallback?.positives ?? ['확인 포인트 구조화 수집중']),
-    risks: matchedFallback?.risks ?? ['리스크 구조화 수집중'],
+    summary: item.primaryThesis ?? `${item.displayName}의 구조화 리서치 요약은 아직 수집 중입니다.`,
+    founded: FALLBACK_PENDING,
+    hq: FALLBACK_PENDING,
+    capital: SOURCE_PENDING,
+    shares: SOURCE_PENDING,
+    marketCap: SOURCE_PENDING,
+    sales: SOURCE_PENDING,
+    operatingProfit: SOURCE_PENDING,
+    debtRatio: SOURCE_PENDING,
+    roe: SOURCE_PENDING,
+    segments: [],
+    shareholders: [],
+    history: [['수집중', '회사 연혁 구조화 데이터는 아직 준비 중입니다']],
+    positives: positiveNotes.length > 0 ? positiveNotes : ['확인 포인트 구조화 수집중'],
+    risks: ['리스크 구조화 수집중'],
     review: [
       statusLabel,
       analyzedAt ? `${analyzedAt} 갱신` : '리포트 갱신일 수집중',
@@ -180,7 +158,7 @@ export function resolveStockListForDashboard(
 ): ResolvedStockListForDashboard {
   if (response?.availability === 'available' && response.meta.source === 'database') {
     return {
-      stocks: response.data.map((item) => mapStockListItemToDashboardStock(item, fallback)),
+      stocks: response.data.map((item) => mapStockListItemToDashboardStock(item)),
       source: response.meta.source,
       availability: response.availability,
       isLiveData: true,

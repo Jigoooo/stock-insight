@@ -134,7 +134,11 @@ function ensureSentence(value: string) {
   return /[.!?。]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
-export function buildEmptyStateCopy({ label, nextAction, reason }: EmptyStateCopyOptions): EmptyStateCopy {
+export function buildEmptyStateCopy({
+  label,
+  nextAction,
+  reason,
+}: EmptyStateCopyOptions): EmptyStateCopy {
   const title = `${label.trim()} 없음`;
   const reasonSentence = ensureSentence(reason);
   const actionSentence = ensureSentence(nextAction);

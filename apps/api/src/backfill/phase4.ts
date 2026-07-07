@@ -41,10 +41,7 @@ export type Phase4CompanyMetricsAudit = {
 };
 
 export type Phase4WriteExecutor = {
-  execute: (
-    sql: string,
-    params?: readonly unknown[],
-  ) => Promise<{ rowCount?: number | null }>;
+  execute: (sql: string, params?: readonly unknown[]) => Promise<{ rowCount?: number | null }>;
 };
 
 export type Phase4ApplyOptions = {
@@ -241,11 +238,35 @@ function buildMetrics(row: Phase4MarketSnapshotRow): StockCompanyMetric[] {
   return [
     ...metric('latestPrice', '현재가', latestPrice, 'currency', (value) => value > 0),
     ...metric('changePct', '등락률', changePct, 'percent', (value) => Math.abs(value) <= 100),
-    ...metric('ma20', '20일 이동평균', payloadNumber(payload, 'ma20'), 'currency', (value) => value > 0),
-    ...metric('ma50', '50일 이동평균', payloadNumber(payload, 'ma50'), 'currency', (value) => value > 0),
-    ...metric('rsi14', 'RSI(14)', payloadNumber(payload, 'rsi14'), 'score', (value) => value >= 0 && value <= 100),
+    ...metric(
+      'ma20',
+      '20일 이동평균',
+      payloadNumber(payload, 'ma20'),
+      'currency',
+      (value) => value > 0,
+    ),
+    ...metric(
+      'ma50',
+      '50일 이동평균',
+      payloadNumber(payload, 'ma50'),
+      'currency',
+      (value) => value > 0,
+    ),
+    ...metric(
+      'rsi14',
+      'RSI(14)',
+      payloadNumber(payload, 'rsi14'),
+      'score',
+      (value) => value >= 0 && value <= 100,
+    ),
     ...metric('volume', '거래량', payloadNumber(payload, 'vol'), 'shares', (value) => value >= 0),
-    ...metric('pctFromMa20', '20일선 대비', payloadNumber(payload, 'pct_from_ma20'), 'percent', (value) => Math.abs(value) <= 100),
+    ...metric(
+      'pctFromMa20',
+      '20일선 대비',
+      payloadNumber(payload, 'pct_from_ma20'),
+      'percent',
+      (value) => Math.abs(value) <= 100,
+    ),
   ];
 }
 
@@ -295,7 +316,9 @@ export function summarizePhase4CompanyMetricsAudit(
   const skippedRows = plan.sourceRows - plan.eligibleRows;
   const warnings =
     skippedRows > 0
-      ? [`${skippedRows} market snapshot row(s) were skipped because source/currency/range checks failed.`]
+      ? [
+          `${skippedRows} market snapshot row(s) were skipped because source/currency/range checks failed.`,
+        ]
       : [];
 
   return {

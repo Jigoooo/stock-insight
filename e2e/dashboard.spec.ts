@@ -231,7 +231,10 @@ function stockListFixtureSource(availability: StockListAvailability) {
   return availability === 'available' ? 'database' : 'fallback';
 }
 
-async function installStockListAvailabilityFixture(page: Page, availability: StockListAvailability) {
+async function installStockListAvailabilityFixture(
+  page: Page,
+  availability: StockListAvailability,
+) {
   await page.route('**/api/stocks?**', async (route) => {
     await route.fulfill({
       body: JSON.stringify({
@@ -252,14 +255,16 @@ async function installStockListAvailabilityFixture(page: Page, availability: Sto
   });
 }
 
-function createAvailabilityEnvelope(availability: StockListAvailability, data: unknown, code: string) {
+function createAvailabilityEnvelope(
+  availability: StockListAvailability,
+  data: unknown,
+  code: string,
+) {
   return {
     availability,
     data,
     error:
-      availability === 'error'
-        ? { code, message: `E2E forced ${code.toLowerCase()} error` }
-        : null,
+      availability === 'error' ? { code, message: `E2E forced ${code.toLowerCase()} error` } : null,
     meta: {
       generatedAt: '2026-07-07T00:00:00.000Z',
       source: stockListFixtureSource(availability),
@@ -482,7 +487,12 @@ async function expectQualityPopoverVisible(page: Page, testId: string, expectedT
         const panel = element.querySelector('div');
         if (!panel) return false;
         const rect = panel.getBoundingClientRect();
-        return rect.top >= 0 && rect.left >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight;
+        return (
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.right <= window.innerWidth &&
+          rect.bottom <= window.innerHeight
+        );
       }),
     )
     .toBe(true);
@@ -580,11 +590,7 @@ test.describe('dashboard availability fixtures', () => {
         'data-tone',
         fixture.expectedTone,
       );
-      await expectQualityPopoverVisible(
-        page,
-        'stock-list-quality-popover',
-        fixture.expectedTitle,
-      );
+      await expectQualityPopoverVisible(page, 'stock-list-quality-popover', fixture.expectedTitle);
 
       for (const section of dashboardStatusFixtureSections) {
         await page.getByTestId(section.navTabTestId).click();

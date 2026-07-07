@@ -59,7 +59,12 @@ export function DataQualityPopover({
   testId,
   updatedAt,
 }: DataQualityPopoverProps) {
-  const summary = buildDataQualitySummary({ availability, label, source, ...(updatedAt ? { updatedAt } : {}) });
+  const summary = buildDataQualitySummary({
+    availability,
+    label,
+    source,
+    ...(updatedAt ? { updatedAt } : {}),
+  });
 
   return (
     <details

@@ -57,11 +57,8 @@ function marketFocusLabel(entities: PortfolioEntity[]) {
   return `KR ${krCount} · US ${usCount}`;
 }
 
-function buildMarketShare(
-  entities: PortfolioEntity[],
-  fallback: PortfolioSnapshot,
-): PortfolioSnapshot['themeShare'] {
-  if (entities.length === 0) return fallback.themeShare;
+function buildMarketShare(entities: PortfolioEntity[]): PortfolioSnapshot['themeShare'] {
+  if (entities.length === 0) return [];
 
   const marketCounts: Record<Market, number> = {
     KR: entities.filter((item) => item.market === 'KR').length,
@@ -86,14 +83,19 @@ function buildMarketShare(
   });
 }
 
-function buildLivePortfolio(
-  response: MeBootstrapResponse,
-  fallback: PortfolioSnapshot,
-): PortfolioSnapshot {
+function buildPortfolioTrend(
+  themeShare: PortfolioSnapshot['themeShare'],
+): PortfolioSnapshot['trend'] {
+  return themeShare.map((item) => ({ label: item.label, value: item.value }));
+}
+
+function buildLivePortfolio(response: MeBootstrapResponse): PortfolioSnapshot {
   const { positions, watchlist } = response.data;
   const entities = uniquePortfolioEntities(response.data);
   const completePositionCount = positions.filter(hasCompletePositionInput).length;
   const hasIncompletePositions = positions.length > 0 && completePositionCount < positions.length;
+  const themeShare = buildMarketShare(entities);
+  const trend = buildPortfolioTrend(themeShare);
 
   return {
     value: `보유종목 ${positions.length}개 · 관심 ${watchlist.length}개`,
@@ -105,9 +107,9 @@ function buildLivePortfolio(
     focusTheme: marketFocusLabel(entities),
     scheduleCount: positions.length,
     cautionLevel: hasIncompletePositions ? '중간' : '낮음',
-    bars: fallback.bars,
-    trend: fallback.trend,
-    themeShare: buildMarketShare(entities, fallback),
+    bars: trend.map((item) => item.value),
+    trend,
+    themeShare,
   };
 }
 
@@ -117,7 +119,7 @@ export function resolvePortfolioForDashboard(
 ): ResolvedPortfolio {
   if (response && isLiveMeBootstrap(response)) {
     return {
-      portfolio: buildLivePortfolio(response, fallback),
+      portfolio: buildLivePortfolio(response),
       source: response.meta.source,
       availability: response.availability,
       isLiveData: true,

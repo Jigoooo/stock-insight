@@ -82,7 +82,11 @@ describe('resolvePortfolioForDashboard', () => {
       { id: 'market-kr', label: 'KR', value: 33, colorRole: 'semiconductor' },
       { id: 'market-us', label: 'US', value: 67, colorRole: 'platform' },
     ]);
-    assert.deepEqual(resolved.portfolio.trend, fallbackPortfolio.trend);
+    assert.deepEqual(resolved.portfolio.bars, [33, 67]);
+    assert.deepEqual(resolved.portfolio.trend, [
+      { label: 'KR', value: 33 },
+      { label: 'US', value: 67 },
+    ]);
   });
 
   it('keeps the local fallback portfolio when the me bootstrap loader is not live', () => {

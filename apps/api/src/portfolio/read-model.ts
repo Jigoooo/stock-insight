@@ -1,3 +1,5 @@
+import { containsActionAdvice } from '../shared/action-advice.ts';
+
 import {
   portfolioDigestResponseSchema,
   portfolioDigestSchema,
@@ -352,7 +354,12 @@ function severity(value: unknown): PortfolioAlertSeverity {
 
 function reason(value: unknown): PortfolioAlertReason {
   const raw = text(value);
-  if (raw === 'change_event' || raw === 'feed_change' || raw === 'freshness' || raw === 'exposure') {
+  if (
+    raw === 'change_event' ||
+    raw === 'feed_change' ||
+    raw === 'freshness' ||
+    raw === 'exposure'
+  ) {
     return raw;
   }
   return 'feed_change';
@@ -396,6 +403,7 @@ function mapAlert(record: Record<string, unknown>): PortfolioDigestAlert | null 
   const title = text(record.title);
   const summary = text(record.summary);
   if (!id || !title || !summary) return null;
+  if (containsActionAdvice(title, summary)) return null;
 
   const normalizedMarket = market(record.market);
   const entityKey = text(record.entityKey ?? record.entity_key);
@@ -470,7 +478,21 @@ function mapFreshness(record: Record<string, unknown>): PortfolioFreshnessItem |
   };
 }
 
-function mapPortfolioDigestDatabaseRow(row: PortfolioDigestDatabaseRow | undefined): PortfolioDigest {
+function sanitizePortfolioDigest(digest: PortfolioDigest): PortfolioDigest {
+  const alerts = digest.alerts.filter((item) => !containsActionAdvice(item.title, item.summary));
+  return portfolioDigestSchema.parse({
+    ...digest,
+    alerts,
+    stats: {
+      ...digest.stats,
+      alertCount: alerts.length,
+    },
+  });
+}
+
+function mapPortfolioDigestDatabaseRow(
+  row: PortfolioDigestDatabaseRow | undefined,
+): PortfolioDigest {
   if (!row) return emptyPortfolioDigest;
 
   const alerts = parseRecordArray(row.alerts)
@@ -532,7 +554,7 @@ export async function getPortfolioDigest(
 
   let data: PortfolioDigest;
   try {
-    data = await readModel.loadPortfolioDigest();
+    data = sanitizePortfolioDigest(await readModel.loadPortfolioDigest());
   } catch {
     return portfolioDigestResponseSchema.parse({
       data: emptyPortfolioDigest,

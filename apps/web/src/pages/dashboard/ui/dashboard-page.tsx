@@ -51,7 +51,9 @@ export function DashboardPage({
   );
   const [marketNewsResponse, setMarketNewsResponse] = useState(initialMarketNewsResponse);
   const [meBootstrapResponse, setMeBootstrapResponse] = useState(initialMeBootstrapResponse);
-  const [portfolioDigestResponse, setPortfolioDigestResponse] = useState(initialPortfolioDigestResponse);
+  const [portfolioDigestResponse, setPortfolioDigestResponse] = useState(
+    initialPortfolioDigestResponse,
+  );
   const [manualPortfolioStatus, setManualPortfolioStatus] =
     useState<ManualPortfolioMutationStatus>('idle');
   const [stockListResponse, setStockListResponse] = useState(initialStockListResponse);

@@ -12,6 +12,8 @@ import {
   type DiscoverStocksResponse,
   type HealthStatus,
   type MarketNewsQuery,
+  type ManualPositionInput,
+  type ManualWatchlistInput,
   type MarketNewsResponse,
   type MeBootstrapResponse,
   type PortfolioDigestResponse,
@@ -19,17 +21,6 @@ import {
   type StockListQuery,
   type StockListResponse,
 } from '@stock-insight/contracts';
-
-type ManualWatchlistInput = {
-  market: 'KR' | 'US';
-  ticker: string;
-  displayName?: string;
-};
-
-type ManualPositionInput = ManualWatchlistInput & {
-  avgPrice?: number;
-  quantity?: number;
-};
 
 export type ApiClientOptions = {
   baseUrl?: string;

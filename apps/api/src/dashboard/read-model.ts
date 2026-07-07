@@ -1,4 +1,10 @@
 import {
+  actionSafeText,
+  containsActionAdvice,
+  filterActionSafeTexts,
+} from '../shared/action-advice.ts';
+
+import {
   dashboardBootstrapSchema,
   dashboardResponseSchema,
   type DashboardBootstrap,
@@ -467,9 +473,9 @@ function mapStock(record: Record<string, unknown>): DashboardStock | null {
   const entityKey = text(record.entity_key) ?? `${text(record.market) ?? 'stock'}:${ticker}`;
   const price = formatPrice(record.latest_price, record.currency) ?? '가격 수집중';
   const change = formatSignedPercent(record.change_pct) ?? '변동률 수집중';
-  const thesis = text(record.primary_thesis) ?? '원천 DB에서 요약 수집중입니다.';
-  const checkpoints = parseDelimitedText(record.checkpoints_text);
-  const risks = parseDelimitedText(record.risks_text);
+  const thesis = actionSafeText(text(record.primary_thesis)) ?? '원천 DB에서 요약 수집중입니다.';
+  const checkpoints = filterActionSafeTexts(parseDelimitedText(record.checkpoints_text));
+  const risks = filterActionSafeTexts(parseDelimitedText(record.risks_text));
   const theme = categoryLabel(record.category);
   const holding = bool(record.is_holding);
   const watched = bool(record.is_watched);
@@ -514,6 +520,7 @@ function mapInsight(record: Record<string, unknown>): DashboardInsight | null {
   const title = text(record.title);
   const context = text(record.context);
   if (!id || !title || !context) return null;
+  if (containsActionAdvice(title, context)) return null;
   return {
     id,
     title,
@@ -525,11 +532,11 @@ function mapInsight(record: Record<string, unknown>): DashboardInsight | null {
 
 function mapTheme(record: Record<string, unknown>): DashboardTheme | null {
   const title = text(record.title) ?? text(record.label);
-  if (!title) return null;
+  if (!title || containsActionAdvice(title, record.description)) return null;
   return {
     id: slug(text(record.id) ?? title),
     title,
-    description: text(record.description) ?? `${title} 후보군`,
+    description: actionSafeText(text(record.description)) ?? `${title} 후보군`,
     strength: normalizeStrength(record.strength ?? record.value),
   };
 }

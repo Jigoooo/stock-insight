@@ -1,4 +1,10 @@
 import {
+  actionSafeText,
+  containsActionAdvice,
+  filterActionSafeTexts,
+} from '../shared/action-advice.ts';
+
+import {
   stockDetailResponseSchema,
   stockListQuerySchema,
   stockListResponseSchema,
@@ -858,7 +864,8 @@ function parseMetricItems(value: unknown): StockCompanyMetric[] {
       typeof record.value === 'number' || typeof record.value === 'string' ? record.value : null,
     );
     if (!key || !label || valueNumber === undefined) return [];
-    const unit = typeof record.unit === 'string' && record.unit.trim() ? record.unit.trim() : undefined;
+    const unit =
+      typeof record.unit === 'string' && record.unit.trim() ? record.unit.trim() : undefined;
     return [{ key, label, value: valueNumber, ...(unit ? { unit } : {}) }];
   });
 }
@@ -868,12 +875,17 @@ function parseCompanyProfile(value: unknown): StockCompanyProfile | undefined {
   if (!parsed || typeof parsed !== 'object') return undefined;
   const record = parsed as Record<string, unknown>;
   const status = normalizeDataAvailability(record.status);
-  const symbol = typeof record.symbol === 'string' && record.symbol.trim() ? record.symbol.trim() : undefined;
+  const symbol =
+    typeof record.symbol === 'string' && record.symbol.trim() ? record.symbol.trim() : undefined;
   const market = record.market === 'KR' || record.market === 'US' ? record.market : undefined;
-  const name = typeof record.name === 'string' && record.name.trim() ? record.name.trim() : undefined;
-  const sector = typeof record.sector === 'string' && record.sector.trim() ? record.sector.trim() : undefined;
+  const name =
+    typeof record.name === 'string' && record.name.trim() ? record.name.trim() : undefined;
+  const sector =
+    typeof record.sector === 'string' && record.sector.trim() ? record.sector.trim() : undefined;
   const industry =
-    typeof record.industry === 'string' && record.industry.trim() ? record.industry.trim() : undefined;
+    typeof record.industry === 'string' && record.industry.trim()
+      ? record.industry.trim()
+      : undefined;
   const summaryText =
     typeof record.summaryText === 'string' && record.summaryText.trim()
       ? record.summaryText.trim()
@@ -914,7 +926,8 @@ function parseCompanyMetrics(value: unknown): StockCompanyMetricGroup[] {
 
     const availability = normalizeDataAvailability(record.availability);
     const sources = parseSourceUrls(record.sources);
-    const currency = record.currency === 'KRW' || record.currency === 'USD' ? record.currency : undefined;
+    const currency =
+      record.currency === 'KRW' || record.currency === 'USD' ? record.currency : undefined;
     if (availability === 'available' && (!currency || sources.length === 0)) return [];
 
     const fiscalYearNumber = toFiniteNumber(
@@ -1017,6 +1030,30 @@ function mapStockDetailDatabaseRow(row: StockDatabaseRow): StockDetail | null {
   };
 }
 
+function sanitizeStockListItem(item: StockListItem): StockListItem {
+  const { primaryThesis, ...rest } = item;
+  const safeThesis = actionSafeText(primaryThesis);
+  return safeThesis ? { ...rest, primaryThesis: safeThesis } : rest;
+}
+
+function sanitizeStockDetail(detail: StockDetail): StockDetail {
+  const safeReportMarkdown = actionSafeText(detail.deepReport.reportMarkdown);
+  const deepReport = safeReportMarkdown
+    ? { ...detail.deepReport, reportMarkdown: safeReportMarkdown }
+    : { status: 'missing' as const, sources: detail.deepReport.sources };
+
+  return {
+    ...detail,
+    stock: sanitizeStockListItem(detail.stock),
+    deepReport,
+    relatedNews: detail.relatedNews.filter(
+      (item) => !containsActionAdvice(item.title, item.context),
+    ),
+    risks: filterActionSafeTexts(detail.risks),
+    checkpoints: filterActionSafeTexts(detail.checkpoints),
+  };
+}
+
 export type StockReadModel = {
   listStocks: (query: StockListQuery) => StockListItem[] | Promise<StockListItem[]>;
   getStockDetail: (entityKey: string) => StockDetail | null | Promise<StockDetail | null>;
@@ -1044,12 +1081,14 @@ export function createPostgresStockReadModel(executor: StockRowQueryExecutor): S
 
       return rows.flatMap((row) => {
         const item = mapStockDatabaseRow(row);
-        return item ? [item] : [];
+        return item ? [sanitizeStockListItem(item)] : [];
       });
     },
     async getStockDetail(entityKey) {
       const [row] = await executor(STOCK_DETAIL_SQL, [entityKey]);
-      return row ? mapStockDetailDatabaseRow(row) : null;
+      if (!row) return null;
+      const detail = mapStockDetailDatabaseRow(row);
+      return detail ? sanitizeStockDetail(detail) : null;
     },
   };
 }
@@ -1066,7 +1105,7 @@ export async function getStockList(options: GetStockListOptions = {}): Promise<S
   const generatedAt = (options.now ?? new Date()).toISOString();
   let data: StockListItem[];
   try {
-    data = await readModel.listStocks(query);
+    data = (await readModel.listStocks(query)).map(sanitizeStockListItem);
   } catch {
     return stockListResponseSchema.parse({
       data: [],
@@ -1108,7 +1147,8 @@ export async function getStockDetail(
   const generatedAt = (options.now ?? new Date()).toISOString();
   let data: StockDetail | null;
   try {
-    data = await readModel.getStockDetail(entityKey);
+    const rawDetail = await readModel.getStockDetail(entityKey);
+    data = rawDetail ? sanitizeStockDetail(rawDetail) : null;
   } catch {
     return stockDetailResponseSchema.parse({
       data: null,

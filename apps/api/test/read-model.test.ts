@@ -24,10 +24,7 @@ import {
   type MeBootstrapRowQueryExecutor,
   type MeBootstrapReadModel,
 } from '../src/me/read-model.ts';
-import {
-  getPortfolioDigest,
-  type PortfolioDigestReadModel,
-} from '../src/portfolio/read-model.ts';
+import { getPortfolioDigest, type PortfolioDigestReadModel } from '../src/portfolio/read-model.ts';
 import {
   createPostgresStockReadModel,
   getStockDetail,
@@ -247,6 +244,53 @@ describe('portfolio digest read model fallback policy', () => {
     assert.equal(response.data.stats.nonStockFilteredCount, 0);
   });
 
+  it('filters action-advice alerts before exposing the portfolio digest envelope', async () => {
+    const readModel: PortfolioDigestReadModel = {
+      loadPortfolioDigest() {
+        return {
+          alerts: [
+            {
+              id: 'feed:bad-advice',
+              title: '삼성전자 지금 사세요',
+              summary: '목표가 100000원, 손절가 70000원',
+              severity: 'high',
+              reason: 'feed_change',
+              entityKey: 'KR:005930',
+              market: 'KR',
+            },
+            {
+              id: 'feed:safe',
+              title: '삼성전자 실적 확인 필요',
+              summary: '잠정실적 발표 전후 변동성 관찰',
+              severity: 'medium',
+              reason: 'feed_change',
+              entityKey: 'KR:005930',
+              market: 'KR',
+            },
+          ],
+          exposures: [],
+          freshness: [],
+          stats: {
+            watchlistCount: 1,
+            positionCount: 0,
+            alertCount: 2,
+            changeEventCount: 0,
+            freshnessRiskCount: 0,
+            nonStockFilteredCount: 0,
+          },
+        };
+      },
+    };
+
+    const response = await getPortfolioDigest({ now, readModel });
+
+    assert.deepEqual(
+      response.data.alerts.map((item) => item.id),
+      ['feed:safe'],
+    );
+    assert.doesNotMatch(JSON.stringify(response.data), /지금 사세요|목표가|손절가/);
+  });
+
   it('returns an error envelope instead of throwing when portfolio digest read fails', async () => {
     const response = await getPortfolioDigest({
       now,
@@ -303,6 +347,39 @@ describe('market news read model fallback policy', () => {
     assert.equal(response.meta.source, 'database');
     assert.equal(response.error, null);
     assert.equal(response.data[0]?.id, 'feed:580');
+  });
+
+  it('filters action-advice market news before exposing the news envelope', async () => {
+    const readModel: MarketNewsReadModel = {
+      listMarketNews() {
+        return [
+          {
+            id: 'feed:bad-advice',
+            market: 'KR',
+            title: '삼성전자 지금 사세요',
+            summary: '목표가 100000원, 익절가 110000원',
+            affectedEntities: [],
+            polarity: 'positive',
+          },
+          {
+            id: 'feed:safe',
+            market: 'KR',
+            title: '삼성전자 실적 확인 필요',
+            summary: '잠정실적 발표 전후 변동성 관찰',
+            affectedEntities: [],
+            polarity: 'neutral',
+          },
+        ];
+      },
+    };
+
+    const response = await getMarketNews({ now, readModel });
+
+    assert.deepEqual(
+      response.data.map((item) => item.id),
+      ['feed:safe'],
+    );
+    assert.doesNotMatch(JSON.stringify(response.data), /지금 사세요|목표가|익절가/);
   });
 
   it('returns an error envelope instead of throwing when market news read fails', async () => {
@@ -370,6 +447,31 @@ describe('discover stocks read model fallback policy', () => {
     assert.deepEqual(response.data, [discoverItem]);
   });
 
+  it('filters action-advice discover candidates before exposing the discover envelope', async () => {
+    const readModel: DiscoverStocksReadModel = {
+      listDiscoverStocks() {
+        return [
+          {
+            ...discoverItem,
+            entityKey: 'KR:005930',
+            ticker: '005930',
+            name: '삼성전자',
+            reasonSummary: '지금 매수 추천, 목표가 100000원',
+          },
+          discoverItem,
+        ];
+      },
+    };
+
+    const response = await getDiscoverStocks({ now, readModel });
+
+    assert.deepEqual(
+      response.data.map((item) => item.entityKey),
+      ['KR:005380'],
+    );
+    assert.doesNotMatch(JSON.stringify(response.data), /매수 추천|목표가/);
+  });
+
   it('returns an error envelope instead of throwing when discover stocks read fails', async () => {
     const response = await getDiscoverStocks({
       now,
@@ -421,6 +523,59 @@ describe('stock read model fallback policy', () => {
     assert.equal(response.meta.source, 'database');
     assert.equal(response.error, null);
     assert.deepEqual(response.data, [stock]);
+  });
+
+  it('removes action-advice stock fields without dropping the stock identity', async () => {
+    const readModel: StockReadModel = {
+      listStocks() {
+        return [{ ...stock, primaryThesis: '지금 매수 추천, 목표가 100000원' }];
+      },
+      getStockDetail() {
+        return {
+          ...detail,
+          deepReport: {
+            status: 'available',
+            reportMarkdown: '지금 사세요. 목표가 100000원.',
+            sources: [],
+          },
+          relatedNews: [
+            {
+              id: 'feed:bad',
+              title: '매도 추천',
+              context: '손절가 70000원',
+              impact: '높음',
+              icon: 'newspaper',
+            },
+            {
+              id: 'feed:safe',
+              title: '실적 확인 필요',
+              context: '잠정실적 발표 관찰',
+              impact: '중간',
+              icon: 'newspaper',
+            },
+          ],
+          risks: ['손절가 70000원', '메모리 가격 변동성'],
+          checkpoints: ['익절가 110000원', '실적 발표 확인'],
+        };
+      },
+    };
+
+    const listResponse = await getStockList({ now, readModel });
+    const detailResponse = await getStockDetail('KR:005930', { now, readModel });
+
+    assert.equal(listResponse.data[0]?.entityKey, 'KR:005930');
+    assert.equal(listResponse.data[0]?.primaryThesis, undefined);
+    assert.equal(detailResponse.data?.deepReport.status, 'missing');
+    assert.deepEqual(
+      detailResponse.data?.relatedNews.map((item) => item.id),
+      ['feed:safe'],
+    );
+    assert.deepEqual(detailResponse.data?.risks, ['메모리 가격 변동성']);
+    assert.deepEqual(detailResponse.data?.checkpoints, ['실적 발표 확인']);
+    assert.doesNotMatch(
+      JSON.stringify({ listResponse, detailResponse }),
+      /매수 추천|목표가|손절가|익절가|지금 사세요/,
+    );
   });
 
   it('returns an error envelope instead of throwing when stock list read fails', async () => {

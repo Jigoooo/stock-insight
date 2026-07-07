@@ -594,7 +594,9 @@ function StocksView({
 }>) {
   const stockSearchEmptyCopy = buildEmptyStateCopy({
     label: '검색 결과',
-    reason: query.trim() ? '검색어와 일치하는 종목이 없습니다.' : '표시할 종목 카드가 아직 준비되지 않았습니다.',
+    reason: query.trim()
+      ? '검색어와 일치하는 종목이 없습니다.'
+      : '표시할 종목 카드가 아직 준비되지 않았습니다.',
     nextAction: query.trim()
       ? '검색어를 지우거나 삼성전자, HBM, 전력기기, NAVER 중 하나로 다시 검색하세요.'
       : '상단 종목 데이터 품질 상태를 확인하세요.',
@@ -912,16 +914,23 @@ function PortfolioView({
               value={watchName}
               onChange={(event) => setWatchName(event.currentTarget.value)}
             />
-            <Button size="sm" variant="primary" type="submit" disabled={isSaving || !watchTicker.trim()}>
+            <Button
+              size="sm"
+              variant="primary"
+              type="submit"
+              disabled={isSaving || !watchTicker.trim()}
+            >
               관심 추가
             </Button>
           </form>
           <ManualPortfolioList
-            emptyText={buildEmptyStateCopy({
-              label: '관심종목 원장',
-              reason: '직접 저장한 관심종목이 없습니다.',
-              nextAction: '시장과 티커를 입력한 뒤 관심 추가를 누르세요.',
-            }).text}
+            emptyText={
+              buildEmptyStateCopy({
+                label: '관심종목 원장',
+                reason: '직접 저장한 관심종목이 없습니다.',
+                nextAction: '시장과 티커를 입력한 뒤 관심 추가를 누르세요.',
+              }).text
+            }
             items={watchlist.map((item) => ({
               entityKey: item.entityKey,
               label: item.displayName,
@@ -930,7 +939,8 @@ function PortfolioView({
             actionLabel="관심 해제"
             disabled={isSaving || !onManualPortfolioAction}
             onAction={(entityKey) =>
-              onManualPortfolioAction?.({ type: 'remove-watchlist', entityKey }) ?? Promise.resolve(false)
+              onManualPortfolioAction?.({ type: 'remove-watchlist', entityKey }) ??
+              Promise.resolve(false)
             }
           />
         </article>
@@ -972,16 +982,23 @@ function PortfolioView({
               value={quantity}
               onChange={(event) => setQuantity(event.currentTarget.value)}
             />
-            <Button size="sm" variant="primary" type="submit" disabled={isSaving || !positionTicker.trim()}>
+            <Button
+              size="sm"
+              variant="primary"
+              type="submit"
+              disabled={isSaving || !positionTicker.trim()}
+            >
               보유 저장
             </Button>
           </form>
           <ManualPortfolioList
-            emptyText={buildEmptyStateCopy({
-              label: '보유종목 원장',
-              reason: '직접 저장한 보유종목이 없습니다.',
-              nextAction: '시장과 티커를 입력한 뒤 보유 저장을 누르세요.',
-            }).text}
+            emptyText={
+              buildEmptyStateCopy({
+                label: '보유종목 원장',
+                reason: '직접 저장한 보유종목이 없습니다.',
+                nextAction: '시장과 티커를 입력한 뒤 보유 저장을 누르세요.',
+              }).text
+            }
             items={positions.map((item) => ({
               entityKey: item.entityKey,
               label: item.displayName,
@@ -996,7 +1013,8 @@ function PortfolioView({
             actionLabel="보유 마감"
             disabled={isSaving || !onManualPortfolioAction}
             onAction={(entityKey) =>
-              onManualPortfolioAction?.({ type: 'close-position', entityKey }) ?? Promise.resolve(false)
+              onManualPortfolioAction?.({ type: 'close-position', entityKey }) ??
+              Promise.resolve(false)
             }
           />
         </article>
@@ -1060,9 +1078,7 @@ function PortfolioDigestPanel({
       <div className={styles.digestHead}>
         <div>
           <h3>변화 알림·노출·신선도</h3>
-          <p>
-            매수·매도 지시가 아니라 내 원장 기준으로 달라진 점과 확인 필요 항목만 보여줍니다.
-          </p>
+          <p>매수·매도 지시가 아니라 내 원장 기준으로 달라진 점과 확인 필요 항목만 보여줍니다.</p>
         </div>
         <StatusQualityStack
           availability={availability}

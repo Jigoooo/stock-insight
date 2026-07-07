@@ -130,8 +130,12 @@ describe('resolveStockListForDashboard', () => {
     assert.equal(resolved.stocks[0]?.change, '+1.25%');
     assert.equal(resolved.stocks[0]?.holding, false);
     assert.equal(resolved.stocks[0]?.summary, 'AI 메모리 노출 50.8점, 펀더멘털 우호.');
-    assert.equal(resolved.stocks[0]?.theme, '메모리 · 파운드리 · 모바일');
-    assert.deepEqual(resolved.stocks[0]?.segments, fallbackStock.segments);
+    assert.equal(resolved.stocks[0]?.theme, 'AI 메모리 노출 50.8점, 펀더멘털 우호.');
+    assert.equal(resolved.stocks[0]?.founded, '구조화 수집중');
+    assert.equal(resolved.stocks[0]?.capital, '출처 수집중');
+    assert.deepEqual(resolved.stocks[0]?.segments, []);
+    assert.deepEqual(resolved.stocks[0]?.risks, ['리스크 구조화 수집중']);
+    assert.notEqual(resolved.stocks[0]?.summary, fallbackStock.summary);
     assert.deepEqual(resolved.stocks[0]?.review, [
       '심층 리포트 보유',
       '2026.07.05 갱신',

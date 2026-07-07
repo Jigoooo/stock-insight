@@ -52,8 +52,12 @@ export function StockDetail({ stock }: StockDetailProps) {
   const liveDetail = resolveStockDetailForDashboard(detailResponse);
   const detailAvailability = isLoadingDetail
     ? 'collecting'
-    : (liveDetail?.deepReport.status ?? detailResponse?.availability ?? stock.dataAvailability ?? 'collecting');
-  const detailSource: ResponseMeta['source'] = detailResponse?.meta.source ?? stock.dataSource ?? 'fallback';
+    : (liveDetail?.deepReport.status ??
+      detailResponse?.availability ??
+      stock.dataAvailability ??
+      'collecting');
+  const detailSource: ResponseMeta['source'] =
+    detailResponse?.meta.source ?? stock.dataSource ?? 'fallback';
   const positives = liveDetail?.checkpoints.length ? liveDetail.checkpoints : stock.positives;
   const risks = liveDetail?.risks.length ? liveDetail.risks : stock.risks;
 
@@ -288,7 +292,9 @@ function LiveResearchPanel({
                   {[
                     companyProfile.sector,
                     companyProfile.industry,
-                    companyProfile.capturedAt ? `${formatKstDate(companyProfile.capturedAt)} 갱신` : null,
+                    companyProfile.capturedAt
+                      ? `${formatKstDate(companyProfile.capturedAt)} 갱신`
+                      : null,
                     statusLabel(companyProfile.status, false),
                   ]
                     .filter(Boolean)
@@ -312,7 +318,10 @@ function LiveResearchPanel({
                 </div>
                 <div className={styles.companyMetricList}>
                   {group.metrics.slice(0, 6).map((metric) => (
-                    <div className={styles.companyMetricItem} key={`${group.metricGroup}-${metric.key}`}>
+                    <div
+                      className={styles.companyMetricItem}
+                      key={`${group.metricGroup}-${metric.key}`}
+                    >
                       <span>{metric.label}</span>
                       <strong>{formatCompanyMetricValue(metric, group.currency)}</strong>
                     </div>

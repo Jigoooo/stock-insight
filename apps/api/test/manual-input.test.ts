@@ -26,7 +26,10 @@ describe('manual stock input normalization', () => {
 
     assert.throws(() => normalizeManualStockInput({ market: 'KR', ticker: 'NVDA' }), /KR ticker/);
     assert.throws(() => normalizeManualStockInput({ market: 'US', ticker: '005930' }), /US ticker/);
-    assert.throws(() => normalizeManualStockInput({ market: 'US', ticker: 'BTC-USD' }), /US ticker/);
+    assert.throws(
+      () => normalizeManualStockInput({ market: 'US', ticker: 'BTC-USD' }),
+      /US ticker/,
+    );
   });
 });
 
@@ -48,7 +51,11 @@ describe('manual portfolio PostgreSQL write model', () => {
     };
 
     const model = createPostgresManualPortfolioWriteModel(executor);
-    const item = await model.upsertWatchlist({ market: 'US', ticker: 'nvda', displayName: 'NVIDIA' });
+    const item = await model.upsertWatchlist({
+      market: 'US',
+      ticker: 'nvda',
+      displayName: 'NVIDIA',
+    });
 
     assert.equal(item.entityKey, 'US:NVDA');
     assert.equal(item.source, 'manual_web');

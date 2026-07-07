@@ -99,7 +99,11 @@ describe('shared UI status primitives', () => {
     );
 
     assert.equal(
-      buildEmptyStateCopy({ label: '검색 결과', reason: '일치하는 종목이 없습니다', nextAction: '검색어를 지우세요' }).text,
+      buildEmptyStateCopy({
+        label: '검색 결과',
+        reason: '일치하는 종목이 없습니다',
+        nextAction: '검색어를 지우세요',
+      }).text,
       '검색 결과 없음 — 일치하는 종목이 없습니다. 다음 행동: 검색어를 지우세요.',
     );
   });
