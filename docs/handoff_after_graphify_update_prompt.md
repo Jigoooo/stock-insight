@@ -26,9 +26,10 @@
    - `git rev-parse HEAD`
    - `git ls-remote origin refs/heads/master`
 3. 기준 커밋:
-   - local/remote 기준 커밋은 `371e0f95f34a84eb5ba7b69c05fd460f90caadac`
+   - 제품 구현 기준 커밋은 `371e0f95f34a84eb5ba7b69c05fd460f90caadac`
    - commit subject: `feat: align stock insight with research app data`
    - 이 커밋은 origin/master에 push 완료됨.
+   - 단, 이 handoff 문서 자체가 별도 docs 커밋으로 추가되었기 때문에 현재 HEAD는 위 제품 구현 커밋보다 최신일 수 있다. `git log --oneline -3`로 확인하라.
 4. Graphify 업데이트를 진행할 때:
    - `.graphifyignore`가 없으면 먼저 생성/검토하라.
    - node_modules, .turbo, dist, build, coverage, DB/dump/sqlite, backups, secrets, generated routeTree 등을 제외하라.
