@@ -1,4 +1,5 @@
 import { containsActionAdvice } from '../shared/action-advice.ts';
+import type { UserScope } from '../shared/user-scope.ts';
 
 import {
   portfolioDigestResponseSchema,
@@ -60,6 +61,7 @@ WITH active_watchlist AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $1::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, added_at DESC, id DESC
@@ -72,6 +74,7 @@ WITH active_watchlist AS (
   FROM public.user_positions
   WHERE closed_at IS NULL
     AND status = 'open'
+    AND user_id = $1::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, opened_at DESC, id DESC
@@ -532,10 +535,11 @@ export function createFallbackPortfolioDigestReadModel(): PortfolioDigestReadMod
 
 export function createPostgresPortfolioDigestReadModel(
   executor: PortfolioDigestRowQueryExecutor,
+  userScope: UserScope,
 ): PortfolioDigestReadModel {
   return {
     async loadPortfolioDigest() {
-      const [row] = await executor(PORTFOLIO_DIGEST_SQL, []);
+      const [row] = await executor(PORTFOLIO_DIGEST_SQL, [userScope.userId]);
       return mapPortfolioDigestDatabaseRow(row);
     },
   };

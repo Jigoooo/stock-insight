@@ -1,4 +1,5 @@
 import { containsActionAdvice, filterActionSafeTexts } from '../shared/action-advice.ts';
+import type { UserScope } from '../shared/user-scope.ts';
 
 import {
   discoverStocksQuerySchema,
@@ -91,6 +92,7 @@ WITH normalized_candidates AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $3::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, added_at DESC, id DESC
@@ -393,6 +395,7 @@ export function createFallbackDiscoverStocksReadModel(): DiscoverStocksReadModel
 
 export function createPostgresDiscoverStocksReadModel(
   executor: DiscoverStocksRowQueryExecutor,
+  userScope: UserScope,
 ): DiscoverStocksReadModel {
   return {
     async listDiscoverStocks(query) {
@@ -400,6 +403,7 @@ export function createPostgresDiscoverStocksReadModel(
       const rows = await executor(DISCOVER_STOCKS_SQL, [
         parsed.market ?? null,
         parsed.reason ?? 'all',
+        userScope.userId,
       ]);
       return rows
         .map(mapDiscoverStocksDatabaseRow)

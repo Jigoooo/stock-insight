@@ -3,6 +3,8 @@ import {
   containsActionAdvice,
   filterActionSafeTexts,
 } from '../shared/action-advice.ts';
+import { isProjectionFresh } from '../shared/projection-freshness.ts';
+import type { UserScope } from '../shared/user-scope.ts';
 
 import {
   dashboardBootstrapSchema,
@@ -17,6 +19,7 @@ import {
 } from '@stock-insight/contracts';
 
 export type DashboardDatabaseRow = {
+  projection_updated_at?: string | Date | null;
   watchlist_count?: string | number | null;
   position_count?: string | number | null;
   related_issue_count?: string | number | null;
@@ -36,8 +39,16 @@ export type DashboardRowQueryExecutor = (
   params: readonly unknown[],
 ) => DashboardDatabaseRow[] | Promise<DashboardDatabaseRow[]>;
 
+export type DashboardReadSnapshot = {
+  data: DashboardBootstrap;
+  latestAt?: string;
+};
+
 export type DashboardReadModel = {
-  loadDashboardBootstrap: () => DashboardBootstrap | Promise<DashboardBootstrap>;
+  loadDashboardBootstrap: () =>
+    | DashboardBootstrap
+    | DashboardReadSnapshot
+    | Promise<DashboardBootstrap | DashboardReadSnapshot>;
 };
 
 const emptyDashboardBootstrap: DashboardBootstrap = {
@@ -136,6 +147,7 @@ WITH normalized_candidates AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $1::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, added_at DESC, id DESC
@@ -146,6 +158,7 @@ WITH normalized_candidates AS (
   FROM public.user_positions
   WHERE closed_at IS NULL
     AND status = 'open'
+    AND user_id = $1::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, opened_at DESC, id DESC
@@ -311,8 +324,18 @@ WITH normalized_candidates AS (
      JOIN active_watchlist watchlist ON watchlist.entity_key = concat(snapshot.market, ':', snapshot.ticker)
      WHERE snapshot.change_pct IS NOT NULL) AS average_change_pct,
     (SELECT label FROM theme_counts ORDER BY item_count DESC, label ASC LIMIT 1) AS top_theme_label
+), projection_freshness AS (
+  SELECT max(source_at) AS projection_updated_at
+  FROM (
+    SELECT nullif(created_sort, '')::timestamptz AS source_at FROM latest_candidates
+    UNION ALL
+    SELECT nullif(collected_sort, '')::timestamptz AS source_at FROM latest_snapshots
+    UNION ALL
+    SELECT nullif(researched_at, '')::timestamptz AS source_at FROM deep_reports
+  ) source_times
 )
 SELECT
+  projection_freshness.projection_updated_at,
   summary.watchlist_count,
   summary.position_count,
   summary.related_issue_count,
@@ -326,6 +349,7 @@ SELECT
   insight_payload.insights,
   stock_payload.stocks
 FROM summary
+CROSS JOIN projection_freshness
 CROSS JOIN trend_payload
 CROSS JOIN theme_share_payload
 CROSS JOIN theme_payload
@@ -340,6 +364,13 @@ function text(value: unknown): string | undefined {
   }
   if (typeof value === 'number' || typeof value === 'bigint') return String(value);
   return undefined;
+}
+
+function isoDate(value: unknown): string | undefined {
+  const raw = value instanceof Date ? value.toISOString() : text(value);
+  if (!raw) return undefined;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined;
 }
 
 function finiteNumber(value: unknown): number | undefined {
@@ -631,11 +662,16 @@ export function createFallbackDashboardReadModel(): DashboardReadModel {
 
 export function createPostgresDashboardReadModel(
   executor: DashboardRowQueryExecutor,
+  userScope: UserScope,
 ): DashboardReadModel {
   return {
     async loadDashboardBootstrap() {
-      const [row] = await executor(DASHBOARD_SQL, []);
-      return mapDashboardDatabaseRow(row);
+      const [row] = await executor(DASHBOARD_SQL, [userScope.userId]);
+      const latestAt = isoDate(row?.projection_updated_at);
+      return {
+        data: mapDashboardDatabaseRow(row),
+        ...(latestAt ? { latestAt } : {}),
+      };
     },
   };
 }
@@ -649,10 +685,18 @@ export async function getDashboardBootstrap(
   options: GetDashboardBootstrapOptions = {},
 ): Promise<DashboardResponse> {
   const readModel = options.readModel ?? createFallbackDashboardReadModel();
-  const generatedAt = (options.now ?? new Date()).toISOString();
+  const now = options.now ?? new Date();
+  const generatedAt = now.toISOString();
   let data: DashboardBootstrap;
+  let latestAt: string | undefined;
   try {
-    data = await readModel.loadDashboardBootstrap();
+    const loaded = await readModel.loadDashboardBootstrap();
+    if ('data' in loaded) {
+      data = loaded.data;
+      latestAt = loaded.latestAt;
+    } else {
+      data = loaded;
+    }
   } catch {
     return dashboardResponseSchema.parse({
       data: emptyDashboardBootstrap,
@@ -667,14 +711,20 @@ export async function getDashboardBootstrap(
       },
     });
   }
+  const hasRows = data.stocks.length > 0;
+  const availability = !hasRows
+    ? 'collecting'
+    : isProjectionFresh(latestAt, now)
+      ? 'available'
+      : 'stale';
   const meta: ResponseMeta = {
-    source: data.stocks.length > 0 ? 'database' : 'fallback',
+    source: hasRows ? 'database' : 'fallback',
     generatedAt,
   };
 
   return dashboardResponseSchema.parse({
     data,
-    availability: data.stocks.length > 0 ? 'available' : 'collecting',
+    availability,
     error: null,
     meta,
   });

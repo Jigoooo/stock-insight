@@ -4,6 +4,14 @@
 범위: repo 문서·코드 정독, 운영 PostgreSQL/API/cron probe, 브라우저 실화면 QA, KR/US 데이터 소스·UI/UX 레퍼런스 조사, Phase 8~12 제한 구현·DB readback
 원칙: 주문 기능 없음, API key 필요 작업 제외, 매수·매도 시점/권유 제외, 출처 없는 숫자 노출 금지, KR/US stock 기본 범위 유지
 
+> [!IMPORTANT]
+> **2026-07-11 후속 실측 정정:** 이 문서의 row count·freshness·cron `last_status`는 2026-07-07 당시 snapshot이며 현재 정상상태를 보장하지 않는다. 후속 읽기 전용 감사에서 도메인 briefing 원본은 당일까지 갱신되지만, 오전 발행 cron이 briefing보다 먼저 실행되어 `publication_records`·`user_feed_index`가 약 5일 지연되고 graph sync도 FK 타입 오류로 실패한 상태가 확인됐다. `last_status=ok`는 wrapper 종료 성공일 뿐 projection 산출물 성공 판정으로 사용하지 않는다.
+>
+> - 현재계 심층 감사·방법론: [`stock_insight_research_brain_deep_audit_2026-07-11.md`](./stock_insight_research_brain_deep_audit_2026-07-11.md)
+> - 후속 실행 로드맵 Phase 13~21: [`stock_insight_research_brain_rebuild_roadmap_2026-07-11.md`](./stock_insight_research_brain_rebuild_roadmap_2026-07-11.md)
+>
+> Phase 8~12의 구현 이력은 보존하되, 운영 상태·DB 전환·GraphRAG·평가·발행에 관한 최신 판단은 위 두 문서를 우선한다.
+
 ## 1. 결론
 
 현재 Stock Insight는 Phase 7까지의 read-only 리서치 터미널 골격이 실제 DB/API/UI로 연결되어 있다. 다만 “빈칸”은 단순 UI 누락이 아니라 아래 5종으로 분류된다.
@@ -118,10 +126,10 @@ Base: `http://127.0.0.1:6123`, `DATABASE_URL=postgresql://research_app@127.0.0.1
 
 | job | 상태 | 해석 |
 |---|---|---|
-| `research_app 발행 (아침)` | last_status ok, 07:10 KST | 발행 sync 정상 |
-| `research_app 발행 (저녁)` | scheduled, 아직 last_run 없음 | 신규 등록 후 첫 저녁 실행 전 |
-| `research_app 그래프 sync` | last_status ok, 07:20 KST | graph/feed rebuild 경로 정상 |
-| `research_app 발행 파이프라인 watchdog` | last_status ok | 발행·그래프 stale 감시 존재 |
+| `research_app 발행 (아침)` | last_status ok, 07:10 KST | **2026-07-07 당시 해석 폐기:** briefing보다 먼저 실행되어 no-data skip을 정상 처리 |
+| `research_app 발행 (저녁)` | scheduled, 아직 last_run 없음 | **후속 정정:** 16:15 발행도 21:30/21:45 briefing보다 먼저 실행 |
+| `research_app 그래프 sync` | last_status ok, 07:20 KST | **2026-07-07 당시 해석 폐기:** child sync FK 타입 오류로 graph/feed projection 실패 |
+| `research_app 발행 파이프라인 watchdog` | last_status ok | wrapper 상태와 산출물 freshness를 분리해야 함; 후속 감사에서는 stale 경보 확인 |
 | `상시 업데이트 루프` | last_status ok, 05:46 KST | 숫자형 변화감지 loop 존재 |
 | `research SQLite→PG mirror before loop monitor` | last_status ok | bridge는 존재하나 구조적 endpoint는 PG direct-write가 별도 과제 |
 | `research-loop-monitor` | last_status error | 별도 monitor 오류. API read path 자체는 smoke로 정상 확인됨 |

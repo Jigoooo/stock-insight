@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  createPostgresDashboardReadModel,
+  createPostgresDashboardReadModel as createScopedDashboardReadModel,
   getDashboardBootstrap,
   type DashboardRowQueryExecutor,
 } from '../src/dashboard/read-model.ts';
 import {
-  createPostgresDiscoverStocksReadModel,
+  createPostgresDiscoverStocksReadModel as createScopedDiscoverStocksReadModel,
   getDiscoverStocks,
   type DiscoverStocksReadModel,
   type DiscoverStocksRowQueryExecutor,
@@ -26,20 +26,34 @@ import {
 } from '../src/me/read-model.ts';
 import { getPortfolioDigest, type PortfolioDigestReadModel } from '../src/portfolio/read-model.ts';
 import {
-  createPostgresStockReadModel,
+  createPostgresStockReadModel as createScopedStockReadModel,
   getStockDetail,
   getStockList,
   type StockReadModel,
   type StockRowQueryExecutor,
 } from '../src/stocks/read-model.ts';
-import type {
-  DashboardBootstrap,
-  DiscoverStockItem,
-  StockDetail,
-  StockListItem,
-} from '@stock-insight/contracts';
+import type { DiscoverStockItem, StockDetail, StockListItem } from '@stock-insight/contracts';
 
 const now = new Date('2026-07-06T00:00:00.000Z');
+const userScope = { userId: '11111111-1111-4111-8111-111111111111' } as const;
+
+function createPostgresDashboardReadModel(executor: DashboardRowQueryExecutor) {
+  return createScopedDashboardReadModel(
+    (sql, params) => executor(sql, params.slice(0, -1)),
+    userScope,
+  );
+}
+
+function createPostgresDiscoverStocksReadModel(executor: DiscoverStocksRowQueryExecutor) {
+  return createScopedDiscoverStocksReadModel(
+    (sql, params) => executor(sql, params.slice(0, -1)),
+    userScope,
+  );
+}
+
+function createPostgresStockReadModel(executor: StockRowQueryExecutor) {
+  return createScopedStockReadModel((sql, params) => executor(sql, params.slice(0, -1)), userScope);
+}
 
 const stock: StockListItem = {
   entityKey: 'KR:005930',
@@ -102,6 +116,27 @@ describe('dashboard read model fallback policy', () => {
     assert.equal(response.meta.source, 'fallback');
     assert.equal(response.error?.code, 'DASHBOARD_READ_FAILED');
     assert.deepEqual(response.data.stocks, []);
+  });
+  it('marks dashboard database rows stale when the projection watermark is older than 72 hours', async () => {
+    const readModel = createPostgresDashboardReadModel(async () => [
+      {
+        projection_updated_at: '2026-07-01T00:00:00.000Z',
+        stocks: [
+          {
+            entity_key: 'KR:005930',
+            ticker: '005930',
+            market: 'KR',
+            name: '삼성전자',
+          },
+        ],
+      } as never,
+    ]);
+
+    const response = await getDashboardBootstrap({ now, readModel });
+
+    assert.equal(response.availability, 'stale');
+    assert.equal(response.meta.source, 'database');
+    assert.equal(response.data.stocks[0]?.ticker, '005930');
   });
 });
 
@@ -347,6 +382,50 @@ describe('market news read model fallback policy', () => {
     assert.equal(response.meta.source, 'database');
     assert.equal(response.error, null);
     assert.equal(response.data[0]?.id, 'feed:580');
+  });
+
+  it('marks market news stale when the newest published row is older than 72 hours', async () => {
+    const readModel: MarketNewsReadModel = {
+      listMarketNews() {
+        return [
+          {
+            id: 'feed:stale',
+            market: 'KR',
+            title: '오래된 시장 뉴스',
+            publishedAt: '2026-07-01T00:00:00.000Z',
+            affectedEntities: [],
+            polarity: 'neutral',
+          },
+        ];
+      },
+    };
+
+    const response = await getMarketNews({ now, readModel });
+
+    assert.equal(response.availability, 'stale');
+    assert.equal(response.meta.source, 'database');
+    assert.equal(response.data[0]?.id, 'feed:stale');
+  });
+
+  it('does not call market news available when row freshness is unknown', async () => {
+    const readModel: MarketNewsReadModel = {
+      listMarketNews() {
+        return [
+          {
+            id: 'feed:unknown-time',
+            market: 'US',
+            title: '시각 정보 없는 시장 뉴스',
+            affectedEntities: [],
+            polarity: 'neutral',
+          },
+        ];
+      },
+    };
+
+    const response = await getMarketNews({ now, readModel });
+
+    assert.equal(response.availability, 'stale');
+    assert.equal(response.meta.source, 'database');
   });
 
   it('filters action-advice market news before exposing the news envelope', async () => {
@@ -1127,13 +1206,14 @@ describe('PostgreSQL stock detail read model', () => {
 
 describe('PostgreSQL me bootstrap read model', () => {
   it('maps active watchlist and open positions to a me bootstrap DTO without write SQL', async () => {
+    const userId = '11111111-1111-4111-8111-111111111111';
     const executedSql: string[] = [];
     const executor: MeBootstrapRowQueryExecutor = async (sql, params) => {
       executedSql.push(sql);
-      assert.deepEqual(params, []);
+      assert.deepEqual(params, [userId]);
       return [
         {
-          user_id: '1513088721782837288',
+          user_id: userId,
           watchlist: [
             {
               entity_key: 'KR:005930',
@@ -1170,15 +1250,18 @@ describe('PostgreSQL me bootstrap read model', () => {
       ];
     };
 
-    const readModel = createPostgresMeBootstrapReadModel(executor);
+    const readModel = createPostgresMeBootstrapReadModel(executor, { userId });
     const data = await readModel.loadMeBootstrap();
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /public\.user_watchlist/i);
     assert.match(executedSql[0] ?? '', /public\.user_positions/i);
+    assert.match(executedSql[0] ?? '', /user_id\s*=\s*\$1::uuid/i);
+    assert.match(executedSql[0] ?? '', /position\.user_id\s*=\s*\$1::uuid/i);
+    assert.match(executedSql[0] ?? '', /watch\.user_id\s*=\s*position\.user_id/i);
     assert.doesNotMatch(executedSql[0] ?? '', /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i);
     assert.deepEqual(data, {
-      user: { id: '1513088721782837288', label: '기본 사용자' },
+      user: { id: userId, label: '기본 사용자' },
       watchlist: [
         {
           entityKey: 'KR:005930',
@@ -1339,6 +1422,7 @@ describe('PostgreSQL dashboard read model', () => {
       assert.deepEqual(params, []);
       return [
         {
+          projection_updated_at: '2026-07-06T00:00:00.000Z',
           watchlist_count: '8',
           position_count: '0',
           related_issue_count: '12',
@@ -1396,7 +1480,10 @@ describe('PostgreSQL dashboard read model', () => {
     };
 
     const readModel = createPostgresDashboardReadModel(executor);
-    const bootstrap: DashboardBootstrap = await readModel.loadDashboardBootstrap();
+    const snapshot = await readModel.loadDashboardBootstrap();
+    assert.ok('data' in snapshot);
+    if (!('data' in snapshot)) throw new Error('expected dashboard read snapshot');
+    const bootstrap = snapshot.data;
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /stock\.candidates/i);
@@ -1405,7 +1492,9 @@ describe('PostgreSQL dashboard read model', () => {
     assert.match(executedSql[0] ?? '', /stock\.market_snapshots/i);
     assert.match(executedSql[0] ?? '', /public\.v_user_feed_dedup/i);
     assert.match(executedSql[0] ?? '', /domain\s*=\s*'stock'/i);
+    assert.match(executedSql[0] ?? '', /projection_updated_at/i);
     assert.doesNotMatch(executedSql[0] ?? '', /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i);
+    assert.equal(snapshot.latestAt, '2026-07-06T00:00:00.000Z');
     assert.equal(bootstrap.portfolio.value, '보유 0 · 관심 8개');
     assert.equal(bootstrap.portfolio.dailyChange, '+1.25% · 관심종목 평균');
     assert.equal(bootstrap.portfolio.relatedIssueCount, 12);

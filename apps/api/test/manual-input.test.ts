@@ -34,6 +34,8 @@ describe('manual stock input normalization', () => {
 });
 
 describe('manual portfolio PostgreSQL write model', () => {
+  const userId = '11111111-1111-4111-8111-111111111111';
+
   it('upserts watchlist rows by user/entity instead of creating duplicates', async () => {
     const calls: Array<{ sql: string; params: readonly unknown[] }> = [];
     const executor: ManualPortfolioWriteExecutor = async (sql, params) => {
@@ -50,7 +52,7 @@ describe('manual portfolio PostgreSQL write model', () => {
       ];
     };
 
-    const model = createPostgresManualPortfolioWriteModel(executor);
+    const model = createPostgresManualPortfolioWriteModel(executor, { userId });
     const item = await model.upsertWatchlist({
       market: 'US',
       ticker: 'nvda',
@@ -60,7 +62,8 @@ describe('manual portfolio PostgreSQL write model', () => {
     assert.equal(item.entityKey, 'US:NVDA');
     assert.equal(item.source, 'manual_web');
     assert.match(calls[0]!.sql, /ON CONFLICT \(user_id, entity_key\) DO UPDATE/);
-    assert.deepEqual(calls[0]!.params, ['US:NVDA', 'NVDA', 'US', 'NVIDIA']);
+    assert.doesNotMatch(calls[0]!.sql, /FROM public\.app_users/i);
+    assert.deepEqual(calls[0]!.params, ['US:NVDA', 'NVDA', 'US', 'NVIDIA', userId]);
   });
 
   it('upserts an open position without broker/order fields and refreshes watchlist membership', async () => {
@@ -82,7 +85,7 @@ describe('manual portfolio PostgreSQL write model', () => {
       ];
     };
 
-    const model = createPostgresManualPortfolioWriteModel(executor);
+    const model = createPostgresManualPortfolioWriteModel(executor, { userId });
     const position = await model.upsertPosition({
       market: 'KR',
       ticker: '005930',
@@ -96,8 +99,14 @@ describe('manual portfolio PostgreSQL write model', () => {
     assert.equal(position.quantity, 3);
     assert.equal(position.status, 'open');
     assert.match(calls[0]!.sql, /upsert_watchlist/);
+    assert.match(
+      calls[0]!.sql,
+      /ON CONFLICT \(user_id, entity_key\) WHERE status = 'open' AND closed_at IS NULL DO UPDATE/,
+    );
+    assert.doesNotMatch(calls[0]!.sql, /updated_position|inserted_position/);
     assert.doesNotMatch(calls[0]!.sql, /broker|brokerage|order_id|order_|secret|api_key/i);
-    assert.deepEqual(calls[0]!.params, ['KR:005930', '005930', 'KR', '삼성전자', 81200, 3]);
+    assert.doesNotMatch(calls[0]!.sql, /FROM public\.app_users/i);
+    assert.deepEqual(calls[0]!.params, ['KR:005930', '005930', 'KR', '삼성전자', 81200, 3, userId]);
   });
 
   it('soft-removes watchlist rows and closes positions without deleting research source data', async () => {
@@ -107,7 +116,7 @@ describe('manual portfolio PostgreSQL write model', () => {
       return [{ entity_key: 'US:NVDA', status: 'closed' }];
     };
 
-    const model = createPostgresManualPortfolioWriteModel(executor);
+    const model = createPostgresManualPortfolioWriteModel(executor, { userId });
     await model.removeWatchlist('US:NVDA');
     await model.closePosition('US:NVDA');
 
@@ -115,6 +124,9 @@ describe('manual portfolio PostgreSQL write model', () => {
     assert.match(calls[0]!.sql, /removed_at = now\(\)/);
     assert.match(calls[1]!.sql, /status = 'closed'/);
     assert.match(calls[1]!.sql, /closed_at = now\(\)/);
+    assert.doesNotMatch(`${calls[0]!.sql}\n${calls[1]!.sql}`, /FROM public\.app_users/i);
+    assert.deepEqual(calls[0]!.params, ['US:NVDA', userId]);
+    assert.deepEqual(calls[1]!.params, ['US:NVDA', userId]);
     assert.doesNotMatch(`${calls[0]!.sql}\n${calls[1]!.sql}`, /DELETE FROM|TRUNCATE|DROP/i);
   });
 });

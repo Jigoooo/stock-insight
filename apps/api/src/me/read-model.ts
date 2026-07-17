@@ -1,3 +1,5 @@
+import type { UserScope } from '../shared/user-scope.ts';
+
 import {
   meBootstrapResponseSchema,
   type MeBootstrap,
@@ -46,6 +48,7 @@ WITH active_watchlist AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $1::uuid
     AND entity_key IS NOT NULL
     AND ticker IS NOT NULL
     AND upper(market) IN ('KR', 'US')
@@ -76,6 +79,7 @@ WITH active_watchlist AS (
   FROM public.user_positions position
   LEFT JOIN public.user_watchlist watch
     ON watch.entity_key = position.entity_key
+   AND watch.user_id = position.user_id
    AND watch.active IS TRUE
    AND watch.removed_at IS NULL
   LEFT JOIN LATERAL (
@@ -90,6 +94,7 @@ WITH active_watchlist AS (
     LIMIT 1
   ) candidate ON TRUE
   WHERE position.entity_key IS NOT NULL
+    AND position.user_id = $1::uuid
     AND split_part(position.entity_key, ':', 1) IN ('KR', 'US')
     AND position.closed_at IS NULL
     AND coalesce(nullif(position.status, ''), 'open') = 'open'
@@ -97,11 +102,7 @@ WITH active_watchlist AS (
   LIMIT 200
 )
 SELECT
-  coalesce(
-    (SELECT user_id FROM active_watchlist WHERE user_id IS NOT NULL LIMIT 1),
-    (SELECT user_id FROM open_positions WHERE user_id IS NOT NULL LIMIT 1),
-    'default'
-  ) AS user_id,
+  $1::uuid::text AS user_id,
   (SELECT coalesce(json_agg(row_to_json(active_watchlist)), '[]'::json) FROM active_watchlist) AS watchlist,
   (SELECT coalesce(json_agg(row_to_json(open_positions)), '[]'::json) FROM open_positions) AS positions
 `;
@@ -220,10 +221,11 @@ export function createFallbackMeBootstrapReadModel(): MeBootstrapReadModel {
 
 export function createPostgresMeBootstrapReadModel(
   executor: MeBootstrapRowQueryExecutor,
+  userScope: UserScope,
 ): MeBootstrapReadModel {
   return {
     async loadMeBootstrap() {
-      const [row] = await executor(ME_BOOTSTRAP_SQL, []);
+      const [row] = await executor(ME_BOOTSTRAP_SQL, [userScope.userId]);
       return mapMeBootstrapDatabaseRow(row);
     },
   };

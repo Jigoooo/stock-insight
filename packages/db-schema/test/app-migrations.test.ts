@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import { appResearchFoundationMigrationSql } from '../src/migrations/001_app_research_foundation.ts';
+import { appHistoryUuidBridgeMigrationSql } from '../src/migrations/002_app_history_uuid_bridge.ts';
+import { appMutationIdempotencyMigrationSql } from '../src/migrations/003_app_mutation_idempotency.ts';
+import { appPositionOpenUniquenessMigrationSql } from '../src/migrations/004_app_position_open_uniqueness.ts';
+import { appLocalAccountEnrollmentMigrationSql } from '../src/migrations/005_local_account_enrollment.ts';
 import { sourceDocumentKoreanTranslationMigrationSql } from '../src/migrations/006_source_document_korean_translation.ts';
 
 const destructiveTokens = [
@@ -109,6 +113,136 @@ describe('app additive migrations', () => {
     assert.equal((appResearchFoundationMigrationSql.match(/'unsupported'/g) ?? []).length, 3);
     for (const token of destructiveTokens) {
       assert.doesNotMatch(appResearchFoundationMigrationSql, token);
+    }
+  });
+
+  it('adds an idempotent UUID identity bridge for decision history without mutating legacy rows', () => {
+    const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+
+    assert.match(indexSource, /id: '002_app_history_uuid_bridge'/);
+    assert.match(indexSource, /'app_user_identity_map'/);
+    assert.match(indexSource, /'v_user_decision_history_v3'/);
+    assert.match(
+      appHistoryUuidBridgeMigrationSql,
+      /create table if not exists public\.app_user_identity_map/i,
+    );
+    assert.match(appHistoryUuidBridgeMigrationSql, /user_id uuid not null unique/i);
+    assert.match(
+      appHistoryUuidBridgeMigrationSql,
+      /create or replace view public\.v_user_decision_history_v3/i,
+    );
+    assert.match(appHistoryUuidBridgeMigrationSql, /md5\([^;]+entry_key[^;]*\) as digest/is);
+    assert.match(
+      appHistoryUuidBridgeMigrationSql,
+      /substr\(history_key\.digest, 9, 4\) \|\| '-8'/i,
+    );
+    assert.match(
+      appHistoryUuidBridgeMigrationSql,
+      /substr\(history_key\.digest, 14, 3\) \|\| '-a'/i,
+    );
+    assert.match(
+      appHistoryUuidBridgeMigrationSql,
+      /join public\.app_user_identity_map identity_map/i,
+    );
+    assert.doesNotMatch(appHistoryUuidBridgeMigrationSql, /\b(update|insert into|delete from)\b/i);
+    for (const token of destructiveTokens) {
+      assert.doesNotMatch(appHistoryUuidBridgeMigrationSql, token);
+    }
+  });
+
+  it('adds a durable mutation idempotency ledger without destructive DDL', () => {
+    const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(indexSource, /id: '003_app_mutation_idempotency'/);
+    assert.match(indexSource, /'app_mutation_idempotency'/);
+    assert.match(
+      appMutationIdempotencyMigrationSql,
+      /create table if not exists public\.app_mutation_idempotency/i,
+    );
+    assert.match(appMutationIdempotencyMigrationSql, /primary key \(user_id, idempotency_key\)/i);
+    assert.match(appMutationIdempotencyMigrationSql, /request_hash char\(64\) not null/i);
+    assert.match(appMutationIdempotencyMigrationSql, /state text not null/i);
+    assert.match(appMutationIdempotencyMigrationSql, /response_json jsonb/i);
+    for (const token of destructiveTokens) {
+      assert.doesNotMatch(appMutationIdempotencyMigrationSql, token);
+    }
+  });
+
+  it('preflights duplicates and enforces one open position per user and entity', () => {
+    const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(indexSource, /id: '004_app_position_open_uniqueness'/);
+    assert.match(indexSource, /'user_positions'/);
+    assert.match(appPositionOpenUniquenessMigrationSql, /having count\(\*\) > 1/i);
+    assert.match(appPositionOpenUniquenessMigrationSql, /raise exception/i);
+    assert.match(
+      appPositionOpenUniquenessMigrationSql,
+      /create unique index if not exists uq_user_positions_one_open/i,
+    );
+    assert.match(
+      appPositionOpenUniquenessMigrationSql,
+      /on public\.user_positions \(user_id, entity_key\)[\s\S]+where status = 'open'[\s\S]+closed_at is null/i,
+    );
+    for (const token of destructiveTokens) {
+      assert.doesNotMatch(appPositionOpenUniquenessMigrationSql, token);
+    }
+  });
+
+  it('adds an RLS-protected local account table with canonical enrollment constraints', () => {
+    const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+
+    assert.match(indexSource, /id: '005_local_account_enrollment'/);
+    assert.match(indexSource, /'app_local_accounts'/);
+    assert.match(indexSource, /'app_auth_bootstrap_state'/);
+    assert.match(indexSource, /appLocalAccountEnrollmentMigrationSql/);
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /create table if not exists public\.app_local_accounts/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /user_id uuid primary key references public\.app_user_identity_map\s*\(user_id\) on delete restrict/i,
+    );
+    assert.match(appLocalAccountEnrollmentMigrationSql, /username text not null/i);
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /username_canonical text generated always as \(lower\(username\)\) stored/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /check \(username ~ '\^\[A-Za-z0-9\._-\]\{3,64\}\$'\)/i,
+    );
+    assert.match(appLocalAccountEnrollmentMigrationSql, /password_record text not null/i);
+    assert.ok(
+      appLocalAccountEnrollmentMigrationSql.includes(
+        String.raw`CHECK (password_record ~ '^scrypt\$v=1\$N=16384\$r=8\$p=1\$[A-Za-z0-9_-]{21}[AQgw]\$[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$')`,
+      ),
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /created_at timestamptz not null default now\(\)/i,
+    );
+    assert.match(appLocalAccountEnrollmentMigrationSql, /unique \(username_canonical\)/i);
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /create table if not exists public\.app_auth_bootstrap_state/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /enrollment_consumed_at timestamptz not null default now\(\)/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /alter table public\.app_local_accounts enable row level security/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /alter table public\.app_local_accounts force row level security/i,
+    );
+    assert.match(
+      appLocalAccountEnrollmentMigrationSql,
+      /alter table public\.app_auth_bootstrap_state force row level security/i,
+    );
+    for (const token of destructiveTokens) {
+      assert.doesNotMatch(appLocalAccountEnrollmentMigrationSql, token);
     }
   });
 });

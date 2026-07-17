@@ -1,8 +1,4 @@
-import {
-  forwardRef,
-  type InputHTMLAttributes,
-  type ReactNode,
-} from 'react';
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
 
 import styles from './auth-page.module.css';
 

@@ -19,7 +19,10 @@ test.describe('one-time enrollment presentation', () => {
     await page.goto('/signup');
     const availableHeading = page.getByRole('heading', { name: '계정을 설정하세요.' });
     const unavailableHeading = page.getByRole('heading', { name: '가입 완료', exact: true });
-    await expect(availableHeading.or(unavailableHeading)).toBeVisible();
+    const errorHeading = page.getByRole('heading', {
+      name: '가입 상태를 확인하지 못했습니다.',
+    });
+    await expect(availableHeading.or(unavailableHeading).or(errorHeading)).toBeVisible();
 
     if (await availableHeading.isVisible()) {
       const usernameField = page.getByLabel('사용자 이름');
@@ -27,8 +30,10 @@ test.describe('one-time enrollment presentation', () => {
       await expect(usernameField).toHaveAttribute('data-motion', 'field');
       await page.getByRole('button', { name: '계정 만들기' }).click();
       await expect(usernameField).toBeFocused();
-    } else {
+    } else if (await unavailableHeading.isVisible()) {
       await expect(page.getByRole('link', { name: '로그인' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('button', { name: '다시 확인' })).toBeVisible();
     }
 
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);

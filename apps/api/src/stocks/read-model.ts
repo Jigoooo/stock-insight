@@ -3,6 +3,7 @@ import {
   containsActionAdvice,
   filterActionSafeTexts,
 } from '../shared/action-advice.ts';
+import type { UserScope } from '../shared/user-scope.ts';
 
 import {
   stockDetailResponseSchema,
@@ -146,6 +147,7 @@ WITH normalized_candidates AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $4::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, added_at DESC, id DESC
@@ -156,6 +158,7 @@ WITH normalized_candidates AS (
   FROM public.user_positions
   WHERE closed_at IS NULL
     AND status = 'open'
+    AND user_id = $4::uuid
     AND entity_key IS NOT NULL
     AND split_part(entity_key, ':', 1) IN ('KR', 'US')
   ORDER BY entity_key, opened_at DESC, id DESC
@@ -378,6 +381,7 @@ WITH parsed_entity AS (
   FROM public.user_watchlist
   WHERE active IS TRUE
     AND removed_at IS NULL
+    AND user_id = $2::uuid
     AND entity_key = (SELECT entity_key FROM parsed_entity)
   ORDER BY entity_key, added_at DESC, id DESC
 ), open_positions AS (
@@ -387,6 +391,7 @@ WITH parsed_entity AS (
   FROM public.user_positions
   WHERE closed_at IS NULL
     AND status = 'open'
+    AND user_id = $2::uuid
     AND entity_key = (SELECT entity_key FROM parsed_entity)
   ORDER BY entity_key, opened_at DESC, id DESC
 ), deep_report AS (
@@ -1148,13 +1153,17 @@ export function createFallbackStockReadModel(): StockReadModel {
   };
 }
 
-export function createPostgresStockReadModel(executor: StockRowQueryExecutor): StockReadModel {
+export function createPostgresStockReadModel(
+  executor: StockRowQueryExecutor,
+  userScope: UserScope,
+): StockReadModel {
   return {
     async listStocks(query) {
       const rows = await executor(STOCK_LIST_SQL, [
         query.market ?? null,
         query.scope ?? 'all',
         query.q ? `%${query.q}%` : null,
+        userScope.userId,
       ]);
 
       return rows.flatMap((row) => {
@@ -1163,7 +1172,7 @@ export function createPostgresStockReadModel(executor: StockRowQueryExecutor): S
       });
     },
     async getStockDetail(entityKey) {
-      const [row] = await executor(STOCK_DETAIL_SQL, [entityKey]);
+      const [row] = await executor(STOCK_DETAIL_SQL, [entityKey, userScope.userId]);
       if (!row) return null;
       const detail = mapStockDetailDatabaseRow(row);
       return detail ? sanitizeStockDetail(detail) : null;

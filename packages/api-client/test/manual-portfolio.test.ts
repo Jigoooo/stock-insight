@@ -25,6 +25,8 @@ const responseBody: MeBootstrapResponse = {
   meta: { source: 'database', generatedAt: '2026-07-07T00:00:00.000Z' },
 };
 
+const idempotencyKey = '11111111-1111-4111-8111-111111111111';
+
 const digestBody: PortfolioDigestResponse = {
   data: {
     alerts: [],
@@ -72,11 +74,14 @@ describe('manual portfolio API client', () => {
     }) as typeof fetch;
 
     const client = createApiClient({ baseUrl: 'http://stock.local', fetcher });
-    const response = await client.upsertWatchlist({
-      market: 'US',
-      ticker: 'nvda',
-      displayName: 'NVIDIA',
-    });
+    const response = await client.upsertWatchlist(
+      {
+        market: 'US',
+        ticker: 'nvda',
+        displayName: 'NVIDIA',
+      },
+      { idempotencyKey },
+    );
 
     assert.equal(response.data.watchlist[0]?.entityKey, 'US:NVDA');
     assert.equal(calls[0]!.input.toString(), 'http://stock.local/api/watchlist');
@@ -85,6 +90,7 @@ describe('manual portfolio API client', () => {
       calls[0]!.init?.headers?.['content-type' as keyof HeadersInit],
       'application/json',
     );
+    assert.equal(calls[0]!.init?.headers?.['idempotency-key' as keyof HeadersInit], idempotencyKey);
     assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), {
       market: 'US',
       ticker: 'nvda',
@@ -100,9 +106,12 @@ describe('manual portfolio API client', () => {
     }) as typeof fetch;
     const client = createApiClient({ baseUrl: 'http://stock.local', fetcher });
 
-    await client.removeWatchlist('US:NVDA');
-    await client.upsertPosition({ market: 'KR', ticker: '005930', avgPrice: 81200, quantity: 3 });
-    await client.closePosition('KR:005930');
+    await client.removeWatchlist('US:NVDA', { idempotencyKey });
+    await client.upsertPosition(
+      { market: 'KR', ticker: '005930', avgPrice: 81200, quantity: 3 },
+      { idempotencyKey },
+    );
+    await client.closePosition('KR:005930', { idempotencyKey });
 
     assert.deepEqual(paths, [
       'DELETE http://stock.local/api/watchlist/US%3ANVDA',

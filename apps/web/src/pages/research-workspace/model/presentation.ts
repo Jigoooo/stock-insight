@@ -76,6 +76,8 @@ export function themeTitleLabel(value: string): string {
   return normalized
     .split(/[_-]+/u)
     .filter(Boolean)
-    .map((token) => token.toUpperCase() === token ? token : `${token[0]?.toUpperCase() ?? ''}${token.slice(1)}`)
+    .map((token) =>
+      token.toUpperCase() === token ? token : `${token[0]?.toUpperCase() ?? ''}${token.slice(1)}`,
+    )
     .join(' ');
 }

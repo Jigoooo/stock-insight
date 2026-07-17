@@ -134,9 +134,7 @@ export function SignupPage({
             ))}
           </ol>
 
-          <p className={styles.trustNote}>
-            일회성 등록 · 이후 로그인 전용
-          </p>
+          <p className={styles.trustNote}>일회성 등록 · 이후 로그인 전용</p>
         </div>
       </aside>
 

@@ -1,3 +1,5 @@
+import type { UserScope } from '../shared/user-scope.ts';
+
 import type { MeBootstrapPosition, MeBootstrapWatchlistItem } from '@stock-insight/contracts';
 
 export type ManualStockInput = {
@@ -35,12 +37,8 @@ export type ManualPortfolioWriteModel = {
 const SOURCE = 'manual_web';
 
 const UPSERT_WATCHLIST_SQL = `
-WITH default_user AS (
-  SELECT id
-  FROM public.app_users
-  WHERE active IS TRUE
-  ORDER BY created_at ASC
-  LIMIT 1
+WITH scoped_user AS (
+  SELECT $5::uuid AS id
 ), matched_entity AS (
   SELECT id, name
   FROM public.entities
@@ -61,7 +59,7 @@ WITH default_user AS (
     raw_json
   )
   SELECT
-    default_user.id,
+    scoped_user.id,
     matched_entity.id,
     $1::text,
     $2::text,
@@ -72,7 +70,7 @@ WITH default_user AS (
     now(),
     NULL,
     jsonb_build_object('source', '${SOURCE}', 'input_market', $3::text, 'input_ticker', $2::text)
-  FROM default_user
+  FROM scoped_user
   LEFT JOIN matched_entity ON TRUE
   ON CONFLICT (user_id, entity_key) DO UPDATE SET
     entity_id = coalesce(EXCLUDED.entity_id, public.user_watchlist.entity_id),
@@ -89,20 +87,16 @@ SELECT * FROM upsert_watchlist
 `;
 
 const REMOVE_WATCHLIST_SQL = `
-WITH default_user AS (
-  SELECT id
-  FROM public.app_users
-  WHERE active IS TRUE
-  ORDER BY created_at ASC
-  LIMIT 1
+WITH scoped_user AS (
+  SELECT $2::uuid AS id
 ), removed_watchlist AS (
   UPDATE public.user_watchlist watchlist
   SET
     active = false,
     removed_at = now(),
     source = '${SOURCE}'
-  FROM default_user
-  WHERE watchlist.user_id = default_user.id
+  FROM scoped_user
+  WHERE watchlist.user_id = scoped_user.id
     AND watchlist.entity_key = $1::text
   RETURNING watchlist.entity_key
 )
@@ -110,12 +104,8 @@ SELECT entity_key FROM removed_watchlist
 `;
 
 const UPSERT_POSITION_SQL = `
-WITH default_user AS (
-  SELECT id
-  FROM public.app_users
-  WHERE active IS TRUE
-  ORDER BY created_at ASC
-  LIMIT 1
+WITH scoped_user AS (
+  SELECT $7::uuid AS id
 ), matched_entity AS (
   SELECT id, name
   FROM public.entities
@@ -136,7 +126,7 @@ WITH default_user AS (
     raw_json
   )
   SELECT
-    default_user.id,
+    scoped_user.id,
     matched_entity.id,
     $1::text,
     $2::text,
@@ -147,7 +137,7 @@ WITH default_user AS (
     now(),
     NULL,
     jsonb_build_object('source', '${SOURCE}', 'input_market', $3::text, 'input_ticker', $2::text)
-  FROM default_user
+  FROM scoped_user
   LEFT JOIN matched_entity ON TRUE
   ON CONFLICT (user_id, entity_key) DO UPDATE SET
     entity_id = coalesce(EXCLUDED.entity_id, public.user_watchlist.entity_id),
@@ -159,37 +149,8 @@ WITH default_user AS (
     removed_at = NULL,
     raw_json = EXCLUDED.raw_json
   RETURNING entity_key
-), updated_position AS (
-  UPDATE public.user_positions position
-  SET
-    entity_id = coalesce(matched_entity.id, position.entity_id),
-    avg_price = $5::numeric,
-    quantity = $6::numeric,
-    opened_at = coalesce(position.opened_at, now()),
-    closed_at = NULL,
-    status = 'open',
-    source = '${SOURCE}',
-    updated_at = now(),
-    raw_json = jsonb_build_object('source', '${SOURCE}', 'input_market', $3::text, 'input_ticker', $2::text)
-  FROM default_user
-  LEFT JOIN matched_entity ON TRUE
-  WHERE position.user_id = default_user.id
-    AND position.entity_key = $1::text
-    AND position.status = 'open'
-    AND position.closed_at IS NULL
-  RETURNING
-    position.entity_key,
-    $2::text AS ticker,
-    $3::text AS market,
-    coalesce(nullif($4::text, ''), matched_entity.name, $2::text) AS display_name,
-    position.avg_price,
-    position.quantity,
-    position.status,
-    position.source,
-    position.opened_at,
-    position.closed_at
-), inserted_position AS (
-  INSERT INTO public.user_positions (
+), upsert_position AS (
+  INSERT INTO public.user_positions AS position (
     user_id,
     entity_id,
     entity_key,
@@ -202,7 +163,7 @@ WITH default_user AS (
     raw_json
   )
   SELECT
-    default_user.id,
+    scoped_user.id,
     matched_entity.id,
     $1::text,
     $5::numeric,
@@ -212,33 +173,36 @@ WITH default_user AS (
     'open',
     '${SOURCE}',
     jsonb_build_object('source', '${SOURCE}', 'input_market', $3::text, 'input_ticker', $2::text)
-  FROM default_user
+  FROM scoped_user
   LEFT JOIN matched_entity ON TRUE
-  WHERE NOT EXISTS (SELECT 1 FROM updated_position)
+  ON CONFLICT (user_id, entity_key) WHERE status = 'open' AND closed_at IS NULL DO UPDATE SET
+    entity_id = coalesce(EXCLUDED.entity_id, position.entity_id),
+    avg_price = EXCLUDED.avg_price,
+    quantity = EXCLUDED.quantity,
+    opened_at = coalesce(position.opened_at, EXCLUDED.opened_at),
+    closed_at = NULL,
+    status = 'open',
+    source = '${SOURCE}',
+    updated_at = now(),
+    raw_json = EXCLUDED.raw_json
   RETURNING
-    entity_key,
+    position.entity_key,
     $2::text AS ticker,
     $3::text AS market,
     coalesce(nullif($4::text, ''), (SELECT name FROM matched_entity), $2::text) AS display_name,
-    avg_price,
-    quantity,
-    status,
-    source,
-    opened_at,
-    closed_at
+    position.avg_price,
+    position.quantity,
+    position.status,
+    position.source,
+    position.opened_at,
+    position.closed_at
 )
-SELECT * FROM updated_position
-UNION ALL
-SELECT * FROM inserted_position
+SELECT * FROM upsert_position
 `;
 
 const CLOSE_POSITION_SQL = `
-WITH default_user AS (
-  SELECT id
-  FROM public.app_users
-  WHERE active IS TRUE
-  ORDER BY created_at ASC
-  LIMIT 1
+WITH scoped_user AS (
+  SELECT $2::uuid AS id
 ), closed_position AS (
   UPDATE public.user_positions position
   SET
@@ -246,8 +210,8 @@ WITH default_user AS (
     closed_at = now(),
     updated_at = now(),
     source = '${SOURCE}'
-  FROM default_user
-  WHERE position.user_id = default_user.id
+  FROM scoped_user
+  WHERE position.user_id = scoped_user.id
     AND position.entity_key = $1::text
     AND position.status = 'open'
     AND position.closed_at IS NULL
@@ -358,6 +322,7 @@ function mapPositionRow(row: ManualPortfolioRow | undefined): MeBootstrapPositio
 
 export function createPostgresManualPortfolioWriteModel(
   executor: ManualPortfolioWriteExecutor,
+  userScope: UserScope,
 ): ManualPortfolioWriteModel {
   return {
     async upsertWatchlist(input) {
@@ -367,11 +332,12 @@ export function createPostgresManualPortfolioWriteModel(
         normalized.ticker,
         normalized.market,
         normalized.displayName ?? '',
+        userScope.userId,
       ]);
       return mapWatchlistRow(row);
     },
     async removeWatchlist(entityKey) {
-      const [row] = await executor(REMOVE_WATCHLIST_SQL, [entityKey]);
+      const [row] = await executor(REMOVE_WATCHLIST_SQL, [entityKey, userScope.userId]);
       const removedEntityKey = text(row?.entity_key) ?? entityKey;
       return { entityKey: removedEntityKey, active: false };
     },
@@ -386,11 +352,12 @@ export function createPostgresManualPortfolioWriteModel(
         normalized.displayName ?? '',
         avgPrice ?? null,
         quantity ?? null,
+        userScope.userId,
       ]);
       return mapPositionRow(row);
     },
     async closePosition(entityKey) {
-      const [row] = await executor(CLOSE_POSITION_SQL, [entityKey]);
+      const [row] = await executor(CLOSE_POSITION_SQL, [entityKey, userScope.userId]);
       return { entityKey: text(row?.entity_key) ?? entityKey, status: 'closed' };
     },
   };

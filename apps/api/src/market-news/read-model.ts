@@ -1,4 +1,5 @@
 import { containsActionAdvice } from '../shared/action-advice.ts';
+import { isProjectionFresh, latestProjectionAt } from '../shared/projection-freshness.ts';
 
 import {
   marketNewsQuerySchema,
@@ -265,7 +266,8 @@ export async function getMarketNews(
 ): Promise<MarketNewsResponse> {
   const readModel = options.readModel ?? createFallbackMarketNewsReadModel();
   const query = marketNewsQuerySchema.parse(options.query ?? {});
-  const generatedAt = (options.now ?? new Date()).toISOString();
+  const now = options.now ?? new Date();
+  const generatedAt = now.toISOString();
 
   let data: MarketNewsItem[];
   try {
@@ -288,6 +290,12 @@ export async function getMarketNews(
   }
 
   const hasRows = data.length > 0;
+  const latestPublishedAt = latestProjectionAt(data.map((item) => item.publishedAt));
+  const availability = !hasRows
+    ? 'collecting'
+    : isProjectionFresh(latestPublishedAt, now)
+      ? 'available'
+      : 'stale';
   const meta: ResponseMeta = {
     source: hasRows ? 'database' : 'fallback',
     generatedAt,
@@ -295,7 +303,7 @@ export async function getMarketNews(
 
   return marketNewsResponseSchema.parse({
     data,
-    availability: hasRows ? 'available' : 'collecting',
+    availability,
     error: null,
     meta,
   });

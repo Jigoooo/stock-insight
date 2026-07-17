@@ -1,9 +1,4 @@
-import type {
-  AnchorHTMLAttributes,
-  ButtonHTMLAttributes,
-  MouseEvent,
-  ReactNode,
-} from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
 
 import styles from './primitives.module.css';
 

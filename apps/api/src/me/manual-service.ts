@@ -18,12 +18,14 @@ export type ManualPortfolioMutationOptions = {
   mutation: () => unknown | Promise<unknown>;
   now?: Date;
   readModel: MeBootstrapReadModel;
+  failureMode?: 'fallback' | 'throw';
 };
 
 export async function getManualPortfolioBootstrapAfterMutation({
   mutation,
   now,
   readModel,
+  failureMode = 'fallback',
 }: ManualPortfolioMutationOptions): Promise<MeBootstrapResponse> {
   const generatedAt = (now ?? new Date()).toISOString();
 
@@ -40,7 +42,8 @@ export async function getManualPortfolioBootstrapAfterMutation({
         generatedAt,
       },
     });
-  } catch {
+  } catch (error) {
+    if (failureMode === 'throw') throw error;
     return meBootstrapResponseSchema.parse({
       data: emptyMeBootstrap,
       availability: 'error',

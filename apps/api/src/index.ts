@@ -21,6 +21,12 @@ export {
   createPostgresMarketNewsReadModel,
   getMarketNews,
 } from './market-news';
+export { claimMutation, completeMutation, hashMutationRequest } from './mutations/idempotency';
+export type {
+  ExecuteMutationClaim,
+  MutationClaim,
+  MutationIdempotencyExecutor,
+} from './mutations/idempotency';
 export {
   createPostgresManualPortfolioWriteModel,
   createFallbackMeBootstrapReadModel,
@@ -39,7 +45,38 @@ export {
   getStockDetail,
   getStockList,
 } from './stocks';
-export { createDatabaseClient, createReadOnlyDatabaseClient, parseServerEnv } from './server';
+export { getEntityRelations } from './relations/read-model';
+export type { GetEntityRelationsOptions, RelationGraphQueryExecutor } from './relations/read-model';
+export { getDecisionHistory } from './history/read-model';
+export type { DecisionHistoryQueryExecutor, GetDecisionHistoryOptions } from './history/read-model';
+export { getMyResearchOverview } from './my-research/read-model';
+export type {
+  GetMyResearchOverviewOptions,
+  MyResearchQueryExecutor,
+} from './my-research/read-model';
+export { getRadarSignals } from './radar/read-model';
+export type { GetRadarSignalsOptions, RadarSignalQueryExecutor } from './radar/read-model';
+export { getThemeResearchList } from './themes/read-model';
+export type { GetThemeResearchListOptions, ThemeResearchQueryExecutor } from './themes/read-model';
+export { getSystemStatus } from './status/read-model';
+export type { GetSystemStatusOptions, SystemStatusQueryExecutor } from './status/read-model';
+export { getResearchRecordDetail } from './workspace/record-detail';
+export type {
+  GetResearchRecordDetailOptions,
+  RecordDetailRowQueryExecutor,
+} from './workspace/record-detail';
+export { getResearchFeedPage, getWorkspaceToday } from './workspace/read-model';
+export type {
+  GetResearchFeedPageOptions,
+  GetWorkspaceTodayOptions,
+  WorkspaceRowQueryExecutor,
+} from './workspace/read-model';
+export {
+  createDatabaseClient,
+  createReadOnlyDatabaseClient,
+  parseServerEnv,
+  requireUserScope,
+} from './server';
 export type {
   DashboardReadModel,
   DashboardRowQueryExecutor,
@@ -65,10 +102,18 @@ export type {
 export type {
   GetStockDetailOptions,
   GetStockListOptions,
+  StockDatabaseRow,
   StockReadModel,
   StockRowQueryExecutor,
 } from './stocks';
-export type { DatabaseClient, ReadOnlyDatabaseClient, ServerEnv } from './server';
+export type {
+  DatabaseClient,
+  ReadOnlyDatabaseClient,
+  ReadSnapshotExecutor,
+  ReadSnapshotOptions,
+  ServerEnv,
+  UserScope,
+} from './server';
 
 export function getHealthStatus(now = new Date()): HealthStatus {
   return healthStatusSchema.parse({

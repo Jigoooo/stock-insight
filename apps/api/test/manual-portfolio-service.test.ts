@@ -95,4 +95,18 @@ describe('manual portfolio mutation response', () => {
     assert.deepEqual(response.data.watchlist, []);
     assert.deepEqual(response.data.positions, []);
   });
+
+  it('rethrows write failures for an enclosing atomic transaction', async () => {
+    await assert.rejects(
+      getManualPortfolioBootstrapAfterMutation({
+        mutation() {
+          throw new Error('write failed');
+        },
+        now,
+        readModel: createReadModel(),
+        failureMode: 'throw',
+      }),
+      /write failed/,
+    );
+  });
 });

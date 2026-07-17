@@ -143,12 +143,7 @@ function buildScenario(k) {
       '/watchlist/%20',
       { idemKey: k.k5, expect: { legacy: 307, nest: 400 } },
     ],
-    [
-      'position-close-missing-entity',
-      'DELETE',
-      '/positions/US%3AZZZZTEST',
-      { idemKey: k.k6 },
-    ],
+    ['position-close-missing-entity', 'DELETE', '/positions/US%3AZZZZTEST', { idemKey: k.k6 }],
   ];
 }
 
@@ -201,9 +196,7 @@ async function runScenario(base, prefix, withCookie, origin) {
 
 let exitCode = 0;
 // Per-case status expectations for documented divergences (see buildScenario).
-const scenarioExpectations = new Map([
-  ['watchlist-remove-blank-key', { legacy: 307, nest: 400 }],
-]);
+const scenarioExpectations = new Map([['watchlist-remove-blank-key', { legacy: 307, nest: 400 }]]);
 try {
   const legacyRun = await runScenario(legacyBase, '/api', true, legacyBase);
   const nestRun = await runScenario(nestBase, '/v1', false, undefined);

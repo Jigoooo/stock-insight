@@ -21,10 +21,35 @@ import {
   type StockListQuery,
   type StockListResponse,
 } from '@stock-insight/contracts';
+import {
+  decisionHistoryPageSchema,
+  entityRelationGraphSchema,
+  myResearchOverviewSchema,
+  radarSignalPageSchema,
+  researchFeedPageSchema,
+  researchRecordDetailSchema,
+  systemStatusSchema,
+  themeResearchListSchema,
+  workspaceTodaySchema,
+  type DecisionHistoryPage,
+  type EntityRelationGraph,
+  type MyResearchOverview,
+  type RadarSignalPage,
+  type ResearchFeedLaneId,
+  type ResearchFeedPage,
+  type ResearchRecordDetail,
+  type SystemStatus,
+  type ThemeResearchList,
+  type WorkspaceToday,
+} from '@stock-insight/contracts/research-workspace';
 
 export type ApiClientOptions = {
   baseUrl?: string;
   fetcher?: typeof fetch;
+};
+
+export type MutationRequestOptions = {
+  idempotencyKey?: string;
 };
 
 export function createApiClient(options: ApiClientOptions = {}) {
@@ -42,6 +67,17 @@ export function createApiClient(options: ApiClientOptions = {}) {
     }
 
     return `${url.pathname}${url.search}`;
+  }
+
+  function mutationHeaders(
+    options: MutationRequestOptions,
+    includeJsonContentType = false,
+  ): Record<string, string> {
+    const idempotencyKey = options.idempotencyKey ?? globalThis.crypto.randomUUID();
+    return {
+      ...(includeJsonContentType ? { 'content-type': 'application/json' } : {}),
+      'idempotency-key': idempotencyKey,
+    };
   }
 
   return {
@@ -69,10 +105,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
       return meBootstrapResponseSchema.parse(await response.json());
     },
-    async upsertWatchlist(input: ManualWatchlistInput): Promise<MeBootstrapResponse> {
+    async upsertWatchlist(
+      input: ManualWatchlistInput,
+      options: MutationRequestOptions = {},
+    ): Promise<MeBootstrapResponse> {
       const response = await fetcher(buildUrl('/api/watchlist'), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: mutationHeaders(options, true),
         body: JSON.stringify(input),
       });
       if (!response.ok) {
@@ -81,9 +120,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
       return meBootstrapResponseSchema.parse(await response.json());
     },
-    async removeWatchlist(entityKey: string): Promise<MeBootstrapResponse> {
+    async removeWatchlist(
+      entityKey: string,
+      options: MutationRequestOptions = {},
+    ): Promise<MeBootstrapResponse> {
       const response = await fetcher(buildUrl(`/api/watchlist/${encodeURIComponent(entityKey)}`), {
         method: 'DELETE',
+        headers: mutationHeaders(options),
       });
       if (!response.ok) {
         throw new Error(`Watchlist remove failed with ${response.status}`);
@@ -91,10 +134,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
       return meBootstrapResponseSchema.parse(await response.json());
     },
-    async upsertPosition(input: ManualPositionInput): Promise<MeBootstrapResponse> {
+    async upsertPosition(
+      input: ManualPositionInput,
+      options: MutationRequestOptions = {},
+    ): Promise<MeBootstrapResponse> {
       const response = await fetcher(buildUrl('/api/positions'), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: mutationHeaders(options, true),
         body: JSON.stringify(input),
       });
       if (!response.ok) {
@@ -103,9 +149,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
       return meBootstrapResponseSchema.parse(await response.json());
     },
-    async closePosition(entityKey: string): Promise<MeBootstrapResponse> {
+    async closePosition(
+      entityKey: string,
+      options: MutationRequestOptions = {},
+    ): Promise<MeBootstrapResponse> {
       const response = await fetcher(buildUrl(`/api/positions/${encodeURIComponent(entityKey)}`), {
         method: 'DELETE',
+        headers: mutationHeaders(options),
       });
       if (!response.ok) {
         throw new Error(`Position close failed with ${response.status}`);
@@ -168,6 +218,87 @@ export function createApiClient(options: ApiClientOptions = {}) {
       }
 
       return stockDetailResponseSchema.parse(await response.json());
+    },
+    async researchWorkspace(): Promise<WorkspaceToday> {
+      const response = await fetcher(buildUrl('/api/workspace'));
+      if (!response.ok) throw new Error(`Research workspace failed with ${response.status}`);
+      return workspaceTodaySchema.parse(await response.json());
+    },
+    async researchFeed(
+      options: {
+        lane?: ResearchFeedLaneId;
+        cursor?: string;
+        limit?: number;
+      } = {},
+    ): Promise<ResearchFeedPage> {
+      const response = await fetcher(
+        buildUrl('/api/feed', {
+          lane: options.lane,
+          cursor: options.cursor,
+          limit: options.limit === undefined ? undefined : String(options.limit),
+        }),
+      );
+      if (!response.ok) throw new Error(`Research feed failed with ${response.status}`);
+      return researchFeedPageSchema.parse(await response.json());
+    },
+    async researchRecord(recordKey: string): Promise<ResearchRecordDetail> {
+      const response = await fetcher(buildUrl(`/api/records/${encodeURIComponent(recordKey)}`));
+      if (!response.ok) throw new Error(`Research record failed with ${response.status}`);
+      return researchRecordDetailSchema.parse(await response.json());
+    },
+    async researchStatus(): Promise<SystemStatus> {
+      const response = await fetcher(buildUrl('/api/status'));
+      if (!response.ok) throw new Error(`Research status failed with ${response.status}`);
+      return systemStatusSchema.parse(await response.json());
+    },
+    async decisionHistory(
+      options: {
+        cursor?: string;
+        limit?: number;
+      } = {},
+    ): Promise<DecisionHistoryPage> {
+      const response = await fetcher(
+        buildUrl('/api/history', {
+          cursor: options.cursor,
+          limit: options.limit === undefined ? undefined : String(options.limit),
+        }),
+      );
+      if (!response.ok) throw new Error(`Decision history failed with ${response.status}`);
+      return decisionHistoryPageSchema.parse(await response.json());
+    },
+    async radarSignals(
+      options: {
+        cursor?: string;
+        limit?: number;
+      } = {},
+    ): Promise<RadarSignalPage> {
+      const response = await fetcher(
+        buildUrl('/api/radar', {
+          cursor: options.cursor,
+          limit: options.limit === undefined ? undefined : String(options.limit),
+        }),
+      );
+      if (!response.ok) throw new Error(`Radar signals failed with ${response.status}`);
+      return radarSignalPageSchema.parse(await response.json());
+    },
+    async themeResearch(): Promise<ThemeResearchList> {
+      const response = await fetcher(buildUrl('/api/themes'));
+      if (!response.ok) throw new Error(`Theme research failed with ${response.status}`);
+      return themeResearchListSchema.parse(await response.json());
+    },
+    async myResearch(): Promise<MyResearchOverview> {
+      const response = await fetcher(buildUrl('/api/my-research'));
+      if (!response.ok) throw new Error(`My Research failed with ${response.status}`);
+      return myResearchOverviewSchema.parse(await response.json());
+    },
+    async entityRelations(entityKey: string, depth = 1): Promise<EntityRelationGraph> {
+      const response = await fetcher(
+        buildUrl(`/api/entities/${encodeURIComponent(entityKey)}/relations`, {
+          depth: String(depth),
+        }),
+      );
+      if (!response.ok) throw new Error(`Entity relations failed with ${response.status}`);
+      return entityRelationGraphSchema.parse(await response.json());
     },
   };
 }
