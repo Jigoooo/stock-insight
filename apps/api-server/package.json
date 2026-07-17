@@ -1,0 +1,35 @@
+{
+  "name": "@stock-insight/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run build && node --test test/*.test.ts",
+    "start": "node dist/main.js",
+    "dev": "tsup --watch --onSuccess \"node dist/main.js\"",
+    "lint": "oxlint src test",
+    "format": "oxfmt src test package.json tsconfig.json tsup.config.ts",
+    "format:check": "oxfmt --check src test package.json tsconfig.json tsup.config.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-fastify": "^11.1.6",
+    "@stock-insight/contracts": "workspace:*",
+    "@stock-insight/db-schema": "workspace:*",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.2",
+    "oxfmt": "^0.54.0",
+    "oxlint": "^1.69.0",
+    "tsup": "^8.5.0",
+    "typescript": "6.0.3"
+  }
+}
