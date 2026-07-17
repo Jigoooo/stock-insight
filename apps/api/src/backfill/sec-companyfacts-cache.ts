@@ -40,6 +40,8 @@ export type SecMomentumWriteExecutor = {
   execute: (sql: string, params?: readonly unknown[]) => Promise<{ rowCount?: number | null }>;
 };
 
+const DEFAULT_MAX_CACHE_AGE_MS = 48 * 60 * 60 * 1000;
+
 const UPSERT_SEC_MOMENTUM_SQL = `
 INSERT INTO public.company_financials (
   entity_key, fiscal_year, fiscal_period, metric_group, currency,
@@ -52,6 +54,8 @@ ON CONFLICT (entity_key, fiscal_year, fiscal_period, metric_group) DO UPDATE SET
   availability = EXCLUDED.availability,
   reported_at = EXCLUDED.reported_at,
   updated_at = now()
+WHERE public.company_financials.reported_at IS NULL
+   OR public.company_financials.reported_at <= EXCLUDED.reported_at
 `;
 
 const INSERT_SEC_CACHE_RUN_SQL = `
@@ -71,6 +75,24 @@ function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
+export function assertSecMomentumSnapshotFresh(
+  snapshot: SecMomentumSnapshot,
+  now = new Date(),
+  maxAgeMs = DEFAULT_MAX_CACHE_AGE_MS,
+): string {
+  const raw = text(snapshot.generated_at_kst);
+  const generatedAt = raw ? new Date(raw) : undefined;
+  if (!generatedAt || Number.isNaN(generatedAt.getTime())) {
+    throw new Error('SEC cache generated_at_kst is missing or invalid');
+  }
+  const ageMs = now.getTime() - generatedAt.getTime();
+  if (ageMs < -5 * 60 * 1000) throw new Error('SEC cache generated_at_kst is in the future');
+  if (ageMs > maxAgeMs) {
+    throw new Error(`SEC cache snapshot is stale (${Math.round(ageMs / 3_600_000)}h)`);
+  }
+  return generatedAt.toISOString();
+}
+
 function metric(key: string, label: string, value: unknown, unit: string): StockCompanyMetric[] {
   const parsed = numberValue(value);
   return parsed === undefined ? [] : [{ key, label, value: parsed, unit }];
@@ -78,7 +100,12 @@ function metric(key: string, label: string, value: unknown, unit: string): Stock
 
 export function buildSecMomentumSeeds(snapshot: SecMomentumSnapshot): SecMomentumSeed[] {
   if (snapshot.source !== 'sec_companyfacts' || !Array.isArray(snapshot.companies)) return [];
-  const sourceGeneratedAt = text(snapshot.generated_at_kst);
+  const generatedAtRaw = text(snapshot.generated_at_kst);
+  const generatedAtDate = generatedAtRaw ? new Date(generatedAtRaw) : undefined;
+  const sourceGeneratedAt =
+    generatedAtDate && !Number.isNaN(generatedAtDate.getTime())
+      ? generatedAtDate.toISOString()
+      : undefined;
   const seeds: SecMomentumSeed[] = [];
   const seen = new Set<string>();
 
@@ -119,7 +146,7 @@ export function buildSecMomentumSeeds(snapshot: SecMomentumSnapshot): SecMomentu
         },
       ],
       availability: 'available',
-      ...(latestPeriod ? { reportedAt: `${latestPeriod}T00:00:00.000Z` } : {}),
+      ...(sourceGeneratedAt ? { reportedAt: sourceGeneratedAt } : {}),
       ...(sourceGeneratedAt ? { sourceGeneratedAt } : {}),
     });
     seen.add(ticker);
@@ -133,8 +160,10 @@ export async function applySecMomentumSeeds(
   executor: SecMomentumWriteExecutor,
   options: { runId: string; jobName: string; startedAt: Date; finishedAt: Date; liveError: string },
 ): Promise<{ rowsWritten: number; rowsSkipped: number }> {
+  assertSecMomentumSnapshotFresh(snapshot, options.finishedAt);
+  let rowsWritten = 0;
   for (const seed of seeds) {
-    await executor.execute(UPSERT_SEC_MOMENTUM_SQL, [
+    const result = await executor.execute(UPSERT_SEC_MOMENTUM_SQL, [
       seed.entityKey,
       seed.fiscalYear,
       seed.fiscalPeriod,
@@ -149,25 +178,26 @@ export async function applySecMomentumSeeds(
       seed.availability,
       seed.reportedAt ?? null,
     ]);
+    if ((result.rowCount ?? 0) > 0) rowsWritten += 1;
   }
   const sourceRows = Array.isArray(snapshot.companies) ? snapshot.companies.length : 0;
-  const rowsSkipped = Math.max(0, sourceRows - seeds.length);
+  const rowsSkipped = Math.max(0, sourceRows - rowsWritten);
   await executor.execute(INSERT_SEC_CACHE_RUN_SQL, [
     options.runId,
     options.jobName,
     options.startedAt.toISOString(),
     options.finishedAt.toISOString(),
     sourceRows,
-    seeds.length,
+    rowsWritten,
     rowsSkipped,
     JSON.stringify({
       fallbackReason: options.liveError,
       snapshotGeneratedAt: text(snapshot.generated_at_kst) ?? null,
       snapshotUniverse: numberValue(snapshot.n_universe) ?? null,
       snapshotCollected: numberValue(snapshot.n_collected) ?? null,
-      rowsWritten: seeds.length,
+      rowsWritten,
       rowsSkipped,
     }),
   ]);
-  return { rowsWritten: seeds.length, rowsSkipped };
+  return { rowsWritten, rowsSkipped };
 }

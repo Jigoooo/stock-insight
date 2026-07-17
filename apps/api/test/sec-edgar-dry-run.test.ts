@@ -5,6 +5,7 @@ import {
   applySecEdgarBackfillPlan,
   buildSecEdgarDryRunPlan,
   cik10,
+  collectSecEdgarDryRunPlan,
   SEC_APP_SURFACE_US_TICKER_ROWS_SQL,
   secCompanyFactsUrl,
   summarizeSecEdgarDryRunAudit,
@@ -125,6 +126,18 @@ describe('SEC EDGAR dry-run planner', () => {
     );
   });
 
+  it('fails closed when every matched companyfacts request fails', async () => {
+    await assert.rejects(
+      collectSecEdgarDryRunPlan(rows, {
+        async fetchJson<T>(url: string): Promise<T> {
+          if (url.endsWith('company_tickers.json')) return tickerIndex as T;
+          throw new Error('SEC request failed: HTTP 403');
+        },
+      }),
+      /companyfacts unavailable for all 2 matched CIKs.*HTTP 403/i,
+    );
+  });
+
   it('builds source-backed annual metric groups from FY 10-K USD facts only', () => {
     const plan = buildSecEdgarDryRunPlan(rows, tickerIndex, {
       '0001045810': nvdaFacts,
@@ -241,5 +254,27 @@ describe('SEC EDGAR dry-run planner', () => {
     for (const call of calls) {
       assert.doesNotMatch(call.sql, /\b(drop|truncate|delete|alter\s+table\s+\S+\s+rename)\b/i);
     }
+  });
+
+  it('does not downgrade profiles when companyfacts are missing', async () => {
+    const plan = buildSecEdgarDryRunPlan(rows.slice(0, 1), tickerIndex, {});
+    const calls: Array<{ sql: string; params: readonly unknown[] }> = [];
+    await applySecEdgarBackfillPlan(
+      plan,
+      {
+        async execute(sql, params = []) {
+          calls.push({ sql, params });
+          return { rowCount: 1 };
+        },
+      },
+      {
+        runId: 'sec-missing-test',
+        jobName: 'sec',
+        startedAt: new Date('2026-07-18T00:00:00Z'),
+        finishedAt: new Date('2026-07-18T00:00:01Z'),
+      },
+    );
+    assert.equal(calls.length, 1);
+    assert.match(calls[0]?.sql ?? '', /insert into public\.migration_runs/i);
   });
 });

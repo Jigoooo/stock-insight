@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   applySecMomentumSeeds,
+  assertSecMomentumSnapshotFresh,
   buildSecMomentumSeeds,
 } from '../src/backfill/sec-companyfacts-cache.ts';
 
@@ -37,6 +38,25 @@ test('builds a provenance-preserving SEC momentum metric group from cache', () =
   assert.equal(seeds[0]?.fiscalYear, 2026);
   assert.equal(seeds[0]?.metrics.length, 6);
   assert.match(seeds[0]?.sources[0]?.url ?? '', /CIK0000320193\.json$/);
+  assert.equal(seeds[0]?.reportedAt, '2026-07-17T12:31:57.000Z');
+});
+
+test('rejects stale or malformed SEC cache snapshots', () => {
+  assert.doesNotThrow(() =>
+    assertSecMomentumSnapshotFresh(snapshot, new Date('2026-07-18T00:00:00Z')),
+  );
+  assert.throws(
+    () =>
+      assertSecMomentumSnapshotFresh(
+        { ...snapshot, generated_at_kst: '2026-07-14T00:00:00+09:00' },
+        new Date('2026-07-18T00:00:00Z'),
+      ),
+    /stale/i,
+  );
+  assert.throws(
+    () => assertSecMomentumSnapshotFresh({ ...snapshot, generated_at_kst: 'invalid' }),
+    /generated_at_kst/i,
+  );
 });
 
 test('rejects snapshots without explicit SEC companyfacts provenance', () => {
@@ -66,6 +86,10 @@ test('upserts cache metrics and records the live 403 fallback in migration audit
   assert.deepEqual(result, { rowsWritten: 1, rowsSkipped: 0 });
   assert.equal(calls.length, 2);
   assert.match(calls[0]?.sql ?? '', /company_financials/i);
+  assert.match(
+    calls[0]?.sql ?? '',
+    /WHERE public\.company_financials\.reported_at IS NULL[\s\S]+<= EXCLUDED\.reported_at/i,
+  );
   assert.equal(calls[0]?.params[3], 'sec_companyfacts_momentum');
   assert.match(String(calls[1]?.params[7] ?? ''), /HTTP 403/);
 });

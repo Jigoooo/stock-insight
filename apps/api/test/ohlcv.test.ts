@@ -24,8 +24,10 @@ test('accepts a finite OHLCV bar with market invariants', () => {
   assert.deepEqual(parseOhlcvBar(valid), valid);
 });
 
-test('rejects impossible price ranges, negative volume, and non-stock rows', () => {
+test('rejects impossible or non-positive prices, negative volume, and non-stock rows', () => {
   assert.equal(parseOhlcvBar({ ...valid, high: 79_000 }), undefined);
+  assert.equal(parseOhlcvBar({ ...valid, open: -1, high: -1, low: -1, close: -1 }), undefined);
+  assert.equal(parseOhlcvBar({ ...valid, open: 0, low: 0 }), undefined);
   assert.equal(parseOhlcvBar({ ...valid, volumeBase: -1 }), undefined);
   assert.equal(parseOhlcvBar({ ...valid, domain: 'crypto' }), undefined);
 });

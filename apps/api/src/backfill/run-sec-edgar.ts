@@ -4,6 +4,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import {
   applySecMomentumSeeds,
+  assertSecMomentumSnapshotFresh,
   buildSecMomentumSeeds,
   type SecMomentumSnapshot,
 } from './sec-companyfacts-cache.ts';
@@ -119,6 +120,7 @@ async function run(): Promise<void> {
         await readFile(SEC_TICKER_CACHE, 'utf8'),
       ) as SecCompanyTickerIndex;
       cacheSnapshot = JSON.parse(await readFile(SEC_FACTS_CACHE, 'utf8')) as SecMomentumSnapshot;
+      assertSecMomentumSnapshotFresh(cacheSnapshot);
       plan = buildSecEdgarDryRunPlan(rows, tickerIndex, {});
       const canonicalEntityKeys = new Set(
         rows.flatMap((row) => (row.entity_key?.trim() ? [row.entity_key.trim()] : [])),

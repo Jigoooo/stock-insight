@@ -5,48 +5,11 @@ import { join } from 'node:path';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import { ASSERT_NEWS_REVISION_LEDGER_SQL, UPSERT_SOURCE_DOCUMENT_SQL } from './news-persistence.ts';
 import { buildNewsIngestAudit, type RssNewsBundle, type SourceDocumentSeed } from './news-rss.ts';
 
 const JOB_NAME = 'stock-insight-rss-news-ingest';
 const DEFAULT_RESEARCH_COMMON = join(homedir(), '.hermes/workspace/research-common');
-
-const UPSERT_SOURCE_DOCUMENT_SQL = `
-INSERT INTO public.source_documents (
-  source_key, source_system, source_type, source_name, title, url, source_ref,
-  published_at, collected_at, entity_key, entities, summary, raw_json,
-  content_hash, provider_key, valid_at, known_at, revision_no,
-  policy_decision, revision_fingerprint
-) VALUES (
-  $1, $2, $3, $4, $5, $6, $6,
-  $7::timestamptz, $8::timestamptz, NULL, '{}'::text[], NULL, $9::jsonb,
-  $10, $11, $12::timestamptz, $13::timestamptz, 1,
-  $14, $15
-)
-ON CONFLICT (source_key) DO UPDATE SET
-  source_name = EXCLUDED.source_name,
-  title = EXCLUDED.title,
-  url = EXCLUDED.url,
-  source_ref = EXCLUDED.source_ref,
-  published_at = EXCLUDED.published_at,
-  collected_at = EXCLUDED.collected_at,
-  raw_json = EXCLUDED.raw_json,
-  content_hash = EXCLUDED.content_hash,
-  provider_key = EXCLUDED.provider_key,
-  valid_at = EXCLUDED.valid_at,
-  known_at = CASE
-    WHEN public.source_documents.revision_fingerprint <> EXCLUDED.revision_fingerprint
-      THEN EXCLUDED.known_at
-    ELSE public.source_documents.known_at
-  END,
-  revision_no = CASE
-    WHEN public.source_documents.revision_fingerprint <> EXCLUDED.revision_fingerprint
-      THEN public.source_documents.revision_no + 1
-    ELSE public.source_documents.revision_no
-  END,
-  policy_decision = EXCLUDED.policy_decision,
-  revision_fingerprint = EXCLUDED.revision_fingerprint
-RETURNING (xmax = 0) AS inserted
-`;
 
 // Conservative linkage only: exact normalized title within ±7 days. If more
 // than one candidate document exists, skip rather than guess.
@@ -132,6 +95,7 @@ type PgModule = {
 };
 
 type UpsertRow = QueryResultRow & { inserted: boolean };
+type RevisionLedgerRow = QueryResultRow & { ready: boolean };
 
 function databaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
@@ -176,7 +140,10 @@ function collectBundle(forceRefresh: boolean): Promise<RssNewsBundle> {
   });
 }
 
-async function upsertSeed(client: PoolClient, seed: SourceDocumentSeed): Promise<boolean> {
+async function upsertSeed(
+  client: PoolClient,
+  seed: SourceDocumentSeed,
+): Promise<'inserted' | 'updated' | 'unchanged'> {
   const result = await client.query<UpsertRow>(UPSERT_SOURCE_DOCUMENT_SQL, [
     seed.sourceKey,
     seed.sourceSystem,
@@ -194,7 +161,9 @@ async function upsertSeed(client: PoolClient, seed: SourceDocumentSeed): Promise
     seed.policyDecision,
     seed.revisionFingerprint,
   ]);
-  return result.rows[0]?.inserted === true;
+  const row = result.rows[0];
+  if (!row) return 'unchanged';
+  return row.inserted === true ? 'inserted' : 'updated';
 }
 
 async function run(): Promise<void> {
@@ -225,15 +194,22 @@ async function run(): Promise<void> {
   const client = await pool.connect();
   let inserted = 0;
   let updated = 0;
+  let unchanged = 0;
   let signalsLinked = 0;
   let documentsEnriched = 0;
   try {
     await client.query('BEGIN');
     await client.query("SELECT set_config('statement_timeout', '120s', true)");
     await client.query("SELECT set_config('lock_timeout', '5s', true)");
+    const revisionLedger = await client.query<RevisionLedgerRow>(ASSERT_NEWS_REVISION_LEDGER_SQL);
+    if (revisionLedger.rows[0]?.ready !== true) {
+      throw new Error('RSS apply requires source document revision ledger table and triggers');
+    }
     for (const seed of audit.seeds) {
-      if (await upsertSeed(client, seed)) inserted += 1;
-      else updated += 1;
+      const status = await upsertSeed(client, seed);
+      if (status === 'inserted') inserted += 1;
+      else if (status === 'updated') updated += 1;
+      else unchanged += 1;
     }
     signalsLinked = (await client.query(LINK_SIGNALS_SQL)).rowCount ?? 0;
     documentsEnriched = (await client.query(ENRICH_DOCUMENT_ENTITIES_SQL)).rowCount ?? 0;
@@ -242,6 +218,7 @@ async function run(): Promise<void> {
       eligible: audit.eligible,
       inserted,
       updated,
+      unchanged,
       skipped: audit.skipped,
       duplicateUrls: audit.duplicateUrls,
       feedErrors: audit.feedErrors,
@@ -255,7 +232,7 @@ async function run(): Promise<void> {
       new Date().toISOString(),
       audit.collected,
       inserted + updated,
-      audit.skipped + audit.duplicateUrls,
+      audit.skipped + audit.duplicateUrls + unchanged,
       JSON.stringify(summary),
     ]);
     await client.query('COMMIT');

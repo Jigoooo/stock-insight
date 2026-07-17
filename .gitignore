@@ -17,6 +17,10 @@ dist-ssr/
 playwright-report/
 test-results/
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Local env
 .env
 .env.*

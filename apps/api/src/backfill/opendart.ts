@@ -68,6 +68,9 @@ export type DartFinancialSeed = {
   metrics: StockCompanyMetric[];
   sources: SourceLink[];
   availability: DataAvailability;
+  statementScope: 'CFS' | 'OFS';
+  filingReceiptNo?: string;
+  reportedAt?: string;
 };
 
 export type DartTickerAudit = {
@@ -92,6 +95,38 @@ export type DartWriteExecutor = {
   execute: (sql: string, params?: readonly unknown[]) => Promise<{ rowCount?: number | null }>;
 };
 
+export function assertDartApiSuccess(
+  payload: { status?: string; message?: string },
+  endpoint: string,
+): void {
+  if (payload.status === '000') return;
+  throw new Error(
+    `OpenDART status ${payload.status ?? '(missing)'} for ${endpoint}: ${payload.message ?? 'unknown error'}`,
+  );
+}
+
+export function assertDartPlanUsable(plan: DartBackfillPlan): void {
+  if (plan.mappedRows > 0 && plan.profiles.length === 0 && plan.financials.length === 0) {
+    throw new Error(`OpenDART produced no usable data for ${plan.mappedRows} mapped rows`);
+  }
+}
+
+export function assertDartEndpointCoverage(coverage: {
+  mappedRows: number;
+  companySuccesses: number;
+  financialSuccesses: number;
+}): void {
+  if (coverage.mappedRows <= 0) return;
+  if (coverage.companySuccesses === 0) {
+    throw new Error(`OpenDART company endpoint failed for all ${coverage.mappedRows} mapped rows`);
+  }
+  if (coverage.financialSuccesses === 0) {
+    throw new Error(
+      `OpenDART financial endpoint failed for all ${coverage.mappedRows} mapped rows`,
+    );
+  }
+}
+
 export const DART_KR_ENTITY_ROWS_SQL = `
 SELECT entity_key, symbol, market, name
 FROM public.entities
@@ -100,15 +135,24 @@ WHERE upper(market) = 'KR'
 ORDER BY symbol
 `;
 
-const PROFILE_SOURCE: SourceLink = {
-  label: 'OpenDART 기업개황',
-  url: 'https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS001&apiId=2019002',
-};
+function profileSource(corpCode: string): SourceLink {
+  return {
+    label: 'OpenDART 기업개황',
+    url: `https://dart.fss.or.kr/dsae001/selectPopup.ax?selectKey=${encodeURIComponent(corpCode)}`,
+  };
+}
 
-const FINANCIAL_SOURCE: SourceLink = {
-  label: 'OpenDART 단일회사 주요계정',
-  url: 'https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019016',
-};
+function financialSource(receiptNo?: string): SourceLink {
+  return receiptNo
+    ? {
+        label: `OpenDART 사업보고서 ${receiptNo}`,
+        url: `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${encodeURIComponent(receiptNo)}`,
+      }
+    : {
+        label: 'OpenDART 단일회사 주요계정',
+        url: 'https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019016',
+      };
+}
 
 const UPSERT_DART_PROFILE_SQL = `
 INSERT INTO public.company_profiles (
@@ -131,12 +175,13 @@ const UPSERT_DART_FINANCIAL_SQL = `
 INSERT INTO public.company_financials (
   entity_key, fiscal_year, fiscal_period, metric_group, currency,
   metrics_json, source_refs_json, availability, reported_at
-) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, NULL)
+) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9::timestamptz)
 ON CONFLICT (entity_key, fiscal_year, fiscal_period, metric_group) DO UPDATE SET
   currency = EXCLUDED.currency,
   metrics_json = EXCLUDED.metrics_json,
   source_refs_json = EXCLUDED.source_refs_json,
   availability = EXCLUDED.availability,
+  reported_at = EXCLUDED.reported_at,
   updated_at = now()
 `;
 
@@ -160,7 +205,11 @@ export function parseDartAmount(value: string | null | undefined): number | unde
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function preferredAccounts(rows: readonly DartFinancialRow[]): Map<string, DartFinancialRow> {
+function preferredAccounts(rows: readonly DartFinancialRow[]): {
+  scope: 'CFS' | 'OFS';
+  selected: Map<string, DartFinancialRow>;
+  receiptNo?: string;
+} {
   const aliases = new Map([
     ['매출액', 'revenue'],
     ['영업수익', 'revenue'],
@@ -173,14 +222,31 @@ function preferredAccounts(rows: readonly DartFinancialRow[]): Map<string, DartF
     ['부채총계', 'liabilities'],
     ['자본총계', 'equity'],
   ]);
+  const eligible = rows.filter(
+    (row) => aliases.has(text(row.account_nm)) && parseDartAmount(row.thstrm_amount) !== undefined,
+  );
+  const receiptNo = [...new Set(eligible.map((row) => text(row.rcept_no)).filter(Boolean))]
+    .sort()
+    .at(-1);
+  const filingRows = receiptNo
+    ? eligible.filter((row) => text(row.rcept_no) === receiptNo)
+    : eligible;
+  const scope: 'CFS' | 'OFS' = filingRows.some((row) => row.fs_div === 'CFS') ? 'CFS' : 'OFS';
   const selected = new Map<string, DartFinancialRow>();
-  for (const row of rows) {
+  for (const row of filingRows) {
+    if (row.fs_div !== scope) continue;
     const key = aliases.get(text(row.account_nm));
-    if (!key || parseDartAmount(row.thstrm_amount) === undefined) continue;
-    const current = selected.get(key);
-    if (!current || (row.fs_div === 'CFS' && current.fs_div !== 'CFS')) selected.set(key, row);
+    if (key && !selected.has(key)) selected.set(key, row);
   }
-  return selected;
+  return { scope, selected, ...(receiptNo ? { receiptNo } : {}) };
+}
+
+function receiptReportedAt(receiptNo: string | undefined): string | undefined {
+  if (!receiptNo || !/^\d{8}/.test(receiptNo)) return undefined;
+  const date = new Date(
+    `${receiptNo.slice(0, 4)}-${receiptNo.slice(4, 6)}-${receiptNo.slice(6, 8)}T00:00:00.000Z`,
+  );
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
 function metric(
@@ -196,9 +262,28 @@ export function buildDartFinancialSeed(
   entityKey: string,
   fiscalYear: number,
   response: DartFinancialResponse,
+  expected?: { corpCode: string; symbol: string },
 ): DartFinancialSeed | undefined {
   if (response.status !== '000' || !Array.isArray(response.list)) return undefined;
-  const accounts = preferredAccounts(response.list);
+  if (
+    expected &&
+    response.list.some((row) => {
+      const corpCode = text(row.corp_code);
+      const stockCode = text(row.stock_code);
+      const businessYear = text(row.bsns_year);
+      const reportCode = text(row.reprt_code);
+      return (
+        (corpCode && corpCode !== expected.corpCode) ||
+        (stockCode && stockCode !== expected.symbol) ||
+        (businessYear && businessYear !== String(fiscalYear)) ||
+        (reportCode && reportCode !== '11011')
+      );
+    })
+  ) {
+    return undefined;
+  }
+  const preferred = preferredAccounts(response.list);
+  const accounts = preferred.selected;
   const value = (key: string) => parseDartAmount(accounts.get(key)?.thstrm_amount);
   const revenue = value('revenue');
   const operatingIncome = value('operatingIncome');
@@ -234,6 +319,7 @@ export function buildDartFinancialSeed(
     }
   }
   if (metrics.length === 0) return undefined;
+  const reportedAt = receiptReportedAt(preferred.receiptNo);
   return {
     entityKey,
     fiscalYear,
@@ -241,8 +327,11 @@ export function buildDartFinancialSeed(
     metricGroup: 'dart_annual_facts',
     currency: 'KRW',
     metrics,
-    sources: [FINANCIAL_SOURCE],
+    sources: [financialSource(preferred.receiptNo)],
     availability: 'available',
+    statementScope: preferred.scope,
+    ...(preferred.receiptNo ? { filingReceiptNo: preferred.receiptNo } : {}),
+    ...(reportedAt ? { reportedAt } : {}),
   };
 }
 
@@ -255,7 +344,16 @@ export function buildDartProfileSeed(
   const entityKey = text(row.entity_key);
   const symbol = text(row.symbol);
   const name = text(response.corp_name) || text(response.stock_name) || text(row.name);
-  if (response.status !== '000' || !entityKey || !symbol || !name) return undefined;
+  const responseSymbol = text(response.stock_code);
+  if (
+    response.status !== '000' ||
+    !entityKey ||
+    !symbol ||
+    !name ||
+    (responseSymbol && responseSymbol !== symbol)
+  ) {
+    return undefined;
+  }
   const details = [
     text(response.ceo_nm) ? `대표 ${text(response.ceo_nm)}` : '',
     text(response.induty_code) ? `업종코드 ${text(response.induty_code)}` : '',
@@ -279,7 +377,7 @@ export function buildDartProfileSeed(
       establishedDate: text(response.est_dt) || null,
       fiscalMonth: text(response.acc_mt) || null,
     },
-    sources: [PROFILE_SOURCE],
+    sources: [profileSource(corpCode)],
     availability: 'available',
     capturedAt,
   };
@@ -309,9 +407,15 @@ export async function applyDartBackfillPlan(
       financial.fiscalPeriod,
       financial.metricGroup,
       financial.currency,
-      JSON.stringify({ metrics: financial.metrics, sourceSystem: 'opendart-fnlttSinglAcnt' }),
+      JSON.stringify({
+        metrics: financial.metrics,
+        sourceSystem: 'opendart-fnlttSinglAcnt',
+        statementScope: financial.statementScope,
+        filingReceiptNo: financial.filingReceiptNo ?? null,
+      }),
       JSON.stringify(financial.sources),
       financial.availability,
+      financial.reportedAt ?? null,
     ]);
   }
   const rowsWritten = plan.profiles.length + plan.financials.length;

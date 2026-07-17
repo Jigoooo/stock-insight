@@ -39,6 +39,7 @@ export function parseOhlcvBar(value: unknown): OhlcvBar | undefined {
     return undefined;
   }
   if (!Number.isFinite(Date.parse(row.ts))) return undefined;
+  if (Math.min(row.open, row.high, row.low, row.close) <= 0) return undefined;
   if (row.high < Math.max(row.open, row.low, row.close)) return undefined;
   if (row.low > Math.min(row.open, row.high, row.close)) return undefined;
   if (row.volumeBase !== null && (!finite(row.volumeBase) || row.volumeBase < 0)) return undefined;

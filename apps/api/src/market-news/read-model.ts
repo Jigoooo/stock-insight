@@ -97,6 +97,19 @@ WITH publication_feed AS (
       FROM public.record_sources record_source
       WHERE record_source.source_document_id = document.id
     )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.market_signals signal
+      JOIN publication_feed publication
+        ON lower(trim(publication.title)) IN (
+          lower(trim(document.title)),
+          lower(trim(coalesce(nullif(document.title_ko, ''), document.title)))
+        )
+       AND coalesce(publication.published_at, publication.effective_date)
+         BETWEEN coalesce(document.published_at, document.valid_at) - INTERVAL '7 days'
+             AND coalesce(document.published_at, document.valid_at) + INTERVAL '7 days'
+      WHERE signal.source_document_id = document.id
+    )
 ), stock_feed AS (
   SELECT * FROM publication_feed
   UNION ALL

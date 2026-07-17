@@ -595,7 +595,12 @@ export async function applySecEdgarBackfillPlan(
   options: SecEdgarApplyOptions,
 ): Promise<SecEdgarApplyResult> {
   const profiles = plan.tickerAudits.filter(
-    (ticker) => ticker.cik && ticker.secTitle && ticker.symbol && ticker.entityKey,
+    (ticker) =>
+      ticker.status === 'ready' &&
+      ticker.cik &&
+      ticker.secTitle &&
+      ticker.symbol &&
+      ticker.entityKey,
   );
   for (const profile of profiles) {
     await executor.execute(UPSERT_SEC_COMPANY_PROFILE_SQL, [
@@ -658,6 +663,8 @@ export async function collectSecEdgarDryRunPlan(
   const tickerIndex = await fetcher.fetchJson<SecCompanyTickerIndex>(SEC_COMPANY_TICKERS_URL);
   const tickerMap = buildSecCompanyTickerMap(tickerIndex);
   const factsByCik: Record<string, SecCompanyFacts | undefined> = {};
+  const failures: string[] = [];
+  let attempted = 0;
 
   for (const row of rows) {
     const symbol = normalizeTicker(row.symbol);
@@ -666,11 +673,19 @@ export async function collectSecEdgarDryRunPlan(
     if (!tickerEntry) continue;
     const cik = cik10(tickerEntry.cik_str);
     if (Object.hasOwn(factsByCik, cik)) continue;
+    attempted += 1;
     try {
       factsByCik[cik] = await fetcher.fetchJson<SecCompanyFacts>(secCompanyFactsUrl(cik));
-    } catch {
+    } catch (error) {
       factsByCik[cik] = undefined;
+      failures.push(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  if (attempted > 0 && failures.length === attempted) {
+    throw new Error(
+      `SEC companyfacts unavailable for all ${attempted} matched CIKs: ${failures.join('; ').slice(0, 500)}`,
+    );
   }
 
   return buildSecEdgarDryRunPlan(rows, tickerIndex, factsByCik);

@@ -1,5 +1,6 @@
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import { LOAD_PENDING_TRANSLATIONS_SQL, UPDATE_TRANSLATION_SQL } from './news-persistence.ts';
 import {
   identityTranslation,
   parseTranslationResponse,
@@ -15,7 +16,10 @@ type PendingRow = QueryResultRow & {
   id: string | number | bigint;
   title: string;
   summary: string | null;
+  revision_fingerprint: string;
 };
+
+type PendingTranslationInput = TranslationInput & { revisionFingerprint: string };
 
 type PgModule = {
   Pool: new (options: { connectionString: string; max?: number }) => {
@@ -136,21 +140,12 @@ async function myMemoryTranslate(input: TranslationInput): Promise<TranslationOu
   return { id: input.id, titleKo, ...(summaryKo ? { summaryKo } : {}) };
 }
 
-async function loadPending(client: PoolClient, limit: number): Promise<TranslationInput[]> {
-  const result = await client.query<PendingRow>(
-    `SELECT id, title, summary
-       FROM public.source_documents
-      WHERE source_system = 'rss_news'
-        AND source_type = 'news'
-        AND title_ko IS NULL
-        AND coalesce(title, '') <> ''
-      ORDER BY id
-      LIMIT $1`,
-    [limit],
-  );
+async function loadPending(client: PoolClient, limit: number): Promise<PendingTranslationInput[]> {
+  const result = await client.query<PendingRow>(LOAD_PENDING_TRANSLATIONS_SQL, [limit]);
   return result.rows.map((row) => ({
     id: String(row.id),
     title: row.title,
+    revisionFingerprint: row.revision_fingerprint,
     ...(row.summary?.trim() ? { summary: row.summary.trim() } : {}),
   }));
 }
@@ -190,6 +185,7 @@ async function run(): Promise<void> {
     const apiKey = required('GEMINI_API_KEY');
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
     const translated: TranslationOutput[] = [...identity];
+    const revisionById = new Map(pending.map((input) => [input.id, input.revisionFingerprint]));
     let gemini = 0;
     let fallback = 0;
 
@@ -209,23 +205,30 @@ async function run(): Promise<void> {
 
     await client.query('BEGIN');
     await client.query("SELECT set_config('lock_timeout', '5s', true)");
+    let applied = 0;
+    let staleSkipped = 0;
     for (const item of translated) {
-      await client.query(
-        `UPDATE public.source_documents
-            SET title_ko = $2,
-                summary_ko = $3,
-                translated_at = now()
-          WHERE id = $1::bigint
-            AND title_ko IS NULL`,
-        [item.id, item.titleKo, item.summaryKo ?? null],
-      );
+      const revisionFingerprint = revisionById.get(item.id);
+      if (!revisionFingerprint) {
+        staleSkipped += 1;
+        continue;
+      }
+      const result = await client.query(UPDATE_TRANSLATION_SQL, [
+        item.id,
+        item.titleKo,
+        item.summaryKo ?? null,
+        revisionFingerprint,
+      ]);
+      if (result.rowCount === 1) applied += 1;
+      else staleSkipped += 1;
     }
     await client.query('COMMIT');
     console.log(
       JSON.stringify({
         mode: 'apply',
         pending: pending.length,
-        translated: translated.length,
+        translated: applied,
+        staleSkipped,
         koreanIdentity: identity.length,
         gemini,
         fallback,

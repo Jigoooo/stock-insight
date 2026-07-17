@@ -7,6 +7,9 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import {
   applyDartBackfillPlan,
+  assertDartApiSuccess,
+  assertDartEndpointCoverage,
+  assertDartPlanUsable,
   buildDartFinancialSeed,
   buildDartProfileSeed,
   DART_KR_ENTITY_ROWS_SQL,
@@ -88,9 +91,7 @@ async function dartFetch<T>(
       const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
       if (!response.ok) throw new Error(`OpenDART HTTP ${response.status} for ${endpoint}`);
       const payload = (await response.json()) as { status?: string; message?: string };
-      if (payload.status === '020' || payload.status === '800') {
-        throw new Error(`OpenDART retryable status ${payload.status} for ${endpoint}`);
-      }
+      assertDartApiSuccess(payload, endpoint);
       return payload as T;
     } catch (error) {
       lastError = error;
@@ -111,6 +112,8 @@ async function buildPlan(
   const tickers: DartTickerAudit[] = [];
   const capturedAt = new Date().toISOString();
   let mappedRows = 0;
+  let companySuccesses = 0;
+  let financialSuccesses = 0;
 
   for (const row of rows) {
     const symbol = row.symbol?.trim().padStart(6, '0') ?? '';
@@ -143,6 +146,7 @@ async function buildPlan(
     let message: string | undefined;
     try {
       company = await dartFetch<DartCompanyResponse>('company.json', { corp_code: corpCode }, key);
+      companySuccesses += 1;
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
     }
@@ -152,13 +156,14 @@ async function buildPlan(
         { corp_code: corpCode, bsns_year: String(fiscalYear), reprt_code: '11011' },
         key,
       );
+      financialSuccesses += 1;
     } catch (error) {
       message = message ?? (error instanceof Error ? error.message : String(error));
     }
 
     const profile = company ? buildDartProfileSeed(row, corpCode, company, capturedAt) : undefined;
     const financialSeed = financial
-      ? buildDartFinancialSeed(entityKey, fiscalYear, financial)
+      ? buildDartFinancialSeed(entityKey, fiscalYear, financial, { corpCode, symbol })
       : undefined;
     if (profile) profiles.push(profile);
     if (financialSeed) financials.push(financialSeed);
@@ -172,6 +177,8 @@ async function buildPlan(
       ...(message ? { message: message.slice(0, 200) } : {}),
     });
   }
+
+  assertDartEndpointCoverage({ mappedRows, companySuccesses, financialSuccesses });
 
   return { sourceRows: rows.length, mappedRows, profiles, financials, tickers };
 }
@@ -194,6 +201,7 @@ async function run(): Promise<void> {
     );
     await client.query('COMMIT');
     const plan = await buildPlan(result.rows, corpMap, key, fiscalYear);
+    assertDartPlanUsable(plan);
     const summary = {
       sourceRows: plan.sourceRows,
       mappedRows: plan.mappedRows,

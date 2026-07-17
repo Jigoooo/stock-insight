@@ -20,9 +20,12 @@ import yfinance as yf
 def _candidates(row: dict) -> list[str]:
     market = str(row.get("market", "")).upper()
     symbol = str(row.get("symbol", "")).upper().strip()
-    if market == "KR":
-        return [f"{symbol}.KS", f"{symbol}.KQ"]
-    return [symbol]
+    exchange = str(row.get("exchange", "")).upper()
+    if market == "KR" and exchange == "KOSPI":
+        return [f"{symbol}.KS"]
+    if market == "KR" and exchange == "KOSDAQ":
+        return [f"{symbol}.KQ"]
+    return [symbol] if market == "US" and exchange == "US" else []
 
 
 def _frame_for(data: pd.DataFrame, ticker: str) -> pd.DataFrame:
@@ -48,7 +51,9 @@ def _number(value):
         return None
 
 
-def _records(frame: pd.DataFrame, *, market: str, symbol: str, yf_symbol: str) -> list[dict]:
+def _records(
+    frame: pd.DataFrame, *, market: str, symbol: str, exchange: str, yf_symbol: str
+) -> list[dict]:
     out: list[dict] = []
     if frame.empty:
         return out
@@ -61,13 +66,14 @@ def _records(frame: pd.DataFrame, *, market: str, symbol: str, yf_symbol: str) -
         if any(value is None for value in (open_, high, low, close)):
             continue
         assert open_ is not None and high is not None and low is not None and close is not None
+        if min(open_, high, low, close) <= 0:
+            continue
         if high < max(open_, low, close) or low > min(open_, high, close):
             continue
         if volume is not None and volume < 0:
             continue
         timestamp = pd.Timestamp(index)
         date = timestamp.date().isoformat()
-        exchange = "KOSPI" if yf_symbol.endswith(".KS") else "KOSDAQ" if yf_symbol.endswith(".KQ") else "US"
         out.append({
             "exchange": exchange,
             "symbol": symbol,
@@ -135,7 +141,13 @@ def main() -> int:
             row = lookup[ticker]
             market = str(row["market"]).upper()
             symbol = str(row["symbol"]).upper()
-            records = _records(_frame_for(data, ticker), market=market, symbol=symbol, yf_symbol=ticker)
+            records = _records(
+                _frame_for(data, ticker),
+                market=market,
+                symbol=symbol,
+                exchange=str(row["exchange"]).upper(),
+                yf_symbol=ticker,
+            )
             key = (market, symbol)
             if len(records) > len(best.get(key, [])):
                 best[key] = records

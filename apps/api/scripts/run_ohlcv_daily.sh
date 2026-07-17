@@ -28,7 +28,22 @@ SELECT CASE WHEN
     WHERE domain = 'stock'
       AND (high < greatest(open, low, close)
         OR low > least(open, high, close)
+        OR least(open, high, low, close) <= 0
         OR volume_base < 0)
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM market_ts.ohlcv bar
+    JOIN public.entities entity
+      ON upper(entity.market) = 'KR'
+     AND upper(entity.symbol) = upper(bar.symbol)
+    JOIN public.company_profiles profile ON profile.entity_key = entity.entity_key
+    WHERE bar.domain = 'stock'
+      AND profile.profile_json ->> 'corporationClass' IN ('Y', 'K')
+      AND bar.exchange IS DISTINCT FROM CASE
+        WHEN profile.profile_json ->> 'corporationClass' = 'Y' THEN 'KOSPI'
+        WHEN profile.profile_json ->> 'corporationClass' = 'K' THEN 'KOSDAQ'
+      END
   )
 THEN 1 ELSE 0 END
 " || exit $?

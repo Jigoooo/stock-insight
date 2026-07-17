@@ -14,14 +14,24 @@ const FETCH_SCRIPT = new URL('../../scripts/fetch_ohlcv.py', import.meta.url).pa
 const BATCH_INSERT_SIZE = 500;
 
 const UNIVERSE_SQL = `
-SELECT upper(market) AS market, upper(symbol) AS symbol
-FROM public.entities
+SELECT
+  upper(entity.market) AS market,
+  upper(entity.symbol) AS symbol,
+  CASE
+    WHEN upper(entity.market) = 'US' THEN 'US'
+    WHEN profile.profile_json ->> 'corporationClass' = 'Y' THEN 'KOSPI'
+    WHEN profile.profile_json ->> 'corporationClass' = 'K' THEN 'KOSDAQ'
+  END AS exchange
+FROM public.entities entity
+LEFT JOIN public.company_profiles profile ON profile.entity_key = entity.entity_key
 WHERE (
-    upper(market) = 'US' AND coalesce(symbol, '') <> ''
+    upper(entity.market) = 'US' AND coalesce(entity.symbol, '') <> ''
   ) OR (
-    upper(market) = 'KR' AND coalesce(symbol, '') ~ '^[0-9]{6}$'
+    upper(entity.market) = 'KR'
+    AND coalesce(entity.symbol, '') ~ '^[0-9]{6}$'
+    AND profile.profile_json ->> 'corporationClass' IN ('Y', 'K')
   )
-ORDER BY upper(market), upper(symbol)
+ORDER BY upper(entity.market), upper(entity.symbol)
 `;
 
 const INSERT_MIGRATION_RUN_SQL = `
@@ -31,7 +41,11 @@ INSERT INTO public.migration_runs (
 ) VALUES ($1, $2, 'yfinance', 'completed', $3, $4, $5, $6, $7, NULL, $8::jsonb)
 `;
 
-type UniverseRow = QueryResultRow & { market: 'KR' | 'US'; symbol: string };
+type UniverseRow = QueryResultRow & {
+  market: 'KR' | 'US';
+  symbol: string;
+  exchange: 'KOSPI' | 'KOSDAQ' | 'US';
+};
 
 type PgModule = {
   Pool: new (options: { connectionString: string; max?: number }) => {
