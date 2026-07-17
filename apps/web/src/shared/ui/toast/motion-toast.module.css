@@ -1,0 +1,132 @@
+.toastViewport {
+  z-index: 1000;
+}
+
+.motionToast {
+  position: relative;
+  display: grid;
+  width: min(380px, calc(100vw - 32px));
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  align-items: start;
+  overflow: hidden;
+  border: 1px solid var(--toast-border);
+  border-radius: var(--toast-radius);
+  color: var(--color-foreground);
+  background: var(--toast-background);
+  box-shadow: var(--toast-shadow);
+  backdrop-filter: var(--toast-backdrop-filter);
+  pointer-events: auto;
+  transform-origin: top right;
+}
+
+.toneRail {
+  width: 4px;
+  height: 100%;
+  min-height: 82px;
+  background: var(--color-primary);
+}
+
+.motionToast[data-tone='success'] .toneRail {
+  background: var(--color-positive);
+}
+
+.motionToast[data-tone='warning'] .toneRail {
+  background: var(--color-signal);
+}
+
+.motionToast[data-tone='error'] .toneRail {
+  background: var(--color-risk);
+}
+
+.motionToast[data-tone='loading'] .toneRail {
+  background: var(--toast-loading-rail);
+}
+
+.toastBody {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 14px 8px 14px 14px;
+}
+
+.toastEyebrow {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+}
+
+.toastTitle {
+  color: var(--color-foreground);
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.toastDescription {
+  margin: 1px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.toastAction,
+.toastClose {
+  min-height: 36px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.toastAction {
+  width: fit-content;
+  margin-top: 5px;
+  padding: 0 11px;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+}
+
+.toastClose {
+  min-width: 48px;
+  margin: 9px 8px 0 0;
+  padding: 0 8px;
+  color: var(--color-muted);
+  background: transparent;
+}
+
+.toastAction:focus-visible,
+.toastClose:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .motionToast {
+    width: calc(100vw - 24px);
+    border-radius: var(--toast-mobile-radius);
+    transform-origin: top center;
+  }
+
+  .toastAction,
+  .toastClose {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .motionToast {
+    background: var(--color-card);
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .motionToast {
+    border-width: 2px;
+    border-color: currentcolor;
+    box-shadow: none;
+  }
+}

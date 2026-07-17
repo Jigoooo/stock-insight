@@ -1,0 +1,58 @@
+# Post-enrollment production runtime. Static credentials and the enrollment verifier are intentionally absent.
+name: stock-insight
+
+services:
+  app:
+    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:b1b0f1b036f486511095c95dba4175c310e8461064ca94d43c81f8c81a46405f}
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      STOCK_INSIGHT_MUTATIONS_ENABLED: 'true'
+      DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
+      DATABASE_WRITE_URL: ${STOCK_INSIGHT_DATABASE_WRITE_URL:?set in .env.docker}
+      STOCK_INSIGHT_USER_ID: ${STOCK_INSIGHT_USER_ID:?set in .env.docker}
+      STOCK_INSIGHT_SESSION_SECRET_FILE: /run/secrets/stock-insight-session-secret
+      STOCK_INSIGHT_APP_ORIGIN: ${STOCK_INSIGHT_APP_ORIGIN:?set in .env.docker}
+      STOCK_INSIGHT_SESSION_TTL_SECONDS: ${STOCK_INSIGHT_SESSION_TTL_SECONDS:-28800}
+    secrets:
+      - stock-insight-session-secret
+    ports:
+      - '127.0.0.1:8091:3000'
+    networks:
+      edge:
+        aliases:
+          - stock-insight-app
+      research:
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+secrets:
+  stock-insight-session-secret:
+    file: ${STOCK_INSIGHT_SESSION_SECRET_HOST_PATH:?set in .env.docker}
+
+networks:
+  edge:
+    external: true
+    name: consulting-web_default
+  research:
+    external: true
+    name: research-app-db_default

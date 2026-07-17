@@ -1,0 +1,69 @@
+:where(button, input, textarea, select) {
+  appearance: none;
+  -webkit-appearance: none;
+  border-style: solid;
+  border-width: 0;
+  border-radius: 0;
+  outline: 0;
+  font: inherit;
+}
+
+:where(button, [role='button'], [role='tab'], [role='switch'], a[href]) {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+:where(button) {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+}
+
+:where(input, textarea, select)::placeholder {
+  color: var(--color-text-tertiary);
+  opacity: 1;
+}
+
+:where(
+  button,
+  input,
+  textarea,
+  select,
+  a[href],
+  [role='button'],
+  [role='tab'],
+  [role='switch']
+):focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+:where([data-motion='pressable'], [data-motion='toggle'], [data-motion='switch']) {
+  transform-origin: center;
+  will-change: transform;
+}
+
+:where([data-motion='field'], [data-motion='field-shell']) {
+  will-change: box-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-motion='pressable'], [data-motion='toggle'], [data-motion='switch']) {
+    will-change: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(
+    button,
+    input,
+    textarea,
+    select,
+    a[href],
+    [role='button'],
+    [role='tab'],
+    [role='switch']
+  ):focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

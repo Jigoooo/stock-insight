@@ -9,23 +9,55 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
+import { Route as ApiThemesRouteImport } from './routes/api/themes'
 import { Route as ApiStocksRouteImport } from './routes/api/stocks'
+import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as ApiRadarRouteImport } from './routes/api/radar'
 import { Route as ApiPositionsRouteImport } from './routes/api/positions'
+import { Route as ApiMyResearchRouteImport } from './routes/api/my-research'
 import { Route as ApiMarketNewsRouteImport } from './routes/api/market-news'
+import { Route as ApiHistoryRouteImport } from './routes/api/history'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiFeedRouteImport } from './routes/api/feed'
+import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as ApiWatchlistEntityKeyRouteImport } from './routes/api/watchlist/$entityKey'
 import { Route as ApiStocksEntityKeyRouteImport } from './routes/api/stocks/$entityKey'
+import { Route as ApiRecordsRecordKeyRouteImport } from './routes/api/records/$recordKey'
 import { Route as ApiPositionsEntityKeyRouteImport } from './routes/api/positions/$entityKey'
 import { Route as ApiPortfolioDigestRouteImport } from './routes/api/portfolio/digest'
 import { Route as ApiMeBootstrapRouteImport } from './routes/api/me/bootstrap'
 import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/stocks'
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
+import { Route as ApiEntitiesEntityKeyRelationsRouteImport } from './routes/api/entities/$entityKey/relations'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWorkspaceRoute = ApiWorkspaceRouteImport.update({
+  id: '/api/workspace',
+  path: '/api/workspace',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
@@ -33,9 +65,24 @@ const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
   path: '/api/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiThemesRoute = ApiThemesRouteImport.update({
+  id: '/api/themes',
+  path: '/api/themes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStocksRoute = ApiStocksRouteImport.update({
   id: '/api/stocks',
   path: '/api/stocks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStatusRoute = ApiStatusRouteImport.update({
+  id: '/api/status',
+  path: '/api/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRadarRoute = ApiRadarRouteImport.update({
+  id: '/api/radar',
+  path: '/api/radar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPositionsRoute = ApiPositionsRouteImport.update({
@@ -43,15 +90,35 @@ const ApiPositionsRoute = ApiPositionsRouteImport.update({
   path: '/api/positions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMyResearchRoute = ApiMyResearchRouteImport.update({
+  id: '/api/my-research',
+  path: '/api/my-research',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMarketNewsRoute = ApiMarketNewsRouteImport.update({
   id: '/api/market-news',
   path: '/api/market-news',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHistoryRoute = ApiHistoryRouteImport.update({
+  id: '/api/history',
+  path: '/api/history',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFeedRoute = ApiFeedRouteImport.update({
+  id: '/api/feed',
+  path: '/api/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const ApiWatchlistEntityKeyRoute = ApiWatchlistEntityKeyRouteImport.update({
   id: '/$entityKey',
@@ -62,6 +129,11 @@ const ApiStocksEntityKeyRoute = ApiStocksEntityKeyRouteImport.update({
   id: '/$entityKey',
   path: '/$entityKey',
   getParentRoute: () => ApiStocksRoute,
+} as any)
+const ApiRecordsRecordKeyRoute = ApiRecordsRecordKeyRouteImport.update({
+  id: '/api/records/$recordKey',
+  path: '/api/records/$recordKey',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPositionsEntityKeyRoute = ApiPositionsEntityKeyRouteImport.update({
   id: '/$entityKey',
@@ -88,121 +160,241 @@ const ApiDashboardTodayRoute = ApiDashboardTodayRouteImport.update({
   path: '/api/dashboard/today',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEntitiesEntityKeyRelationsRoute =
+  ApiEntitiesEntityKeyRelationsRouteImport.update({
+    id: '/api/entities/$entityKey/relations',
+    path: '/api/entities/$entityKey/relations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/history': typeof ApiHistoryRoute
   '/api/market-news': typeof ApiMarketNewsRoute
+  '/api/my-research': typeof ApiMyResearchRoute
   '/api/positions': typeof ApiPositionsRouteWithChildren
+  '/api/radar': typeof ApiRadarRoute
+  '/api/status': typeof ApiStatusRoute
   '/api/stocks': typeof ApiStocksRouteWithChildren
+  '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
+  '/api/workspace': typeof ApiWorkspaceRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/me/bootstrap': typeof ApiMeBootstrapRoute
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
+  '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/history': typeof ApiHistoryRoute
   '/api/market-news': typeof ApiMarketNewsRoute
+  '/api/my-research': typeof ApiMyResearchRoute
   '/api/positions': typeof ApiPositionsRouteWithChildren
+  '/api/radar': typeof ApiRadarRoute
+  '/api/status': typeof ApiStatusRoute
   '/api/stocks': typeof ApiStocksRouteWithChildren
+  '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
+  '/api/workspace': typeof ApiWorkspaceRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/me/bootstrap': typeof ApiMeBootstrapRoute
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
+  '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
+  '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/history': typeof ApiHistoryRoute
   '/api/market-news': typeof ApiMarketNewsRoute
+  '/api/my-research': typeof ApiMyResearchRoute
   '/api/positions': typeof ApiPositionsRouteWithChildren
+  '/api/radar': typeof ApiRadarRoute
+  '/api/status': typeof ApiStatusRoute
   '/api/stocks': typeof ApiStocksRouteWithChildren
+  '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
+  '/api/workspace': typeof ApiWorkspaceRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/me/bootstrap': typeof ApiMeBootstrapRoute
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
+  '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
+    | '/signup'
+    | '/workspace'
+    | '/api/feed'
     | '/api/health'
+    | '/api/history'
     | '/api/market-news'
+    | '/api/my-research'
     | '/api/positions'
+    | '/api/radar'
+    | '/api/status'
     | '/api/stocks'
+    | '/api/themes'
     | '/api/watchlist'
+    | '/api/workspace'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/me/bootstrap'
     | '/api/portfolio/digest'
     | '/api/positions/$entityKey'
+    | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
+    | '/api/entities/$entityKey/relations'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
+    | '/signup'
+    | '/workspace'
+    | '/api/feed'
     | '/api/health'
+    | '/api/history'
     | '/api/market-news'
+    | '/api/my-research'
     | '/api/positions'
+    | '/api/radar'
+    | '/api/status'
     | '/api/stocks'
+    | '/api/themes'
     | '/api/watchlist'
+    | '/api/workspace'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/me/bootstrap'
     | '/api/portfolio/digest'
     | '/api/positions/$entityKey'
+    | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
+    | '/api/entities/$entityKey/relations'
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
+    | '/login'
+    | '/signup'
+    | '/_authenticated/workspace'
+    | '/api/feed'
     | '/api/health'
+    | '/api/history'
     | '/api/market-news'
+    | '/api/my-research'
     | '/api/positions'
+    | '/api/radar'
+    | '/api/status'
     | '/api/stocks'
+    | '/api/themes'
     | '/api/watchlist'
+    | '/api/workspace'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/me/bootstrap'
     | '/api/portfolio/digest'
     | '/api/positions/$entityKey'
+    | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
+    | '/api/entities/$entityKey/relations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
+  ApiFeedRoute: typeof ApiFeedRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiHistoryRoute: typeof ApiHistoryRoute
   ApiMarketNewsRoute: typeof ApiMarketNewsRoute
+  ApiMyResearchRoute: typeof ApiMyResearchRoute
   ApiPositionsRoute: typeof ApiPositionsRouteWithChildren
+  ApiRadarRoute: typeof ApiRadarRoute
+  ApiStatusRoute: typeof ApiStatusRoute
   ApiStocksRoute: typeof ApiStocksRouteWithChildren
+  ApiThemesRoute: typeof ApiThemesRoute
   ApiWatchlistRoute: typeof ApiWatchlistRouteWithChildren
+  ApiWorkspaceRoute: typeof ApiWorkspaceRoute
   ApiDashboardTodayRoute: typeof ApiDashboardTodayRoute
   ApiDiscoverStocksRoute: typeof ApiDiscoverStocksRoute
   ApiMeBootstrapRoute: typeof ApiMeBootstrapRoute
   ApiPortfolioDigestRoute: typeof ApiPortfolioDigestRoute
+  ApiRecordsRecordKeyRoute: typeof ApiRecordsRecordKeyRoute
+  ApiEntitiesEntityKeyRelationsRoute: typeof ApiEntitiesEntityKeyRelationsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/workspace': {
+      id: '/api/workspace'
+      path: '/api/workspace'
+      fullPath: '/api/workspace'
+      preLoaderRoute: typeof ApiWorkspaceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/watchlist': {
@@ -212,11 +404,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/themes': {
+      id: '/api/themes'
+      path: '/api/themes'
+      fullPath: '/api/themes'
+      preLoaderRoute: typeof ApiThemesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stocks': {
       id: '/api/stocks'
       path: '/api/stocks'
       fullPath: '/api/stocks'
       preLoaderRoute: typeof ApiStocksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/status': {
+      id: '/api/status'
+      path: '/api/status'
+      fullPath: '/api/status'
+      preLoaderRoute: typeof ApiStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/radar': {
+      id: '/api/radar'
+      path: '/api/radar'
+      fullPath: '/api/radar'
+      preLoaderRoute: typeof ApiRadarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/positions': {
@@ -226,11 +439,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPositionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/my-research': {
+      id: '/api/my-research'
+      path: '/api/my-research'
+      fullPath: '/api/my-research'
+      preLoaderRoute: typeof ApiMyResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/market-news': {
       id: '/api/market-news'
       path: '/api/market-news'
       fullPath: '/api/market-news'
       preLoaderRoute: typeof ApiMarketNewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/history': {
+      id: '/api/history'
+      path: '/api/history'
+      fullPath: '/api/history'
+      preLoaderRoute: typeof ApiHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -239,6 +466,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/feed': {
+      id: '/api/feed'
+      path: '/api/feed'
+      fullPath: '/api/feed'
+      preLoaderRoute: typeof ApiFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/workspace': {
+      id: '/_authenticated/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof AuthenticatedWorkspaceRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/api/watchlist/$entityKey': {
       id: '/api/watchlist/$entityKey'
@@ -253,6 +494,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/stocks/$entityKey'
       preLoaderRoute: typeof ApiStocksEntityKeyRouteImport
       parentRoute: typeof ApiStocksRoute
+    }
+    '/api/records/$recordKey': {
+      id: '/api/records/$recordKey'
+      path: '/api/records/$recordKey'
+      fullPath: '/api/records/$recordKey'
+      preLoaderRoute: typeof ApiRecordsRecordKeyRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/positions/$entityKey': {
       id: '/api/positions/$entityKey'
@@ -289,8 +537,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardTodayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/entities/$entityKey/relations': {
+      id: '/api/entities/$entityKey/relations'
+      path: '/api/entities/$entityKey/relations'
+      fullPath: '/api/entities/$entityKey/relations'
+      preLoaderRoute: typeof ApiEntitiesEntityKeyRelationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
 
 interface ApiPositionsRouteChildren {
   ApiPositionsEntityKeyRoute: typeof ApiPositionsEntityKeyRoute
@@ -330,15 +597,27 @@ const ApiWatchlistRouteWithChildren = ApiWatchlistRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
+  ApiFeedRoute: ApiFeedRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiHistoryRoute: ApiHistoryRoute,
   ApiMarketNewsRoute: ApiMarketNewsRoute,
+  ApiMyResearchRoute: ApiMyResearchRoute,
   ApiPositionsRoute: ApiPositionsRouteWithChildren,
+  ApiRadarRoute: ApiRadarRoute,
+  ApiStatusRoute: ApiStatusRoute,
   ApiStocksRoute: ApiStocksRouteWithChildren,
+  ApiThemesRoute: ApiThemesRoute,
   ApiWatchlistRoute: ApiWatchlistRouteWithChildren,
+  ApiWorkspaceRoute: ApiWorkspaceRoute,
   ApiDashboardTodayRoute: ApiDashboardTodayRoute,
   ApiDiscoverStocksRoute: ApiDiscoverStocksRoute,
   ApiMeBootstrapRoute: ApiMeBootstrapRoute,
   ApiPortfolioDigestRoute: ApiPortfolioDigestRoute,
+  ApiRecordsRecordKeyRoute: ApiRecordsRecordKeyRoute,
+  ApiEntitiesEntityKeyRelationsRoute: ApiEntitiesEntityKeyRelationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

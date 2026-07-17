@@ -23,6 +23,7 @@ test-results/
 !.env.example
 
 # Local agent/runtime output
+.hermes/
 .omc/
 .omx/
 .superpowers/

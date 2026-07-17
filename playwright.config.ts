@@ -7,6 +7,7 @@ const webRoot = new URL('./apps/web/', import.meta.url).pathname;
 const env = loadEnv('dev', webRoot, '');
 const serverPort = resolveDevServerPort(process.env.PLAYWRIGHT_PORT ?? env.VITE_PORT);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${serverPort}`;
+const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
 const configuredWorkers = Number.parseInt(process.env.PLAYWRIGHT_WORKERS ?? '', 10);
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 4;
 
@@ -36,7 +37,7 @@ export default defineConfig({
       testMatch: /\.spec\.ts$/,
       use: {
         ...devices['Pixel 7'],
-        viewport: { width: 375, height: 812 },
+        viewport: { width: 390, height: 844 },
       },
     },
   ],
@@ -44,8 +45,10 @@ export default defineConfig({
     process.env.PLAYWRIGHT_SKIP_WEB_SERVER === '1'
       ? undefined
       : {
-          command: `env PLAYWRIGHT_E2E=1 pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
-          reuseExistingServer: !process.env.CI,
+          command: useProductionBuild
+            ? `cd apps/web && env NODE_ENV=production HOST=127.0.0.1 PORT=${serverPort} STOCK_INSIGHT_APP_ORIGIN=${baseURL} node .output/server/index.mjs`
+            : `env PLAYWRIGHT_E2E=1 pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
+          reuseExistingServer: useProductionBuild ? false : !process.env.CI,
           timeout: 120_000,
           url: baseURL,
         },

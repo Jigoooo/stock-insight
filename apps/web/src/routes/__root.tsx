@@ -3,16 +3,29 @@
 import { createRootRoute } from '@tanstack/react-router';
 import type { LinkHTMLAttributes } from 'react';
 
+import '@/pages/auth/auth-page.module.css';
 import { RootComponent, RootDocument, RootNotFound } from '@/pages/root';
-import { colorTokens } from '@/shared/theme/tokens';
+import { activeDesignProfile } from '@/shared/theme/design-profile-contract';
 import nativeScrollbarUrl from '@/shared/ui/scroll/native-scrollbar.css?url';
 
 const styleLinks = [
+  {
+    rel: 'preload',
+    href: '/fonts/WantedSansVariable.woff2',
+    as: 'font',
+    type: 'font/woff2',
+    crossOrigin: 'anonymous',
+  },
   { rel: 'preload', href: '/styles/font.css', as: 'style' },
   { rel: 'preload', href: '/styles/index.css', as: 'style' },
+  { rel: 'preload', href: activeDesignProfile.cssHref, as: 'style' },
   { rel: 'preload', href: nativeScrollbarUrl, as: 'style' },
   { rel: 'stylesheet', href: '/styles/font.css' },
   { rel: 'stylesheet', href: '/styles/index.css' },
+  {
+    rel: 'stylesheet',
+    href: activeDesignProfile.cssHref,
+  },
   { rel: 'stylesheet', href: nativeScrollbarUrl },
 ] satisfies LinkHTMLAttributes<HTMLLinkElement>[];
 
@@ -28,8 +41,17 @@ export const Route = createRootRoute({
         content:
           'Futur Insight는 보유종목과 시장 이슈를 연결해 설명하는 조회 전용 개인화 투자 리서치 피드 목업입니다.',
       },
-      { name: 'theme-color', content: colorTokens.background },
-      { name: 'color-scheme', content: 'light' },
+      {
+        name: 'theme-color',
+        content: activeDesignProfile.themeColors.light,
+        media: '(prefers-color-scheme: light)',
+      },
+      {
+        name: 'theme-color',
+        content: activeDesignProfile.themeColors.dark,
+        media: '(prefers-color-scheme: dark)',
+      },
+      { name: 'color-scheme', content: 'light dark' },
       { property: 'og:title', content: 'Futur Insight - Research Feed' },
       {
         property: 'og:description',

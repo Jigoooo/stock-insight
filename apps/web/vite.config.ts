@@ -6,6 +6,26 @@ import { defineConfig, loadEnv } from 'vite';
 
 import { resolveDevServerPort } from './config/dev-server';
 
+const securityHeaders = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Referrer-Policy': 'same-origin',
+  'Strict-Transport-Security': 'max-age=31536000',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+} as const;
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   const isPlaywrightE2E = process.env.PLAYWRIGHT_E2E === '1';
@@ -35,7 +55,11 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       tanstackStart(),
-      nitro(),
+      nitro({
+        routeRules: {
+          '/**': { headers: securityHeaders },
+        },
+      }),
       react(),
       babel({
         include: /\.[jt]sx?$/,

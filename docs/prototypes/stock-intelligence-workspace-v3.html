@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Stock Insight — Signal Workspace</title>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans/packages/wanted-sans/fonts/webfonts/variable/complete/WantedSansVariable.css');
+
+    :root {
+      --canvas: #edf1f5;
+      --surface: #ffffff;
+      --surface-subtle: #f8fafc;
+      --surface-selected: #f2f7ff;
+      --sidebar: #171721;
+      --sidebar-hover: #242432;
+      --sidebar-active: #2d2d3c;
+      --text: #1a1f29;
+      --text-2: #4e5968;
+      --text-3: #687482;
+      --text-4: #98a3af;
+      --line: #dfe4ea;
+      --line-strong: #cfd6df;
+      --accent: #3182f6;
+      --accent-soft: #e9f2ff;
+      --on-dark: #ededf3;
+      --sans: "Wanted Sans Variable", "SUIT Variable", SUIT, Pretendard, -apple-system, BlinkMacSystemFont, "Noto Sans KR", "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --radius-control: 6px;
+      --radius-panel: 8px;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      background: var(--canvas);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.5;
+      letter-spacing: -.006em;
+      font-optical-sizing: auto;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    [hidden] { display: none !important; }
+    svg { display: block; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 208px minmax(560px, 1fr) 336px;
+    }
+
+    .sidebar {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px 14px;
+      color: var(--on-dark);
+      background: var(--sidebar);
+      border-right: 1px solid #30303d;
+    }
+    .brand {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 9px 16px;
+      border-bottom: 1px solid #30303d;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 24px;
+      display: grid;
+      place-items: center start;
+      color: #78aef9;
+      background: transparent;
+      border-radius: 0;
+    }
+    .brand-copy strong {
+      display: block;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -.015em;
+    }
+    .brand-copy span {
+      display: block;
+      margin-top: 1px;
+      color: #8f8fa2;
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .nav-group { margin-top: 20px; }
+    .nav-label {
+      margin: 0 9px 7px;
+      color: #737387;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .nav-list { display: grid; gap: 3px; }
+    .nav-item {
+      width: 100%;
+      min-height: 38px;
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      padding: 0 9px;
+      border: 0;
+      border-radius: var(--radius-control);
+      color: #b6b6c5;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .nav-item:hover { color: #fff; background: var(--sidebar-hover); }
+    .nav-item[aria-current="page"] { color: #fff; background: var(--sidebar-active); }
+    .nav-item[aria-current="page"] .nav-icon { color: #7fb3ff; }
+    .nav-icon { color: #858596; }
+    .nav-item span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 550; }
+    .nav-count {
+      color: #727285;
+      font-family: var(--mono);
+      font-size: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    .nav-item[aria-current="page"] .nav-count { color: #9fbde8; }
+
+    .sidebar-status {
+      margin-top: auto;
+      padding: 14px 9px 2px;
+      border-top: 1px solid #30303d;
+    }
+    .status-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: #9b9bae;
+      font-size: 9px;
+    }
+    .status-line + .status-line { margin-top: 6px; }
+    .status-line strong { color: #d6d6df; font-family: var(--mono); font-size: 8px; font-weight: 500; }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      display: inline-block;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: #8ea8c7;
+    }
+
+    .workspace {
+      min-width: 0;
+      background: var(--canvas);
+    }
+    .topbar {
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+    .crumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--text-3);
+      font-size: 11px;
+    }
+    .crumbs strong { color: var(--text); font-weight: 650; }
+    .crumbs svg { flex: none; }
+    .top-tools { display: flex; align-items: center; gap: 8px; }
+    .search {
+      width: 230px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-control);
+      background: var(--surface);
+    }
+    .search svg { flex: none; color: var(--text-3); }
+    .search input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 11px;
+    }
+    .search input::placeholder { color: var(--text-3); }
+    .search kbd { color: var(--text-4); font-family: var(--mono); font-size: 8px; }
+    .icon-button {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-control);
+      color: var(--text-2);
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .icon-button:hover { background: var(--surface-subtle); }
+
+    .content { padding: 24px; }
+    .page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 19px;
+    }
+    .page-date {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .page-date::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    .page-head h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 730;
+      line-height: 1.25;
+      letter-spacing: -.035em;
+      word-break: keep-all;
+    }
+    .page-head p {
+      max-width: 650px;
+      margin: 7px 0 0;
+      color: var(--text-2);
+      font-size: 12px;
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+    .updated {
+      flex: none;
+      margin-top: 17px;
+      color: var(--text-3);
+      font-size: 9px;
+      text-align: right;
+    }
+    .updated strong {
+      display: block;
+      margin-top: 2px;
+      color: var(--text-2);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .signal-strip {
+      min-height: 62px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-panel);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .signal-stat {
+      min-width: 0;
+      padding: 12px 15px;
+    }
+    .signal-stat + .signal-stat { border-left: 1px solid var(--line); }
+    .signal-stat span {
+      display: block;
+      color: var(--text-3);
+      font-size: 10px;
+    }
+    .signal-stat strong {
+      display: block;
+      overflow: hidden;
+      margin-top: 3px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -.02em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .signal-stat strong em { color: var(--accent); font-style: normal; }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-panel);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel + .panel { margin-top: 16px; }
+    .panel-head {
+      min-height: 55px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-title h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .panel-title p { margin: 2px 0 0; color: var(--text-3); font-size: 10px; }
+    .panel-tools { display: flex; align-items: center; gap: 6px; }
+    .text-button {
+      min-height: 32px;
+      padding: 0 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-control);
+      color: var(--text-2);
+      background: var(--surface);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .text-button:hover { background: var(--surface-subtle); }
+
+    .lane-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .lane-tab {
+      position: relative;
+      min-height: 42px;
+      padding: 0 10px;
+      border: 0;
+      color: var(--text-3);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .lane-tab:hover { color: var(--text-2); }
+    .lane-tab[aria-selected="true"] { color: var(--text); }
+    .lane-tab[aria-selected="true"]::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      bottom: -1px;
+      left: 10px;
+      height: 2px;
+      background: var(--accent);
+    }
+    .lane-tab small { margin-left: 4px; color: var(--text-4); font-family: var(--mono); font-size: 8px; }
+
+    .feed-head,
+    .feed-row {
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr) 96px 92px;
+      gap: 12px;
+    }
+    .feed-head {
+      min-height: 30px;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      color: var(--text-3);
+      background: var(--surface-subtle);
+      font-size: 8px;
+      font-weight: 600;
+    }
+    .feed-row {
+      position: relative;
+      width: 100%;
+      min-height: 92px;
+      align-items: start;
+      padding: 14px 16px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .feed-row:last-child { border-bottom: 0; }
+    .feed-row:hover { background: var(--surface-subtle); }
+    .feed-row[aria-current="true"] { background: var(--surface-selected); }
+    .feed-row[aria-current="true"] .feed-type {
+      color: #246fd2;
+    }
+    .feed-row[aria-current="true"] .feed-type::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      display: inline-block;
+      margin: 0 6px 1px 0;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .feed-type {
+      padding-top: 2px;
+      color: var(--text-2);
+      font-size: 9px;
+      font-weight: 650;
+    }
+    .feed-type time { display: block; margin-top: 5px; color: var(--text-4); font-family: var(--mono); font-size: 8px; font-weight: 400; }
+    .feed-copy { min-width: 0; }
+    .feed-copy strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 690;
+      line-height: 1.4;
+      letter-spacing: -.018em;
+      word-break: keep-all;
+    }
+    .feed-copy p {
+      display: -webkit-box;
+      overflow: hidden;
+      margin: 5px 0 0;
+      color: var(--text-2);
+      font-size: 11px;
+      line-height: 1.55;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .feed-scope,
+    .feed-source {
+      padding-top: 3px;
+      color: var(--text-3);
+      font-family: var(--mono);
+      font-size: 8.5px;
+      line-height: 1.45;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+    .feed-source { text-align: right; }
+
+    .relation-layout {
+      display: grid;
+      grid-template-columns: minmax(380px, 1.4fr) minmax(230px, .8fr);
+      min-height: 290px;
+    }
+    .graph-wrap {
+      position: relative;
+      min-width: 0;
+      overflow: hidden;
+      border-right: 1px solid var(--line);
+      background-color: #fbfcfd;
+    }
+    .graph {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 290px;
+    }
+    .graph svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .edge { stroke: #bec6d0; stroke-width: 1.5; }
+    .edge-active { stroke: var(--accent); stroke-width: 2; }
+    .graph-node {
+      position: absolute;
+      min-width: 86px;
+      padding: 0;
+      border: 0;
+      color: var(--text-2);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .graph-node::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: -14px;
+      width: 7px;
+      height: 7px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #9ca6b2;
+      outline: 1px solid #9ca6b2;
+      outline-offset: 1px;
+    }
+    .graph-node:hover { color: var(--text); }
+    .graph-node strong { display: block; font-size: 10px; font-weight: 700; }
+    .graph-node span { display: block; margin-top: 2px; color: var(--text-3); font-size: 8px; }
+    .graph-node.center {
+      min-width: 96px;
+      padding: 10px 11px;
+      border: 1px solid #a8c8f8;
+      border-radius: var(--radius-control);
+      background: #fff;
+    }
+    .graph-node.center::before {
+      top: 50%;
+      left: -6px;
+      width: 10px;
+      height: 10px;
+      border: 3px solid #fff;
+      background: var(--accent);
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+      transform: translateY(-50%);
+    }
+    .node-nvda { left: 42%; top: 41%; }
+    .node-tsm { left: 14%; top: 18%; }
+    .node-amd { left: 72%; top: 17%; }
+    .node-sk { left: 12%; top: 72%; }
+    .node-avgo { left: 72%; top: 72%; }
+    .node-pltr { left: 75%; top: 45%; }
+
+    .relation-list { min-width: 0; padding: 7px 15px; }
+    .relation-list button {
+      width: 100%;
+      min-height: 50px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+    .relation-list button:last-child { border-bottom: 0; }
+    .relation-list button:hover strong { color: var(--accent); }
+    .relation-list strong { display: block; font-size: 10px; font-weight: 650; }
+    .relation-list span { display: block; margin-top: 2px; color: var(--text-3); font-size: 8px; }
+    .relation-code { color: var(--text-4); font-family: var(--mono); font-size: 8px; }
+
+    .inspector {
+      min-width: 0;
+      min-height: 100vh;
+      padding: 20px 22px 44px;
+      border-left: 1px solid var(--line);
+      background: var(--surface-subtle);
+    }
+    .inspector-top {
+      min-height: 43px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .inspector-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-2);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .inspector-label::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+      background: var(--accent);
+    }
+    .inspector-no { color: var(--text-3); font-family: var(--mono); font-size: 8px; }
+    .insight-title { margin-top: 18px; }
+    .insight-title h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 730;
+      line-height: 1.38;
+      letter-spacing: -.028em;
+      word-break: keep-all;
+    }
+    .insight-title p {
+      margin: 9px 0 0;
+      color: var(--text-2);
+      font-size: 11px;
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+    .evidence-row {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr);
+      gap: 7px 9px;
+      margin-top: 17px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-control);
+      background: var(--surface);
+      font-size: 10px;
+    }
+    .evidence-row dt { color: var(--text-3); }
+    .evidence-row dd { margin: 0; color: var(--text); font-weight: 650; }
+    .confidence {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .confidence-bar {
+      width: 52px;
+      height: 3px;
+      overflow: hidden;
+      background: #dce1e7;
+    }
+    .confidence-bar i { display: block; width: 58%; height: 100%; background: var(--accent); }
+
+    .inspector-section {
+      margin-top: 25px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .section-name {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 12px;
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .section-name span { color: var(--text-3); font-family: var(--mono); font-size: 7px; font-weight: 400; }
+    .impact-path { margin: 0; padding: 0; list-style: none; }
+    .impact-path li {
+      position: relative;
+      min-height: 55px;
+      padding: 0 0 12px 30px;
+    }
+    .impact-path li:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 17px;
+      bottom: -1px;
+      left: 8px;
+      width: 1px;
+      background: #cbd2da;
+    }
+    .impact-path li::before {
+      content: attr(data-step);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 17px;
+      height: 17px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #bdc6d0;
+      border-radius: 50%;
+      color: var(--text-3);
+      background: var(--surface-subtle);
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+    .impact-path li:first-child::before { color: #fff; border-color: var(--accent); background: var(--accent); }
+    .impact-path strong { display: block; font-size: 11px; font-weight: 650; }
+    .impact-path span { display: block; margin-top: 2px; color: var(--text-3); font-size: 9px; line-height: 1.45; }
+
+    .facts {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .facts th,
+    .facts td {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .facts th { color: var(--text-3); font-weight: 450; }
+    .facts td { color: var(--text); font-family: var(--mono); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+    .facts small { display: block; margin-top: 2px; color: var(--text-4); font-family: var(--sans); font-size: 7px; font-weight: 400; }
+
+    .data-note {
+      position: relative;
+      padding: 12px 12px 12px 35px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-control);
+      background: #f1f4f7;
+      color: var(--text-2);
+      font-size: 9px;
+      line-height: 1.55;
+    }
+    .data-note::before {
+      content: "i";
+      position: absolute;
+      top: 13px;
+      left: 12px;
+      width: 14px;
+      height: 14px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #9da8b5;
+      border-radius: 50%;
+      color: var(--text-3);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .data-note strong { display: block; margin-bottom: 3px; color: var(--text); font-size: 10px; }
+    .source-list { margin: 0; padding: 0; list-style: none; }
+    .source-list li {
+      display: grid;
+      grid-template-columns: 17px minmax(0, 1fr);
+      gap: 6px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .source-list b { color: var(--text-4); font-family: var(--mono); font-size: 8px; }
+    .source-list strong { display: block; font-size: 10px; }
+    .source-list span { display: block; margin-top: 2px; color: var(--text-3); font-size: 9px; }
+    .prototype-note { margin: 26px 0 0; color: var(--text-3); font-size: 8px; line-height: 1.55; }
+
+    @media (max-width: 1220px) {
+      .app { grid-template-columns: 194px minmax(0, 1fr); }
+      .inspector {
+        grid-column: 2;
+        min-height: auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0 28px;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+      }
+      .inspector-top, .insight-title, .evidence-row, .prototype-note { grid-column: 1 / -1; }
+      .relation-layout { grid-template-columns: minmax(360px, 1.25fr) minmax(220px, .75fr); }
+    }
+
+    @media (max-width: 860px) {
+      .app { display: block; }
+      .sidebar {
+        min-height: auto;
+        display: block;
+        padding: 0;
+      }
+      .brand { height: 50px; padding: 0 14px; border-bottom: 1px solid #30303d; }
+      .brand-copy span, .sidebar-status, .nav-label, .nav-group + .nav-group { display: none; }
+      .nav-group { margin: 0; }
+      .nav-list { display: flex; gap: 0; overflow-x: auto; padding: 0 8px; scrollbar-width: none; }
+      .nav-list::-webkit-scrollbar { display: none; }
+      .nav-item { flex: none; width: auto; min-height: 44px; grid-template-columns: 18px auto; padding: 0 10px; border-radius: 0; }
+      .nav-count { display: none; }
+      .topbar { padding-inline: 16px; }
+      .content { padding: 20px 16px; }
+      .inspector { display: block; padding-inline: 16px; }
+    }
+
+    @media (max-width: 650px) {
+      body { font-size: 13px; }
+      .brand { justify-content: center; }
+      .topbar { height: auto; min-height: 54px; flex-wrap: wrap; padding: 9px 12px; }
+      .crumbs { width: 100%; }
+      .top-tools { width: 100%; }
+      .search { width: auto; min-width: 0; flex: 1; height: 40px; }
+      .icon-button { width: 40px; height: 40px; }
+      .content { padding: 17px 12px 34px; }
+      .page-head { display: block; }
+      .page-head h1 { font-size: 24px; }
+      .page-head p { font-size: 11px; }
+      .updated { margin-top: 11px; text-align: left; }
+      .signal-strip { grid-template-columns: repeat(2, 1fr); }
+      .signal-stat:nth-child(3) { border-left: 0; border-top: 1px solid var(--line); }
+      .signal-stat:nth-child(4) { border-top: 1px solid var(--line); }
+      .panel-head { align-items: flex-start; padding: 12px; }
+      .panel-tools { display: none; }
+      .lane-tabs { justify-content: space-between; padding-inline: 5px; }
+      .lane-tab { min-height: 44px; padding-inline: 6px; }
+      .lane-tab[aria-selected="true"]::after { right: 6px; left: 6px; }
+      .feed-head { display: none; }
+      .feed-row {
+        grid-template-columns: 68px minmax(0, 1fr);
+        gap: 6px 9px;
+        min-height: 119px;
+        padding: 14px 12px;
+      }
+
+      .feed-type { grid-row: 1 / span 2; }
+      .feed-scope, .feed-source { grid-column: 2; padding-top: 0; text-align: left; }
+      .feed-scope { display: inline; }
+      .feed-source { margin-top: -21px; padding-left: 81px; }
+      .relation-layout { display: block; min-height: 0; }
+      .graph-wrap { border-right: 0; border-bottom: 1px solid var(--line); overflow: hidden; }
+      .graph { min-width: 0; min-height: 280px; }
+      .relation-list { padding-inline: 12px; }
+      .inspector { padding: 20px 13px 34px; }
+      .insight-title h2 { font-size: 20px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="주요 탐색">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="22" height="16" viewBox="0 0 22 16" fill="none">
+            <path d="M1 11h3.4L7.2 3l3.1 10 2.8-6 2.1 4H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-copy"><strong>Stock Insight</strong><span>Signal workspace</span></div>
+      </div>
+
+      <div class="nav-group">
+        <p class="nav-label">Workspace</p>
+        <nav class="nav-list">
+          <button class="nav-item" type="button" aria-current="page">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" stroke="currentColor" stroke-width="1.7"/></svg></span><span>오늘</span><span class="nav-count">12</span>
+          </button>
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M3.8 12h16.4M12 3.5c2.1 2.3 3.2 5.1 3.2 8.5S14.1 18.2 12 20.5C9.9 18.2 8.8 15.4 8.8 12S9.9 5.8 12 3.5Z" stroke="currentColor" stroke-width="1.4"/></svg></span><span>세계 레이더</span><span class="nav-count">6</span>
+          </button>
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 18V9m5 9V5m5 13v-7m5 7V3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span>종목</span><span class="nav-count">247</span>
+          </button>
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="m8.2 10.9 7.5-3.7m-7.5 5.9 7.5 3.7" stroke="currentColor" stroke-width="1.7"/></svg></span><span>테마·관계</span><span class="nav-count">134</span>
+          </button>
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 5v14h14M7.5 15.5l3.2-3.3 2.6 2.2 4.2-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>과거 국면</span><span class="nav-count">준비</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="nav-group">
+        <p class="nav-label">Library</p>
+        <nav class="nav-list">
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5" stroke="currentColor" stroke-width="1.7"/></svg></span><span>내 리서치</span><span class="nav-count">8</span>
+          </button>
+          <button class="nav-item" type="button">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M7 12h10M9 17h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span><span>데이터 상태</span><span class="nav-count">↗</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-status">
+        <div class="status-line"><span><i class="status-dot"></i>데이터 파이프라인</span><strong>ONLINE</strong></div>
+        <div class="status-line"><span>최종 정합성 검사</span><strong>08:50 KST</strong></div>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="crumbs">
+          <strong>오늘</strong>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m4.5 2.5 3 3.5-3 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>시장 브리프</span>
+        </div>
+        <div class="top-tools">
+          <label class="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="globalSearch" type="search" placeholder="종목·테마·사건 검색" aria-label="종목, 테마, 사건 검색" />
+            <kbd>⌘K</kbd>
+          </label>
+          <button class="icon-button" type="button" aria-label="화면 설정">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M10 14v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <header class="page-head">
+          <div>
+            <div class="page-date">2026년 7월 16일 · 목요일</div>
+            <h1>오늘 봐야 할 변화</h1>
+            <p>관심종목에 직접 연결된 신호와 지금 새로 볼 가치가 있는 변화를 영향 경로와 근거 수준으로 정리했습니다.</p>
+          </div>
+          <div class="updated">마지막 업데이트<strong>08:50:12 KST</strong></div>
+        </header>
+
+        <section class="signal-strip" aria-label="데이터 현황">
+          <div class="signal-stat"><span>오늘의 신호</span><strong><em>12</em> / 12,656</strong></div>
+          <div class="signal-stat"><span>직접 영향</span><strong>177</strong></div>
+          <div class="signal-stat"><span>관계 경로</span><strong>3,376</strong></div>
+          <div class="signal-stat"><span>커버 종목</span><strong>247</strong></div>
+        </section>
+
+        <section class="panel" aria-labelledby="feedTitle">
+          <div class="panel-head">
+            <div class="panel-title"><h2 id="feedTitle">시장 인텔리전스</h2><p>중요도와 개인 연결도를 함께 반영한 오늘의 편집 순서</p></div>
+            <div class="panel-tools"><button class="text-button" type="button">출처 16개</button><button class="text-button" type="button">필터</button></div>
+          </div>
+          <nav class="lane-tabs" role="tablist" aria-label="인사이트 분류">
+            <button class="lane-tab" type="button" role="tab" aria-selected="true" data-lane="must">필수 확인<small>3</small></button>
+            <button class="lane-tab" type="button" role="tab" aria-selected="false" data-lane="personal">관심 연결<small>3</small></button>
+            <button class="lane-tab" type="button" role="tab" aria-selected="false" data-lane="explore">새로운 발견<small>3</small></button>
+          </nav>
+          <div class="feed-head" aria-hidden="true"><span>분류 / 시점</span><span>변화와 판단</span><span>범위</span><span>출처</span></div>
+
+          <div data-feed="must">
+            <button class="feed-row searchable" type="button" data-insight="tariff" aria-current="true">
+              <span class="feed-type">정책 변화<time>오늘</time></span>
+              <span class="feed-copy"><strong>미국 관세 관련 규정 6건 감지</strong><p>상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 적용 대상과 산업별 전이 경로를 원문 기준으로 확인합니다.</p></span>
+              <span class="feed-scope">Global / Risk</span><span class="feed-source">Federal Register</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="ai-policy" aria-current="false">
+              <span class="feed-type">정책·사회<time>오늘</time></span>
+              <span class="feed-copy"><strong>AI 관련 연방 공고 6건, 효력 분류 필요</strong><p>공공회의와 규정 원문을 분리해 실제 효력과 적용 대상을 확인합니다. 보도량은 영향 근거로 사용하지 않습니다.</p></span>
+              <span class="feed-scope">US / Monitor</span><span class="feed-source">Federal Register</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="nvda" aria-current="false">
+              <span class="feed-type">시장·기업<time>07.15</time></span>
+              <span class="feed-copy"><strong>NVIDIA, 반도체 약세 속 상대강도</strong><p>SOX -2% 구간에서 +0.3% 상대강도가 기록됐습니다. SEC 매출 성장과 이동평균 유지 여부를 함께 확인합니다.</p></span>
+              <span class="feed-scope">Direct / NVDA</span><span class="feed-source">SEC + Market</span>
+            </button>
+          </div>
+
+          <div data-feed="personal" hidden>
+            <button class="feed-row searchable" type="button" data-insight="nvda" aria-current="false">
+              <span class="feed-type">관심 직접<time>오늘</time></span>
+              <span class="feed-copy"><strong>NVIDIA, 매출 모멘텀과 이동평균 재확인</strong><p>Compute &amp; Networking 성장과 반도체 순환 약세를 동시에 확인합니다.</p></span>
+              <span class="feed-scope">Direct / 1.0</span><span class="feed-source">SEC + Candidate</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="samsung" aria-current="false">
+              <span class="feed-type">관심 직접<time>07.15</time></span>
+              <span class="feed-copy"><strong>삼성전자, 외국인 주도 반등과 HBM 노출</strong><p>7월 15일 +6.27% 반등. 미국 반도체 전이와 외국인 흐름 지속 여부를 확인합니다.</p></span>
+              <span class="feed-scope">Direct / KR</span><span class="feed-source">Market Snapshot</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="amd" aria-current="false">
+              <span class="feed-type">관련 종목<time>07.15</time></span>
+              <span class="feed-copy"><strong>AMD, NVIDIA 관계망에서 동반 약세</strong><p>7월 15일 -3.46%. 1-hop 동반 신호 관계를 통해 영향 범위에 포함됐습니다.</p></span>
+              <span class="feed-scope">Related / 1-hop</span><span class="feed-source">Graph + Market</span>
+            </button>
+          </div>
+
+          <div data-feed="explore" hidden>
+            <button class="feed-row searchable" type="button" data-insight="rklb" aria-current="false">
+              <span class="feed-type">관심 밖<time>오늘</time></span>
+              <span class="feed-copy"><strong>Rocket Lab, 뉴스 관심 급증</strong><p>현재 관심종목 밖에서 포착됐습니다. 단일 관심 지표이므로 추가 출처가 붙기 전까지 탐색 후보로만 취급합니다.</p></span>
+              <span class="feed-scope">Novel / Low</span><span class="feed-source">Attention Signal</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="tsmc" aria-current="false">
+              <span class="feed-type">관계 발견<time>오늘</time></span>
+              <span class="feed-copy"><strong>TSMC, NVIDIA 1-hop 동종 생태계</strong><p>구조 관계와 관심 급증이 함께 포착됐습니다. 공급·수요 전이 여부를 추가 확인합니다.</p></span>
+              <span class="feed-scope">Graph / TSM</span><span class="feed-source">Graph + Attention</span>
+            </button>
+            <button class="feed-row searchable" type="button" data-insight="ls" aria-current="false">
+              <span class="feed-type">새 테마<time>오늘</time></span>
+              <span class="feed-copy"><strong>LS일렉트릭, AI 전력망 CAPEX 축</strong><p>기존 관심종목 밖의 전력 인프라 축입니다. 단기 가격보다 수주와 전력망 투자 경로를 먼저 확인합니다.</p></span>
+              <span class="feed-scope">Theme / KR</span><span class="feed-source">Candidate</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="relationTitle">
+          <div class="panel-head">
+            <div class="panel-title"><h2 id="relationTitle">NVIDIA 관계 지도</h2><p>실제 graph_edges에서 확인된 1-hop 관계 · 노드를 선택하면 근거가 바뀝니다</p></div>
+            <div class="panel-tools"><button class="text-button" type="button">1-hop</button></div>
+          </div>
+          <div class="relation-layout">
+            <div class="graph-wrap">
+              <div class="graph">
+                <svg viewBox="0 0 700 290" preserveAspectRatio="none" aria-hidden="true">
+                  <defs>
+                    <pattern id="dataGrid" width="24" height="24" patternUnits="userSpaceOnUse">
+                      <path d="M24 0H0V24" fill="none" stroke="#eef1f4" stroke-width="1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="700" height="290" fill="url(#dataGrid)"/>
+                  <path class="edge-active" d="M326 137 C250 100, 180 72, 119 57" fill="none"/>
+                  <path class="edge" d="M377 137 C456 95, 515 69, 574 55" fill="none"/>
+                  <path class="edge" d="M326 159 C241 194, 177 220, 112 229" fill="none"/>
+                  <path class="edge" d="M377 159 C462 196, 520 220, 575 229" fill="none"/>
+                  <path class="edge" d="M382 149 C473 149, 523 149, 597 149" fill="none"/>
+                </svg>
+                <button class="graph-node center node-nvda" type="button" data-insight="nvda"><strong>NVIDIA</strong><span>관심종목 · 중심</span></button>
+                <button class="graph-node node-tsm" type="button" data-insight="tsmc"><strong>TSMC</strong><span>동종 생태계</span></button>
+                <button class="graph-node node-amd" type="button" data-insight="amd"><strong>AMD</strong><span>동반 신호</span></button>
+                <button class="graph-node node-sk" type="button" data-insight="sk"><strong>SK하이닉스</strong><span>공급망</span></button>
+                <button class="graph-node node-avgo" type="button" data-insight="broadcom"><strong>Broadcom</strong><span>동종 산업</span></button>
+                <button class="graph-node node-pltr" type="button" data-insight="pltr"><strong>Palantir</strong><span>뉴스 공동언급</span></button>
+              </div>
+            </div>
+            <div class="relation-list">
+              <button type="button" data-insight="tsmc"><span><strong>NVIDIA → TSMC</strong><span>동종 생태계 · 관심 급증 동반</span></span><i class="relation-code">01</i></button>
+              <button type="button" data-insight="amd"><span><strong>NVIDIA → AMD</strong><span>동반 신호 · 07.15 -3.46%</span></span><i class="relation-code">02</i></button>
+              <button type="button" data-insight="sk"><span><strong>NVIDIA → SK하이닉스</strong><span>공급망 · HBM 수요 연결</span></span><i class="relation-code">03</i></button>
+              <button type="button" data-insight="broadcom"><span><strong>NVIDIA → Broadcom</strong><span>동종 산업 · AI 네트워크 비교</span></span><i class="relation-code">04</i></button>
+              <button type="button" data-insight="pltr"><span><strong>NVIDIA → Palantir</strong><span>뉴스 공동언급 · 보조 신호</span></span><i class="relation-code">05</i></button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <aside class="inspector" aria-label="선택한 인사이트의 근거">
+      <div class="inspector-top"><span class="inspector-label" id="inspectorType">정책 변화</span><span class="inspector-no" id="inspectorNo">01 / 11</span></div>
+      <div class="insight-title">
+        <h2 id="inspectorTitle">미국 관세 관련 규정 6건 감지</h2>
+        <p id="inspectorLead">상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 적용 대상과 산업별 전이 경로는 원문 기준으로 추가 확인해야 합니다.</p>
+      </div>
+      <dl class="evidence-row">
+        <dt>범위</dt><dd id="inspectorScope">GLOBAL</dd>
+        <dt>근거 수준</dt><dd class="confidence"><span id="inspectorConfidence">중간</span><span class="confidence-bar"><i id="confidenceFill"></i></span></dd>
+        <dt>표시 이유</dt><dd id="inspectorReason">시장 전체 필수 확인</dd>
+      </dl>
+
+      <section class="inspector-section">
+        <h3 class="section-name">영향 경로 <span>MECHANISM</span></h3>
+        <ol class="impact-path" id="impactPath">
+          <li data-step="1"><strong>관세·수입 규정</strong><span>Federal Register 원문 공고</span></li>
+          <li data-step="2"><strong>항공기·엔진 원가와 공급망</strong><span>적용 범위 확인 전 잠정 경로</span></li>
+          <li data-step="3"><strong>관련 산업·기업 탐색</strong><span>직접 영향과 간접 영향을 분리</span></li>
+        </ol>
+      </section>
+
+      <section class="inspector-section">
+        <h3 class="section-name">NVIDIA 기초 사실 <span>SEC · FY2026</span></h3>
+        <table class="facts">
+          <tbody>
+            <tr><th scope="row">매출</th><td>$215.9B<small>원계수 215,938,000,000 USD</small></td></tr>
+            <tr><th scope="row">영업이익</th><td>$130.4B<small>원계수 130,387,000,000 USD</small></td></tr>
+            <tr><th scope="row">영업이익률</th><td>60.38%<small>SEC facts 기반 계산값</small></td></tr>
+            <tr><th scope="row">순이익률</th><td>55.60%<small>SEC facts 기반 계산값</small></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="inspector-section">
+        <h3 class="section-name">과거 유사국면 <span>HISTORY</span></h3>
+        <div class="data-note"><strong>장기 데이터 확장 중</strong>현재 가격 스냅샷은 2026-04-30 이후입니다. 결과를 꾸며내지 않고 시계열 확장 후 활성화합니다.</div>
+      </section>
+
+      <section class="inspector-section">
+        <h3 class="section-name">출처 <span>PROVENANCE</span></h3>
+        <ol class="source-list" id="sourceList">
+          <li><b>01</b><span><strong>Federal Register</strong><span>정책 원문 · 2026.07.16</span></span></li>
+          <li><b>02</b><span><strong>market_signals</strong><span>policy_event · magnitude 6</span></span></li>
+        </ol>
+      </section>
+      <p class="prototype-note">Signal Workspace v3 · 실DB 구조와 2026-07-16 샘플 반영 · 조회 전용 · 투자권유 아님</p>
+    </aside>
+  </div>
+
+  <script>
+    const records = {
+      tariff: { no:'01 / 11', type:'정책 변화', title:'미국 관세 관련 규정 6건 감지', scope:'GLOBAL', confidence:'중간', confidenceWidth:'58%', reason:'시장 전체 필수 확인', lead:'상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 적용 대상과 산업별 전이 경로는 원문 기준으로 추가 확인해야 합니다.', path:[['관세·수입 규정','Federal Register 원문 공고'],['항공기·엔진 원가와 공급망','적용 범위 확인 전 잠정 경로'],['관련 산업·기업 탐색','직접 영향과 간접 영향을 분리']], sources:[['Federal Register','정책 원문 · 2026.07.16'],['market_signals','policy_event · magnitude 6']] },
+      'ai-policy': { no:'02 / 11', type:'정책·사회', title:'AI 관련 연방 공고 6건', scope:'US', confidence:'낮음', confidenceWidth:'32%', reason:'정책·사회 영향 후보', lead:'AI 관련 공공회의와 규정 원문이 함께 수집됐습니다. 단순 보도량을 영향으로 보지 않고 대상·효력·시점을 분리합니다.', path:[['연방 공고 수집','공공회의와 규정 원문 6건'],['효력·대상 분류','실질 규제와 절차 공고 분리'],['기업 영향 검토','직접 연결은 추가 근거 필요']], sources:[['Federal Register','AI 관련 공고 · 2026.07.16'],['market_signals','policy_event · risk']] },
+      nvda: { no:'03 / 11', type:'시장·기업', title:'NVIDIA, 반도체 약세 속 상대강도', scope:'US:NVDA', confidence:'낮음', confidenceWidth:'39%', reason:'관심종목 직접 연결', lead:'SOX -2% 구간에서 +0.3% 상대강도가 기록됐습니다. SEC 매출 성장과 반도체 관계망, 이동평균 유지 여부를 함께 확인합니다.', path:[['NVIDIA 직접 신호','관심종목 relevance 1.0'],['반도체 생태계','TSMC·AMD·SK하이닉스 1-hop'],['거시·정책 전이','금리·수출정책은 별도 근거 확인']], sources:[['SEC EDGAR','FY2026 companyfacts'],['stock.candidates','2026.07.16 후보 기록'],['graph_edges','1-hop 관계 5개']] },
+      samsung: { no:'04 / 11', type:'관심 직접', title:'삼성전자, 외국인 주도 반등과 HBM 노출', scope:'KR:005930', confidence:'낮음', confidenceWidth:'35%', reason:'관심종목 직접 연결', lead:'7월 15일 +6.27% 반등과 외국인 주도 흐름이 기록됐습니다. 미국 반도체 약세 전이와 HBM 후속 근거를 함께 봐야 합니다.', path:[['삼성전자 직접 신호','관심종목 relevance 1.0'],['HBM·메모리 테마','SK하이닉스·NVIDIA 관계'],['외국인 수급','지속성 확인 필요']], sources:[['stock.candidates','2026.07.16 후보 기록'],['graph_edges','NVIDIA 동반 신호 관계']] },
+      amd: { no:'05 / 11', type:'관계 신호', title:'AMD, NVIDIA 관계망의 동반 신호', scope:'US:AMD', confidence:'중간', confidenceWidth:'61%', reason:'관심종목 1-hop 연결', lead:'7월 15일 -3.46%가 기록됐고 NVIDIA와 동반 신호 관계로 연결됩니다. 단일 가격 움직임보다 생태계 동조 여부를 확인합니다.', path:[['NVIDIA 관심종목','개인화 시작점'],['동반 신호 관계','실DB 1-hop'],['AMD 시장 신호','7월 15일 -3.46%']], sources:[['graph_edges','CORROBORATES · 1-hop'],['market_snapshots','2026.07.15 · AMD']] },
+      rklb: { no:'06 / 11', type:'새로운 발견', title:'Rocket Lab, 뉴스 관심 급증', scope:'US:RKLB', confidence:'낮음', confidenceWidth:'27%', reason:'관심 밖 발견', lead:'현재 관심종목 밖에서 관심 급증이 포착됐습니다. 추가 출처가 붙기 전에는 탐색 후보로만 표시합니다.', path:[['관심 급증','attention_spike 포착'],['우주·방산 주제 탐색','관심 밖 발견 지면'],['추가 출처 대기','정책·실적·가격 교차 확인']], sources:[['attention','2026.07.16 spike'],['market_signals','US:RKLB · risk']] },
+      tsmc: { no:'07 / 11', type:'관계 발견', title:'TSMC, NVIDIA 1-hop 동종 생태계', scope:'US:TSM', confidence:'중간', confidenceWidth:'66%', reason:'관계망 기반 발견', lead:'NVIDIA와 동종 생태계 관계가 확인됐고 관심 급증 신호가 추가됐습니다. 공급·수요 전이를 함께 읽는 탐색 항목입니다.', path:[['NVIDIA','관심종목 중심'],['동종 생태계 관계','실DB 1-hop'],['TSMC 관심 급증','attention_spike · 2026.07.16']], sources:[['graph_edges','PEER_OF · 1-hop'],['attention','TSM 관심 급증']] },
+      ls: { no:'08 / 11', type:'새 테마', title:'LS일렉트릭, AI 전력망 CAPEX 축', scope:'KR:010120', confidence:'낮음', confidenceWidth:'31%', reason:'새 테마 발견', lead:'기존 관심종목 밖에서 전력기기·데이터센터 인프라 축으로 포착됐습니다. 수주와 전력망 투자 경로를 먼저 확인합니다.', path:[['AI 데이터센터 확대','전력 수요 메커니즘'],['전력망·배전 설비','산업 테마 연결'],['LS일렉트릭','관련 종목 후보']], sources:[['v_user_feed_dedup','related · 0.45'],['stock.candidates','2026.07.16 기록']] },
+      sk: { no:'09 / 11', type:'공급망', title:'SK하이닉스, NVIDIA 공급망 연결', scope:'KR:000660', confidence:'중간', confidenceWidth:'63%', reason:'공급망 1-hop', lead:'NVIDIA와 공급망 관계가 확인됩니다. HBM 수요와 메모리 공급의 구조적 연결을 보되 당일 움직임과 장기 영향은 분리합니다.', path:[['NVIDIA AI 가속기','수요 중심'],['HBM 공급망','실DB SUPPLY_CHAIN'],['SK하이닉스','KR:000660']], sources:[['graph_edges','SUPPLY_CHAIN · 1-hop'],['stock.candidates','2026.07.16 기록']] },
+      broadcom: { no:'10 / 11', type:'동종 산업', title:'Broadcom, NVIDIA 동종 산업 연결', scope:'US:AVGO', confidence:'중간', confidenceWidth:'57%', reason:'산업 비교 축', lead:'동종 산업 1-hop 관계입니다. 가격 동조가 아니라 AI 네트워크와 반도체 수요를 비교할 때 사용하는 구조 관계입니다.', path:[['NVIDIA','AI 컴퓨팅'],['동종 산업 관계','실DB SAME_INDUSTRY'],['Broadcom','네트워크·반도체 비교']], sources:[['graph_edges','SAME_INDUSTRY · 1-hop']] },
+      pltr: { no:'11 / 11', type:'뉴스 관계', title:'Palantir, NVIDIA 뉴스 공동언급', scope:'US:PLTR', confidence:'낮음', confidenceWidth:'24%', reason:'보조 탐색 신호', lead:'뉴스 공동언급 관계가 확인됩니다. 구조적 공급 관계가 아니므로 보조 탐색 신호로만 취급합니다.', path:[['NVIDIA','뉴스 엔티티'],['뉴스 공동언급','공동언급 관측'],['Palantir','구조 관계는 미확인']], sources:[['graph_edges','NEWS_COMENTION · 1-hop']] }
+    };
+
+    const tabs = [...document.querySelectorAll('[data-lane]')];
+    const feeds = [...document.querySelectorAll('[data-feed]')];
+    const search = document.getElementById('globalSearch');
+
+    function setLane(lane) {
+      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.lane === lane)));
+      feeds.forEach(feed => { feed.hidden = feed.dataset.feed !== lane; });
+      filterRows(search.value);
+    }
+
+    function setRecord(key) {
+      const record = records[key];
+      if (!record) return;
+      document.querySelectorAll('[data-insight]').forEach(row => row.setAttribute('aria-current', String(row.dataset.insight === key)));
+      document.getElementById('inspectorType').textContent = record.type;
+      document.getElementById('inspectorNo').textContent = record.no;
+      document.getElementById('inspectorTitle').textContent = record.title;
+      document.getElementById('inspectorLead').textContent = record.lead;
+      document.getElementById('inspectorScope').textContent = record.scope;
+      document.getElementById('inspectorConfidence').textContent = record.confidence;
+      document.getElementById('confidenceFill').style.width = record.confidenceWidth;
+      document.getElementById('inspectorReason').textContent = record.reason;
+      document.getElementById('impactPath').innerHTML = record.path.map((step, index) => `<li data-step="${index + 1}"><strong>${step[0]}</strong><span>${step[1]}</span></li>`).join('');
+      document.getElementById('sourceList').innerHTML = record.sources.map((source, index) => `<li><b>${String(index + 1).padStart(2,'0')}</b><span><strong>${source[0]}</strong><span>${source[1]}</span></span></li>`).join('');
+    }
+
+    function filterRows(value) {
+      const query = value.trim().toLocaleLowerCase('ko-KR');
+      document.querySelectorAll('.searchable').forEach(row => {
+        const inactiveFeed = row.closest('[data-feed]')?.hidden;
+        row.hidden = Boolean(inactiveFeed || (query && !row.textContent.toLocaleLowerCase('ko-KR').includes(query)));
+      });
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => setLane(tab.dataset.lane)));
+    document.addEventListener('click', event => {
+      const trigger = event.target.closest('[data-insight]');
+      if (trigger) setRecord(trigger.dataset.insight);
+    });
+    search.addEventListener('input', event => filterRows(event.currentTarget.value));
+    document.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        search.focus();
+        search.select();
+      }
+    });
+  </script>
+</body>
+</html>

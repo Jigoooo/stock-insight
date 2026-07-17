@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
+import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { handlePositionUpsert } from '@/server/manual-portfolio';
 
 const handlers = {
@@ -10,6 +11,7 @@ const handlers = {
 
 export const Route = createFileRoute('/api/positions')({
   server: {
+    middleware: [authRequestMiddleware],
     handlers,
   },
 });

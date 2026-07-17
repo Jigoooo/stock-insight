@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
+import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
 
 import {
@@ -35,6 +36,7 @@ const handlers = {
 
 export const Route = createFileRoute('/api/market-news')({
   server: {
+    middleware: [authRequestMiddleware],
     handlers,
   },
 });

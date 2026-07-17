@@ -1,0 +1,66 @@
+:root {
+  --color-canvas: #fff4fb;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f9e4ff;
+  --color-surface-muted: #efd5f8;
+  --color-chrome: #32104b;
+  --color-chrome-raised: #54206f;
+  --color-on-chrome: #fff8ff;
+  --color-on-chrome-secondary: #e4c9ec;
+  --color-on-chrome-tertiary: #c7a6d2;
+  --color-text-primary: #2e1238;
+  --color-text-secondary: #674b70;
+  --color-text-tertiary: #806788;
+  --color-border: #d9b9e2;
+  --color-border-strong: #bd8fca;
+  --color-accent: #b323b8;
+  --color-accent-strong: #87158f;
+  --color-accent-soft: #f5d4ff;
+  --color-on-accent: #fff8ff;
+  --color-positive: #19765d;
+  --color-positive-soft: #d5f5e9;
+  --color-signal: #a45a00;
+  --color-signal-soft: #ffe6bd;
+  --color-copper: #bc542c;
+  --color-risk: #b42352;
+  --color-risk-soft: #ffdbe8;
+  --color-focus: #87158f;
+  --surface-auth-background: linear-gradient(135deg, #fff4fb, #e8d7ff);
+  --surface-topbar-background: rgb(255 255 255 / 72%);
+  --surface-inspector-background: rgb(255 248 255 / 94%);
+  --surface-border-color: rgb(179 35 184 / 28%);
+  --shadow-panel: 0 16px 44px rgb(80 20 100 / 24%);
+  --shadow-hover: 0 24px 68px rgb(80 20 100 / 34%);
+  --shadow-raised: 0 32px 88px rgb(80 20 100 / 42%);
+  --radius-xs: 8px;
+  --radius-sm: 14px;
+  --radius-md: 22px;
+  --radius-lg: 36px;
+  --radius-control: 18px;
+  --radius-panel: 32px;
+  --radius-auth: 48px;
+  --duration-press: 90ms;
+  --duration-fast: 220ms;
+  --duration-base: 420ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-material: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #170b20;
+    --color-surface: #24122f;
+    --color-surface-subtle: #321740;
+    --color-text-primary: #fff4ff;
+    --color-text-secondary: #d7bbdf;
+    --color-border: #573366;
+    --color-accent: #f08cff;
+    --color-accent-strong: #f2a4ff;
+    --color-accent-soft: #4b2457;
+    --color-on-accent: #2e1238;
+    --color-text-tertiary: #d5b9dd;
+    --color-risk: #ff9bb5;
+    --color-focus: #f08cff;
+  }
+}

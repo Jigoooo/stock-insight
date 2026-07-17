@@ -1,0 +1,32 @@
+# Version control and local agent state
+.git
+.hermes
+.omc
+.omx
+.superpowers
+
+# Dependencies and build artifacts
+node_modules
+**/node_modules
+.output
+**/.output
+dist
+**/dist
+.tanstack
+**/.tanstack
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+# Local secrets and generated reports
+.env
+.env.*
+!.env.example
+playwright-report
+test-results
+coverage
+
+# Non-runtime material
+docs
+backups
+graphify-out

@@ -44,6 +44,7 @@ export function StatusBadge({ availability, className, label, source, testId }: 
       data-source={source}
       data-testid={testId}
       data-tone={getAvailabilityTone(availability)}
+      data-motion-enter="status"
     >
       {buildStatusText({ availability, label, source })}
     </span>
@@ -100,7 +101,11 @@ export function DataQualityPopover({
 
 export function EmptyState({ children, className, testId }: FeedbackStateProps) {
   return (
-    <div className={classNames(styles.emptyState, className)} data-testid={testId}>
+    <div
+      className={classNames(styles.emptyState, className)}
+      data-testid={testId}
+      data-motion-enter="feedback"
+    >
       {children}
     </div>
   );
@@ -108,7 +113,11 @@ export function EmptyState({ children, className, testId }: FeedbackStateProps) 
 
 export function ErrorState({ children, className, testId }: FeedbackStateProps) {
   return (
-    <div className={classNames(styles.errorState, className)} data-testid={testId}>
+    <div
+      className={classNames(styles.errorState, className)}
+      data-testid={testId}
+      data-motion-enter="feedback"
+    >
       {children}
     </div>
   );
@@ -127,6 +136,7 @@ export function Skeleton({
       className={classNames(styles.skeleton, className)}
       style={{ width, height, ...style }}
       {...props}
+      data-motion-loop="skeleton"
     />
   );
 }

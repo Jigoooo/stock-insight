@@ -1,48 +1,122 @@
 :root {
-  --color-background: #0d1117;
-  --color-background-strong: #0a0d12;
-  --color-foreground: #f4f7fb;
-  --color-ink-soft: #c6ced8;
-  --color-muted: #96a0ad;
-  --color-muted-foreground: #8c97a5;
-  --color-card: #151a21;
-  --color-card-subtle: #1b212a;
-  --color-card-muted: #242c36;
-  --color-line: #2b3440;
-  --color-line-strong: #3a4654;
-  --color-primary: #7c8cff;
-  --color-primary-strong: #a8b3ff;
-  --color-primary-soft: #20284a;
-  --color-focus: color-mix(in srgb, var(--color-primary) 42%, transparent);
-  --color-signal: #d8bd63;
-  --color-signal-soft: #332d1c;
-  --color-copper: #d38c6d;
-  --color-copper-soft: #38251f;
-  --color-positive: #65cf98;
-  --color-positive-soft: #193126;
-  --color-risk: #ff8a82;
-  --color-risk-soft: #3a2020;
-  --color-graphite: #0a0d12;
-  --color-graphite-raised: #111720;
-  --color-graphite-line: #2b3440;
-  --radius-xs: 3px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.035);
-  --shadow-hover: 0 0 0 1px rgba(168, 179, 255, 0.16);
-  --shadow-raised: 0 18px 42px rgba(0, 0, 0, 0.38);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --motion-lift: -1px;
-  --motion-press: 1px;
-  --duration-fast: 180ms;
-  --duration-base: 280ms;
-  --font-size-label: 12px;
-  --font-size-body: 14px;
-  --font-size-title: 20px;
-  color: var(--color-foreground);
-  background: var(--color-background);
+  color-scheme: light dark;
+
+  /* Stable component aliases. Profiles choose values; components keep one interface. */
+  --color-background: var(--color-canvas);
+  --color-background-strong: var(--color-surface);
+  --color-foreground: var(--color-text-primary);
+  --color-ink-soft: var(--color-text-secondary);
+  --color-muted: var(--color-text-secondary);
+  --color-muted-foreground: var(--color-text-tertiary);
+  --color-card: var(--color-surface);
+  --color-card-subtle: var(--color-surface-subtle);
+  --color-card-muted: var(--color-surface-muted);
+  --color-line: var(--color-border);
+  --color-line-strong: var(--color-border-strong);
+  --color-primary: var(--color-accent);
+  --color-primary-strong: var(--color-accent-strong);
+  --color-primary-soft: var(--color-accent-soft);
+  --color-graphite: var(--color-chrome);
+  --color-graphite-raised: var(--color-chrome-raised);
+  --material-auth: var(--surface-auth-background);
+  --material-topbar: var(--surface-topbar-background);
+  --material-inspector: var(--surface-inspector-background);
+  --material-border: var(--surface-border-color);
+
+  /* Optional visual recipes. Profiles may replace these without changing components. */
+  --auth-page-background: var(--color-canvas);
+  --auth-brand-foreground: var(--color-on-chrome);
+  --auth-brand-secondary: var(--color-on-chrome-secondary);
+  --auth-brand-tertiary: var(--color-on-chrome-tertiary);
+  --auth-brand-description: var(--color-on-chrome-secondary);
+  --auth-brand-strong: var(--color-on-chrome);
+  --auth-brand-accent: var(--color-accent);
+  --auth-brand-positive: var(--color-positive);
+  --auth-brand-background: var(--color-chrome);
+  --auth-brand-grid-background: none;
+  --auth-brand-divider: var(--color-border);
+  --auth-brand-focus: var(--color-focus);
+  --auth-field-inset-shadow: none;
+  --auth-field-background: var(--color-surface);
+  --auth-field-focus-shadow: 0 0 0 4px var(--color-focus);
+  --auth-input-shell-shadow: none;
+  --auth-cta-foreground: var(--color-on-accent);
+  --auth-cta-background: var(--color-accent);
+  --auth-cta-shadow: var(--shadow-panel);
+  --auth-cta-hover-shadow: var(--shadow-hover);
+  --auth-primary-link-shadow: var(--auth-cta-shadow);
+  --auth-secondary-shadow: none;
+  --auth-form-backdrop-filter: none;
+  --auth-login-page-background: var(--color-canvas);
+  --auth-login-window-background: var(--color-surface);
+  --auth-login-visual-background: var(--color-chrome);
+  --auth-login-visual-foreground: var(--color-on-chrome);
+  --auth-login-visual-accent: var(--color-on-chrome);
+  --auth-login-visual-secondary: var(--color-on-chrome-secondary);
+  --auth-login-form-background: var(--color-surface);
+  --auth-login-mobile-page-background: var(--auth-login-page-background);
+  --auth-login-text-primary: var(--color-text-primary);
+  --auth-login-text-secondary: var(--color-text-secondary);
+  --auth-login-label: var(--color-text-secondary);
+  --auth-login-input-border: var(--color-border);
+  --auth-login-input-background: var(--color-surface);
+  --auth-login-input-shadow: none;
+  --auth-login-placeholder: var(--color-text-tertiary);
+  --auth-login-input-disabled-border: var(--color-border);
+  --auth-login-input-focus-border: var(--color-focus);
+  --auth-login-input-focus-shadow: 0 0 0 3px var(--color-focus);
+  --auth-login-input-hover-border: var(--color-border-strong);
+  --auth-login-input-hover-shadow: none;
+  --auth-login-cta-border: var(--color-accent-strong);
+  --auth-login-cta-background: var(--auth-cta-background);
+  --auth-input-radius: var(--radius-md);
+  --auth-shell-radius: var(--radius-control);
+  --auth-action-radius: var(--radius-control);
+  --auth-button-radius: var(--radius-md);
+  --auth-mobile-radius: var(--radius-panel);
+  --toast-border: var(--color-border);
+  --toast-background: var(--color-surface);
+  --toast-shadow: var(--shadow-raised);
+  --toast-loading-rail: var(--color-accent);
+  --toast-radius: var(--radius-panel);
+  --toast-mobile-radius: var(--radius-md);
+  --toast-backdrop-filter: none;
+  --switch-track-shadow: none;
+  --switch-thumb-shadow: none;
+  --toggle-shadow: none;
+  --motion-press-scale: 0.98;
+  --motion-toggle-scale: 0.96;
+  --motion-press-y: 0px;
+  --motion-hover-y: 0px;
+  --motion-entry-y: 0px;
+  --motion-entry-scale: 1;
+  --motion-spinner-duration: var(--duration-base);
+  --motion-spinner-ease: none;
+  --motion-pulse-duration: var(--duration-base);
+  --motion-pulse-static-opacity: 0.78;
+  --motion-pulse-min-opacity: 0.58;
+  --motion-ease-out: power3.out;
+  --motion-ease-press: power2.out;
+  --motion-ease-loop: sine.inOut;
+  --motion-toast-exit-y: -8;
+  --motion-toast-exit-scale: 0.99;
+  --motion-toast-exit-duration: var(--duration-fast);
+  --motion-toast-exit-ease: var(--motion-ease-press);
+  --motion-toast-reduced-opacity: 0.9;
+  --motion-toast-reduced-duration: var(--duration-press);
+  --motion-toast-reduced-ease: none;
+  --motion-toast-enter-y: -10;
+  --motion-toast-enter-scale: 0.98;
+  --motion-toast-enter-duration: var(--duration-base);
+  --motion-toast-enter-ease: var(--motion-ease-out);
+  --motion-navigation-offset-factor: 1.01;
+  --motion-navigation-reduced-duration: 0ms;
+  --motion-navigation-duration: var(--duration-base);
+  --motion-navigation-open-ease: var(--motion-ease-out);
+  --motion-navigation-close-ease: var(--motion-ease-press);
+
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
   font-synthesis-weight: none;
   text-rendering: optimizeLegibility;
 }
@@ -53,7 +127,7 @@
 
 html {
   min-height: 100%;
-  background: var(--color-background);
+  background: var(--color-canvas);
 }
 
 body {
@@ -61,7 +135,8 @@ body {
   min-height: 100%;
   margin: 0;
   overflow-x: hidden;
-  background: var(--color-background);
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
   font-variant-numeric: tabular-nums;
   line-break: strict;
   word-break: keep-all;
@@ -79,18 +154,7 @@ button {
   color: inherit;
   background: none;
   cursor: pointer;
-  transition:
-    transform var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    opacity var(--duration-fast) var(--ease-out);
   user-select: none;
-}
-
-button:not(:disabled):not([aria-expanded='true']):not([data-no-press]):active {
-  transform: translateY(var(--motion-press));
 }
 
 button:disabled {
@@ -172,7 +236,7 @@ svg {
 
 .root-fallback p {
   margin: 12px 0 0;
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

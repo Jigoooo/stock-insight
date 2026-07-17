@@ -47,6 +47,7 @@ export function TextInput({ className, variant = 'chrome', ...props }: TextInput
       className={classNames(styles.textInput, className)}
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
+      data-motion="field"
     />
   );
 }
@@ -57,13 +58,14 @@ export function Textarea({ className, variant = 'chrome', ...props }: TextareaPr
       className={classNames(styles.textarea, className)}
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
+      data-motion="field"
     />
   );
 }
 
 export function SearchField({ className, icon, inputProps }: SearchFieldProps) {
   return (
-    <label className={classNames(styles.searchField, className)}>
+    <label className={classNames(styles.searchField, className)} data-motion="field-shell">
       {icon}
       <TextInput variant="bare" {...inputProps} />
     </label>

@@ -1,4 +1,5 @@
 export { Button, IconButton } from './button';
+export { Switch, TextLink, Toggle } from './controls';
 export {
   DataQualityPopover,
   EmptyState,

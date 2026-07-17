@@ -83,6 +83,20 @@ describe('resolveMarketNewsInsights', () => {
     assert.equal(resolved.insights, fallbackInsights);
   });
 
+  it('does not expose stale database market news as live insight cards', () => {
+    const staleResponse: MarketNewsResponse = {
+      ...liveMarketNewsResponse,
+      availability: 'stale',
+    };
+
+    const resolved = resolveMarketNewsInsights(staleResponse, fallbackInsights);
+
+    assert.equal(resolved.isLiveData, false);
+    assert.equal(resolved.source, 'database');
+    assert.equal(resolved.availability, 'stale');
+    assert.equal(resolved.insights, fallbackInsights);
+  });
+
   it('keeps fallback insights when market news loader failed before returning a response', () => {
     const resolved = resolveMarketNewsInsights(undefined, fallbackInsights);
 

@@ -101,6 +101,23 @@ describe('resolveDashboardBootstrap', () => {
     assert.equal(resolved.isLiveData, false);
   });
 
+  it('does not expose stale database dashboard content as live data', () => {
+    const response: DashboardResponse = {
+      meta: { source: 'database', generatedAt: '2026-07-06T00:00:00.000Z' },
+      availability: 'stale',
+      error: null,
+      data: databaseBootstrap,
+    };
+
+    const resolved = resolveDashboardBootstrap(response, fallback);
+
+    assert.equal(resolved.bootstrap.portfolio.value, 'fallback-value');
+    assert.equal(resolved.bootstrap.stocks[0]?.id, 'fallback-stock');
+    assert.equal(resolved.source, 'database');
+    assert.equal(resolved.availability, 'stale');
+    assert.equal(resolved.isLiveData, false);
+  });
+
   it('keeps the local fallback dashboard when the loader failed before returning a response', () => {
     const resolved = resolveDashboardBootstrap(undefined, fallback);
 

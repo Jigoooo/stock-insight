@@ -30,6 +30,7 @@ export function Button({
       data-variant={variant}
       type={type}
       {...props}
+      data-motion="pressable"
     >
       {children}
     </button>
@@ -43,7 +44,12 @@ export function IconButton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { children: ReactNode }) {
   return (
-    <button className={classNames(styles.iconButton, className)} type={type} {...props}>
+    <button
+      className={classNames(styles.iconButton, className)}
+      type={type}
+      {...props}
+      data-motion="pressable"
+    >
       {children}
     </button>
   );

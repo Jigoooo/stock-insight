@@ -1,14 +1,24 @@
 import '@tanstack/react-start/server-only';
 
-import { jsonResponse } from '@/server/http';
+import { jsonResponse } from './http.ts';
+import {
+  resolveManualPortfolioMutationPolicy,
+  routeManualPortfolioMutation,
+  type ManualPortfolioMutationPolicy,
+} from './mutation-policy.ts';
 
 import {
+  claimMutation,
+  completeMutation,
   createDatabaseClient,
   createPostgresManualPortfolioWriteModel,
   createPostgresMeBootstrapReadModel,
   getManualPortfolioBootstrapAfterMutation,
+  parseServerEnv,
+  requireUserScope,
+  type ManualPortfolioWriteExecutor,
   type ManualPortfolioWriteModel,
-  type MeBootstrapReadModel,
+  type MeBootstrapRowQueryExecutor,
 } from '@stock-insight/api';
 import {
   manualPositionInputSchema,
@@ -36,20 +46,19 @@ const emptyManualPortfolioResponse: MeBootstrapResponse = {
   },
 };
 
-type RouteModels = {
-  readModel: MeBootstrapReadModel;
-  writeModel: ManualPortfolioWriteModel;
+const idempotencyKeyPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type RouteDatabase = {
+  database: Extract<ReturnType<typeof createDatabaseClient>, { kind: 'configured' }>;
+  userScope: ReturnType<typeof requireUserScope>;
 };
 
-function createRouteModels(): RouteModels | undefined {
-  const db = createDatabaseClient();
-  if (db.kind === 'disabled') return undefined;
-
-  const executor = (sql: string, params: readonly unknown[]) => db.queryRows(sql, params);
-  return {
-    readModel: createPostgresMeBootstrapReadModel(executor),
-    writeModel: createPostgresManualPortfolioWriteModel(executor),
-  };
+function createRouteDatabase(): RouteDatabase | undefined {
+  const env = parseServerEnv();
+  const userScope = requireUserScope(env);
+  const database = createDatabaseClient(env);
+  return database.kind === 'disabled' ? undefined : { database, userScope };
 }
 
 function unavailableResponse() {
@@ -57,8 +66,8 @@ function unavailableResponse() {
     {
       ...emptyManualPortfolioResponse,
       error: {
-        code: 'DATABASE_URL_NOT_CONFIGURED',
-        message: '데이터베이스 연결이 설정되지 않았습니다.',
+        code: 'DATABASE_WRITE_URL_NOT_CONFIGURED',
+        message: '쓰기 전용 데이터베이스 연결이 설정되지 않았습니다.',
       },
       meta: {
         source: 'fallback',
@@ -66,6 +75,25 @@ function unavailableResponse() {
       },
     },
     { status: 503 },
+  );
+}
+
+function mutationDisabledResponse(
+  policy: Extract<ManualPortfolioMutationPolicy, { enabled: false }>,
+) {
+  return jsonResponse(
+    {
+      ...emptyManualPortfolioResponse,
+      error: {
+        code: policy.errorCode,
+        message: '원격 테스트 배포에서는 포트폴리오 변경 기능이 비활성화되어 있습니다.',
+      },
+      meta: {
+        source: 'fallback',
+        generatedAt: new Date().toISOString(),
+      },
+    },
+    { status: policy.status },
   );
 }
 
@@ -86,6 +114,29 @@ function badRequestResponse(message = '수동 입력 형식이 올바르지 않�
   );
 }
 
+function idempotencyRequiredResponse() {
+  return jsonResponse(
+    { error: { code: 'IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key UUID가 필요합니다.' } },
+    { status: 428 },
+  );
+}
+
+function idempotencyConflictResponse() {
+  return jsonResponse(
+    {
+      error: {
+        code: 'IDEMPOTENCY_CONFLICT',
+        message: '이미 처리 중이거나 다른 요청에 사용된 키입니다.',
+      },
+    },
+    { status: 409 },
+  );
+}
+
+function mutationFailedResponse() {
+  return jsonResponse(emptyManualPortfolioResponse, { status: 500 });
+}
+
 async function parseJsonBody(request: Request): Promise<unknown> {
   try {
     return await request.json();
@@ -99,13 +150,20 @@ export async function handleWatchlistUpsert(request: Request): Promise<Response>
   const parsed = manualWatchlistInputSchema.safeParse(body);
   if (!parsed.success) return badRequestResponse();
 
-  return mutateManualPortfolio((writeModel) => writeModel.upsertWatchlist(parsed.data));
+  return mutateManualPortfolio(request, 'watchlist.upsert', parsed.data, (writeModel) =>
+    writeModel.upsertWatchlist(parsed.data),
+  );
 }
 
-export async function handleWatchlistRemove(entityKey: string): Promise<Response> {
+export async function handleWatchlistRemove(
+  request: Request,
+  entityKey: string,
+): Promise<Response> {
   if (!entityKey.trim()) return badRequestResponse('entityKey가 필요합니다.');
 
-  return mutateManualPortfolio((writeModel) => writeModel.removeWatchlist(entityKey));
+  return mutateManualPortfolio(request, 'watchlist.remove', { entityKey }, (writeModel) =>
+    writeModel.removeWatchlist(entityKey),
+  );
 }
 
 export async function handlePositionUpsert(request: Request): Promise<Response> {
@@ -113,27 +171,83 @@ export async function handlePositionUpsert(request: Request): Promise<Response> 
   const parsed = manualPositionInputSchema.safeParse(body);
   if (!parsed.success) return badRequestResponse();
 
-  return mutateManualPortfolio((writeModel) => writeModel.upsertPosition(parsed.data));
+  return mutateManualPortfolio(request, 'position.upsert', parsed.data, (writeModel) =>
+    writeModel.upsertPosition(parsed.data),
+  );
 }
 
-export async function handlePositionClose(entityKey: string): Promise<Response> {
+export async function handlePositionClose(request: Request, entityKey: string): Promise<Response> {
   if (!entityKey.trim()) return badRequestResponse('entityKey가 필요합니다.');
 
-  return mutateManualPortfolio((writeModel) => writeModel.closePosition(entityKey));
+  return mutateManualPortfolio(request, 'position.close', { entityKey }, (writeModel) =>
+    writeModel.closePosition(entityKey),
+  );
 }
 
 async function mutateManualPortfolio(
+  request: Request,
+  operation: string,
+  payload: unknown,
   mutation: (writeModel: ManualPortfolioWriteModel) => unknown | Promise<unknown>,
 ): Promise<Response> {
-  const models = createRouteModels();
-  if (!models) return unavailableResponse();
+  const policy = resolveManualPortfolioMutationPolicy();
+  return routeManualPortfolioMutation(policy, {
+    disabled: mutationDisabledResponse,
+    enabled: async () => {
+      const idempotencyKey = request.headers.get('idempotency-key')?.trim();
+      if (!idempotencyKey) return idempotencyRequiredResponse();
+      if (!idempotencyKeyPattern.test(idempotencyKey)) {
+        return badRequestResponse('Idempotency-Key 형식이 올바르지 않습니다.');
+      }
+      const routeDatabase = createRouteDatabase();
+      if (!routeDatabase) return unavailableResponse();
 
-  return jsonResponse(
-    await getManualPortfolioBootstrapAfterMutation({
-      mutation: () => mutation(models.writeModel),
-      readModel: models.readModel,
-    }),
-  );
+      let result;
+      try {
+        result = await routeDatabase.database.withTransaction(async (executor) => {
+          const writeExecutor: ManualPortfolioWriteExecutor = async (sql, params) =>
+            (await executor.queryRows(sql, params)) as Awaited<
+              ReturnType<ManualPortfolioWriteExecutor>
+            >;
+          const readExecutor: MeBootstrapRowQueryExecutor = async (sql, params) =>
+            (await executor.queryRows(sql, params)) as Awaited<
+              ReturnType<MeBootstrapRowQueryExecutor>
+            >;
+          const writeModel = createPostgresManualPortfolioWriteModel(
+            writeExecutor,
+            routeDatabase.userScope,
+          );
+          const readModel = createPostgresMeBootstrapReadModel(
+            readExecutor,
+            routeDatabase.userScope,
+          );
+          const claim = await claimMutation(executor, {
+            userScope: routeDatabase.userScope,
+            idempotencyKey,
+            operation,
+            payload,
+          });
+          if (claim.kind !== 'execute') return claim;
+
+          const response = await getManualPortfolioBootstrapAfterMutation({
+            mutation: () => mutation(writeModel),
+            readModel,
+            failureMode: 'throw',
+          });
+          await completeMutation(executor, claim, response);
+          return { kind: 'completed' as const, response };
+        });
+      } catch {
+        return mutationFailedResponse();
+      }
+
+      if (result.kind === 'replay') {
+        return jsonResponse(result.response, { headers: { 'Idempotency-Replayed': 'true' } });
+      }
+      if (result.kind === 'conflict') return idempotencyConflictResponse();
+      return jsonResponse(result.response);
+    },
+  });
 }
 
 export type { ManualPositionInput, ManualWatchlistInput };

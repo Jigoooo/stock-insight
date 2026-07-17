@@ -15,7 +15,7 @@ export function Card({ as = 'div', children, className, ...props }: CardProps) {
   const Component = as;
 
   return (
-    <Component className={classNames(styles.card, className)} {...props}>
+    <Component className={classNames(styles.card, className)} {...props} data-motion-enter="surface">
       {children}
     </Component>
   );

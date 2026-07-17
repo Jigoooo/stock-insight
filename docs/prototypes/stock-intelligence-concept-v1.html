@@ -1,0 +1,1175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Futur Insight — Market Intelligence Concept</title>
+  <style>
+    :root {
+      --canvas: #f2f4f6;
+      --canvas-soft: #f7f8fa;
+      --surface: #ffffff;
+      --surface-subtle: #f8f9fb;
+      --ink: #191f28;
+      --ink-soft: #4e5968;
+      --muted: #8b95a1;
+      --line: #e5e8eb;
+      --line-strong: #d8dde3;
+      --blue: #3182f6;
+      --blue-soft: #e8f3ff;
+      --blue-deep: #1b64da;
+      --green: #00a86b;
+      --green-soft: #e6f8f0;
+      --red: #e5484d;
+      --red-soft: #fff0f0;
+      --amber: #b7791f;
+      --amber-soft: #fff6df;
+      --dark: #08090a;
+      --dark-panel: #0f1011;
+      --dark-surface: #191a1b;
+      --dark-line: rgba(255,255,255,.08);
+      --dark-text: #f7f8f8;
+      --dark-muted: #8a8f98;
+      --radius-xs: 6px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-soft: 0 12px 36px rgba(25,31,40,.06);
+      --font-sans: Pretendard, -apple-system, BlinkMacSystemFont, "Noto Sans KR", "Segoe UI", sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: var(--font-sans);
+      font-feature-settings: "tnum" 1, "cv01" 1;
+      letter-spacing: -.015em;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(49,130,246,.26);
+      outline-offset: 2px;
+    }
+    svg { display: block; }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 228px minmax(620px, 1fr) 336px;
+      background: var(--canvas);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 22px 14px 16px;
+      background: rgba(255,255,255,.9);
+      border-right: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      z-index: 8;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 8px 24px;
+    }
+    .brand-mark {
+      width: 31px;
+      height: 31px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: white;
+      background: var(--ink);
+      font-size: 14px;
+      font-weight: 750;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+    .brand-copy strong { display: block; font-size: 14px; letter-spacing: -.02em; }
+    .brand-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; letter-spacing: .02em; }
+
+    .nav-label {
+      padding: 0 10px 7px;
+      color: #9aa3ad;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .nav-group { display: grid; gap: 3px; }
+    .nav-group + .nav-label { margin-top: 22px; }
+    .nav-item {
+      position: relative;
+      width: 100%;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 0;
+      border-radius: 8px;
+      color: var(--ink-soft);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 580;
+      text-align: left;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease, transform .18s ease;
+    }
+    .nav-item svg { width: 17px; height: 17px; stroke-width: 1.8; color: #7b8794; }
+    .nav-item:hover { background: #f2f5f8; color: var(--ink); }
+    .nav-item:active { transform: translateY(1px); }
+    .nav-item[aria-current="page"] { background: #edf4ff; color: var(--blue-deep); }
+    .nav-item[aria-current="page"] svg { color: var(--blue); }
+    .nav-item[aria-current="page"]::after {
+      content: "";
+      position: absolute;
+      right: 8px;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--blue);
+    }
+    .nav-count {
+      margin-left: auto;
+      color: #9aa3ad;
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+    .sidebar-spacer { flex: 1; }
+    .coverage-card {
+      margin: 12px 2px 0;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface-subtle);
+    }
+    .coverage-card > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .coverage-card strong { font-size: 12px; }
+    .coverage-card span { color: var(--muted); font-family: var(--font-mono); font-size: 10px; }
+    .coverage-track { height: 4px; margin: 10px 0 8px; overflow: hidden; border-radius: 99px; background: #e8ebef; }
+    .coverage-track i { display: block; width: 42%; height: 100%; border-radius: inherit; background: var(--blue); }
+    .coverage-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+
+    .workspace { min-width: 0; padding: 0 28px 56px; }
+    .topbar {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid rgba(216,221,227,.76);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 9px; color: var(--ink-soft); font-size: 12px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px var(--green-soft); }
+    .topbar-actions { display: flex; align-items: center; gap: 8px; }
+    .search-trigger, .icon-button {
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 9px;
+      background: rgba(255,255,255,.84);
+      box-shadow: 0 1px 1px rgba(25,31,40,.03);
+      cursor: pointer;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+    .search-trigger:hover, .icon-button:hover { border-color: #bfc7d0; background: white; box-shadow: 0 4px 14px rgba(25,31,40,.06); }
+    .search-trigger { min-width: 214px; display: flex; align-items: center; gap: 9px; padding: 0 10px; color: var(--muted); font-size: 12px; text-align: left; }
+    .search-trigger svg { width: 15px; height: 15px; }
+    .search-trigger kbd { margin-left: auto; padding: 2px 5px; border: 1px solid var(--line); border-radius: 5px; color: #7a8592; background: #f7f8fa; font-family: var(--font-mono); font-size: 9px; }
+    .icon-button { width: 38px; display: grid; place-items: center; }
+    .icon-button svg { width: 16px; height: 16px; }
+
+    .page-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 30px;
+      align-items: end;
+      padding: 30px 0 22px;
+    }
+    .eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--blue-deep); font-size: 11px; font-weight: 750; letter-spacing: .02em; }
+    .eyebrow::before { content: ""; width: 14px; height: 1px; background: currentColor; }
+    .page-heading h1 { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.16; letter-spacing: -.045em; font-weight: 720; }
+    .page-heading p { max-width: 660px; margin: 9px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.65; }
+    .freshness {
+      display: grid;
+      justify-items: end;
+      gap: 5px;
+      padding-bottom: 3px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .freshness strong { color: var(--ink-soft); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+
+    .signal-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,.72);
+      overflow: hidden;
+    }
+    .signal-stat { min-width: 0; padding: 12px 14px; border-right: 1px solid var(--line); }
+    .signal-stat:last-child { border-right: 0; }
+    .signal-stat span { display: block; color: var(--muted); font-size: 10px; }
+    .signal-stat strong { display: block; margin-top: 4px; font-family: var(--font-mono); font-size: 13px; font-weight: 600; letter-spacing: -.025em; }
+    .signal-stat small { margin-left: 5px; color: var(--green); font-family: var(--font-sans); font-size: 9px; font-weight: 700; }
+
+    .lane-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: fit-content;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255,255,255,.68);
+    }
+    .lane-tab {
+      min-height: 34px;
+      padding: 0 13px;
+      border: 0;
+      border-radius: 7px;
+      color: var(--muted);
+      background: transparent;
+      font-size: 11px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+    }
+    .lane-tab:hover { color: var(--ink); }
+    .lane-tab[aria-selected="true"] { color: var(--ink); background: white; box-shadow: 0 1px 5px rgba(25,31,40,.08); }
+    .lane-tab .tab-count { margin-left: 5px; color: #a0a8b1; font-family: var(--font-mono); font-size: 9px; }
+
+    .content-stack { display: grid; gap: 18px; margin-top: 12px; }
+    .feed-panel {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: 0 1px 1px rgba(25,31,40,.02);
+    }
+    .panel-head {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head > div { min-width: 0; }
+    .panel-head h2 { margin: 0; font-size: 13px; font-weight: 700; }
+    .panel-head p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
+    .panel-meta { flex: none; color: var(--muted); font-family: var(--font-mono); font-size: 9px; }
+
+    .feed-list { display: none; }
+    .feed-list[data-active="true"] { display: block; }
+    .feed-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 28px minmax(0,1fr) auto 18px;
+      gap: 10px;
+      align-items: center;
+      min-height: 89px;
+      padding: 13px 15px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: white;
+      text-align: left;
+      cursor: pointer;
+      transition: background .18s ease, transform .18s ease;
+      animation: row-in .28s cubic-bezier(.2,.7,.2,1) both;
+    }
+    .feed-row:last-child { border-bottom: 0; }
+    .feed-row:nth-child(2) { animation-delay: 35ms; }
+    .feed-row:nth-child(3) { animation-delay: 70ms; }
+    .feed-row:hover { background: #f9fbfd; }
+    .feed-row:active { transform: scale(.998); }
+    .feed-row[data-selected="true"] { background: #f4f8ff; }
+    @keyframes row-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .feed-marker {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      color: var(--ink-soft);
+      background: #f0f3f6;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .feed-marker.risk { color: #c53c41; background: var(--red-soft); }
+    .feed-marker.signal { color: var(--blue-deep); background: var(--blue-soft); }
+    .feed-marker.explore { color: #88610f; background: var(--amber-soft); }
+    .feed-main { min-width: 0; }
+    .feed-topline { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+    .feed-kind { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .025em; }
+    .feed-time { color: #a4acb5; font-family: var(--font-mono); font-size: 9px; }
+    .feed-main strong { display: block; overflow: hidden; color: var(--ink); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-main p { display: -webkit-box; overflow: hidden; margin: 5px 0 0; color: var(--ink-soft); font-size: 10px; line-height: 1.55; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .feed-tags { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 5px; max-width: 146px; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 0 7px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: #6d7885;
+      background: #fafbfc;
+      font-size: 8px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .tag.red { color: #c53c41; border-color: #f1d0d1; background: #fff7f7; }
+    .tag.blue { color: var(--blue-deep); border-color: #cfe1fb; background: #f4f8ff; }
+    .tag.green { color: #14865c; border-color: #ccecdf; background: #f4fcf8; }
+    .feed-arrow { color: #a3abb4; }
+    .feed-arrow svg { width: 15px; height: 15px; }
+
+    .radar-panel {
+      position: relative;
+      overflow: hidden;
+      min-height: 394px;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      color: var(--dark-text);
+      background:
+        radial-gradient(circle at 58% 43%, rgba(49,130,246,.12), transparent 26%),
+        linear-gradient(180deg, #0d0f12, #08090a);
+      box-shadow: 0 18px 44px rgba(8,9,10,.16);
+      transition: box-shadow .24s ease, transform .24s ease;
+    }
+    .radar-panel.is-focus { box-shadow: 0 24px 70px rgba(8,9,10,.3), 0 0 0 3px rgba(49,130,246,.2); transform: translateY(-2px); }
+    .radar-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .34;
+      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(to bottom, black, transparent 92%);
+      pointer-events: none;
+    }
+    .radar-head {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 18px 0;
+    }
+    .radar-head h2 { margin: 0; font-size: 13px; font-weight: 590; }
+    .radar-head p { margin: 5px 0 0; color: var(--dark-muted); font-size: 10px; }
+    .radar-actions { display: flex; gap: 6px; }
+    .dark-button {
+      min-height: 30px;
+      padding: 0 9px;
+      border: 1px solid var(--dark-line);
+      border-radius: 7px;
+      color: #c9ced6;
+      background: rgba(255,255,255,.035);
+      font-size: 9px;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease;
+    }
+    .dark-button:hover { color: white; background: rgba(255,255,255,.075); }
+    .radar-canvas { position: relative; height: 304px; margin: 8px 16px 0; }
+    .radar-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .radar-lines line { stroke: rgba(145,155,171,.24); stroke-width: 1.1; }
+    .radar-lines line.live { stroke: rgba(49,130,246,.5); stroke-dasharray: 4 5; animation: dash 5s linear infinite; }
+    @keyframes dash { to { stroke-dashoffset: -36; } }
+    .radar-node {
+      position: absolute;
+      transform: translate(-50%,-50%);
+      min-width: 86px;
+      padding: 8px 10px;
+      border: 1px solid var(--dark-line);
+      border-radius: 9px;
+      color: #d9dde3;
+      background: rgba(25,26,27,.92);
+      box-shadow: 0 8px 26px rgba(0,0,0,.25);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+    .radar-node:hover { transform: translate(-50%,-50%) scale(1.025); border-color: rgba(113,112,255,.52); background: #1d1f22; }
+    .radar-node strong { display: block; overflow: hidden; font-size: 10px; font-weight: 590; text-overflow: ellipsis; white-space: nowrap; }
+    .radar-node span { display: block; margin-top: 3px; color: #747a83; font-family: var(--font-mono); font-size: 7px; letter-spacing: 0; }
+    .radar-node.center {
+      min-width: 116px;
+      padding: 12px 13px;
+      border-color: rgba(49,130,246,.54);
+      background: linear-gradient(180deg, rgba(49,130,246,.2), rgba(25,26,27,.96));
+      box-shadow: 0 0 0 5px rgba(49,130,246,.06), 0 16px 38px rgba(0,0,0,.34);
+    }
+    .radar-node.center::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border: 1px solid rgba(49,130,246,.18);
+      border-radius: 13px;
+      animation: node-pulse 3.2s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes node-pulse { 0%, 55% { opacity: .65; transform: scale(.94); } 100% { opacity: 0; transform: scale(1.18); } }
+    .node-nvda { left: 52%; top: 48%; }
+    .node-tsm { left: 19%; top: 23%; }
+    .node-amd { left: 84%; top: 22%; }
+    .node-sk { left: 18%; top: 77%; }
+    .node-avgo { left: 84%; top: 75%; }
+    .node-pltr { left: 52%; top: 88%; }
+    .edge-label {
+      position: absolute;
+      z-index: 2;
+      padding: 2px 5px;
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 999px;
+      color: #737a84;
+      background: rgba(8,9,10,.82);
+      font-family: var(--font-mono);
+      font-size: 6px;
+      transform: translate(-50%,-50%);
+      white-space: nowrap;
+    }
+    .el-peer { left: 34%; top: 32%; }
+    .el-corroborate { left: 68%; top: 31%; }
+    .el-supply { left: 33%; top: 63%; }
+    .el-industry { left: 69%; top: 62%; }
+    .el-news { left: 53%; top: 70%; }
+    .radar-legend {
+      position: absolute;
+      left: 18px;
+      bottom: 13px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #6f747c;
+      font-size: 8px;
+    }
+    .radar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .radar-legend i { width: 13px; height: 1px; background: rgba(145,155,171,.36); }
+    .radar-legend i.blue { background: rgba(49,130,246,.72); }
+
+    .inspector {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 22px 18px 28px;
+      border-left: 1px solid var(--line);
+      background: #fbfcfd;
+      z-index: 7;
+    }
+    .inspector-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 19px; }
+    .inspector-head strong { font-size: 12px; }
+    .inspector-head span { color: var(--muted); font-family: var(--font-mono); font-size: 9px; }
+    .inspector-hero { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow-soft); }
+    .inspector-kicker { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: var(--blue-deep); font-size: 9px; font-weight: 750; letter-spacing: .025em; }
+    .inspector-kicker i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+    .inspector-hero h2 { margin: 0; font-size: 17px; line-height: 1.35; letter-spacing: -.035em; }
+    .inspector-hero > p { margin: 10px 0 0; color: var(--ink-soft); font-size: 11px; line-height: 1.68; }
+    .confidence-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .confidence-row span { color: var(--muted); font-size: 9px; }
+    .confidence-badge { display: inline-flex; align-items: center; gap: 5px; color: #8f650e !important; font-weight: 700; }
+    .confidence-badge i { width: 6px; height: 6px; border-radius: 50%; background: #e4ae37; }
+
+    .inspector-section { padding: 18px 2px 0; }
+    .section-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+    .section-label strong { font-size: 10px; }
+    .section-label span { color: var(--muted); font-family: var(--font-mono); font-size: 8px; }
+    .impact-path { display: grid; gap: 7px; }
+    .path-step { position: relative; display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 8px; align-items: start; min-height: 29px; }
+    .path-step:not(:last-child)::after { content: ""; position: absolute; left: 8px; top: 19px; bottom: -7px; width: 1px; background: var(--line-strong); }
+    .path-index { position: relative; z-index: 1; width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid #cfd7e0; border-radius: 50%; color: #75808c; background: #fbfcfd; font-family: var(--font-mono); font-size: 7px; }
+    .path-copy strong { display: block; font-size: 10px; }
+    .path-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+
+    .fact-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+    .fact {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: white;
+    }
+    .fact span { display: block; color: var(--muted); font-size: 8px; }
+    .fact strong { display: block; margin-top: 5px; overflow: hidden; font-family: var(--font-mono); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .fact small { display: block; margin-top: 4px; color: #a0a8b1; font-size: 7px; line-height: 1.35; }
+
+    .readiness {
+      padding: 12px;
+      border: 1px dashed #cfd6de;
+      border-radius: 9px;
+      background: #f7f9fb;
+    }
+    .readiness-head { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
+    .readiness-head strong { font-size: 9px; }
+    .readiness-head span { color: var(--amber); font-size: 8px; font-weight: 700; }
+    .readiness p { margin: 7px 0 0; color: var(--muted); font-size: 8px; line-height: 1.55; }
+    .timeline-ghost { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 10px; }
+    .timeline-ghost i { height: 4px; border-radius: 99px; background: #e2e6ea; }
+    .timeline-ghost i:first-child { background: #a9cafa; }
+
+    .source-list { display: grid; gap: 6px; }
+    .source-item { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+    .source-logo { flex: none; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 5px; color: var(--blue-deep); background: var(--blue-soft); font-family: var(--font-mono); font-size: 7px; font-weight: 700; }
+    .source-copy { min-width: 0; }
+    .source-copy strong { display: block; overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .source-copy span { display: block; margin-top: 2px; color: var(--muted); font-size: 7px; }
+    .source-state { margin-left: auto; color: var(--green); font-size: 7px; font-weight: 750; }
+    .source-state.caution { color: var(--amber); }
+
+    .prototype-note { margin: 18px 2px 0; padding-top: 13px; border-top: 1px solid var(--line); color: #959da6; font-size: 8px; line-height: 1.6; }
+
+    .command-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: start center;
+      padding-top: min(18vh, 160px);
+      background: rgba(9,13,19,.44);
+      backdrop-filter: blur(8px);
+      z-index: 30;
+    }
+    .command-overlay[data-open="true"] { display: grid; }
+    .command-dialog {
+      width: min(620px, calc(100vw - 30px));
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      color: var(--dark-text);
+      background: #17191c;
+      box-shadow: 0 30px 90px rgba(0,0,0,.38);
+      animation: dialog-in .2s ease-out both;
+    }
+    @keyframes dialog-in { from { opacity: 0; transform: translateY(-6px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .command-input-wrap { display: flex; align-items: center; gap: 10px; padding: 13px 15px; border-bottom: 1px solid var(--dark-line); }
+    .command-input-wrap svg { width: 17px; height: 17px; color: #878d96; }
+    .command-input { flex: 1; border: 0; outline: 0; color: white; background: transparent; font-size: 14px; }
+    .command-input::placeholder { color: #747982; }
+    .command-input-wrap kbd { padding: 3px 6px; border: 1px solid var(--dark-line); border-radius: 5px; color: #777d86; font-family: var(--font-mono); font-size: 8px; }
+    .command-results { padding: 7px; }
+    .command-result { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 8px; color: #d9dde3; background: transparent; text-align: left; cursor: pointer; }
+    .command-result:hover, .command-result:focus-visible { background: rgba(255,255,255,.06); }
+    .command-result span:first-child { width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid var(--dark-line); border-radius: 6px; color: #858b94; font-family: var(--font-mono); font-size: 8px; }
+    .command-result strong { display: block; font-size: 11px; }
+    .command-result small { display: block; margin-top: 2px; color: #757b84; font-size: 8px; }
+
+    .mobile-inspector-button { display: none; }
+
+    @media (max-width: 1240px) {
+      .app-shell { grid-template-columns: 210px minmax(0,1fr); }
+      .inspector { position: static; grid-column: 2; height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; border-top: 1px solid var(--line); border-left: 0; }
+      .inspector-head, .prototype-note { grid-column: 1 / -1; }
+      .inspector-hero { align-self: start; }
+      .inspector-body { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 18px; }
+    }
+
+    @media (max-width: 900px) {
+      .app-shell { display: block; }
+      .sidebar { position: static; width: 100%; height: auto; display: block; padding: 12px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { padding: 0 0 10px; }
+      .nav-label, .sidebar-spacer, .coverage-card { display: none; }
+      .nav-group { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+      .nav-group:nth-of-type(2) { display: none; }
+      .nav-group::-webkit-scrollbar { display: none; }
+      .nav-item { flex: none; width: auto; min-height: 44px; padding: 8px 10px; }
+      .nav-item[aria-current="page"]::after, .nav-count { display: none; }
+      .workspace { padding-inline: 18px; }
+      .inspector { grid-column: auto; grid-template-columns: 1fr; padding-inline: 18px; }
+      .inspector-head, .prototype-note { grid-column: auto; }
+      .page-heading { grid-template-columns: 1fr; gap: 8px; }
+      .freshness { justify-items: start; }
+      .signal-strip { grid-template-columns: repeat(2,1fr); }
+      .signal-stat:nth-child(2) { border-right: 0; }
+      .signal-stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+      .inspector-body { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .workspace { padding-inline: 12px; padding-bottom: 30px; }
+      .topbar { min-height: 60px; }
+      .topbar-left span:not(.live-dot) { display: none; }
+      .topbar-left span:nth-child(2) { display: inline; font-size: 10px; }
+      .search-trigger, .icon-button { width: 44px; min-height: 44px; }
+      .search-trigger { min-width: 0; padding: 0; justify-content: center; }
+      .search-trigger span, .search-trigger kbd { display: none; }
+      .page-heading { padding-top: 24px; }
+      .page-heading p { font-size: 12px; }
+      .lane-tabs { width: 100%; }
+      .lane-tab { flex: 1; min-height: 44px; padding-inline: 5px; }
+      .feed-row { grid-template-columns: 25px minmax(0,1fr) 15px; min-height: 96px; padding: 12px; }
+      .feed-tags { grid-column: 2; justify-content: flex-start; max-width: none; margin-top: -5px; }
+      .feed-arrow { grid-row: 1; grid-column: 3; }
+      .radar-panel { min-height: 440px; }
+      .radar-canvas { height: 342px; margin-inline: 2px; }
+      .dark-button { min-height: 44px; }
+      .radar-node strong { font-size: 11px; }
+      .radar-node span { font-size: 8px; }
+      .radar-head { padding-inline: 14px; }
+      .radar-head p { max-width: 200px; }
+      .inspector { padding-inline: 12px; }
+      .inspector-body { grid-template-columns: 1fr; }
+      .fact-grid { grid-template-columns: 1fr 1fr; }
+      .section-label strong { font-size: 11px; }
+      .path-copy strong { font-size: 11px; }
+      .path-copy span, .readiness p { font-size: 9px; }
+      .fact span { font-size: 9px; }
+      .fact strong { font-size: 12px; }
+      .fact small, .source-copy span, .source-state { font-size: 8px; }
+      .source-copy strong { font-size: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="주요 탐색">
+      <div class="brand">
+        <div class="brand-mark">FI</div>
+        <div class="brand-copy">
+          <strong>Futur Insight</strong>
+          <span>MARKET INTELLIGENCE</span>
+        </div>
+      </div>
+
+      <div class="nav-label">Intelligence</div>
+      <nav class="nav-group" aria-label="인텔리전스 메뉴">
+        <button class="nav-item" aria-current="page" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 12h4l2-7 4 14 2-7h4"/><path d="M4 20h16"/></svg>
+          오늘
+          <span class="nav-count">12</span>
+        </button>
+        <button class="nav-item" type="button" data-jump="radar">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="m14.2 9.8 4.3-4.3"/></svg>
+          세계 레이더
+          <span class="nav-count">6</span>
+        </button>
+        <button class="nav-item" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19V9m5 10V5m5 14v-7m5 7V3"/></svg>
+          종목 인텔리전스
+        </button>
+        <button class="nav-item" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="m8 11 8-4m-8 6 8 4"/></svg>
+          테마·관계
+        </button>
+        <button class="nav-item" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5m4-2v6l4 2"/></svg>
+          과거 국면
+          <span class="nav-count">준비</span>
+        </button>
+      </nav>
+
+      <div class="nav-label">My workspace</div>
+      <nav class="nav-group" aria-label="개인 작업공간 메뉴">
+        <button class="nav-item" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 4 12 0v17l-6-4-6 4z"/></svg>
+          내 리서치
+        </button>
+        <button class="nav-item" type="button">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          설정·데이터 상태
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <div class="coverage-card">
+        <div><strong>리서치 커버리지</strong><span>247 종목</span></div>
+        <div class="coverage-track" aria-hidden="true"><i></i></div>
+        <p>전체 유니버스 중 구조화 심층 데이터는 확장 중입니다.</p>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>데이터 파이프라인 정상</span>
+          <span>·</span>
+          <span>2026.07.16 KST</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="search-trigger" id="openCommand" type="button" aria-haspopup="dialog">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <span>종목, 테마, 사건 검색</span>
+            <kbd>⌘ K</kbd>
+          </button>
+          <button class="icon-button" type="button" aria-label="알림">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 19h4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="page-heading" aria-labelledby="pageTitle">
+        <div>
+          <div class="eyebrow">TODAY · INTELLIGENCE BRIEF</div>
+          <h1 id="pageTitle">오늘, 무엇이 달라졌는가</h1>
+          <p>내 관심종목만 좇지 않고 정책·경제·사회 신호에서 지금 알아야 할 변화와 종목 영향을 함께 추립니다.</p>
+        </div>
+        <div class="freshness">
+          <span>마지막 동기화</span>
+          <strong>07.16 08:50</strong>
+        </div>
+      </section>
+
+      <section class="signal-strip" aria-label="데이터 상태 요약">
+        <div class="signal-stat"><span>시장 신호</span><strong data-count="12656">12,656</strong><small>LIVE</small></div>
+        <div class="signal-stat"><span>관계 엣지</span><strong data-count="3376">3,376</strong></div>
+        <div class="signal-stat"><span>개인화 연결</span><strong data-count="14454">14,454</strong></div>
+        <div class="signal-stat"><span>공식·수집 출처</span><strong data-count="16">16</strong></div>
+      </section>
+
+      <div class="lane-tabs" role="tablist" aria-label="인사이트 피드 유형">
+        <button class="lane-tab" role="tab" aria-selected="true" aria-controls="mustKnowFeed" data-lane="must-know" type="button">Must Know <span class="tab-count">3</span></button>
+        <button class="lane-tab" role="tab" aria-selected="false" aria-controls="forYouFeed" data-lane="for-you" type="button">For You <span class="tab-count">3</span></button>
+        <button class="lane-tab" role="tab" aria-selected="false" aria-controls="exploreFeed" data-lane="explore" type="button">Explore <span class="tab-count">3</span></button>
+      </div>
+
+      <div class="content-stack">
+        <section class="feed-panel" aria-labelledby="feedTitle">
+          <div class="panel-head">
+            <div>
+              <h2 id="feedTitle">지금 놓치면 안 될 변화</h2>
+              <p id="feedDescription">개인 관심과 무관하게 시장 영향력이 큰 신호</p>
+            </div>
+            <span class="panel-meta">실DB 샘플 · 07.16</span>
+          </div>
+
+          <div class="feed-list" id="mustKnowFeed" role="tabpanel" data-feed="must-know" data-active="true">
+            <button class="feed-row" type="button" data-insight="tariff" data-selected="true">
+              <span class="feed-marker risk">P</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">정책 변화</span><span class="feed-time">오늘</span></span>
+                <strong>미국 관세 관련 규정 6건 감지</strong>
+                <p>상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 산업별 전이 경로 확인이 필요합니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag red">Risk</span><span class="tag">Federal Register</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="ai-policy">
+              <span class="feed-marker risk">AI</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">정책·사회</span><span class="feed-time">오늘</span></span>
+                <strong>AI 관련 연방 공고 6건, 추가 해석 필요</strong>
+                <p>공공회의와 규제 공고가 함께 포착됐습니다. 보도량이 아닌 원문 기준으로 영향 여부를 분리합니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag red">Monitor</span><span class="tag">원문 우선</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="nvda">
+              <span class="feed-marker signal">N</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">시장·기업</span><span class="feed-time">07.15</span></span>
+                <strong>NVIDIA, 반도체 약세 속 상대강도 유지</strong>
+                <p>SOX -2% 구간에서 +0.3% 상대강도. SEC 기준 매출 모멘텀과 MA50 유지 여부를 함께 봅니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag blue">Direct</span><span class="tag">NVDA</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+          </div>
+
+          <div class="feed-list" id="forYouFeed" role="tabpanel" data-feed="for-you" data-active="false" hidden>
+            <button class="feed-row" type="button" data-insight="nvda">
+              <span class="feed-marker signal">N</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">관심종목 직접</span><span class="feed-time">오늘</span></span>
+                <strong>NVIDIA · 매출 모멘텀과 이동평균 재확인</strong>
+                <p>Compute &amp; Networking 성장과 반도체 순환 약세를 동시에 확인합니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag blue">Direct</span><span class="tag">신뢰도 낮음</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="samsung">
+              <span class="feed-marker signal">삼</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">관심종목 직접</span><span class="feed-time">07.15</span></span>
+                <strong>삼성전자 · 외국인 주도 반등과 HBM 노출</strong>
+                <p>7월 15일 +6.27% 반등 기록. 미국 반도체 전이와 외국인 흐름 지속 여부가 확인점입니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag blue">Direct</span><span class="tag">KR</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="amd">
+              <span class="feed-marker signal">A</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">관련 종목</span><span class="feed-time">07.15</span></span>
+                <strong>AMD · NVIDIA 관계망에서 동반 약세 감지</strong>
+                <p>7월 15일 -3.46%. NVIDIA와의 동반 신호 관계를 통해 영향 범위에 포함됐습니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag blue">Related</span><span class="tag">1-hop</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+          </div>
+
+          <div class="feed-list" id="exploreFeed" role="tabpanel" data-feed="explore" data-active="false" hidden>
+            <button class="feed-row" type="button" data-insight="rklb">
+              <span class="feed-marker explore">R</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">관심 밖 발견</span><span class="feed-time">오늘</span></span>
+                <strong>Rocket Lab · 뉴스와 관심 급증</strong>
+                <p>현재 관심종목 밖에서 포착됐습니다. 단일 관심 지표이므로 추가 출처 확인 전까지 탐색 후보입니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag">Novel</span><span class="tag red">추가 검증</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="tsmc">
+              <span class="feed-marker explore">T</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">관계망 발견</span><span class="feed-time">오늘</span></span>
+                <strong>TSMC · NVIDIA 1-hop 동종 생태계 신호</strong>
+                <p>동종 생태계 관계와 뉴스 관심 급증이 함께 포착됐습니다. 공급·수요 전이 확인이 필요합니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag green">Graph</span><span class="tag">TSM</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+            <button class="feed-row" type="button" data-insight="ls-electric">
+              <span class="feed-marker explore">LS</span>
+              <span class="feed-main">
+                <span class="feed-topline"><span class="feed-kind">새 테마</span><span class="feed-time">오늘</span></span>
+                <strong>LS일렉트릭 · AI 전력망 CAPEX 연결</strong>
+                <p>기존 관심종목 밖의 전력 인프라 축입니다. 가격보다 구조적 수요 경로를 먼저 확인합니다.</p>
+              </span>
+              <span class="feed-tags"><span class="tag">Theme</span><span class="tag">전력기기</span></span>
+              <span class="feed-arrow"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m9 18 6-6-6-6"/></svg></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="radar-panel" id="radar" aria-labelledby="radarTitle">
+          <div class="radar-head">
+            <div>
+              <h2 id="radarTitle">NVIDIA 관계 레이더</h2>
+              <p>실제 graph_edges에서 확인된 1-hop 관계를 시각화했습니다.</p>
+            </div>
+            <div class="radar-actions">
+              <button class="dark-button" id="focusRadar" type="button">집중 보기</button>
+              <button class="dark-button" type="button">관계 5개</button>
+            </div>
+          </div>
+          <div class="radar-canvas" aria-label="NVIDIA와 관련 종목의 관계 그래프">
+            <svg class="radar-lines" aria-hidden="true" viewBox="0 0 1000 360" preserveAspectRatio="none">
+              <line class="live" x1="520" y1="173" x2="190" y2="82" />
+              <line class="live" x1="520" y1="173" x2="840" y2="80" />
+              <line x1="520" y1="173" x2="180" y2="277" />
+              <line x1="520" y1="173" x2="840" y2="270" />
+              <line x1="520" y1="173" x2="520" y2="317" />
+            </svg>
+            <button class="radar-node center node-nvda" type="button" data-insight="nvda"><strong>NVIDIA</strong><span>US:NVDA · 중심</span></button>
+            <button class="radar-node node-tsm" type="button" data-insight="tsmc"><strong>TSMC</strong><span>동종 생태계</span></button>
+            <button class="radar-node node-amd" type="button" data-insight="amd"><strong>AMD</strong><span>동반 신호</span></button>
+            <button class="radar-node node-sk" type="button" data-insight="sk-hynix"><strong>SK하이닉스</strong><span>공급망</span></button>
+            <button class="radar-node node-avgo" type="button" data-insight="broadcom"><strong>Broadcom</strong><span>동종 산업</span></button>
+            <button class="radar-node node-pltr" type="button" data-insight="pltr"><strong>Palantir</strong><span>뉴스 공동언급</span></button>
+            <span class="edge-label el-peer">동종 생태계</span>
+            <span class="edge-label el-corroborate">동반 신호</span>
+            <span class="edge-label el-supply">공급망</span>
+            <span class="edge-label el-industry">동종 산업</span>
+            <span class="edge-label el-news">뉴스 공동언급</span>
+          </div>
+          <div class="radar-legend"><span><i class="blue"></i> 활성 신호 동반</span><span><i></i> 구조적 관계</span></div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="inspector" aria-label="선택한 인사이트의 근거와 영향">
+      <div class="inspector-head"><strong>Impact Inspector</strong><span>READ ONLY</span></div>
+      <article class="inspector-hero">
+        <div class="inspector-kicker"><i></i><span id="inspectorKicker">정책 변화 · GLOBAL</span></div>
+        <h2 id="inspectorTitle">미국 관세 관련 규정 6건 감지</h2>
+        <p id="inspectorDescription">상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 규정의 적용 대상과 산업별 전이 경로를 원문 기준으로 추가 확인해야 합니다.</p>
+        <div class="confidence-row"><span>현재 신뢰 상태</span><span class="confidence-badge" id="inspectorConfidence"><i></i>중간 · 원문 확인</span></div>
+      </article>
+
+      <div class="inspector-body">
+        <section class="inspector-section">
+          <div class="section-label"><strong>영향 경로</strong><span>MECHANISM</span></div>
+          <div class="impact-path" id="impactPath">
+            <div class="path-step"><span class="path-index">1</span><span class="path-copy"><strong>관세·수입 규정</strong><span>Federal Register 원문 공고</span></span></div>
+            <div class="path-step"><span class="path-index">2</span><span class="path-copy"><strong>항공기·엔진 원가와 공급망</strong><span>적용 범위 확인 전 잠정 경로</span></span></div>
+            <div class="path-step"><span class="path-index">3</span><span class="path-copy"><strong>관련 산업·기업 탐색</strong><span>직접 영향과 간접 영향을 분리</span></span></div>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <div class="section-label"><strong>선택 종목 기초 사실</strong><span>SEC · FY2026</span></div>
+          <div class="fact-grid">
+            <div class="fact" title="원계수 215,938,000,000 USD · 10억 단위 환산, 소수 첫째자리 반올림"><span>NVIDIA 매출</span><strong>$215.9B</strong><small>원계수 215,938,000,000 USD</small></div>
+            <div class="fact" title="원계수 130,387,000,000 USD · 10억 단위 환산, 소수 첫째자리 반올림"><span>영업이익</span><strong>$130.4B</strong><small>원계수 130,387,000,000 USD</small></div>
+            <div class="fact"><span>영업이익률</span><strong>60.38%</strong><small>SEC facts 기반 계산값</small></div>
+            <div class="fact"><span>순이익률</span><strong>55.60%</strong><small>SEC facts 기반 계산값</small></div>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <div class="section-label"><strong>과거 유사국면</strong><span>HISTORY LAB</span></div>
+          <div class="readiness">
+            <div class="readiness-head"><strong>장기 시계열 적재 필요</strong><span>준비중</span></div>
+            <p>현재 가격 스냅샷은 2026-04-30 이후입니다. 근거 없는 과거 결과를 만들지 않고 장기 데이터 확보 후 활성화합니다.</p>
+            <div class="timeline-ghost" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+        </section>
+
+        <section class="inspector-section">
+          <div class="section-label"><strong>근거 출처</strong><span>PROVENANCE</span></div>
+          <div class="source-list" id="sourceList">
+            <div class="source-item"><span class="source-logo">FR</span><span class="source-copy"><strong>Federal Register</strong><span>정책 원문 · 2026.07.16</span></span><span class="source-state">원문</span></div>
+            <div class="source-item"><span class="source-logo">DB</span><span class="source-copy"><strong>market_signals</strong><span>policy_event · magnitude 6</span></span><span class="source-state caution">해석중</span></div>
+          </div>
+        </section>
+      </div>
+
+      <p class="prototype-note">UI 콘셉트 v1 · 실DB 구조와 2026-07-16 샘플을 반영했습니다. 조회 전용이며 투자권유·주문 기능이 아닙니다.</p>
+    </aside>
+  </div>
+
+  <div class="command-overlay" id="commandOverlay" data-open="false" role="presentation">
+    <section class="command-dialog" role="dialog" aria-modal="true" aria-labelledby="commandTitle">
+      <div class="command-input-wrap">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input class="command-input" id="commandInput" aria-label="검색" placeholder="종목, 테마, 사건을 검색하세요" autocomplete="off" />
+        <kbd>ESC</kbd>
+      </div>
+      <div class="command-results" id="commandResults">
+        <button class="command-result" type="button" data-command-insight="nvda"><span>⌕</span><span><strong>NVIDIA 종목 인텔리전스</strong><small>기업 · 관계망 · SEC 재무</small></span></button>
+        <button class="command-result" type="button" data-command-insight="tariff"><span>⌁</span><span><strong>미국 관세 정책 변화</strong><small>정책 사건 · 영향 경로</small></span></button>
+        <button class="command-result" type="button" data-command-insight="tsmc"><span>◎</span><span><strong>TSMC 관계 신호</strong><small>PEER_OF · 관심 급증</small></span></button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const insightData = {
+      tariff: {
+        kicker: '정책 변화 · GLOBAL',
+        title: '미국 관세 관련 규정 6건 감지',
+        description: '상업용 항공기·제트엔진 수입 조정 공고가 포함됐습니다. 규정의 적용 대상과 산업별 전이 경로를 원문 기준으로 추가 확인해야 합니다.',
+        confidence: '중간 · 원문 확인',
+        path: [
+          ['관세·수입 규정', 'Federal Register 원문 공고'],
+          ['항공기·엔진 원가와 공급망', '적용 범위 확인 전 잠정 경로'],
+          ['관련 산업·기업 탐색', '직접 영향과 간접 영향을 분리']
+        ],
+        sources: [['FR','Federal Register','정책 원문 · 2026.07.16','원문','ok'],['DB','market_signals','policy_event · magnitude 6','해석중','caution']]
+      },
+      'ai-policy': {
+        kicker: '정책·사회 · US',
+        title: 'AI 관련 연방 공고 6건 포착',
+        description: 'AI 관련 공공회의와 규제 공고가 함께 수집됐습니다. 단순 보도량을 영향으로 오인하지 않고 원문 대상·효력·시점을 분리해 확인합니다.',
+        confidence: '낮음 · 분류 단계',
+        path: [['연방 공고 6건','Federal Register 수집'],['규제 대상·효력 분류','공공회의와 실질 규정을 구분'],['AI 밸류체인 영향 검토','기업 단위 연결은 추가 근거 필요']],
+        sources: [['FR','Federal Register','AI 관련 공고 · 2026.07.16','원문','ok'],['DB','market_signals','policy_event · risk','분류중','caution']]
+      },
+      nvda: {
+        kicker: '기업·시장 · US:NVDA',
+        title: 'NVIDIA, 약한 시장 속 상대강도',
+        description: 'SOX -2% 구간에서 +0.3% 상대강도가 기록됐습니다. SEC Companyfacts 매출과 Compute & Networking 성장, MA50 유지 여부를 함께 확인합니다.',
+        confidence: '낮음 · 신규 촉매 부족',
+        path: [['NVIDIA 직접 신호','관심종목 direct relevance 1.0'],['반도체 생태계','TSMC·AMD·SK하이닉스 1-hop'],['거시·정책 전이','금리·수출정책은 별도 근거 확인']],
+        sources: [['SEC','SEC EDGAR','FY2026 companyfacts','원문','ok'],['DB','stock.candidates','2026.07.16 후보 기록','낮음','caution'],['GR','graph_edges','1-hop 관계 5개','검증','ok']]
+      },
+      samsung: {
+        kicker: '기업·시장 · KR:005930',
+        title: '삼성전자, HBM 노출과 수급 변화',
+        description: '7월 15일 +6.27% 반등과 외국인 주도 흐름이 기록됐습니다. 미국 반도체 약세 전이와 HBM 관련 후속 근거를 함께 봐야 합니다.',
+        confidence: '낮음 · 당일 신호',
+        path: [['삼성전자 직접 신호','관심종목 direct relevance 1.0'],['HBM·메모리 테마','SK하이닉스·NVIDIA 관계'],['외국인 수급','지속성 확인 필요']],
+        sources: [['DB','stock.candidates','2026.07.16 후보 기록','낮음','caution'],['GR','graph_edges','CORROBORATES · NVIDIA','검증','ok']]
+      },
+      amd: {
+        kicker: '관련 종목 · US:AMD',
+        title: 'AMD, NVIDIA 관계망의 동반 신호',
+        description: '7월 15일 -3.46%가 기록됐고 NVIDIA와 CORROBORATES 관계로 연결됩니다. 단일 가격 움직임보다 반도체 생태계 동조 여부를 확인합니다.',
+        confidence: '중간 · 관계 확인',
+        path: [['NVIDIA 관심종목','개인화 시작점'],['CORROBORATES','실DB 1-hop 관계'],['AMD 시장 신호','7월 15일 -3.46% 기록']],
+        sources: [['GR','graph_edges','CORROBORATES · 1-hop','검증','ok'],['DB','market_snapshots','2026.07.15 · AMD','원자료','ok']]
+      },
+      rklb: {
+        kicker: '관심 밖 발견 · US:RKLB',
+        title: 'Rocket Lab, 뉴스와 관심 급증',
+        description: '현재 관심종목 밖에서 attention_spike가 포착됐습니다. 아직 단일 관심 지표이므로 탐색 후보로만 보여주고 추가 출처가 붙기 전 결론을 만들지 않습니다.',
+        confidence: '낮음 · 단일축',
+        path: [['관심 급증','attention_spike 포착'],['우주·방산 주제 탐색','관심 밖 발견 레인'],['추가 출처 대기','정책·실적·가격 교차확인 필요']],
+        sources: [['AT','attention','2026.07.16 spike','단일축','caution'],['DB','market_signals','US:RKLB · risk','수집','ok']]
+      },
+      tsmc: {
+        kicker: '관계망 발견 · US:TSM',
+        title: 'TSMC, NVIDIA 1-hop 생태계 신호',
+        description: 'NVIDIA와 PEER_OF 관계가 확인됐고 오늘 관심 급증 신호가 추가됐습니다. 반도체 수요·공급 전이를 함께 읽는 탐색 항목입니다.',
+        confidence: '중간 · 2축 확인',
+        path: [['NVIDIA','관심종목 중심'],['PEER_OF','실DB 1-hop 관계'],['TSMC 관심 급증','attention_spike · 2026.07.16']],
+        sources: [['GR','graph_edges','PEER_OF · 1-hop','검증','ok'],['AT','attention','TSM 관심 급증','수집','ok']]
+      },
+      'ls-electric': {
+        kicker: '새 테마 · KR:010120',
+        title: 'LS일렉트릭, AI 전력망 CAPEX 축',
+        description: '기존 관심종목 밖에서 전력기기·데이터센터 인프라 축으로 포착됐습니다. 단기 가격보다 수주·전력망 투자·밸류체인 관계를 먼저 확인합니다.',
+        confidence: '낮음 · 탐색 단계',
+        path: [['AI 데이터센터 확대','전력 수요 메커니즘'],['전력망·배전 설비','산업 테마 연결'],['LS일렉트릭','관련 종목 후보']],
+        sources: [['DB','v_user_feed_dedup','related · 0.45','수집','ok'],['DB','stock.candidates','2026.07.16 기록','낮음','caution']]
+      },
+      'sk-hynix': {
+        kicker: '공급망 · KR:000660',
+        title: 'SK하이닉스, NVIDIA 공급망 연결',
+        description: 'NVIDIA와 SUPPLY_CHAIN 관계가 확인됩니다. HBM 수요와 메모리 공급의 구조적 연결을 보되 당일 급등과 장기 영향은 분리합니다.',
+        confidence: '중간 · 구조 관계',
+        path: [['NVIDIA AI 가속기','수요 중심'],['HBM 공급망','SUPPLY_CHAIN'],['SK하이닉스','KR:000660']],
+        sources: [['GR','graph_edges','SUPPLY_CHAIN · 1-hop','검증','ok'],['DB','stock.candidates','2026.07.16 기록','낮음','caution']]
+      },
+      broadcom: {
+        kicker: '동종 산업 · US:AVGO',
+        title: 'Broadcom, NVIDIA 동종 산업 연결',
+        description: 'SAME_INDUSTRY 1-hop 관계입니다. 가격 동조가 아니라 산업 분류 기반 연결로, 네트워크·AI 인프라 수요를 비교할 때 사용합니다.',
+        confidence: '중간 · 구조 관계',
+        path: [['NVIDIA','AI 컴퓨팅'],['SAME_INDUSTRY','실DB 1-hop'],['Broadcom','네트워크·반도체 비교']],
+        sources: [['GR','graph_edges','SAME_INDUSTRY · 1-hop','검증','ok']]
+      },
+      pltr: {
+        kicker: '뉴스 연결 · US:PLTR',
+        title: 'Palantir, NVIDIA 뉴스 공동언급',
+        description: 'NEWS_COMENTION 관계가 확인됩니다. 공동언급은 구조적 공급 관계가 아니므로 보조 탐색 신호로만 취급합니다.',
+        confidence: '낮음 · 공동언급',
+        path: [['NVIDIA','뉴스 엔티티'],['NEWS_COMENTION','공동언급 관측'],['Palantir','구조 관계는 미확인']],
+        sources: [['GR','graph_edges','NEWS_COMENTION · 1-hop','보조','caution']]
+      }
+    };
+
+    const laneCopy = {
+      'must-know': ['지금 놓치면 안 될 변화', '개인 관심과 무관하게 시장 영향력이 큰 신호'],
+      'for-you': ['내 관심과 연결된 변화', '관심종목과 직접·관련 관계로 연결된 신호'],
+      'explore': ['관심 밖이지만 볼 가치가 있는 것', '새 테마·관계·이상 신호를 통한 발견']
+    };
+
+    const tabs = [...document.querySelectorAll('[data-lane]')];
+    const feeds = [...document.querySelectorAll('[data-feed]')];
+    const feedTitle = document.getElementById('feedTitle');
+    const feedDescription = document.getElementById('feedDescription');
+    const inspectorTitle = document.getElementById('inspectorTitle');
+    const inspectorKicker = document.getElementById('inspectorKicker');
+    const inspectorDescription = document.getElementById('inspectorDescription');
+    const inspectorConfidence = document.getElementById('inspectorConfidence');
+    const impactPath = document.getElementById('impactPath');
+    const sourceList = document.getElementById('sourceList');
+
+    function setLane(lane) {
+      tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.lane === lane)));
+      feeds.forEach(feed => {
+        const active = feed.dataset.feed === lane;
+        feed.dataset.active = String(active);
+        feed.hidden = !active;
+      });
+      feedTitle.textContent = laneCopy[lane][0];
+      feedDescription.textContent = laneCopy[lane][1];
+    }
+
+    function setInsight(key) {
+      const item = insightData[key];
+      if (!item) return;
+      document.querySelectorAll('.feed-row').forEach(row => row.dataset.selected = String(row.dataset.insight === key));
+      inspectorKicker.textContent = item.kicker;
+      inspectorTitle.textContent = item.title;
+      inspectorDescription.textContent = item.description;
+      inspectorConfidence.innerHTML = `<i></i>${item.confidence}`;
+      impactPath.innerHTML = item.path.map((step, index) => `
+        <div class="path-step">
+          <span class="path-index">${index + 1}</span>
+          <span class="path-copy"><strong>${step[0]}</strong><span>${step[1]}</span></span>
+        </div>`).join('');
+      sourceList.innerHTML = item.sources.map(source => `
+        <div class="source-item">
+          <span class="source-logo">${source[0]}</span>
+          <span class="source-copy"><strong>${source[1]}</strong><span>${source[2]}</span></span>
+          <span class="source-state ${source[4] === 'caution' ? 'caution' : ''}">${source[3]}</span>
+        </div>`).join('');
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => setLane(tab.dataset.lane)));
+    document.addEventListener('click', event => {
+      const insightTarget = event.target.closest('[data-insight]');
+      if (insightTarget) setInsight(insightTarget.dataset.insight);
+      const jump = event.target.closest('[data-jump="radar"]');
+      if (jump) document.getElementById('radar').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    const radar = document.getElementById('radar');
+    document.getElementById('focusRadar').addEventListener('click', event => {
+      radar.classList.toggle('is-focus');
+      event.currentTarget.textContent = radar.classList.contains('is-focus') ? '집중 해제' : '집중 보기';
+    });
+
+    const commandOverlay = document.getElementById('commandOverlay');
+    const commandInput = document.getElementById('commandInput');
+    const commandResults = document.getElementById('commandResults');
+    function openCommand() {
+      commandOverlay.dataset.open = 'true';
+      requestAnimationFrame(() => commandInput.focus());
+    }
+    function closeCommand() {
+      commandOverlay.dataset.open = 'false';
+      commandInput.value = '';
+      filterCommands('');
+    }
+    function filterCommands(query) {
+      const normalized = query.trim().toLowerCase();
+      commandResults.querySelectorAll('.command-result').forEach(result => {
+        result.hidden = normalized && !result.textContent.toLowerCase().includes(normalized);
+      });
+    }
+    document.getElementById('openCommand').addEventListener('click', openCommand);
+    commandInput.addEventListener('input', event => filterCommands(event.currentTarget.value));
+    commandOverlay.addEventListener('click', event => { if (event.target === commandOverlay) closeCommand(); });
+    document.querySelectorAll('[data-command-insight]').forEach(button => button.addEventListener('click', () => {
+      setInsight(button.dataset.commandInsight);
+      closeCommand();
+    }));
+    document.addEventListener('keydown', event => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        openCommand();
+      }
+      if (event.key === 'Escape' && commandOverlay.dataset.open === 'true') closeCommand();
+    });
+
+    function animateCounts() {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      document.querySelectorAll('[data-count]').forEach(element => {
+        const target = Number(element.dataset.count);
+        if (reduceMotion) {
+          element.textContent = target.toLocaleString('ko-KR');
+          return;
+        }
+        const started = performance.now();
+        const duration = 650;
+        function tick(now) {
+          const progress = Math.min(1, (now - started) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          element.textContent = Math.round(target * eased).toLocaleString('ko-KR');
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      });
+    }
+    animateCounts();
+  </script>
+</body>
+</html>
