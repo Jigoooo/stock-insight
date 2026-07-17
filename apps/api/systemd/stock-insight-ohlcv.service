@@ -1,0 +1,13 @@
+[Unit]
+Description=Stock Insight daily KR/US OHLCV refresh
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/apps/api/scripts/run_ohlcv_daily.sh
+TimeoutStartSec=10min
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

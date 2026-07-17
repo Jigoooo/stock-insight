@@ -1,0 +1,13 @@
+[Unit]
+Description=Stock Insight RSS news ingest and Korean translation
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/apps/api/scripts/run_news_pipeline.sh
+TimeoutStartSec=5min
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

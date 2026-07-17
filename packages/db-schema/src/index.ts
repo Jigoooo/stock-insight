@@ -1,4 +1,5 @@
 import { appResearchFoundationMigrationSql } from './migrations/001_app_research_foundation';
+import { sourceDocumentKoreanTranslationMigrationSql } from './migrations/006_source_document_korean_translation';
 
 export type AppTableName =
   | 'company_profiles'
@@ -10,6 +11,7 @@ export type AppTableName =
   | 'user_notification_rules'
   | 'user_alert_events'
   | 'user_decision_journal_entries'
+  | 'source_documents'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
 
@@ -40,6 +42,12 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: appResearchFoundationMigrationSql,
   },
+  {
+    id: '006_source_document_korean_translation',
+    description: 'Add Korean title/summary projections while preserving original source text.',
+    tables: ['source_documents'],
+    sql: sourceDocumentKoreanTranslationMigrationSql,
+  },
 ];
 
-export { appResearchFoundationMigrationSql };
+export { appResearchFoundationMigrationSql, sourceDocumentKoreanTranslationMigrationSql };

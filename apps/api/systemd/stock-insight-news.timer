@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight news pipeline every 30 minutes
+
+[Timer]
+OnCalendar=*:0/30
+RandomizedDelaySec=2min
+Persistent=true
+Unit=stock-insight-news.service
+
+[Install]
+WantedBy=timers.target

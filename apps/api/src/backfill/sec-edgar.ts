@@ -124,13 +124,14 @@ export type SecEdgarApplyResult = {
 
 export const SEC_APP_SURFACE_US_TICKER_ROWS_SQL = `
 SELECT
-  concat(upper(deep.market), ':', upper(deep.ticker)) AS entity_key,
-  upper(deep.ticker) AS symbol,
-  upper(deep.market) AS market,
-  nullif(deep.name, '') AS name
-FROM watchlist.deep_cache deep
-WHERE upper(deep.market) = 'US'
-ORDER BY upper(deep.ticker)
+  entity.entity_key,
+  upper(entity.symbol) AS symbol,
+  upper(entity.market) AS market,
+  nullif(entity.name, '') AS name
+FROM public.entities entity
+WHERE upper(entity.market) = 'US'
+  AND coalesce(entity.symbol, '') <> ''
+ORDER BY upper(entity.symbol)
 `;
 
 export const SEC_COMPANY_TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json';
@@ -157,6 +158,25 @@ ON CONFLICT (entity_key, fiscal_year, fiscal_period, metric_group) DO UPDATE SET
   source_refs_json = EXCLUDED.source_refs_json,
   availability = EXCLUDED.availability,
   reported_at = EXCLUDED.reported_at,
+  updated_at = now()
+`;
+
+const UPSERT_SEC_COMPANY_PROFILE_SQL = `
+INSERT INTO public.company_profiles (
+  entity_key, symbol, market, name, sector, industry, summary_text,
+  profile_json, source_refs_json, availability, captured_at
+) VALUES (
+  $1, $2, 'US', $3, NULL, NULL, $4, $5::jsonb, $6::jsonb, 'text_only', $7::timestamptz
+)
+ON CONFLICT (entity_key) DO UPDATE SET
+  symbol = EXCLUDED.symbol,
+  market = EXCLUDED.market,
+  name = EXCLUDED.name,
+  summary_text = EXCLUDED.summary_text,
+  profile_json = EXCLUDED.profile_json,
+  source_refs_json = EXCLUDED.source_refs_json,
+  availability = EXCLUDED.availability,
+  captured_at = EXCLUDED.captured_at,
   updated_at = now()
 `;
 
@@ -574,6 +594,20 @@ export async function applySecEdgarBackfillPlan(
   executor: SecEdgarWriteExecutor,
   options: SecEdgarApplyOptions,
 ): Promise<SecEdgarApplyResult> {
+  const profiles = plan.tickerAudits.filter(
+    (ticker) => ticker.cik && ticker.secTitle && ticker.symbol && ticker.entityKey,
+  );
+  for (const profile of profiles) {
+    await executor.execute(UPSERT_SEC_COMPANY_PROFILE_SQL, [
+      profile.entityKey,
+      profile.symbol,
+      profile.secTitle,
+      `${profile.secTitle} SEC EDGAR 기업 프로필 (CIK ${profile.cik})`,
+      JSON.stringify({ sourceSystem: 'sec-edgar', cik: profile.cik, secTitle: profile.secTitle }),
+      JSON.stringify(buildSourceRefs(profile.cik ?? '')),
+      options.finishedAt.toISOString(),
+    ]);
+  }
   for (const group of plan.metricGroups) {
     await executor.execute(UPSERT_SEC_COMPANY_FINANCIAL_SQL, [
       group.entityKey,
@@ -595,13 +629,14 @@ export async function applySecEdgarBackfillPlan(
   }
 
   const summary = summarizeSecEdgarDryRunAudit(plan);
+  const rowsWritten = profiles.length + plan.metricGroups.length;
   await executor.execute(INSERT_SEC_MIGRATION_RUN_SQL, [
     options.runId,
     options.jobName,
     options.startedAt.toISOString(),
     options.finishedAt.toISOString(),
     plan.sourceRows,
-    plan.metricGroups.length,
+    rowsWritten,
     summary.skippedRows,
     JSON.stringify(summary),
   ]);
@@ -609,7 +644,7 @@ export async function applySecEdgarBackfillPlan(
   return {
     audit: {
       rowsRead: plan.sourceRows,
-      rowsWritten: plan.metricGroups.length,
+      rowsWritten,
       rowsSkipped: summary.skippedRows,
       summary,
     },

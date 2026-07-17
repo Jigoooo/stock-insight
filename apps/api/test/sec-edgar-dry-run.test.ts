@@ -109,8 +109,8 @@ const impossibleMarginFacts: SecCompanyFacts = {
 
 describe('SEC EDGAR dry-run planner', () => {
   it('uses read-only SQL scoped to app-surface US tickers', () => {
-    assert.match(SEC_APP_SURFACE_US_TICKER_ROWS_SQL, /watchlist\.deep_cache/i);
-    assert.match(SEC_APP_SURFACE_US_TICKER_ROWS_SQL, /upper\(deep\.market\) = 'US'/i);
+    assert.match(SEC_APP_SURFACE_US_TICKER_ROWS_SQL, /public\.entities/i);
+    assert.match(SEC_APP_SURFACE_US_TICKER_ROWS_SQL, /upper\(entity\.market\) = 'US'/i);
     assert.doesNotMatch(
       SEC_APP_SURFACE_US_TICKER_ROWS_SQL,
       /\b(insert|update|drop|truncate|delete|alter\s+table)\b/i,
@@ -221,21 +221,23 @@ describe('SEC EDGAR dry-run planner', () => {
     );
 
     assert.equal(result.audit.rowsRead, 3);
-    assert.equal(result.audit.rowsWritten, 2);
+    assert.equal(result.audit.rowsWritten, 4);
     assert.equal(result.audit.rowsSkipped, 1);
-    assert.equal(calls.length, 3);
-    assert.match(calls[0]?.sql ?? '', /insert into public\.company_financials/i);
+    assert.equal(calls.length, 5);
+    assert.match(calls[0]?.sql ?? '', /insert into public\.company_profiles/i);
+    assert.equal(calls[0]?.params[0], 'US:NVDA');
+    assert.match(calls[2]?.sql ?? '', /insert into public\.company_financials/i);
     assert.match(
-      calls[0]?.sql ?? '',
+      calls[2]?.sql ?? '',
       /on conflict \(entity_key, fiscal_year, fiscal_period, metric_group\) do update/i,
     );
-    assert.equal(calls[0]?.params[0], 'US:NVDA');
-    assert.equal(calls[0]?.params[3], 'sec_annual_facts');
-    assert.match(String(calls[0]?.params[5] ?? ''), /sec-edgar-companyfacts/);
-    assert.match(String(calls[0]?.params[5] ?? ''), /"warnings":\[\]/);
-    assert.match(String(calls[0]?.params[6] ?? ''), /SEC EDGAR/);
-    assert.match(String(calls[1]?.params[5] ?? ''), /extreme; kept for review/);
-    assert.match(calls[2]?.sql ?? '', /insert into public\.migration_runs/i);
+    assert.equal(calls[2]?.params[0], 'US:NVDA');
+    assert.equal(calls[2]?.params[3], 'sec_annual_facts');
+    assert.match(String(calls[2]?.params[5] ?? ''), /sec-edgar-companyfacts/);
+    assert.match(String(calls[2]?.params[5] ?? ''), /"warnings":\[\]/);
+    assert.match(String(calls[2]?.params[6] ?? ''), /SEC EDGAR/);
+    assert.match(String(calls[3]?.params[5] ?? ''), /extreme; kept for review/);
+    assert.match(calls[4]?.sql ?? '', /insert into public\.migration_runs/i);
     for (const call of calls) {
       assert.doesNotMatch(call.sql, /\b(drop|truncate|delete|alter\s+table\s+\S+\s+rename)\b/i);
     }

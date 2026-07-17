@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import { appResearchFoundationMigrationSql } from '../src/migrations/001_app_research_foundation.ts';
+import { sourceDocumentKoreanTranslationMigrationSql } from '../src/migrations/006_source_document_korean_translation.ts';
 
 const destructiveTokens = [
   /\bdrop\s+table\b/i,
@@ -13,6 +14,27 @@ const destructiveTokens = [
 ];
 
 describe('app additive migrations', () => {
+  it('adds nullable Korean source-document projections without replacing originals', () => {
+    const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(indexSource, /id: '006_source_document_korean_translation'/);
+    assert.match(
+      sourceDocumentKoreanTranslationMigrationSql,
+      /add column if not exists title_ko text/i,
+    );
+    assert.match(
+      sourceDocumentKoreanTranslationMigrationSql,
+      /add column if not exists summary_ko text/i,
+    );
+    assert.match(
+      sourceDocumentKoreanTranslationMigrationSql,
+      /add column if not exists translated_at timestamptz/i,
+    );
+    assert.doesNotMatch(sourceDocumentKoreanTranslationMigrationSql, /\bupdate\b/i);
+    for (const token of destructiveTokens) {
+      assert.doesNotMatch(sourceDocumentKoreanTranslationMigrationSql, token);
+    }
+  });
+
   it('ships the Phase 3 analysis and learning DDL as an idempotent additive migration', () => {
     const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
 

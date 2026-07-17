@@ -12,6 +12,7 @@ import {
 
 export type MarketNewsDatabaseRow = {
   record_id?: string | number | bigint | null;
+  record_origin?: string | null;
   market?: string | null;
   record_entity_key?: string | null;
   ticker?: string | null;
@@ -22,6 +23,8 @@ export type MarketNewsDatabaseRow = {
   relevance_score?: string | number | null;
   published_at?: string | Date | null;
   effective_date?: string | Date | null;
+  source_name?: string | null;
+  url?: string | null;
 };
 
 export type MarketNewsRowQueryExecutor = (
@@ -34,28 +37,73 @@ export type MarketNewsReadModel = {
 };
 
 const MARKET_NEWS_SQL = `
-WITH stock_feed AS (
+WITH publication_feed AS (
   SELECT
-    record_id,
+    feed.record_id,
+    'publication'::text AS record_origin,
     CASE
-      WHEN split_part(coalesce(record_entity_key, ''), ':', 1) = 'KR' THEN 'KR'
-      WHEN split_part(coalesce(record_entity_key, ''), ':', 1) = 'US' THEN 'US'
+      WHEN split_part(coalesce(feed.record_entity_key, ''), ':', 1) = 'KR' THEN 'KR'
+      WHEN split_part(coalesce(feed.record_entity_key, ''), ':', 1) = 'US' THEN 'US'
       ELSE 'GLOBAL'
     END AS market,
-    record_entity_key,
-    ticker,
-    title,
-    summary_text,
-    record_type,
-    primary_kind,
-    relevance_score,
-    published_at,
-    effective_date
-  FROM public.v_user_feed_dedup
-  WHERE domain = 'stock'
+    feed.record_entity_key,
+    feed.ticker,
+    feed.title,
+    feed.summary_text,
+    feed.record_type,
+    feed.primary_kind,
+    feed.relevance_score,
+    feed.published_at,
+    feed.effective_date,
+    source.source_name,
+    source.url
+  FROM public.v_user_feed_dedup feed
+  LEFT JOIN LATERAL (
+    SELECT
+      coalesce(nullif(record_source.source_name, ''), nullif(record_source.attribution_text, '')) AS source_name,
+      coalesce(nullif(record_source.url, ''), nullif(record_source.attribution_url, '')) AS url
+    FROM public.record_sources record_source
+    WHERE record_source.record_id = feed.record_id
+    ORDER BY record_source.id
+    LIMIT 1
+  ) source ON true
+  WHERE feed.domain = 'stock'
+), rss_feed AS (
+  SELECT
+    document.id AS record_id,
+    'rss'::text AS record_origin,
+    CASE
+      WHEN split_part(coalesce(document.entity_key, ''), ':', 1) = 'KR' THEN 'KR'
+      WHEN split_part(coalesce(document.entity_key, ''), ':', 1) = 'US' THEN 'US'
+      ELSE 'GLOBAL'
+    END AS market,
+    document.entity_key AS record_entity_key,
+    nullif(split_part(coalesce(document.entity_key, ''), ':', 2), '') AS ticker,
+    coalesce(nullif(document.title_ko, ''), document.title) AS title,
+    coalesce(nullif(document.summary_ko, ''), document.summary) AS summary_text,
+    'news'::text AS record_type,
+    coalesce(nullif(document.raw_json ->> 'kind', ''), 'news') AS primary_kind,
+    0::numeric AS relevance_score,
+    document.published_at,
+    document.valid_at AS effective_date,
+    document.source_name,
+    document.url
+  FROM public.source_documents document
+  WHERE document.source_system = 'rss_news'
+    AND document.source_type = 'news'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.record_sources record_source
+      WHERE record_source.source_document_id = document.id
+    )
+), stock_feed AS (
+  SELECT * FROM publication_feed
+  UNION ALL
+  SELECT * FROM rss_feed
 )
 SELECT
   record_id,
+  record_origin,
   market,
   record_entity_key,
   ticker,
@@ -65,7 +113,9 @@ SELECT
   primary_kind,
   relevance_score,
   published_at,
-  effective_date
+  effective_date,
+  source_name,
+  url
 FROM stock_feed
 WHERE ($1::text IS NULL OR market = $1::text)
   AND (
@@ -103,6 +153,19 @@ function isoDate(value: unknown): string | undefined {
   if (!raw) return undefined;
   const time = Date.parse(raw);
   return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+}
+
+function httpUrl(value: unknown): string | undefined {
+  const raw = text(value);
+  if (!raw) return undefined;
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function market(value: unknown): 'KR' | 'US' | 'GLOBAL' {
@@ -150,12 +213,16 @@ function mapMarketNewsDatabaseRow(row: MarketNewsDatabaseRow): MarketNewsItem | 
   const signalType = text(row.record_type) ?? text(row.primary_kind);
   const magnitude = numberValue(row.relevance_score);
   const publishedAt = isoDate(row.published_at) ?? isoDate(row.effective_date);
+  const sourceName = text(row.source_name);
+  const url = httpUrl(row.url);
 
   return {
-    id: `feed:${recordId}`,
+    id: row.record_origin === 'rss' ? `source:${recordId}` : `feed:${recordId}`,
     market: normalizedMarket,
     title,
     ...(summary ? { summary } : {}),
+    ...(sourceName ? { sourceName } : {}),
+    ...(url ? { url } : {}),
     ...(publishedAt ? { publishedAt } : {}),
     affectedEntities: buildAffectedEntity(row, normalizedMarket),
     ...(signalType ? { signalType } : {}),

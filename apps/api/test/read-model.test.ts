@@ -1234,6 +1234,8 @@ describe('PostgreSQL market news read model', () => {
           relevance_score: '1.0',
           published_at: null,
           effective_date: '2026-07-06T00:00:00+09:00',
+          source_name: 'Example News',
+          url: 'https://example.com/news/580',
         } as never,
       ];
     };
@@ -1243,6 +1245,8 @@ describe('PostgreSQL market news read model', () => {
 
     assert.equal(executedSql.length, 1);
     assert.match(executedSql[0] ?? '', /public\.v_user_feed_dedup/i);
+    assert.match(executedSql[0] ?? '', /public\.source_documents/i);
+    assert.match(executedSql[0] ?? '', /coalesce\(nullif\(document\.title_ko/i);
     assert.match(executedSql[0] ?? '', /domain\s*=\s*'stock'/i);
     assert.doesNotMatch(executedSql[0] ?? '', /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i);
     assert.deepEqual(rows, [
@@ -1251,6 +1255,8 @@ describe('PostgreSQL market news read model', () => {
         market: 'KR',
         title: '삼성전자',
         summary: 'AI 메모리 노출 50.8점, 펀더멘털 우호.',
+        sourceName: 'Example News',
+        url: 'https://example.com/news/580',
         publishedAt: '2026-07-05T15:00:00.000Z',
         affectedEntities: [
           { entityKey: 'KR:005930', ticker: '005930', name: '삼성전자', market: 'KRX' },
