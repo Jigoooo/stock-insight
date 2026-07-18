@@ -1,0 +1,19 @@
+[Unit]
+Description=Stock Insight feature, graph, report, feed and calibration pipeline
+
+StartLimitIntervalSec=1h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/apps/api/scripts/run_analytics_pipeline.sh
+TimeoutStartSec=45min
+Restart=on-failure
+RestartSec=10min
+UMask=0077
+NoNewPrivileges=true
+Nice=10
+
+[Install]
+WantedBy=default.target

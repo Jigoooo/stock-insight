@@ -7,6 +7,7 @@ export type RssNewsItem = {
   region?: unknown;
   kind?: unknown;
   when?: unknown;
+  summary?: unknown;
 };
 
 export type RssNewsBundle = {
@@ -23,6 +24,7 @@ export type SourceDocumentSeed = {
   sourceType: 'news';
   sourceName: string;
   title: string;
+  summary?: string;
   url: string;
   publishedAt?: string;
   collectedAt: string;
@@ -113,6 +115,7 @@ export function toSourceDocumentSeed(
   if (!title || !sourceName || !url) return undefined;
 
   const publishedAt = parsePublishedAt(item.when);
+  const summary = stringValue(item.summary).slice(0, 4000);
   const validAt = publishedAt ?? collectedAt;
   const rawJson = {
     source: sourceName,
@@ -120,10 +123,11 @@ export function toSourceDocumentSeed(
     kind: stringValue(item.kind) || 'news',
     originalUrl: stringValue(item.url),
     publishedText: stringValue(item.when) || null,
+    feedSummaryPresent: summary.length > 0,
   };
-  const contentHash = sha256(JSON.stringify({ title, url }));
+  const contentHash = sha256(JSON.stringify({ title, url, summary }));
   const revisionFingerprint = sha256(
-    JSON.stringify({ title, url, publishedAt: publishedAt ?? null, sourceName }),
+    JSON.stringify({ title, url, summary, publishedAt: publishedAt ?? null, sourceName }),
   );
 
   return {
@@ -133,6 +137,7 @@ export function toSourceDocumentSeed(
     sourceType: 'news',
     sourceName,
     title,
+    ...(summary ? { summary } : {}),
     url,
     ...(publishedAt ? { publishedAt } : {}),
     collectedAt,

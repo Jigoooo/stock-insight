@@ -83,6 +83,17 @@ export type {
   WorkspaceRowQueryExecutor,
 } from './workspace/read-model';
 export {
+  getCalibrationScorecard,
+  getFeatureSnapshots,
+  getImpactSummaries,
+  getLatestReports,
+  getMarketConfirmations,
+  getPersonalizedFeed,
+  normalizeProductLimitParam,
+  normalizeProductTextParam,
+} from './product/read-model';
+export type { ProductListOptions, ProductQueryExecutor } from './product/read-model';
+export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
   parseServerEnv,

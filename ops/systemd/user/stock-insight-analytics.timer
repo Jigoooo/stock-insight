@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight analytics pipeline after daily OHLCV
+
+[Timer]
+OnCalendar=*-*-* 07:45:00 Asia/Seoul
+RandomizedDelaySec=3min
+Persistent=true
+Unit=stock-insight-analytics.service
+
+[Install]
+WantedBy=timers.target

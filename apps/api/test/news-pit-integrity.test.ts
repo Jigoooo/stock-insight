@@ -22,6 +22,8 @@ test('RSS upsert is a semantic no-op and invalidates translations only for a new
   assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /title_ko = NULL/i);
   assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /summary_ko = NULL/i);
   assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /translated_at = NULL/i);
+  assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /summary = EXCLUDED\.summary/i);
+  assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /public\.source_documents\.summary/i);
   assert.match(UPSERT_SOURCE_DOCUMENT_SQL, /DO UPDATE SET[\s\S]+WHERE[\s\S]+IS DISTINCT FROM/i);
   assert.match(
     UPSERT_SOURCE_DOCUMENT_SQL,

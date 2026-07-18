@@ -1,0 +1,20 @@
+[Unit]
+Description=Stock Insight market enrichment (DART/SEC/FINRA/FRED/actions)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=2h
+StartLimitBurst=2
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/apps/api/scripts/run_market_enrichment.sh
+TimeoutStartSec=90min
+Restart=on-failure
+RestartSec=20min
+UMask=0077
+NoNewPrivileges=true
+Nice=10
+
+[Install]
+WantedBy=default.target

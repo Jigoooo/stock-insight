@@ -159,6 +159,7 @@ async function upsertSeed(
     seed.url,
     seed.publishedAt ?? null,
     seed.collectedAt,
+    seed.summary ?? null,
     JSON.stringify(seed.rawJson),
     seed.contentHash,
     seed.providerKey,

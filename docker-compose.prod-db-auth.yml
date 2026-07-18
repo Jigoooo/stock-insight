@@ -2,8 +2,40 @@
 name: stock-insight
 
 services:
+  api:
+    image: ${STOCK_INSIGHT_API_IMAGE:-sha256:b9902487af4e2cded3d87b3eafcdef7bb8f4a206e4d6d7adf5028d2c21f6ec81}
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '6200'
+      DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
+      STOCK_INSIGHT_USER_ID: ${STOCK_INSIGHT_USER_ID:?set in .env.docker}
+    ports:
+      - '127.0.0.1:8093:6200'
+    networks:
+      - research
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:6200/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 4s
+      retries: 8
+      start_period: 15s
+    restart: unless-stopped
+
   app:
-    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:b1b0f1b036f486511095c95dba4175c310e8461064ca94d43c81f8c81a46405f}
+    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:f7eebfb9f9e80bb18a8361caf6d3c55ff11c7e46decb0255732e7c0cc2040ce9}
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

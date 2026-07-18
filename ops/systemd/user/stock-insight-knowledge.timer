@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight knowledge extraction every two hours
+
+[Timer]
+OnCalendar=00/2:45:00
+RandomizedDelaySec=5min
+Persistent=true
+Unit=stock-insight-knowledge.service
+
+[Install]
+WantedBy=timers.target

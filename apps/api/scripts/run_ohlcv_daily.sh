@@ -7,6 +7,9 @@ DB_URL=postgresql://research_app@127.0.0.1:55432/research_app
 source "$ROOT/apps/api/scripts/pipeline_common.sh"
 
 pipeline_acquire_lock ohlcv || exit $?
+RUN_STARTED_AT=$(pipeline_db_now) || exit $?
+WRAPPER_ATTEMPT_ID=$(pipeline_start_wrapper_attempt stock-insight-ohlcv-wrapper "$RUN_STARTED_AT") || exit $?
+trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" failed >/dev/null 2>&1 || true; fi; exit "$rc"' EXIT
 pipeline_wait_for_network ohlcv https://query1.finance.yahoo.com 6 10 || exit $?
 cd "$ROOT"
 
@@ -18,7 +21,7 @@ SELECT CASE WHEN
     SELECT 1 FROM public.migration_runs
     WHERE source_system = 'yfinance'
       AND status = 'completed'
-      AND finished_at >= now() - interval '30 minutes'
+      AND finished_at >= '${RUN_STARTED_AT}'::timestamptz
       AND rows_written >= 500
       AND rows_skipped <= 5
   )
@@ -47,3 +50,6 @@ SELECT CASE WHEN
   )
 THEN 1 ELSE 0 END
 " || exit $?
+
+pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" completed || exit $?
+trap - EXIT

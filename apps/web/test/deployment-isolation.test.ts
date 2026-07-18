@@ -11,7 +11,9 @@ const candidate = read('../../../docker-compose.candidate.yml');
 const production = read('../../../docker-compose.prod.yml');
 const productionDbOnly = read('../../../docker-compose.prod-db-auth.yml');
 const dockerfile = read('../Dockerfile');
-const releaseImage = 'sha256:b1b0f1b036f486511095c95dba4175c310e8461064ca94d43c81f8c81a46405f';
+const apiDockerfile = read('../../api-server/Dockerfile');
+const releaseImage = 'sha256:f7eebfb9f9e80bb18a8361caf6d3c55ff11c7e46decb0255732e7c0cc2040ce9';
+const apiReleaseImage = 'sha256:b9902487af4e2cded3d87b3eafcdef7bb8f4a206e4d6d7adf5028d2c21f6ec81';
 
 describe('release deployment isolation', () => {
   it('gives enrollment E2E only explicit candidate reader/writer DSNs and dedicated secrets', () => {
@@ -35,11 +37,17 @@ describe('release deployment isolation', () => {
   it('pins production runtime bytes and Docker build bases by digest', () => {
     for (const manifest of [production, productionDbOnly]) {
       assert.ok(manifest.includes(`image: \${STOCK_INSIGHT_APP_IMAGE:-${releaseImage}}`));
+      assert.ok(manifest.includes(`image: \${STOCK_INSIGHT_API_IMAGE:-${apiReleaseImage}}`));
       assert.doesNotMatch(manifest, /\n\s+build:/);
     }
-    const fromLines = dockerfile.match(/^FROM .+$/gm) ?? [];
-    assert.equal(fromLines.length, 2);
-    assert.ok(fromLines.every((line) => /@sha256:[a-f0-9]{64}/.test(line)));
+    for (const buildManifest of [dockerfile, apiDockerfile]) {
+      const fromLines = buildManifest.match(/^FROM .+$/gm) ?? [];
+      const externalNodeStages = fromLines.filter((line: string) => line.startsWith('FROM node:'));
+      assert.equal(externalNodeStages.length, 2);
+      assert.ok(
+        externalNodeStages.every((line: string) => /@sha256:[a-f0-9]{64}/.test(line)),
+      );
+    }
   });
 
   it('provides a post-enrollment DB-only runtime with no bootstrap credential mounts', () => {

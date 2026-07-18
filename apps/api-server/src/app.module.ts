@@ -10,6 +10,7 @@ import { DiscoverController } from './read/discover.controller.ts';
 import { MarketNewsController } from './read/market-news.controller.ts';
 import { MeController } from './read/me.controller.ts';
 import { PortfolioController } from './read/portfolio.controller.ts';
+import { ProductController } from './read/product.controller.ts';
 import { ResearchWorkspaceController } from './read/research-workspace.controller.ts';
 import { StocksController } from './read/stocks.controller.ts';
 import { ManualPortfolioController } from './write/manual-portfolio.controller.ts';
@@ -21,6 +22,7 @@ import { ManualPortfolioController } from './write/manual-portfolio.controller.t
     DashboardController,
     MeController,
     PortfolioController,
+    ProductController,
     MarketNewsController,
     DiscoverController,
     ResearchWorkspaceController,

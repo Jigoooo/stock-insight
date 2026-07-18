@@ -13,7 +13,8 @@ const MAX_SHARE_PER_ENTITY = 0.3;
 const MIN_NEGATIVE_SLOTS = 1;
 
 const USERS_SQL = `
-SELECT profile.user_id
+SELECT profile.user_id,
+       (now() AT TIME ZONE profile.timezone)::date::text AS feed_date
 FROM personalization.user_profile profile
 WHERE profile.personalization_opt_in
 `;
@@ -115,14 +116,13 @@ function required(name: string): string {
 
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
-  const feedDate = new Date().toISOString().slice(0, 10);
   const startedAt = new Date();
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
-    const users = await client.query<QueryResultRow & { user_id: string }>(USERS_SQL);
+    const users = await client.query<QueryResultRow & { user_id: string; feed_date: string }>(USERS_SQL);
     const affinities = await client.query<QueryResultRow & {
       user_id: string; asset_entity_id: string | number; affinity_type: string; weight: number;
     }>(AFFINITY_SQL);
@@ -237,12 +237,12 @@ async function run(): Promise<void> {
       if (apply) {
         await client.query('BEGIN');
         await client.query("SELECT set_config('statement_timeout', '60s', true)");
-        await client.query(CLEAR_SQL, [user.user_id, feedDate]);
+        await client.query(CLEAR_SQL, [user.user_id, user.feed_date]);
         let rank = 0;
         for (const candidate of selected) {
           rank += 1;
           await client.query(INSERT_ITEM_SQL, [
-            user.user_id, feedDate, rank, candidate.itemType, candidate.itemId,
+            user.user_id, user.feed_date, rank, candidate.itemType, candidate.itemId,
             Number(candidate.score.toFixed(4)), candidate.codes,
           ]);
           totalWritten += 1;
@@ -251,7 +251,8 @@ async function run(): Promise<void> {
       }
     }
 
-    const summary = { feedDate, users: users.rows.length, totalWritten, perUser };
+    const feedDates = Object.fromEntries(users.rows.map((user) => [user.user_id, user.feed_date]));
+    const summary = { feedDates, users: users.rows.length, totalWritten, perUser };
     if (!apply) {
       console.log(JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summary }, null, 2));
       return;

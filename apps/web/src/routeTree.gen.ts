@@ -27,6 +27,9 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiFeedRouteImport } from './routes/api/feed'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
 import { Route as ApiWatchlistEntityKeyRouteImport } from './routes/api/watchlist/$entityKey'
+import { Route as ApiV1ImpactRouteImport } from './routes/api/v1/impact'
+import { Route as ApiV1FeaturesRouteImport } from './routes/api/v1/features'
+import { Route as ApiV1ConfirmationRouteImport } from './routes/api/v1/confirmation'
 import { Route as ApiStocksEntityKeyRouteImport } from './routes/api/stocks/$entityKey'
 import { Route as ApiRecordsRecordKeyRouteImport } from './routes/api/records/$recordKey'
 import { Route as ApiPositionsEntityKeyRouteImport } from './routes/api/positions/$entityKey'
@@ -34,6 +37,9 @@ import { Route as ApiPortfolioDigestRouteImport } from './routes/api/portfolio/d
 import { Route as ApiMeBootstrapRouteImport } from './routes/api/me/bootstrap'
 import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/stocks'
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
+import { Route as ApiV1ReportsLatestRouteImport } from './routes/api/v1/reports/latest'
+import { Route as ApiV1PersonalFeedRouteImport } from './routes/api/v1/personal/feed'
+import { Route as ApiV1CalibrationScorecardRouteImport } from './routes/api/v1/calibration/scorecard'
 import { Route as ApiStocksEntityKeyPricesRouteImport } from './routes/api/stocks/$entityKey.prices'
 import { Route as ApiEntitiesEntityKeyRelationsRouteImport } from './routes/api/entities/$entityKey/relations'
 
@@ -126,6 +132,21 @@ const ApiWatchlistEntityKeyRoute = ApiWatchlistEntityKeyRouteImport.update({
   path: '/$entityKey',
   getParentRoute: () => ApiWatchlistRoute,
 } as any)
+const ApiV1ImpactRoute = ApiV1ImpactRouteImport.update({
+  id: '/api/v1/impact',
+  path: '/api/v1/impact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1FeaturesRoute = ApiV1FeaturesRouteImport.update({
+  id: '/api/v1/features',
+  path: '/api/v1/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ConfirmationRoute = ApiV1ConfirmationRouteImport.update({
+  id: '/api/v1/confirmation',
+  path: '/api/v1/confirmation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStocksEntityKeyRoute = ApiStocksEntityKeyRouteImport.update({
   id: '/$entityKey',
   path: '/$entityKey',
@@ -161,6 +182,22 @@ const ApiDashboardTodayRoute = ApiDashboardTodayRouteImport.update({
   path: '/api/dashboard/today',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1ReportsLatestRoute = ApiV1ReportsLatestRouteImport.update({
+  id: '/api/v1/reports/latest',
+  path: '/api/v1/reports/latest',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1PersonalFeedRoute = ApiV1PersonalFeedRouteImport.update({
+  id: '/api/v1/personal/feed',
+  path: '/api/v1/personal/feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1CalibrationScorecardRoute =
+  ApiV1CalibrationScorecardRouteImport.update({
+    id: '/api/v1/calibration/scorecard',
+    path: '/api/v1/calibration/scorecard',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiStocksEntityKeyPricesRoute =
   ApiStocksEntityKeyPricesRouteImport.update({
     id: '/prices',
@@ -198,9 +235,15 @@ export interface FileRoutesByFullPath {
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
+  '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
+  '/api/v1/features': typeof ApiV1FeaturesRoute
+  '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
+  '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
+  '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -226,9 +269,15 @@ export interface FileRoutesByTo {
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
+  '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
+  '/api/v1/features': typeof ApiV1FeaturesRoute
+  '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
+  '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
+  '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -256,9 +305,15 @@ export interface FileRoutesById {
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
+  '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
+  '/api/v1/features': typeof ApiV1FeaturesRoute
+  '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
+  '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
+  '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -286,9 +341,15 @@ export interface FileRouteTypes {
     | '/api/positions/$entityKey'
     | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
+    | '/api/v1/confirmation'
+    | '/api/v1/features'
+    | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
+    | '/api/v1/calibration/scorecard'
+    | '/api/v1/personal/feed'
+    | '/api/v1/reports/latest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -314,9 +375,15 @@ export interface FileRouteTypes {
     | '/api/positions/$entityKey'
     | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
+    | '/api/v1/confirmation'
+    | '/api/v1/features'
+    | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
+    | '/api/v1/calibration/scorecard'
+    | '/api/v1/personal/feed'
+    | '/api/v1/reports/latest'
   id:
     | '__root__'
     | '/'
@@ -343,9 +410,15 @@ export interface FileRouteTypes {
     | '/api/positions/$entityKey'
     | '/api/records/$recordKey'
     | '/api/stocks/$entityKey'
+    | '/api/v1/confirmation'
+    | '/api/v1/features'
+    | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
+    | '/api/v1/calibration/scorecard'
+    | '/api/v1/personal/feed'
+    | '/api/v1/reports/latest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -370,7 +443,13 @@ export interface RootRouteChildren {
   ApiMeBootstrapRoute: typeof ApiMeBootstrapRoute
   ApiPortfolioDigestRoute: typeof ApiPortfolioDigestRoute
   ApiRecordsRecordKeyRoute: typeof ApiRecordsRecordKeyRoute
+  ApiV1ConfirmationRoute: typeof ApiV1ConfirmationRoute
+  ApiV1FeaturesRoute: typeof ApiV1FeaturesRoute
+  ApiV1ImpactRoute: typeof ApiV1ImpactRoute
   ApiEntitiesEntityKeyRelationsRoute: typeof ApiEntitiesEntityKeyRelationsRoute
+  ApiV1CalibrationScorecardRoute: typeof ApiV1CalibrationScorecardRoute
+  ApiV1PersonalFeedRoute: typeof ApiV1PersonalFeedRoute
+  ApiV1ReportsLatestRoute: typeof ApiV1ReportsLatestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -501,6 +580,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWatchlistEntityKeyRouteImport
       parentRoute: typeof ApiWatchlistRoute
     }
+    '/api/v1/impact': {
+      id: '/api/v1/impact'
+      path: '/api/v1/impact'
+      fullPath: '/api/v1/impact'
+      preLoaderRoute: typeof ApiV1ImpactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/features': {
+      id: '/api/v1/features'
+      path: '/api/v1/features'
+      fullPath: '/api/v1/features'
+      preLoaderRoute: typeof ApiV1FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/confirmation': {
+      id: '/api/v1/confirmation'
+      path: '/api/v1/confirmation'
+      fullPath: '/api/v1/confirmation'
+      preLoaderRoute: typeof ApiV1ConfirmationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stocks/$entityKey': {
       id: '/api/stocks/$entityKey'
       path: '/$entityKey'
@@ -548,6 +648,27 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard/today'
       fullPath: '/api/dashboard/today'
       preLoaderRoute: typeof ApiDashboardTodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/reports/latest': {
+      id: '/api/v1/reports/latest'
+      path: '/api/v1/reports/latest'
+      fullPath: '/api/v1/reports/latest'
+      preLoaderRoute: typeof ApiV1ReportsLatestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/personal/feed': {
+      id: '/api/v1/personal/feed'
+      path: '/api/v1/personal/feed'
+      fullPath: '/api/v1/personal/feed'
+      preLoaderRoute: typeof ApiV1PersonalFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/calibration/scorecard': {
+      id: '/api/v1/calibration/scorecard'
+      path: '/api/v1/calibration/scorecard'
+      fullPath: '/api/v1/calibration/scorecard'
+      preLoaderRoute: typeof ApiV1CalibrationScorecardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stocks/$entityKey/prices': {
@@ -648,7 +769,13 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMeBootstrapRoute: ApiMeBootstrapRoute,
   ApiPortfolioDigestRoute: ApiPortfolioDigestRoute,
   ApiRecordsRecordKeyRoute: ApiRecordsRecordKeyRoute,
+  ApiV1ConfirmationRoute: ApiV1ConfirmationRoute,
+  ApiV1FeaturesRoute: ApiV1FeaturesRoute,
+  ApiV1ImpactRoute: ApiV1ImpactRoute,
   ApiEntitiesEntityKeyRelationsRoute: ApiEntitiesEntityKeyRelationsRoute,
+  ApiV1CalibrationScorecardRoute: ApiV1CalibrationScorecardRoute,
+  ApiV1PersonalFeedRoute: ApiV1PersonalFeedRoute,
+  ApiV1ReportsLatestRoute: ApiV1ReportsLatestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

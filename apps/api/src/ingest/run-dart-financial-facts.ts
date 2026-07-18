@@ -53,6 +53,33 @@ INSERT INTO public.migration_runs (
 ) VALUES ($1, $2, 'opendart', $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
 `;
 
+const SOURCE_SQL = `
+SELECT source_id
+FROM ingestion.source
+WHERE provider_key = 'opendart'
+ORDER BY source_id
+LIMIT 2
+`;
+
+const LOAD_CURSOR_SQL = `
+SELECT coalesce((watermark.gap_ranges ->> 'next_offset')::int, 1) AS next_offset
+FROM ingestion.source_watermark watermark
+WHERE watermark.source_id = $1
+  AND watermark.dataset_name = 'dart_financial_facts_cursor'
+`;
+
+const SAVE_CURSOR_SQL = `
+INSERT INTO ingestion.source_watermark (
+  source_id, dataset_name, watermark_at, gap_ranges, updated_at
+)
+VALUES ($1, 'dart_financial_facts_cursor', now(), $2::jsonb, now())
+ON CONFLICT (source_id, dataset_name) DO UPDATE SET
+  watermark_at = EXCLUDED.watermark_at,
+  gap_ranges = EXCLUDED.gap_ranges,
+  updated_at = now()
+RETURNING source_id
+`;
+
 type IssuerRow = QueryResultRow & {
   issuer_entity_id: string | number;
   corp_code: string;
@@ -60,6 +87,7 @@ type IssuerRow = QueryResultRow & {
 };
 
 type ConceptRow = QueryResultRow & { concept: string; dart_account_ids: string[] };
+type SourceRow = QueryResultRow & { source_id: string | number };
 
 type DartRow = {
   rcept_no?: string;
@@ -87,6 +115,16 @@ function intOption(name: string, fallback: number, max: number): number {
   const index = process.argv.indexOf(name);
   const raw = index < 0 ? undefined : process.argv[index + 1];
   const value = Number(raw ?? fallback);
+  if (!Number.isInteger(value) || value < 1 || value > max) {
+    throw new Error(`${name} must be an integer between 1 and ${max}`);
+  }
+  return value;
+}
+
+function optionalIntOption(name: string, max: number): number | undefined {
+  const index = process.argv.indexOf(name);
+  if (index < 0) return undefined;
+  const value = Number(process.argv[index + 1]);
   if (!Number.isInteger(value) || value < 1 || value > max) {
     throw new Error(`${name} must be an integer between 1 and ${max}`);
   }
@@ -132,7 +170,7 @@ async function run(): Promise<void> {
   const fromYear = intOption('--from-year', 2022, 2100);
   const toYear = intOption('--to-year', new Date().getFullYear(), 2100);
   const limit = intOption('--limit', 30, 300);
-  const offset = intOption('--offset', 1, 300) - 1;
+  const requestedOffset = optionalIntOption('--offset', 300);
   const startedAt = new Date();
   const apiKey = required('OPENDART_API_KEY');
 
@@ -144,7 +182,20 @@ async function run(): Promise<void> {
     await client.query('BEGIN READ ONLY');
     const issuers = await client.query<IssuerRow>(KR_ISSUERS_SQL);
     const concepts = await client.query<ConceptRow>(CONCEPTS_SQL);
+    const source = await client.query<SourceRow>(SOURCE_SQL);
+    if (source.rows.length !== 1) {
+      throw new Error(`Expected exactly one opendart source, found ${source.rows.length}`);
+    }
+    const sourceId = source.rows[0]!.source_id;
+    const cursor = await client.query<QueryResultRow & { next_offset: number | string }>(
+      LOAD_CURSOR_SQL,
+      [sourceId],
+    );
     await client.query('COMMIT');
+
+    const storedOffset = Number(cursor.rows[0]?.next_offset ?? 1);
+    const offset = (requestedOffset ?? (Number.isInteger(storedOffset) ? storedOffset : 1)) - 1;
+    const shouldAdvanceCursor = requestedOffset === undefined;
 
     const accountToConcept = new Map<string, string>();
     for (const concept of concepts.rows) {
@@ -155,17 +206,23 @@ async function run(): Promise<void> {
     let requests = 0;
     let factsSeen = 0;
     let factsInserted = 0;
+    let issuersCompleted = 0;
 
     outer: for (const issuer of targets) {
+      let issuerComplete = true;
       for (let year = fromYear; year <= toYear; year += 1) {
         for (const report of REPORT_CODES) {
           const { status, rows } = await fetchDart(apiKey, issuer.corp_code, year, report.code);
           requests += 1;
           if (status === '020') {
             quotaExhausted = true;
+            issuerComplete = false;
             break outer;
           }
-          if (status !== '000') continue; // 013 = no data for that period
+          if (status === '013') continue; // No data for that issuer/period.
+          if (status !== '000') {
+            throw new Error(`OpenDART API status ${status}`);
+          }
           const matched = rows.filter(
             (row) => row.account_id && accountToConcept.has(row.account_id),
           );
@@ -197,21 +254,45 @@ async function run(): Promise<void> {
           await new Promise((resolve) => setTimeout(resolve, 150));
         }
       }
+      if (issuerComplete) issuersCompleted += 1;
     }
+
+    const nextOffset = offset + issuersCompleted >= issuers.rows.length
+      ? 1
+      : offset + issuersCompleted + 1;
 
     const summary = {
       issuers: targets.length,
       offset: offset + 1,
+      issuersCompleted,
+      nextOffset,
       fromYear,
       toYear,
       requests,
       factsSeen,
       factsInserted,
       quotaExhausted,
+      cursorAdvanced: apply && shouldAdvanceCursor,
     };
     if (!apply) {
       console.log(JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summary }, null, 2));
       return;
+    }
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('statement_timeout', '120s', true)");
+    if (shouldAdvanceCursor) {
+      const savedCursor = await client.query(SAVE_CURSOR_SQL, [
+        sourceId,
+        JSON.stringify({
+          next_offset: nextOffset,
+          issuer_count: issuers.rows.length,
+          quota_exhausted: quotaExhausted,
+          last_run_at: new Date().toISOString(),
+        }),
+      ]);
+      if ((savedCursor.rowCount ?? 0) !== 1) {
+        throw new Error(`Expected one OpenDART cursor row, wrote ${savedCursor.rowCount ?? 0}`);
+      }
     }
     await client.query(INSERT_MIGRATION_RUN_SQL, [
       `dart-facts-${randomUUID()}`,
@@ -225,6 +306,7 @@ async function run(): Promise<void> {
       quotaExhausted ? '{"reason":"dart_quota_exhausted"}' : null,
       JSON.stringify(summary),
     ]);
+    await client.query('COMMIT');
     console.log(JSON.stringify({ mode: 'apply', jobName: JOB_NAME, audit: summary }, null, 2));
   } catch (error) {
     try {

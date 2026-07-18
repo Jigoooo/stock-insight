@@ -22,9 +22,9 @@ INSERT INTO public.source_documents (
   policy_decision, revision_fingerprint
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $6,
-  $7::timestamptz, $8::timestamptz, NULL, '{}'::text[], NULL, $9::jsonb,
-  $10, $11, $12::timestamptz, $13::timestamptz, 1,
-  $14, $15
+  $7::timestamptz, $8::timestamptz, NULL, '{}'::text[], $9, $10::jsonb,
+  $11, $12, $13::timestamptz, $14::timestamptz, 1,
+  $15, $16
 )
 ON CONFLICT (source_key) DO UPDATE SET
   source_name = EXCLUDED.source_name,
@@ -33,6 +33,7 @@ ON CONFLICT (source_key) DO UPDATE SET
   source_ref = EXCLUDED.source_ref,
   published_at = EXCLUDED.published_at,
   collected_at = EXCLUDED.collected_at,
+  summary = EXCLUDED.summary,
   raw_json = EXCLUDED.raw_json,
   content_hash = EXCLUDED.content_hash,
   provider_key = EXCLUDED.provider_key,
@@ -47,6 +48,7 @@ WHERE ROW(
   public.source_documents.title,
   public.source_documents.url,
   public.source_documents.published_at,
+  public.source_documents.summary,
   public.source_documents.raw_json,
   public.source_documents.provider_key
 ) IS DISTINCT FROM ROW(
@@ -54,6 +56,7 @@ WHERE ROW(
   EXCLUDED.title,
   EXCLUDED.url,
   EXCLUDED.published_at,
+  EXCLUDED.summary,
   EXCLUDED.raw_json,
   EXCLUDED.provider_key
 )

@@ -31,6 +31,7 @@ test('source document seed is deterministic by canonical URL', () => {
       region: 'overseas',
       kind: 'news',
       when: 'Fri, 17 Jul 2026 10:00:00 GMT',
+      summary: 'Feed-provided article synopsis.',
     },
     now,
   );
@@ -48,6 +49,9 @@ test('source document seed is deterministic by canonical URL', () => {
   assert.equal(first.revisionFingerprint.length, 64);
   assert.equal(first.providerKey, 'rss:example-feed');
   assert.equal(first.validAt, '2026-07-17T10:00:00.000Z');
+  assert.equal(first.summary, 'Feed-provided article synopsis.');
+  assert.equal(first.rawJson.feedSummaryPresent, true);
+  assert.notEqual(first.contentHash, second.contentHash, 'summary changes content identity');
 });
 
 test('audit skips invalid rows and deduplicates canonical URLs', () => {

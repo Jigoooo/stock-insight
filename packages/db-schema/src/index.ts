@@ -13,6 +13,8 @@ import { knowledgeBackfillMigrationSql } from './migrations/012_knowledge_backfi
 import { graphAnalyticsFoundationMigrationSql } from './migrations/013_graph_analytics_foundation';
 import { analyticsServingViewsMigrationSql } from './migrations/014_analytics_serving_views';
 import { personalizationCalibrationMigrationSql } from './migrations/015_personalization_calibration';
+import { productionizationCompletionMigrationSql } from './migrations/016_productionization_completion';
+import { probabilityCalibrationHardeningMigrationSql } from './migrations/017_probability_calibration_hardening';
 
 export type AppTableName =
   | 'company_profiles'
@@ -163,6 +165,20 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['personalization_layer', 'analytics_layer', 'serving_read_views'],
     sql: personalizationCalibrationMigrationSql,
   },
+  {
+    id: '016_productionization_completion',
+    description:
+      'SET G: synchronize feed-provided RSS summaries into knowledge, stamp future forecasts with PIT-safe explicit/empirical probabilities, and add probability calibration snapshots + serving scorecard.',
+    tables: ['knowledge_layer', 'analytics_layer', 'serving_read_views'],
+    sql: productionizationCompletionMigrationSql,
+  },
+  {
+    id: '017_probability_calibration_hardening',
+    description:
+      'SET G hardening: enforce source probability bounds and serialize one label-calibration profile per UTC day and segment.',
+    tables: ['analytics_layer'],
+    sql: probabilityCalibrationHardeningMigrationSql,
+  },
 ];
 
 export {
@@ -181,4 +197,6 @@ export {
   graphAnalyticsFoundationMigrationSql,
   analyticsServingViewsMigrationSql,
   personalizationCalibrationMigrationSql,
+  productionizationCompletionMigrationSql,
+  probabilityCalibrationHardeningMigrationSql,
 };

@@ -594,3 +594,116 @@ export type PriceSeries = z.infer<typeof priceSeriesSchema>;
 export const priceSeriesResponseSchema = createApiEnvelopeSchema(priceSeriesSchema.nullable());
 
 export type PriceSeriesResponse = z.infer<typeof priceSeriesResponseSchema>;
+
+// SET G: productized analytics/personalization/content serving contracts.
+const jsonObjectSchema = z.record(z.string(), z.unknown());
+
+export const featureSnapshotItemSchema = z.object({
+  entityKey: z.string().min(1),
+  market: apiStockMarketSchema,
+  ticker: z.string().min(1),
+  asOf: z.string().datetime(),
+  featureSetVersion: z.string().min(1),
+  features: jsonObjectSchema,
+  completenessScore: z.number().min(0).max(1),
+});
+export type FeatureSnapshotItem = z.infer<typeof featureSnapshotItemSchema>;
+export const featureSnapshotResponseSchema = createApiEnvelopeSchema(z.array(featureSnapshotItemSchema));
+export type FeatureSnapshotResponse = z.infer<typeof featureSnapshotResponseSchema>;
+
+export const impactSummaryItemSchema = z.object({
+  entityKey: z.string().min(1),
+  market: apiStockMarketSchema,
+  ticker: z.string().min(1),
+  pathCount: z.number().int().nonnegative(),
+  maxPathScore: z.number().min(0).max(1),
+  averagePathScore: z.number().min(0).max(1),
+  eventTypes: z.array(z.string()),
+  computedAt: z.string().datetime(),
+});
+export type ImpactSummaryItem = z.infer<typeof impactSummaryItemSchema>;
+export const impactSummaryResponseSchema = createApiEnvelopeSchema(z.array(impactSummaryItemSchema));
+export type ImpactSummaryResponse = z.infer<typeof impactSummaryResponseSchema>;
+
+export const marketConfirmationItemSchema = z.object({
+  entityKey: z.string().min(1),
+  market: apiStockMarketSchema,
+  ticker: z.string().min(1),
+  asOf: z.string().datetime(),
+  industryLinkStrength: z.number().min(0).max(1),
+  pathCount: z.number().int().nonnegative().nullable(),
+  return20d: z.number().nullable(),
+  volumeZ20d: z.number().nullable(),
+  marketConfirmation: z.enum(['confirmed', 'partial', 'not_confirmed', 'unknown']),
+  rsi14: z.number().nullable(),
+  ma20Gap: z.number().nullable(),
+  expectationPricedIn: z.enum(['high', 'medium', 'low', 'unknown']),
+});
+export type MarketConfirmationItem = z.infer<typeof marketConfirmationItemSchema>;
+export const marketConfirmationResponseSchema = createApiEnvelopeSchema(
+  z.array(marketConfirmationItemSchema),
+);
+export type MarketConfirmationResponse = z.infer<typeof marketConfirmationResponseSchema>;
+
+export const personalizedFeedItemSchema = z.object({
+  rank: z.number().int().positive(),
+  itemType: z.enum(['report', 'event', 'impact_path']),
+  itemId: z.number().int().positive(),
+  relevanceScore: z.number(),
+  explanationCodes: z.array(z.string().min(1)).min(1),
+  title: z.string().min(1),
+  summary: z.string(),
+});
+export type PersonalizedFeedItem = z.infer<typeof personalizedFeedItemSchema>;
+export const personalizedFeedResponseSchema = createApiEnvelopeSchema(
+  z.array(personalizedFeedItemSchema),
+);
+export type PersonalizedFeedResponse = z.infer<typeof personalizedFeedResponseSchema>;
+
+export const forecastScorecardItemSchema = z.object({
+  market: z.string().min(1),
+  horizonDays: z.number().int().positive(),
+  confidenceLabel: z.string().min(1),
+  sampleN: z.number().int().nonnegative(),
+  targetHitRate: z.number().nullable(),
+  invalidationRate: z.number().nullable(),
+  directionHitRate: z.number().nullable(),
+  insufficientSample: z.boolean(),
+  method: z.string().min(1),
+  computedAt: z.string().datetime(),
+});
+export const probabilityScorecardItemSchema = z.object({
+  evaluationMode: z.enum(['live_issued_probability', 'historical_expanding_baseline']),
+  market: z.string().min(1),
+  horizonDays: z.number().int().positive(),
+  probabilityMethod: z.string().min(1),
+  sampleN: z.number().int().nonnegative(),
+  brierScore: z.number().nullable(),
+  logLoss: z.number().nullable(),
+  expectedCalibrationError: z.number().nullable(),
+  calibrationBins: z.array(jsonObjectSchema),
+  insufficientSample: z.boolean(),
+  computedAt: z.string().datetime(),
+});
+export const calibrationScorecardSchema = z.object({
+  labels: z.array(forecastScorecardItemSchema),
+  probabilities: z.array(probabilityScorecardItemSchema),
+});
+export type CalibrationScorecard = z.infer<typeof calibrationScorecardSchema>;
+export const calibrationScorecardResponseSchema = createApiEnvelopeSchema(calibrationScorecardSchema);
+export type CalibrationScorecardResponse = z.infer<typeof calibrationScorecardResponseSchema>;
+
+export const latestReportItemSchema = z.object({
+  reportId: z.number().int().positive(),
+  reportType: z.string().min(1),
+  scopeKey: z.string().min(1),
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  status: z.literal('published'),
+  qualityScore: z.number().nullable(),
+  publishedAt: z.string().datetime(),
+  switchedAt: z.string().datetime(),
+});
+export type LatestReportItem = z.infer<typeof latestReportItemSchema>;
+export const latestReportsResponseSchema = createApiEnvelopeSchema(z.array(latestReportItemSchema));
+export type LatestReportsResponse = z.infer<typeof latestReportsResponseSchema>;

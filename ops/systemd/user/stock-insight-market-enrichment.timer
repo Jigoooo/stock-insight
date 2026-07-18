@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight market enrichment daily
+
+[Timer]
+OnCalendar=*-*-* 05:20:00 Asia/Seoul
+RandomizedDelaySec=5min
+Persistent=true
+Unit=stock-insight-market-enrichment.service
+
+[Install]
+WantedBy=timers.target
