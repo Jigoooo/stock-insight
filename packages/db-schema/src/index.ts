@@ -7,6 +7,7 @@ import { sourceDocumentKoreanTranslationMigrationSql } from './migrations/006_so
 import { servingReadLayerMigrationSql } from './migrations/007_serving_read_layer';
 import { coreIngestionFoundationMigrationSql } from './migrations/008_core_ingestion_foundation';
 import { coreBackfillFromEntitiesMigrationSql } from './migrations/009_core_backfill_from_entities';
+import { marketDataEnrichmentMigrationSql } from './migrations/010_market_data_enrichment';
 
 export type AppTableName =
   | 'company_profiles'
@@ -27,6 +28,7 @@ export type AppTableName =
   | 'serving_read_views'
   | 'core_identity'
   | 'ingestion_registry'
+  | 'market_enrichment'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -110,6 +112,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['core_identity'],
     sql: coreBackfillFromEntitiesMigrationSql,
   },
+  {
+    id: '010_market_data_enrichment',
+    description:
+      'SET C: market schema — corporate actions, trading calendar, filing-level financial facts + concept dictionary, ALFRED-style macro vintages, and FINRA daily short volume.',
+    tables: ['market_enrichment'],
+    sql: marketDataEnrichmentMigrationSql,
+  },
 ];
 
 export {
@@ -122,4 +131,5 @@ export {
   servingReadLayerMigrationSql,
   coreIngestionFoundationMigrationSql,
   coreBackfillFromEntitiesMigrationSql,
+  marketDataEnrichmentMigrationSql,
 };

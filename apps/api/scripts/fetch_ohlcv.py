@@ -121,7 +121,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--period", default="1y", choices=("7d", "1mo", "1y"))
+    parser.add_argument("--period", default="1y", choices=("7d", "1mo", "1y", "5y"))
     parser.add_argument("--batch-size", type=int, default=40)
     args = parser.parse_args()
 

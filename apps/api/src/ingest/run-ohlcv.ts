@@ -65,10 +65,10 @@ function option(name: string): string | undefined {
   return index < 0 ? undefined : process.argv[index + 1];
 }
 
-function period(): '7d' | '1mo' | '1y' {
+function period(): '7d' | '1mo' | '1y' | '5y' {
   const value = option('--period') ?? '1y';
-  if (value !== '7d' && value !== '1mo' && value !== '1y') {
-    throw new Error('--period must be 7d, 1mo, or 1y');
+  if (value !== '7d' && value !== '1mo' && value !== '1y' && value !== '5y') {
+    throw new Error('--period must be 7d, 1mo, 1y, or 5y');
   }
   return value;
 }
