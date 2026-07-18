@@ -5,6 +5,8 @@ import { appPositionOpenUniquenessMigrationSql } from './migrations/004_app_posi
 import { appLocalAccountEnrollmentMigrationSql } from './migrations/005_local_account_enrollment';
 import { sourceDocumentKoreanTranslationMigrationSql } from './migrations/006_source_document_korean_translation';
 import { servingReadLayerMigrationSql } from './migrations/007_serving_read_layer';
+import { coreIngestionFoundationMigrationSql } from './migrations/008_core_ingestion_foundation';
+import { coreBackfillFromEntitiesMigrationSql } from './migrations/009_core_backfill_from_entities';
 
 export type AppTableName =
   | 'company_profiles'
@@ -23,6 +25,8 @@ export type AppTableName =
   | 'source_documents'
   | 'user_positions'
   | 'serving_read_views'
+  | 'core_identity'
+  | 'ingestion_registry'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -92,6 +96,20 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['serving_read_views'],
     sql: servingReadLayerMigrationSql,
   },
+  {
+    id: '008_core_ingestion_foundation',
+    description:
+      'SET B foundation: core identity schema (entity/identifier/alias/listing), ingestion registry (source/contract/fetch_run/raw_object/watermark), ops model+prompt registries, and NOLOGIN worker roles.',
+    tables: ['core_identity', 'ingestion_registry'],
+    sql: coreIngestionFoundationMigrationSql,
+  },
+  {
+    id: '009_core_backfill_from_entities',
+    description:
+      'SET B backfill: KR/US ticker universe decomposed into Exchange/Company/Stock entities with DART/CIK/ticker identifiers, aliases, listings, and the core.v_security_universe compat view.',
+    tables: ['core_identity'],
+    sql: coreBackfillFromEntitiesMigrationSql,
+  },
 ];
 
 export {
@@ -102,4 +120,6 @@ export {
   appResearchFoundationMigrationSql,
   sourceDocumentKoreanTranslationMigrationSql,
   servingReadLayerMigrationSql,
+  coreIngestionFoundationMigrationSql,
+  coreBackfillFromEntitiesMigrationSql,
 };

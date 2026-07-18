@@ -7,6 +7,12 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { ASSERT_NEWS_REVISION_LEDGER_SQL, UPSERT_SOURCE_DOCUMENT_SQL } from './news-persistence.ts';
 import { buildNewsIngestAudit, type RssNewsBundle, type SourceDocumentSeed } from './news-rss.ts';
+import {
+  CLOSE_FETCH_RUN_SQL,
+  OPEN_FETCH_RUN_SQL,
+  REGISTER_RAW_OBJECT_SQL,
+  writeRawObject,
+} from './raw-object-store.ts';
 
 const JOB_NAME = 'stock-insight-rss-news-ingest';
 const DEFAULT_RESEARCH_COMMON = join(homedir(), '.hermes/workspace/research-common');
@@ -197,7 +203,40 @@ async function run(): Promise<void> {
   let unchanged = 0;
   let signalsLinked = 0;
   let documentsEnriched = 0;
+  let rawObjectsStored = 0;
+  let fetchRunId: number | null = null;
   try {
+    // SET B: open a fetch_run + persist the raw bundle BEFORE parsing side effects.
+    // Failure here must not block legacy ingest (raw layer is additive).
+    try {
+      const runKey = `rss-news-${startedAt.toISOString()}`;
+      const opened = await client.query<QueryResultRow & { fetch_run_id: number }>(
+        OPEN_FETCH_RUN_SQL,
+        ['rss-news-bundle', runKey, runKey, startedAt.toISOString()],
+      );
+      fetchRunId = opened.rows[0]?.fetch_run_id ?? null;
+      if (fetchRunId !== null) {
+        const sourceId = (opened.rows[0] as unknown as { source_id: number }).source_id;
+        const raw = await writeRawObject({
+          providerKey: 'rss-news-bundle',
+          content: JSON.stringify(bundle),
+          extension: 'json',
+          fetchedAt: startedAt,
+        });
+        const registered = await client.query(REGISTER_RAW_OBJECT_SQL, [
+          fetchRunId,
+          sourceId,
+          runKey,
+          raw.contentHash,
+          raw.objectUri,
+          JSON.stringify({ bytes: raw.bytes, kind: 'aggregated_bundle' }),
+          startedAt.toISOString(),
+        ]);
+        rawObjectsStored = registered.rowCount ?? 0;
+      }
+    } catch (rawError) {
+      process.stderr.write(`raw-object persist skipped: ${String(rawError)}\n`);
+    }
     await client.query('BEGIN');
     await client.query("SELECT set_config('statement_timeout', '120s', true)");
     await client.query("SELECT set_config('lock_timeout', '5s', true)");
@@ -224,6 +263,7 @@ async function run(): Promise<void> {
       feedErrors: audit.feedErrors,
       signalsLinked,
       documentsEnriched,
+      rawObjectsStored,
     };
     await client.query(INSERT_MIGRATION_RUN_SQL, [
       `rss-news-${randomUUID()}`,
@@ -236,6 +276,23 @@ async function run(): Promise<void> {
       JSON.stringify(summary),
     ]);
     await client.query('COMMIT');
+    if (fetchRunId !== null) {
+      await client
+        .query(CLOSE_FETCH_RUN_SQL, [
+          fetchRunId,
+          new Date().toISOString(),
+          audit.feedErrors > 0 ? 'partial' : 'success',
+          audit.collected,
+          inserted + updated,
+          audit.skipped + audit.duplicateUrls + unchanged,
+          null,
+          new Date().toISOString(),
+          JSON.stringify(summary),
+        ])
+        .catch((closeError: unknown) =>
+          process.stderr.write(`fetch_run close skipped: ${String(closeError)}\n`),
+        );
+    }
     console.log(JSON.stringify({ mode: 'apply', jobName: JOB_NAME, audit: summary }, null, 2));
   } catch (error) {
     try {
