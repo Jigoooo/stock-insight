@@ -30,6 +30,10 @@ const DATASET_STATUS_SQL = `
          analysis_run_id, analysis_revision
   FROM ops.dataset_watermark
   WHERE domain IN ('stock', 'common')
+  UNION ALL
+  SELECT domain, dataset_name, status, watermark_at, row_count,
+         NULL::text AS analysis_run_id, NULL::integer AS analysis_revision
+  FROM serving.dataset_watermark_live_v1
   ORDER BY domain ASC, dataset_name ASC
 `;
 

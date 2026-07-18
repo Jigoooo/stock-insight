@@ -1,9 +1,16 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 
-import { scopedRowQuery } from './read-context.ts';
+import { scopedRowQuery, unscopedRowQuery } from './read-context.ts';
 import { firstParam } from '../common/http.ts';
 
-import { createPostgresStockReadModel, getStockDetail, getStockList } from '@stock-insight/api';
+import {
+  createPostgresPriceSeriesReadModel,
+  createPostgresStockReadModel,
+  getPriceSeries,
+  getStockDetail,
+  getStockList,
+  type PriceSeriesDatabaseRow,
+} from '@stock-insight/api';
 import type { StockListQuery } from '@stock-insight/contracts';
 
 // Mirrors apps/web parseStockListQuery: invalid values are silently dropped (no 400).
@@ -33,6 +40,15 @@ function createRouteStockReadModel() {
   return ctx ? createPostgresStockReadModel(ctx.queryRows, ctx.userScope) : undefined;
 }
 
+function createRoutePriceSeriesReadModel() {
+  const ctx = unscopedRowQuery();
+  return ctx
+    ? createPostgresPriceSeriesReadModel((sql, params) =>
+        ctx.queryRows<PriceSeriesDatabaseRow & Record<string, unknown>>(sql, params),
+      )
+    : undefined;
+}
+
 @Controller('stocks')
 export class StocksController {
   @Get()
@@ -55,5 +71,17 @@ export class StocksController {
   @Get(':entityKey')
   async getDetail(@Param('entityKey') entityKey: string) {
     return getStockDetail(entityKey, { readModel: createRouteStockReadModel() });
+  }
+
+  @Get(':entityKey/prices')
+  async getPrices(
+    @Param('entityKey') entityKey: string,
+    @Query('range') rangeRaw?: string | string[],
+  ) {
+    const range = firstParam(rangeRaw) ?? undefined;
+    return getPriceSeries(entityKey, {
+      ...(range === undefined ? {} : { range }),
+      readModel: createRoutePriceSeriesReadModel(),
+    });
   }
 }

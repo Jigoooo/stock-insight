@@ -34,6 +34,7 @@ import { Route as ApiPortfolioDigestRouteImport } from './routes/api/portfolio/d
 import { Route as ApiMeBootstrapRouteImport } from './routes/api/me/bootstrap'
 import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/stocks'
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
+import { Route as ApiStocksEntityKeyPricesRouteImport } from './routes/api/stocks/$entityKey.prices'
 import { Route as ApiEntitiesEntityKeyRelationsRouteImport } from './routes/api/entities/$entityKey/relations'
 
 const SignupRoute = SignupRouteImport.update({
@@ -160,6 +161,12 @@ const ApiDashboardTodayRoute = ApiDashboardTodayRouteImport.update({
   path: '/api/dashboard/today',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStocksEntityKeyPricesRoute =
+  ApiStocksEntityKeyPricesRouteImport.update({
+    id: '/prices',
+    path: '/prices',
+    getParentRoute: () => ApiStocksEntityKeyRoute,
+  } as any)
 const ApiEntitiesEntityKeyRelationsRoute =
   ApiEntitiesEntityKeyRelationsRouteImport.update({
     id: '/api/entities/$entityKey/relations',
@@ -190,9 +197,10 @@ export interface FileRoutesByFullPath {
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
-  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
+  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
+  '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -217,9 +225,10 @@ export interface FileRoutesByTo {
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
-  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
+  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
+  '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -246,9 +255,10 @@ export interface FileRoutesById {
   '/api/portfolio/digest': typeof ApiPortfolioDigestRoute
   '/api/positions/$entityKey': typeof ApiPositionsEntityKeyRoute
   '/api/records/$recordKey': typeof ApiRecordsRecordKeyRoute
-  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRoute
+  '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
+  '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
+    | '/api/stocks/$entityKey/prices'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
+    | '/api/stocks/$entityKey/prices'
   id:
     | '__root__'
     | '/'
@@ -333,6 +345,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey'
     | '/api/watchlist/$entityKey'
     | '/api/entities/$entityKey/relations'
+    | '/api/stocks/$entityKey/prices'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -537,6 +550,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardTodayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/stocks/$entityKey/prices': {
+      id: '/api/stocks/$entityKey/prices'
+      path: '/prices'
+      fullPath: '/api/stocks/$entityKey/prices'
+      preLoaderRoute: typeof ApiStocksEntityKeyPricesRouteImport
+      parentRoute: typeof ApiStocksEntityKeyRoute
+    }
     '/api/entities/$entityKey/relations': {
       id: '/api/entities/$entityKey/relations'
       path: '/api/entities/$entityKey/relations'
@@ -571,12 +591,23 @@ const ApiPositionsRouteWithChildren = ApiPositionsRoute._addFileChildren(
   ApiPositionsRouteChildren,
 )
 
+interface ApiStocksEntityKeyRouteChildren {
+  ApiStocksEntityKeyPricesRoute: typeof ApiStocksEntityKeyPricesRoute
+}
+
+const ApiStocksEntityKeyRouteChildren: ApiStocksEntityKeyRouteChildren = {
+  ApiStocksEntityKeyPricesRoute: ApiStocksEntityKeyPricesRoute,
+}
+
+const ApiStocksEntityKeyRouteWithChildren =
+  ApiStocksEntityKeyRoute._addFileChildren(ApiStocksEntityKeyRouteChildren)
+
 interface ApiStocksRouteChildren {
-  ApiStocksEntityKeyRoute: typeof ApiStocksEntityKeyRoute
+  ApiStocksEntityKeyRoute: typeof ApiStocksEntityKeyRouteWithChildren
 }
 
 const ApiStocksRouteChildren: ApiStocksRouteChildren = {
-  ApiStocksEntityKeyRoute: ApiStocksEntityKeyRoute,
+  ApiStocksEntityKeyRoute: ApiStocksEntityKeyRouteWithChildren,
 }
 
 const ApiStocksRouteWithChildren = ApiStocksRoute._addFileChildren(

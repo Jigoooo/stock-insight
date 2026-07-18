@@ -562,3 +562,35 @@ export type StockDetail = z.infer<typeof stockDetailSchema>;
 export const stockDetailResponseSchema = createApiEnvelopeSchema(stockDetailSchema.nullable());
 
 export type StockDetailResponse = z.infer<typeof stockDetailResponseSchema>;
+
+export const priceSeriesRangeSchema = z.enum(['1M', '3M', '6M', '1Y']);
+
+export type PriceSeriesRange = z.infer<typeof priceSeriesRangeSchema>;
+
+export const priceBarSchema = z.object({
+  ts: z.string().datetime(),
+  open: z.number(),
+  high: z.number(),
+  low: z.number(),
+  close: z.number(),
+  volume: z.number().nullable(),
+});
+
+export type PriceBar = z.infer<typeof priceBarSchema>;
+
+export const priceSeriesSchema = z.object({
+  entityKey: z.string().min(1),
+  market: apiStockMarketSchema,
+  ticker: z.string().min(1),
+  currency: z.enum(['KRW', 'USD']),
+  timeframe: z.literal('1D'),
+  range: priceSeriesRangeSchema,
+  asOf: z.string().datetime().nullable(),
+  bars: z.array(priceBarSchema).max(400),
+});
+
+export type PriceSeries = z.infer<typeof priceSeriesSchema>;
+
+export const priceSeriesResponseSchema = createApiEnvelopeSchema(priceSeriesSchema.nullable());
+
+export type PriceSeriesResponse = z.infer<typeof priceSeriesResponseSchema>;

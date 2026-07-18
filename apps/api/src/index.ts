@@ -45,6 +45,17 @@ export {
   getStockDetail,
   getStockList,
 } from './stocks';
+export {
+  createFallbackPriceSeriesReadModel,
+  createPostgresPriceSeriesReadModel,
+  getPriceSeries,
+} from './prices/read-model';
+export type {
+  GetPriceSeriesOptions,
+  PriceSeriesDatabaseRow,
+  PriceSeriesReadModel,
+  PriceSeriesRowQueryExecutor,
+} from './prices/read-model';
 export { getEntityRelations } from './relations/read-model';
 export type { GetEntityRelationsOptions, RelationGraphQueryExecutor } from './relations/read-model';
 export { getDecisionHistory } from './history/read-model';

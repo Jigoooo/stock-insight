@@ -4,6 +4,7 @@ import { appMutationIdempotencyMigrationSql } from './migrations/003_app_mutatio
 import { appPositionOpenUniquenessMigrationSql } from './migrations/004_app_position_open_uniqueness';
 import { appLocalAccountEnrollmentMigrationSql } from './migrations/005_local_account_enrollment';
 import { sourceDocumentKoreanTranslationMigrationSql } from './migrations/006_source_document_korean_translation';
+import { servingReadLayerMigrationSql } from './migrations/007_serving_read_layer';
 
 export type AppTableName =
   | 'company_profiles'
@@ -21,6 +22,7 @@ export type AppTableName =
   | 'app_mutation_idempotency'
   | 'source_documents'
   | 'user_positions'
+  | 'serving_read_views'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -83,6 +85,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['source_documents'],
     sql: sourceDocumentKoreanTranslationMigrationSql,
   },
+  {
+    id: '007_serving_read_layer',
+    description:
+      'Serving read layer: clean snapshot view, canonical ticker universe, OHLCV latest price, live dataset watermarks, and shadow policy registration for live RSS providers.',
+    tables: ['serving_read_views'],
+    sql: servingReadLayerMigrationSql,
+  },
 ];
 
 export {
@@ -92,4 +101,5 @@ export {
   appLocalAccountEnrollmentMigrationSql,
   appResearchFoundationMigrationSql,
   sourceDocumentKoreanTranslationMigrationSql,
+  servingReadLayerMigrationSql,
 };

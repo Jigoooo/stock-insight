@@ -67,7 +67,13 @@ export type StockRowQueryExecutor = (
 ) => Promise<StockDatabaseRow[]>;
 
 const STOCK_LIST_SQL = `
-WITH normalized_candidates AS (
+WITH universe AS (
+  SELECT entity_key, market, ticker, name
+  FROM serving.security_universe_v1
+), ohlcv_prices AS (
+  SELECT market, ticker, latest_price, currency, change_pct
+  FROM serving.latest_price_v1
+), normalized_candidates AS (
   SELECT
     CASE
       WHEN upper(market) IN ('KR', 'KRX', 'KOSPI', 'KOSDAQ') THEN 'KR'
@@ -126,7 +132,7 @@ WITH normalized_candidates AS (
     change_pct,
     coalesce(nullif(collected_at, ''), snapshot_date, '') AS collected_sort,
     id
-  FROM stock.market_snapshots
+  FROM serving.market_snapshots_clean_v1
   WHERE symbol IS NOT NULL
   ORDER BY
     CASE
@@ -200,31 +206,37 @@ WITH normalized_candidates AS (
     researched_at DESC
 )
 SELECT
-  candidate.entity_key,
-  candidate.ticker,
-  candidate.market,
-  candidate.name,
-  snapshot.latest_price,
-  snapshot.currency,
-  snapshot.change_pct,
+  universe.entity_key,
+  universe.ticker,
+  universe.market,
+  universe.name,
+  coalesce(ohlcv.latest_price, snapshot.latest_price) AS latest_price,
+  coalesce(ohlcv.currency, snapshot.currency) AS currency,
+  coalesce(ohlcv.change_pct, snapshot.change_pct) AS change_pct,
   candidate.primary_thesis,
   candidate.confidence,
   coalesce(watchlist.is_watched, false) AS is_watched,
   coalesce(position.is_holding, false) AS is_holding,
   deep.deep_report_length,
   deep.researched_at AS last_analyzed_at
-FROM latest_candidates candidate
+FROM universe
+LEFT JOIN latest_candidates candidate
+  ON candidate.market = universe.market
+ AND candidate.ticker = universe.ticker
+LEFT JOIN ohlcv_prices ohlcv
+  ON ohlcv.market = universe.market
+ AND ohlcv.ticker = universe.ticker
 LEFT JOIN latest_snapshots snapshot
-  ON snapshot.market = candidate.market
- AND snapshot.ticker = candidate.ticker
+  ON snapshot.market = universe.market
+ AND snapshot.ticker = universe.ticker
 LEFT JOIN active_watchlist watchlist
-  ON watchlist.entity_key = candidate.entity_key
+  ON watchlist.entity_key = universe.entity_key
 LEFT JOIN open_positions position
-  ON position.entity_key = candidate.entity_key
+  ON position.entity_key = universe.entity_key
 LEFT JOIN deep_reports deep
-  ON deep.market = candidate.market
- AND deep.ticker = candidate.ticker
-WHERE ($1::text IS NULL OR candidate.market = $1::text)
+  ON deep.market = universe.market
+ AND deep.ticker = universe.ticker
+WHERE ($1::text IS NULL OR universe.market = $1::text)
   AND (
     $2::text IN ('all', '')
     OR ($2::text = 'watchlist' AND coalesce(watchlist.is_watched, false) IS TRUE)
@@ -237,16 +249,16 @@ WHERE ($1::text IS NULL OR candidate.market = $1::text)
   )
   AND (
     $3::text IS NULL
-    OR candidate.ticker ILIKE $3::text
-    OR candidate.name ILIKE $3::text
+    OR universe.ticker ILIKE $3::text
+    OR universe.name ILIKE $3::text
     OR candidate.primary_thesis ILIKE $3::text
   )
 ORDER BY
   coalesce(watchlist.is_watched, false) DESC,
   coalesce(position.is_holding, false) DESC,
-  candidate.created_sort DESC,
-  candidate.name ASC
-LIMIT 100
+  candidate.created_sort DESC NULLS LAST,
+  universe.name ASC
+LIMIT 300
 `;
 
 const STOCK_DETAIL_SQL = `
@@ -367,13 +379,21 @@ WITH parsed_entity AS (
       change_pct,
       coalesce(nullif(collected_at, ''), snapshot_date, '') AS collected_sort,
       id
-    FROM stock.market_snapshots
+    FROM serving.market_snapshots_clean_v1
     WHERE symbol IS NOT NULL
   ) snapshot
   JOIN parsed_entity entity
     ON entity.market = snapshot.market
    AND entity.ticker = snapshot.ticker
   ORDER BY snapshot.market, snapshot.ticker, snapshot.collected_sort DESC, snapshot.id DESC
+), ohlcv_price AS (
+  SELECT price.market, price.ticker, price.latest_price, price.currency, price.change_pct,
+         price.price_as_of
+  FROM serving.latest_price_v1 price
+  JOIN parsed_entity entity
+    ON entity.market = price.market
+   AND entity.ticker = price.ticker
+  LIMIT 1
 ), active_watchlist AS (
   SELECT DISTINCT ON (entity_key)
     entity_key,
@@ -540,10 +560,10 @@ SELECT
   candidate.ticker,
   candidate.market,
   candidate.name,
-  snapshot.latest_price,
-  snapshot.currency,
-  snapshot.change_pct,
-  snapshot.snapshot_captured_at,
+  coalesce(ohlcv.latest_price, snapshot.latest_price) AS latest_price,
+  coalesce(ohlcv.currency, snapshot.currency) AS currency,
+  coalesce(ohlcv.change_pct, snapshot.change_pct) AS change_pct,
+  coalesce(ohlcv.price_as_of::text, snapshot.snapshot_captured_at) AS snapshot_captured_at,
   candidate.primary_thesis,
   candidate.confidence,
   coalesce(watchlist.is_watched, false) AS is_watched,
@@ -571,6 +591,9 @@ FROM detail_anchor candidate
 LEFT JOIN latest_snapshot snapshot
   ON snapshot.market = candidate.market
  AND snapshot.ticker = candidate.ticker
+LEFT JOIN ohlcv_price ohlcv
+  ON ohlcv.market = candidate.market
+ AND ohlcv.ticker = candidate.ticker
 LEFT JOIN active_watchlist watchlist
   ON watchlist.entity_key = candidate.entity_key
 LEFT JOIN open_positions position
@@ -941,7 +964,7 @@ function parseCompanyMetrics(value: unknown): StockCompanyMetricGroup[] {
         : null,
     );
     const fiscalYear =
-      fiscalYearNumber !== undefined && Number.isInteger(fiscalYearNumber)
+      fiscalYearNumber !== undefined && Number.isInteger(fiscalYearNumber) && fiscalYearNumber > 1900
         ? fiscalYearNumber
         : undefined;
     const fiscalPeriod =
