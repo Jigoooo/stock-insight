@@ -12,6 +12,7 @@ import { knowledgeContentFoundationMigrationSql } from './migrations/011_knowled
 import { knowledgeBackfillMigrationSql } from './migrations/012_knowledge_backfill';
 import { graphAnalyticsFoundationMigrationSql } from './migrations/013_graph_analytics_foundation';
 import { analyticsServingViewsMigrationSql } from './migrations/014_analytics_serving_views';
+import { personalizationCalibrationMigrationSql } from './migrations/015_personalization_calibration';
 
 export type AppTableName =
   | 'company_profiles'
@@ -36,6 +37,7 @@ export type AppTableName =
   | 'knowledge_layer'
   | 'content_layer'
   | 'analytics_layer'
+  | 'personalization_layer'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -154,6 +156,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['analytics_layer', 'serving_read_views'],
     sql: analyticsServingViewsMigrationSql,
   },
+  {
+    id: '015_personalization_calibration',
+    description:
+      'SET F: personalization schema (profile/affinity/feed) with manual-ledger backfill, and label-level forecast calibration profiles + scorecard view (Brier deferred — issuance ledger has no probabilities).',
+    tables: ['personalization_layer', 'analytics_layer', 'serving_read_views'],
+    sql: personalizationCalibrationMigrationSql,
+  },
 ];
 
 export {
@@ -171,4 +180,5 @@ export {
   knowledgeBackfillMigrationSql,
   graphAnalyticsFoundationMigrationSql,
   analyticsServingViewsMigrationSql,
+  personalizationCalibrationMigrationSql,
 };
