@@ -8,6 +8,8 @@ import { servingReadLayerMigrationSql } from './migrations/007_serving_read_laye
 import { coreIngestionFoundationMigrationSql } from './migrations/008_core_ingestion_foundation';
 import { coreBackfillFromEntitiesMigrationSql } from './migrations/009_core_backfill_from_entities';
 import { marketDataEnrichmentMigrationSql } from './migrations/010_market_data_enrichment';
+import { knowledgeContentFoundationMigrationSql } from './migrations/011_knowledge_content_foundation';
+import { knowledgeBackfillMigrationSql } from './migrations/012_knowledge_backfill';
 
 export type AppTableName =
   | 'company_profiles'
@@ -29,6 +31,8 @@ export type AppTableName =
   | 'core_identity'
   | 'ingestion_registry'
   | 'market_enrichment'
+  | 'knowledge_layer'
+  | 'content_layer'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -119,6 +123,20 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['market_enrichment'],
     sql: marketDataEnrichmentMigrationSql,
   },
+  {
+    id: '011_knowledge_content_foundation',
+    description:
+      'SET D: knowledge layer (document/chunk/entity-links/claim/event) and content layer (report definition/run/report/evidence + latest pointer) with role grants.',
+    tables: ['knowledge_layer', 'content_layer'],
+    sql: knowledgeContentFoundationMigrationSql,
+  },
+  {
+    id: '012_knowledge_backfill',
+    description:
+      'SET D backfill: source_documents promoted to knowledge.document, deterministic entity linking (legacy key/ticker/alias), and market_signals triage (event promotion + quarantine/numeric views).',
+    tables: ['knowledge_layer'],
+    sql: knowledgeBackfillMigrationSql,
+  },
 ];
 
 export {
@@ -132,4 +150,6 @@ export {
   coreIngestionFoundationMigrationSql,
   coreBackfillFromEntitiesMigrationSql,
   marketDataEnrichmentMigrationSql,
+  knowledgeContentFoundationMigrationSql,
+  knowledgeBackfillMigrationSql,
 };
