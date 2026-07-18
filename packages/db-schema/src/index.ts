@@ -10,6 +10,8 @@ import { coreBackfillFromEntitiesMigrationSql } from './migrations/009_core_back
 import { marketDataEnrichmentMigrationSql } from './migrations/010_market_data_enrichment';
 import { knowledgeContentFoundationMigrationSql } from './migrations/011_knowledge_content_foundation';
 import { knowledgeBackfillMigrationSql } from './migrations/012_knowledge_backfill';
+import { graphAnalyticsFoundationMigrationSql } from './migrations/013_graph_analytics_foundation';
+import { analyticsServingViewsMigrationSql } from './migrations/014_analytics_serving_views';
 
 export type AppTableName =
   | 'company_profiles'
@@ -33,6 +35,7 @@ export type AppTableName =
   | 'market_enrichment'
   | 'knowledge_layer'
   | 'content_layer'
+  | 'analytics_layer'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -137,6 +140,20 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['knowledge_layer'],
     sql: knowledgeBackfillMigrationSql,
   },
+  {
+    id: '013_graph_analytics_foundation',
+    description:
+      'SET E: non-ticker entity promotion to core, bitemporal knowledge.relation + evidence, approved temporal-graph migration, analytics layer (feature snapshots, impact paths, themes), and OHLCV adj_close columns.',
+    tables: ['knowledge_layer', 'analytics_layer', 'core_identity'],
+    sql: graphAnalyticsFoundationMigrationSql,
+  },
+  {
+    id: '014_analytics_serving_views',
+    description:
+      'SET E serving: latest feature snapshot, impact summary, and 3-axis market confirmation views (axes kept separate per Baseline §10.3).',
+    tables: ['analytics_layer', 'serving_read_views'],
+    sql: analyticsServingViewsMigrationSql,
+  },
 ];
 
 export {
@@ -152,4 +169,6 @@ export {
   marketDataEnrichmentMigrationSql,
   knowledgeContentFoundationMigrationSql,
   knowledgeBackfillMigrationSql,
+  graphAnalyticsFoundationMigrationSql,
+  analyticsServingViewsMigrationSql,
 };
