@@ -68,7 +68,7 @@ SET status = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'pending' END,
     lease_until = NULL,
     last_error = $3,
     not_before = now() + make_interval(secs => $4)
-WHERE delivery_id = $1 AND lease_token = $2 AND status = 'leased'
+WHERE delivery_id = $1 AND lease_token = $2 AND status = 'leased' AND lease_until >= now()
 RETURNING delivery_id, event_id, destination, attempts, max_attempts, status, last_error
 `;
 

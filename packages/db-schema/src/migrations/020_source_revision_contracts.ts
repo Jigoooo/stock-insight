@@ -35,6 +35,11 @@ CREATE INDEX IF NOT EXISTS ix_source_contract_revision_latest
 ON ingestion.source_contract_revision(source_id, revision_no DESC)
 WHERE known_to IS NULL;
 
+CREATE OR REPLACE VIEW ingestion.source_contract_current_v1 AS
+SELECT DISTINCT ON (source_id) *
+FROM ingestion.source_contract_revision
+ORDER BY source_id,revision_no DESC,known_from DESC;
+
 CREATE TABLE IF NOT EXISTS ingestion.source_record_identity (
     source_record_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     source_id                 BIGINT NOT NULL REFERENCES ingestion.source(source_id),
@@ -135,47 +140,70 @@ FROM ingestion.raw_object raw
 GROUP BY raw.source_id, coalesce(nullif(raw.source_document_id, ''), 'hash:' || raw.content_hash)
 ON CONFLICT (source_id, provider_record_key) DO NOTHING;
 
--- Backfill immutable source revisions in observed order.
-WITH ranked AS (
-  SELECT raw.raw_object_id,
-         identity.source_record_identity_id,
-         row_number() OVER (
-           PARTITION BY identity.source_record_identity_id
-           ORDER BY raw.fetched_at, raw.raw_object_id
-         )::integer AS revision_no,
-         raw.fetched_at AS available_at,
-         raw.content_hash,
-         contract.source_contract_revision_id,
-         raw.http_meta,
-         lag(raw.raw_object_id) OVER (
-           PARTITION BY identity.source_record_identity_id
-           ORDER BY raw.fetched_at, raw.raw_object_id
-         ) AS previous_raw_object_id
-  FROM ingestion.raw_object raw
-  JOIN ingestion.source_record_identity identity
-    ON identity.source_id = raw.source_id
-   AND identity.provider_record_key = coalesce(nullif(raw.source_document_id, ''), 'hash:' || raw.content_hash)
-  JOIN ingestion.source_contract_revision contract
-    ON contract.source_id = raw.source_id AND contract.revision_no = 1
-), resolved AS (
-  SELECT ranked.*,
-         previous.source_revision_id AS supersedes_source_revision_id
-  FROM ranked
-  LEFT JOIN ingestion.source_revision previous
-    ON previous.raw_object_id = ranked.previous_raw_object_id
-)
-INSERT INTO ingestion.source_revision (
-  source_record_identity_id, revision_no, available_at, ingested_at,
-  content_hash, raw_object_id, source_contract_revision_id,
-  supersedes_source_revision_id, payload_metadata
-)
-SELECT source_record_identity_id, revision_no, available_at, available_at,
-       content_hash, raw_object_id, source_contract_revision_id,
-       supersedes_source_revision_id, coalesce(http_meta, '{}')
-FROM resolved
-ON CONFLICT (source_record_identity_id, revision_no) DO NOTHING;
+-- Append only raw rows that do not yet have lineage. Revision order is append
+-- order; available_at independently preserves provider time, including late data.
+DO $$
+DECLARE identity_row RECORD;
+DECLARE raw_row RECORD;
+DECLARE next_revision INTEGER;
+DECLARE previous_revision_id BIGINT;
+DECLARE contract_id BIGINT;
+BEGIN
+  FOR identity_row IN
+    SELECT identity.source_record_identity_id,identity.source_id
+    FROM ingestion.source_record_identity identity
+    WHERE EXISTS (
+      SELECT 1 FROM ingestion.raw_object raw
+      WHERE raw.source_id=identity.source_id
+        AND coalesce(nullif(raw.source_document_id,''),'hash:'||raw.content_hash)=identity.provider_record_key
+        AND NOT EXISTS (
+          SELECT 1 FROM ingestion.source_revision revision
+          WHERE revision.raw_object_id=raw.raw_object_id
+        )
+    )
+    ORDER BY identity.source_record_identity_id
+  LOOP
+    PERFORM pg_advisory_xact_lock(
+      hashtextextended('source-revision:'||identity_row.source_record_identity_id::text,0)
+    );
+    SELECT coalesce(max(revision_no),0),
+           (array_agg(source_revision_id ORDER BY revision_no DESC))[1]
+      INTO next_revision,previous_revision_id
+    FROM ingestion.source_revision
+    WHERE source_record_identity_id=identity_row.source_record_identity_id;
+    SELECT source_contract_revision_id INTO contract_id
+    FROM ingestion.source_contract_revision
+    WHERE source_id=identity_row.source_id
+    ORDER BY revision_no DESC LIMIT 1;
+
+    FOR raw_row IN
+      SELECT raw.* FROM ingestion.raw_object raw
+      WHERE raw.source_id=identity_row.source_id
+        AND coalesce(nullif(raw.source_document_id,''),'hash:'||raw.content_hash)=
+            (SELECT provider_record_key FROM ingestion.source_record_identity
+             WHERE source_record_identity_id=identity_row.source_record_identity_id)
+        AND NOT EXISTS (
+          SELECT 1 FROM ingestion.source_revision revision
+          WHERE revision.raw_object_id=raw.raw_object_id
+        )
+      ORDER BY raw.fetched_at,raw.raw_object_id
+    LOOP
+      next_revision := next_revision+1;
+      INSERT INTO ingestion.source_revision (
+        source_record_identity_id,revision_no,available_at,ingested_at,
+        content_hash,raw_object_id,source_contract_revision_id,
+        supersedes_source_revision_id,payload_metadata
+      ) VALUES (
+        identity_row.source_record_identity_id,next_revision,raw_row.fetched_at,now(),
+        raw_row.content_hash,raw_row.raw_object_id,contract_id,
+        previous_revision_id,coalesce(raw_row.http_meta,'{}'::jsonb)
+      ) RETURNING source_revision_id INTO previous_revision_id;
+    END LOOP;
+  END LOOP;
+END $$;
 
 GRANT SELECT ON ingestion.source_contract_revision,
+                ingestion.source_contract_current_v1,
                 ingestion.source_record_identity,
                 ingestion.source_revision
 TO stock_insight_app_reader;

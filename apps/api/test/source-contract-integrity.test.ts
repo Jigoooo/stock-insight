@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { createHash, randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import pg from 'pg';
+
+import { sourceRevisionContractsMigrationSql } from '../../../packages/db-schema/src/migrations/020_source_revision_contracts.ts';
 
 const databaseUrl = process.env.STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL;
 const skipReason = databaseUrl ? false : 'STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is required';
@@ -14,13 +17,11 @@ describe('B2 source contract coverage and immutability', () => {
       const result = await pool.query(`
         SELECT
           (SELECT count(*)::int FROM ingestion.source) AS active_sources,
-          (SELECT count(*)::int FROM ingestion.source_contract_revision
-           WHERE effective_to IS NULL AND known_to IS NULL) AS active_contracts,
+          (SELECT count(*)::int FROM ingestion.source_contract_current_v1) AS active_contracts,
           (SELECT count(*)::int FROM ingestion.source source
            WHERE NOT EXISTS (
-             SELECT 1 FROM ingestion.source_contract_revision contract
+             SELECT 1 FROM ingestion.source_contract_current_v1 contract
              WHERE contract.source_id=source.source_id
-               AND contract.effective_to IS NULL AND contract.known_to IS NULL
            )) AS uncovered,
           (SELECT count(*)::int FROM ingestion.source_contract_revision
            WHERE policy_status='provisional_review_required') AS provisional
@@ -30,6 +31,82 @@ describe('B2 source contract coverage and immutability', () => {
       // Initial backfill must not fabricate operator approval.
       assert.equal(result.rows[0]!.provisional, result.rows[0]!.active_sources);
     } finally {
+      await pool.end();
+    }
+  });
+
+  it('derives current contract from the latest append-only revision', { skip: skipReason }, async () => {
+    assert.ok(databaseUrl);
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const appended = await client.query(`
+        INSERT INTO ingestion.source_contract_revision (
+          source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
+          correction_policy,required_fields,license_policy,redistribution_policy,
+          raw_retention_policy,quality_gate_policy,effective_from,known_from,
+          supersedes_contract_revision_id,content_hash
+        )
+        SELECT source_id,revision_no+1,'approved',cadence_policy,cutoff_policy,delay_policy,
+               correction_policy,required_fields,license_policy,redistribution_policy,
+               raw_retention_policy,quality_gate_policy,now(),now(),
+               source_contract_revision_id,$1
+        FROM ingestion.source_contract_current_v1 ORDER BY source_id LIMIT 1
+        RETURNING source_contract_revision_id,source_id,revision_no
+      `, [createHash('sha256').update(randomUUID()).digest('hex')]);
+      const current = await client.query(`
+        SELECT source_contract_revision_id,revision_no
+        FROM ingestion.source_contract_current_v1 WHERE source_id=$1
+      `, [appended.rows[0]!.source_id]);
+      assert.equal(current.rows[0]!.source_contract_revision_id, appended.rows[0]!.source_contract_revision_id);
+      assert.equal(current.rows[0]!.revision_no, appended.rows[0]!.revision_no);
+      await client.query('ROLLBACK');
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+      await pool.end();
+    }
+  });
+
+  it('appends a late raw object after max revision instead of renumbering history', { skip: skipReason }, async () => {
+    assert.ok(databaseUrl);
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const selected = await client.query(`
+        SELECT identity.source_record_identity_id,identity.source_id,identity.provider_record_key,
+               max(revision.revision_no)::int AS max_revision
+        FROM ingestion.source_record_identity identity
+        JOIN ingestion.source_revision revision USING(source_record_identity_id)
+        GROUP BY identity.source_record_identity_id,identity.source_id,identity.provider_record_key
+        ORDER BY identity.source_record_identity_id LIMIT 1
+      `);
+      const row = selected.rows[0]!;
+      const suffix = randomUUID();
+      const contentHash = createHash('sha256').update(suffix).digest('hex');
+      const raw = await client.query(`
+        WITH inserted_fetch AS (
+          INSERT INTO ingestion.fetch_run (source_id,run_id,idempotency_key,started_at,status)
+          VALUES ($1,$2,$2,now(),'running') RETURNING fetch_run_id
+        )
+        INSERT INTO ingestion.raw_object (
+          fetch_run_id,source_id,source_document_id,content_hash,object_uri,http_meta,fetched_at
+        ) SELECT fetch_run_id,$1,$3,$4,$5,'{}','2000-01-01T00:00:00Z' FROM inserted_fetch
+        RETURNING raw_object_id
+      `, [row.source_id, `late-${suffix}`, row.provider_record_key, contentHash, `file:///tmp/${contentHash}`]);
+      await client.query(sourceRevisionContractsMigrationSql);
+      const revision = await client.query(
+        'SELECT revision_no,available_at FROM ingestion.source_revision WHERE raw_object_id=$1',
+        [raw.rows[0]!.raw_object_id],
+      );
+      assert.equal(revision.rows[0]!.revision_no, row.max_revision + 1);
+      assert.equal(new Date(revision.rows[0]!.available_at).toISOString(), '2000-01-01T00:00:00.000Z');
+      await client.query('ROLLBACK');
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
       await pool.end();
     }
   });

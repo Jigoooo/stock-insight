@@ -6,6 +6,7 @@ import {
   canonicalizeNewsUrl,
   parsePublishedAt,
   toSourceDocumentSeed,
+  validateRssNewsBundle,
 } from '../src/ingest/news-rss.ts';
 
 test('canonicalizeNewsUrl removes tracking and fragments but preserves semantic query', () => {
@@ -71,4 +72,31 @@ test('audit skips invalid rows and deduplicates canonical URLs', () => {
   assert.equal(audit.duplicateUrls, 1);
   assert.equal(audit.skipped, 1);
   assert.equal(audit.feedErrors, 1);
+});
+
+test('RSS runtime contract rejects malformed, total-failure and stale/future cache bundles', () => {
+  const item = {
+    title: 'A', url: 'https://example.com/a', source: 'Feed',
+    region: 'overseas', kind: 'news', when: '', summary: '',
+  };
+  const valid = {
+    items: [item], by: { 'overseas/news': 1 }, errors: {},
+    stats: { feeds_tried: 2, collected: 1, errors: 0, cache_hit: false },
+  };
+  assert.equal(validateRssNewsBundle(valid), valid);
+  assert.throws(() => validateRssNewsBundle({}), /requires items/);
+  assert.throws(() => validateRssNewsBundle({
+    ...valid, items: [], by: {}, errors: { a: 'x', b: 'x' },
+    stats: { feeds_tried: 2, collected: 0, errors: 2, cache_hit: false },
+  }), /no verified successful feed/);
+  assert.throws(() => validateRssNewsBundle({
+    ...valid,
+    stats: { ...valid.stats, cache_hit: true, cache_stale_fallback: true },
+    cache: { key: 'k', created_at_epoch: 100 },
+  }, { nowMs: 100_000 }), /stale cache fallback/);
+  assert.throws(() => validateRssNewsBundle({
+    ...valid,
+    stats: { ...valid.stats, cache_hit: true },
+    cache: { key: 'k', created_at_epoch: 101 },
+  }, { nowMs: 100_000 }), /future-dated or too old/);
 });

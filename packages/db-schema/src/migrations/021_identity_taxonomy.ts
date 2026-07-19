@@ -189,8 +189,9 @@ FROM core.taxonomy_release
 WHERE release_version='legacy-import-b3-v1'
 ON CONFLICT (taxonomy_release_id, code) DO NOTHING;
 
--- Every Stock receives one system membership. Existing SIC/KSIC code is kept;
--- absent code maps to UNCLASSIFIED according to country (KR→KSIC, else SIC).
+-- Every Stock receives one system membership in this frozen baseline release.
+-- Later source changes require a new taxonomy release + temporal membership;
+-- reapplying this import must never replace or collide with baseline history.
 WITH stock_key AS (
   SELECT stock.entity_id,
          stock.country_code,
@@ -233,7 +234,7 @@ JOIN core.taxonomy_release release
 JOIN core.taxonomy_node node
   ON node.taxonomy_release_id=release.taxonomy_release_id
  AND node.code=classified.taxonomy_code
-ON CONFLICT (entity_id, taxonomy_node_id) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 GRANT SELECT ON core.security_issuer_identity,
                 core.taxonomy_release,

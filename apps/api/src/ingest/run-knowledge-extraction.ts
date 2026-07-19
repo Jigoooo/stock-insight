@@ -77,8 +77,14 @@ RETURNING claim_id
 `;
 
 const INSERT_CLAIM_EVIDENCE_SQL = `
-INSERT INTO knowledge.claim_evidence (claim_id, document_id, quote)
-VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+INSERT INTO knowledge.claim_evidence (claim_id, document_id, chunk_id, quote)
+SELECT $1,$2,chunk.chunk_id,$3
+FROM knowledge.document_chunk chunk
+WHERE chunk.document_id=$2
+  AND position(lower(trim($3)) in lower(chunk.content))>0
+ORDER BY chunk.revision_no DESC,chunk.chunk_index
+LIMIT 1
+ON CONFLICT DO NOTHING
 `;
 
 const INSERT_EVENT_SQL = `

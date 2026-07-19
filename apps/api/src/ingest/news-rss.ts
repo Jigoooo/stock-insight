@@ -15,7 +15,69 @@ export type RssNewsBundle = {
   by?: unknown;
   errors?: unknown;
   stats?: unknown;
+  cache?: unknown;
 };
+
+function objectValue(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+/** Fail-closed runtime contract for the external Python collector bundle. */
+export function validateRssNewsBundle(
+  value: unknown,
+  options: { nowMs?: number; maxCacheAgeSeconds?: number } = {},
+): RssNewsBundle {
+  const bundle = objectValue(value);
+  if (!bundle) throw new Error('RSS collector bundle must be an object');
+  const items = Array.isArray(bundle.items) ? bundle.items : undefined;
+  const by = objectValue(bundle.by);
+  const errors = objectValue(bundle.errors);
+  const stats = objectValue(bundle.stats);
+  if (!items || !by || !errors || !stats) {
+    throw new Error('RSS collector bundle requires items/by/errors/stats');
+  }
+  for (const [index,itemValue] of items.entries()) {
+    const item = objectValue(itemValue);
+    if (!item || !['title','url','source','region','kind','when'].every(
+      (field) => typeof item[field] === 'string',
+    ) || (item.summary !== undefined && typeof item.summary !== 'string')) {
+      throw new Error(`RSS collector item ${index} violates runtime schema`);
+    }
+  }
+  const feedsTried = stats.feeds_tried;
+  const collected = stats.collected;
+  const errorCount = stats.errors;
+  if (!Number.isInteger(feedsTried) || Number(feedsTried) <= 0
+      || !Number.isInteger(collected) || Number(collected) !== items.length
+      || !Number.isInteger(errorCount) || Number(errorCount) < 0
+      || Number(errorCount) > Number(feedsTried)
+      || Object.keys(errors).length !== Number(errorCount)) {
+    throw new Error('RSS collector stats are inconsistent');
+  }
+  if (items.length === 0 || Number(feedsTried) - Number(errorCount) <= 0) {
+    throw new Error('RSS collector has no verified successful feed output');
+  }
+  if (stats.cache_stale_fallback === true) {
+    throw new Error('RSS stale cache fallback is not publishable');
+  }
+  if (stats.cache_hit === true) {
+    const cache = objectValue(bundle.cache);
+    const created = cache?.created_at_epoch;
+    const nowMs = options.nowMs ?? Date.now();
+    const maxAgeMs = (options.maxCacheAgeSeconds ?? 3600) * 1000;
+    if (!cache || typeof cache.key !== 'string' || !cache.key
+        || typeof created !== 'number' || !Number.isFinite(created)) {
+      throw new Error('RSS cache provenance is invalid');
+    }
+    const ageMs = nowMs - created * 1000;
+    if (ageMs < 0 || ageMs > maxAgeMs) {
+      throw new Error('RSS cache timestamp is future-dated or too old');
+    }
+  }
+  return value as RssNewsBundle;
+}
 
 export type SourceDocumentSeed = {
   sourceKey: string;

@@ -38,17 +38,21 @@ describe('B2 raw object + source revision atomicity', () => {
       const inside = await client.query(`
         SELECT
           (SELECT count(*)::int FROM ingestion.raw_object WHERE raw_object_id=$1) AS raw_rows,
-          (SELECT count(*)::int FROM ingestion.source_revision WHERE raw_object_id=$1) AS revision_rows
+          (SELECT count(*)::int FROM ingestion.source_revision WHERE raw_object_id=$1) AS revision_rows,
+          (SELECT count(*)::int FROM ops.outbox_event
+           WHERE event_type='source.revision.appended' AND payload->>'raw_object_id'=$1::text) AS outbox_rows
       `, [result.rawObjectId]);
-      assert.deepEqual(inside.rows[0], { raw_rows: 1, revision_rows: 1 });
+      assert.deepEqual(inside.rows[0], { raw_rows: 1, revision_rows: 1, outbox_rows: 1 });
       await client.query('ROLLBACK');
 
       const outside = await client.query(`
         SELECT
           (SELECT count(*)::int FROM ingestion.raw_object WHERE source_id=$1 AND content_hash=$2) AS raw_rows,
-          (SELECT count(*)::int FROM ingestion.source_record_identity WHERE source_id=$1 AND provider_record_key=$3) AS identities
+          (SELECT count(*)::int FROM ingestion.source_record_identity WHERE source_id=$1 AND provider_record_key=$3) AS identities,
+          (SELECT count(*)::int FROM ops.outbox_event
+           WHERE event_type='source.revision.appended' AND payload->>'content_hash'=$2) AS outbox_rows
       `, [sourceId, hash, key]);
-      assert.deepEqual(outside.rows[0], { raw_rows: 0, identities: 0 });
+      assert.deepEqual(outside.rows[0], { raw_rows: 0, identities: 0, outbox_rows: 0 });
     } finally {
       await client.query('ROLLBACK').catch(() => undefined);
       client.release();
@@ -84,6 +88,11 @@ describe('B2 raw object + source revision atomicity', () => {
       assert.equal(replay.replay, true);
       assert.equal(replay.rawObjectId, first.rawObjectId);
       assert.equal(replay.revisionNo, first.revisionNo);
+      const events = await client.query(`
+        SELECT count(*)::int AS n FROM ops.outbox_event
+        WHERE event_type='source.revision.appended' AND payload->>'raw_object_id'=$1::text
+      `,[first.rawObjectId]);
+      assert.equal(events.rows[0]!.n,1);
       await client.query('ROLLBACK');
     } finally {
       await client.query('ROLLBACK').catch(() => undefined);

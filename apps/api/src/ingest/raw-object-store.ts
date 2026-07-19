@@ -1,10 +1,12 @@
-import { createHash } from 'node:crypto';
-import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { appendFile, link, mkdir, open, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { PoolClient, QueryResultRow } from 'pg';
 
 import { appendSourceRevision } from './source-revision-store.ts';
+import { buildEnvelope } from '../events/event-envelope.ts';
+import { insertOutboxEvent } from '../events/outbox-store.ts';
 
 // SET B / B-1: content-addressed raw object store (local filesystem tier).
 // Layout: {root}/{provider}/{yyyy}/{mm}/{hash[:2]}/{hash}.{ext}
@@ -30,6 +32,58 @@ export function hashContent(content: Buffer | string): string {
     .digest('hex');
 }
 
+function errorCode(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
+
+async function verifyExistingObject(filePath: string, contentHash: string): Promise<void> {
+  const existing = await readFile(filePath);
+  const actual = hashContent(existing);
+  if (actual !== contentHash) {
+    throw new Error(`existing raw object hash mismatch: expected ${contentHash}, got ${actual}`);
+  }
+}
+
+async function syncDirectory(dir: string): Promise<void> {
+  const handle = await open(dir, 'r');
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Publish complete, fsynced bytes without ever truncating an existing object. */
+async function publishNoClobber(
+  dir: string,
+  filePath: string,
+  body: Buffer,
+  contentHash: string,
+): Promise<void> {
+  const temporaryPath = join(dir, `.${contentHash}.${process.pid}.${randomUUID()}.tmp`);
+  const handle = await open(temporaryPath, 'wx', 0o600);
+  try {
+    await handle.writeFile(body);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+
+  try {
+    await link(temporaryPath, filePath);
+    await syncDirectory(dir);
+  } catch (error) {
+    if (errorCode(error) !== 'EEXIST') throw error;
+    await verifyExistingObject(filePath, contentHash);
+  } finally {
+    await unlink(temporaryPath).catch((error: unknown) => {
+      if (errorCode(error) !== 'ENOENT') throw error;
+    });
+  }
+}
+
 export async function writeRawObject(options: {
   providerKey: string;
   content: Buffer | string;
@@ -52,25 +106,31 @@ export async function writeRawObject(options: {
   const objectUri = `file://${filePath}`;
 
   await mkdir(dir, { recursive: true });
-  // Content-addressed: identical hash ⇒ identical bytes; overwrite is a no-op-safe idempotent write.
-  await writeFile(filePath, body, { flag: 'w' });
-
-  const manifestDir = join(root, '_manifest');
-  await mkdir(manifestDir, { recursive: true });
-  const day = `${year}-${month}-${String(fetchedAt.getUTCDate()).padStart(2, '0')}`;
-  await appendFile(
-    join(manifestDir, `${day}.jsonl`),
-    `${JSON.stringify({
-      provider_key: options.providerKey,
-      content_hash: contentHash,
-      object_uri: objectUri,
-      bytes: body.byteLength,
-      fetched_at: fetchedAt.toISOString(),
-    })}\n`,
-    'utf8',
-  );
+  await publishNoClobber(dir, filePath, body, contentHash);
 
   return { contentHash, objectUri, bytes: body.byteLength };
+}
+
+/** Secondary manifest: call only after the authoritative DB transaction commits. */
+export async function appendRawObjectManifest(options: {
+  providerKey: string;
+  ref: RawObjectRef;
+  fetchedAt: Date;
+  root?: string;
+}): Promise<void> {
+  const root = options.root ?? DEFAULT_ROOT;
+  const year = String(options.fetchedAt.getUTCFullYear());
+  const month = String(options.fetchedAt.getUTCMonth() + 1).padStart(2,'0');
+  const day = `${year}-${month}-${String(options.fetchedAt.getUTCDate()).padStart(2,'0')}`;
+  const manifestDir = join(root,'_manifest');
+  await mkdir(manifestDir,{ recursive: true });
+  await appendFile(join(manifestDir,`${day}.jsonl`),`${JSON.stringify({
+    provider_key: options.providerKey,
+    content_hash: options.ref.contentHash,
+    object_uri: options.ref.objectUri,
+    bytes: options.ref.bytes,
+    fetched_at: options.fetchedAt.toISOString(),
+  })}\n`,'utf8');
 }
 
 /** Read an immutable raw object and verify its bytes against the registered hash. */
@@ -144,11 +204,18 @@ export async function registerRawObjectWithRevision(
 
   const contract = await client.query<QueryResultRow & { source_contract_revision_id: number }>(
     `SELECT source_contract_revision_id
-     FROM ingestion.source_contract_revision
+     FROM ingestion.source_contract_current_v1
      WHERE source_id=$1
-     ORDER BY revision_no DESC LIMIT 1`,
-    [input.sourceId],
+       AND policy_status IN ('provisional_review_required','approved')
+       AND effective_from<=$2::timestamptz
+       AND (effective_to IS NULL OR effective_to>$2::timestamptz)
+       AND known_from<=now()
+       AND (known_to IS NULL OR known_to>now())`,
+    [input.sourceId,input.fetchedAt],
   );
+  if (contract.rows.length !== 1) {
+    throw new Error(`source ${input.sourceId} requires exactly one current applicable contract; got ${contract.rows.length}`);
+  }
   const sourceContractRevisionId = contract.rows[0]?.source_contract_revision_id;
   if (sourceContractRevisionId === undefined) {
     throw new Error(`source contract revision is missing for source ${input.sourceId}`);
@@ -163,6 +230,29 @@ export async function registerRawObjectWithRevision(
     sourceContractRevisionId,
     payloadMetadata: { object_uri: input.objectUri, http_meta: input.httpMeta },
   });
+  const outbox = await insertOutboxEvent(client, buildEnvelope({
+    eventType: 'source.revision.appended',
+    schemaVersion: 1,
+    aggregateType: 'source_record',
+    aggregateId: String(revision.sourceRecordIdentityId),
+    aggregateVersion: revision.revisionNo,
+    partitionKey: String(input.sourceId),
+    occurredAt: input.fetchedAt,
+    producer: 'raw-object-store',
+    payload: {
+      source_revision_id: revision.sourceRevisionId,
+      source_record_identity_id: revision.sourceRecordIdentityId,
+      source_id: input.sourceId,
+      provider_record_key: input.providerRecordKey,
+      raw_object_id: rawObjectId,
+      source_contract_revision_id: sourceContractRevisionId,
+      content_hash: input.contentHash,
+      available_at: input.fetchedAt,
+    },
+  }));
+  if (outbox.outcome === 'conflict') {
+    throw new Error('source revision outbox conflict');
+  }
   return {
     rawObjectId,
     rawInserted,

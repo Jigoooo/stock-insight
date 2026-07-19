@@ -122,6 +122,26 @@ SELECT report.report_id, pointer.report_type, pointer.scope_key,
 FROM serving.latest_report_pointer pointer
 JOIN content.report report ON report.report_id = pointer.report_id
 WHERE report.status = 'published'
+  AND (
+    NOT jsonb_path_exists(
+      report.report_payload,
+      '$.sections[*].blocks[*] ? (@.block_type == "fact")'
+    )
+    OR (
+      EXISTS (
+        SELECT 1 FROM content.report_evidence evidence
+        WHERE evidence.report_id=report.report_id AND evidence.evidence_type='event'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM content.report_evidence evidence
+        JOIN knowledge.event event ON event.event_id=evidence.evidence_id
+        WHERE evidence.report_id=report.report_id
+          AND evidence.evidence_type='event'
+          AND event.verification_status<>'verified'
+      )
+    )
+  )
   AND ($1::text IS NULL OR pointer.report_type = $1::text)
   AND ($2::text IS NULL OR pointer.scope_key = $2::text)
 ORDER BY pointer.switched_at DESC

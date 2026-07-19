@@ -16,6 +16,8 @@ ALTER TABLE knowledge.document_chunk
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_document_chunk_revision_position
 ON knowledge.document_chunk(document_id, revision_no, chunk_index);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_document_chunk_document_chunk
+ON knowledge.document_chunk(document_id,chunk_id);
 
 CREATE INDEX IF NOT EXISTS ix_document_chunk_pit
 ON knowledge.document_chunk(document_id, available_at, revision_no DESC, chunk_index);
@@ -60,6 +62,7 @@ WHERE length(trim(coalesce(legacy.title,'') || E'\n' || coalesce(legacy.summary,
 ON CONFLICT (document_id, revision_no, chunk_index) DO NOTHING;
 
 -- Anchor existing claim quotes only when the exact quote occurs in the chunk.
+DROP TRIGGER IF EXISTS claim_evidence_immutable ON knowledge.claim_evidence;
 UPDATE knowledge.claim_evidence evidence
 SET chunk_id=chunk.chunk_id
 FROM knowledge.document_chunk chunk
@@ -74,6 +77,14 @@ DO $$ BEGIN
     FOREIGN KEY (chunk_id) REFERENCES knowledge.document_chunk(chunk_id);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+ALTER TABLE knowledge.claim_evidence ALTER COLUMN chunk_id SET NOT NULL;
+DO $$ BEGIN
+  ALTER TABLE knowledge.claim_evidence
+    ADD CONSTRAINT claim_evidence_document_chunk_fkey
+    FOREIGN KEY (document_id,chunk_id)
+    REFERENCES knowledge.document_chunk(document_id,chunk_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE TABLE IF NOT EXISTS knowledge.event_evidence (
     event_id       BIGINT NOT NULL REFERENCES knowledge.event(event_id),
     document_id    BIGINT NOT NULL REFERENCES knowledge.document(document_id),
@@ -85,6 +96,14 @@ CREATE TABLE IF NOT EXISTS knowledge.event_evidence (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (event_id, document_id)
 );
+
+DROP TRIGGER IF EXISTS event_evidence_immutable ON knowledge.event_evidence;
+DO $$ BEGIN
+  ALTER TABLE knowledge.event_evidence
+    ADD CONSTRAINT event_evidence_document_chunk_fkey
+    FOREIGN KEY (document_id,chunk_id)
+    REFERENCES knowledge.document_chunk(document_id,chunk_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Only events already carrying a source_document_id get evidence. Source quote
 -- is the stored chunk excerpt, never generated event text.
@@ -147,6 +166,7 @@ DECLARE evidence_documents INTEGER;
 DECLARE missing_chunk_quotes INTEGER;
 DECLARE required_documents INTEGER;
 DECLARE require_chunks BOOLEAN;
+DECLARE opposing_evidence INTEGER := 0;
 BEGIN
   IF NEW.verification_status=OLD.verification_status THEN RETURN NEW; END IF;
   subject_kind := CASE WHEN TG_TABLE_NAME='claim' THEN 'claim' ELSE 'event' END;
@@ -174,7 +194,10 @@ BEGIN
     SELECT count(DISTINCT document_id),
            count(*) FILTER (WHERE chunk_id IS NULL OR nullif(trim(quote),'') IS NULL)
       INTO evidence_documents, missing_chunk_quotes
-    FROM knowledge.event_evidence WHERE event_id=NEW.event_id;
+    FROM knowledge.event_evidence WHERE event_id=NEW.event_id AND evidence_role='support';
+    SELECT count(*) INTO opposing_evidence
+    FROM knowledge.event_evidence
+    WHERE event_id=NEW.event_id AND evidence_role IN ('contradict','retract');
   END IF;
 
   IF NEW.verification_status IN ('corroborated','verified') THEN
@@ -190,6 +213,9 @@ BEGIN
     END IF;
     IF require_chunks AND missing_chunk_quotes > 0 THEN
       RAISE EXCEPTION '% % requires every evidence row to have chunk + quote',subject_kind,NEW.verification_status;
+    END IF;
+    IF opposing_evidence > 0 THEN
+      RAISE EXCEPTION '% % cannot be promoted while contradict/retract evidence exists',subject_kind,NEW.verification_status;
     END IF;
   END IF;
   RETURN NEW;
@@ -212,7 +238,8 @@ BEGIN
   IF subject_kind='claim' THEN
     SELECT count(DISTINCT document_id) INTO evidence_documents FROM knowledge.claim_evidence WHERE claim_id=subject_key;
   ELSE
-    SELECT count(DISTINCT document_id) INTO evidence_documents FROM knowledge.event_evidence WHERE event_id=subject_key;
+    SELECT count(DISTINCT document_id) INTO evidence_documents
+    FROM knowledge.event_evidence WHERE event_id=subject_key AND evidence_role='support';
   END IF;
   SELECT policy_version INTO policy FROM ops.verification_policy
    WHERE subject_type=subject_kind AND target_status=NEW.verification_status;
@@ -238,6 +265,56 @@ FOR EACH ROW EXECUTE FUNCTION knowledge.guard_verification_transition();
 DROP TRIGGER IF EXISTS event_verification_audit ON knowledge.event;
 CREATE TRIGGER event_verification_audit AFTER UPDATE OF verification_status ON knowledge.event
 FOR EACH ROW EXECUTE FUNCTION knowledge.record_verification_transition();
+
+CREATE OR REPLACE FUNCTION knowledge.guard_evidence_anchor()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF nullif(trim(NEW.quote),'') IS NULL OR NOT EXISTS (
+    SELECT 1 FROM knowledge.document_chunk chunk
+    WHERE chunk.document_id=NEW.document_id
+      AND chunk.chunk_id=NEW.chunk_id
+      AND position(lower(trim(NEW.quote)) in lower(chunk.content))>0
+  ) THEN
+    RAISE EXCEPTION 'evidence quote must be anchored in its document chunk';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE OR REPLACE FUNCTION knowledge.reject_evidence_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION '% is append-only',TG_TABLE_SCHEMA||'.'||TG_TABLE_NAME USING ERRCODE='55000';
+END $$;
+
+CREATE OR REPLACE FUNCTION knowledge.downgrade_event_on_opposing_evidence()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.evidence_role IN ('contradict','retract') THEN
+    UPDATE knowledge.event
+    SET verification_status=CASE WHEN NEW.evidence_role='retract' THEN 'retracted' ELSE 'contradicted' END,
+        metadata=metadata||jsonb_build_object(
+          'verification_actor','event-evidence-trigger',
+          'verification_reason','opposing evidence appended',
+          'verification_requested_at',now()::text
+        )
+    WHERE event_id=NEW.event_id AND verification_status IN ('corroborated','verified');
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS claim_evidence_anchor_guard ON knowledge.claim_evidence;
+CREATE TRIGGER claim_evidence_anchor_guard BEFORE INSERT ON knowledge.claim_evidence
+FOR EACH ROW EXECUTE FUNCTION knowledge.guard_evidence_anchor();
+DROP TRIGGER IF EXISTS event_evidence_anchor_guard ON knowledge.event_evidence;
+CREATE TRIGGER event_evidence_anchor_guard BEFORE INSERT ON knowledge.event_evidence
+FOR EACH ROW EXECUTE FUNCTION knowledge.guard_evidence_anchor();
+DROP TRIGGER IF EXISTS event_evidence_truth_downgrade ON knowledge.event_evidence;
+CREATE TRIGGER event_evidence_truth_downgrade AFTER INSERT ON knowledge.event_evidence
+FOR EACH ROW EXECUTE FUNCTION knowledge.downgrade_event_on_opposing_evidence();
+CREATE TRIGGER claim_evidence_immutable BEFORE UPDATE OR DELETE ON knowledge.claim_evidence
+FOR EACH ROW EXECUTE FUNCTION knowledge.reject_evidence_mutation();
+CREATE TRIGGER event_evidence_immutable BEFORE UPDATE OR DELETE ON knowledge.event_evidence
+FOR EACH ROW EXECUTE FUNCTION knowledge.reject_evidence_mutation();
 
 GRANT SELECT ON knowledge.document_chunk,
                 knowledge.event_evidence,

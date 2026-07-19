@@ -57,4 +57,73 @@ SET policy_value = EXCLUDED.policy_value,
     applied_at = now();
 
 GRANT SELECT ON ops.truth_gate_policy TO stock_insight_app_reader;
+
+-- 3) Publish-time TOCTOU guard. Fact-bearing reports may transition to
+-- published only while every typed event evidence row is still verified. The
+-- row locks are held through pointer swap because the status update occurs in
+-- the publisher transaction.
+CREATE OR REPLACE FUNCTION content.guard_report_fact_publish()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE has_fact BOOLEAN;
+BEGIN
+  IF NEW.status<>'published' OR (TG_OP='UPDATE' AND OLD.status='published') THEN
+    RETURN NEW;
+  END IF;
+  has_fact := jsonb_path_exists(
+    NEW.report_payload,
+    '$.sections[*].blocks[*] ? (@.block_type == "fact")'
+  );
+  IF NOT has_fact THEN RETURN NEW; END IF;
+
+  PERFORM event.event_id
+  FROM content.report_evidence evidence
+  JOIN knowledge.event event ON event.event_id=evidence.evidence_id
+  WHERE evidence.report_id=NEW.report_id AND evidence.evidence_type='event'
+  ORDER BY event.event_id
+  FOR KEY SHARE OF event;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'fact-bearing report requires typed event evidence';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM content.report_evidence evidence
+    JOIN knowledge.event event ON event.event_id=evidence.evidence_id
+    WHERE evidence.report_id=NEW.report_id
+      AND evidence.evidence_type='event'
+      AND event.verification_status<>'verified'
+  ) THEN
+    RAISE EXCEPTION 'fact-bearing report requires currently verified event evidence';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS report_fact_publish_guard ON content.report;
+CREATE TRIGGER report_fact_publish_guard
+BEFORE INSERT OR UPDATE OF status ON content.report
+FOR EACH ROW EXECUTE FUNCTION content.guard_report_fact_publish();
+
+-- 4) A later contradiction/retraction immediately removes dependent fact
+-- reports from the public latest pointer. History is preserved in content.report.
+CREATE OR REPLACE FUNCTION content.invalidate_retracted_event_reports()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.verification_status='verified' AND NEW.verification_status<>'verified' THEN
+    DELETE FROM serving.latest_report_pointer pointer
+    USING content.report_evidence evidence, content.report report
+    WHERE evidence.evidence_type='event'
+      AND evidence.evidence_id=NEW.event_id
+      AND evidence.report_id=report.report_id
+      AND pointer.report_id=report.report_id
+      AND jsonb_path_exists(
+        report.report_payload,
+        '$.sections[*].blocks[*] ? (@.block_type == "fact")'
+      );
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS event_report_truth_invalidator ON knowledge.event;
+CREATE TRIGGER event_report_truth_invalidator
+AFTER UPDATE OF verification_status ON knowledge.event
+FOR EACH ROW EXECUTE FUNCTION content.invalidate_retracted_event_reports();
 `;

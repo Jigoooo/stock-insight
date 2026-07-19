@@ -16,6 +16,7 @@ export type SourceRevisionInput = {
 
 export type SourceRevisionResult = {
   outcome: 'inserted' | 'replayed';
+  sourceRecordIdentityId: number;
   sourceRevisionId: number;
   revisionNo: number;
 };
@@ -82,6 +83,7 @@ export async function appendSourceRevision(
   if (previous?.content_hash === input.contentHash) {
     return {
       outcome: 'replayed',
+      sourceRecordIdentityId: identityId,
       sourceRevisionId: previous.source_revision_id,
       revisionNo: previous.revision_no,
     };
@@ -102,6 +104,7 @@ export async function appendSourceRevision(
   );
   return {
     outcome: 'inserted',
+    sourceRecordIdentityId: identityId,
     sourceRevisionId: inserted.rows[0]!.source_revision_id,
     revisionNo,
   };

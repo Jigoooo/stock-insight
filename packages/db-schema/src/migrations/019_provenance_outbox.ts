@@ -102,6 +102,23 @@ VALUES
   ('report.published', 1, 'A report was atomically published and the latest pointer swapped.'),
   ('event_brief.published', 1, 'An incremental event brief was published.'),
   ('knowledge.document_extracted', 1, 'A knowledge document finished claim/event extraction.'),
-  ('relation.revised', 1, 'A relation identity gained a new revision.')
+  ('relation.revised', 1, 'A relation identity gained a new revision.'),
+  ('source.revision.appended', 1, 'An immutable source record revision and raw lineage were committed.')
 ON CONFLICT (event_type, schema_version) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION ops.reject_outbox_audit_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION '% is append-only',TG_TABLE_SCHEMA||'.'||TG_TABLE_NAME USING ERRCODE='55000';
+END $$;
+
+DROP TRIGGER IF EXISTS outbox_event_immutable ON ops.outbox_event;
+CREATE TRIGGER outbox_event_immutable BEFORE UPDATE OR DELETE ON ops.outbox_event
+FOR EACH ROW EXECUTE FUNCTION ops.reject_outbox_audit_mutation();
+DROP TRIGGER IF EXISTS outbox_conflict_immutable ON ops.outbox_conflict;
+CREATE TRIGGER outbox_conflict_immutable BEFORE UPDATE OR DELETE ON ops.outbox_conflict
+FOR EACH ROW EXECUTE FUNCTION ops.reject_outbox_audit_mutation();
+DROP TRIGGER IF EXISTS dead_letter_immutable ON ops.dead_letter;
+CREATE TRIGGER dead_letter_immutable BEFORE UPDATE OR DELETE ON ops.dead_letter
+FOR EACH ROW EXECUTE FUNCTION ops.reject_outbox_audit_mutation();
 `;

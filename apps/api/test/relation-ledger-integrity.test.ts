@@ -37,13 +37,21 @@ describe('B5 relation ledger backfill and public stop-line',()=>{
     }finally{await pool.end();}
   });
 
-  it('keeps every imported predicate ontology revision provisional', {skip:skipReason}, async()=>{
+  it('keeps legacy predicates provisional except the evidence-backed ISSUED_BY policy', {skip:skipReason}, async()=>{
     assert.ok(databaseUrl);
     const pool=new pg.Pool({connectionString:databaseUrl,max:1});
     try{
-      const result=await pool.query(`SELECT count(*)::int AS total,count(*) FILTER(WHERE policy_status='provisional_review_required')::int AS provisional FROM knowledge.predicate_ontology_revision`);
+      const result=await pool.query(`
+        SELECT count(*)::int AS total,
+               count(*) FILTER(WHERE policy_status='provisional_review_required')::int AS provisional,
+               count(*) FILTER(WHERE policy_status='approved' AND predicate='ISSUED_BY')::int AS approved_issued_by,
+               count(*) FILTER(WHERE policy_status='approved' AND predicate<>'ISSUED_BY')::int AS unexpected_approved
+        FROM knowledge.predicate_ontology_revision
+      `);
       assert.ok(result.rows[0]!.total>0);
-      assert.equal(result.rows[0]!.provisional,result.rows[0]!.total);
+      assert.equal(result.rows[0]!.provisional,result.rows[0]!.total-1);
+      assert.equal(result.rows[0]!.approved_issued_by,1);
+      assert.equal(result.rows[0]!.unexpected_approved,0);
     }finally{await pool.end();}
   });
 });

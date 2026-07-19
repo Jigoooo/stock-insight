@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 
 import pg from 'pg';
@@ -15,21 +16,18 @@ describe('B1 consumer inbox atomicity', () => {
     assert.ok(databaseUrl);
     const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
     const client = await pool.connect();
+    const aggregateId = `agg-inbox-${randomUUID()}`;
     try {
       await client.query(`CREATE TABLE IF NOT EXISTS ops.b1_test_projection (event_id TEXT NOT NULL, consumer_id TEXT NOT NULL)`);
-      await client.query('DELETE FROM ops.b1_test_projection');
-      await client.query(`DELETE FROM ops.consumer_inbox WHERE event_id IN (SELECT event_id FROM ops.outbox_event WHERE aggregate_id = 'agg-inbox')`);
-      await client.query(`DELETE FROM ops.outbox_delivery WHERE event_id IN (SELECT event_id FROM ops.outbox_event WHERE aggregate_id = 'agg-inbox')`);
-      await client.query(`DELETE FROM ops.outbox_event WHERE aggregate_id = 'agg-inbox'`);
 
       await client.query('BEGIN');
       const inserted = await insertOutboxEvent(client, buildEnvelope({
         eventType: 'report.published',
         schemaVersion: 1,
         aggregateType: 'report',
-        aggregateId: 'agg-inbox',
+        aggregateId,
         aggregateVersion: 1,
-        partitionKey: 'agg-inbox',
+        partitionKey: aggregateId,
         occurredAt: '2026-07-19T00:00:00.000Z',
         producer: 'inbox-test',
         payload: { fixture: true },
@@ -84,7 +82,8 @@ describe('B1 consumer inbox atomicity', () => {
       assert.equal(otherConsumer, 'processed');
 
       const projections = await client.query(
-        'SELECT consumer_id, count(*)::int AS n FROM ops.b1_test_projection GROUP BY consumer_id ORDER BY consumer_id',
+        'SELECT consumer_id,count(*)::int AS n FROM ops.b1_test_projection WHERE event_id=$1 GROUP BY consumer_id ORDER BY consumer_id',
+        [eventId],
       );
       assert.deepEqual(
         projections.rows.map((row) => `${row.consumer_id}:${row.n}`),
