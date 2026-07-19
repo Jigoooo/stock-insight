@@ -35,6 +35,20 @@ async function withClient<T>(work: (client: PoolClient) => Promise<T>): Promise<
   }
 }
 
+async function cleanupAggregate(client: PoolClient): Promise<void> {
+  const aggregateId = 'agg-atomicity';
+  await client.query(
+    'DELETE FROM ops.dead_letter WHERE event_id IN (SELECT event_id FROM ops.outbox_event WHERE aggregate_id = $1)',
+    [aggregateId],
+  );
+  await client.query(
+    'DELETE FROM ops.outbox_delivery WHERE event_id IN (SELECT event_id FROM ops.outbox_event WHERE aggregate_id = $1)',
+    [aggregateId],
+  );
+  await client.query('DELETE FROM ops.outbox_conflict WHERE aggregate_id = $1', [aggregateId]);
+  await client.query('DELETE FROM ops.outbox_event WHERE aggregate_id = $1', [aggregateId]);
+}
+
 describe('B1 outbox atomicity', () => {
   it('deterministic identities are stable and payload-hash canonicalized', () => {
     const idA = deterministicEventId({
@@ -52,7 +66,7 @@ describe('B1 outbox atomicity', () => {
 
   it('domain mutation and outbox insert roll back together', { skip: skipReason }, async () => {
     await withClient(async (client) => {
-      await client.query('DELETE FROM ops.outbox_event WHERE aggregate_id = $1', ['agg-atomicity']);
+      await cleanupAggregate(client);
       await client.query(`CREATE TABLE IF NOT EXISTS ops.b1_test_domain (id TEXT PRIMARY KEY)`);
       await client.query('DELETE FROM ops.b1_test_domain');
 
@@ -74,9 +88,7 @@ describe('B1 outbox atomicity', () => {
 
   it('exact replay is idempotent; different payload at the same version is a quarantined conflict', { skip: skipReason }, async () => {
     await withClient(async (client) => {
-      await client.query('DELETE FROM ops.outbox_conflict WHERE aggregate_id = $1', ['agg-atomicity']);
-      await client.query('DELETE FROM ops.outbox_delivery WHERE event_id IN (SELECT event_id FROM ops.outbox_event WHERE aggregate_id = $1)', ['agg-atomicity']);
-      await client.query('DELETE FROM ops.outbox_event WHERE aggregate_id = $1', ['agg-atomicity']);
+      await cleanupAggregate(client);
 
       await client.query('BEGIN');
       const first = await insertOutboxEvent(client, envelopeFixture(2, { value: 'a' }));
