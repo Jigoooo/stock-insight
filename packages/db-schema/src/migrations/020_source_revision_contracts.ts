@@ -98,7 +98,8 @@ BEFORE UPDATE OR DELETE ON ingestion.source_revision
 FOR EACH ROW EXECUTE FUNCTION ingestion.reject_immutable_revision_mutation();
 
 CREATE OR REPLACE FUNCTION ingestion.enqueue_source_revision_outbox(revision_id BIGINT)
-RETURNS void LANGUAGE plpgsql AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=pg_catalog,ingestion,ops,public AS $$
 DECLARE event_payload JSONB;
 DECLARE event_key TEXT;
 DECLARE identity_id BIGINT;
@@ -150,11 +151,15 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION ingestion.emit_source_revision_outbox()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path=pg_catalog,ingestion,ops,public AS $$
 BEGIN
   PERFORM ingestion.enqueue_source_revision_outbox(NEW.source_revision_id);
   RETURN NEW;
 END $$;
+
+REVOKE ALL ON FUNCTION ingestion.enqueue_source_revision_outbox(BIGINT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ingestion.emit_source_revision_outbox() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS source_revision_outbox ON ingestion.source_revision;
 CREATE TRIGGER source_revision_outbox
