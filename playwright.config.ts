@@ -27,6 +27,7 @@ export default defineConfig({
     {
       name: 'desktop',
       testMatch: /\.spec\.ts$/,
+      testIgnore: /motion-performance\.spec\.ts$/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 960 },
@@ -35,6 +36,23 @@ export default defineConfig({
     {
       name: 'mobile',
       testMatch: /\.spec\.ts$/,
+      testIgnore: /motion-performance\.spec\.ts$/,
+      use: {
+        ...devices['Pixel 7'],
+        viewport: { width: 390, height: 844 },
+      },
+    },
+    {
+      name: 'desktop-performance',
+      testMatch: /motion-performance\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 960 },
+      },
+    },
+    {
+      name: 'mobile-performance',
+      testMatch: /motion-performance\.spec\.ts$/,
       use: {
         ...devices['Pixel 7'],
         viewport: { width: 390, height: 844 },

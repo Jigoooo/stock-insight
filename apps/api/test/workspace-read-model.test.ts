@@ -149,6 +149,15 @@ describe('workspace read model', () => {
     );
   });
 
+  it('falls back to the latest stale publication snapshot', async () => {
+    const { calls, executor } = createExecutor();
+    await getWorkspaceToday(executor, { userScope });
+
+    const projectionCall = calls.find(({ sql }) => sql.includes('publication_projection_status'));
+    assert.ok(projectionCall);
+    assert.match(projectionCall.sql, /projection_status\s+IN\s+\('available',\s*'stale'\)/);
+  });
+
   it('consumes an opaque cursor without duplicating records', async () => {
     const { executor } = createExecutor();
     const first = await getResearchFeedPage(executor, {

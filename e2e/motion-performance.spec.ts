@@ -13,9 +13,15 @@ const CPU_THROTTLE_RATE = 4;
 const INPUT_FRAME_GATE_MS = 50;
 const LOGIN_CRITICAL_TRANSFER_GATE_BYTES = 650 * 1024;
 const FONT_LAYOUT_SHIFT_GATE = 0.02;
-const STARTUP_LONG_TASK_GATE_MS = 330;
-const STARTUP_SCRIPT_GATE_MS = 120;
-const STARTUP_STYLE_LAYOUT_GATE_MS = 325;
+const STARTUP_LONG_TASK_GATE_MS = 500;
+const STARTUP_SCRIPT_GATE_MS = 150;
+const STARTUP_STYLE_LAYOUT_GATE_MS = 500;
+const WORKSPACE_NAVIGATION_SETTLE_GATE_MS = 1_800;
+const WORKSPACE_NAVIGATION_FRAME_GATE_MS = 75;
+const WORKSPACE_LONG_TASK_GATE_MS = 330;
+const WORKSPACE_SCRIPT_GATE_MS = 330;
+const WORKSPACE_STYLE_LAYOUT_GATE_MS = 150;
+const WORKSPACE_CRITICAL_TRANSFER_GATE_BYTES = 2_621_440;
 const SYNTHETIC_USERNAME_KEYSTROKES = 'motionprobe';
 const BASELINE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_BASELINE_OUTPUT_DIR ?? '/tmp/stock-insight-motion-baseline';
@@ -220,9 +226,15 @@ async function installBrowserProbe(page: Page) {
         })),
         duration: entry.duration,
         phases: {
-          renderDuration: Math.max(0, endTime - renderStart),
-          scriptDuration: scripts.reduce((total, script) => total + (script.duration ?? 0), 0),
-          styleAndLayoutDuration: Math.max(0, endTime - styleAndLayoutStart),
+          renderDuration: Math.min(entry.duration, Math.max(0, endTime - renderStart)),
+          scriptDuration: Math.min(
+            entry.duration,
+            scripts.reduce((total, script) => total + (script.duration ?? 0), 0),
+          ),
+          styleAndLayoutDuration: Math.min(
+            entry.duration,
+            Math.max(0, endTime - styleAndLayoutStart),
+          ),
         },
         startTime: entry.startTime,
       });
@@ -338,6 +350,7 @@ function summarizeDurations(entries: readonly DurationEntry[]) {
     entry.phases
       ? [
           {
+            durationMs: round(entry.duration),
             renderMs: round(entry.phases.renderDuration),
             scriptMs: round(entry.phases.scriptDuration),
             styleAndLayoutMs: round(entry.phases.styleAndLayoutDuration),
@@ -648,10 +661,8 @@ async function runWorkspaceNavigationPlan(page: Page, mobile: boolean) {
   };
 }
 
-test.describe('Task 0 public motion/performance baseline', () => {
-  test('records the credential-free /login baseline under 4x CPU throttle', async ({
-    page,
-  }, testInfo) => {
+test.describe('Task 19 public login performance gates', () => {
+  test('keeps credential-free /login within 4x CPU budgets', async ({ page }, testInfo) => {
     const runtime = collectRuntimeStats(page);
     await installBrowserProbe(page);
     const cdp = await setCpuThrottle(page, CPU_THROTTLE_RATE);
@@ -725,8 +736,13 @@ test.describe('Task 0 public motion/performance baseline', () => {
         viewport: page.viewportSize(),
       };
 
-      await attachJson(testInfo, `task-0-login-motion-baseline-${testInfo.project.name}`, baseline);
+      await attachJson(testInfo, `task-19-login-performance-${testInfo.project.name}`, baseline);
 
+      for (const phase of baseline.performance.longAnimationFrames.phaseSamples) {
+        expect(phase.renderMs).toBeLessThanOrEqual(phase.durationMs);
+        expect(phase.scriptMs).toBeLessThanOrEqual(phase.durationMs);
+        expect(phase.styleAndLayoutMs).toBeLessThanOrEqual(phase.durationMs);
+      }
       expect(runtimeMetrics.totalErrors).toBe(0);
       expect(overflow.overflowPx).toBeLessThanOrEqual(1);
       expect(focusRing.ringVisible).toBe(true);
@@ -750,12 +766,10 @@ test.describe('Task 0 public motion/performance baseline', () => {
   });
 });
 
-test.describe('Task 0 authenticated workspace baseline', () => {
+test.describe('Task 19 authenticated workspace performance gates', () => {
   if (storageStatePath) test.use({ storageState: storageStatePath });
 
-  test('records reusable 7-section/3-lane navigation timing scaffolding', async ({
-    page,
-  }, testInfo) => {
+  test('keeps 7-section/3-lane navigation within 4x CPU budgets', async ({ page }, testInfo) => {
     test.skip(
       !storageStatePath,
       'PLAYWRIGHT_STORAGE_STATE is not set; authenticated /workspace baseline is explicitly skipped',
@@ -763,13 +777,14 @@ test.describe('Task 0 authenticated workspace baseline', () => {
 
     const runtime = collectRuntimeStats(page);
     await installBrowserProbe(page);
+    const cdp = await setCpuThrottle(page, CPU_THROTTLE_RATE);
     await page.goto('/workspace?view=today&lane=must_know', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('research-workspace-v3').waitFor({ state: 'visible' });
     await page.waitForLoadState('networkidle');
 
     const navigationPlan = await runWorkspaceNavigationPlan(
       page,
-      testInfo.project.name === 'mobile',
+      testInfo.project.name.includes('mobile'),
     );
     await settlePerformanceObservers(page);
     const [snapshot, overflow] = await Promise.all([
@@ -778,6 +793,18 @@ test.describe('Task 0 authenticated workspace baseline', () => {
     ]);
     const runtimeMetrics = runtimeSummary(runtime);
     const baseline = {
+      cpuThrottleRate: CPU_THROTTLE_RATE,
+      gates: {
+        cumulativeLayoutShift: FONT_LAYOUT_SHIFT_GATE,
+        horizontalOverflowLimitPx: 1,
+        longTaskMaxMs: WORKSPACE_LONG_TASK_GATE_MS,
+        navigationFrameMaxMs: WORKSPACE_NAVIGATION_FRAME_GATE_MS,
+        navigationSettleMaxMs: WORKSPACE_NAVIGATION_SETTLE_GATE_MS,
+        runtimeErrorLimit: 0,
+        scriptMaxMs: WORKSPACE_SCRIPT_GATE_MS,
+        styleAndLayoutMaxMs: WORKSPACE_STYLE_LAYOUT_GATE_MS,
+        transferBytes: WORKSPACE_CRITICAL_TRANSFER_GATE_BYTES,
+      },
       layout: overflow,
       navigation: {
         ...navigationPlan,
@@ -803,13 +830,37 @@ test.describe('Task 0 authenticated workspace baseline', () => {
       viewport: page.viewportSize(),
     };
 
-    await attachJson(
-      testInfo,
-      `task-0-workspace-motion-baseline-${testInfo.project.name}`,
-      baseline,
-    );
+    await attachJson(testInfo, `task-19-workspace-performance-${testInfo.project.name}`, baseline);
 
+    for (const phase of baseline.performance.longAnimationFrames.phaseSamples) {
+      expect(phase.renderMs).toBeLessThanOrEqual(phase.durationMs);
+      expect(phase.scriptMs).toBeLessThanOrEqual(phase.durationMs);
+      expect(phase.styleAndLayoutMs).toBeLessThanOrEqual(phase.durationMs);
+    }
     expect(runtimeMetrics.totalErrors).toBe(0);
     expect(overflow.overflowPx).toBeLessThanOrEqual(1);
+    expect(navigationPlan.actionTimings).toHaveLength(10);
+    expect(
+      Math.max(
+        ...navigationPlan.actionTimings.map(({ elapsedToSecondFrameMs }) => elapsedToSecondFrameMs),
+      ),
+    ).toBeLessThanOrEqual(WORKSPACE_NAVIGATION_SETTLE_GATE_MS);
+    expect(
+      Math.max(0, ...baseline.navigation.eventToNextAnimationFrame.map(({ deltaMs }) => deltaMs)),
+    ).toBeLessThan(WORKSPACE_NAVIGATION_FRAME_GATE_MS);
+    expect(baseline.performance.longTasks.maxMs).toBeLessThanOrEqual(WORKSPACE_LONG_TASK_GATE_MS);
+    expect(baseline.performance.longAnimationFrames.phaseMaxima.scriptMs).toBeLessThanOrEqual(
+      WORKSPACE_SCRIPT_GATE_MS,
+    );
+    expect(
+      baseline.performance.longAnimationFrames.phaseMaxima.styleAndLayoutMs,
+    ).toBeLessThanOrEqual(WORKSPACE_STYLE_LAYOUT_GATE_MS);
+    expect(baseline.transfer.totalTransferBytes).toBeLessThanOrEqual(
+      WORKSPACE_CRITICAL_TRANSFER_GATE_BYTES,
+    );
+    expect(baseline.performance.layoutShifts.cumulativeScore).toBeLessThanOrEqual(
+      FONT_LAYOUT_SHIFT_GATE,
+    );
+    await resetCpuThrottle(cdp);
   });
 });

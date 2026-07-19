@@ -4,6 +4,32 @@ import { describe, it } from 'node:test';
 import { getSystemStatus, type SystemStatusQueryExecutor } from '../src/status/read-model.ts';
 
 describe('system status read model', () => {
+  it('reports source coverage from the latest stale publication snapshot', async () => {
+    const calls: string[] = [];
+    const executor: SystemStatusQueryExecutor = {
+      async queryRows<TRow extends Record<string, unknown> = Record<string, unknown>>(
+        sql: string,
+        _params: readonly unknown[] = [],
+      ): Promise<TRow[]> {
+        calls.push(sql);
+        if (sql.includes('dataset_watermark')) return [];
+        if (sql.includes('analysis_run_record_source')) {
+          return [{ total: 12, linked: 10, clickable: 8 }] as unknown as TRow[];
+        }
+        if (sql.includes('temporal_graph_evidence_health')) {
+          return [{ total: 0, linked: 0, clickable: 0 }] as unknown as TRow[];
+        }
+        throw new Error(`unexpected SQL: ${sql}`);
+      },
+    };
+
+    await getSystemStatus(executor);
+
+    const coverageSql = calls.find((sql) => sql.includes('analysis_run_record_source'));
+    assert.ok(coverageSql);
+    assert.match(coverageSql, /projection_status\s+IN\s+\('available',\s*'stale'\)/);
+  });
+
   it('preserves independent dataset watermarks and source coverage', async () => {
     const executor: SystemStatusQueryExecutor = {
       async queryRows(sql) {

@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { LoginPage, type LoginCredentials } from './login-page';
@@ -7,6 +8,7 @@ import { notify } from '@/shared/ui/toast';
 const invalidLoginMessage = '아이디 또는 비밀번호를 확인해 주세요.';
 
 export function LoginScreen({ redirectTo }: { redirectTo: string }) {
+  const navigate = useNavigate();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,13 +22,13 @@ export function LoginScreen({ redirectTo }: { redirectTo: string }) {
       if (!result.ok) {
         setError(invalidLoginMessage);
         notify.error('로그인하지 못했습니다.', { description: invalidLoginMessage });
+        setPending(false);
         return;
       }
-      window.location.assign(redirectTo);
+      await navigate({ href: redirectTo });
     } catch {
       setError(invalidLoginMessage);
       notify.error('로그인하지 못했습니다.', { description: invalidLoginMessage });
-    } finally {
       setPending(false);
     }
   }

@@ -756,6 +756,8 @@ export function ResearchWorkspacePage({
   };
 
   const sectionTitle = sections.find((item) => item.id === section)?.label ?? '오늘';
+  const navigationPending =
+    navigationIntent.pendingSection !== null || navigationIntent.pendingLane !== null;
   const activeSectionIndex = Math.max(
     0,
     sections.findIndex((item) => item.id === section),
@@ -848,6 +850,7 @@ export function ResearchWorkspacePage({
       <section
         className={styles.workspace}
         data-testid="workspace-content"
+        aria-busy={navigationPending || undefined}
         aria-hidden={mobileNavModalOpen || inspectorModalOpen || undefined}
         inert={mobileNavModalOpen || inspectorModalOpen || undefined}
       >
@@ -867,7 +870,15 @@ export function ResearchWorkspacePage({
           <div className={styles.crumbs}>
             <strong>{sectionTitle}</strong>
             <ChevronRight aria-hidden="true" />
-            <span>리서치 워크스페이스</span>
+            <span
+              className={styles.navigationStatus}
+              data-testid="workspace-navigation-status"
+              data-pending={navigationPending || undefined}
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {navigationPending ? '선택한 화면을 불러오는 중입니다.' : '리서치 워크스페이스'}
+            </span>
           </div>
           <WorkspaceSearch
             disabled={!hydrated}

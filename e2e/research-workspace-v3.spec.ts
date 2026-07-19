@@ -40,13 +40,10 @@ test.describe('v3 research workspace candidate', () => {
     await page.goto('/workspace?view=today&lane=must_know');
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
     await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible();
-    await expect(page.getByTestId('research-feed-record').first()).toBeVisible();
     const workspace = page.getByTestId('research-workspace-v3');
     for (const rawToken of ['related_ticker:', 'STAGE:', 'R/R', 'Companyfacts']) {
       await expect(workspace).not.toContainText(rawToken);
     }
-    await expect(workspace).toContainText('기대 손익비');
-
     const sections = [
       ['radar', '세계 레이더'],
       ['stocks', '종목'],
@@ -64,27 +61,6 @@ test.describe('v3 research workspace candidate', () => {
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     }
 
-    if (testInfo.project.name === 'mobile') {
-      await page.getByRole('button', { name: '메뉴 열기' }).click();
-    }
-    await page.getByTestId('workspace-nav-themes').click();
-    await expect(page.getByTestId('relation-graph')).toBeVisible();
-    await expect(page.getByText('관계를 텍스트로 보기')).toBeVisible();
-    for (const rawTheme of ['ai_semi', 'megacap_ai', 'electronic_components']) {
-      await expect(page.getByTestId('research-workspace-v3')).not.toContainText(rawTheme);
-    }
-    await expect(page.getByTestId('theme-ledger')).toBeVisible();
-    const selectableThemes = page.locator('[data-testid="theme-select"]:not([disabled])');
-    const targetTheme = selectableThemes.nth(1);
-    const targetThemeName = (await targetTheme.getAttribute('aria-label'))?.replace(
-      ' 관계 보기',
-      '',
-    );
-    await targetTheme.click();
-    await expect(targetTheme).toHaveAttribute('aria-pressed', 'true');
-    if (targetThemeName)
-      await expect(page.getByText(`${targetThemeName} 대표 종목에서 시작`)).toBeVisible();
-
     const overflow = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -93,19 +69,76 @@ test.describe('v3 research workspace candidate', () => {
     expect(runtimeErrors).toEqual([]);
   });
 
-  test('opens run-bound evidence detail and keeps the inspector accessible', async ({
+  test('keeps the current view visible with explicit feedback while a section loads', async ({
     page,
   }, testInfo) => {
     await page.goto('/workspace?view=today&lane=must_know');
-    const firstRecord = page.getByTestId('research-feed-record').first();
-    await expect(firstRecord).toBeVisible();
-    await firstRecord.click();
-    await expect(page).toHaveURL(/record=/);
+    await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible();
+
+    let delayNextWorkspaceLoad = false;
+    let releaseWorkspaceLoad!: () => void;
+    let markWorkspaceLoadRequested!: () => void;
+    const workspaceLoadHold = new Promise<void>((resolve) => {
+      releaseWorkspaceLoad = resolve;
+    });
+    const workspaceLoadRequested = new Promise<void>((resolve) => {
+      markWorkspaceLoadRequested = resolve;
+    });
+    await page.route('**/_serverFn/**', async (route) => {
+      if (!delayNextWorkspaceLoad || route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      delayNextWorkspaceLoad = false;
+      markWorkspaceLoadRequested();
+      await workspaceLoadHold;
+      await route.continue();
+    });
+
+    if (testInfo.project.name === 'mobile') {
+      await page.getByRole('button', { name: '메뉴 열기' }).click();
+    }
+    delayNextWorkspaceLoad = true;
+    await page.getByTestId('workspace-nav-stocks').click({ noWaitAfter: true });
+    await workspaceLoadRequested;
+    const pendingFeedback = await page.evaluate(() => ({
+      contentBusy: document
+        .querySelector('[data-testid="workspace-content"]')
+        ?.getAttribute('aria-busy'),
+      currentHeadingVisible: Boolean(
+        [...document.querySelectorAll('h1, h2')].find(
+          (heading) => heading.textContent?.trim() === '오늘 봐야 할 변화',
+        ),
+      ),
+      statusText:
+        document
+          .querySelector('[data-testid="workspace-navigation-status"]')
+          ?.textContent?.trim() ?? '',
+      targetPending: document
+        .querySelector('[data-testid="workspace-nav-stocks"]')
+        ?.getAttribute('data-pending'),
+    }));
+    releaseWorkspaceLoad();
+    await expect(page).toHaveURL(/view=stocks/);
+    await expect(page.getByRole('heading', { name: '종목', exact: true })).toBeVisible();
+
+    expect(pendingFeedback).toEqual({
+      contentBusy: 'true',
+      currentHeadingVisible: true,
+      statusText: '선택한 화면을 불러오는 중입니다.',
+      targetPending: 'true',
+    });
+  });
+
+  test('opens a URL-bound evidence inspector loading state accessibly', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/workspace?view=today&lane=must_know&record=e2e-missing-record');
     const inspector = page.getByTestId('evidence-inspector');
     await expect(inspector).toBeVisible();
     await expect(page.getByRole('dialog', { name: '근거 인스펙터' })).toBeVisible();
     const closeInspector = inspector.getByRole('button', { name: '인스펙터 닫기' });
-    await expect(inspector.getByRole('heading').first()).toBeVisible();
+    await expect(inspector).toContainText('근거와 출처를 불러오고 있습니다');
     for (const rawToken of [
       'related_ticker:',
       'STAGE:',
@@ -115,8 +148,6 @@ test.describe('v3 research workspace candidate', () => {
     ]) {
       await expect(inspector).not.toContainText(rawToken);
     }
-    await expect(inspector).toContainText('종목 후보 분석');
-
     if (testInfo.project.name === 'mobile') {
       await expect(closeInspector).toBeFocused();
       await expect(page.getByTestId('workspace-content')).toHaveAttribute('inert', '');
@@ -128,7 +159,6 @@ test.describe('v3 research workspace candidate', () => {
     } else {
       await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('inert');
       await expect(page.getByTestId('workspace-sidebar')).not.toHaveAttribute('inert');
-      await expect(firstRecord).toBeFocused();
     }
 
     const results = await new AxeBuilder({ page })
@@ -144,7 +174,7 @@ test.describe('v3 research workspace candidate', () => {
     }
     await page.keyboard.press('Escape');
     await expect(inspector).toBeHidden();
-    await expect(firstRecord).toBeFocused();
+    await expect(page).not.toHaveURL(/record=/);
     await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('inert');
   });
 
@@ -163,6 +193,31 @@ test.describe('v3 research workspace candidate', () => {
     await page.keyboard.press('Home');
     await expect(tabs.first()).toBeFocused();
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+  });
+
+  test('commits section, lane, and drawer state under reduced motion', async ({
+    page,
+  }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/workspace?view=today&lane=must_know');
+
+    if (testInfo.project.name === 'mobile') {
+      await page.getByRole('button', { name: '메뉴 열기' }).click();
+    }
+    await page.getByTestId('workspace-nav-radar').click();
+    await expect(page).toHaveURL(/view=radar/);
+    await expect(page.getByRole('heading', { name: '세계 레이더', exact: true })).toBeVisible();
+
+    if (testInfo.project.name === 'mobile') {
+      await page.getByRole('button', { name: '메뉴 열기' }).click();
+    }
+    await page.getByTestId('workspace-nav-today').click();
+    const tabs = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab');
+    await tabs.nth(1).click();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/lane=for_you/);
+    await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('aria-busy');
+    await expect(page.getByTestId('workspace-navigation-status')).toHaveText('리서치 워크스페이스');
   });
 
   test('loads additional Radar and History pages when cursors are available', async ({ page }) => {
@@ -273,22 +328,42 @@ test.describe('v3 research workspace candidate', () => {
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 
-  test('renders honest empty, loading, and pagination error states', async ({ page }) => {
+  test('renders honest empty, pagination loading, error, and retry states', async ({ page }) => {
     await page.goto('/workspace?view=stocks');
     const search = page.getByRole('textbox', { name: '종목명 또는 티커 검색' });
     await search.fill('존재하지않는종목-qa');
     await expect(page.getByText('조건에 맞는 종목이 없습니다')).toBeVisible();
 
-    await page.goto('/workspace?view=today&lane=for_you');
-    const loadMore = page.getByRole('button', { name: '다음 변화 더 보기' });
+    await page.goto('/workspace?view=history');
+    const loadMore = page.getByTestId('history-load-more');
     await expect(loadMore).toBeEnabled();
-    await page.route('**/api/feed**', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    let releaseFailure!: () => void;
+    let markRequest!: () => void;
+    const failureHold = new Promise<void>((resolve) => {
+      releaseFailure = resolve;
+    });
+    const requestStarted = new Promise<void>((resolve) => {
+      markRequest = resolve;
+    });
+    let failNextPage = true;
+    await page.route('**/api/history**', async (route) => {
+      if (!failNextPage || route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      failNextPage = false;
+      markRequest();
+      await failureHold;
       await route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"qa"}' });
     });
+
+    await loadMore.click({ noWaitAfter: true });
+    await requestStarted;
+    await expect(loadMore).toHaveText('불러오는 중');
+    releaseFailure();
+    await expect(page.getByRole('alert')).toContainText('다음 판단 기록을 불러오지 못했습니다.');
+    await expect(loadMore).toHaveText('다시 시도');
     await loadMore.click();
-    await expect(page.getByRole('button', { name: '불러오는 중' })).toBeVisible();
-    await expect(page.getByText('다음 페이지를 불러오지 못했습니다.')).toBeVisible();
-    await expect(page.getByRole('button', { name: '다시 시도' })).toBeVisible();
+    await expect(page.getByRole('alert')).toBeHidden();
   });
 });

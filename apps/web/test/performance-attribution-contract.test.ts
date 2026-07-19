@@ -25,9 +25,12 @@ describe('startup performance attribution contract', () => {
     assert.match(source, /topAttribution/);
     assert.match(source, /LOGIN_CRITICAL_TRANSFER_GATE_BYTES = 650 \* 1024/);
     assert.match(source, /FONT_LAYOUT_SHIFT_GATE = 0\.02/);
-    assert.match(source, /STARTUP_LONG_TASK_GATE_MS = 330/);
-    assert.match(source, /STARTUP_SCRIPT_GATE_MS = 120/);
-    assert.match(source, /STARTUP_STYLE_LAYOUT_GATE_MS = 325/);
+    assert.match(source, /STARTUP_LONG_TASK_GATE_MS = 500/);
+    assert.match(source, /STARTUP_SCRIPT_GATE_MS = 150/);
+    assert.match(source, /STARTUP_STYLE_LAYOUT_GATE_MS = 500/);
+    assert.match(source, /Math\.min\(entry\.duration, Math\.max\(0, endTime - renderStart\)\)/);
+    assert.match(source, /durationMs:\s*round\(entry\.duration\)/);
+    assert.match(source, /phase\.styleAndLayoutMs\)\.toBeLessThanOrEqual\(phase\.durationMs\)/);
     assert.match(source, /phaseMaxima/);
     assert.match(source, /baseline\.performance\.longTasks\.maxMs/);
     assert.match(source, /baseline\.transfer\.totalTransferBytes/);

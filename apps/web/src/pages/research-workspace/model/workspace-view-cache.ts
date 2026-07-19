@@ -196,6 +196,10 @@ export class WorkspaceViewCache<Value> {
     return this.#activeValue;
   }
 
+  seedActive(value: Value) {
+    if (this.#activeValue === undefined) this.#activeValue = value;
+  }
+
   clear() {
     this.#generation += 1;
     this.#activeLoadToken += 1;

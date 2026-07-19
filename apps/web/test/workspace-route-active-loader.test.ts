@@ -60,6 +60,7 @@ describe('workspace active-view route loader', () => {
     assert.match(route, /workspaceViewCache\.commitActive\(data, activeLoadToken\)/);
     assert.match(route, /abortController\.signal\.aborted/);
     assert.match(route, /workspaceViewCache\.getActive\(\)/);
+    assert.match(route, /workspaceViewCache\.seedActive\(loaderData\.data\)/);
     assert.match(route, /viewLoadError/);
     assert.match(route, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
     assert.doesNotMatch(route, /pendingComponent:\s*WorkspaceRoutePending/);

@@ -64,7 +64,7 @@ const LATEST_RUN_SQL = `
          fresh_until, projection_status
   FROM ops.publication_projection_status
   WHERE domain = 'stock'
-    AND projection_status = 'available'
+    AND projection_status IN ('available', 'stale')
   ORDER BY cutoff_at DESC, analysis_revision DESC
   LIMIT 1
 `;

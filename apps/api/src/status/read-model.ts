@@ -42,7 +42,7 @@ const PUBLICATION_SOURCE_COVERAGE_SQL = `
     SELECT analysis_run_id, analysis_revision, cutoff_at, actual_record_count
     FROM ops.publication_projection_status
     WHERE domain = 'stock'
-      AND projection_status = 'available'
+      AND projection_status IN ('available', 'stale')
     ORDER BY cutoff_at DESC, analysis_revision DESC
     LIMIT 1
   ), source_state AS (

@@ -154,7 +154,9 @@
 }
 
 .nav button[data-pending='true'] {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent) inset;
+  color: var(--color-on-chrome);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 78%, transparent) inset;
 }
 
 .nav button[aria-current='page'] svg {
@@ -272,6 +274,11 @@
   color: var(--color-text-tertiary);
   font-weight: 520;
   text-overflow: ellipsis;
+}
+
+.crumbs .navigationStatus[data-pending='true'] {
+  color: var(--color-accent);
+  font-weight: 680;
 }
 
 .crumbs svg {
@@ -550,7 +557,9 @@
 }
 
 .laneTabs button[data-pending='true'] {
-  outline: 1px dashed var(--color-accent);
+  color: var(--color-text-primary);
+  background: var(--color-accent-soft);
+  outline: 2px solid var(--color-accent);
   outline-offset: -3px;
 }
 

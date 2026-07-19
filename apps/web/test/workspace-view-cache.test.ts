@@ -212,6 +212,18 @@ describe('authenticated workspace view cache', () => {
     assert.equal(cache.getActive(), undefined);
   });
 
+  it('seeds the hydrated payload without overwriting a committed active view', () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1');
+    cache.seedActive('ssr-today');
+    cache.seedActive('late-ssr-value');
+    assert.equal(cache.getActive(), 'ssr-today');
+
+    const token = cache.beginActiveLoad();
+    assert.equal(cache.commitActive('client-radar', token), true);
+    cache.seedActive('ssr-today');
+    assert.equal(cache.getActive(), 'client-radar');
+  });
+
   it('lets only the latest active route token commit a fallback payload', () => {
     const cache = new WorkspaceViewCache<string>('user-a:v1');
     const staleToken = cache.beginActiveLoad();

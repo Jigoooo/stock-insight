@@ -99,6 +99,7 @@ function ResearchWorkspaceRoute() {
   const navigate = Route.useNavigate();
   const loaderData = Route.useLoaderData();
   const { session, workspaceViewCache } = Route.useRouteContext();
+  workspaceViewCache.seedActive(loaderData.data);
   return (
     <ResearchWorkspacePage
       data={loaderData.data}

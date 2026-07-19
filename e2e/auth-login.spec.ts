@@ -80,6 +80,14 @@ async function authStateAppearance(page: Page) {
 }
 
 test.describe('private workspace authentication', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.beforeEach(async ({ page }, testInfo) => {
+    await page.setExtraHTTPHeaders({
+      'cf-connecting-ip': testInfo.project.name === 'mobile' ? '2001:db8::2' : '2001:db8::1',
+    });
+  });
+
   test('loads the active profile behind responsive and motion safety invariants', async ({
     page,
   }) => {
@@ -347,5 +355,80 @@ test.describe('private workspace authentication', () => {
       (cookie) => cookie.name === '__Host-stock-insight-session',
     );
     expect(session).toMatchObject({ httpOnly: true, sameSite: 'Strict', secure: true });
+  });
+
+  test('keeps login progress visible until the authenticated destination is ready', async ({
+    page,
+  }) => {
+    test.skip(
+      !username || !password,
+      'candidate credentials are required for successful login E2E',
+    );
+    let releaseDestination!: () => void;
+    let markDestinationRequested!: () => void;
+    const destinationHold = new Promise<void>((resolve) => {
+      releaseDestination = resolve;
+    });
+    const destinationRequested = new Promise<void>((resolve) => {
+      markDestinationRequested = resolve;
+    });
+    const pendingTrace: Array<{ formBusy: string | null; submitText: string }> = [];
+    await page.exposeFunction(
+      'recordLoginPendingState',
+      (state: { formBusy: string | null; submitText: string }) => {
+        pendingTrace.push(state);
+      },
+    );
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const isWorkspaceDocument = request.isNavigationRequest() && path === '/workspace';
+      const isWorkspaceServerFunction =
+        path.startsWith('/_serverFn/') && request.method() === 'GET';
+      if (!isWorkspaceDocument && !isWorkspaceServerFunction) {
+        await route.continue();
+        return;
+      }
+      markDestinationRequested();
+      await destinationHold;
+      await route.continue();
+    });
+
+    await page.goto('/login?redirect=%2Fworkspace');
+    await page.getByLabel('사용자 이름').fill(username!);
+    await page.locator('#login-password').fill(password!);
+    await page.evaluate(() => {
+      const report = () => {
+        const formBusy = document.querySelector('form')?.getAttribute('aria-busy') ?? null;
+        const submitText =
+          document.querySelector('button[type="submit"]')?.textContent?.trim() ?? '';
+        void (
+          window as unknown as Window & {
+            recordLoginPendingState: (state: {
+              formBusy: string | null;
+              submitText: string;
+            }) => Promise<void>;
+          }
+        ).recordLoginPendingState({ formBusy, submitText });
+      };
+      const observer = new MutationObserver(report);
+      observer.observe(document.querySelector('form')!, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+      window.addEventListener('pagehide', report, { once: true });
+      report();
+    });
+    await page.getByRole('button', { name: '로그인', exact: true }).click({ noWaitAfter: true });
+    await destinationRequested;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const pendingFeedback = pendingTrace.at(-1);
+    releaseDestination();
+    await page.waitForURL(/\/workspace(?:\?|$)/);
+    await page.getByTestId('research-workspace-v3').waitFor({ state: 'visible' });
+
+    expect(pendingTrace).toContainEqual({ formBusy: 'true', submitText: '확인 중' });
+    expect(pendingFeedback).toEqual({ formBusy: 'true', submitText: '확인 중' });
   });
 });
