@@ -21,6 +21,7 @@ describe('B2 raw object + source revision atomicity', () => {
     const hash = hashContent(key);
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const opened = await client.query(OPEN_FETCH_RUN_SQL, [
         'rss-news-bundle', key, key, new Date().toISOString(),
       ]);
@@ -68,6 +69,7 @@ describe('B2 raw object + source revision atomicity', () => {
     const hash = hashContent(key);
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const opened = await client.query(OPEN_FETCH_RUN_SQL, [
         'rss-news-bundle', key, key, new Date().toISOString(),
       ]);
@@ -109,6 +111,7 @@ describe('B2 raw object + source revision atomicity', () => {
     const hash = hashContent(key);
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const opened = await client.query(OPEN_FETCH_RUN_SQL,[
         'rss-news-bundle',key,key,new Date().toISOString(),
       ]);

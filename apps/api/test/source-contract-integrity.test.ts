@@ -41,6 +41,7 @@ describe('B2 source contract coverage and immutability', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const appended = await client.query(`
         INSERT INTO ingestion.source_contract_revision (
           source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
@@ -75,6 +76,7 @@ describe('B2 source contract coverage and immutability', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const selected = await client.query(`
         SELECT identity.source_record_identity_id,identity.source_id,identity.provider_record_key,
                max(revision.revision_no)::int AS max_revision
@@ -123,6 +125,7 @@ describe('B2 source contract coverage and immutability', () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       await assert.rejects(
         () => client.query(`UPDATE ingestion.source_contract_revision SET policy_status='approved' WHERE source_contract_revision_id=(SELECT min(source_contract_revision_id) FROM ingestion.source_contract_revision)`),
         /append-only/,
@@ -161,6 +164,7 @@ describe('B2 source contract coverage and immutability', () => {
       ).rows[0]!.id;
       assert.ok(revisionId);
       await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       await assert.rejects(
         () => client.query('DELETE FROM ingestion.source_revision WHERE source_revision_id=$1', [revisionId]),
         /append-only/,
