@@ -80,17 +80,19 @@ BEGIN
   JOIN knowledge.event event ON event.event_id=evidence.evidence_id
   WHERE evidence.report_id=NEW.report_id AND evidence.evidence_type='event'
   ORDER BY event.event_id
-  FOR KEY SHARE OF event;
+  FOR UPDATE OF event;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'fact-bearing report requires typed event evidence';
   END IF;
   IF EXISTS (
-    SELECT 1
-    FROM content.report_evidence evidence
-    JOIN knowledge.event event ON event.event_id=evidence.evidence_id
+    SELECT 1 FROM content.report_evidence evidence
     WHERE evidence.report_id=NEW.report_id
       AND evidence.evidence_type='event'
-      AND event.verification_status<>'verified'
+      AND NOT EXISTS (
+        SELECT 1 FROM knowledge.event event
+        WHERE event.event_id=evidence.evidence_id
+          AND event.verification_status='verified'
+      )
   ) THEN
     RAISE EXCEPTION 'fact-bearing report requires currently verified event evidence';
   END IF;
@@ -143,10 +145,13 @@ WHERE pointer.report_id=report.report_id
     )
     OR EXISTS (
       SELECT 1 FROM content.report_evidence evidence
-      JOIN knowledge.event event ON event.event_id=evidence.evidence_id
       WHERE evidence.report_id=report.report_id
         AND evidence.evidence_type='event'
-        AND event.verification_status<>'verified'
+        AND NOT EXISTS (
+          SELECT 1 FROM knowledge.event event
+          WHERE event.event_id=evidence.evidence_id
+            AND event.verification_status='verified'
+        )
     )
   );
 `;

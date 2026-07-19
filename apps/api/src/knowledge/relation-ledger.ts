@@ -68,6 +68,7 @@ SELECT DISTINCT ON (identity.relation_identity_id)
        CASE WHEN revision.revision_status='accepted'
                   AND ontology.policy_status='approved'
                   AND ontology.known_from<=$1::timestamptz
+                  AND ontology.effective_from<=$2::timestamptz
                   AND EXISTS (
                     SELECT 1 FROM knowledge.relation_evidence_ledger evidence
                     WHERE evidence.relation_identity_id=identity.relation_identity_id
@@ -82,11 +83,32 @@ SELECT DISTINCT ON (identity.relation_identity_id)
                             WHERE mapping.security_issuer_identity_id=evidence.security_issuer_identity_id
                               AND mapping.security_entity_id=identity.subject_entity_id
                               AND mapping.issuer_entity_id=identity.object_entity_id
+                              AND mapping.known_from<=$1::timestamptz
+                              AND mapping.valid_from<=$2::timestamptz
                           ))
                         OR (evidence.evidence_kind='claim' AND EXISTS (
                           SELECT 1 FROM knowledge.claim claim
                           WHERE claim.claim_id=evidence.claim_id
-                            AND claim.verification_status='verified'
+                            AND coalesce(
+                              (
+                                SELECT transition.to_status
+                                FROM knowledge.verification_transition transition
+                                WHERE transition.subject_type='claim'
+                                  AND transition.subject_id=claim.claim_id
+                                  AND transition.transitioned_at<=$1::timestamptz
+                                ORDER BY transition.transitioned_at DESC,transition.verification_transition_id DESC
+                                LIMIT 1
+                              ),
+                              (
+                                SELECT transition.from_status
+                                FROM knowledge.verification_transition transition
+                                WHERE transition.subject_type='claim'
+                                  AND transition.subject_id=claim.claim_id
+                                ORDER BY transition.transitioned_at,transition.verification_transition_id
+                                LIMIT 1
+                              ),
+                              claim.verification_status
+                            )='verified'
                             AND claim.subject_entity_id=identity.subject_entity_id
                             AND claim.predicate=identity.predicate
                             AND claim.object_entity_id=identity.object_entity_id

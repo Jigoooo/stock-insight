@@ -77,6 +77,17 @@ DO $$ BEGIN
     FOREIGN KEY (chunk_id) REFERENCES knowledge.document_chunk(chunk_id);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+DO $$
+DECLARE unanchored_count BIGINT;
+BEGIN
+  SELECT count(*) INTO unanchored_count
+  FROM knowledge.claim_evidence
+  WHERE chunk_id IS NULL OR nullif(trim(quote),'') IS NULL;
+  IF unanchored_count>0 THEN
+    RAISE EXCEPTION 'B4 cutover blocked: % legacy claim evidence rows require source-chunk remediation',unanchored_count;
+  END IF;
+END $$;
+
 ALTER TABLE knowledge.claim_evidence ALTER COLUMN chunk_id SET NOT NULL;
 DO $$ BEGIN
   ALTER TABLE knowledge.claim_evidence
@@ -244,10 +255,10 @@ BEGIN
   SELECT policy_version INTO policy FROM ops.verification_policy
    WHERE subject_type=subject_kind AND target_status=NEW.verification_status;
   INSERT INTO knowledge.verification_transition (
-    subject_type,subject_id,from_status,to_status,distinct_documents,actor,reason,policy_version
+    subject_type,subject_id,from_status,to_status,distinct_documents,actor,reason,policy_version,transitioned_at
   ) VALUES (
     subject_kind,subject_key,OLD.verification_status,NEW.verification_status,evidence_documents,
-    NEW.metadata->>'verification_actor',NEW.metadata->>'verification_reason',policy
+    NEW.metadata->>'verification_actor',NEW.metadata->>'verification_reason',policy,clock_timestamp()
   );
   RETURN NEW;
 END $$;

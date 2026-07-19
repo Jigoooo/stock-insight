@@ -281,7 +281,6 @@ async function run(): Promise<void> {
       extension: 'json',
       fetchedAt: startedAt,
     });
-    committedRaw = raw;
     const registered = await registerRawObjectWithRevision(client, {
       fetchRunId,
       sourceId: opened.rows[0].source_id,
@@ -292,6 +291,7 @@ async function run(): Promise<void> {
       fetchedAt: startedAt.toISOString(),
     });
     rawObjectsStored = registered.rawInserted ? 1 : 0;
+    committedRaw = registered.rawInserted ? raw : null;
     await client.query("SELECT set_config('statement_timeout', '120s', true)");
     await client.query("SELECT set_config('lock_timeout', '5s', true)");
     const revisionLedger = await client.query<RevisionLedgerRow>(ASSERT_NEWS_REVISION_LEDGER_SQL);

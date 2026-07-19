@@ -61,18 +61,18 @@ DO $$ BEGIN
     ADD CONSTRAINT relation_evidence_exactly_one_source
     CHECK (num_nonnulls(document_id,chunk_id,claim_id,source_contract_revision_id,security_issuer_identity_id,model_config)=1);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN
-  ALTER TABLE knowledge.relation_evidence_ledger
-    ADD CONSTRAINT relation_evidence_kind_source_match
-    CHECK (
-      (evidence_kind='document' AND document_id IS NOT NULL) OR
-      (evidence_kind='chunk' AND chunk_id IS NOT NULL) OR
-      (evidence_kind='claim' AND claim_id IS NOT NULL) OR
-      (evidence_kind='source_contract' AND source_contract_revision_id IS NOT NULL) OR
-      (evidence_kind='identity_mapping' AND security_issuer_identity_id IS NOT NULL) OR
-      (evidence_kind='model' AND model_config IS NOT NULL)
-    );
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+ALTER TABLE knowledge.relation_evidence_ledger
+  DROP CONSTRAINT IF EXISTS relation_evidence_kind_source_match;
+ALTER TABLE knowledge.relation_evidence_ledger
+  ADD CONSTRAINT relation_evidence_kind_source_match
+  CHECK (
+    (evidence_kind='document' AND document_id IS NOT NULL) OR
+    (evidence_kind='chunk' AND chunk_id IS NOT NULL) OR
+    (evidence_kind='claim' AND claim_id IS NOT NULL) OR
+    (evidence_kind='source_contract' AND source_contract_revision_id IS NOT NULL) OR
+    (evidence_kind='identity_mapping' AND security_issuer_identity_id IS NOT NULL) OR
+    (evidence_kind='model_config' AND model_config IS NOT NULL)
+  );
 
 CREATE TABLE IF NOT EXISTS knowledge.relation_revision (
     relation_revision_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -120,6 +120,8 @@ BEGIN
       WHERE identity.relation_identity_id=NEW.relation_identity_id
         AND ontology.predicate_ontology_revision_id=NEW.predicate_ontology_revision_id
         AND ontology.policy_status='approved'
+        AND ontology.known_from<=NEW.known_from
+        AND ontology.effective_from<=NEW.valid_from
     ) THEN
       RAISE EXCEPTION 'accepted relation revision requires matching approved predicate ontology';
     END IF;
@@ -143,6 +145,8 @@ BEGIN
               WHERE mapping.security_issuer_identity_id=evidence.security_issuer_identity_id
                 AND mapping.security_entity_id=identity.subject_entity_id
                 AND mapping.issuer_entity_id=identity.object_entity_id
+                AND mapping.known_from<=NEW.known_from
+                AND mapping.valid_from<=NEW.valid_from
             )
           )
           OR (
@@ -364,6 +368,10 @@ JOIN knowledge.relation_identity identity
 JOIN knowledge.predicate_ontology_revision ontology
   ON ontology.predicate=relation.predicate
  AND ontology.revision_no=CASE WHEN relation.predicate='ISSUED_BY' THEN 2 ELSE 1 END
+WHERE NOT EXISTS (
+  SELECT 1 FROM knowledge.relation_revision existing
+  WHERE existing.source_relation_id=relation.relation_id
+)
 ON CONFLICT (source_relation_id) DO NOTHING;
 
 -- Existing deployments imported ISSUED_BY against provisional ontology v1.
@@ -397,6 +405,25 @@ JOIN knowledge.relation_identity identity
 JOIN knowledge.predicate_ontology_revision ontology
   ON ontology.predicate='ISSUED_BY' AND ontology.revision_no=2
 WHERE latest.predicate_ontology_revision_id<>ontology.predicate_ontology_revision_id
+  AND ontology.policy_status='approved'
+  AND ontology.known_from<=now()
+  AND ontology.effective_from<=latest.valid_from
+  AND EXISTS (
+    SELECT 1
+    FROM knowledge.relation_evidence_ledger evidence
+    JOIN core.security_issuer_identity mapping
+      ON mapping.security_issuer_identity_id=evidence.security_issuer_identity_id
+    WHERE evidence.relation_identity_id=latest.relation_identity_id
+      AND evidence.relation_payload_hash=latest.payload_hash
+      AND evidence.evidence_kind='identity_mapping'
+      AND evidence.recorded_at<=now()
+      AND (evidence.valid_from IS NULL OR evidence.valid_from<=latest.valid_from)
+      AND (evidence.valid_to IS NULL OR evidence.valid_to>latest.valid_from)
+      AND mapping.security_entity_id=identity.subject_entity_id
+      AND mapping.issuer_entity_id=identity.object_entity_id
+      AND mapping.known_from<=now()
+      AND mapping.valid_from<=latest.valid_from
+  )
   AND NOT EXISTS (
     SELECT 1 FROM knowledge.relation_revision prior
     WHERE prior.relation_identity_id=latest.relation_identity_id

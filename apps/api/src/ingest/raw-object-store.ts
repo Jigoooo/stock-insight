@@ -174,8 +174,8 @@ export async function registerRawObjectWithRevision(
     httpMeta: Record<string, unknown>;
     fetchedAt: string;
   },
-): Promise<{ rawObjectId: number; rawInserted: boolean; revisionNo: number; replay: boolean }> {
-  const registered = await client.query<QueryResultRow & { raw_object_id: number }>(
+): Promise<{ rawObjectId: number; rawInserted: boolean; objectUri: string; revisionNo: number; replay: boolean }> {
+  const registered = await client.query<QueryResultRow & { raw_object_id: number; object_uri?: string; content_hash?: string }>(
     REGISTER_RAW_OBJECT_SQL,
     [
       input.fetchRunId,
@@ -190,8 +190,8 @@ export async function registerRawObjectWithRevision(
   const rawInserted = (registered.rowCount ?? 0) > 0;
   const existing = rawInserted
     ? registered
-    : await client.query<QueryResultRow & { raw_object_id: number }>(
-        `SELECT raw_object_id FROM ingestion.raw_object
+    : await client.query<QueryResultRow & { raw_object_id: number; object_uri: string; content_hash: string }>(
+        `SELECT raw_object_id,object_uri,content_hash FROM ingestion.raw_object
          WHERE source_id=$1 AND content_hash=$2`,
         [input.sourceId, input.contentHash],
       );
@@ -199,16 +199,32 @@ export async function registerRawObjectWithRevision(
   if (rawObjectId === undefined) {
     throw new Error('raw object registration did not return or resolve a durable row');
   }
+  const authoritativeObjectUri = rawInserted ? input.objectUri : existing.rows[0]?.object_uri;
+  if (authoritativeObjectUri === undefined) {
+    throw new Error('existing raw object is missing its authoritative object URI');
+  }
+  if (!rawInserted) {
+    const authoritativeContentHash = existing.rows[0]?.content_hash;
+    if (authoritativeContentHash === undefined) {
+      throw new Error('existing raw object is missing its authoritative content hash');
+    }
+    await readRawObjectVerified({
+      contentHash: authoritativeContentHash,
+      objectUri: authoritativeObjectUri,
+    });
+  }
 
   const contract = await client.query<QueryResultRow & { source_contract_revision_id: number }>(
     `SELECT source_contract_revision_id
-     FROM ingestion.source_contract_current_v1
+     FROM ingestion.source_contract_revision
      WHERE source_id=$1
        AND policy_status IN ('provisional_review_required','approved')
        AND effective_from<=$2::timestamptz
        AND (effective_to IS NULL OR effective_to>$2::timestamptz)
        AND known_from<=now()
-       AND (known_to IS NULL OR known_to>now())`,
+       AND (known_to IS NULL OR known_to>now())
+     ORDER BY revision_no DESC,known_from DESC
+     LIMIT 1`,
     [input.sourceId,input.fetchedAt],
   );
   if (contract.rows.length !== 1) {
@@ -226,11 +242,12 @@ export async function registerRawObjectWithRevision(
     contentHash: input.contentHash,
     rawObjectId,
     sourceContractRevisionId,
-    payloadMetadata: { object_uri: input.objectUri, http_meta: input.httpMeta },
+    payloadMetadata: { object_uri: authoritativeObjectUri, http_meta: input.httpMeta },
   });
   return {
     rawObjectId,
     rawInserted,
+    objectUri: authoritativeObjectUri,
     revisionNo: revision.revisionNo,
     replay: revision.outcome === 'replayed',
   };

@@ -108,4 +108,96 @@ describe('B0 report truth publication race guard', () => {
       await pool.end();
     }
   });
+
+  it('serializes publish against concurrent retraction and removes the committed pointer', { skip: skipReason }, async () => {
+    assert.ok(databaseUrl);
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 2 });
+    const publisher = await pool.connect();
+    const retractor = await pool.connect();
+    const suffix = `${Date.now()}-${Math.random()}`;
+    let eventId: number | undefined;
+    let reportId: number | undefined;
+    try {
+      const payload = {
+        title: 'truth-lock-fixture',
+        sections: [{
+          section_key: 'facts',
+          blocks: [{ block_id: 'fact-lock', block_type: 'fact', text: 'fixture', citation_ids: ['cit-lock'] }],
+        }],
+      };
+      const hash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+      await publisher.query('BEGIN');
+      const event = await publisher.query(`
+        INSERT INTO knowledge.event (
+          event_type,verification_status,dedupe_key,summary_text,extraction_run_id,metadata
+        ) VALUES ('truth_lock_fixture','verified',$1,'fixture',$1,'{"fixture":true}')
+        RETURNING event_id
+      `,[`truth-lock-${suffix}`]);
+      eventId = event.rows[0]!.event_id;
+      const report = await publisher.query(`
+        INSERT INTO content.report (
+          report_run_id,report_type,scope_entity_id,audience_key,title,summary,
+          report_payload,status,quality_score,content_hash
+        )
+        SELECT report_run_id,$1,NULL,'global','truth-lock-fixture','fixture',
+               $2::jsonb,'draft',1.0,$3
+        FROM content.report_run ORDER BY report_run_id LIMIT 1
+        RETURNING report_id
+      `,[`b0-truth-lock-${suffix}`,JSON.stringify(payload),hash]);
+      reportId = report.rows[0]!.report_id;
+      await publisher.query(`
+        INSERT INTO content.report_evidence (report_id,section_key,evidence_type,evidence_id,citation_order)
+        VALUES ($1,'facts','event',$2,1)
+      `,[reportId,eventId]);
+      await publisher.query('COMMIT');
+
+      await publisher.query('BEGIN');
+      await publisher.query(`
+        UPDATE content.report SET status='published',published_at=now() WHERE report_id=$1
+      `,[reportId]);
+      await retractor.query('BEGIN');
+      await retractor.query("SET LOCAL lock_timeout='300ms'");
+      await assert.rejects(
+        () => retractor.query(`
+          UPDATE knowledge.event
+          SET verification_status='retracted',
+              metadata=metadata||'{"verification_reason":"concurrent retraction","verification_actor":"test"}'::jsonb
+          WHERE event_id=$1
+        `,[eventId]),
+        (error: unknown) => typeof error==='object' && error!==null && 'code' in error && error.code==='55P03',
+      );
+      await retractor.query('ROLLBACK');
+      await publisher.query(`
+        INSERT INTO serving.latest_report_pointer (report_type,scope_key,report_id,switched_at)
+        VALUES ($1,$2,$3,now())
+      `,[`b0-truth-lock-${suffix}`,`scope-${suffix}`,reportId]);
+      await publisher.query('COMMIT');
+
+      await retractor.query('BEGIN');
+      await retractor.query(`
+        UPDATE knowledge.event
+        SET verification_status='retracted',
+            metadata=metadata||'{"verification_reason":"post-publish retraction","verification_actor":"test"}'::jsonb
+        WHERE event_id=$1
+      `,[eventId]);
+      await retractor.query('COMMIT');
+      const pointer = await publisher.query(
+        'SELECT count(*)::int AS n FROM serving.latest_report_pointer WHERE report_id=$1',[reportId],
+      );
+      assert.equal(pointer.rows[0]!.n,0);
+    } finally {
+      await publisher.query('ROLLBACK').catch(() => undefined);
+      await retractor.query('ROLLBACK').catch(() => undefined);
+      if (reportId!==undefined && eventId!==undefined) {
+        await publisher.query('BEGIN');
+        await publisher.query('DELETE FROM content.report_evidence WHERE report_id=$1',[reportId]);
+        await publisher.query('DELETE FROM content.report WHERE report_id=$1',[reportId]);
+        await publisher.query('DELETE FROM knowledge.event WHERE event_id=$1',[eventId]);
+        await publisher.query('COMMIT');
+      }
+      publisher.release();
+      retractor.release();
+      await pool.end();
+    }
+  });
 });

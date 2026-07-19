@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.ts",
+    "test:core-release": "node scripts/run-core-release-gate.mjs",
     "backfill:phase35": "node src/backfill/run-phase35.ts",
     "backfill:phase35:apply": "node src/backfill/run-phase35.ts --apply",
     "backfill:phase10": "node src/backfill/run-phase10.ts",

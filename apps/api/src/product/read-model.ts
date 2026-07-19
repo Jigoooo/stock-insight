@@ -95,6 +95,33 @@ WHERE feed.user_id = $1::uuid
     $2::date,
     (now() AT TIME ZONE profile.timezone)::date
   )
+  AND (
+    feed.item_type<>'report'
+    OR (
+      report.status='published'
+      AND (
+        NOT jsonb_path_exists(report.report_payload,'$.sections[*].blocks[*] ? (@.block_type == "fact")')
+        OR (
+          EXISTS (
+            SELECT 1 FROM content.report_evidence evidence
+            WHERE evidence.report_id=report.report_id AND evidence.evidence_type='event'
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM content.report_evidence evidence
+            WHERE evidence.report_id=report.report_id
+              AND evidence.evidence_type='event'
+              AND NOT EXISTS (
+                SELECT 1 FROM knowledge.event current_event
+                WHERE current_event.event_id=evidence.evidence_id
+                  AND current_event.verification_status='verified'
+              )
+          )
+        )
+      )
+    )
+  )
+  AND (feed.item_type<>'event' OR event.verification_status='verified')
+  AND (feed.item_type<>'impact_path' OR path_event.verification_status='verified')
 ORDER BY feed.rank
 LIMIT 100
 `;
@@ -133,12 +160,14 @@ WHERE report.status = 'published'
         WHERE evidence.report_id=report.report_id AND evidence.evidence_type='event'
       )
       AND NOT EXISTS (
-        SELECT 1
-        FROM content.report_evidence evidence
-        JOIN knowledge.event event ON event.event_id=evidence.evidence_id
+        SELECT 1 FROM content.report_evidence evidence
         WHERE evidence.report_id=report.report_id
           AND evidence.evidence_type='event'
-          AND event.verification_status<>'verified'
+          AND NOT EXISTS (
+            SELECT 1 FROM knowledge.event current_event
+            WHERE current_event.event_id=evidence.evidence_id
+              AND current_event.verification_status='verified'
+          )
       )
     )
   )

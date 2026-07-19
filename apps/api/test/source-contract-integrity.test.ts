@@ -70,6 +70,42 @@ describe('B2 source contract coverage and immutability', () => {
     }
   });
 
+  it('keeps the currently effective contract visible when a future revision is appended', { skip: skipReason }, async () => {
+    assert.ok(databaseUrl);
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
+      const baseline = await client.query(`
+        SELECT * FROM ingestion.source_contract_current_v1 ORDER BY source_id LIMIT 1
+      `);
+      const row = baseline.rows[0]!;
+      await client.query(`
+        INSERT INTO ingestion.source_contract_revision (
+          source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
+          correction_policy,required_fields,license_policy,redistribution_policy,
+          raw_retention_policy,quality_gate_policy,effective_from,known_from,
+          supersedes_contract_revision_id,content_hash
+        ) VALUES ($1,$2,'approved',$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+interval '1 day',now(),$12,$13)
+      `,[
+        row.source_id,row.revision_no+1,row.cadence_policy,row.cutoff_policy,row.delay_policy,
+        row.correction_policy,row.required_fields,row.license_policy,row.redistribution_policy,
+        row.raw_retention_policy,row.quality_gate_policy,row.source_contract_revision_id,
+        createHash('sha256').update(randomUUID()).digest('hex'),
+      ]);
+      const current = await client.query(`
+        SELECT source_contract_revision_id FROM ingestion.source_contract_current_v1 WHERE source_id=$1
+      `,[row.source_id]);
+      assert.equal(current.rows[0]!.source_contract_revision_id,row.source_contract_revision_id);
+      await client.query('ROLLBACK');
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+      await pool.end();
+    }
+  });
+
   it('appends a late raw object after max revision instead of renumbering history', { skip: skipReason }, async () => {
     assert.ok(databaseUrl);
     const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });

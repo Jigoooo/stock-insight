@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { rm,writeFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import pg from 'pg';
 
+import { payloadHashOf } from '../src/events/event-envelope.ts';
 import {
   hashContent,
   OPEN_FETCH_RUN_SQL,
@@ -67,7 +69,9 @@ describe('B2 raw object + source revision atomicity', () => {
     const client = await pool.connect();
     const key = `b2-replay-${Date.now()}`;
     const hash = hashContent(key);
+    const rawPath = `/tmp/${hash}.json`;
     try {
+      await writeFile(rawPath,key,{ flag: 'wx' });
       await client.query('BEGIN');
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
       const opened = await client.query(OPEN_FETCH_RUN_SQL, [
@@ -91,15 +95,19 @@ describe('B2 raw object + source revision atomicity', () => {
       assert.equal(replay.rawObjectId, first.rawObjectId);
       assert.equal(replay.revisionNo, first.revisionNo);
       const events = await client.query(`
-        SELECT count(*)::int AS n FROM ops.outbox_event
+        SELECT event_id,payload,payload_hash,producer,occurred_at FROM ops.outbox_event
         WHERE event_type='source.revision.appended' AND payload->>'raw_object_id'=$1::text
       `,[first.rawObjectId]);
-      assert.equal(events.rows[0]!.n,1);
+      assert.equal(events.rows.length,1);
+      assert.equal(events.rows[0]!.payload_hash,payloadHashOf(events.rows[0]!.payload));
+      assert.equal(events.rows[0]!.producer,'raw-object-store');
+      assert.equal(new Date(events.rows[0]!.occurred_at).toISOString(),input.fetchedAt);
       await client.query('ROLLBACK');
     } finally {
       await client.query('ROLLBACK').catch(() => undefined);
       client.release();
       await pool.end();
+      await rm(rawPath,{ force: true });
     }
   });
 

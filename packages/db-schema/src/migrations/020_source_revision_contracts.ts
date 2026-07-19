@@ -38,6 +38,10 @@ WHERE known_to IS NULL;
 CREATE OR REPLACE VIEW ingestion.source_contract_current_v1 AS
 SELECT DISTINCT ON (source_id) *
 FROM ingestion.source_contract_revision
+WHERE effective_from<=now()
+  AND (effective_to IS NULL OR effective_to>now())
+  AND known_from<=now()
+  AND (known_to IS NULL OR known_to>now())
 ORDER BY source_id,revision_no DESC,known_from DESC;
 
 CREATE TABLE IF NOT EXISTS ingestion.source_record_identity (
@@ -99,13 +103,15 @@ FOR EACH ROW EXECUTE FUNCTION ingestion.reject_immutable_revision_mutation();
 
 CREATE OR REPLACE FUNCTION ingestion.enqueue_source_revision_outbox(revision_id BIGINT)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
-SET search_path=pg_catalog,ingestion,ops,public AS $$
+SET search_path=pg_catalog,ingestion,ops AS $$
 DECLARE event_payload JSONB;
+DECLARE canonical_payload TEXT;
+DECLARE expected_payload_hash TEXT;
 DECLARE event_key TEXT;
 DECLARE identity_id BIGINT;
 DECLARE source_id_value BIGINT;
 DECLARE revision_no_value INTEGER;
-DECLARE ingested_at_value TIMESTAMPTZ;
+DECLARE occurred_at_value TIMESTAMPTZ;
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM ops.event_schema_registry
@@ -113,7 +119,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'source.revision.appended v1 schema is not active';
   END IF;
-  SELECT revision.source_record_identity_id,identity.source_id,revision.revision_no,revision.ingested_at,
+  SELECT revision.source_record_identity_id,identity.source_id,revision.revision_no,revision.available_at,
          jsonb_build_object(
            'source_revision_id',revision.source_revision_id,
            'source_record_identity_id',revision.source_record_identity_id,
@@ -122,32 +128,44 @@ BEGIN
            'raw_object_id',revision.raw_object_id,
            'source_contract_revision_id',revision.source_contract_revision_id,
            'content_hash',revision.content_hash,
-           'available_at',revision.available_at
+           'available_at',to_char(revision.available_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
          )
-    INTO identity_id,source_id_value,revision_no_value,ingested_at_value,event_payload
+    INTO identity_id,source_id_value,revision_no_value,occurred_at_value,event_payload
   FROM ingestion.source_revision revision
   JOIN ingestion.source_record_identity identity USING(source_record_identity_id)
   WHERE revision.source_revision_id=revision_id;
   IF identity_id IS NULL THEN RAISE EXCEPTION 'source revision % is missing',revision_id; END IF;
-  event_key := 'evt-'||substr(encode(digest(convert_to(
+  event_key := 'evt-'||substr(encode(public.digest(convert_to(
     'source_record|'||identity_id::text||'|'||revision_no_value::text||'|source.revision.appended|1','UTF8'
   ),'sha256'),'hex'),1,32);
+  canonical_payload :=
+    '{"available_at":'||to_json(event_payload->>'available_at')::text||
+    ',"content_hash":'||to_json(event_payload->>'content_hash')::text||
+    ',"provider_record_key":'||to_json(event_payload->>'provider_record_key')::text||
+    ',"raw_object_id":'||(event_payload->>'raw_object_id')||
+    ',"source_contract_revision_id":'||(event_payload->>'source_contract_revision_id')||
+    ',"source_id":'||(event_payload->>'source_id')||
+    ',"source_record_identity_id":'||(event_payload->>'source_record_identity_id')||
+    ',"source_revision_id":'||(event_payload->>'source_revision_id')||'}';
+  expected_payload_hash := encode(public.digest(convert_to(canonical_payload,'UTF8'),'sha256'),'hex');
   INSERT INTO ops.outbox_event (
     event_id,event_type,schema_version,aggregate_type,aggregate_id,aggregate_version,
     partition_key,occurred_at,producer,payload,payload_hash
   ) VALUES (
     event_key,'source.revision.appended',1,'source_record',identity_id::text,revision_no_value,
-    source_id_value::text,ingested_at_value,'source-revision-db',event_payload,
-    encode(digest(convert_to(event_payload::text,'UTF8'),'sha256'),'hex')
+    source_id_value::text,occurred_at_value,'raw-object-store',event_payload,expected_payload_hash
   ) ON CONFLICT (aggregate_type,aggregate_id,aggregate_version) DO NOTHING;
   IF NOT EXISTS (
     SELECT 1 FROM ops.outbox_event
-    WHERE aggregate_type='source_record' AND aggregate_id=identity_id::text
+    WHERE event_id=event_key
+      AND aggregate_type='source_record' AND aggregate_id=identity_id::text
       AND aggregate_version=revision_no_value
       AND event_type='source.revision.appended' AND schema_version=1
-      AND payload->>'source_revision_id'=revision_id::text
-      AND payload->>'source_record_identity_id'=identity_id::text
-      AND payload->>'content_hash'=event_payload->>'content_hash'
+      AND partition_key=source_id_value::text
+      AND occurred_at=occurred_at_value
+      AND producer='raw-object-store'
+      AND payload=event_payload
+      AND payload_hash=expected_payload_hash
   ) THEN
     RAISE EXCEPTION 'conflicting outbox event occupies source revision aggregate version';
   END IF;
@@ -155,7 +173,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ingestion.emit_source_revision_outbox()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path=pg_catalog,ingestion,ops,public AS $$
+SET search_path=pg_catalog,ingestion,ops AS $$
 BEGIN
   PERFORM ingestion.enqueue_source_revision_outbox(NEW.source_revision_id);
   RETURN NEW;
@@ -274,18 +292,11 @@ BEGIN
   END LOOP;
 END $$;
 
--- Existing B2 revisions predate the trigger; emit each missing domain event
--- once. New revisions already emitted by source_revision_outbox are skipped.
+-- Existing B2 revisions predate the trigger; emit missing events and validate
+-- the complete canonical envelope for every existing event on each reapply.
 SELECT ingestion.enqueue_source_revision_outbox(revision.source_revision_id)
 FROM ingestion.source_revision revision
-WHERE NOT EXISTS (
-  SELECT 1 FROM ops.outbox_event event
-  WHERE event.aggregate_type='source_record'
-    AND event.aggregate_id=revision.source_record_identity_id::text
-    AND event.aggregate_version=revision.revision_no
-    AND event.event_type='source.revision.appended'
-    AND event.schema_version=1
-);
+ORDER BY revision.source_revision_id;
 
 GRANT SELECT ON ingestion.source_contract_revision,
                 ingestion.source_contract_current_v1,
