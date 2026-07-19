@@ -20,6 +20,7 @@ import { provenanceOutboxMigrationSql } from './migrations/019_provenance_outbox
 import { sourceRevisionContractsMigrationSql } from './migrations/020_source_revision_contracts';
 import { identityTaxonomyMigrationSql } from './migrations/021_identity_taxonomy';
 import { verifiedKnowledgeMigrationSql } from './migrations/022_verified_knowledge';
+import { temporalRelationLedgerMigrationSql } from './migrations/023_temporal_relation_ledger';
 
 export type AppTableName =
   | 'company_profiles'
@@ -49,6 +50,7 @@ export type AppTableName =
   | 'source_revision_contracts'
   | 'identity_taxonomy'
   | 'verified_knowledge'
+  | 'temporal_relation_ledger'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -223,6 +225,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['verified_knowledge'],
     sql: verifiedKnowledgeMigrationSql,
   },
+  {
+    id: '023_temporal_relation_ledger',
+    description:
+      'B5 versioned predicate ontology, stable relation identity, immutable temporal revisions/evidence, evidence-gated accepted serving view.',
+    tables: ['temporal_relation_ledger'],
+    sql: temporalRelationLedgerMigrationSql,
+  },
 ];
 
 export {
@@ -248,4 +257,5 @@ export {
   sourceRevisionContractsMigrationSql,
   identityTaxonomyMigrationSql,
   verifiedKnowledgeMigrationSql,
+  temporalRelationLedgerMigrationSql,
 };
