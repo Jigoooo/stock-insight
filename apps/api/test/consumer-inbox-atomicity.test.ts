@@ -3,8 +3,8 @@ import { describe, it } from 'node:test';
 
 import pg from 'pg';
 
-import { buildEnvelope } from '../src/events/event-envelope.ts';
 import { processInboxEvent } from '../src/events/consumer-inbox.ts';
+import { buildEnvelope } from '../src/events/event-envelope.ts';
 import { insertOutboxEvent } from '../src/events/outbox-store.ts';
 
 const databaseUrl = process.env.STOCK_INSIGHT_OUTBOX_TEST_DB_URL;
