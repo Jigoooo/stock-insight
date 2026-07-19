@@ -97,6 +97,70 @@ CREATE TRIGGER source_revision_immutable
 BEFORE UPDATE OR DELETE ON ingestion.source_revision
 FOR EACH ROW EXECUTE FUNCTION ingestion.reject_immutable_revision_mutation();
 
+CREATE OR REPLACE FUNCTION ingestion.enqueue_source_revision_outbox(revision_id BIGINT)
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE event_payload JSONB;
+DECLARE event_key TEXT;
+DECLARE identity_id BIGINT;
+DECLARE source_id_value BIGINT;
+DECLARE revision_no_value INTEGER;
+DECLARE ingested_at_value TIMESTAMPTZ;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM ops.event_schema_registry
+    WHERE event_type='source.revision.appended' AND schema_version=1 AND active
+  ) THEN
+    RAISE EXCEPTION 'source.revision.appended v1 schema is not active';
+  END IF;
+  SELECT revision.source_record_identity_id,identity.source_id,revision.revision_no,revision.ingested_at,
+         jsonb_build_object(
+           'source_revision_id',revision.source_revision_id,
+           'source_record_identity_id',revision.source_record_identity_id,
+           'source_id',identity.source_id,
+           'provider_record_key',identity.provider_record_key,
+           'raw_object_id',revision.raw_object_id,
+           'source_contract_revision_id',revision.source_contract_revision_id,
+           'content_hash',revision.content_hash,
+           'available_at',revision.available_at
+         )
+    INTO identity_id,source_id_value,revision_no_value,ingested_at_value,event_payload
+  FROM ingestion.source_revision revision
+  JOIN ingestion.source_record_identity identity USING(source_record_identity_id)
+  WHERE revision.source_revision_id=revision_id;
+  IF identity_id IS NULL THEN RAISE EXCEPTION 'source revision % is missing',revision_id; END IF;
+  event_key := 'evt-'||substr(encode(digest(convert_to(
+    'source_record|'||identity_id::text||'|'||revision_no_value::text||'|source.revision.appended|1','UTF8'
+  ),'sha256'),'hex'),1,32);
+  INSERT INTO ops.outbox_event (
+    event_id,event_type,schema_version,aggregate_type,aggregate_id,aggregate_version,
+    partition_key,occurred_at,producer,payload,payload_hash
+  ) VALUES (
+    event_key,'source.revision.appended',1,'source_record',identity_id::text,revision_no_value,
+    source_id_value::text,ingested_at_value,'source-revision-db',event_payload,
+    encode(digest(convert_to(event_payload::text,'UTF8'),'sha256'),'hex')
+  ) ON CONFLICT (aggregate_type,aggregate_id,aggregate_version) DO NOTHING;
+  IF NOT EXISTS (
+    SELECT 1 FROM ops.outbox_event
+    WHERE aggregate_type='source_record' AND aggregate_id=identity_id::text
+      AND aggregate_version=revision_no_value
+      AND event_type='source.revision.appended' AND schema_version=1
+  ) THEN
+    RAISE EXCEPTION 'conflicting outbox event occupies source revision aggregate version';
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION ingestion.emit_source_revision_outbox()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM ingestion.enqueue_source_revision_outbox(NEW.source_revision_id);
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS source_revision_outbox ON ingestion.source_revision;
+CREATE TRIGGER source_revision_outbox
+AFTER INSERT ON ingestion.source_revision
+FOR EACH ROW EXECUTE FUNCTION ingestion.emit_source_revision_outbox();
+
 -- Conservative baseline contract for every active source. Unknown cadence/cutoff
 -- stays explicit; no timing/license fact is invented. Source metadata supplies
 -- only values already present in ingestion.source. These rows require review
@@ -201,6 +265,19 @@ BEGIN
     END LOOP;
   END LOOP;
 END $$;
+
+-- Existing B2 revisions predate the trigger; emit each missing domain event
+-- once. New revisions already emitted by source_revision_outbox are skipped.
+SELECT ingestion.enqueue_source_revision_outbox(revision.source_revision_id)
+FROM ingestion.source_revision revision
+WHERE NOT EXISTS (
+  SELECT 1 FROM ops.outbox_event event
+  WHERE event.aggregate_type='source_record'
+    AND event.aggregate_id=revision.source_record_identity_id::text
+    AND event.aggregate_version=revision.revision_no
+    AND event.event_type='source.revision.appended'
+    AND event.schema_version=1
+);
 
 GRANT SELECT ON ingestion.source_contract_revision,
                 ingestion.source_contract_current_v1,

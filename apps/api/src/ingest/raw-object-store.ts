@@ -5,8 +5,6 @@ import { join } from 'node:path';
 import type { PoolClient, QueryResultRow } from 'pg';
 
 import { appendSourceRevision } from './source-revision-store.ts';
-import { buildEnvelope } from '../events/event-envelope.ts';
-import { insertOutboxEvent } from '../events/outbox-store.ts';
 
 // SET B / B-1: content-addressed raw object store (local filesystem tier).
 // Layout: {root}/{provider}/{yyyy}/{mm}/{hash[:2]}/{hash}.{ext}
@@ -230,29 +228,6 @@ export async function registerRawObjectWithRevision(
     sourceContractRevisionId,
     payloadMetadata: { object_uri: input.objectUri, http_meta: input.httpMeta },
   });
-  const outbox = await insertOutboxEvent(client, buildEnvelope({
-    eventType: 'source.revision.appended',
-    schemaVersion: 1,
-    aggregateType: 'source_record',
-    aggregateId: String(revision.sourceRecordIdentityId),
-    aggregateVersion: revision.revisionNo,
-    partitionKey: String(input.sourceId),
-    occurredAt: input.fetchedAt,
-    producer: 'raw-object-store',
-    payload: {
-      source_revision_id: revision.sourceRevisionId,
-      source_record_identity_id: revision.sourceRecordIdentityId,
-      source_id: input.sourceId,
-      provider_record_key: input.providerRecordKey,
-      raw_object_id: rawObjectId,
-      source_contract_revision_id: sourceContractRevisionId,
-      content_hash: input.contentHash,
-      available_at: input.fetchedAt,
-    },
-  }));
-  if (outbox.outcome === 'conflict') {
-    throw new Error('source revision outbox conflict');
-  }
   return {
     rawObjectId,
     rawInserted,

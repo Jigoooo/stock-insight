@@ -97,12 +97,18 @@ describe('B2 source contract coverage and immutability', () => {
         RETURNING raw_object_id
       `, [row.source_id, `late-${suffix}`, row.provider_record_key, contentHash, `file:///tmp/${contentHash}`]);
       await client.query(sourceRevisionContractsMigrationSql);
-      const revision = await client.query(
-        'SELECT revision_no,available_at FROM ingestion.source_revision WHERE raw_object_id=$1',
-        [raw.rows[0]!.raw_object_id],
-      );
+      const revision = await client.query(`
+        SELECT revision.revision_no,revision.available_at,
+               (SELECT count(*)::int FROM ops.outbox_event event
+                WHERE event.aggregate_type='source_record'
+                  AND event.aggregate_id=revision.source_record_identity_id::text
+                  AND event.aggregate_version=revision.revision_no
+                  AND event.event_type='source.revision.appended') AS outbox_rows
+        FROM ingestion.source_revision revision WHERE revision.raw_object_id=$1
+      `,[raw.rows[0]!.raw_object_id]);
       assert.equal(revision.rows[0]!.revision_no, row.max_revision + 1);
       assert.equal(new Date(revision.rows[0]!.available_at).toISOString(), '2000-01-01T00:00:00.000Z');
+      assert.equal(revision.rows[0]!.outbox_rows,1);
       await client.query('ROLLBACK');
     } finally {
       await client.query('ROLLBACK').catch(() => undefined);
