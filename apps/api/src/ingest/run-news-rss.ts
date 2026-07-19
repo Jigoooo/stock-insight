@@ -10,7 +10,7 @@ import { buildNewsIngestAudit, type RssNewsBundle, type SourceDocumentSeed } fro
 import {
   CLOSE_FETCH_RUN_SQL,
   OPEN_FETCH_RUN_SQL,
-  REGISTER_RAW_OBJECT_SQL,
+  registerRawObjectWithRevision,
   writeRawObject,
 } from './raw-object-store.ts';
 
@@ -207,8 +207,10 @@ async function run(): Promise<void> {
   let rawObjectsStored = 0;
   let fetchRunId: number | null = null;
   try {
-    // SET B: open a fetch_run + persist the raw bundle BEFORE parsing side effects.
-    // Failure here must not block legacy ingest (raw layer is additive).
+    // B2 stop-line: fetch_run + raw object + source revision are one transaction.
+    // A missing contract/revision blocks downstream parsing rather than creating
+    // a permanently untraceable raw object.
+    await client.query('BEGIN');
     try {
       const runKey = `rss-news-${startedAt.toISOString()}`;
       const opened = await client.query<QueryResultRow & { fetch_run_id: number }>(
@@ -224,19 +226,21 @@ async function run(): Promise<void> {
           extension: 'json',
           fetchedAt: startedAt,
         });
-        const registered = await client.query(REGISTER_RAW_OBJECT_SQL, [
+        const registered = await registerRawObjectWithRevision(client, {
           fetchRunId,
           sourceId,
-          runKey,
-          raw.contentHash,
-          raw.objectUri,
-          JSON.stringify({ bytes: raw.bytes, kind: 'aggregated_bundle' }),
-          startedAt.toISOString(),
-        ]);
-        rawObjectsStored = registered.rowCount ?? 0;
+          providerRecordKey: runKey,
+          contentHash: raw.contentHash,
+          objectUri: raw.objectUri,
+          httpMeta: { bytes: raw.bytes, kind: 'aggregated_bundle' },
+          fetchedAt: startedAt.toISOString(),
+        });
+        rawObjectsStored = registered.rawInserted ? 1 : 0;
       }
+      await client.query('COMMIT');
     } catch (rawError) {
-      process.stderr.write(`raw-object persist skipped: ${String(rawError)}\n`);
+      await client.query('ROLLBACK');
+      throw rawError;
     }
     await client.query('BEGIN');
     await client.query("SELECT set_config('statement_timeout', '120s', true)");

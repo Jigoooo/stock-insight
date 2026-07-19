@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto';
 import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { PoolClient, QueryResultRow } from 'pg';
+
+import { appendSourceRevision } from './source-revision-store.ts';
+
 // SET B / B-1: content-addressed raw object store (local filesystem tier).
 // Layout: {root}/{provider}/{yyyy}/{mm}/{hash[:2]}/{hash}.{ext}
 // Manifest: {root}/_manifest/{yyyy-mm-dd}.jsonl (one line per stored object).
@@ -95,6 +99,77 @@ INSERT INTO ingestion.raw_object (
 ON CONFLICT (source_id, content_hash) DO NOTHING
 RETURNING raw_object_id
 `;
+
+/**
+ * Register the raw bytes and append their B2 source revision in the caller's
+ * open transaction. Exact byte replays reuse the content-addressed raw row;
+ * every provider record identity still receives deterministic lineage.
+ */
+export async function registerRawObjectWithRevision(
+  client: PoolClient,
+  input: {
+    fetchRunId: number;
+    sourceId: number;
+    providerRecordKey: string;
+    contentHash: string;
+    objectUri: string;
+    httpMeta: Record<string, unknown>;
+    fetchedAt: string;
+  },
+): Promise<{ rawObjectId: number; rawInserted: boolean; revisionNo: number; replay: boolean }> {
+  const registered = await client.query<QueryResultRow & { raw_object_id: number }>(
+    REGISTER_RAW_OBJECT_SQL,
+    [
+      input.fetchRunId,
+      input.sourceId,
+      input.providerRecordKey,
+      input.contentHash,
+      input.objectUri,
+      JSON.stringify(input.httpMeta),
+      input.fetchedAt,
+    ],
+  );
+  const rawInserted = (registered.rowCount ?? 0) > 0;
+  const existing = rawInserted
+    ? registered
+    : await client.query<QueryResultRow & { raw_object_id: number }>(
+        `SELECT raw_object_id FROM ingestion.raw_object
+         WHERE source_id=$1 AND content_hash=$2`,
+        [input.sourceId, input.contentHash],
+      );
+  const rawObjectId = existing.rows[0]?.raw_object_id;
+  if (rawObjectId === undefined) {
+    throw new Error('raw object registration did not return or resolve a durable row');
+  }
+
+  const contract = await client.query<QueryResultRow & { source_contract_revision_id: number }>(
+    `SELECT source_contract_revision_id
+     FROM ingestion.source_contract_revision
+     WHERE source_id=$1
+     ORDER BY revision_no DESC LIMIT 1`,
+    [input.sourceId],
+  );
+  const sourceContractRevisionId = contract.rows[0]?.source_contract_revision_id;
+  if (sourceContractRevisionId === undefined) {
+    throw new Error(`source contract revision is missing for source ${input.sourceId}`);
+  }
+
+  const revision = await appendSourceRevision(client, {
+    sourceId: input.sourceId,
+    providerRecordKey: input.providerRecordKey,
+    availableAt: input.fetchedAt,
+    contentHash: input.contentHash,
+    rawObjectId,
+    sourceContractRevisionId,
+    payloadMetadata: { object_uri: input.objectUri, http_meta: input.httpMeta },
+  });
+  return {
+    rawObjectId,
+    rawInserted,
+    revisionNo: revision.revisionNo,
+    replay: revision.outcome === 'replayed',
+  };
+}
 
 export const OPEN_FETCH_RUN_SQL = `
 INSERT INTO ingestion.fetch_run (
