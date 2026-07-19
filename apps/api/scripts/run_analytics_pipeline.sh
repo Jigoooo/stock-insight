@@ -53,6 +53,8 @@ DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --app
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-v2-graph-publish.ts --apply
+pipeline_record_stage_success stock-insight-v2-graph-publish-stage "$RUN_STARTED_AT" || exit $?
 
 pipeline_require_db_assertion analytics "
 SELECT CASE WHEN
@@ -63,14 +65,27 @@ SELECT CASE WHEN
      'stock-insight-graph-inference-stage',
      'stock-insight-report-publish-stage',
      'stock-insight-feed-build-stage',
-     'stock-insight-probability-calibration-stage'
+     'stock-insight-probability-calibration-stage',
+     'stock-insight-v2-graph-publish-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 5
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 6
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1
   AND EXISTS (SELECT 1 FROM serving.probability_scorecard_v1)
+  AND EXISTS (
+    SELECT 1 FROM ops.pipeline_run_claim claim
+    WHERE claim.natural_run_key = 'v2-graph-publish:' ||
+          to_char(clock_timestamp() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD')
+      AND claim.claim_status='completed'
+      AND claim.completed_at IS NOT NULL
+  )
+  AND EXISTS (SELECT 1 FROM analytics.graph_snapshot WHERE status='sealed')
+  AND EXISTS (
+    SELECT 1 FROM serving.v_relation_graph_freshness
+    WHERE servable=true
+  )
 THEN 1 ELSE 0 END
 " || exit $?
 

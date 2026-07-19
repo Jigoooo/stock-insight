@@ -40,7 +40,9 @@ export function buildProductSimilarityCandidates(
 ): BuilderResult {
   const asOfMs = parseAsOf(options);
 
-  const candidates: RelationCandidateDraft[] = [];
+  const candidateSeeds: Array<
+    Omit<RelationCandidateDraft, 'policyDecision' | 'targetRevisionStatus'>
+  > = [];
   const observationRows = snapshotOwnDataArray(observations, 'product similarity observations');
   for (const rawObservation of observationRows) {
     const values = snapshotOwnDataRecord(rawObservation, 'product similarity observation');
@@ -110,14 +112,7 @@ export function buildProductSimilarityCandidates(
         validFrom: observation.validFrom,
       }),
     );
-    const decision = decideCandidate({
-      predicate: 'PRODUCT_SIMILARITY',
-      evidence,
-      hasModelConfigEvidence: modelConfig !== null,
-      subjectDegree: 1,
-      objectDegree: 1,
-    });
-    candidates.push({
+    candidateSeeds.push({
       predicate: 'PRODUCT_SIMILARITY',
       subjectEntityId,
       objectEntityId,
@@ -125,7 +120,6 @@ export function buildProductSimilarityCandidates(
       validFrom: observation.validFrom,
       payloadHash,
       evidence,
-      ...decision,
       modelConfig: modelConfig as Record<string, unknown> | null,
       metadata: {
         builder: 'product-similarity-v1',
@@ -134,6 +128,21 @@ export function buildProductSimilarityCandidates(
       },
     });
   }
+  const degree = new Map<number, number>();
+  for (const candidate of candidateSeeds) {
+    degree.set(candidate.subjectEntityId, (degree.get(candidate.subjectEntityId) ?? 0) + 1);
+    degree.set(candidate.objectEntityId, (degree.get(candidate.objectEntityId) ?? 0) + 1);
+  }
+  const candidates: RelationCandidateDraft[] = candidateSeeds.map((candidate) => ({
+    ...candidate,
+    ...decideCandidate({
+      predicate: candidate.predicate,
+      evidence: candidate.evidence,
+      hasModelConfigEvidence: candidate.modelConfig !== null,
+      subjectDegree: degree.get(candidate.subjectEntityId) ?? 0,
+      objectDegree: degree.get(candidate.objectEntityId) ?? 0,
+    }),
+  }));
 
   return { candidates: sortCandidates(candidates), exclusions: [] };
 }

@@ -6,11 +6,20 @@ import type { PoolClient, QueryResultRow } from 'pg';
 // store. Policy and persistence status must agree — defense in depth against
 // a builder bug promoting an unqualified candidate.
 
-import type { RelationCandidateDraft } from './builder-core.ts';
+import { canonicalJsonClone, sha256, type RelationCandidateDraft } from './builder-core.ts';
 import {
+  appendModelConfigRelationEvidence,
   appendRelationRevision,
   appendSourceRevisionRelationEvidence,
 } from '../knowledge/relation-ledger.ts';
+
+function positiveInteger(value: unknown, label: string): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive safe integer`);
+  }
+  return parsed;
+}
 
 const IDENTITY_UPSERT_SQL = `
 INSERT INTO knowledge.relation_identity (subject_entity_id, predicate, object_entity_id, identity_hash)
@@ -29,7 +38,7 @@ export type PersistRelationCandidatesOptions = {
   /** Approved predicate ontology revision id per predicate — fail-closed when missing. */
   predicateOntologyRevisionIds: Record<string, number>;
   /** Confidence recorded on the revision row. */
-  confidence: number;
+  confidence: number | ((candidate: RelationCandidateDraft) => number);
 };
 
 export type PersistedRelationCandidate = {
@@ -39,6 +48,7 @@ export type PersistedRelationCandidate = {
   revisionNo: number;
   revisionStatus: 'accepted' | 'quarantined_unverified';
   evidenceInserted: number;
+  outcome: 'inserted' | 'replayed';
 };
 
 export type PersistRelationCandidatesResult = {
@@ -74,27 +84,54 @@ export async function persistRelationCandidates(
 
     // Resolve (or create) the relation identity.
     const identityHash = candidate.payloadHash;
-    const upserted = await client.query<QueryResultRow & { relation_identity_id: number }>(
+    const upserted = await client.query<QueryResultRow & { relation_identity_id: string | number }>(
       IDENTITY_UPSERT_SQL,
       [candidate.subjectEntityId, candidate.predicate, candidate.objectEntityId, identityHash],
     );
     const identityRow =
       upserted.rows[0] ??
       (
-        await client.query<QueryResultRow & { relation_identity_id: number }>(IDENTITY_READ_SQL, [
-          candidate.subjectEntityId,
-          candidate.predicate,
-          candidate.objectEntityId,
-        ])
+        await client.query<QueryResultRow & { relation_identity_id: string | number }>(
+          IDENTITY_READ_SQL,
+          [candidate.subjectEntityId, candidate.predicate, candidate.objectEntityId],
+        )
       ).rows[0];
     if (identityRow === undefined) {
       throw new Error('relation identity upsert/readback failed');
     }
-    const relationIdentityId = identityRow.relation_identity_id;
+    const relationIdentityId = positiveInteger(
+      identityRow.relation_identity_id,
+      'relationIdentityId',
+    );
 
     // Evidence FIRST — the accepted-revision guard trigger requires
     // qualifying evidence bound to the payload hash to already exist.
     let evidenceInserted = 0;
+    if (candidate.modelConfig !== undefined && candidate.modelConfig !== null) {
+      const modelConfig = canonicalJsonClone(
+        candidate.modelConfig,
+        'candidate model config evidence',
+      );
+      const inserted = await appendModelConfigRelationEvidence(client, {
+        relationIdentityId,
+        relationPayloadHash: candidate.payloadHash,
+        modelConfig,
+        evidenceText: `Exact model configuration for ${candidate.predicate}`,
+        evidenceHash: sha256(
+          JSON.stringify({
+            kind: 'model_config',
+            relationPayloadHash: candidate.payloadHash,
+            modelConfig,
+          }),
+        ),
+      });
+      if (inserted) evidenceInserted += 1;
+    } else if (
+      candidate.predicate === 'PRODUCT_SIMILARITY' &&
+      candidate.targetRevisionStatus === 'accepted'
+    ) {
+      throw new Error('accepted PRODUCT_SIMILARITY requires exact model config evidence');
+    }
     for (const evidence of candidate.evidence) {
       const inserted = await appendSourceRevisionRelationEvidence(client, {
         relationIdentityId,
@@ -108,11 +145,16 @@ export async function persistRelationCandidates(
       if (inserted) evidenceInserted += 1;
     }
 
+    const confidence =
+      typeof options.confidence === 'function' ? options.confidence(candidate) : options.confidence;
+    if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+      throw new Error(`confidence must be within [0,1] for ${candidate.predicate}`);
+    }
     const revision = await appendRelationRevision(client, {
       relationIdentityId,
       predicateOntologyRevisionId: ontologyRevisionId as number,
       relationKind: candidate.relationKind,
-      confidence: options.confidence,
+      confidence,
       revisionStatus: allowedStatus,
       validFrom: candidate.validFrom,
       payloadHash: candidate.payloadHash,
@@ -127,8 +169,9 @@ export async function persistRelationCandidates(
       relationIdentityId,
       relationRevisionId: revision.relationRevisionId,
       revisionNo: revision.revisionNo,
-      revisionStatus: allowedStatus,
+      revisionStatus: candidate.targetRevisionStatus,
       evidenceInserted,
+      outcome: revision.outcome,
     });
   }
 

@@ -9,6 +9,7 @@ import { buildSupplyChainCandidates } from '../src/relations/builders/supply-cha
 
 const AS_OF = '2026-07-19T00:00:00.000Z';
 const T0 = '2026-07-01T00:00:00.000Z';
+const T1 = '2026-07-02T00:00:00.000Z';
 
 describe('B6 relation builders — golden fixtures', () => {
   it('supply chain: one disclosed link yields SUPPLIES and inverse CUSTOMER_OF bound to the same revision', () => {
@@ -182,6 +183,103 @@ describe('B6 relation builders — golden fixtures', () => {
       assert.equal(candidate.policyDecision.decision, 'accepted');
       assert.equal(candidate.metadata['etfEntityId'], 900);
     }
+  });
+
+  it('ETF basket: the same member pair across multiple ETFs becomes one canonical candidate', () => {
+    const rows = [
+      {
+        etfEntityId: 900,
+        memberEntityId: 71,
+        sourceRevisionId: 7401,
+        availableAt: T0,
+        validFrom: T0,
+      },
+      {
+        etfEntityId: 900,
+        memberEntityId: 72,
+        sourceRevisionId: 7401,
+        availableAt: T0,
+        validFrom: T0,
+      },
+      {
+        etfEntityId: 901,
+        memberEntityId: 71,
+        sourceRevisionId: 7402,
+        availableAt: T1,
+        validFrom: T1,
+      },
+      {
+        etfEntityId: 901,
+        memberEntityId: 72,
+        sourceRevisionId: 7402,
+        availableAt: T1,
+        validFrom: T1,
+      },
+    ];
+    const forward = buildEtfBasketCandidates(rows, { asOf: AS_OF }).candidates;
+    const reversed = buildEtfBasketCandidates([...rows].reverse(), { asOf: AS_OF }).candidates;
+    assert.equal(forward.length, 1);
+    assert.equal(reversed.length, 1);
+    const candidate = forward[0]!;
+    assert.deepEqual(candidate.metadata['etfEntityIds'], [900, 901]);
+    assert.deepEqual(
+      candidate.evidence.map((row) => row.sourceRevisionId),
+      [7401, 7402],
+    );
+    assert.equal(candidate.validFrom, T1);
+    assert.equal(candidate.payloadHash, reversed[0]!.payloadHash);
+  });
+
+  it('ownership: the same security pair across multiple owners becomes one COMMON_OWNER candidate', () => {
+    const rows = [
+      {
+        ownerEntityId: 50,
+        ownedEntityId: 61,
+        ownershipKind: 'institutional_holding' as const,
+        sourceRevisionId: 7201,
+        availableAt: T0,
+        validFrom: T0,
+      },
+      {
+        ownerEntityId: 50,
+        ownedEntityId: 62,
+        ownershipKind: 'institutional_holding' as const,
+        sourceRevisionId: 7202,
+        availableAt: T0,
+        validFrom: T0,
+      },
+      {
+        ownerEntityId: 51,
+        ownedEntityId: 61,
+        ownershipKind: 'institutional_holding' as const,
+        sourceRevisionId: 7203,
+        availableAt: T1,
+        validFrom: T1,
+      },
+      {
+        ownerEntityId: 51,
+        ownedEntityId: 62,
+        ownershipKind: 'institutional_holding' as const,
+        sourceRevisionId: 7204,
+        availableAt: T1,
+        validFrom: T1,
+      },
+    ];
+    const forward = buildOwnershipCandidates(rows, { asOf: AS_OF }).candidates.filter(
+      (candidate) => candidate.predicate === 'COMMON_OWNER',
+    );
+    const reversed = buildOwnershipCandidates([...rows].reverse(), {
+      asOf: AS_OF,
+    }).candidates.filter((candidate) => candidate.predicate === 'COMMON_OWNER');
+    assert.equal(forward.length, 1);
+    assert.equal(reversed.length, 1);
+    assert.deepEqual(forward[0]!.metadata['ownerEntityIds'], [50, 51]);
+    assert.deepEqual(
+      forward[0]!.evidence.map((row) => row.sourceRevisionId).sort((a, b) => a - b),
+      [7201, 7202, 7203, 7204],
+    );
+    assert.equal(forward[0]!.validFrom, T1);
+    assert.equal(forward[0]!.payloadHash, reversed[0]!.payloadHash);
   });
 
   it('news: co-mention is NEVER promoted and syndication replicas do not multiply corroboration', () => {

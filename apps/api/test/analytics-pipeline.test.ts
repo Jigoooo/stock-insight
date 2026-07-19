@@ -17,9 +17,18 @@ test('analytics pipeline fails closed on stale OHLCV and preserves stage order',
     'run-report-publish.ts',
     'run-feed-build.ts',
     'run-probability-calibration.ts',
+    'run-v2-graph-publish.ts',
   ].map((stage) => pipeline.indexOf(stage));
 
   assert.ok(stages.every((position) => position >= 0));
-  assert.deepEqual(stages, [...stages].sort((left, right) => left - right));
+  assert.deepEqual(
+    stages,
+    [...stages].sort((left, right) => left - right),
+  );
+  assert.match(
+    pipeline,
+    /claim\.natural_run_key = 'v2-graph-publish:'[\s\S]*claim_status='completed'/,
+  );
+  assert.match(pipeline, /serving\.v_relation_graph_freshness[\s\S]*servable=true/);
   assert.match(pipeline, /cd "\$ROOT"/);
 });

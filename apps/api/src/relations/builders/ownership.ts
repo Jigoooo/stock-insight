@@ -155,6 +155,14 @@ export function buildOwnershipCandidates(
     holdingsByOwner.set(observation.ownerEntityId, byOwned);
   }
 
+  type CommonOwnerContribution = {
+    ownerEntityId: number;
+    validFrom: string;
+    subjectRows: OwnershipObservation[];
+    objectRows: OwnershipObservation[];
+  };
+  const contributionsByPair = new Map<string, CommonOwnerContribution[]>();
+
   for (const [ownerEntityId, byOwned] of holdingsByOwner) {
     const ownedIds = [...byOwned.keys()].sort((a, b) => a - b);
     if (ownedIds.length < 2) continue;
@@ -178,52 +186,79 @@ export function buildOwnershipCandidates(
           .map((row) => row.validFrom)
           .sort()
           .at(-1)!;
-        const payloadHash = relationPayloadHash({
-          predicate: 'COMMON_OWNER',
-          subjectEntityId,
-          objectEntityId,
-          ownerEntityId,
-          validFrom,
-        });
-        const revisionMap = new Map<number, OwnershipObservation>();
-        for (const row of [...subjectRows, ...objectRows]) {
-          if (!revisionMap.has(row.sourceRevisionId)) revisionMap.set(row.sourceRevisionId, row);
-        }
-        const evidence = [...revisionMap.values()]
-          .sort((a, b) => a.sourceRevisionId - b.sourceRevisionId)
-          .map((row) =>
-            sourceRevisionEvidence({
-              sourceRevisionId: row.sourceRevisionId,
-              payloadHash,
-              evidenceText:
-                `Common owner ${ownerEntityId} holds ${subjectEntityId} and ${objectEntityId} ` +
-                `via immutable source revision ${row.sourceRevisionId}`,
-              validFrom: row.validFrom,
-            }),
-          );
-        const decision = decideCandidate({
-          predicate: 'COMMON_OWNER',
-          evidence,
-          hasModelConfigEvidence: false,
-          subjectDegree: 1,
-          objectDegree: 1,
-        });
-        candidates.push({
-          predicate: 'COMMON_OWNER',
-          subjectEntityId,
-          objectEntityId,
-          relationKind: 'statistical',
-          validFrom,
-          payloadHash,
-          evidence,
-          ...decision,
-          metadata: {
-            builder: 'ownership-v1',
-            ownerEntityId,
-          },
-        });
+        const pairKey = `${subjectEntityId}|${objectEntityId}`;
+        const contributions = contributionsByPair.get(pairKey) ?? [];
+        contributions.push({ ownerEntityId, validFrom, subjectRows, objectRows });
+        contributionsByPair.set(pairKey, contributions);
       }
     }
+  }
+
+  for (const [pairKey, contributions] of contributionsByPair) {
+    const [subjectEntityId, objectEntityId] = pairKey.split('|').map(Number) as [number, number];
+    const ownerEntityIds = [...new Set(contributions.map((row) => row.ownerEntityId))].sort(
+      (a, b) => a - b,
+    );
+    const validFrom = contributions
+      .map((row) => row.validFrom)
+      .sort()
+      .at(-1)!;
+    const payloadHash = relationPayloadHash({
+      predicate: 'COMMON_OWNER',
+      subjectEntityId,
+      objectEntityId,
+      ownerEntityIds,
+      validFrom,
+    });
+    const revisionMap = new Map<
+      number,
+      { observation: OwnershipObservation; ownerEntityIds: Set<number> }
+    >();
+    for (const contribution of contributions) {
+      for (const observation of [...contribution.subjectRows, ...contribution.objectRows]) {
+        const revision = revisionMap.get(observation.sourceRevisionId) ?? {
+          observation,
+          ownerEntityIds: new Set<number>(),
+        };
+        revision.ownerEntityIds.add(contribution.ownerEntityId);
+        revisionMap.set(observation.sourceRevisionId, revision);
+      }
+    }
+    const evidence = [...revisionMap.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([sourceRevisionId, row]) =>
+        sourceRevisionEvidence({
+          sourceRevisionId,
+          payloadHash,
+          evidenceText:
+            `Common owner ${[...row.ownerEntityIds].sort((a, b) => a - b).join(',')} holds ` +
+            `${subjectEntityId} and ${objectEntityId} via immutable source revision ${sourceRevisionId}`,
+          validFrom: row.observation.validFrom,
+        }),
+      );
+    const decision = decideCandidate({
+      predicate: 'COMMON_OWNER',
+      evidence,
+      hasModelConfigEvidence: false,
+      subjectDegree: 1,
+      objectDegree: 1,
+    });
+    const metadata: Record<string, unknown> = {
+      builder: 'ownership-v1',
+      ownerEntityIds,
+    };
+    if (ownerEntityIds.length === 1) metadata['ownerEntityId'] = ownerEntityIds[0]!;
+    candidates.push({
+      predicate: 'COMMON_OWNER',
+      subjectEntityId,
+      objectEntityId,
+      relationKind: 'statistical',
+      validFrom,
+      payloadHash,
+      evidence,
+      ...decision,
+      metadata,
+    });
   }
 
   return { candidates: sortCandidates(candidates), exclusions };

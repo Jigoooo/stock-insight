@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { buildEtfBasketCandidates } from '../src/relations/builders/etf-overlap.ts';
 import { buildOwnershipCandidates } from '../src/relations/builders/ownership.ts';
+import { buildProductSimilarityCandidates } from '../src/relations/builders/product-similarity.ts';
 import { getRelationBuilderPolicy } from '../src/relations/relation-policy.ts';
 
 const AS_OF = '2026-07-19T00:00:00.000Z';
@@ -80,5 +81,28 @@ describe('B6 relation builders — superhub safety', () => {
       assert.ok(candidates.length <= maxPairs);
       assert.equal(candidates.length, (memberCount * (memberCount - 1)) / 2);
     }
+  });
+
+  it('product similarity rejects candidates touching an endpoint above its policy degree cap', () => {
+    const cap = getRelationBuilderPolicy('PRODUCT_SIMILARITY').superhubDegreeCap!;
+    const observations = Array.from({ length: cap + 1 }, (_, index) => ({
+      subjectEntityId: 1,
+      objectEntityId: 10_000 + index,
+      similarityScore: 0.8,
+      modelConfig: { model: 'test-model', threshold: 0.5 },
+      sourceRevisionIds: [20_000 + index * 2, 20_001 + index * 2],
+      availableAt: T0,
+      validFrom: T0,
+    }));
+    const candidates = buildProductSimilarityCandidates(observations, {
+      asOf: AS_OF,
+    }).candidates;
+    assert.equal(candidates.length, cap + 1);
+    assert.ok(candidates.every((candidate) => candidate.policyDecision.decision === 'rejected'));
+    assert.ok(
+      candidates.every((candidate) =>
+        candidate.policyDecision.reasons.includes('superhub_cap_exceeded'),
+      ),
+    );
   });
 });

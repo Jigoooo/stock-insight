@@ -36,6 +36,14 @@ function errorCode(error: unknown): string | undefined {
     : undefined;
 }
 
+function positiveInteger(value: unknown, label: string): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive safe integer`);
+  }
+  return parsed;
+}
+
 async function verifyExistingObject(filePath: string, contentHash: string): Promise<void> {
   const existing = await readFile(filePath);
   const actual = hashContent(existing);
@@ -118,17 +126,21 @@ export async function appendRawObjectManifest(options: {
 }): Promise<void> {
   const root = options.root ?? DEFAULT_ROOT;
   const year = String(options.fetchedAt.getUTCFullYear());
-  const month = String(options.fetchedAt.getUTCMonth() + 1).padStart(2,'0');
-  const day = `${year}-${month}-${String(options.fetchedAt.getUTCDate()).padStart(2,'0')}`;
-  const manifestDir = join(root,'_manifest');
-  await mkdir(manifestDir,{ recursive: true });
-  await appendFile(join(manifestDir,`${day}.jsonl`),`${JSON.stringify({
-    provider_key: options.providerKey,
-    content_hash: options.ref.contentHash,
-    object_uri: options.ref.objectUri,
-    bytes: options.ref.bytes,
-    fetched_at: options.fetchedAt.toISOString(),
-  })}\n`,'utf8');
+  const month = String(options.fetchedAt.getUTCMonth() + 1).padStart(2, '0');
+  const day = `${year}-${month}-${String(options.fetchedAt.getUTCDate()).padStart(2, '0')}`;
+  const manifestDir = join(root, '_manifest');
+  await mkdir(manifestDir, { recursive: true });
+  await appendFile(
+    join(manifestDir, `${day}.jsonl`),
+    `${JSON.stringify({
+      provider_key: options.providerKey,
+      content_hash: options.ref.contentHash,
+      object_uri: options.ref.objectUri,
+      bytes: options.ref.bytes,
+      fetched_at: options.fetchedAt.toISOString(),
+    })}\n`,
+    'utf8',
+  );
 }
 
 /** Read an immutable raw object and verify its bytes against the registered hash. */
@@ -174,31 +186,49 @@ export async function registerRawObjectWithRevision(
     httpMeta: Record<string, unknown>;
     fetchedAt: string;
   },
-): Promise<{ rawObjectId: number; rawInserted: boolean; objectUri: string; revisionNo: number; replay: boolean }> {
-  const registered = await client.query<QueryResultRow & { raw_object_id: number; object_uri?: string; content_hash?: string }>(
-    REGISTER_RAW_OBJECT_SQL,
-    [
-      input.fetchRunId,
-      input.sourceId,
-      input.providerRecordKey,
-      input.contentHash,
-      input.objectUri,
-      JSON.stringify(input.httpMeta),
-      input.fetchedAt,
-    ],
-  );
+): Promise<{
+  rawObjectId: number;
+  rawInserted: boolean;
+  objectUri: string;
+  sourceRevisionId: number;
+  sourceAvailableAt: string;
+  revisionNo: number;
+  replay: boolean;
+}> {
+  const registered = await client.query<
+    QueryResultRow & {
+      raw_object_id: string | number;
+      object_uri?: string;
+      content_hash?: string;
+    }
+  >(REGISTER_RAW_OBJECT_SQL, [
+    input.fetchRunId,
+    input.sourceId,
+    input.providerRecordKey,
+    input.contentHash,
+    input.objectUri,
+    JSON.stringify(input.httpMeta),
+    input.fetchedAt,
+  ]);
   const rawInserted = (registered.rowCount ?? 0) > 0;
   const existing = rawInserted
     ? registered
-    : await client.query<QueryResultRow & { raw_object_id: number; object_uri: string; content_hash: string }>(
+    : await client.query<
+        QueryResultRow & {
+          raw_object_id: string | number;
+          object_uri: string;
+          content_hash: string;
+        }
+      >(
         `SELECT raw_object_id,object_uri,content_hash FROM ingestion.raw_object
          WHERE source_id=$1 AND content_hash=$2`,
         [input.sourceId, input.contentHash],
       );
-  const rawObjectId = existing.rows[0]?.raw_object_id;
-  if (rawObjectId === undefined) {
+  const rawObjectValue = existing.rows[0]?.raw_object_id;
+  if (rawObjectValue === undefined) {
     throw new Error('raw object registration did not return or resolve a durable row');
   }
+  const rawObjectId = positiveInteger(rawObjectValue, 'rawObjectId');
   const authoritativeObjectUri = rawInserted ? input.objectUri : existing.rows[0]?.object_uri;
   if (authoritativeObjectUri === undefined) {
     throw new Error('existing raw object is missing its authoritative object URI');
@@ -214,26 +244,34 @@ export async function registerRawObjectWithRevision(
     });
   }
 
-  const contract = await client.query<QueryResultRow & { source_contract_revision_id: number }>(
+  const contract = await client.query<
+    QueryResultRow & { source_contract_revision_id: string | number }
+  >(
     `SELECT source_contract_revision_id
      FROM ingestion.source_contract_revision
      WHERE source_id=$1
        AND policy_status IN ('provisional_review_required','approved')
        AND effective_from<=$2::timestamptz
        AND (effective_to IS NULL OR effective_to>$2::timestamptz)
-       AND known_from<=now()
-       AND (known_to IS NULL OR known_to>now())
+       AND known_from<=$2::timestamptz
+       AND (known_to IS NULL OR known_to>$2::timestamptz)
      ORDER BY revision_no DESC,known_from DESC
-     LIMIT 1`,
-    [input.sourceId,input.fetchedAt],
+     LIMIT 2`,
+    [input.sourceId, input.fetchedAt],
   );
   if (contract.rows.length !== 1) {
-    throw new Error(`source ${input.sourceId} requires exactly one current applicable contract; got ${contract.rows.length}`);
+    throw new Error(
+      `source ${input.sourceId} requires exactly one current applicable contract; got ${contract.rows.length}`,
+    );
   }
-  const sourceContractRevisionId = contract.rows[0]?.source_contract_revision_id;
-  if (sourceContractRevisionId === undefined) {
+  const sourceContractRevisionValue = contract.rows[0]?.source_contract_revision_id;
+  if (sourceContractRevisionValue === undefined) {
     throw new Error(`source contract revision is missing for source ${input.sourceId}`);
   }
+  const sourceContractRevisionId = positiveInteger(
+    sourceContractRevisionValue,
+    'sourceContractRevisionId',
+  );
 
   const revision = await appendSourceRevision(client, {
     sourceId: input.sourceId,
@@ -248,6 +286,8 @@ export async function registerRawObjectWithRevision(
     rawObjectId,
     rawInserted,
     objectUri: authoritativeObjectUri,
+    sourceRevisionId: revision.sourceRevisionId,
+    sourceAvailableAt: revision.availableAt,
     revisionNo: revision.revisionNo,
     replay: revision.outcome === 'replayed',
   };

@@ -34,22 +34,30 @@ const draft = (overrides: Partial<RelationCandidateDraft> = {}): RelationCandida
 
 type Call = { sql: string; params: readonly unknown[] };
 
-function makeClient() {
+function makeClient(
+  previousRevision: Record<string, unknown> | null = null,
+  bigintStrings = false,
+) {
   const calls: Call[] = [];
   const client = {
     async query(sql: string, params: readonly unknown[] = []) {
       calls.push({ sql, params });
       if (/INSERT INTO knowledge\.relation_identity/i.test(sql)) {
-        return { rowCount: 1, rows: [{ relation_identity_id: 71 }] };
+        return { rowCount: 1, rows: [{ relation_identity_id: bigintStrings ? '71' : 71 }] };
       }
       if (/SELECT relation_identity_id/i.test(sql)) {
         return { rowCount: 1, rows: [{ relation_identity_id: 71 }] };
       }
-      if (/SELECT relation_revision_id,revision_no FROM knowledge\.relation_revision/i.test(sql)) {
-        return { rowCount: 0, rows: [] };
+      if (
+        /SELECT relation_revision_id,revision_no/i.test(sql) &&
+        /knowledge\.relation_revision/i.test(sql)
+      ) {
+        return previousRevision === null
+          ? { rowCount: 0, rows: [] }
+          : { rowCount: 1, rows: [previousRevision] };
       }
       if (/INSERT INTO knowledge\.relation_revision/i.test(sql)) {
-        return { rowCount: 1, rows: [{ relation_revision_id: 81 }] };
+        return { rowCount: 1, rows: [{ relation_revision_id: bigintStrings ? '81' : 81 }] };
       }
       if (/INSERT INTO knowledge\.relation_evidence_ledger/i.test(sql)) {
         return { rowCount: 1, rows: [{ relation_evidence_ledger_id: 91 }] };
@@ -64,6 +72,18 @@ function makeClient() {
 }
 
 describe('B6 relation candidate persister', () => {
+  it('normalizes node-postgres BIGINT strings at the persistence boundary', async () => {
+    const { client } = makeClient(null, true);
+    const result = await persistRelationCandidates(client as never, [draft()], {
+      predicateOntologyRevisionIds: { CLASSIFIED_AS: 61 },
+      confidence: 1,
+    });
+    assert.equal(result.persisted[0]!.relationIdentityId, 71);
+    assert.equal(result.persisted[0]!.relationRevisionId, 81);
+    assert.equal(typeof result.persisted[0]!.relationIdentityId, 'number');
+    assert.equal(typeof result.persisted[0]!.relationRevisionId, 'number');
+  });
+
   it('writes evidence BEFORE the revision so the accepted guard can see it', async () => {
     const { client, calls } = makeClient();
     const result = await persistRelationCandidates(client as never, [draft()], {
@@ -134,5 +154,60 @@ describe('B6 relation candidate persister', () => {
         }),
       /ontology revision/i,
     );
+  });
+
+  it('replays an unchanged latest revision instead of appending duplicate history', async () => {
+    const candidate = draft();
+    const { client, calls } = makeClient({
+      relation_revision_id: '80',
+      revision_no: '3',
+      predicate_ontology_revision_id: '61',
+      relation_kind: 'structural',
+      confidence: 1,
+      revision_status: 'accepted',
+      valid_from: candidate.validFrom,
+      valid_to: null,
+      payload_hash: candidate.payloadHash,
+    });
+    const result = await persistRelationCandidates(client as never, [candidate], {
+      predicateOntologyRevisionIds: { CLASSIFIED_AS: 61 },
+      confidence: 1,
+    });
+    assert.equal(result.persisted[0]!.outcome, 'replayed');
+    assert.equal(result.persisted[0]!.relationRevisionId, 80);
+    assert.equal(result.persisted[0]!.revisionNo, 3);
+    assert.ok(calls.some((call) => /relation_evidence_ledger/i.test(call.sql)));
+    assert.ok(!calls.some((call) => /INSERT INTO knowledge\.relation_revision/i.test(call.sql)));
+  });
+
+  it('persists exact model-config evidence before an accepted statistical revision', async () => {
+    const modelConfig = { model: 'tfidf-cosine-v1', threshold: 0.04, degreeCap: 12 };
+    const candidate = draft({
+      predicate: 'PRODUCT_SIMILARITY',
+      relationKind: 'statistical',
+      modelConfig,
+      metadata: { builder: 'product-similarity-v1', similarityScore: 0.72 },
+    });
+    const { client, calls } = makeClient();
+    await persistRelationCandidates(client as never, [candidate], {
+      predicateOntologyRevisionIds: { PRODUCT_SIMILARITY: 62 },
+      confidence: (row) => Number(row.metadata['similarityScore']),
+    });
+    const modelEvidenceIndex = calls.findIndex(
+      (call) =>
+        /INSERT INTO knowledge\.relation_evidence_ledger/i.test(call.sql) &&
+        /model_config/i.test(call.sql),
+    );
+    const revisionIndex = calls.findIndex((call) =>
+      /INSERT INTO knowledge\.relation_revision/i.test(call.sql),
+    );
+    assert.ok(modelEvidenceIndex >= 0);
+    assert.ok(modelEvidenceIndex < revisionIndex);
+    const serialized = calls[modelEvidenceIndex]!.params.find(
+      (value) => typeof value === 'string' && value.includes('tfidf-cosine-v1'),
+    );
+    assert.equal(typeof serialized, 'string');
+    assert.deepEqual(JSON.parse(serialized as string), modelConfig);
+    assert.ok(calls[revisionIndex]!.params.includes(0.72));
   });
 });

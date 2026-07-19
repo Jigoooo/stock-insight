@@ -1,5 +1,13 @@
 import type { PoolClient, QueryResultRow } from 'pg';
 
+function positiveInteger(value: unknown, label: string): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error(`${label} must be a positive safe integer`);
+  }
+  return parsed;
+}
+
 export type RelationRevisionInput = {
   relationIdentityId: number;
   predicateOntologyRevisionId: number;
@@ -15,24 +23,74 @@ export type RelationRevisionInput = {
 export async function appendRelationRevision(
   client: PoolClient,
   input: RelationRevisionInput,
-): Promise<{ relationRevisionId: number; revisionNo: number }> {
+): Promise<{
+  relationRevisionId: number;
+  revisionNo: number;
+  outcome: 'inserted' | 'replayed';
+}> {
   if (input.confidence < 0 || input.confidence > 1)
     throw new Error('confidence must be between 0 and 1');
   if (!/^[a-f0-9]{64}$/i.test(input.payloadHash))
     throw new Error('payloadHash must be SHA-256 hex');
   await client.query('SELECT pg_advisory_xact_lock($1)', [input.relationIdentityId]);
   const latest = await client.query<
-    QueryResultRow & { relation_revision_id: number; revision_no: number }
+    QueryResultRow & {
+      relation_revision_id: string | number;
+      revision_no: string | number;
+      predicate_ontology_revision_id: string | number;
+      relation_kind: string;
+      confidence: number;
+      revision_status: string;
+      valid_from: Date | string;
+      valid_to: Date | string | null;
+      payload_hash: string;
+    }
   >(
     `
-    SELECT relation_revision_id,revision_no FROM knowledge.relation_revision
+    SELECT relation_revision_id,revision_no,predicate_ontology_revision_id,
+           relation_kind,confidence,revision_status,valid_from,valid_to,payload_hash
+    FROM knowledge.relation_revision
     WHERE relation_identity_id=$1 ORDER BY revision_no DESC LIMIT 1 FOR UPDATE
   `,
     [input.relationIdentityId],
   );
   const previous = latest.rows[0];
-  const revisionNo = (previous?.revision_no ?? 0) + 1;
-  const inserted = await client.query<QueryResultRow & { relation_revision_id: number }>(
+  const previousRevisionId =
+    previous === undefined
+      ? null
+      : positiveInteger(previous.relation_revision_id, 'previousRelationRevisionId');
+  const previousRevisionNo =
+    previous === undefined ? 0 : positiveInteger(previous.revision_no, 'previousRevisionNo');
+  const previousOntologyRevisionId =
+    previous === undefined
+      ? null
+      : positiveInteger(
+          previous.predicate_ontology_revision_id,
+          'previousPredicateOntologyRevisionId',
+        );
+  const toIso = (value: Date | string): string =>
+    value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  const previousValidTo =
+    previous === undefined || previous.valid_to === null ? null : toIso(previous.valid_to);
+  const inputValidTo = input.validTo === undefined ? null : toIso(input.validTo);
+  if (
+    previous !== undefined &&
+    previousOntologyRevisionId === input.predicateOntologyRevisionId &&
+    previous.relation_kind === input.relationKind &&
+    Math.fround(previous.confidence) === Math.fround(input.confidence) &&
+    previous.revision_status === input.revisionStatus &&
+    toIso(previous.valid_from) === toIso(input.validFrom) &&
+    previousValidTo === inputValidTo &&
+    previous.payload_hash === input.payloadHash
+  ) {
+    return {
+      relationRevisionId: previousRevisionId!,
+      revisionNo: previousRevisionNo,
+      outcome: 'replayed',
+    };
+  }
+  const revisionNo = previousRevisionNo + 1;
+  const inserted = await client.query<QueryResultRow & { relation_revision_id: string | number }>(
     `
     INSERT INTO knowledge.relation_revision (
       relation_identity_id,revision_no,predicate_ontology_revision_id,
@@ -50,12 +108,19 @@ export async function appendRelationRevision(
       input.revisionStatus,
       input.validFrom,
       input.validTo ?? null,
-      previous?.relation_revision_id ?? null,
+      previousRevisionId,
       input.payloadHash,
       JSON.stringify(input.metadata ?? {}),
     ],
   );
-  return { relationRevisionId: inserted.rows[0]!.relation_revision_id, revisionNo };
+  return {
+    relationRevisionId: positiveInteger(
+      inserted.rows[0]!.relation_revision_id,
+      'relationRevisionId',
+    ),
+    revisionNo,
+    outcome: 'inserted',
+  };
 }
 
 export async function appendRelationEvidence(
@@ -144,6 +209,47 @@ export async function appendSourceRevisionRelationEvidence(
       input.validFrom ?? null,
       input.validTo ?? null,
       JSON.stringify(metadata),
+    ],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function appendModelConfigRelationEvidence(
+  client: PoolClient,
+  input: {
+    relationIdentityId: number;
+    relationPayloadHash: string;
+    modelConfig: Record<string, unknown>;
+    evidenceText: string;
+    evidenceHash: string;
+  },
+): Promise<boolean> {
+  if (!Number.isSafeInteger(input.relationIdentityId) || input.relationIdentityId <= 0) {
+    throw new Error('relationIdentityId must be a positive integer');
+  }
+  if (!/^[a-f0-9]{64}$/i.test(input.relationPayloadHash)) {
+    throw new Error('relationPayloadHash must be SHA-256 hex');
+  }
+  if (!/^[a-f0-9]{64}$/i.test(input.evidenceHash)) {
+    throw new Error('evidenceHash must be SHA-256 hex');
+  }
+  if (!input.evidenceText.trim()) throw new Error('evidenceText is required');
+  const result = await client.query(
+    `
+    INSERT INTO knowledge.relation_evidence_ledger (
+      relation_identity_id,evidence_kind,relation_payload_hash,
+      evidence_text,evidence_hash,model_config,metadata
+    ) VALUES ($1,'model_config',$2,$3,$4,$5::jsonb,
+              '{"writer":"relation-store","policy":"exact-model-config"}'::jsonb)
+    ON CONFLICT (relation_identity_id,evidence_hash) DO NOTHING
+    RETURNING relation_evidence_ledger_id
+  `,
+    [
+      input.relationIdentityId,
+      input.relationPayloadHash,
+      input.evidenceText,
+      input.evidenceHash,
+      JSON.stringify(input.modelConfig),
     ],
   );
   return (result.rowCount ?? 0) > 0;

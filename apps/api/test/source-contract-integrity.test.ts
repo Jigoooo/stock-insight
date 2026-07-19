@@ -10,11 +10,14 @@ const databaseUrl = process.env.STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL;
 const skipReason = databaseUrl ? false : 'STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is required';
 
 describe('B2 source contract coverage and immutability', () => {
-  it('covers every active source exactly once with an honest active baseline contract', { skip: skipReason }, async () => {
-    assert.ok(databaseUrl);
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-    try {
-      const result = await pool.query(`
+  it(
+    'covers every active source exactly once with an honest active baseline contract',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      try {
+        const result = await pool.query(`
         SELECT
           (SELECT count(*)::int FROM ingestion.source) AS active_sources,
           (SELECT count(*)::int FROM ingestion.source_contract_current_v1) AS active_contracts,
@@ -24,25 +27,49 @@ describe('B2 source contract coverage and immutability', () => {
              WHERE contract.source_id=source.source_id
            )) AS uncovered,
           (SELECT count(*)::int FROM ingestion.source_contract_revision
-           WHERE policy_status='provisional_review_required') AS provisional
+           WHERE policy_status='provisional_review_required' AND known_to IS NULL) AS provisional,
+          (SELECT count(*)::int FROM ingestion.source_contract_current_v1
+           WHERE policy_status='approved') AS approved,
+          (SELECT count(*)::int
+           FROM ingestion.source_contract_current_v1 contract
+           JOIN ingestion.source source USING(source_id)
+           WHERE contract.policy_status='approved'
+             AND NOT (
+               source.source_type='internal'
+               AND source.license_status='allowed'
+               AND source.redistribution='internal_only'
+               AND source.metadata->>'transitional_source'='true'
+             )) AS invalid_approved
       `);
-      assert.equal(result.rows[0]!.uncovered, 0);
-      assert.equal(result.rows[0]!.active_contracts, result.rows[0]!.active_sources);
-      // Initial backfill must not fabricate operator approval.
-      assert.equal(result.rows[0]!.provisional, result.rows[0]!.active_sources);
-    } finally {
-      await pool.end();
-    }
-  });
+        assert.equal(result.rows[0]!.uncovered, 0);
+        assert.equal(result.rows[0]!.active_contracts, result.rows[0]!.active_sources);
+        // Initial backfill stays provisional; explicit internal transitional
+        // sources may be approved, but external/redistributable approvals fail closed.
+        assert.equal(
+          result.rows[0]!.provisional + result.rows[0]!.approved,
+          result.rows[0]!.active_sources,
+        );
+        assert.equal(result.rows[0]!.invalid_approved, 0);
+      } finally {
+        await pool.end();
+      }
+    },
+  );
 
-  it('derives current contract from the latest append-only revision', { skip: skipReason }, async () => {
-    assert.ok(databaseUrl);
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
-      const appended = await client.query(`
+  it(
+    'derives current contract from the latest append-only revision',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))",
+        );
+        const appended = await client.query(
+          `
         INSERT INTO ingestion.source_contract_revision (
           source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
           correction_policy,required_fields,license_policy,redistribution_policy,
@@ -55,65 +82,100 @@ describe('B2 source contract coverage and immutability', () => {
                source_contract_revision_id,$1
         FROM ingestion.source_contract_current_v1 ORDER BY source_id LIMIT 1
         RETURNING source_contract_revision_id,source_id,revision_no
-      `, [createHash('sha256').update(randomUUID()).digest('hex')]);
-      const current = await client.query(`
+      `,
+          [createHash('sha256').update(randomUUID()).digest('hex')],
+        );
+        const current = await client.query(
+          `
         SELECT source_contract_revision_id,revision_no
         FROM ingestion.source_contract_current_v1 WHERE source_id=$1
-      `, [appended.rows[0]!.source_id]);
-      assert.equal(current.rows[0]!.source_contract_revision_id, appended.rows[0]!.source_contract_revision_id);
-      assert.equal(current.rows[0]!.revision_no, appended.rows[0]!.revision_no);
-      await client.query('ROLLBACK');
-    } finally {
-      await client.query('ROLLBACK').catch(() => undefined);
-      client.release();
-      await pool.end();
-    }
-  });
+      `,
+          [appended.rows[0]!.source_id],
+        );
+        assert.equal(
+          current.rows[0]!.source_contract_revision_id,
+          appended.rows[0]!.source_contract_revision_id,
+        );
+        assert.equal(current.rows[0]!.revision_no, appended.rows[0]!.revision_no);
+        await client.query('ROLLBACK');
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+        await pool.end();
+      }
+    },
+  );
 
-  it('keeps the currently effective contract visible when a future revision is appended', { skip: skipReason }, async () => {
-    assert.ok(databaseUrl);
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
-      const baseline = await client.query(`
+  it(
+    'keeps the currently effective contract visible when a future revision is appended',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))",
+        );
+        const baseline = await client.query(`
         SELECT * FROM ingestion.source_contract_current_v1 ORDER BY source_id LIMIT 1
       `);
-      const row = baseline.rows[0]!;
-      await client.query(`
+        const row = baseline.rows[0]!;
+        await client.query(
+          `
         INSERT INTO ingestion.source_contract_revision (
           source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
           correction_policy,required_fields,license_policy,redistribution_policy,
           raw_retention_policy,quality_gate_policy,effective_from,known_from,
           supersedes_contract_revision_id,content_hash
         ) VALUES ($1,$2,'approved',$3,$4,$5,$6,$7,$8,$9,$10,$11,now()+interval '1 day',now(),$12,$13)
-      `,[
-        row.source_id,row.revision_no+1,row.cadence_policy,row.cutoff_policy,row.delay_policy,
-        row.correction_policy,row.required_fields,row.license_policy,row.redistribution_policy,
-        row.raw_retention_policy,row.quality_gate_policy,row.source_contract_revision_id,
-        createHash('sha256').update(randomUUID()).digest('hex'),
-      ]);
-      const current = await client.query(`
+      `,
+          [
+            row.source_id,
+            row.revision_no + 1,
+            row.cadence_policy,
+            row.cutoff_policy,
+            row.delay_policy,
+            row.correction_policy,
+            row.required_fields,
+            row.license_policy,
+            row.redistribution_policy,
+            row.raw_retention_policy,
+            row.quality_gate_policy,
+            row.source_contract_revision_id,
+            createHash('sha256').update(randomUUID()).digest('hex'),
+          ],
+        );
+        const current = await client.query(
+          `
         SELECT source_contract_revision_id FROM ingestion.source_contract_current_v1 WHERE source_id=$1
-      `,[row.source_id]);
-      assert.equal(current.rows[0]!.source_contract_revision_id,row.source_contract_revision_id);
-      await client.query('ROLLBACK');
-    } finally {
-      await client.query('ROLLBACK').catch(() => undefined);
-      client.release();
-      await pool.end();
-    }
-  });
+      `,
+          [row.source_id],
+        );
+        assert.equal(current.rows[0]!.source_contract_revision_id, row.source_contract_revision_id);
+        await client.query('ROLLBACK');
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+        await pool.end();
+      }
+    },
+  );
 
-  it('appends a late raw object after max revision instead of renumbering history', { skip: skipReason }, async () => {
-    assert.ok(databaseUrl);
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
-      const selected = await client.query(`
+  it(
+    'appends a late raw object after max revision instead of renumbering history',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))",
+        );
+        const selected = await client.query(`
         SELECT identity.source_record_identity_id,identity.source_id,identity.provider_record_key,
                max(revision.revision_no)::int AS max_revision
         FROM ingestion.source_record_identity identity
@@ -121,10 +183,11 @@ describe('B2 source contract coverage and immutability', () => {
         GROUP BY identity.source_record_identity_id,identity.source_id,identity.provider_record_key
         ORDER BY identity.source_record_identity_id LIMIT 1
       `);
-      const row = selected.rows[0]!;
-      const suffix = randomUUID();
-      const contentHash = createHash('sha256').update(suffix).digest('hex');
-      const raw = await client.query(`
+        const row = selected.rows[0]!;
+        const suffix = randomUUID();
+        const contentHash = createHash('sha256').update(suffix).digest('hex');
+        const raw = await client.query(
+          `
         WITH inserted_fetch AS (
           INSERT INTO ingestion.fetch_run (source_id,run_id,idempotency_key,started_at,status)
           VALUES ($1,$2,$2,now(),'running') RETURNING fetch_run_id
@@ -133,9 +196,18 @@ describe('B2 source contract coverage and immutability', () => {
           fetch_run_id,source_id,source_document_id,content_hash,object_uri,http_meta,fetched_at
         ) SELECT fetch_run_id,$1,$3,$4,$5,'{}','2000-01-01T00:00:00Z' FROM inserted_fetch
         RETURNING raw_object_id
-      `, [row.source_id, `late-${suffix}`, row.provider_record_key, contentHash, `file:///tmp/${contentHash}`]);
-      await client.query(sourceRevisionContractsMigrationSql);
-      const revision = await client.query(`
+      `,
+          [
+            row.source_id,
+            `late-${suffix}`,
+            row.provider_record_key,
+            contentHash,
+            `file:///tmp/${contentHash}`,
+          ],
+        );
+        await client.query(sourceRevisionContractsMigrationSql);
+        const revision = await client.query(
+          `
         SELECT revision.revision_no,revision.available_at,
                (SELECT count(*)::int FROM ops.outbox_event event
                 WHERE event.aggregate_type='source_record'
@@ -143,33 +215,47 @@ describe('B2 source contract coverage and immutability', () => {
                   AND event.aggregate_version=revision.revision_no
                   AND event.event_type='source.revision.appended') AS outbox_rows
         FROM ingestion.source_revision revision WHERE revision.raw_object_id=$1
-      `,[raw.rows[0]!.raw_object_id]);
-      assert.equal(revision.rows[0]!.revision_no, row.max_revision + 1);
-      assert.equal(new Date(revision.rows[0]!.available_at).toISOString(), '2000-01-01T00:00:00.000Z');
-      assert.equal(revision.rows[0]!.outbox_rows,1);
-      await client.query('ROLLBACK');
-    } finally {
-      await client.query('ROLLBACK').catch(() => undefined);
-      client.release();
-      await pool.end();
-    }
-  });
+      `,
+          [raw.rows[0]!.raw_object_id],
+        );
+        assert.equal(revision.rows[0]!.revision_no, row.max_revision + 1);
+        assert.equal(
+          new Date(revision.rows[0]!.available_at).toISOString(),
+          '2000-01-01T00:00:00.000Z',
+        );
+        assert.equal(revision.rows[0]!.outbox_rows, 1);
+        await client.query('ROLLBACK');
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+        await pool.end();
+      }
+    },
+  );
 
-  it('rejects UPDATE and DELETE on both immutable revision ledgers', { skip: skipReason }, async () => {
-    assert.ok(databaseUrl);
-    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
-      await assert.rejects(
-        () => client.query(`UPDATE ingestion.source_contract_revision SET policy_status='approved' WHERE source_contract_revision_id=(SELECT min(source_contract_revision_id) FROM ingestion.source_contract_revision)`),
-        /append-only/,
-      );
-      await client.query('ROLLBACK');
+  it(
+    'rejects UPDATE and DELETE on both immutable revision ledgers',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))",
+        );
+        await assert.rejects(
+          () =>
+            client.query(
+              `UPDATE ingestion.source_contract_revision SET policy_status='approved' WHERE source_contract_revision_id=(SELECT min(source_contract_revision_id) FROM ingestion.source_contract_revision)`,
+            ),
+          /append-only/,
+        );
+        await client.query('ROLLBACK');
 
-      // Seed one ledger row when the schema-only rehearsal has no raw backfill.
-      const seed = await client.query(`
+        // Seed one ledger row when the schema-only rehearsal has no raw backfill.
+        const seed = await client.query(`
         WITH selected AS (
           SELECT contract.source_contract_revision_id, contract.source_id
           FROM ingestion.source_contract_revision contract ORDER BY contract.source_id LIMIT 1
@@ -195,20 +281,30 @@ describe('B2 source contract coverage and immutability', () => {
         ON CONFLICT (source_record_identity_id,revision_no) DO NOTHING
         RETURNING source_revision_id
       `);
-      const revisionId = seed.rows[0]?.source_revision_id ?? (
-        await client.query(`SELECT min(source_revision_id) AS id FROM ingestion.source_revision`)
-      ).rows[0]!.id;
-      assert.ok(revisionId);
-      await client.query('BEGIN');
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))");
-      await assert.rejects(
-        () => client.query('DELETE FROM ingestion.source_revision WHERE source_revision_id=$1', [revisionId]),
-        /append-only/,
-      );
-      await client.query('ROLLBACK');
-    } finally {
-      client.release();
-      await pool.end();
-    }
-  });
+        const revisionId =
+          seed.rows[0]?.source_revision_id ??
+          (
+            await client.query(
+              `SELECT min(source_revision_id) AS id FROM ingestion.source_revision`,
+            )
+          ).rows[0]!.id;
+        assert.ok(revisionId);
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-revision-test',0))",
+        );
+        await assert.rejects(
+          () =>
+            client.query('DELETE FROM ingestion.source_revision WHERE source_revision_id=$1', [
+              revisionId,
+            ]),
+          /append-only/,
+        );
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+        await pool.end();
+      }
+    },
+  );
 });

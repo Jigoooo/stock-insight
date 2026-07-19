@@ -52,6 +52,13 @@ export function buildEtfBasketCandidates(
 
   const candidates: RelationCandidateDraft[] = [];
   const exclusions: SuperhubExclusion[] = [];
+  type PairContribution = {
+    etfEntityId: number;
+    validFrom: string;
+    subjectRows: EtfBasketObservation[];
+    objectRows: EtfBasketObservation[];
+  };
+  const contributionsByPair = new Map<string, PairContribution[]>();
 
   for (const [etfEntityId, byMember] of membersByEtf) {
     const memberIds = [...byMember.keys()].sort((a, b) => a - b);
@@ -77,52 +84,79 @@ export function buildEtfBasketCandidates(
           .map((row) => row.validFrom)
           .sort()
           .at(-1)!;
-        const payloadHash = relationPayloadHash({
-          predicate: 'SAME_ETF_BASKET',
-          subjectEntityId,
-          objectEntityId,
-          etfEntityId,
-          validFrom,
-        });
-        const revisionMap = new Map<number, EtfBasketObservation>();
-        for (const row of [...subjectRows, ...objectRows]) {
-          if (!revisionMap.has(row.sourceRevisionId)) revisionMap.set(row.sourceRevisionId, row);
-        }
-        const evidence = [...revisionMap.values()]
-          .sort((a, b) => a.sourceRevisionId - b.sourceRevisionId)
-          .map((row) =>
-            sourceRevisionEvidence({
-              sourceRevisionId: row.sourceRevisionId,
-              payloadHash,
-              evidenceText:
-                `ETF ${etfEntityId} basket co-membership of ${subjectEntityId} and ${objectEntityId} ` +
-                `from immutable source revision ${row.sourceRevisionId}`,
-              validFrom: row.validFrom,
-            }),
-          );
-        const decision = decideCandidate({
-          predicate: 'SAME_ETF_BASKET',
-          evidence,
-          hasModelConfigEvidence: false,
-          subjectDegree: 1,
-          objectDegree: 1,
-        });
-        candidates.push({
-          predicate: 'SAME_ETF_BASKET',
-          subjectEntityId,
-          objectEntityId,
-          relationKind: 'statistical',
-          validFrom,
-          payloadHash,
-          evidence,
-          ...decision,
-          metadata: {
-            builder: 'etf-overlap-v1',
-            etfEntityId,
-          },
-        });
+        const pairKey = `${subjectEntityId}|${objectEntityId}`;
+        const contributions = contributionsByPair.get(pairKey) ?? [];
+        contributions.push({ etfEntityId, validFrom, subjectRows, objectRows });
+        contributionsByPair.set(pairKey, contributions);
       }
     }
+  }
+
+  for (const [pairKey, contributions] of contributionsByPair) {
+    const [subjectEntityId, objectEntityId] = pairKey.split('|').map(Number) as [number, number];
+    const etfEntityIds = [...new Set(contributions.map((row) => row.etfEntityId))].sort(
+      (a, b) => a - b,
+    );
+    const validFrom = contributions
+      .map((row) => row.validFrom)
+      .sort()
+      .at(-1)!;
+    const payloadHash = relationPayloadHash({
+      predicate: 'SAME_ETF_BASKET',
+      subjectEntityId,
+      objectEntityId,
+      etfEntityIds,
+      validFrom,
+    });
+    const revisionMap = new Map<
+      number,
+      { observation: EtfBasketObservation; etfEntityIds: Set<number> }
+    >();
+    for (const contribution of contributions) {
+      for (const observation of [...contribution.subjectRows, ...contribution.objectRows]) {
+        const revision = revisionMap.get(observation.sourceRevisionId) ?? {
+          observation,
+          etfEntityIds: new Set<number>(),
+        };
+        revision.etfEntityIds.add(contribution.etfEntityId);
+        revisionMap.set(observation.sourceRevisionId, revision);
+      }
+    }
+    const evidence = [...revisionMap.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([sourceRevisionId, row]) =>
+        sourceRevisionEvidence({
+          sourceRevisionId,
+          payloadHash,
+          evidenceText:
+            `ETF ${[...row.etfEntityIds].sort((a, b) => a - b).join(',')} basket co-membership ` +
+            `of ${subjectEntityId} and ${objectEntityId} from immutable source revision ${sourceRevisionId}`,
+          validFrom: row.observation.validFrom,
+        }),
+      );
+    const decision = decideCandidate({
+      predicate: 'SAME_ETF_BASKET',
+      evidence,
+      hasModelConfigEvidence: false,
+      subjectDegree: 1,
+      objectDegree: 1,
+    });
+    const metadata: Record<string, unknown> = {
+      builder: 'etf-overlap-v1',
+      etfEntityIds,
+    };
+    if (etfEntityIds.length === 1) metadata['etfEntityId'] = etfEntityIds[0]!;
+    candidates.push({
+      predicate: 'SAME_ETF_BASKET',
+      subjectEntityId,
+      objectEntityId,
+      relationKind: 'statistical',
+      validFrom,
+      payloadHash,
+      evidence,
+      ...decision,
+      metadata,
+    });
   }
 
   return { candidates: sortCandidates(candidates), exclusions };
