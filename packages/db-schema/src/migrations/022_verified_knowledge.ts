@@ -263,6 +263,19 @@ BEGIN
   RETURN NEW;
 END $$;
 
+CREATE OR REPLACE FUNCTION knowledge.guard_initial_verification_status()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.verification_status<>'unverified' THEN
+    RAISE EXCEPTION '% must be inserted as unverified and promoted through the evidence policy',TG_TABLE_SCHEMA||'.'||TG_TABLE_NAME
+      USING ERRCODE='23514';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS claim_initial_verification_guard ON knowledge.claim;
+CREATE TRIGGER claim_initial_verification_guard BEFORE INSERT ON knowledge.claim
+FOR EACH ROW EXECUTE FUNCTION knowledge.guard_initial_verification_status();
 DROP TRIGGER IF EXISTS claim_verification_guard ON knowledge.claim;
 CREATE TRIGGER claim_verification_guard BEFORE UPDATE OF verification_status ON knowledge.claim
 FOR EACH ROW EXECUTE FUNCTION knowledge.guard_verification_transition();
@@ -270,6 +283,9 @@ DROP TRIGGER IF EXISTS claim_verification_audit ON knowledge.claim;
 CREATE TRIGGER claim_verification_audit AFTER UPDATE OF verification_status ON knowledge.claim
 FOR EACH ROW EXECUTE FUNCTION knowledge.record_verification_transition();
 
+DROP TRIGGER IF EXISTS event_initial_verification_guard ON knowledge.event;
+CREATE TRIGGER event_initial_verification_guard BEFORE INSERT ON knowledge.event
+FOR EACH ROW EXECUTE FUNCTION knowledge.guard_initial_verification_status();
 DROP TRIGGER IF EXISTS event_verification_guard ON knowledge.event;
 CREATE TRIGGER event_verification_guard BEFORE UPDATE OF verification_status ON knowledge.event
 FOR EACH ROW EXECUTE FUNCTION knowledge.guard_verification_transition();

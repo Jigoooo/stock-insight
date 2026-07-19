@@ -129,11 +129,39 @@ describe('B0 report truth publication race guard', () => {
       await publisher.query('BEGIN');
       const event = await publisher.query(`
         INSERT INTO knowledge.event (
-          event_type,verification_status,dedupe_key,summary_text,extraction_run_id,metadata
-        ) VALUES ('truth_lock_fixture','verified',$1,'fixture',$1,'{"fixture":true}')
+          event_type,dedupe_key,summary_text,extraction_run_id,metadata
+        ) VALUES ('truth_lock_fixture',$1,'fixture',$1,'{"fixture":true}')
         RETURNING event_id
       `,[`truth-lock-${suffix}`]);
       eventId = event.rows[0]!.event_id;
+      const evidenceDocs = await publisher.query(`
+        SELECT DISTINCT ON (document.document_id)
+               document.document_id,chunk.chunk_id,left(chunk.content,400) AS quote
+        FROM knowledge.document document
+        JOIN knowledge.document_chunk chunk USING(document_id)
+        ORDER BY document.document_id,chunk.chunk_index
+        LIMIT 2
+      `);
+      assert.equal(evidenceDocs.rows.length,2);
+      for (const doc of evidenceDocs.rows) {
+        await publisher.query(`
+          INSERT INTO knowledge.event_evidence (
+            event_id,document_id,chunk_id,evidence_role,quote
+          ) VALUES ($1,$2,$3,'support',$4)
+        `,[eventId,doc.document_id,doc.chunk_id,doc.quote]);
+      }
+      await publisher.query(`
+        UPDATE knowledge.event
+        SET verification_status='corroborated',
+            metadata=metadata||'{"verification_reason":"lock fixture","verification_actor":"test"}'::jsonb
+        WHERE event_id=$1
+      `,[eventId]);
+      await publisher.query(`
+        UPDATE knowledge.event
+        SET verification_status='verified',
+            metadata=metadata||'{"verification_reason":"lock fixture","verification_actor":"test"}'::jsonb
+        WHERE event_id=$1
+      `,[eventId]);
       const report = await publisher.query(`
         INSERT INTO content.report (
           report_run_id,report_type,scope_entity_id,audience_key,title,summary,
@@ -188,13 +216,6 @@ describe('B0 report truth publication race guard', () => {
     } finally {
       await publisher.query('ROLLBACK').catch(() => undefined);
       await retractor.query('ROLLBACK').catch(() => undefined);
-      if (reportId!==undefined && eventId!==undefined) {
-        await publisher.query('BEGIN');
-        await publisher.query('DELETE FROM content.report_evidence WHERE report_id=$1',[reportId]);
-        await publisher.query('DELETE FROM content.report WHERE report_id=$1',[reportId]);
-        await publisher.query('DELETE FROM knowledge.event WHERE event_id=$1',[eventId]);
-        await publisher.query('COMMIT');
-      }
       publisher.release();
       retractor.release();
       await pool.end();

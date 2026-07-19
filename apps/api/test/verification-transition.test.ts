@@ -21,6 +21,21 @@ describe('B4 verification state machine', () => {
         ORDER BY chunk.document_id LIMIT 3
       `);
       assert.equal(chunks.rows.length, 3);
+      await assert.rejects(
+        () => client.query(`
+          INSERT INTO knowledge.event (event_type,verification_status,dedupe_key,summary_text,metadata)
+          VALUES ('preverified_fixture','verified',$1,'must fail','{}')
+        `,[`${key}-preverified`]),
+        /must be inserted as unverified/,
+      );
+      await assert.rejects(
+        () => client.query(`
+          INSERT INTO knowledge.claim (
+            predicate,claim_type,observed_at,verification_status,extraction_run_id,metadata
+          ) VALUES ('PREVERIFIED_FIXTURE','asserted_fact',now(),'verified',$1,'{}')
+        `,[`${key}-claim`]),
+        /must be inserted as unverified/,
+      );
       const event = await client.query(`
         INSERT INTO knowledge.event (
           event_type,occurred_at,verification_status,dedupe_key,summary_text,metadata

@@ -173,7 +173,7 @@ describe('B5 relation revision evidence gate and PIT', () => {
       const ontology = await client.query(`
         INSERT INTO knowledge.predicate_ontology_revision (
           predicate,revision_no,relation_class,directional,policy_status,effective_from,known_from,description
-        ) VALUES ($1,1,'association',true,'approved',now(),now(),'PIT fixture')
+        ) VALUES ($1,1,'association',true,'approved','-infinity'::timestamptz,now(),'PIT fixture')
         RETURNING predicate_ontology_revision_id
       `,[predicate]);
       const identity = await client.query(`
@@ -185,11 +185,38 @@ describe('B5 relation revision evidence gate and PIT', () => {
       const claim = await client.query(`
         INSERT INTO knowledge.claim (
           subject_entity_id,predicate,object_entity_id,claim_type,observed_at,
-          verification_status,extraction_run_id,metadata
-        ) VALUES ($1,$2,$3,'asserted_fact',now(),'verified',$4,'{"fixture":true}')
+          extraction_run_id,metadata
+        ) VALUES ($1,$2,$3,'asserted_fact',now(),$4,'{"fixture":true}')
         RETURNING claim_id
       `,[subjectId,predicate,objectId,`b5-pit-${suffix}`]);
       const claimId = claim.rows[0]!.claim_id;
+      const evidenceDocs = await client.query(`
+        SELECT DISTINCT ON (document.document_id)
+               document.document_id,chunk.chunk_id,left(chunk.content,400) AS quote
+        FROM knowledge.document document
+        JOIN knowledge.document_chunk chunk USING(document_id)
+        ORDER BY document.document_id,chunk.chunk_index
+        LIMIT 2
+      `);
+      assert.equal(evidenceDocs.rows.length,2);
+      for (const doc of evidenceDocs.rows) {
+        await client.query(`
+          INSERT INTO knowledge.claim_evidence (claim_id,document_id,chunk_id,quote)
+          VALUES ($1,$2,$3,$4)
+        `,[claimId,doc.document_id,doc.chunk_id,doc.quote]);
+      }
+      await client.query(`
+        UPDATE knowledge.claim
+        SET verification_status='corroborated',
+            metadata=metadata||'{"verification_reason":"PIT fixture","verification_actor":"test"}'::jsonb
+        WHERE claim_id=$1
+      `,[claimId]);
+      await client.query(`
+        UPDATE knowledge.claim
+        SET verification_status='verified',
+            metadata=metadata||'{"verification_reason":"PIT fixture","verification_actor":"test"}'::jsonb
+        WHERE claim_id=$1
+      `,[claimId]);
       const payloadHash = sha(`payload:${suffix}`);
       await appendRelationEvidence(client,{
         relationIdentityId,claimId,relationPayloadHash:payloadHash,

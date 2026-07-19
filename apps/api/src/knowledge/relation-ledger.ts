@@ -30,7 +30,7 @@ export async function appendRelationRevision(
       relation_identity_id,revision_no,predicate_ontology_revision_id,
       relation_kind,confidence,revision_status,valid_from,valid_to,known_from,
       supersedes_relation_revision_id,payload_hash,metadata
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11::jsonb)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),$9,$10,$11::jsonb)
     RETURNING relation_revision_id
   `,[input.relationIdentityId,revisionNo,input.predicateOntologyRevisionId,input.relationKind,input.confidence,input.revisionStatus,input.validFrom,input.validTo??null,previous?.relation_revision_id??null,input.payloadHash,JSON.stringify(input.metadata??{})]);
   return {relationRevisionId:inserted.rows[0]!.relation_revision_id,revisionNo};
