@@ -100,4 +100,51 @@ describe('B2 raw object + source revision atomicity', () => {
       await pool.end();
     }
   });
+
+  it('rolls the domain mutation back when an aggregate slot contains the wrong source payload', { skip: skipReason }, async () => {
+    assert.ok(databaseUrl);
+    const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+    const client = await pool.connect();
+    const key = `b2-conflict-${Date.now()}-${Math.random()}`;
+    const hash = hashContent(key);
+    try {
+      await client.query('BEGIN');
+      const opened = await client.query(OPEN_FETCH_RUN_SQL,[
+        'rss-news-bundle',key,key,new Date().toISOString(),
+      ]);
+      const identity = await client.query(`
+        INSERT INTO ingestion.source_record_identity (source_id,provider_record_key,first_observed_at)
+        VALUES ($1,$2,now()) RETURNING source_record_identity_id
+      `,[opened.rows[0]!.source_id,key]);
+      await client.query(`
+        INSERT INTO ops.outbox_event (
+          event_id,event_type,schema_version,aggregate_type,aggregate_id,aggregate_version,
+          partition_key,occurred_at,producer,payload,payload_hash
+        ) VALUES ($1,'source.revision.appended',1,'source_record',$2,1,$3,now(),'conflict-fixture','{"wrong":true}',$4)
+      `,[`evt-conflict-${Date.now()}`,String(identity.rows[0]!.source_record_identity_id),String(opened.rows[0]!.source_id),'0'.repeat(64)]);
+      await assert.rejects(
+        () => registerRawObjectWithRevision(client,{
+          fetchRunId: opened.rows[0]!.fetch_run_id,
+          sourceId: opened.rows[0]!.source_id,
+          providerRecordKey: key,
+          contentHash: hash,
+          objectUri: `file:///tmp/${hash}.json`,
+          httpMeta: { fixture: true },
+          fetchedAt: new Date().toISOString(),
+        }),
+        /conflicting outbox event occupies source revision aggregate version/,
+      );
+      await client.query('ROLLBACK');
+      const outside = await client.query(`
+        SELECT (SELECT count(*)::int FROM ingestion.source_record_identity WHERE provider_record_key=$1) AS identities,
+               (SELECT count(*)::int FROM ingestion.raw_object WHERE content_hash=$2) AS raw_rows,
+               (SELECT count(*)::int FROM ops.outbox_event WHERE aggregate_id=$3) AS outbox_rows
+      `,[key,hash,String(identity.rows[0]!.source_record_identity_id)]);
+      assert.deepEqual(outside.rows[0],{ identities: 0,raw_rows: 0,outbox_rows: 0 });
+    } finally {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+      await pool.end();
+    }
+  });
 });

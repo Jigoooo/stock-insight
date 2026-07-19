@@ -145,6 +145,9 @@ BEGIN
     WHERE aggregate_type='source_record' AND aggregate_id=identity_id::text
       AND aggregate_version=revision_no_value
       AND event_type='source.revision.appended' AND schema_version=1
+      AND payload->>'source_revision_id'=revision_id::text
+      AND payload->>'source_record_identity_id'=identity_id::text
+      AND payload->>'content_hash'=event_payload->>'content_hash'
   ) THEN
     RAISE EXCEPTION 'conflicting outbox event occupies source revision aggregate version';
   END IF;
