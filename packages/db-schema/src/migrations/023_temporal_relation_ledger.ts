@@ -392,9 +392,9 @@ SELECT latest.relation_identity_id,
        latest.relation_kind,
        latest.confidence,
        'accepted',
-       latest.valid_from,
+       greatest(latest.valid_from,ontology.effective_from,mapping.valid_from),
        latest.valid_to,
-       now(),
+       greatest(clock_timestamp(),ontology.known_from,mapping.known_from),
        latest.relation_revision_id,
        latest.payload_hash,
        latest.metadata||'{"policy":"b5-v2","ontology_upgrade":true}'::jsonb
@@ -404,25 +404,29 @@ JOIN knowledge.relation_identity identity
  AND identity.predicate='ISSUED_BY'
 JOIN knowledge.predicate_ontology_revision ontology
   ON ontology.predicate='ISSUED_BY' AND ontology.revision_no=2
+JOIN core.security_issuer_identity mapping
+  ON mapping.security_entity_id=identity.subject_entity_id
+ AND mapping.issuer_entity_id=identity.object_entity_id
 WHERE latest.predicate_ontology_revision_id<>ontology.predicate_ontology_revision_id
   AND ontology.policy_status='approved'
-  AND ontology.known_from<=now()
-  AND ontology.effective_from<=latest.valid_from
+  AND ontology.known_from<=clock_timestamp()
+  AND mapping.known_from<=clock_timestamp()
   AND EXISTS (
     SELECT 1
     FROM knowledge.relation_evidence_ledger evidence
-    JOIN core.security_issuer_identity mapping
-      ON mapping.security_issuer_identity_id=evidence.security_issuer_identity_id
     WHERE evidence.relation_identity_id=latest.relation_identity_id
       AND evidence.relation_payload_hash=latest.payload_hash
       AND evidence.evidence_kind='identity_mapping'
-      AND evidence.recorded_at<=now()
-      AND (evidence.valid_from IS NULL OR evidence.valid_from<=latest.valid_from)
-      AND (evidence.valid_to IS NULL OR evidence.valid_to>latest.valid_from)
-      AND mapping.security_entity_id=identity.subject_entity_id
-      AND mapping.issuer_entity_id=identity.object_entity_id
-      AND mapping.known_from<=now()
-      AND mapping.valid_from<=latest.valid_from
+      AND evidence.security_issuer_identity_id=mapping.security_issuer_identity_id
+      AND evidence.recorded_at<=clock_timestamp()
+      AND (
+        evidence.valid_from IS NULL
+        OR evidence.valid_from<=greatest(latest.valid_from,ontology.effective_from,mapping.valid_from)
+      )
+      AND (
+        evidence.valid_to IS NULL
+        OR evidence.valid_to>greatest(latest.valid_from,ontology.effective_from,mapping.valid_from)
+      )
   )
   AND NOT EXISTS (
     SELECT 1 FROM knowledge.relation_revision prior
