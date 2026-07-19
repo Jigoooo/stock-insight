@@ -1,6 +1,11 @@
 import '@tanstack/react-start/server-only';
 
 import { selectInitialRelationRoot } from '@/pages/research-workspace/model/relation-root';
+import type {
+  ResearchWorkspaceShellSummary,
+  ResearchWorkspaceViewOptions,
+  ResearchWorkspaceViewPayload,
+} from '@/pages/research-workspace/model/workspace-view-payload';
 import {
   createPostgresStockReadModel,
   createReadOnlyDatabaseClient,
@@ -18,6 +23,12 @@ import {
   requireUserScope,
   type StockDatabaseRow,
 } from '@stock-insight/api';
+import type {
+  MyResearchOverview,
+  RadarSignalPage,
+} from '@stock-insight/contracts/research-workspace';
+
+type WithoutShell<Payload> = Payload extends unknown ? Omit<Payload, 'shell'> : never;
 
 function createResearchReadContext() {
   const env = parseServerEnv();
@@ -29,36 +40,91 @@ function createResearchReadContext() {
   return { database, userScope };
 }
 
-export async function loadResearchWorkspaceInitial() {
+export async function loadResearchWorkspaceView(
+  options: ResearchWorkspaceViewOptions,
+): Promise<ResearchWorkspaceViewPayload> {
   const { database, userScope } = createResearchReadContext();
   return database.withReadSnapshot(async (executor) => {
-    const today = await getWorkspaceToday(executor, { userScope });
-    const defaultRecord = today.defaultRecordKey
-      ? await getResearchRecordDetail(executor, {
-          userScope,
-          recordKey: today.defaultRecordKey,
-        })
-      : null;
-    const radar = await getRadarSignals(executor, { userScope, limit: 30 });
-    const themes = await getThemeResearchList(executor, { userScope });
-    const relationRoot = selectInitialRelationRoot(
-      defaultRecord?.affectedEntityKeys ?? [],
-      themes.items,
-    );
-    const myResearch = await getMyResearchOverview(executor, { userScope });
-    const history = await getDecisionHistory(executor, { userScope, limit: 30 });
-    const status = await getSystemStatus(executor);
-    const stocks = await getStockList({
-      readModel: createPostgresStockReadModel(
-        (sql, params) => executor.queryRows<StockDatabaseRow>(sql, params),
-        userScope,
-      ),
-    });
-    const relation = relationRoot
-      ? await getEntityRelations(executor, { userScope, entityKey: relationRoot, depth: 1 })
-      : null;
+    let activeRadar: RadarSignalPage | undefined;
+    let activeResearch: MyResearchOverview | undefined;
+    let activeSlice: WithoutShell<ResearchWorkspaceViewPayload>;
 
-    return { today, defaultRecord, radar, themes, myResearch, history, status, stocks, relation };
+    switch (options.view) {
+      case 'today': {
+        const today = await getWorkspaceToday(executor, { userScope });
+        const recordKey = options.record ?? today.defaultRecordKey;
+        const defaultRecord = recordKey
+          ? await getResearchRecordDetail(executor, { userScope, recordKey })
+          : null;
+        activeSlice = {
+          defaultRecord,
+          lane: options.lane ?? 'must_know',
+          today,
+          view: options.view,
+        };
+        break;
+      }
+      case 'radar': {
+        activeRadar = await getRadarSignals(executor, {
+          userScope,
+          cursor: options.cursor,
+          limit: 30,
+        });
+        activeSlice = { radar: activeRadar, view: options.view };
+        break;
+      }
+      case 'stocks': {
+        const stocks = await getStockList({
+          readModel: createPostgresStockReadModel(
+            (sql, params) => executor.queryRows<StockDatabaseRow>(sql, params),
+            userScope,
+          ),
+        });
+        activeSlice = { stocks, view: options.view };
+        break;
+      }
+      case 'themes': {
+        const themes = await getThemeResearchList(executor, { userScope });
+        const relationRoot = selectInitialRelationRoot([], themes.items);
+        const relation = relationRoot
+          ? await getEntityRelations(executor, {
+              userScope,
+              entityKey: relationRoot,
+              depth: 1,
+            })
+          : null;
+        activeSlice = { relation, themes, view: options.view };
+        break;
+      }
+      case 'research': {
+        activeResearch = await getMyResearchOverview(executor, { userScope });
+        activeSlice = { myResearch: activeResearch, view: options.view };
+        break;
+      }
+      case 'history': {
+        const history = await getDecisionHistory(executor, {
+          userScope,
+          cursor: options.cursor,
+          limit: 30,
+        });
+        activeSlice = { history, view: options.view };
+        break;
+      }
+      case 'status': {
+        const status = await getSystemStatus(executor);
+        activeSlice = { status, view: options.view };
+        break;
+      }
+    }
+
+    const radarSummary = activeRadar ?? (await getRadarSignals(executor, { userScope, limit: 1 }));
+    const researchSummary =
+      activeResearch ?? (await getMyResearchOverview(executor, { userScope }));
+    const shell: ResearchWorkspaceShellSummary = {
+      radarScopeTotal: radarSummary.scopeTotal,
+      watchlistCount: researchSummary.watchlistCount,
+    };
+    return { ...activeSlice, shell, view: options.view } as ResearchWorkspaceViewPayload;
   });
 }
 

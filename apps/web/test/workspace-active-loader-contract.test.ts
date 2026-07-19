@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+
+const serverUrl = new URL('../src/server/research-workspace.ts', import.meta.url);
+const modelUrl = new URL(
+  '../src/pages/research-workspace/model/load-research-workspace.ts',
+  import.meta.url,
+);
+const payloadUrl = new URL(
+  '../src/pages/research-workspace/model/workspace-view-payload.ts',
+  import.meta.url,
+);
+
+describe('workspace active-view server loader', () => {
+  it('returns a discriminated active slice plus shell counts', async () => {
+    const [source, payload] = await Promise.all([
+      readFile(serverUrl, 'utf8'),
+      readFile(payloadUrl, 'utf8'),
+    ]);
+
+    assert.match(payload, /export type ResearchWorkspaceViewPayload/);
+    assert.match(source, /export async function loadResearchWorkspaceView/);
+    assert.match(source, /switch \(options\.view\)/);
+    for (const view of ['today', 'radar', 'stocks', 'themes', 'research', 'history', 'status']) {
+      assert.match(source, new RegExp(`case '${view}'`));
+    }
+    assert.match(
+      source,
+      /const shell:\s*ResearchWorkspaceShellSummary\s*=\s*\{[\s\S]*?radarScopeTotal:[\s\S]*?watchlistCount:/,
+    );
+    assert.match(source, /view:\s*options\.view/);
+  });
+
+  it('keeps active cursor, lane, record, and abort request inputs bounded', async () => {
+    const source = await readFile(modelUrl, 'utf8');
+
+    assert.match(source, /workspaceViewInputSchema/);
+    assert.match(
+      source,
+      /z\.enum\(\['today', 'radar', 'stocks', 'themes', 'research', 'history', 'status'\]\)/,
+    );
+    assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
+    assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);
+    assert.match(source, /export const loadResearchWorkspaceView = createServerFn/);
+    assert.match(source, /return loadDirect\(data\)/);
+  });
+
+  it('does not convert active read errors into empty payloads', async () => {
+    const [server, model] = await Promise.all([
+      readFile(serverUrl, 'utf8'),
+      readFile(modelUrl, 'utf8'),
+    ]);
+
+    assert.doesNotMatch(
+      server,
+      /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/,
+    );
+    assert.doesNotMatch(model, /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/);
+  });
+});

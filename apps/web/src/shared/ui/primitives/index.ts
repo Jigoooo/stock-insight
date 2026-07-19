@@ -1,5 +1,6 @@
 export { Button, IconButton } from './button';
-export { Switch, TextLink, Toggle } from './controls';
+export { Switch, Toggle } from './controls';
+export { TextLink } from './link';
 export {
   DataQualityPopover,
   EmptyState,
@@ -9,6 +10,7 @@ export {
   StatusBadge,
 } from './feedback';
 export { Field, SearchField, Textarea, TextInput } from './form';
+export { SegmentedTabs } from './segmented-tabs';
 export { Card } from './surface';
 export {
   buildDataQualitySummary,

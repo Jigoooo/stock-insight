@@ -7,6 +7,8 @@ import {
   type LoginCredentialsInput,
   type LoginFieldErrors,
 } from './model/login-validation';
+import { Button } from '@/shared/ui/primitives/button';
+import { TextLink } from '@/shared/ui/primitives/link';
 
 export type LoginCredentials = LoginCredentialsInput;
 
@@ -141,8 +143,9 @@ export function LoginPage({
                 aria-describedby={passwordDescribedBy}
                 disabled={!hydrated || pending}
                 endAction={
-                  <button
+                  <Button
                     className={styles.visibilityButton}
+                    motion="quiet"
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
                     aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -151,7 +154,7 @@ export function LoginPage({
                     disabled={!hydrated || pending}
                   >
                     {showPassword ? '숨기기' : '보기'}
-                  </button>
+                  </Button>
                 }
               />
 
@@ -171,16 +174,21 @@ export function LoginPage({
                 </output>
               </div>
 
-              <button className={styles.submitButton} type="submit" disabled={!hydrated || pending}>
+              <Button
+                className={styles.submitButton}
+                motion="pressable"
+                type="submit"
+                disabled={!hydrated || pending}
+              >
                 <span>{pending ? '확인 중' : '로그인'}</span>
-              </button>
+              </Button>
             </form>
 
             <p className={styles.signupPrompt}>
               처음 설정하시나요?{' '}
-              <a className={styles.signupLink} href="/signup">
+              <TextLink className={styles.signupLink} motion="quiet" href="/signup">
                 계정 만들기
-              </a>
+              </TextLink>
             </p>
           </div>
         </main>

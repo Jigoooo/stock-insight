@@ -2,6 +2,8 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
 
 import styles from './auth-page.module.css';
 
+import { FieldMotionHalo } from '@/shared/ui/primitives/field-motion-halo';
+
 type AuthInputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   endAction?: ReactNode;
   error?: string;
@@ -46,13 +48,13 @@ export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
           data-invalid={inputProps['aria-invalid'] ? 'true' : 'false'}
           data-motion="field-shell"
         >
+          <FieldMotionHalo />
           <input
             ref={ref}
             className={classNames(styles.authInput, className)}
             id={id}
             aria-describedby={descriptionIds || undefined}
             {...inputProps}
-            data-motion="field"
           />
           {endAction}
         </div>

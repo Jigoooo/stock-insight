@@ -7,6 +7,8 @@ import {
   type SignupFieldErrors,
   type SignupInput,
 } from './model/signup-validation';
+import { Button } from '@/shared/ui/primitives/button';
+import { TextLink } from '@/shared/ui/primitives/link';
 
 export type SignupCredentials = Pick<SignupInput, 'username' | 'password' | 'enrollmentCode'>;
 export type SignupAvailability = 'checking' | 'available' | 'unavailable' | 'error';
@@ -98,8 +100,9 @@ export function SignupPage({
         aria-labelledby="signup-brand-heading"
       >
         <div className={styles.brandContent}>
-          <a
+          <TextLink
             className={styles.brandLockup}
+            motion="quiet"
             href="/login"
             aria-label="Futur Insight 로그인으로 이동"
           >
@@ -107,7 +110,7 @@ export function SignupPage({
               <strong>Futur Insight</strong>
               <small>Research workspace</small>
             </span>
-          </a>
+          </TextLink>
 
           <div className={styles.brandHero}>
             <p className={styles.eyebrow}>One-time workspace setup</p>
@@ -158,13 +161,14 @@ export function SignupPage({
               title="가입 상태를 확인하지 못했습니다."
               description="연결 상태를 확인한 뒤 다시 시도해 주세요."
               action={
-                <button
+                <Button
                   className={styles.secondaryButton}
+                  motion="pressable"
                   type="button"
                   onClick={onRetryAvailability}
                 >
                   다시 확인
-                </button>
+                </Button>
               }
             />
           ) : null}
@@ -175,9 +179,9 @@ export function SignupPage({
               title="가입 완료"
               description="가입 가능한 계정이 이미 설정되어 있습니다. 기존 계정으로 로그인해 주세요."
               action={
-                <a className={styles.primaryLink} href="/login">
+                <TextLink className={styles.primaryLink} motion="pressable" href="/login">
                   로그인
-                </a>
+                </TextLink>
               }
             />
           ) : null}
@@ -227,8 +231,9 @@ export function SignupPage({
                   aria-invalid={Boolean(fieldErrors.password)}
                   disabled={pending}
                   endAction={
-                    <button
+                    <Button
                       className={styles.visibilityButton}
+                      motion="quiet"
                       type="button"
                       onClick={() => setShowPassword((visible) => !visible)}
                       aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -237,7 +242,7 @@ export function SignupPage({
                       disabled={pending}
                     >
                       {showPassword ? '숨기기' : '보기'}
-                    </button>
+                    </Button>
                   }
                 />
 
@@ -286,13 +291,21 @@ export function SignupPage({
                   </output>
                 </div>
 
-                <button className={styles.submitButton} type="submit" disabled={pending}>
+                <Button
+                  className={styles.submitButton}
+                  motion="pressable"
+                  type="submit"
+                  disabled={pending}
+                >
                   <span>{pending ? '설정 중' : '계정 만들기'}</span>
-                </button>
+                </Button>
               </form>
 
               <p className={styles.loginNote}>
-                이미 계정이 있나요? <a href="/login">로그인</a>
+                이미 계정이 있나요?{' '}
+                <TextLink motion="quiet" href="/login">
+                  로그인
+                </TextLink>
               </p>
             </>
           ) : null}

@@ -38,21 +38,6 @@
   outline-offset: 3px;
 }
 
-:where([data-motion='pressable'], [data-motion='toggle'], [data-motion='switch']) {
-  transform-origin: center;
-  will-change: transform;
-}
-
-:where([data-motion='field'], [data-motion='field-shell']) {
-  will-change: box-shadow;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :where([data-motion='pressable'], [data-motion='toggle'], [data-motion='switch']) {
-    will-change: auto;
-  }
-}
-
 @media (forced-colors: active) {
   :where(
     button,
@@ -64,6 +49,7 @@
     [role='tab'],
     [role='switch']
   ):focus-visible {
-    outline: 2px solid Highlight;
+    outline: 2px solid Highlight !important;
+    outline-offset: 3px !important;
   }
 }

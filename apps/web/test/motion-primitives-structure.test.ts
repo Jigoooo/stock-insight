@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const rootUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
+const authenticatedUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
+const deferredToastUrl = new URL('../src/shared/ui/toast/deferred-toast-host.tsx', import.meta.url);
 const motionUrl = new URL('../src/shared/ui/motion/interaction-motion.tsx', import.meta.url);
+const controllerUrl = new URL(
+  '../src/shared/ui/motion/interaction-motion-controller.ts',
+  import.meta.url,
+);
 const motionCssUrl = new URL('../src/shared/ui/motion/motion-system.css', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
 const primitivesCssUrl = new URL(
@@ -15,33 +21,41 @@ const toastCssUrl = new URL('../src/shared/ui/toast/motion-toast.module.css', im
 const feedbackUrl = new URL('../src/shared/ui/primitives/feedback.tsx', import.meta.url);
 
 describe('shared interaction and feedback boundaries', () => {
-  it('mounts one global interaction provider and toast viewport', async () => {
-    const root = await readFile(rootUrl, 'utf8');
+  it('mounts one authenticated interaction provider and one deferred toast viewport', async () => {
+    const [root, authenticated, deferredToast] = await Promise.all([
+      readFile(rootUrl, 'utf8'),
+      readFile(authenticatedUrl, 'utf8'),
+      readFile(deferredToastUrl, 'utf8'),
+    ]);
 
-    assert.match(root, /<InteractionMotionProvider>/);
-    assert.match(root, /<AppToaster\s*\/>/);
+    assert.doesNotMatch(root, /InteractionMotionProvider|AppToaster/);
+    assert.match(root, /<DeferredToastHost\s*\/>/);
+    assert.match(authenticated, /<InteractionMotionProvider>/);
+    assert.match(deferredToast, /<LazyAppToaster\s*\/>/);
   });
 
-  it('uses delegated interactions with reduced-motion fallbacks', async () => {
-    const [motion, motionSystem, feedback, primitives] = await Promise.all([
+  it('uses explicit delegated micro-interactions without owning component entry or loop state', async () => {
+    const [provider, controller, motionSystem, feedback, primitives] = await Promise.all([
       readFile(motionUrl, 'utf8'),
+      readFile(controllerUrl, 'utf8'),
       readFile(motionCssUrl, 'utf8'),
       readFile(feedbackUrl, 'utf8'),
       readFile(primitivesCssUrl, 'utf8'),
     ]);
-
-    assert.match(motion, /addEventListener\('pointerdown'/);
-    assert.doesNotMatch(motion, /boxShadow\s*:/);
-    assert.match(motion, /MutationObserver/);
-    assert.match(motionSystem, /prefers-reduced-motion:\s*reduce/);
-    assert.match(
-      primitives,
-      /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.button:active[\s\S]*\.iconButton:active[\s\S]*transform:\s*none/,
-    );
-    assert.match(motion, /addEventListener\('change', onMotionPreferenceChange\)/);
-    assert.match(motion, /killTweensOf/);
-    assert.match(motion, /data-motion-loop/);
-    assert.match(feedback, /data-motion-loop="skeleton"/);
+    assert.match(provider, /return installDelegatedInteractionMotion\(/);
+    assert.doesNotMatch(provider, /addEventListener\('pointer/);
+    assert.match(controller, /addEventListener\('pointerdown'/);
+    assert.doesNotMatch(controller, /\b(?:contextSafe|gsap|useGSAP)\b/);
+    assert.doesNotMatch(provider, /boxShadow\s*:/);
+    assert.doesNotMatch(provider, /MutationObserver|data-motion-enter|data-motion-loop/);
+    assert.doesNotMatch(controller, /MutationObserver|data-motion-enter|data-motion-loop/);
+    assert.doesNotMatch(motionSystem, /will-change|transition\s*:[^;]*\btransform\b/);
+    assert.doesNotMatch(primitives, /\.(?:button|iconButton):active[^{}]*\{[^}]*transform\s*:/);
+    assert.match(controller, /addEventListener\('change', onMotionPreferenceChange\)/);
+    assert.match(controller, /killTweensOf/);
+    assert.match(feedback, /MotionRegion/);
+    assert.match(feedback, /recipe="skeleton"/);
+    assert.doesNotMatch(feedback, /data-motion-loop=/);
     assert.doesNotMatch(primitives, /@keyframes|animation:/);
   });
 

@@ -1,0 +1,16 @@
+.fieldMotionHalo {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--field-motion-halo-color, var(--color-primary));
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--field-motion-halo-color, var(--color-primary)) 18%, transparent);
+}
+
+@media (forced-colors: active) {
+  .fieldMotionHalo {
+    display: none;
+  }
+}

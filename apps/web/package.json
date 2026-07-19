@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.ts",
     "test:design:hard": "node --test test/design-governance.test.ts test/design-profile-contract.test.ts test/design-audit.test.ts test/product-design-system.test.ts test/motion-primitives-structure.test.ts",
     "audit:design": "node scripts/audit-design-profile.mjs",
+    "audit:workspace:bundle": "node scripts/audit-workspace-bundle.mjs",
     "smoke:api": "node scripts/smoke-dashboard-api.mjs",
     "start": "node .output/server/index.mjs",
     "lint": "oxlint src config vite.config.ts",
@@ -19,6 +20,7 @@
     "format:check": "oxfmt --check src config package.json tsconfig.json tsconfig.base.json tsconfig.app.json tsconfig.node.json vite.config.ts"
   },
   "dependencies": {
+    "@gsap/react": "2.1.2",
     "@stock-insight/api": "workspace:*",
     "@stock-insight/api-client": "workspace:*",
     "@stock-insight/contracts": "workspace:*",

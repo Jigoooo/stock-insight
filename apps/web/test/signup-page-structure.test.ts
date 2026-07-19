@@ -91,7 +91,7 @@ describe('one-time signup source contract', () => {
 
     assert.match(route, /createFileRoute\('\/signup'\)/);
     assert.match(route, /<SignupScreen\s*\/>/);
-    assert.match(loginPage, /href="\/signup"[^>]*>\s*계정 만들기\s*<\/a>/);
+    assert.match(loginPage, /<TextLink[^>]*href="\/signup"[^>]*>\s*계정 만들기\s*<\/TextLink>/);
     assert.match(loginStylesheet, /\.signupLink/);
   });
 });

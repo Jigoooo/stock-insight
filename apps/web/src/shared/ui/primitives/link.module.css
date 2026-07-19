@@ -1,0 +1,21 @@
+:where(.textLink) {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  color: var(--color-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentcolor 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+:where(.textLink[data-tone='accent']) {
+  color: var(--color-primary-strong);
+}
+
+:where(.textLink[data-tone='muted']) {
+  color: var(--color-muted);
+}

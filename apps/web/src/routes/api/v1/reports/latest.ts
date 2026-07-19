@@ -2,11 +2,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
-import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
-
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
 import { loadLatestReports } from '@/server/product-api';
+import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
 
 const handlers = {
   GET: async ({ request }: { request: Request }) => {

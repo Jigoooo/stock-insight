@@ -18,7 +18,7 @@ import {
 import type { Stock } from '../model/types';
 import { loadStockDetailResponse } from '@/pages/dashboard/model/load-stock-detail-response';
 import { resolveStockDetailForDashboard } from '@/pages/dashboard/model/resolve-stocks';
-import { DataQualityPopover, StatusBadge } from '@/shared/ui/primitives';
+import { Button, DataQualityPopover, StatusBadge, TextLink } from '@/shared/ui/primitives';
 import type {
   DataAvailability,
   ResponseMeta,
@@ -270,10 +270,10 @@ function LiveResearchPanel({
         <article className={styles.liveCard}>
           <b>공부하기</b>
           <span>{learningSummary}</span>
-          <button type="button" disabled>
+          <Button motion="quiet" type="button" disabled>
             <GraduationCap aria-hidden="true" />
             {learningCards.length ? '공부 카드 읽기 준비' : '공부 카드 준비중'}
-          </button>
+          </Button>
         </article>
       </div>
 
@@ -402,9 +402,9 @@ function LiveResearchPanel({
           <ul>
             {sourceLinks.slice(0, 4).map((source) => (
               <li key={source.url}>
-                <a href={source.url} rel="noreferrer" target="_blank">
+                <TextLink motion="quiet" href={source.url} rel="noreferrer" target="_blank">
                   {source.label}
-                </a>
+                </TextLink>
               </li>
             ))}
           </ul>

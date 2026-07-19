@@ -1,6 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
 import styles from './primitives.module.css';
+import { MotionRegion } from '../motion/motion-region';
 
 type CardProps = HTMLAttributes<HTMLElement> & {
   as?: 'article' | 'section' | 'div';
@@ -12,15 +13,14 @@ function classNames(...values: (string | false | null | undefined)[]) {
 }
 
 export function Card({ as = 'div', children, className, ...props }: CardProps) {
-  const Component = as;
-
   return (
-    <Component
+    <MotionRegion
+      as={as}
       className={classNames(styles.card, className)}
+      recipe="surface"
       {...props}
-      data-motion-enter="surface"
     >
       {children}
-    </Component>
+    </MotionRegion>
   );
 }

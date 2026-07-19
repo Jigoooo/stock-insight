@@ -90,7 +90,9 @@ describe('design profile contract', () => {
     );
     const componentUses = new Set<string>();
     for (const source of [foundation, ...componentSources]) {
-      for (const token of source.match(/(?<=var\(\s*)--[\w-]+/g) ?? []) componentUses.add(token);
+      for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
+        if (match[1]) componentUses.add(match[1]);
+      }
       if (source.includes('readProfileMotion')) {
         for (const match of source.matchAll(/['"](--[\w-]+)['"]/g)) componentUses.add(match[1]);
       }

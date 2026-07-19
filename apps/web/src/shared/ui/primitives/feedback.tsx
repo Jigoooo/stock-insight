@@ -9,6 +9,7 @@ import {
   type DataQualitySummaryOptions,
   type StatusTextOptions,
 } from './status';
+import { MotionRegion } from '../motion/motion-region';
 
 export type StatusBadgeProps = StatusTextOptions & {
   className?: string;
@@ -38,16 +39,17 @@ function classNames(...values: (string | false | null | undefined)[]) {
 
 export function StatusBadge({ availability, className, label, source, testId }: StatusBadgeProps) {
   return (
-    <span
+    <MotionRegion
+      as="span"
       className={classNames(styles.statusBadge, className)}
       data-availability={availability}
       data-source={source}
       data-testid={testId}
       data-tone={getAvailabilityTone(availability)}
-      data-motion-enter="status"
+      recipe="status"
     >
       {buildStatusText({ availability, label, source })}
-    </span>
+    </MotionRegion>
   );
 }
 
@@ -101,25 +103,25 @@ export function DataQualityPopover({
 
 export function EmptyState({ children, className, testId }: FeedbackStateProps) {
   return (
-    <div
+    <MotionRegion
       className={classNames(styles.emptyState, className)}
       data-testid={testId}
-      data-motion-enter="feedback"
+      recipe="feedback"
     >
       {children}
-    </div>
+    </MotionRegion>
   );
 }
 
 export function ErrorState({ children, className, testId }: FeedbackStateProps) {
   return (
-    <div
+    <MotionRegion
       className={classNames(styles.errorState, className)}
       data-testid={testId}
-      data-motion-enter="feedback"
+      recipe="feedback"
     >
       {children}
-    </div>
+    </MotionRegion>
   );
 }
 
@@ -131,12 +133,12 @@ export function Skeleton({
   ...props
 }: SkeletonProps) {
   return (
-    <div
+    <MotionRegion
       aria-hidden="true"
       className={classNames(styles.skeleton, className)}
+      recipe="skeleton"
       style={{ width, height, ...style }}
       {...props}
-      data-motion-loop="skeleton"
     />
   );
 }

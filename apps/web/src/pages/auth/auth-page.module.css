@@ -299,9 +299,7 @@
   font-size: 14px;
   transition:
     border-color var(--duration-fast) var(--ease-material),
-    background var(--duration-fast) var(--ease-material),
-    box-shadow var(--duration-fast) var(--ease-material),
-    transform var(--duration-fast) var(--ease-material);
+    background var(--duration-fast) var(--ease-material);
 }
 
 .field input:focus-visible {
@@ -324,6 +322,8 @@
 }
 
 .inputShell {
+  --field-motion-halo-color: var(--color-accent);
+
   position: relative;
   display: flex;
   min-width: 0;
@@ -341,7 +341,13 @@
   box-shadow: 0 0 0 4px var(--color-focus);
 }
 
+.inputShell:focus-within [data-field-motion-halo] {
+  opacity: 1;
+}
+
 .inputShell[data-invalid='true'] {
+  --field-motion-halo-color: var(--color-risk);
+
   border-color: var(--color-risk);
 }
 
@@ -482,8 +488,7 @@
   transition:
     border-color var(--duration-fast) var(--ease-material),
     background var(--duration-fast) var(--ease-material),
-    box-shadow var(--duration-fast) var(--ease-material),
-    transform var(--duration-press) var(--ease-standard);
+    box-shadow var(--duration-fast) var(--ease-material);
 }
 
 .submitButton {
@@ -493,12 +498,6 @@
   color: var(--auth-cta-foreground);
   background: var(--auth-cta-background);
   box-shadow: var(--auth-cta-shadow);
-}
-
-.submitButton:active:not(:disabled),
-.primaryLink:active,
-.secondaryButton:active {
-  transform: scale(0.97);
 }
 
 .submitButton:focus-visible,
@@ -728,19 +727,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .field input,
-  .submitButton,
-  .primaryLink,
-  .secondaryButton,
-  .visibilityButton {
-    transition: opacity 160ms ease-out;
-  }
-
-  .submitButton:active:not(:disabled),
-  .primaryLink:active,
-  .secondaryButton:active,
-  .visibilityButton:active:not(:disabled) {
-    transform: none;
+  .field input {
+    transition: none;
   }
 }
 
@@ -763,6 +751,11 @@
   border-radius: 0;
   background: var(--auth-login-window-background);
   box-shadow: none;
+}
+
+.loginVisualPanel,
+.loginFormPanel {
+  contain: layout paint style;
 }
 
 .loginVisualPanel {
@@ -1037,5 +1030,12 @@
 
   .loginFormPanel {
     padding-block: 34px;
+  }
+}
+
+@media (forced-colors: active) {
+  .inputShell .authInput:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 3px !important;
   }
 }

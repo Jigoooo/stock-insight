@@ -1,21 +1,15 @@
 /// <reference types="vite/client" />
 
-import { createRootRoute } from '@tanstack/react-router';
+import { createRootRouteWithContext } from '@tanstack/react-router';
 import type { LinkHTMLAttributes } from 'react';
 
 import '@/pages/auth/auth-page.module.css';
 import { RootComponent, RootDocument, RootNotFound } from '@/pages/root';
+import type { StockInsightRouterContext } from '@/router';
 import { activeDesignProfile } from '@/shared/theme/design-profile-contract';
 import nativeScrollbarUrl from '@/shared/ui/scroll/native-scrollbar.css?url';
 
 const styleLinks = [
-  {
-    rel: 'preload',
-    href: '/fonts/WantedSansVariable.woff2',
-    as: 'font',
-    type: 'font/woff2',
-    crossOrigin: 'anonymous',
-  },
   { rel: 'preload', href: '/styles/font.css', as: 'style' },
   { rel: 'preload', href: '/styles/index.css', as: 'style' },
   { rel: 'preload', href: activeDesignProfile.cssHref, as: 'style' },
@@ -29,7 +23,7 @@ const styleLinks = [
   { rel: 'stylesheet', href: nativeScrollbarUrl },
 ] satisfies LinkHTMLAttributes<HTMLLinkElement>[];
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<StockInsightRouterContext>()({
   head: () => ({
     links: styleLinks,
     meta: [

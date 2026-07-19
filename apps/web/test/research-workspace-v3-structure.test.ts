@@ -2,10 +2,36 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-const page = readFileSync(
+const pageSource = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   'utf8',
 );
+const workspace = [
+  pageSource,
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
+    'utf8',
+  ),
+  ...[
+    'today-view.tsx',
+    'radar-view.tsx',
+    'stocks-view.tsx',
+    'themes-view.tsx',
+    'my-research-view.tsx',
+    'history-view.tsx',
+    'status-view.tsx',
+  ].map((fileName) =>
+    readFileSync(
+      new URL(`../src/pages/research-workspace/ui/views/${fileName}`, import.meta.url),
+      'utf8',
+    ),
+  ),
+].join('\n');
+const page = workspace;
 const css = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
   'utf8',
@@ -31,12 +57,12 @@ describe('v3 research workspace structure', () => {
       '판단 이력',
       '데이터 상태',
     ]) {
-      assert.match(page, new RegExp(label.replace('·', '\\·')));
+      assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
-    assert.match(page, /researchRecord\(recordKey\)/);
-    assert.match(page, /evidence\.map/);
-    assert.match(page, /sources\.map/);
-    assert.match(page, /limitations\.map/);
+    assert.match(workspace, /researchRecord\(recordKey\)/);
+    assert.match(workspace, /evidence\.map/);
+    assert.match(workspace, /sources\.map/);
+    assert.match(workspace, /limitations\.map/);
   });
 
   it('binds view, lane, record, and cursor to a pathless authenticated route', () => {
@@ -47,15 +73,17 @@ describe('v3 research workspace structure', () => {
     assert.match(workspaceRoute, /onUrlStateChange/);
     assert.match(page, /researchFeed\(\{ lane, cursor, limit: 20 \}\)/);
     assert.match(page, /timeZone:\s*'Asia\/Seoul'/);
-    assert.match(workspaceRoute, /pendingComponent:\s*WorkspaceRoutePending/);
+    assert.match(workspaceRoute, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
+    assert.doesNotMatch(workspaceRoute, /pendingComponent:\s*WorkspaceRoutePending/);
     assert.match(workspaceRoute, /errorComponent:\s*WorkspaceRouteError/);
     assert.match(workspaceRoute, /workspace-route-error/);
+    assert.match(page, /workspace-view-load-error/);
     assert.match(workspaceRoute, /window\.location\.reload\(\)/);
   });
 
   it('maps every machine-facing value to stable Korean workspace copy', () => {
     assert.match(page, /presentResearchSummary\(item\.(?:summary|thesis)\)/);
-    assert.match(page, /placeholder="종목명·티커 검색"/);
+    assert.match(page, /placeholder:\s*'종목명·티커 검색'/);
     assert.doesNotMatch(page, /종목·테마·사건 검색/);
     for (const formatter of [
       'whySurfacedLabel',
@@ -106,8 +134,9 @@ describe('v3 research workspace structure', () => {
   it('blocks pre-hydration clicks and keeps the inspector modal only on mobile', () => {
     assert.match(page, /useSyncExternalStore\(/);
     assert.match(page, /const inspectorModalOpen = isMobileViewport && inspectorVisible/);
-    assert.match(page, /useFocusTrap\(modal, inspectorRef, onClose\)/);
-    assert.match(page, /aria-modal=\{modal \|\| undefined\}/);
+    assert.match(page, /modal=\{isMobileViewport\}/);
+    assert.match(page, /useFocusTrap\(renderModal && transition\.desiredOpen/);
+    assert.match(page, /aria-modal=\{\(renderModal && transition\.desiredOpen\) \|\| undefined\}/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);
   });
 

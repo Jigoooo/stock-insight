@@ -134,6 +134,7 @@
   --switch-thumb-shadow: 0 1px 3px rgb(15 31 50 / 28%);
   --toggle-shadow: 0 1px 2px rgb(15 31 50 / 6%);
   --motion-press-scale: 0.975;
+  --motion-quiet-press-opacity: 0.84;
   --motion-toggle-scale: 0.96;
   --motion-press-y: 0.5px;
   --motion-hover-y: -1px;

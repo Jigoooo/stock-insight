@@ -67,15 +67,16 @@ describe('login page structure', () => {
     assert.doesNotMatch(component, /\srequired(?:=|\s|>)/);
   });
 
-  it('preloads the real font without fixing one visual recipe', async () => {
+  it('keeps public auth on the system font while preserving form feedback geometry', async () => {
     const [stylesheet, fontStylesheet, rootRoute] = await Promise.all([
       readFile(stylesheetUrl, 'utf8'),
       readFile(fontStylesheetUrl, 'utf8'),
       readFile(rootRouteUrl, 'utf8'),
     ]);
 
-    assert.match(rootRoute, /WantedSansVariable\.woff2[\s\S]*?as:\s*'font'/);
-    assert.match(fontStylesheet, /font-display:\s*optional/);
+    assert.doesNotMatch(rootRoute, /WantedSansVariable\.woff2/);
+    assert.doesNotMatch(fontStylesheet, /@font-face|Wanted Sans/);
+    assert.match(fontStylesheet, /Noto Sans KR/);
     assert.match(stylesheet, /\.fieldError\s*\{[\s\S]*?min-height:/);
     assert.match(stylesheet, /\.submitButton:focus-visible/);
   });

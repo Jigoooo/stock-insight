@@ -1,1 +1,2 @@
-export { AppToaster, notify } from './motion-toast';
+export { DeferredToastHost } from './deferred-toast-host';
+export { notify } from './notify';

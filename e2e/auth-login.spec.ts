@@ -92,27 +92,27 @@ test.describe('private workspace authentication', () => {
       'href',
       `/styles/profiles/${profileId}.css`,
     );
-    await page.evaluate(() => {
-      const spinner = document.createElement('span');
-      spinner.id = 'dynamic-motion-probe';
-      spinner.dataset.motionLoop = 'spinner';
-      document.body.append(spinner);
-    });
+    const motionProbe = page.getByRole('button', { name: '로그인', exact: true });
+    await expect(motionProbe).toHaveAttribute('data-motion', 'pressable');
+    await motionProbe.hover();
     await expect
-      .poll(() =>
-        page
-          .locator('#dynamic-motion-probe')
-          .evaluate((element) => getComputedStyle(element).transform),
-      )
-      .not.toBe('none');
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect
-      .poll(() =>
-        page
-          .locator('#dynamic-motion-probe')
-          .evaluate((element) => getComputedStyle(element).transform),
-      )
-      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+      .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+      .toBe('none');
+    const motionBox = await motionProbe.boundingBox();
+    if (!motionBox) throw new Error('login motion probe does not have a bounding box');
+    await page.mouse.move(motionBox.x + motionBox.width / 2, motionBox.y + motionBox.height / 2);
+    await page.mouse.down();
+    try {
+      await expect
+        .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+        .toBe('none');
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await expect
+        .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+        .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+    } finally {
+      await page.mouse.up();
+    }
 
     const safety = await page.evaluate(() => {
       const rootStyle = getComputedStyle(document.documentElement);
@@ -172,6 +172,34 @@ test.describe('private workspace authentication', () => {
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
+  });
+
+  test('preserves a native focus indicator while forced colors hide the decorative halo', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+    await page.goto('/login');
+
+    const usernameField = page.getByLabel('사용자 이름');
+    await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
+    await usernameField.focus();
+    const forcedColorState = await usernameField.evaluate((input) => {
+      const shell = input.closest<HTMLElement>('[data-motion="field-shell"]');
+      const halo = shell?.querySelector<HTMLElement>('[data-field-motion-halo]');
+      const inputStyle = getComputedStyle(input);
+      if (!shell || !halo) throw new Error('forced-colors field-shell surfaces are missing');
+      return {
+        active: document.activeElement === input,
+        haloDisplay: getComputedStyle(halo).display,
+        outlineStyle: inputStyle.outlineStyle,
+        outlineWidth: Number.parseFloat(inputStyle.outlineWidth),
+      };
+    });
+
+    expect(forcedColorState.active).toBe(true);
+    expect(forcedColorState.haloDisplay).toBe('none');
+    expect(forcedColorState.outlineStyle).not.toBe('none');
+    expect(forcedColorState.outlineWidth).toBeGreaterThanOrEqual(2);
   });
 
   test('keeps hard invariants under an alternative visual profile', async ({ page }) => {

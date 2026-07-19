@@ -1,6 +1,19 @@
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
+import { useGSAP } from '@gsap/react';
+import { gsap } from 'gsap';
+import {
+  useRef,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
 
+import { FieldMotionHalo } from './field-motion-halo';
 import styles from './primitives.module.css';
+import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
+
+export { FieldMotionHalo } from './field-motion-halo';
+
+gsap.registerPlugin(useGSAP);
 
 type FieldProps = {
   children: ReactNode;
@@ -31,6 +44,57 @@ function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
 }
 
+export function useFieldShellMotion<ElementType extends HTMLElement>() {
+  const shellRef = useRef<ElementType>(null);
+
+  useGSAP((_context, contextSafe) => {
+    if (!contextSafe) return;
+    const shell = shellRef.current;
+    const halo = shell?.querySelector<HTMLElement>('[data-field-motion-halo]');
+    if (!shell || !halo) return;
+
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const normalizeHalo = () => {
+      gsap.killTweensOf(halo);
+      gsap.set(halo, { opacity: shell.matches(':focus-within') ? 1 : 0 });
+    };
+    const setFocused = (focused: boolean) => {
+      gsap.killTweensOf(halo);
+      if (motionPreference.matches) {
+        gsap.set(halo, { opacity: focused ? 1 : 0 });
+        return;
+      }
+      gsap.to(halo, {
+        opacity: focused ? 1 : 0,
+        duration: readProfileMotionSeconds('--duration-press'),
+        ease: readProfileMotionValue('--motion-ease-out'),
+        overwrite: 'auto',
+      });
+    };
+    const onFocusIn = contextSafe(() => setFocused(true));
+    const onFocusOut = contextSafe((event: FocusEvent) => {
+      if (event.relatedTarget instanceof Node && shell.contains(event.relatedTarget)) return;
+      setFocused(false);
+    });
+    const onMotionPreferenceChange = contextSafe(normalizeHalo);
+
+    shell.addEventListener('focusin', onFocusIn);
+    shell.addEventListener('focusout', onFocusOut);
+    motionPreference.addEventListener('change', onMotionPreferenceChange);
+    normalizeHalo();
+
+    return () => {
+      shell.removeEventListener('focusin', onFocusIn);
+      shell.removeEventListener('focusout', onFocusOut);
+      motionPreference.removeEventListener('change', onMotionPreferenceChange);
+      gsap.killTweensOf(halo);
+      gsap.set(halo, { clearProps: 'opacity' });
+    };
+  }, []);
+
+  return shellRef;
+}
+
 export function Field({ children, hint, label }: FieldProps) {
   return (
     <label className={styles.field}>
@@ -47,7 +111,6 @@ export function TextInput({ className, variant = 'chrome', ...props }: TextInput
       className={classNames(styles.textInput, className)}
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
-      data-motion="field"
     />
   );
 }
@@ -58,14 +121,20 @@ export function Textarea({ className, variant = 'chrome', ...props }: TextareaPr
       className={classNames(styles.textarea, className)}
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
-      data-motion="field"
     />
   );
 }
 
 export function SearchField({ className, icon, inputProps }: SearchFieldProps) {
+  const shellRef = useFieldShellMotion<HTMLLabelElement>();
+
   return (
-    <label className={classNames(styles.searchField, className)} data-motion="field-shell">
+    <label
+      ref={shellRef}
+      className={classNames(styles.searchField, className)}
+      data-motion="field-shell"
+    >
+      <FieldMotionHalo />
       {icon}
       <TextInput variant="bare" {...inputProps} />
     </label>

@@ -1,0 +1,18 @@
+@font-face {
+  font-family: 'Wanted Sans';
+  src: url('/fonts/WantedSansVariable.woff2') format('woff2-variations');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: optional;
+}
+
+:root {
+  font-family:
+    'Wanted Sans',
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Noto Sans KR',
+    'Segoe UI',
+    sans-serif;
+}

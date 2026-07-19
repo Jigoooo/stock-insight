@@ -1,16 +1,17 @@
-.button,
-.iconButton,
-.searchField,
-.statusBadge,
-.card,
-.emptyState,
-.errorState,
-.skeleton {
+:where(
+  .button,
+  .iconButton,
+  .searchField,
+  .statusBadge,
+  .card,
+  .emptyState,
+  .errorState,
+  .skeleton
+) {
   min-width: 0;
 }
 
-.button,
-.iconButton {
+:where(.button, .iconButton) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -23,64 +24,53 @@
     color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    transform var(--duration-press) var(--ease-standard),
-    opacity var(--duration-fast) var(--ease-out);
+    box-shadow var(--duration-fast) var(--ease-out);
   user-select: none;
 }
 
-.button[data-size='sm'] {
+:where(.button[data-size='sm']) {
   min-height: 36px;
   gap: 7px;
   padding: 0 10px;
   font-size: 12px;
 }
 
-.button[data-size='md'] {
+:where(.button[data-size='md']) {
   min-height: 40px;
   gap: 8px;
   padding: 0 12px;
   font-size: 12.5px;
 }
 
-.iconButton {
+:where(.iconButton) {
   width: 40px;
   height: 40px;
 }
 
-.button[data-variant='primary'] {
+:where(.button[data-variant='primary']) {
   color: var(--color-background-strong);
   background: var(--color-primary-strong);
 }
 
-.button[data-variant='secondary'],
-.iconButton {
+:where(.button[data-variant='secondary'], .iconButton) {
   border-color: var(--color-line);
   color: var(--color-ink-soft);
   background: var(--color-card);
 }
 
-.button[data-variant='ghost'] {
+:where(.button[data-variant='ghost']) {
   color: var(--color-muted);
   background: transparent;
 }
 
-.button:active {
-  transform: scale(0.97);
-}
-
-.iconButton:active {
-  transform: scale(0.94);
-}
-
-.button:disabled,
-.iconButton:disabled {
+:where(.button:disabled, .iconButton:disabled) {
   cursor: not-allowed;
   opacity: 0.52;
   transform: none;
 }
 
-.searchField {
+:where(.searchField) {
+  position: relative;
   display: flex;
   width: min(400px, 100%);
   min-height: 40px;
@@ -93,16 +83,26 @@
   background: var(--color-card);
   transition:
     border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
 }
 
-.searchField:focus-within {
+.fieldMotionHalo {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--field-motion-halo-color, var(--color-primary));
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--field-motion-halo-color, var(--color-primary)) 18%, transparent);
+}
+
+:where(.searchField:focus-within) {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
-.searchField svg {
+:where(.searchField svg) {
   width: 16px;
   height: 16px;
 }
@@ -270,7 +270,7 @@
   margin: 0;
 }
 
-.textLink {
+:where(.textLink) {
   display: inline-flex;
   min-height: 32px;
   align-items: center;
@@ -284,11 +284,11 @@
   text-underline-offset: 4px;
 }
 
-.textLink[data-tone='accent'] {
+:where(.textLink[data-tone='accent']) {
   color: var(--color-primary-strong);
 }
 
-.textLink[data-tone='muted'] {
+:where(.textLink[data-tone='muted']) {
   color: var(--color-muted);
 }
 
@@ -328,29 +328,74 @@
   border-radius: 50%;
   background: var(--color-card);
   box-shadow: var(--switch-thumb-shadow);
-  translate: 0 0;
 }
 
 .switchControl[data-state='checked'] .switchTrack {
   background: var(--color-primary-strong);
 }
 
-.switchControl[data-state='checked'] .switchThumb {
-  translate: 18px 0;
-}
-
 .toggleControl {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--color-line);
   padding: 0 13px;
   background: var(--color-card);
   box-shadow: var(--toggle-shadow);
+  isolation: isolate;
+}
+
+.toggleRail {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--color-primary-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.controlLabel {
+  position: relative;
+  z-index: 1;
 }
 
 .toggleControl[data-state='on'] {
   border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-line));
   color: var(--color-primary-strong);
-  background: var(--color-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.toggleControl[data-state='on'] .toggleRail {
+  opacity: 1;
+}
+
+:where(.segmentedTabs) {
+  display: inline-flex;
+  min-width: 0;
+  gap: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  padding: 3px;
+  background: var(--color-card-subtle);
+}
+
+:where(.segmentedTab) {
+  min-height: 36px;
+  border-color: transparent;
+  color: var(--color-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+:where(.segmentedTab[aria-selected='true']) {
+  color: var(--color-foreground);
+  background: var(--color-card);
+  box-shadow: var(--toggle-shadow);
+}
+
+:where(.segmentedTab[data-pending='true']) {
+  outline: 1px dashed var(--color-primary);
+  outline-offset: -3px;
 }
 
 .switchControl:disabled,
@@ -407,41 +452,37 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .button[data-variant='primary']:hover {
+  :where(.button[data-variant='primary']:hover) {
     background: var(--color-primary);
     box-shadow: var(--shadow-hover);
   }
 
-  .button[data-variant='secondary']:hover,
-  .iconButton:hover {
+  :where(.button[data-variant='secondary']:hover, .iconButton:hover) {
     border-color: var(--color-line-strong);
     background: var(--color-card-subtle);
   }
 
-  .button[data-variant='ghost']:hover {
+  :where(.button[data-variant='ghost']:hover) {
     color: var(--color-foreground);
     background: var(--color-card-subtle);
   }
 }
 
 @media (max-width: 560px) {
-  .button[data-size='sm'],
-  .button[data-size='md'],
-  .iconButton,
-  .searchField,
+  :where(.button[data-size='sm'], .button[data-size='md'], .iconButton),
+  :where(.searchField),
   .textInput {
     min-height: 44px;
   }
 
-  .iconButton {
+  :where(.iconButton) {
     width: 44px;
     height: 44px;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .button:active,
-  .iconButton:active {
-    transform: none;
+@media (forced-colors: active) {
+  .fieldMotionHalo {
+    display: none;
   }
 }

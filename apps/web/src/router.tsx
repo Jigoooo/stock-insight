@@ -2,8 +2,18 @@ import { createRouter } from '@tanstack/react-router';
 
 import { routeTree } from './routeTree.gen';
 
+import type { ResearchWorkspaceViewPayload } from '@/pages/research-workspace/model/load-research-workspace';
+import { WorkspaceViewCache } from '@/pages/research-workspace/model/workspace-view-cache';
+
+export type StockInsightRouterContext = {
+  workspaceViewCache: WorkspaceViewCache<ResearchWorkspaceViewPayload>;
+};
+
 export function getRouter() {
   return createRouter({
+    context: {
+      workspaceViewCache: new WorkspaceViewCache<ResearchWorkspaceViewPayload>('anonymous'),
+    },
     routeTree,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 30_000,
