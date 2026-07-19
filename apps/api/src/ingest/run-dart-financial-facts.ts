@@ -139,7 +139,7 @@ function parseAmount(raw: string | undefined): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function periodEndFor(year: number, period: 'Q1' | 'H1' | 'Q3' | 'FY', fiscalClose = 12): string {
+function periodEndFor(year: number, period: 'Q1' | 'H1' | 'Q3' | 'FY', _fiscalClose = 12): string {
   // Standard Dec-close assumption; non-Dec closers keep metadata flag.
   if (period === 'Q1') return `${year}-03-31`;
   if (period === 'H1') return `${year}-06-30`;

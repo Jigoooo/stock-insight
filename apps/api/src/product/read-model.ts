@@ -1,4 +1,10 @@
 import {
+  newestTimestamp,
+  PRODUCT_STALE_THRESHOLD_HOURS,
+  resolveProductAvailability,
+} from '../publish/truth-gate.ts';
+import type { UserScope } from '../server';
+import {
   calibrationScorecardResponseSchema,
   featureSnapshotResponseSchema,
   impactSummaryResponseSchema,
@@ -13,8 +19,6 @@ import {
   type PersonalizedFeedResponse,
   type ResponseMeta,
 } from '@stock-insight/contracts';
-
-import type { UserScope } from '../server';
 
 export type ProductQueryExecutor = {
   queryRows: <TRow extends Record<string, unknown> = Record<string, unknown>>(
@@ -73,7 +77,7 @@ LIMIT $2::int
 
 const FEED_SQL = `
 SELECT feed.rank, feed.item_type, feed.item_id, feed.relevance_score,
-       feed.explanation_codes,
+       feed.explanation_codes, feed.generated_at,
        coalesce(report.title, event.summary_text, path_event.summary_text,
                 '연결 영향 경로') AS title,
        coalesce(report.summary, event.summary_text, path_event.summary_text, '') AS summary
@@ -190,7 +194,15 @@ export async function getFeatureSnapshots(
       features: row.features ?? {}, completenessScore: numberValue(row.completeness_score),
     }));
     return featureSnapshotResponseSchema.parse({
-      data, availability: data.length ? 'available' : 'missing', error: null, meta: meta(data.length, now),
+      data,
+      availability: resolveProductAvailability(
+        newestTimestamp(data.map((row) => row.asOf)),
+        data.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.featureSnapshot,
+      ),
+      error: null,
+      meta: meta(data.length, now),
     });
   } catch {
     return errorEnvelope(featureSnapshotResponseSchema, [], now, 'FEATURE_SNAPSHOT_READ_FAILED');
@@ -215,7 +227,15 @@ export async function getImpactSummaries(
       computedAt: iso(row.computed_at),
     }));
     return impactSummaryResponseSchema.parse({
-      data, availability: data.length ? 'available' : 'missing', error: null, meta: meta(data.length, now),
+      data,
+      availability: resolveProductAvailability(
+        newestTimestamp(data.map((row) => row.computedAt)),
+        data.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.impactSummary,
+      ),
+      error: null,
+      meta: meta(data.length, now),
     });
   } catch {
     return errorEnvelope(impactSummaryResponseSchema, [], now, 'IMPACT_SUMMARY_READ_FAILED');
@@ -241,7 +261,15 @@ export async function getMarketConfirmations(
       expectationPricedIn: row.expectation_priced_in,
     }));
     return marketConfirmationResponseSchema.parse({
-      data, availability: data.length ? 'available' : 'missing', error: null, meta: meta(data.length, now),
+      data,
+      availability: resolveProductAvailability(
+        newestTimestamp(data.map((row) => row.asOf)),
+        data.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.marketConfirmation,
+      ),
+      error: null,
+      meta: meta(data.length, now),
     });
   } catch {
     return errorEnvelope(marketConfirmationResponseSchema, [], now, 'MARKET_CONFIRMATION_READ_FAILED');
@@ -264,8 +292,19 @@ export async function getPersonalizedFeed(
       explanationCodes: Array.isArray(row.explanation_codes) ? row.explanation_codes.map(String) : [],
       title: String(row.title), summary: String(row.summary ?? ''),
     }));
+    const newestGenerated = newestTimestamp(
+      rows.map((row) => (row.generated_at ? iso(row.generated_at) : null)),
+    );
     return personalizedFeedResponseSchema.parse({
-      data, availability: data.length ? 'available' : 'missing', error: null, meta: meta(data.length, now),
+      data,
+      availability: resolveProductAvailability(
+        newestGenerated,
+        data.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.personalizedFeed,
+      ),
+      error: null,
+      meta: meta(data.length, now),
     });
   } catch {
     return errorEnvelope(personalizedFeedResponseSchema, [], now, 'PERSONALIZED_FEED_READ_FAILED');
@@ -302,8 +341,20 @@ export async function getCalibrationScorecard(
       })),
     };
     const count = data.labels.length + data.probabilities.length;
+    const newestComputed = newestTimestamp([
+      ...data.labels.map((row) => row.computedAt),
+      ...data.probabilities.map((row) => row.computedAt),
+    ]);
     return calibrationScorecardResponseSchema.parse({
-      data, availability: count ? 'available' : 'missing', error: null, meta: meta(count, now),
+      data,
+      availability: resolveProductAvailability(
+        newestComputed,
+        count,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.calibrationScorecard,
+      ),
+      error: null,
+      meta: meta(count, now),
     });
   } catch {
     return errorEnvelope(
@@ -333,7 +384,15 @@ export async function getLatestReports(
       publishedAt: iso(row.published_at), switchedAt: iso(row.switched_at),
     }));
     return latestReportsResponseSchema.parse({
-      data, availability: data.length ? 'available' : 'missing', error: null, meta: meta(data.length, now),
+      data,
+      availability: resolveProductAvailability(
+        newestTimestamp(data.map((row) => row.switchedAt)),
+        data.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.latestReports,
+      ),
+      error: null,
+      meta: meta(data.length, now),
     });
   } catch {
     return errorEnvelope(latestReportsResponseSchema, [], now, 'LATEST_REPORTS_READ_FAILED');

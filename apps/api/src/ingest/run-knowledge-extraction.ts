@@ -27,6 +27,27 @@ const EVENT_TYPES = new Set([
   'supply_disruption', 'legal_action', 'macro_shock', 'ipo_listing', 'buyback_dividend',
 ]);
 
+// B0: source types that carry no extractable prose (structured API payloads,
+// navigation links, source candidates). They are explicitly marked 'skipped'
+// with a recorded reason instead of sitting in 'pending' forever and being
+// masked by a successful wrapper. 'disclosure' stays pending intentionally —
+// it is the known B4 backlog and is surfaced (not hidden) by the wrapper gauge.
+const NON_EXTRACTION_SOURCE_TYPES = new Set([
+  'macro_api', 'market_api', 'briefing_link', 'candidate_source',
+]);
+
+const SKIP_NON_EXTRACTION_SQL = `
+UPDATE knowledge.document
+SET processing_status = 'skipped',
+    metadata = metadata || jsonb_build_object(
+      'skip_reason', 'non_extraction_source_type',
+      'skip_policy', 'b0-v1',
+      'skipped_at', now()::text
+    )
+WHERE processing_status = 'pending'
+  AND source_type = ANY($1::text[])
+`;
+
 const PENDING_DOCS_SQL = `
 SELECT document.document_id, document.title,
        coalesce(nullif(document.metadata ->> 'summary', ''), '') AS summary,
@@ -260,7 +281,6 @@ function resolveMention(
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
   const limit = intOption('--limit', 24, 500);
-  const startedAt = new Date();
   const extractionRunId = `${EXTRACTION_PIPELINE_VERSION}-${randomUUID()}`;
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
 
@@ -268,6 +288,16 @@ async function run(): Promise<void> {
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
   const client = await pool.connect();
   try {
+    // B0: mark non-extraction source types as skipped first so 'pending' only
+    // ever means "extractable work not yet done" (fail-closed wrapper readback).
+    let nonExtractionSkipped = 0;
+    if (apply) {
+      await client.query('BEGIN');
+      const skipResult = await client.query(SKIP_NON_EXTRACTION_SQL, [[...NON_EXTRACTION_SOURCE_TYPES]]);
+      nonExtractionSkipped = skipResult.rowCount ?? 0;
+      await client.query('COMMIT');
+    }
+
     await client.query('BEGIN READ ONLY');
     const pending = await client.query<PendingDoc>(PENDING_DOCS_SQL, [limit]);
     const docIds = pending.rows.map((row) => Number(row.document_id));
@@ -295,6 +325,7 @@ async function run(): Promise<void> {
 
     const stats = {
       documents: pending.rows.length,
+      nonExtractionSkipped,
       claimsExtracted: 0,
       claimsStored: 0,
       claimsRejected: { bad_predicate: 0, bad_type: 0, no_quote: 0, unresolved_subject: 0 },

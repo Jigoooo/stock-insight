@@ -46,6 +46,11 @@ const STOCK_ENTITIES_SQL = `
 SELECT entity.entity_id FROM core.entity entity WHERE entity.entity_type = 'Stock'
 `;
 
+const EVIDENCE_BACKED_RELATIONS_SQL = `
+SELECT DISTINCT evidence.relation_id
+FROM knowledge.relation_evidence evidence
+`;
+
 const CLEAR_RUN_SQL = `
 DELETE FROM analytics.impact_path WHERE inference_run_id = $1
 `;
@@ -136,7 +141,12 @@ async function run(): Promise<void> {
     const events = await client.query<EventRow>(RECENT_EVENTS_SQL, [asOf.toISOString(), eventLimit]);
     const relations = await client.query<RelationRow>(RELATIONS_SQL, [[...RELATION_PREDICATES]]);
     const stocks = await client.query<QueryResultRow & { entity_id: string | number }>(STOCK_ENTITIES_SQL);
+    const backedRelations = await client.query<QueryResultRow & { relation_id: string | number }>(
+      EVIDENCE_BACKED_RELATIONS_SQL,
+    );
     await client.query('COMMIT');
+
+    const evidenceBackedSet = new Set(backedRelations.rows.map((row) => Number(row.relation_id)));
 
     const stockSet = new Set(stocks.rows.map((row) => Number(row.entity_id)));
     // Undirected adjacency: relations connect either direction for expansion.
@@ -224,6 +234,13 @@ async function run(): Promise<void> {
 
       if (apply) {
         for (const entry of scored) {
+          // B0 truth gate: annotate whether every edge of this path is backed by
+          // immutable source evidence. Paths without full backing stay stored as
+          // internal analytics artifacts but are excluded from serving exposure
+          // (serving.impact_summary_v1 filter, migration 018).
+          const sourceBacked =
+            entry.path.edges.length > 0 &&
+            entry.path.edges.every((edgeId) => evidenceBackedSet.has(edgeId));
           const result = await client.query(INSERT_PATH_SQL, [
             Number(event.event_id),
             entry.path.target,
@@ -240,6 +257,7 @@ async function run(): Promise<void> {
               freshness: Number(fresh.toFixed(3)),
               hops: entry.path.hops,
               predicates: entry.path.predicates,
+              source_backed: sourceBacked,
               note: 'industrial linkage strength, not a price prediction',
             }),
             inferenceRunId,

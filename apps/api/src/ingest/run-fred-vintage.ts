@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import pg, { type PoolClient, type QueryResultRow } from 'pg';
+import pg, { type PoolClient } from 'pg';
 
 // SET C / C-4: FRED/ALFRED macro vintage collector.
 // Stores every (observation_date, vintage_date) pair so past reports can be

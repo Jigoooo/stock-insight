@@ -1,6 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
+
+import { publicBlockTypeForVerification } from './truth-gate.ts';
 
 // SET D / D-6: report publishing skeleton with atomic pointer switch.
 // Seeds daily_market_stock definition v1, builds an evidence-first structured
@@ -36,6 +38,7 @@ WHERE report_type = 'daily_market_stock' AND active AND version = 1
 
 const RECENT_EVENTS_SQL = `
 SELECT event.event_id, event.event_type, event.summary_text, event.occurred_at,
+       event.verification_status,
        event.source_document_id, entity.canonical_name AS target_name,
        document.title AS document_title, document.canonical_url
 FROM knowledge.event event
@@ -68,7 +71,12 @@ INSERT INTO content.report_run (
   knowledge_snapshot_id, pipeline_version, started_at
 ) VALUES ($1, $2, $2, $2, 'running', $3, $4, now())
 ON CONFLICT (report_definition_id, scheduled_for, pipeline_version)
-DO UPDATE SET status = 'running', started_at = now()
+DO UPDATE SET status = 'running',
+              started_at = now(),
+              finished_at = NULL,
+              as_of = EXCLUDED.as_of,
+              data_cutoff = EXCLUDED.data_cutoff,
+              knowledge_snapshot_id = EXCLUDED.knowledge_snapshot_id
 RETURNING report_run_id
 `;
 
@@ -116,6 +124,7 @@ type EventRow = QueryResultRow & {
   event_type: string;
   summary_text: string | null;
   occurred_at: string | Date | null;
+  verification_status: string;
   source_document_id: string | number | null;
   target_name: string | null;
   document_title: string | null;
@@ -199,12 +208,12 @@ async function run(): Promise<void> {
       };
       return {
         block_id: `verified_events-${index + 1}`,
-        block_type: 'fact',
+        block_type: publicBlockTypeForVerification(event.verification_status),
         text: `[${event.event_type}] ${event.target_name ?? '시장 전반'} — ${
           (event.summary_text ?? event.document_title ?? '').slice(0, 300)
         }`,
         citation_ids: [citationId],
-        confidence: 0.9,
+        confidence: event.verification_status === 'verified' ? 0.9 : 0.6,
       };
     });
     const claimBlocks: ReportBlock[] = claims.rows.map((claim, index) => {

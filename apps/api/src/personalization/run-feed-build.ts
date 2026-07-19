@@ -10,7 +10,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 const JOB_NAME = 'stock-insight-feed-build';
 const FEED_SIZE = 20;
 const MAX_SHARE_PER_ENTITY = 0.3;
-const MIN_NEGATIVE_SLOTS = 1;
+const _MIN_NEGATIVE_SLOTS = 1;
 
 const USERS_SQL = `
 SELECT profile.user_id,

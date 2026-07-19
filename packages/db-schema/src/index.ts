@@ -15,6 +15,7 @@ import { analyticsServingViewsMigrationSql } from './migrations/014_analytics_se
 import { personalizationCalibrationMigrationSql } from './migrations/015_personalization_calibration';
 import { productionizationCompletionMigrationSql } from './migrations/016_productionization_completion';
 import { probabilityCalibrationHardeningMigrationSql } from './migrations/017_probability_calibration_hardening';
+import { backendTruthGateMigrationSql } from './migrations/018_backend_truth_gate';
 
 export type AppTableName =
   | 'company_profiles'
@@ -179,6 +180,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['analytics_layer'],
     sql: probabilityCalibrationHardeningMigrationSql,
   },
+  {
+    id: '018_backend_truth_gate',
+    description:
+      'B0 product truth stop-line: serving impact exposure requires per-edge immutable source evidence (non-empty path_edges), plus a durable truth-gate policy readback in ops.',
+    tables: ['serving_read_views', 'analytics_layer'],
+    sql: backendTruthGateMigrationSql,
+  },
 ];
 
 export {
@@ -199,4 +207,5 @@ export {
   personalizationCalibrationMigrationSql,
   productionizationCompletionMigrationSql,
   probabilityCalibrationHardeningMigrationSql,
+  backendTruthGateMigrationSql,
 };

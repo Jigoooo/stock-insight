@@ -1,0 +1,55 @@
+{
+  "$schema_version": "1.0.0",
+  "bundle": "B0",
+  "title": "Product truth stop-line gates",
+  "plan": "docs/plan/insight-platform-backend-db-v2/00-backend-db-master-plan.md",
+  "policy_version": "b0-v1",
+  "fail_closed_semantics": "SQL error, timeout, NULL, non-finite value, or denominator 0 is error/blocked, never GREEN.",
+  "gates": [
+    {
+      "id": "b0-unverified-public-fact-zero",
+      "kind": "sql",
+      "description": "Zero published reports may contain a fact block whose backing event is not verified. Counts fact blocks inside published report payloads joined to their evidence events.",
+      "sql": "SELECT count(*) FROM content.report report JOIN content.report_evidence evidence ON evidence.report_id = report.report_id AND evidence.evidence_type = 'event' JOIN knowledge.event event ON event.event_id = evidence.evidence_id CROSS JOIN LATERAL jsonb_path_query(report.report_payload, '$.sections[*].blocks[*] ? (@.block_type == \"fact\")') AS fact_block WHERE report.status = 'published' AND report.published_at >= (SELECT applied_at FROM ops.truth_gate_policy WHERE policy_key = 'b0_product_truth_stop_line') AND event.verification_status <> 'verified'",
+      "threshold": { "operator": "==", "value": 0 },
+      "null_policy": "error",
+      "fail_closed": true
+    },
+    {
+      "id": "b0-report-run-lineage-refresh",
+      "kind": "test",
+      "description": "Same-day rerun refreshes as_of/data_cutoff/knowledge_snapshot_id/finished_at instead of reusing stale run metadata.",
+      "command": "node --test apps/api/test/report-lineage.test.ts",
+      "threshold": null,
+      "null_policy": "error",
+      "fail_closed": true
+    },
+    {
+      "id": "b0-sourceless-impact-exposure-zero",
+      "kind": "sql",
+      "description": "The serving impact surface exposes exactly the evidence-backed path set: sum(path_count) equals the count of unexpired paths whose every edge has immutable relation evidence (empty-edge paths excluded). Any mismatch means unbacked exposure or dropped backed paths.",
+      "sql": "SELECT abs(coalesce((SELECT sum(path_count) FROM serving.impact_summary_v1), 0) - (SELECT count(*) FROM analytics.impact_path path JOIN core.v_security_universe universe ON universe.security_entity_id = path.target_entity_id WHERE path.expires_at > now() AND cardinality(path.path_edges) > 0 AND NOT EXISTS (SELECT 1 FROM unnest(path.path_edges) AS edge(relation_id) WHERE NOT EXISTS (SELECT 1 FROM knowledge.relation_evidence evidence WHERE evidence.relation_id = edge.relation_id))))",
+      "threshold": { "operator": "==", "value": 0 },
+      "null_policy": "error",
+      "fail_closed": true
+    },
+    {
+      "id": "b0-stale-available-detection",
+      "kind": "test",
+      "description": "Product read models degrade availability to stale/missing on old or absent rows; unparsable timestamps fail closed to stale.",
+      "command": "node --test apps/api/test/backend-truth-gate.test.ts",
+      "threshold": null,
+      "null_policy": "error",
+      "fail_closed": true
+    },
+    {
+      "id": "b0-non-news-backlog-unmasked",
+      "kind": "sql",
+      "description": "Zero pending documents outside the explicit allowlist (news in-flight, disclosure surfaced-B4-backlog). Non-extraction source types must be explicitly skipped with a reason.",
+      "sql": "SELECT count(*) FROM knowledge.document WHERE processing_status = 'pending' AND source_type NOT IN ('news', 'disclosure')",
+      "threshold": { "operator": "==", "value": 0 },
+      "null_policy": "error",
+      "fail_closed": true
+    }
+  ]
+}

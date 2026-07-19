@@ -1,5 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 
+import { unscopedRowQuery } from './read-context.ts';
+
 import {
   getCalibrationScorecard,
   getFeatureSnapshots,
@@ -9,8 +11,6 @@ import {
   normalizeProductLimitParam,
   normalizeProductTextParam,
 } from '@stock-insight/api';
-
-import { unscopedRowQuery } from './read-context.ts';
 
 function unscopedExecutor() {
   const context = unscopedRowQuery();

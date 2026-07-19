@@ -2,6 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import { publicBlockTypeForVerification } from './truth-gate.ts';
+
 // SET F / F-4: incremental event-brief trigger (Baseline §7.4/§14.5 skeleton).
 // Detects high-importance document-backed events in the last 24h and publishes
 // per-entity event briefs through the same atomic pointer mechanism
@@ -34,6 +36,7 @@ WHERE report_type = 'event_brief' AND active AND version = 1
 const CANDIDATE_EVENTS_SQL = `
 SELECT event.event_id, event.event_type, event.summary_text,
        coalesce(event.occurred_at, event.created_at) AS occurred_at,
+       event.verification_status,
        event.source_document_id,
        document.title AS document_title, document.canonical_url,
        entity.entity_id AS target_entity_id, entity.canonical_name AS target_name,
@@ -63,7 +66,12 @@ INSERT INTO content.report_run (
   knowledge_snapshot_id, pipeline_version, started_at
 ) VALUES ($1, $2, $2, $2, 'running', $3, $4, now())
 ON CONFLICT (report_definition_id, scheduled_for, pipeline_version)
-DO UPDATE SET status = 'running', started_at = now()
+DO UPDATE SET status = 'running',
+              started_at = now(),
+              finished_at = NULL,
+              as_of = EXCLUDED.as_of,
+              data_cutoff = EXCLUDED.data_cutoff,
+              knowledge_snapshot_id = EXCLUDED.knowledge_snapshot_id
 RETURNING report_run_id
 `;
 
@@ -114,6 +122,7 @@ type EventRow = QueryResultRow & {
   event_type: string;
   summary_text: string | null;
   occurred_at: Date;
+  verification_status: string;
   source_document_id: string | number;
   document_title: string | null;
   canonical_url: string | null;
@@ -206,8 +215,11 @@ async function run(): Promise<void> {
           {
             section_key: 'what_happened',
             blocks: [{
-              block_id: 'what_happened-1', block_type: 'fact', text,
-              citation_ids: ['cit-1'], confidence: 0.9,
+              block_id: 'what_happened-1',
+              block_type: publicBlockTypeForVerification(event.verification_status),
+              text,
+              citation_ids: ['cit-1'],
+              confidence: event.verification_status === 'verified' ? 0.9 : 0.6,
             }],
           },
         ],
