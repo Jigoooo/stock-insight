@@ -11,6 +11,7 @@ import {
   createReadOnlyDatabaseClient,
   getDecisionHistory,
   getEntityRelations,
+  getEntityRelationsWithV2Preference,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
@@ -87,11 +88,20 @@ export async function loadResearchWorkspaceView(
         const themes = await getThemeResearchList(executor, { userScope });
         const relationRoot = selectInitialRelationRoot([], themes.items);
         const relation = relationRoot
-          ? await getEntityRelations(executor, {
-              userScope,
-              entityKey: relationRoot,
-              depth: 1,
-            })
+          ? (
+              await getEntityRelationsWithV2Preference(executor, {
+                entityKey: relationRoot,
+                depth: 1,
+                userId: userScope.userId,
+                now: new Date(),
+                loadV1: () =>
+                  getEntityRelations(executor, {
+                    userScope,
+                    entityKey: relationRoot,
+                    depth: 1,
+                  }),
+              })
+            ).graph
           : null;
         activeSlice = { relation, themes, view: options.view };
         break;
@@ -182,7 +192,14 @@ export async function loadThemeResearch() {
 
 export async function loadEntityRelationGraph(entityKey: string, depth: number) {
   const { database, userScope } = createResearchReadContext();
-  return database.withReadSnapshot((executor) =>
-    getEntityRelations(executor, { userScope, entityKey, depth }),
-  );
+  return database.withReadSnapshot(async (executor) => {
+    const result = await getEntityRelationsWithV2Preference(executor, {
+      entityKey,
+      depth,
+      userId: userScope.userId,
+      now: new Date(),
+      loadV1: () => getEntityRelations(executor, { userScope, entityKey, depth }),
+    });
+    return result.graph;
+  });
 }

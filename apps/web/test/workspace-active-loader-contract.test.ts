@@ -58,4 +58,20 @@ describe('workspace active-view server loader', () => {
     );
     assert.doesNotMatch(model, /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/);
   });
+
+  it('routes the initial themes relation through the v2-preference adapter', async () => {
+    const source = await readFile(serverUrl, 'utf8');
+    const themesCase = source.match(/case 'themes':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
+
+    assert.match(themesCase, /getEntityRelationsWithV2Preference\(executor/);
+    assert.match(themesCase, /depth:\s*1/);
+    assert.match(themesCase, /userId:\s*userScope\.userId/);
+    assert.match(themesCase, /loadV1:\s*\(\)\s*=>\s*getEntityRelations\(executor/);
+
+    const relationLoader =
+      source.match(/export async function loadEntityRelationGraph[\s\S]*?\n\}/)?.[0] ?? '';
+    assert.match(relationLoader, /getEntityRelationsWithV2Preference\(executor/);
+    assert.match(relationLoader, /\n\s*depth,/);
+    assert.match(relationLoader, /userId:\s*userScope\.userId/);
+  });
 });

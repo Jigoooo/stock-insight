@@ -135,6 +135,10 @@ BEGIN
         AND evidence.relation_payload_hash=NEW.payload_hash
         AND (evidence.valid_from IS NULL OR evidence.valid_from<=NEW.valid_from)
         AND (evidence.valid_to IS NULL OR evidence.valid_to>NEW.valid_from)
+        AND (
+          evidence.valid_to IS NULL
+          OR (NEW.valid_to IS NOT NULL AND NEW.valid_to<=evidence.valid_to)
+        )
         AND evidence.recorded_at<=NEW.known_from
         AND (
           (
@@ -336,29 +340,17 @@ SELECT identity.relation_identity_id,
        ontology.predicate_ontology_revision_id,
        relation.relation_kind,
        relation.confidence,
-       CASE WHEN ontology.policy_status='approved' AND EXISTS (
-         SELECT 1 FROM knowledge.relation_evidence_ledger evidence
-         WHERE evidence.relation_identity_id=identity.relation_identity_id
-       ) THEN 'accepted' ELSE 'quarantined_unverified' END,
-       relation.valid_from,
-       relation.valid_to,
-       greatest(
-         relation.recorded_from,
-         coalesce((
-           SELECT min(evidence.recorded_at)
-           FROM knowledge.relation_evidence_ledger evidence
-           WHERE evidence.relation_identity_id=identity.relation_identity_id
-             AND evidence.relation_payload_hash=encode(sha256(convert_to(
-               relation.relation_id::text||'|'||relation.relation_kind||'|'||relation.confidence::text||'|'||coalesce(relation.metadata::text,'{}'),
-               'UTF8'
-             )),'hex')
-         ),relation.recorded_from)
+       CASE WHEN qualification.required_valid_from IS NOT NULL
+         THEN 'accepted' ELSE 'quarantined_unverified' END,
+       coalesce(qualification.required_valid_from,relation.valid_from),
+       CASE WHEN qualification.required_valid_from IS NOT NULL
+         THEN qualification.required_valid_to ELSE relation.valid_to END,
+       coalesce(
+         qualification.required_known_from,
+         greatest(relation.recorded_from,ontology.known_from)
        ),
        relation.relation_id,
-       encode(sha256(convert_to(
-         relation.relation_id::text||'|'||relation.relation_kind||'|'||relation.confidence::text||'|'||coalesce(relation.metadata::text,'{}'),
-         'UTF8'
-       )),'hex'),
+       payload.payload_hash,
        relation.metadata||jsonb_build_object('legacy_status',relation.status,'policy','b5-v1')
 FROM knowledge.relation relation
 JOIN knowledge.relation_identity identity
@@ -368,6 +360,80 @@ JOIN knowledge.relation_identity identity
 JOIN knowledge.predicate_ontology_revision ontology
   ON ontology.predicate=relation.predicate
  AND ontology.revision_no=CASE WHEN relation.predicate='ISSUED_BY' THEN 2 ELSE 1 END
+CROSS JOIN LATERAL (
+  SELECT encode(sha256(convert_to(
+    relation.relation_id::text||'|'||relation.relation_kind||'|'||relation.confidence::text||'|'||coalesce(relation.metadata::text,'{}'),
+    'UTF8'
+  )),'hex') AS payload_hash
+) payload
+LEFT JOIN LATERAL (
+  SELECT timing.required_valid_from,timing.required_valid_to,timing.required_known_from
+  FROM knowledge.relation_evidence_ledger evidence
+  LEFT JOIN core.security_issuer_identity mapping
+    ON mapping.security_issuer_identity_id=evidence.security_issuer_identity_id
+  CROSS JOIN LATERAL (
+    SELECT greatest(
+             relation.valid_from,
+             ontology.effective_from,
+             coalesce(evidence.valid_from,'-infinity'::timestamptz),
+             coalesce(mapping.valid_from,'-infinity'::timestamptz)
+           ) AS required_valid_from,
+           CASE
+             WHEN relation.valid_to IS NULL THEN evidence.valid_to
+             WHEN evidence.valid_to IS NULL THEN relation.valid_to
+             ELSE least(relation.valid_to,evidence.valid_to)
+           END AS required_valid_to,
+           greatest(
+             relation.recorded_from,
+             ontology.known_from,
+             evidence.recorded_at,
+             coalesce(mapping.known_from,'-infinity'::timestamptz)
+           ) AS required_known_from
+  ) timing
+  WHERE ontology.policy_status='approved'
+    AND evidence.relation_identity_id=identity.relation_identity_id
+    AND evidence.relation_payload_hash=payload.payload_hash
+    AND (relation.valid_to IS NULL OR relation.valid_to>timing.required_valid_from)
+    AND (evidence.valid_to IS NULL OR evidence.valid_to>timing.required_valid_from)
+    AND (
+      (
+        evidence.evidence_kind='identity_mapping'
+        AND identity.predicate='ISSUED_BY'
+        AND mapping.security_entity_id=identity.subject_entity_id
+        AND mapping.issuer_entity_id=identity.object_entity_id
+      )
+      OR (
+        evidence.evidence_kind='claim'
+        AND EXISTS (
+          SELECT 1 FROM knowledge.claim claim
+          WHERE claim.claim_id=evidence.claim_id
+            AND claim.verification_status='verified'
+            AND claim.subject_entity_id=identity.subject_entity_id
+            AND claim.predicate=identity.predicate
+            AND claim.object_entity_id=identity.object_entity_id
+        )
+      )
+      OR (
+        evidence.evidence_kind IN ('document','chunk')
+        AND EXISTS (
+          SELECT 1
+          FROM knowledge.claim claim
+          JOIN knowledge.claim_evidence claim_evidence ON claim_evidence.claim_id=claim.claim_id
+          WHERE claim.verification_status='verified'
+            AND claim.subject_entity_id=identity.subject_entity_id
+            AND claim.predicate=identity.predicate
+            AND claim.object_entity_id=identity.object_entity_id
+            AND (evidence.document_id IS NULL OR claim_evidence.document_id=evidence.document_id)
+            AND (evidence.chunk_id IS NULL OR claim_evidence.chunk_id=evidence.chunk_id)
+        )
+      )
+    )
+  ORDER BY timing.required_valid_from,
+           timing.required_known_from,
+           timing.required_valid_to DESC NULLS FIRST,
+           evidence.relation_evidence_ledger_id
+  LIMIT 1
+) qualification ON true
 WHERE NOT EXISTS (
   SELECT 1 FROM knowledge.relation_revision existing
   WHERE existing.source_relation_id=relation.relation_id
@@ -392,9 +458,9 @@ SELECT latest.relation_identity_id,
        latest.relation_kind,
        latest.confidence,
        'accepted',
-       greatest(latest.valid_from,ontology.effective_from,mapping.valid_from),
-       latest.valid_to,
-       greatest(clock_timestamp(),ontology.known_from,mapping.known_from),
+       qualification.required_valid_from,
+       qualification.required_valid_to,
+       qualification.required_known_from,
        latest.relation_revision_id,
        latest.payload_hash,
        latest.metadata||'{"policy":"b5-v2","ontology_upgrade":true}'::jsonb
@@ -407,27 +473,45 @@ JOIN knowledge.predicate_ontology_revision ontology
 JOIN core.security_issuer_identity mapping
   ON mapping.security_entity_id=identity.subject_entity_id
  AND mapping.issuer_entity_id=identity.object_entity_id
+JOIN LATERAL (
+  SELECT timing.required_valid_from,timing.required_valid_to,timing.required_known_from
+  FROM knowledge.relation_evidence_ledger evidence
+  CROSS JOIN LATERAL (
+    SELECT greatest(
+             latest.valid_from,
+             ontology.effective_from,
+             mapping.valid_from,
+             coalesce(evidence.valid_from,'-infinity'::timestamptz)
+           ) AS required_valid_from,
+           CASE
+             WHEN latest.valid_to IS NULL THEN evidence.valid_to
+             WHEN evidence.valid_to IS NULL THEN latest.valid_to
+             ELSE least(latest.valid_to,evidence.valid_to)
+           END AS required_valid_to,
+           greatest(
+             statement_timestamp(),
+             ontology.known_from,
+             mapping.known_from,
+             evidence.recorded_at
+           ) AS required_known_from
+  ) timing
+  WHERE evidence.relation_identity_id=latest.relation_identity_id
+    AND evidence.relation_payload_hash=latest.payload_hash
+    AND evidence.evidence_kind='identity_mapping'
+    AND evidence.security_issuer_identity_id=mapping.security_issuer_identity_id
+    AND ontology.known_from<=statement_timestamp()
+    AND mapping.known_from<=statement_timestamp()
+    AND evidence.recorded_at<=statement_timestamp()
+    AND (latest.valid_to IS NULL OR latest.valid_to>timing.required_valid_from)
+    AND (evidence.valid_to IS NULL OR evidence.valid_to>timing.required_valid_from)
+  ORDER BY timing.required_valid_from,
+           timing.required_known_from,
+           timing.required_valid_to DESC NULLS FIRST,
+           evidence.relation_evidence_ledger_id
+  LIMIT 1
+) qualification ON true
 WHERE latest.predicate_ontology_revision_id<>ontology.predicate_ontology_revision_id
   AND ontology.policy_status='approved'
-  AND ontology.known_from<=clock_timestamp()
-  AND mapping.known_from<=clock_timestamp()
-  AND EXISTS (
-    SELECT 1
-    FROM knowledge.relation_evidence_ledger evidence
-    WHERE evidence.relation_identity_id=latest.relation_identity_id
-      AND evidence.relation_payload_hash=latest.payload_hash
-      AND evidence.evidence_kind='identity_mapping'
-      AND evidence.security_issuer_identity_id=mapping.security_issuer_identity_id
-      AND evidence.recorded_at<=clock_timestamp()
-      AND (
-        evidence.valid_from IS NULL
-        OR evidence.valid_from<=greatest(latest.valid_from,ontology.effective_from,mapping.valid_from)
-      )
-      AND (
-        evidence.valid_to IS NULL
-        OR evidence.valid_to>greatest(latest.valid_from,ontology.effective_from,mapping.valid_from)
-      )
-  )
   AND NOT EXISTS (
     SELECT 1 FROM knowledge.relation_revision prior
     WHERE prior.relation_identity_id=latest.relation_identity_id

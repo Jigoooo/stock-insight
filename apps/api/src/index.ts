@@ -58,6 +58,18 @@ export type {
 } from './prices/read-model';
 export { getEntityRelations } from './relations/read-model';
 export type { GetEntityRelationsOptions, RelationGraphQueryExecutor } from './relations/read-model';
+export { getEntityRelationsWithV2Preference } from './relations/entity-relation-adapter';
+export type {
+  EntityRelationAdapterResult,
+  EntityRelationSourceExecutor,
+  GetEntityRelationsWithV2Options,
+} from './relations/entity-relation-adapter';
+export { getServableContentPack } from './relations/graph-read-model-v2';
+export type {
+  ContentPackQueryExecutor,
+  ContentPackReadResult,
+  ServedContentPack,
+} from './relations/graph-read-model-v2';
 export { getDecisionHistory } from './history/read-model';
 export type { DecisionHistoryQueryExecutor, GetDecisionHistoryOptions } from './history/read-model';
 export { getMyResearchOverview } from './my-research/read-model';

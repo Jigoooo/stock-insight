@@ -21,6 +21,10 @@ import { sourceRevisionContractsMigrationSql } from './migrations/020_source_rev
 import { identityTaxonomyMigrationSql } from './migrations/021_identity_taxonomy';
 import { verifiedKnowledgeMigrationSql } from './migrations/022_verified_knowledge';
 import { temporalRelationLedgerMigrationSql } from './migrations/023_temporal_relation_ledger';
+import { relationBuilderFoundationMigrationSql } from './migrations/024_relation_builder_foundation';
+import { graphSnapshotAnalyticsMigrationSql } from './migrations/025_graph_snapshot_analytics';
+import { backendServingV2MigrationSql } from './migrations/026_backend_serving_v2';
+import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_claim';
 
 export type AppTableName =
   | 'company_profiles'
@@ -51,6 +55,10 @@ export type AppTableName =
   | 'identity_taxonomy'
   | 'verified_knowledge'
   | 'temporal_relation_ledger'
+  | 'relation_builder_foundation'
+  | 'graph_snapshot_analytics'
+  | 'backend_serving_v2'
+  | 'pipeline_run_claim'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -232,6 +240,34 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['temporal_relation_ledger'],
     sql: temporalRelationLedgerMigrationSql,
   },
+  {
+    id: '024_relation_builder_foundation',
+    description:
+      'B6 source-revision-bound relation evidence foundation for type-specific canonical builders.',
+    tables: ['relation_builder_foundation'],
+    sql: relationBuilderFoundationMigrationSql,
+  },
+  {
+    id: '025_graph_snapshot_analytics',
+    description:
+      'B7 reproducible graph snapshot with digest, exact-FK impact path v2 steps, snapshot-scoped measurements/communities, cross-hub degree ledger.',
+    tables: ['graph_snapshot_analytics'],
+    sql: graphSnapshotAnalyticsMigrationSql,
+  },
+  {
+    id: '026_backend_serving_v2',
+    description:
+      'B8 canonical content pack bound to sealed graph snapshots with typed evidence FK items and a servable-freshness view.',
+    tables: ['backend_serving_v2'],
+    sql: backendServingV2MigrationSql,
+  },
+  {
+    id: '027_pipeline_run_claim',
+    description:
+      'B9 durable pipeline run claim with fencing token — exactly one live scheduler winner per natural run key.',
+    tables: ['pipeline_run_claim'],
+    sql: pipelineRunClaimMigrationSql,
+  },
 ];
 
 export {
@@ -258,4 +294,8 @@ export {
   identityTaxonomyMigrationSql,
   verifiedKnowledgeMigrationSql,
   temporalRelationLedgerMigrationSql,
+  relationBuilderFoundationMigrationSql,
+  graphSnapshotAnalyticsMigrationSql,
+  backendServingV2MigrationSql,
+  pipelineRunClaimMigrationSql,
 };

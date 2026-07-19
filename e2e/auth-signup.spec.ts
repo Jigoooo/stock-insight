@@ -27,11 +27,13 @@ test.describe('one-time enrollment presentation', () => {
     if (await availableHeading.isVisible()) {
       const usernameField = page.getByLabel('사용자 이름');
       await expect(usernameField).toBeVisible();
-      await expect(usernameField).toHaveAttribute('data-motion', 'field');
+      await expect(
+        page.locator('[data-motion="field-shell"]').filter({ has: usernameField }),
+      ).toBeVisible();
       await page.getByRole('button', { name: '계정 만들기' }).click();
       await expect(usernameField).toBeFocused();
     } else if (await unavailableHeading.isVisible()) {
-      await expect(page.getByRole('link', { name: '로그인' })).toBeVisible();
+      await expect(page.getByRole('link', { name: '로그인', exact: true })).toBeVisible();
     } else {
       await expect(page.getByRole('button', { name: '다시 확인' })).toBeVisible();
     }
