@@ -92,7 +92,7 @@ secrets:
 networks:
   edge:
     external: true
-    name: consulting-web_default
+    name: stock-insight-edge
   research:
     external: true
     name: research-app-db_default

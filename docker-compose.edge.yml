@@ -1,0 +1,29 @@
+name: stock-insight-edge
+
+services:
+  edge:
+    image: ${STOCK_INSIGHT_EDGE_IMAGE:-sha256:bd26fcbac48633dadd9e3cc53f896d4ddc2cbd4693e759b3941311971a400713}
+    ports:
+      - '127.0.0.1:${STOCK_INSIGHT_EDGE_PORT:-8092}:80'
+    networks:
+      stock-edge:
+        aliases:
+          - stock-insight-edge
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,mode=0755
+      - /var/run:size=4m,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1/__edge_health || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+networks:
+  stock-edge:
+    external: true
+    name: stock-insight-edge
