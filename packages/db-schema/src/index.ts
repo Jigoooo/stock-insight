@@ -17,6 +17,7 @@ import { productionizationCompletionMigrationSql } from './migrations/016_produc
 import { probabilityCalibrationHardeningMigrationSql } from './migrations/017_probability_calibration_hardening';
 import { backendTruthGateMigrationSql } from './migrations/018_backend_truth_gate';
 import { provenanceOutboxMigrationSql } from './migrations/019_provenance_outbox';
+import { sourceRevisionContractsMigrationSql } from './migrations/020_source_revision_contracts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -43,6 +44,7 @@ export type AppTableName =
   | 'analytics_layer'
   | 'personalization_layer'
   | 'ops_event_contract'
+  | 'source_revision_contracts'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -196,6 +198,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['ops_event_contract'],
     sql: provenanceOutboxMigrationSql,
   },
+  {
+    id: '020_source_revision_contracts',
+    description:
+      'B2 source contracts + immutable revisions: full active-source contract coverage, stable provider record identity, PIT-safe append-only source revisions.',
+    tables: ['source_revision_contracts'],
+    sql: sourceRevisionContractsMigrationSql,
+  },
 ];
 
 export {
@@ -218,4 +227,5 @@ export {
   probabilityCalibrationHardeningMigrationSql,
   backendTruthGateMigrationSql,
   provenanceOutboxMigrationSql,
+  sourceRevisionContractsMigrationSql,
 };

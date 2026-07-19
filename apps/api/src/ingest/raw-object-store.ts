@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile, appendFile } from 'node:fs/promises';
+import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 // SET B / B-1: content-addressed raw object store (local filesystem tier).
@@ -67,6 +67,25 @@ export async function writeRawObject(options: {
   );
 
   return { contentHash, objectUri, bytes: body.byteLength };
+}
+
+/** Read an immutable raw object and verify its bytes against the registered hash. */
+export async function readRawObjectVerified(ref: {
+  objectUri: string;
+  contentHash: string;
+}): Promise<Buffer> {
+  if (!ref.objectUri.startsWith('file://')) {
+    throw new Error(`unsupported raw object URI: ${ref.objectUri}`);
+  }
+  if (!/^[a-f0-9]{64}$/i.test(ref.contentHash)) {
+    throw new Error('raw object contentHash must be SHA-256 hex');
+  }
+  const body = await readFile(ref.objectUri.slice('file://'.length));
+  const actual = hashContent(body);
+  if (actual !== ref.contentHash.toLowerCase()) {
+    throw new Error(`raw object hash mismatch: expected ${ref.contentHash}, got ${actual}`);
+  }
+  return body;
 }
 
 export const REGISTER_RAW_OBJECT_SQL = `
