@@ -18,6 +18,7 @@ import { probabilityCalibrationHardeningMigrationSql } from './migrations/017_pr
 import { backendTruthGateMigrationSql } from './migrations/018_backend_truth_gate';
 import { provenanceOutboxMigrationSql } from './migrations/019_provenance_outbox';
 import { sourceRevisionContractsMigrationSql } from './migrations/020_source_revision_contracts';
+import { identityTaxonomyMigrationSql } from './migrations/021_identity_taxonomy';
 
 export type AppTableName =
   | 'company_profiles'
@@ -45,6 +46,7 @@ export type AppTableName =
   | 'personalization_layer'
   | 'ops_event_contract'
   | 'source_revision_contracts'
+  | 'identity_taxonomy'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -205,6 +207,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['source_revision_contracts'],
     sql: sourceRevisionContractsMigrationSql,
   },
+  {
+    id: '021_identity_taxonomy',
+    description:
+      'B3 issuer/security identity bridge + ISSUED_BY graph predicate; versioned SIC/KSIC taxonomy with explicit unclassified membership and no fabricated codes.',
+    tables: ['identity_taxonomy'],
+    sql: identityTaxonomyMigrationSql,
+  },
 ];
 
 export {
@@ -228,4 +237,5 @@ export {
   backendTruthGateMigrationSql,
   provenanceOutboxMigrationSql,
   sourceRevisionContractsMigrationSql,
+  identityTaxonomyMigrationSql,
 };
