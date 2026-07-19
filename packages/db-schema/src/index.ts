@@ -19,6 +19,7 @@ import { backendTruthGateMigrationSql } from './migrations/018_backend_truth_gat
 import { provenanceOutboxMigrationSql } from './migrations/019_provenance_outbox';
 import { sourceRevisionContractsMigrationSql } from './migrations/020_source_revision_contracts';
 import { identityTaxonomyMigrationSql } from './migrations/021_identity_taxonomy';
+import { verifiedKnowledgeMigrationSql } from './migrations/022_verified_knowledge';
 
 export type AppTableName =
   | 'company_profiles'
@@ -47,6 +48,7 @@ export type AppTableName =
   | 'ops_event_contract'
   | 'source_revision_contracts'
   | 'identity_taxonomy'
+  | 'verified_knowledge'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -214,6 +216,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['identity_taxonomy'],
     sql: identityTaxonomyMigrationSql,
   },
+  {
+    id: '022_verified_knowledge',
+    description:
+      'B4 versioned document chunks, chunk-anchored claim/event evidence, explicit verification state machine with distinct-document thresholds and append-only audit.',
+    tables: ['verified_knowledge'],
+    sql: verifiedKnowledgeMigrationSql,
+  },
 ];
 
 export {
@@ -238,4 +247,5 @@ export {
   provenanceOutboxMigrationSql,
   sourceRevisionContractsMigrationSql,
   identityTaxonomyMigrationSql,
+  verifiedKnowledgeMigrationSql,
 };
