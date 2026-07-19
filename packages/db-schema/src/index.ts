@@ -16,6 +16,7 @@ import { personalizationCalibrationMigrationSql } from './migrations/015_persona
 import { productionizationCompletionMigrationSql } from './migrations/016_productionization_completion';
 import { probabilityCalibrationHardeningMigrationSql } from './migrations/017_probability_calibration_hardening';
 import { backendTruthGateMigrationSql } from './migrations/018_backend_truth_gate';
+import { provenanceOutboxMigrationSql } from './migrations/019_provenance_outbox';
 
 export type AppTableName =
   | 'company_profiles'
@@ -41,6 +42,7 @@ export type AppTableName =
   | 'content_layer'
   | 'analytics_layer'
   | 'personalization_layer'
+  | 'ops_event_contract'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -187,6 +189,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['serving_read_views', 'analytics_layer'],
     sql: backendTruthGateMigrationSql,
   },
+  {
+    id: '019_provenance_outbox',
+    description:
+      'B1 event contract: schema registry, transactional outbox with deterministic identity + conflict quarantine, per-destination fenced delivery, consumer inbox, bounded dead letter.',
+    tables: ['ops_event_contract'],
+    sql: provenanceOutboxMigrationSql,
+  },
 ];
 
 export {
@@ -208,4 +217,5 @@ export {
   productionizationCompletionMigrationSql,
   probabilityCalibrationHardeningMigrationSql,
   backendTruthGateMigrationSql,
+  provenanceOutboxMigrationSql,
 };
