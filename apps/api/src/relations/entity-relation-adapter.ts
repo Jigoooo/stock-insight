@@ -1,12 +1,14 @@
-// B8/UI — entity relation adapter with v2 preference and v1 fallback.
-// The UI contract (EntityRelationGraph) stays IDENTICAL; only the backend
-// source switches. Order of precedence:
+// P0-5 — entity relation adapter, V2-only (roadmap §4 P0-5 / V2-1·V2-2·V2-7).
+// The UI contract (EntityRelationGraph) stays IDENTICAL; the V1 fallback path
+// is REMOVED. Order of resolution:
 //   1. servable v2 content pack (pack_kind='entity_relation_graph') with a
-//      zod-valid graph in any item's display_payload.graph
-//   2. legacy v1 read path (ops.temporal_graph_edge via getEntityRelations)
-// Any v2 failure — missing mapping, no pack, invalid payload, storage error —
-// falls back to v1. The page never breaks because v2 is not ready; cutover
-// completes when packs are published, with zero UI changes.
+//      zod-valid graph in any item's display_payload.graph  → source 'v2_content_pack'
+//   2. entity resolvable but no servable pack/graph         → source 'v2_no_data'
+//      (an explicit V2 empty envelope built from the latest sealed snapshot —
+//       "no confirmed relations in the V2 ledger", never silent legacy reads)
+//   3. entity unresolvable or no sealed snapshot exists     → null graph
+// Parity basis (2026-07-20 실측): every legacy fallback call across 257 roots
+// returned an EMPTY graph, so the no-data envelope is behavior-identical.
 
 import { getServableContentPack } from './graph-read-model-v2.ts';
 import {
@@ -22,10 +24,20 @@ export type EntityRelationSourceExecutor = {
 };
 
 const ENTITY_BY_INTERNAL_KEY_SQL = `
-SELECT entity_id
-FROM core.entity_identifier
-WHERE identifier_type = 'INTERNAL_KEY'
-  AND identifier_value = $1
+SELECT identifier.entity_id, entity.canonical_name
+FROM core.entity_identifier identifier
+JOIN core.entity entity ON entity.entity_id = identifier.entity_id
+WHERE identifier.identifier_type = 'INTERNAL_KEY'
+  AND identifier.identifier_value = $1
+LIMIT 1
+`;
+
+const LATEST_SERVABLE_HEADER_SQL = `
+SELECT builder_version, as_of, known_at, built_at, fresh_until
+FROM serving.v_relation_graph_freshness
+WHERE pack_kind = 'entity_relation_graph'
+  AND servable = true
+ORDER BY built_at DESC
 LIMIT 1
 `;
 
@@ -93,23 +105,79 @@ async function overlayUserRelationState(
 
 export type EntityRelationAdapterResult<TGraph> =
   | { source: 'v2_content_pack'; graph: TGraph; packDigest: string }
-  | { source: 'v1_fallback'; graph: TGraph };
+  | { source: 'v2_no_data'; graph: TGraph }
+  | { source: 'v2_unresolved'; graph: null };
 
-export type GetEntityRelationsWithV2Options<TGraph> = {
+export type GetEntityRelationsWithV2Options = {
   entityKey: string;
   depth: number;
   userId: string;
   now: Date;
-  /** Legacy loader invoked when no servable v2 pack exists. */
-  loadV1: () => Promise<TGraph>;
 };
 
-export async function getEntityRelationsWithV2Preference<TGraph = EntityRelationGraph>(
+const toIso = (value: unknown): string => {
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) throw new Error('invalid timestamp for no-data envelope');
+  return date.toISOString();
+};
+
+async function buildNoDataEnvelope(
   executor: EntityRelationSourceExecutor,
-  options: GetEntityRelationsWithV2Options<TGraph>,
-): Promise<EntityRelationAdapterResult<TGraph>> {
-  let v2Result: Extract<EntityRelationAdapterResult<TGraph>, { source: 'v2_content_pack' }> | null =
-    null;
+  options: GetEntityRelationsWithV2Options,
+  entity: { canonicalName: string },
+): Promise<EntityRelationGraph | null> {
+  const headers = await executor.queryRows(LATEST_SERVABLE_HEADER_SQL);
+  const header = headers[0];
+  if (header === undefined) return null; // no sealed serving state at all
+  const graph = entityRelationGraphSchema.parse({
+    meta: {
+      schemaVersion: 'v3',
+      visibility: 'internal',
+      generatedAt: options.now.toISOString(),
+      freshness: 'available',
+      contentSnapshot: {
+        analysisRunId: String(header['builder_version']),
+        analysisRevision: 1,
+        analysisCutoffAt: toIso(header['as_of']),
+        sourceWatermarkAt: toIso(header['known_at']),
+        freshUntil: toIso(header['fresh_until']),
+      },
+      graphSnapshot: {
+        requestedAsOf: toIso(header['as_of']),
+        knownThroughAt: toIso(header['known_at']),
+        edgeRevisionPolicy: 'latest_known_at_or_before_cutoff',
+      },
+      marketSnapshot: { marketDataAsOf: null },
+      sourceCoverage: { linked: 0, clickable: 0, total: 0 },
+      qualityFlags: [],
+    },
+    rootEntityKey: options.entityKey,
+    depth: options.depth,
+    nodes: [
+      {
+        entityKey: options.entityKey,
+        label: entity.canonicalName,
+        market: options.entityKey.startsWith('KR:') ? 'KR' : 'US',
+        watched: false,
+        holding: false,
+      },
+    ],
+    edges: [],
+    evidenceSummary: {
+      evidenceCount: 0,
+      clickableSourceCount: 0,
+      limitation: 'V2 관계 원장에서 이 종목과 확인된 관계가 없습니다',
+    },
+  });
+  return overlayUserRelationState(executor, graph, options.userId);
+}
+
+export async function getEntityRelationsWithV2Preference(
+  executor: EntityRelationSourceExecutor,
+  options: GetEntityRelationsWithV2Options,
+): Promise<EntityRelationAdapterResult<EntityRelationGraph>> {
+  let packResultGraph: { graph: EntityRelationGraph; packDigest: string } | null = null;
+  let resolvedEntity: { entityId: number; canonicalName: string } | null = null;
 
   await executor.queryRows(`SAVEPOINT ${V2_SAVEPOINT}`);
   try {
@@ -118,6 +186,10 @@ export async function getEntityRelationsWithV2Preference<TGraph = EntityRelation
     if (entityRow !== undefined) {
       const entityId = Number(entityRow['entity_id']);
       if (Number.isSafeInteger(entityId) && entityId > 0) {
+        resolvedEntity = {
+          entityId,
+          canonicalName: String(entityRow['canonical_name'] ?? options.entityKey),
+        };
         const packResult = await getServableContentPack(executor, {
           packKind: 'entity_relation_graph',
           entityId,
@@ -144,28 +216,32 @@ export async function getEntityRelationsWithV2Preference<TGraph = EntityRelation
               parsed.data,
               options.userId,
             );
-            v2Result = {
-              source: 'v2_content_pack',
-              // Zod-validated EntityRelationGraph; the caller's TGraph is the
-              // same contract shape (possibly | null on the v1 side).
-              graph: personalizedGraph as unknown as TGraph,
+            packResultGraph = {
+              graph: personalizedGraph,
               packDigest: packResult.pack.packDigest,
             };
             break;
           }
-          // Invalid payload: fail-safe to v1 rather than serving a broken graph.
         }
       }
     }
   } catch {
-    // PostgreSQL keeps the transaction aborted after a failed statement. Roll
-    // back only the v2 attempt before the same snapshot executor loads v1.
+    // PostgreSQL keeps the transaction aborted after a failed statement — roll
+    // back the v2 read attempt so the same snapshot executor can continue.
     await executor.queryRows(`ROLLBACK TO SAVEPOINT ${V2_SAVEPOINT}`);
+    packResultGraph = null;
   } finally {
     await executor.queryRows(`RELEASE SAVEPOINT ${V2_SAVEPOINT}`);
   }
 
-  if (v2Result !== null) return v2Result;
-  const graph = await options.loadV1();
-  return { source: 'v1_fallback', graph };
+  if (packResultGraph !== null) {
+    return { source: 'v2_content_pack', ...packResultGraph };
+  }
+  if (resolvedEntity !== null) {
+    const envelope = await buildNoDataEnvelope(executor, options, {
+      canonicalName: resolvedEntity.canonicalName,
+    });
+    if (envelope !== null) return { source: 'v2_no_data', graph: envelope };
+  }
+  return { source: 'v2_unresolved', graph: null };
 }

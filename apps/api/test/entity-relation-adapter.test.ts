@@ -31,7 +31,7 @@ const VALID_META = {
   qualityFlags: [],
 };
 
-const V1_GRAPH = {
+const BASE_GRAPH = {
   meta: VALID_META,
   rootEntityKey: 'KR:005930',
   depth: 1,
@@ -39,7 +39,23 @@ const V1_GRAPH = {
     { entityKey: 'KR:005930', label: '삼성전자', market: 'KR', watched: true, holding: false },
   ],
   edges: [],
-  evidenceSummary: { evidenceCount: 0, clickableSourceCount: 0, limitation: 'v1 legacy path' },
+  evidenceSummary: { evidenceCount: 0, clickableSourceCount: 0, limitation: 'base graph' },
+};
+
+const SERVABLE_PACK_ROW = {
+  content_pack_id: 1,
+  pack_kind: 'entity_relation_graph',
+  entity_id: 42,
+  graph_snapshot_id: 7,
+  builder_version: 'pack-v1',
+  pack_digest: 'a'.repeat(64),
+  built_at: '2026-07-19T00:00:00.000Z',
+  fresh_until: '2026-07-22T00:00:00.000Z',
+  status: 'published',
+  as_of: '2026-07-19T00:00:00.000Z',
+  known_at: '2026-07-19T00:00:00.000Z',
+  snapshot_digest: 'b'.repeat(64),
+  servable: true,
 };
 
 type Row = Record<string, unknown>;
@@ -49,12 +65,27 @@ function makeExecutor(config: {
   itemRows?: Row[];
   entityRows?: Row[];
   userStateRows?: Row[];
+  headerRows?: Row[];
   onQuery?: (sql: string) => void;
 }): EntityRelationSourceExecutor {
   return {
     async queryRows(sql: string, params: readonly unknown[] = []) {
       config.onQuery?.(sql);
-      if (/v_relation_graph_freshness/.test(sql)) return (config.packRows ?? []) as never;
+      if (/v_relation_graph_freshness/.test(sql) && /entity_id = \$2/.test(sql)) {
+        return (config.packRows ?? []) as never;
+      }
+      if (/v_relation_graph_freshness/.test(sql)) {
+        // latest servable header for the no-data envelope
+        return (config.headerRows ?? [
+          {
+            builder_version: 'pack-v1',
+            as_of: '2026-07-19T00:00:00.000Z',
+            known_at: '2026-07-19T00:00:00.000Z',
+            built_at: '2026-07-19T00:00:00.000Z',
+            fresh_until: '2026-07-22T00:00:00.000Z',
+          },
+        ]) as never;
+      }
       if (/content_pack_item/.test(sql)) return (config.itemRows ?? []) as never;
       if (/entity_identifier/.test(sql)) return (config.entityRows ?? []) as never;
       if (/user_watchlist/.test(sql)) {
@@ -71,23 +102,22 @@ function makeExecutor(config: {
   };
 }
 
-describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () => {
-  it('falls back to v1 when the entity has no internal-key mapping', async () => {
+describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () => {
+  it('returns v2_unresolved (null graph) when the entity has no internal-key mapping', async () => {
     const executor = makeExecutor({ entityRows: [] });
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey: 'KR:005930',
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => V1_GRAPH as never,
     });
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
+    assert.equal(result.source, 'v2_unresolved');
+    assert.equal(result.graph, null);
   });
 
-  it('falls back to v1 when no servable content pack exists', async () => {
+  it('returns an explicit v2_no_data envelope when the entity resolves but no pack serves it', async () => {
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
       packRows: [],
     });
     const result = await getEntityRelationsWithV2Preference(executor, {
@@ -95,36 +125,23 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => V1_GRAPH as never,
     });
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
+    assert.equal(result.source, 'v2_no_data');
+    if (result.source !== 'v2_no_data') return;
+    assert.equal(result.graph.rootEntityKey, 'KR:005930');
+    assert.equal(result.graph.edges.length, 0);
+    assert.equal(result.graph.nodes.length, 1);
+    assert.match(result.graph.evidenceSummary.limitation, /확인된 관계가 없습니다/);
   });
 
   it('serves the v2 pack graph when a servable pack carries a valid graph payload', async () => {
     const graphPayload = {
-      ...V1_GRAPH,
+      ...BASE_GRAPH,
       evidenceSummary: { evidenceCount: 0, clickableSourceCount: 0, limitation: 'v2 content pack' },
     };
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -142,9 +159,6 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => {
-        throw new Error('v1 must not be called when v2 serves');
-      },
     });
     assert.equal(result.source, 'v2_content_pack');
     if (result.source !== 'v2_content_pack') return;
@@ -154,24 +168,8 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
 
   it('overlays user-specific watched and holding state instead of trusting shared pack values', async () => {
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -180,7 +178,7 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
           relation_evidence_ledger_id: null,
           impact_path_v2_id: null,
           relation_measurement_id: null,
-          display_payload: { graph: V1_GRAPH },
+          display_payload: { graph: BASE_GRAPH },
         },
       ],
       userStateRows: [{ entity_key: 'KR:005930', watched: false, holding: true }],
@@ -191,36 +189,18 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => {
-        throw new Error('v1 must not be called when a personalized v2 graph is available');
-      },
     });
 
     assert.equal(result.source, 'v2_content_pack');
+    if (result.source !== 'v2_content_pack') return;
     assert.equal(result.graph.nodes[0]?.watched, false);
     assert.equal(result.graph.nodes[0]?.holding, true);
   });
 
-  it('rejects Zod-valid v2 graphs that do not match the requested root and depth', async () => {
+  it('rejects Zod-valid v2 graphs that do not match the requested root and depth → no_data envelope', async () => {
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -229,7 +209,7 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
           relation_evidence_ledger_id: null,
           impact_path_v2_id: null,
           relation_measurement_id: null,
-          display_payload: { graph: { ...V1_GRAPH, rootEntityKey: 'US:AAPL' } },
+          display_payload: { graph: { ...BASE_GRAPH, rootEntityKey: 'US:AAPL' } },
         },
         {
           item_no: 2,
@@ -238,7 +218,7 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
           relation_evidence_ledger_id: null,
           impact_path_v2_id: null,
           relation_measurement_id: null,
-          display_payload: { graph: { ...V1_GRAPH, depth: 2 } },
+          display_payload: { graph: { ...BASE_GRAPH, depth: 2 } },
         },
       ],
     });
@@ -248,21 +228,19 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => V1_GRAPH,
     });
 
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
+    assert.equal(result.source, 'v2_no_data');
   });
 
   it('skips stale and internally expired graph payloads even when the pack envelope is fresh', async () => {
     const staleGraph = {
-      ...V1_GRAPH,
+      ...BASE_GRAPH,
       meta: { ...VALID_META, freshness: 'stale' as const },
-      evidenceSummary: { ...V1_GRAPH.evidenceSummary, limitation: 'stale graph' },
+      evidenceSummary: { ...BASE_GRAPH.evidenceSummary, limitation: 'stale graph' },
     };
     const expiredGraph = {
-      ...V1_GRAPH,
+      ...BASE_GRAPH,
       meta: {
         ...VALID_META,
         contentSnapshot: {
@@ -270,31 +248,15 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
           freshUntil: '2026-07-19T11:59:59.000Z',
         },
       },
-      evidenceSummary: { ...V1_GRAPH.evidenceSummary, limitation: 'expired graph' },
+      evidenceSummary: { ...BASE_GRAPH.evidenceSummary, limitation: 'expired graph' },
     };
     const availableGraph = {
-      ...V1_GRAPH,
-      evidenceSummary: { ...V1_GRAPH.evidenceSummary, limitation: 'available graph' },
+      ...BASE_GRAPH,
+      evidenceSummary: { ...BASE_GRAPH.evidenceSummary, limitation: 'available graph' },
     };
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -331,37 +293,21 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => null,
     });
 
     assert.equal(result.source, 'v2_content_pack');
-    assert.equal(result.graph?.evidenceSummary.limitation, 'available graph');
+    if (result.source !== 'v2_content_pack') return;
+    assert.equal(result.graph.evidenceSummary.limitation, 'available graph');
   });
 
   it('finds a valid graph payload after higher-ranked non-graph items', async () => {
     const graphPayload = {
-      ...V1_GRAPH,
+      ...BASE_GRAPH,
       evidenceSummary: { evidenceCount: 0, clickableSourceCount: 0, limitation: 'v2 later item' },
     };
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -389,33 +335,17 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => null,
     });
 
     assert.equal(result.source, 'v2_content_pack');
-    assert.equal(result.graph?.evidenceSummary.limitation, 'v2 later item');
+    if (result.source !== 'v2_content_pack') return;
+    assert.equal(result.graph.evidenceSummary.limitation, 'v2 later item');
   });
 
-  it('falls back to v1 (fail-safe) when the v2 payload does not carry a graph', async () => {
+  it('degrades to the no-data envelope when the v2 payload does not carry a graph', async () => {
     const executor = makeExecutor({
-      entityRows: [{ entity_id: 42 }],
-      packRows: [
-        {
-          content_pack_id: 1,
-          pack_kind: 'entity_relation_graph',
-          entity_id: 42,
-          graph_snapshot_id: 7,
-          builder_version: 'pack-v1',
-          pack_digest: 'a'.repeat(64),
-          built_at: '2026-07-19T00:00:00.000Z',
-          fresh_until: '2026-07-22T00:00:00.000Z',
-          status: 'published',
-          as_of: '2026-07-19T00:00:00.000Z',
-          known_at: '2026-07-19T00:00:00.000Z',
-          snapshot_digest: 'b'.repeat(64),
-          servable: true,
-        },
-      ],
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [SERVABLE_PACK_ROW],
       itemRows: [
         {
           item_no: 1,
@@ -433,34 +363,11 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => V1_GRAPH as never,
     });
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
+    assert.equal(result.source, 'v2_no_data');
   });
 
-  it('never lets a v2 read failure break the page — falls back to v1', async () => {
-    const executor: EntityRelationSourceExecutor = {
-      async queryRows(sql: string) {
-        if (/^(?:SAVEPOINT|ROLLBACK TO SAVEPOINT|RELEASE SAVEPOINT)\b/.test(sql)) {
-          return [] as never;
-        }
-        if (/entity_identifier/.test(sql)) return [{ entity_id: 42 }] as never;
-        throw new Error('v2 storage outage');
-      },
-    };
-    const result = await getEntityRelationsWithV2Preference(executor, {
-      entityKey: 'KR:005930',
-      depth: 1,
-      userId: USER_ID,
-      now: NOW,
-      loadV1: async () => V1_GRAPH as never,
-    });
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
-  });
-
-  it('recovers an aborted PostgreSQL snapshot before loading v1 on the same executor', async () => {
+  it('recovers an aborted PostgreSQL snapshot with the savepoint and degrades explicitly', async () => {
     let aborted = false;
     let savepointActive = false;
     const executor: EntityRelationSourceExecutor = {
@@ -484,12 +391,27 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
           Object.assign(error, { code: '25P02' });
           throw error;
         }
-        if (/entity_identifier/.test(sql)) return [{ entity_id: 42 }] as never;
-        if (/v_relation_graph_freshness/.test(sql)) {
-          aborted = true;
-          throw new Error('relation v2 is not deployed yet');
+        if (/entity_identifier/.test(sql)) {
+          return [{ entity_id: 42, canonical_name: '삼성전자' }] as never;
         }
-        if (/legacy_relation_graph/.test(sql)) return [] as never;
+        if (/v_relation_graph_freshness/.test(sql) && /entity_id = \$2/.test(sql)) {
+          aborted = true;
+          throw new Error('v2 storage outage');
+        }
+        if (/v_relation_graph_freshness/.test(sql)) {
+          return [
+            {
+              builder_version: 'pack-v1',
+              as_of: '2026-07-19T00:00:00.000Z',
+              known_at: '2026-07-19T00:00:00.000Z',
+              built_at: '2026-07-19T00:00:00.000Z',
+              fresh_until: '2026-07-22T00:00:00.000Z',
+            },
+          ] as never;
+        }
+        if (/user_watchlist/.test(sql)) {
+          return [{ entity_key: 'KR:005930', watched: false, holding: false }] as never;
+        }
         return [] as never;
       },
     };
@@ -499,14 +421,11 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
       depth: 1,
       userId: USER_ID,
       now: NOW,
-      loadV1: async () => {
-        await executor.queryRows('SELECT * FROM legacy_relation_graph');
-        return V1_GRAPH;
-      },
     });
 
-    assert.equal(result.source, 'v1_fallback');
-    assert.equal(result.graph, V1_GRAPH);
+    // Outage on the pack read degrades to the explicit no-data envelope built
+    // from the recovered snapshot — never a silent legacy read.
+    assert.equal(result.source, 'v2_no_data');
     assert.equal(aborted, false);
     assert.equal(savepointActive, false);
   });

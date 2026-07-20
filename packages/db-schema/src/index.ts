@@ -26,6 +26,7 @@ import { graphSnapshotAnalyticsMigrationSql } from './migrations/025_graph_snaps
 import { backendServingV2MigrationSql } from './migrations/026_backend_serving_v2';
 import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_claim';
 import { undirectedImpactStepGuardMigrationSql } from './migrations/028_undirected_impact_step_guard';
+import { coreIdentityGapBackfillMigrationSql } from './migrations/029_core_identity_gap_backfill';
 
 export type AppTableName =
   | 'company_profiles'
@@ -276,6 +277,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['graph_snapshot_analytics'],
     sql: undirectedImpactStepGuardMigrationSql,
   },
+  {
+    id: '029_core_identity_gap_backfill',
+    description:
+      'P0-5 additive core.entity + INTERNAL_KEY backfill for legacy-only US roots (AAL/NOK/T) so the V2 adapter can resolve them.',
+    tables: ['core_identity'],
+    sql: coreIdentityGapBackfillMigrationSql,
+  },
 ];
 
 export {
@@ -307,4 +315,5 @@ export {
   backendServingV2MigrationSql,
   pipelineRunClaimMigrationSql,
   undirectedImpactStepGuardMigrationSql,
+  coreIdentityGapBackfillMigrationSql,
 };

@@ -10,7 +10,6 @@ import {
   createPostgresStockReadModel,
   createReadOnlyDatabaseClient,
   getDecisionHistory,
-  getEntityRelations,
   getEntityRelationsWithV2Preference,
   getMyResearchOverview,
   getRadarSignals,
@@ -94,12 +93,6 @@ export async function loadResearchWorkspaceView(
                 depth: 1,
                 userId: userScope.userId,
                 now: new Date(),
-                loadV1: () =>
-                  getEntityRelations(executor, {
-                    userScope,
-                    entityKey: relationRoot,
-                    depth: 1,
-                  }),
               })
             ).graph
           : null;
@@ -198,7 +191,6 @@ export async function loadEntityRelationGraph(entityKey: string, depth: number) 
       depth,
       userId: userScope.userId,
       now: new Date(),
-      loadV1: () => getEntityRelations(executor, { userScope, entityKey, depth }),
     });
     return result.graph;
   });

@@ -66,12 +66,15 @@ describe('workspace active-view server loader', () => {
     assert.match(themesCase, /getEntityRelationsWithV2Preference\(executor/);
     assert.match(themesCase, /depth:\s*1/);
     assert.match(themesCase, /userId:\s*userScope\.userId/);
-    assert.match(themesCase, /loadV1:\s*\(\)\s*=>\s*getEntityRelations\(executor/);
+    // P0-5: the V1 fallback is removed — the adapter is V2-only.
+    assert.doesNotMatch(themesCase, /loadV1/);
+    assert.doesNotMatch(source, /getEntityRelations[^W]/);
 
     const relationLoader =
       source.match(/export async function loadEntityRelationGraph[\s\S]*?\n\}/)?.[0] ?? '';
     assert.match(relationLoader, /getEntityRelationsWithV2Preference\(executor/);
     assert.match(relationLoader, /\n\s*depth,/);
     assert.match(relationLoader, /userId:\s*userScope\.userId/);
+    assert.doesNotMatch(relationLoader, /loadV1/);
   });
 });

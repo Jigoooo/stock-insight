@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import {
+  reconcileClaimType,
+  verifyAssertionSemantics,
+} from './assertion-semantics.ts';
+
 // SET D / D-5: LLM claim/event extraction worker (Gemini structured output).
 // Scope: news documents in knowledge.document with processing_status='pending'.
 // Contract (04-A §1): mentions stay text — entity resolution is deterministic here;
@@ -335,6 +340,8 @@ async function run(): Promise<void> {
       claimsExtracted: 0,
       claimsStored: 0,
       claimsRejected: { bad_predicate: 0, bad_type: 0, no_quote: 0, unresolved_subject: 0 },
+      claimsQuarantinedSemantics: 0,
+      claimsDowngradedSemantics: 0,
       eventsExtracted: 0,
       eventsStored: 0,
       eventsRejected: { bad_type: 0, no_quote: 0 },
@@ -376,18 +383,44 @@ async function run(): Promise<void> {
           stats.claimsRejected.unresolved_subject += 1;
           continue;
         }
+        // P0-2: semantic verification — polarity/negation, modality, attribution,
+        // condition, correction/retraction, numeric consistency. Quote existence
+        // was already proven by validateClaim; this judges what the quote MEANS.
+        const semantics = verifyAssertionSemantics({
+          quote: claim.quote,
+          claimedValueText: claim.object_text,
+        });
+        if (semantics.decision === 'quarantine') {
+          stats.claimsQuarantinedSemantics += 1;
+          continue;
+        }
+        const persistedClaimType = reconcileClaimType(claim.claim_type, semantics);
+        if (semantics.decision === 'accept_downgraded') {
+          stats.claimsDowngradedSemantics += 1;
+        }
         const doc = docMeta.get(claim.document_id)!;
         const inserted = await client.query<QueryResultRow & { claim_id: number }>(INSERT_CLAIM_SQL, [
           subjectId,
           claim.predicate,
           JSON.stringify({ text: claim.object_text }),
-          claim.claim_type,
-          claim.polarity === -1 ? -1 : 1,
+          persistedClaimType,
+          semantics.polarity,
           doc.observed_at,
           doc.published_at,
           Math.min(1, Math.max(0, claim.confidence)),
           extractionRunId,
-          JSON.stringify({ subject_mention: claim.subject_mention, model }),
+          JSON.stringify({
+            subject_mention: claim.subject_mention,
+            model,
+            semantics: {
+              decision: semantics.decision,
+              modality: semantics.modality,
+              attributed: semantics.attributed,
+              conditional: semantics.conditional,
+              reasons: semantics.reasons,
+              verifierVersion: 'assertion-semantics-v1',
+            },
+          }),
         ]);
         const claimId = inserted.rows[0]?.claim_id;
         if (claimId !== undefined) {
