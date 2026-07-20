@@ -131,6 +131,12 @@ BEGIN
     INSERT INTO public.app_user_identity_map (legacy_user_id, user_id)
     VALUES (v_legacy_key, v_user_id);
 
+    -- The app_users row is the FK target for user_watchlist / user_positions, so
+    -- a freshly signed-up user must own one to be able to use the product. Its id
+    -- IS the canonical user UUID (shared with the identity map + credential rows).
+    INSERT INTO public.app_users (id, external_ref, display_name, channel_type)
+    VALUES (v_user_id, v_legacy_key, p_username, 'local');
+
     INSERT INTO public.app_auth_bootstrap_state (user_id)
     VALUES (v_user_id);
 
@@ -201,4 +207,49 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.lookup_account_by_id(uuid) FROM PUBLIC;
+
+-- Role grants + operator policies. Idempotent; guarded by role existence so the
+-- migration also applies on databases without the application role layer. The
+-- app writer manages invitations (operator action); the signup/lookup functions
+-- are EXECUTE-granted to app roles. Invitations are NOT per-user data, so their
+-- policies are role-scoped, not user-scoped.
+DO $grants$
+DECLARE r text;
+BEGIN
+  FOREACH r IN ARRAY ARRAY[
+    'stock_insight_app_reader','stock_insight_app_writer',
+    'stock_insight_reader','stock_insight_writer'
+  ] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.lookup_login_account(text) TO %I', r);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.lookup_account_by_id(uuid) TO %I', r);
+      EXECUTE format('GRANT SELECT ON public.app_invitations TO %I', r);
+      EXECUTE format('GRANT SELECT ON public.app_invitation_consumptions TO %I', r);
+    END IF;
+  END LOOP;
+  FOREACH r IN ARRAY ARRAY['stock_insight_app_writer','stock_insight_writer'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r) THEN
+      EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION public.consume_invitation_and_create_account(text,text,text) TO %I',
+        r
+      );
+      EXECUTE format('GRANT SELECT, INSERT, UPDATE ON public.app_invitations TO %I', r);
+    END IF;
+  END LOOP;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'stock_insight_app_writer') THEN
+    DROP POLICY IF EXISTS invitations_operator_all ON public.app_invitations;
+    CREATE POLICY invitations_operator_all ON public.app_invitations
+      FOR ALL TO stock_insight_app_writer, stock_insight_writer USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS invitations_reader ON public.app_invitations;
+    CREATE POLICY invitations_reader ON public.app_invitations
+      FOR SELECT TO stock_insight_app_reader, stock_insight_reader USING (true);
+    DROP POLICY IF EXISTS consumptions_operator ON public.app_invitation_consumptions;
+    CREATE POLICY consumptions_operator ON public.app_invitation_consumptions
+      FOR ALL TO stock_insight_app_writer, stock_insight_writer USING (true) WITH CHECK (true);
+    DROP POLICY IF EXISTS consumptions_reader ON public.app_invitation_consumptions;
+    CREATE POLICY consumptions_reader ON public.app_invitation_consumptions
+      FOR SELECT TO stock_insight_app_reader, stock_insight_reader USING (true);
+  END IF;
+END $grants$;
 `;

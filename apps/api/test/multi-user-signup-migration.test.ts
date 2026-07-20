@@ -24,6 +24,7 @@ async function freshSchema(client: pg.Client): Promise<void> {
   await client.query('DROP TABLE IF EXISTS public.app_invitations CASCADE');
   await client.query('DROP TABLE IF EXISTS public.app_local_accounts CASCADE');
   await client.query('DROP TABLE IF EXISTS public.app_auth_bootstrap_state CASCADE');
+  await client.query('DROP TABLE IF EXISTS public.app_users CASCADE');
   await client.query('DROP TABLE IF EXISTS public.app_user_identity_map CASCADE');
   await client.query('DROP TABLE IF EXISTS public.user_decision_journal_entries CASCADE');
   await client.query('DROP TABLE IF EXISTS public.entities CASCADE');
@@ -35,6 +36,16 @@ async function freshSchema(client: pg.Client): Promise<void> {
       advice_prohibited boolean, created_at timestamptz, updated_at timestamptz
     );
     CREATE TABLE public.entities (entity_key text PRIMARY KEY, name text, symbol text);
+    CREATE TABLE public.app_users (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      external_ref text NOT NULL,
+      display_name text,
+      channel_type text,
+      active boolean NOT NULL DEFAULT true,
+      raw_json jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
   `);
   await client.query(appHistoryUuidBridgeMigrationSql);
   await client.query(appLocalAccountEnrollmentMigrationSql);
@@ -111,6 +122,14 @@ describe('030 multi-user invitation signup', () => {
         );
         assert.equal(bootstrap.rows[0].c, 1);
         await client.query('COMMIT');
+
+        // A newly signed-up user must own an app_users row so watchlist/positions
+        // (which FK to app_users.id) can be created under their scope.
+        const appUser = await client.query(
+          'SELECT count(*)::int AS c FROM public.app_users WHERE id=$1',
+          [aliceId],
+        );
+        assert.equal(appUser.rows[0].c, 1);
 
         // Exhausted: single-use invite cannot mint a second account.
         const exhausted = await client.query(
