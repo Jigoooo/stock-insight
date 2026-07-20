@@ -56,8 +56,6 @@ export type {
   PriceSeriesReadModel,
   PriceSeriesRowQueryExecutor,
 } from './prices/read-model';
-export { getEntityRelations } from './relations/read-model';
-export type { GetEntityRelationsOptions, RelationGraphQueryExecutor } from './relations/read-model';
 export { getEntityRelationsWithV2Preference } from './relations/entity-relation-adapter';
 export type {
   EntityRelationAdapterResult,

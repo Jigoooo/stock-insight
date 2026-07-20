@@ -31,32 +31,34 @@ type ThemeRow = {
 };
 
 const THEME_SQL = `
-  WITH edge_members AS (
-    SELECT
-      CASE WHEN source.entity_type = 'theme' THEN source.entity_key ELSE target.entity_key END AS theme_key,
-      CASE WHEN source.entity_type = 'theme' THEN source.name ELSE target.name END AS theme_title,
-      CASE WHEN source.entity_type = 'ticker' THEN source.id ELSE target.id END AS member_id,
-      CASE WHEN source.entity_type = 'ticker' THEN source.entity_key ELSE target.entity_key END AS member_key,
-      edge.known_at
-    FROM ops.current_temporal_graph_edge edge
-    JOIN public.entities source ON source.id = edge.src_entity_id
-    JOIN public.entities target ON target.id = edge.dst_entity_id
-    WHERE edge.approved = true
-      AND edge.inferred = false
-      AND (
-        (source.entity_type = 'theme' AND target.entity_type = 'ticker')
-        OR (source.entity_type = 'ticker' AND target.entity_type = 'theme')
-      )
-      AND edge.edge_type IN ('AFFECTS', 'SAME_THEME', 'ROLLS_UP', 'STAGE', 'ACCELERATES', 'DECELERATES')
+  WITH latest_snapshot AS (
+    SELECT graph_snapshot_id, known_at
+    FROM analytics.graph_snapshot
+    WHERE status = 'sealed'
+      AND as_of <= $3::timestamptz
+      AND known_at <= $3::timestamptz
+    ORDER BY as_of DESC, known_at DESC, graph_snapshot_id DESC
+    LIMIT 1
   ), members AS (
     SELECT
-      theme_key,
-      max(theme_title) AS theme_title,
-      member_id,
-      member_key,
-      max(known_at) AS known_at
-    FROM edge_members
-    GROUP BY theme_key, member_id, member_key
+      'THEME:' || community.community_key AS theme_key,
+      identifier.identifier_value AS member_key,
+      entity.canonical_name AS member_name,
+      legacy_entity.id AS member_id,
+      member.membership_strength,
+      snapshot.known_at
+    FROM latest_snapshot snapshot
+    JOIN analytics.graph_community community
+      ON community.graph_snapshot_id = snapshot.graph_snapshot_id
+    JOIN analytics.graph_community_member member
+      ON member.graph_community_id = community.graph_community_id
+    JOIN core.entity_identifier identifier
+      ON identifier.entity_id = member.entity_id
+     AND identifier.identifier_type = 'INTERNAL_KEY'
+     AND identifier.identifier_value ~ '^(KR:[0-9]{6}|US:[A-Z][A-Z0-9.-]{0,9})$'
+    JOIN core.entity entity ON entity.entity_id = member.entity_id
+    LEFT JOIN public.entities legacy_entity
+      ON legacy_entity.entity_key = identifier.identifier_value
   ), member_context AS (
     SELECT
       member.*,
@@ -79,19 +81,27 @@ const THEME_SQL = `
       ON signal.entity_id = member.member_id
      AND signal.domain = 'stock'
      AND signal.occurred_at >= $2::timestamptz
-    GROUP BY member.theme_key, member.theme_title, member.member_id,
-             member.member_key, member.known_at
+    GROUP BY member.theme_key, member.member_id, member.member_key,
+             member.member_name, member.membership_strength, member.known_at
   ), themes AS (
     SELECT
       theme_key,
-      max(theme_title) AS title,
+      CASE
+        WHEN count(*) >= 20
+         AND count(*) FILTER (WHERE member_key LIKE 'KR:%') >=
+             count(*) FILTER (WHERE member_key LIKE 'US:%')
+          THEN '한국 시장 연결군'
+        WHEN count(*) >= 20 THEN '미국 시장 연결군'
+        ELSE (array_agg(member_name ORDER BY membership_strength DESC, member_key))[1] || ' 연결군'
+      END AS title,
       count(*)::int AS member_count,
       count(*) FILTER (WHERE watched)::int AS watched_count,
       count(*) FILTER (WHERE holding)::int AS holding_count,
       sum(recent_signal_count)::int AS recent_signal_count,
       (array_agg(
         member_key
-        ORDER BY holding DESC, watched DESC, recent_signal_count DESC, member_key
+        ORDER BY holding DESC, watched DESC, recent_signal_count DESC,
+                 membership_strength DESC, member_key
       ))[1:5] AS top_entity_keys,
       max(known_at) AS graph_known_through_at,
       max(signal_as_of) AS signal_as_of
@@ -130,7 +140,11 @@ export async function getThemeResearchList(
 ): Promise<ThemeResearchList> {
   const now = options.now ?? new Date();
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000).toISOString();
-  const rows = await executor.queryRows<ThemeRow>(THEME_SQL, [options.userScope.userId, since]);
+  const rows = await executor.queryRows<ThemeRow>(THEME_SQL, [
+    options.userScope.userId,
+    since,
+    now.toISOString(),
+  ]);
   const items = rows.map((row) => {
     const memberCount = toCount(row.member_count);
     const recentSignalCount = toCount(row.recent_signal_count);

@@ -106,7 +106,7 @@ function createExecutor() {
           },
         ];
       }
-      if (sql.includes('current_temporal_graph_edge')) return [{ relation_count: 4 }];
+      if (sql.includes('analytics.graph_snapshot')) return [{ relation_count: 4 }];
       if (sql.includes('user_watchlist')) return [{ watchlist_count: 1 }];
       if (sql.includes('market_snapshots')) {
         return [{ market_data_as_of: '2026-07-16T12:40:00.000Z' }];

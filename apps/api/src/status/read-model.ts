@@ -74,25 +74,41 @@ const PUBLICATION_SOURCE_COVERAGE_SQL = `
 `;
 
 const GRAPH_SOURCE_COVERAGE_SQL = `
-  WITH health AS (
-    SELECT current_edge_count
-    FROM ops.temporal_graph_evidence_health
+  WITH latest_snapshot AS (
+    SELECT graph_snapshot_id, edge_count
+    FROM analytics.graph_snapshot
+    WHERE status = 'sealed'
+    ORDER BY as_of DESC, known_at DESC, graph_snapshot_id DESC
+    LIMIT 1
+  ), evidence_state AS (
+    SELECT
+      evidence.relation_identity_id,
+      bool_or(
+        coalesce(
+          nullif(revision.payload_metadata->>'url', ''),
+          nullif(revision.payload_metadata->>'source_url', '')
+        ) IS NOT NULL
+      ) AS clickable
+    FROM knowledge.relation_evidence_ledger evidence
+    LEFT JOIN ingestion.source_revision revision
+      ON revision.source_revision_id = evidence.source_revision_id
+    GROUP BY evidence.relation_identity_id
   )
   SELECT
-    coalesce(health.current_edge_count, 0)::int AS total,
-    count(DISTINCT edge.id) FILTER (WHERE evidence.id IS NOT NULL)::int AS linked,
-    count(DISTINCT edge.id) FILTER (WHERE nullif(source.url, '') IS NOT NULL)::int AS clickable
-  FROM health
-  LEFT JOIN ops.current_temporal_graph_edge edge
-    ON edge.approved = true
-   AND edge.inferred = false
-  LEFT JOIN ops.temporal_graph_edge_evidence association
-    ON association.temporal_edge_id = edge.id
-  LEFT JOIN ops.graph_evidence evidence
-    ON evidence.id = association.evidence_id
-  LEFT JOIN public.source_documents source
-    ON source.source_key = evidence.source_key
-  GROUP BY health.current_edge_count
+    snapshot.edge_count::int AS total,
+    count(edge.graph_snapshot_edge_id)
+      FILTER (WHERE evidence.relation_identity_id IS NOT NULL)::int AS linked,
+    count(edge.graph_snapshot_edge_id)
+      FILTER (WHERE evidence.clickable)::int AS clickable
+  FROM latest_snapshot snapshot
+  LEFT JOIN analytics.graph_snapshot_edge edge
+    ON edge.graph_snapshot_id = snapshot.graph_snapshot_id
+  LEFT JOIN evidence_state evidence
+    ON evidence.relation_identity_id = edge.relation_identity_id
+  GROUP BY snapshot.edge_count
+  UNION ALL
+  SELECT 0, 0, 0
+  WHERE NOT EXISTS (SELECT 1 FROM latest_snapshot)
 `;
 
 function toCount(value: number | string | null): number {

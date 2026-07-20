@@ -6,13 +6,14 @@ import { getThemeResearchList, type ThemeResearchQueryExecutor } from '../src/th
 const userScope = { userId: 'b3ca4de6-905c-484e-bfd6-a927c801d903' } as const;
 
 describe('theme research read model', () => {
-  it('returns approved graph-backed theme summaries with user context', async () => {
+  it('returns sealed V2 community summaries with user context', async () => {
     const seen: unknown[][] = [];
     const executor: ThemeResearchQueryExecutor = {
       queryRows: async <TRow extends Record<string, unknown>>(sql: string, parameters = []) => {
         seen.push([...parameters]);
-        assert.match(sql, /approved = true/);
-        assert.match(sql, /inferred = false/);
+        assert.match(sql, /analytics\.graph_snapshot/);
+        assert.match(sql, /analytics\.graph_community_member/);
+        assert.doesNotMatch(sql, /current_temporal_graph_edge/);
         return [
           {
             theme_key: 'THEME:ai_semi',
@@ -36,6 +37,7 @@ describe('theme research read model', () => {
 
     assert.equal(seen[0]?.[0], userScope.userId);
     assert.equal(seen[0]?.[1], '2026-07-10T01:00:00.000Z');
+    assert.equal(seen[0]?.[2], '2026-07-17T01:00:00.000Z');
     assert.equal(result.items[0]?.memberCount, 12);
     assert.equal(result.items[0]?.recentSignalCount, 18);
     assert.equal(result.graphKnownThroughAt, '2026-07-16T13:05:26.678Z');

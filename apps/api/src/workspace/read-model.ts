@@ -128,11 +128,15 @@ const FEED_SQL = `
 `;
 
 const RELATION_COUNT_SQL = `
-  SELECT count(*)::int AS relation_count
-  FROM ops.current_temporal_graph_edge
-  WHERE approved = true
-    AND inferred = false
-    AND known_at <= $1::timestamptz
+  SELECT coalesce((
+    SELECT snapshot.edge_count
+    FROM analytics.graph_snapshot snapshot
+    WHERE snapshot.status = 'sealed'
+      AND snapshot.as_of <= $1::timestamptz
+      AND snapshot.known_at <= $1::timestamptz
+    ORDER BY snapshot.as_of DESC, snapshot.known_at DESC, snapshot.graph_snapshot_id DESC
+    LIMIT 1
+  ), 0)::int AS relation_count
 `;
 
 const WATCHLIST_COUNT_SQL = `

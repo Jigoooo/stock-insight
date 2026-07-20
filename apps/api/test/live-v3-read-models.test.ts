@@ -7,7 +7,7 @@ import { createPostgresDashboardReadModel } from '../src/dashboard/read-model.ts
 import { getDecisionHistory } from '../src/history/read-model.ts';
 import { getMyResearchOverview } from '../src/my-research/read-model.ts';
 import { getRadarSignals } from '../src/radar/read-model.ts';
-import { getEntityRelations } from '../src/relations/read-model.ts';
+import { getEntityRelationsWithV2Preference } from '../src/relations/entity-relation-adapter.ts';
 import { withReadSnapshot } from '../src/server/read-snapshot.ts';
 import { getSystemStatus } from '../src/status/read-model.ts';
 import { createPostgresStockReadModel } from '../src/stocks/read-model.ts';
@@ -102,7 +102,12 @@ describe('v3 live PostgreSQL read models', () => {
           .flatMap(({ affectedEntityKeys }) => affectedEntityKeys)[0];
         const graph = relationEntity
           ? await snapshot((executor) =>
-              getEntityRelations(executor, { userScope, entityKey: relationEntity, depth: 1 }),
+              getEntityRelationsWithV2Preference(executor, {
+                userId: userScope.userId,
+                entityKey: relationEntity,
+                depth: 1,
+                now: new Date(),
+              }).then((result) => result.graph),
             )
           : null;
         if (graph) {

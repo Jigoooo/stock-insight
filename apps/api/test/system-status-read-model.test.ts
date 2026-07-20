@@ -32,7 +32,9 @@ describe('system status read model', () => {
         if (sql.includes('analysis_run_record_source')) {
           return [{ total: 194, linked: 194, clickable: 67 }];
         }
-        if (sql.includes('temporal_graph_evidence_health')) {
+        if (sql.includes('analytics.graph_snapshot_edge')) {
+          assert.match(sql, /knowledge\.relation_evidence_ledger/);
+          assert.doesNotMatch(sql, /current_temporal_graph_edge/);
           return [{ total: 3416, linked: 1280, clickable: 420 }];
         }
         throw new Error(`unexpected SQL: ${sql}`);
