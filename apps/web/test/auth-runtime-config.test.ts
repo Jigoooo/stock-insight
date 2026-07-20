@@ -29,7 +29,26 @@ describe('authentication runtime configuration', () => {
       sessionSecret: '0123456789abcdef0123456789abcdef',
       appOrigin: 'https://stock.jigooo.com',
       sessionTtlSeconds: 28_800,
+      signupEnabled: false,
     });
+  });
+
+  it('enables invitation-gated multi-user signup when explicitly turned on', async () => {
+    const config = await loadAuthRuntimeConfig(
+      { ...validEnv, STOCK_INSIGHT_SIGNUP_ENABLED: 'true' },
+      readSecret,
+    );
+    assert.equal(config.signupEnabled, true);
+  });
+
+  it('keeps signup disabled by default and for any non-true value', async () => {
+    for (const value of [undefined, '', 'false', '1', 'yes', 'TRUE']) {
+      const config = await loadAuthRuntimeConfig(
+        value === undefined ? validEnv : { ...validEnv, STOCK_INSIGHT_SIGNUP_ENABLED: value },
+        readSecret,
+      );
+      assert.equal(config.signupEnabled, false, `value=${String(value)}`);
+    }
   });
 
   it('supports DB-only authentication after the static credential is retired', async () => {

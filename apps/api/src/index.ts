@@ -106,6 +106,8 @@ export type { ProductListOptions, ProductQueryExecutor } from './product/read-mo
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
+  createScopedDatabaseClient,
+  createScopedReadOnlyDatabaseClient,
   parseServerEnv,
   requireUserScope,
 } from './server';

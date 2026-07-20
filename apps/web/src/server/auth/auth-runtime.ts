@@ -1,35 +1,23 @@
 import '@tanstack/react-start/server-only';
 
 import { loadAuthRuntimeConfig, type AuthRuntimeConfig } from './auth-runtime-config.ts';
+import { hashEnrollmentCode } from './enrollment-code.ts';
 import {
-  credentialSessionSecret,
-  isSessionBoundToCredential,
-  isUsernameForCredential,
-  selectAuthenticationCredential,
-  type AuthenticationCredential,
-} from './credential-binding.ts';
-import { verifyEnrollmentCode } from './enrollment-code.ts';
-import {
-  insertLocalAccount,
-  isEnrollmentConsumed,
-  loadLocalAccount,
+  loadLocalAccountById,
+  loadLocalAccountByUsername,
+  type LocalAccount,
 } from './local-account-repository.ts';
+import {
+  authenticateAccount,
+  issueSessionForAccount,
+  resolveSessionFromAccount,
+} from './multi-user-auth.ts';
 import { readSessionCookie } from './session-cookie.ts';
-import {
-  createScryptPasswordRecordAsync,
-  createSessionToken,
-  verifyScryptPasswordAsync,
-  verifySessionToken,
-  type SessionClaims,
-} from './session-core.ts';
+import { createScryptPasswordRecordAsync, type SessionClaims } from './session-core.ts';
 
-import {
-  createDatabaseClient,
-  createReadOnlyDatabaseClient,
-  parseServerEnv,
-  requireUserScope,
-  type UserScope,
-} from '@stock-insight/api';
+import { createDatabaseClient, createReadOnlyDatabaseClient } from '@stock-insight/api';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 let authConfigPromise: Promise<AuthRuntimeConfig> | undefined;
 
@@ -38,105 +26,71 @@ function getAuthConfig(): Promise<AuthRuntimeConfig> {
   return authConfigPromise;
 }
 
-function getConfiguredScope(): UserScope {
-  return requireUserScope(parseServerEnv());
-}
-
 function baseSessionSecret(config: AuthRuntimeConfig): Buffer {
   return Buffer.from(config.sessionSecret, 'utf8');
 }
 
-const DUMMY_PASSWORD_RECORD =
-  'scrypt$v=1$N=16384$r=8$p=1$ABEiM0RVZneImaq7zN3u_w$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-
-async function resolveCredential(
-  config: AuthRuntimeConfig,
-  scope: UserScope,
-): Promise<AuthenticationCredential | undefined> {
+function requireReadDatabase() {
   const database = createReadOnlyDatabaseClient();
   if (database.kind !== 'configured') throw new Error('Authentication database is unavailable');
-  const [localAccount, enrollmentConsumed] = await Promise.all([
-    loadLocalAccount(database.queryRows, scope.userId),
-    isEnrollmentConsumed(database.queryRows, scope.userId),
-  ]);
-  if (localAccount && !enrollmentConsumed) throw new Error('Invalid local account state');
-  return selectAuthenticationCredential({
-    userId: scope.userId,
-    ...(localAccount ? { localAccount } : {}),
-    ...(!enrollmentConsumed && config.staticCredential
-      ? { staticCredential: config.staticCredential }
-      : {}),
-  });
+  return database;
 }
 
-function issueBoundSession(
-  config: AuthRuntimeConfig,
-  credential: AuthenticationCredential,
-): {
-  token: string;
-  maxAgeSeconds: number;
-  session: SessionClaims;
-} {
-  const secret = credentialSessionSecret(baseSessionSecret(config), credential);
-  const token = createSessionToken(
-    { sub: credential.userId, username: credential.username },
-    { secret, ttlSeconds: config.sessionTtlSeconds },
-  );
-  const session = verifySessionToken(token, { secret });
-  if (!session || !isSessionBoundToCredential(session, credential)) {
-    throw new Error('Failed to issue a bound authentication session');
-  }
-  return { token, maxAgeSeconds: config.sessionTtlSeconds, session };
-}
-
+// Login: resolve the account by canonical username (no fixed server-owned id),
+// then verify username + password and issue a credential-bound session.
 export async function authenticateConfiguredCredentials(input: {
   username: string;
   password: string;
 }): Promise<{ token: string; maxAgeSeconds: number; session: SessionClaims } | undefined> {
-  const [config, scope] = await Promise.all([
-    getAuthConfig(),
-    Promise.resolve(getConfiguredScope()),
-  ]);
-  const credential = await resolveCredential(config, scope);
-  const passwordMatches = await verifyScryptPasswordAsync(
+  const config = await getAuthConfig();
+  const database = requireReadDatabase();
+  const account = await loadLocalAccountByUsername(database.queryRows, input.username);
+  return authenticateAccount(
+    baseSessionSecret(config),
+    config.sessionTtlSeconds,
+    account,
+    input.username,
     input.password,
-    credential?.passwordRecord ?? DUMMY_PASSWORD_RECORD,
   );
-  const usernameMatches = credential ? isUsernameForCredential(input.username, credential) : false;
-  if (!credential || !passwordMatches || !usernameMatches) return undefined;
-  return issueBoundSession(config, credential);
 }
 
+// Session refresh: the token carries a verified UUID subject; rebuild the
+// credential from that id and re-validate the signature against it.
 export async function readBoundSession(
   cookieHeader: string | null | undefined,
 ): Promise<SessionClaims | undefined> {
   const token = readSessionCookie(cookieHeader);
   if (!token) return undefined;
-
-  const [config, scope] = await Promise.all([
-    getAuthConfig(),
-    Promise.resolve(getConfiguredScope()),
-  ]);
-  const credential = await resolveCredential(config, scope);
-  if (!credential) return undefined;
-  const secret = credentialSessionSecret(baseSessionSecret(config), credential);
-  const session = verifySessionToken(token, { secret });
-  return session && isSessionBoundToCredential(session, credential) ? session : undefined;
+  const subject = peekSessionSubject(token);
+  if (!subject) return undefined;
+  const config = await getAuthConfig();
+  const database = requireReadDatabase();
+  const account = await loadLocalAccountById(database.queryRows, subject);
+  return resolveSessionFromAccount(baseSessionSecret(config), token, account);
 }
 
+// The token subject is only trusted after the signature check inside
+// resolveSessionFromAccount; here we merely peek at the claimed id to know which
+// account row to load. Malformed tokens resolve to undefined and fail closed.
+function peekSessionSubject(token: string): string | undefined {
+  const segments = token.split('.');
+  if (segments.length !== 2) return undefined;
+  try {
+    const payload = Buffer.from(segments[0] ?? '', 'base64url').toString('utf8');
+    const value = JSON.parse(payload) as { sub?: unknown };
+    const sub = value.sub;
+    return typeof sub === 'string' && UUID_PATTERN.test(sub) ? sub : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Signup is invitation-gated. The invite code itself is the credential: it is
+// hashed to a digest and validated against the durable invitation ledger inside
+// the atomic consume function, so signup is available whenever the feature is on.
 export async function getEnrollmentAvailability(): Promise<boolean> {
-  const [config, scope] = await Promise.all([
-    getAuthConfig(),
-    Promise.resolve(getConfiguredScope()),
-  ]);
-  if (!config.enrollmentTokenHash) return false;
-  const database = createReadOnlyDatabaseClient();
-  if (database.kind !== 'configured') throw new Error('Authentication database is unavailable');
-  const [localAccount, enrollmentConsumed] = await Promise.all([
-    loadLocalAccount(database.queryRows, scope.userId),
-    isEnrollmentConsumed(database.queryRows, scope.userId),
-  ]);
-  return localAccount === undefined && !enrollmentConsumed;
+  const config = await getAuthConfig();
+  return config.signupEnabled;
 }
 
 export async function enrollLocalAccountCredentials(input: {
@@ -152,49 +106,43 @@ export async function enrollLocalAccountCredentials(input: {
     }
   | { status: 'invalid_code' | 'unavailable' }
 > {
-  const [config, scope] = await Promise.all([
-    getAuthConfig(),
-    Promise.resolve(getConfiguredScope()),
-  ]);
-  if (
-    !config.enrollmentTokenHash ||
-    !verifyEnrollmentCode(input.enrollmentCode, config.enrollmentTokenHash)
-  ) {
-    return { status: 'invalid_code' };
-  }
-
-  const readDatabase = createReadOnlyDatabaseClient();
-  if (readDatabase.kind !== 'configured') {
-    throw new Error('Authentication database is unavailable');
-  }
-  const [localAccount, enrollmentConsumed] = await Promise.all([
-    loadLocalAccount(readDatabase.queryRows, scope.userId),
-    isEnrollmentConsumed(readDatabase.queryRows, scope.userId),
-  ]);
-  if (localAccount || enrollmentConsumed) {
-    return { status: 'unavailable' };
-  }
+  const config = await getAuthConfig();
+  if (!config.signupEnabled) return { status: 'unavailable' };
 
   const passwordRecord = await createScryptPasswordRecordAsync(input.password);
+  const codeDigest = hashEnrollmentCode(input.enrollmentCode);
   const writeDatabase = createDatabaseClient();
   if (writeDatabase.kind !== 'configured') {
     throw new Error('Authentication database is unavailable');
   }
-  const enrollment = await writeDatabase.withTransaction((executor) =>
-    insertLocalAccount(executor.queryRows, {
-      userId: scope.userId,
+
+  const result = await writeDatabase.withTransaction(async (executor) => {
+    const rows = await executor.queryRows<{ status: string; user_id: string | null }>(
+      `SELECT status, user_id::text AS user_id
+         FROM public.consume_invitation_and_create_account($1, $2, $3)`,
+      [codeDigest, input.username, passwordRecord],
+    );
+    return rows[0];
+  });
+
+  if (!result) return { status: 'unavailable' };
+  if (result.status === 'created' && result.user_id && UUID_PATTERN.test(result.user_id)) {
+    const localAccount: LocalAccount = {
+      userId: result.user_id,
       username: input.username,
       passwordRecord,
-    }),
-  );
-  if (enrollment.status !== 'created') return { status: 'unavailable' };
-
-  const credential = selectAuthenticationCredential({
-    userId: scope.userId,
-    localAccount: enrollment.account,
-  });
-  if (!credential) throw new Error('Failed to bind the enrolled account');
-  return { status: 'created', ...issueBoundSession(config, credential) };
+    };
+    return {
+      status: 'created',
+      ...issueSessionForAccount(baseSessionSecret(config), config.sessionTtlSeconds, localAccount),
+    };
+  }
+  // username_taken / exhausted / expired / revoked are all conflict-like states
+  // where the operator or user must act; everything else is an invalid code.
+  if (['username_taken', 'exhausted', 'expired', 'revoked'].includes(result.status)) {
+    return { status: 'unavailable' };
+  }
+  return { status: 'invalid_code' };
 }
 
 export async function getAuthenticationOrigin(): Promise<string> {

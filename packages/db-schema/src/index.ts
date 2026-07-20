@@ -27,6 +27,7 @@ import { backendServingV2MigrationSql } from './migrations/026_backend_serving_v
 import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_claim';
 import { undirectedImpactStepGuardMigrationSql } from './migrations/028_undirected_impact_step_guard';
 import { coreIdentityGapBackfillMigrationSql } from './migrations/029_core_identity_gap_backfill';
+import { multiUserInvitationSignupMigrationSql } from './migrations/030_multi_user_invitation_signup';
 
 export type AppTableName =
   | 'company_profiles'
@@ -41,6 +42,8 @@ export type AppTableName =
   | 'app_auth_bootstrap_state'
   | 'app_local_accounts'
   | 'app_user_identity_map'
+  | 'app_invitations'
+  | 'app_invitation_consumptions'
   | 'app_mutation_idempotency'
   | 'source_documents'
   | 'user_positions'
@@ -284,6 +287,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['core_identity'],
     sql: coreIdentityGapBackfillMigrationSql,
   },
+  {
+    id: '030_multi_user_invitation_signup',
+    description:
+      'P0-MU additive invitation ledger + atomic SECURITY DEFINER signup that mints identity map + bootstrap tombstone + local account per single-use invite; existing accounts untouched.',
+    tables: ['app_invitations', 'app_invitation_consumptions'],
+    sql: multiUserInvitationSignupMigrationSql,
+  },
 ];
 
 export {
@@ -316,4 +326,5 @@ export {
   pipelineRunClaimMigrationSql,
   undirectedImpactStepGuardMigrationSql,
   coreIdentityGapBackfillMigrationSql,
+  multiUserInvitationSignupMigrationSql,
 };

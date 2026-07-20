@@ -49,7 +49,7 @@ describe('private authentication boundaries', () => {
 
   it('keeps login CSRF, rate limiting, and secure cookie issuance in the server function', async () => {
     const source = await readSource('pages/auth/model/auth-functions.ts');
-    const runtimeSource = await readSource('server/auth/auth-runtime.ts');
+    const authSource = await readSource('server/auth/multi-user-auth.ts');
     assert.match(source, /isSameOriginRequest/);
     assert.match(source, /globalLoginRateLimiter/);
     assert.match(source, /clientLoginRateLimiter/);
@@ -57,12 +57,12 @@ describe('private authentication boundaries', () => {
     assert.match(source, /loginPasswordGate\.tryAcquire/);
     assert.match(source, /normalizedClientKey/);
     assert.doesNotMatch(source, /x-real-ip|cf-connecting-ip|x-forwarded-for/i);
-    assert.match(runtimeSource, /verifyScryptPasswordAsync/);
+    assert.match(authSource, /verifyScryptPasswordAsync/);
     assert.match(source, /sessionCookieHeader/);
     assert.match(source, /setResponseHeader/);
   });
 
-  it('protects one-time enrollment with the same origin, bounded password work, and DB-first binding', async () => {
+  it('protects invitation-gated signup with the same origin, bounded password work, and atomic account creation', async () => {
     const source = await readSource('pages/auth/model/auth-functions.ts');
     const runtimeSource = await readSource('server/auth/auth-runtime.ts');
     const bindingSource = await readSource('server/auth/credential-binding.ts');
@@ -74,11 +74,15 @@ describe('private authentication boundaries', () => {
     assert.match(source, /clientEnrollmentRateLimiter/);
     assert.match(source, /loginPasswordGate\.tryAcquire/);
     assert.match(source, /sessionCookieHeader\(enrollment\.token/);
-    assert.match(runtimeSource, /verifyEnrollmentCode/);
+    // Multi-user signup hashes the invite code and consumes it atomically in DB.
+    assert.match(runtimeSource, /hashEnrollmentCode/);
     assert.match(runtimeSource, /createScryptPasswordRecordAsync/);
-    assert.match(runtimeSource, /insertLocalAccount/);
-    assert.match(runtimeSource, /isEnrollmentConsumed/);
-    assert.match(runtimeSource, /selectAuthenticationCredential/);
+    assert.match(runtimeSource, /consume_invitation_and_create_account/);
+    assert.match(runtimeSource, /issueSessionForAccount/);
+    // Login is username-first, not tied to a single server-owned id.
+    assert.match(runtimeSource, /loadLocalAccountByUsername/);
+    assert.match(runtimeSource, /loadLocalAccountById/);
+    assert.doesNotMatch(runtimeSource, /requireUserScope|getConfiguredScope/);
     assert.match(bindingSource, /if \(input\.localAccount\)/);
     assert.match(bindingSource, /createHmac\('sha256'/);
     assert.match(bindingSource, /\.update\(credential\.kind/);

@@ -1,17 +1,17 @@
 import pg, { type Pool as PgPool, type PoolClient, type QueryResultRow } from 'pg';
 
-import { resolveDatabaseConnectionStrings } from './database-connection-policy';
-import { parseServerEnv, type ServerEnv } from './env';
+import { resolveDatabaseConnectionStrings } from './database-connection-policy.ts';
+import { parseServerEnv, type ServerEnv } from './env.ts';
 import {
   withReadSnapshot,
   type ReadSnapshotExecutor,
   type ReadSnapshotOptions,
-} from './read-snapshot';
+} from './read-snapshot.ts';
 import {
   withWriteTransaction,
   type WriteTransactionExecutor,
   type WriteTransactionOptions,
-} from './write-transaction';
+} from './write-transaction.ts';
 
 type PgModule = {
   Pool: new (options: {
@@ -50,9 +50,14 @@ export type ConfiguredDatabaseClient = {
   close: () => Promise<void>;
 };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 let pgPoolConstructor: PgModule['Pool'] | undefined;
-let cachedConfiguredClient: ConfiguredReadOnlyDatabaseClient | undefined;
-let cachedConfiguredWriteClient: ConfiguredDatabaseClient | undefined;
+// Pools are keyed by connection string only and shared across per-request
+// scoped clients — the scope is applied per transaction via the GUC, never
+// baked into the pool. This lets many users safely share one connection pool.
+const readPoolCache = new Map<string, PgPool>();
+const writePoolCache = new Map<string, PgPool>();
 
 const defaultReadSnapshotOptions: ReadSnapshotOptions = {
   statementTimeoutMs: 10_000,
@@ -68,12 +73,49 @@ function getPgPoolConstructor(): PgModule['Pool'] {
   return pgPoolConstructor;
 }
 
+function getReadPool(connectionString: string): PgPool {
+  let pool = readPoolCache.get(connectionString);
+  if (!pool) {
+    const Pool = getPgPoolConstructor();
+    pool = new Pool({
+      connectionString,
+      max: 4,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
+    readPoolCache.set(connectionString, pool);
+  }
+  return pool;
+}
+
+function getWritePool(connectionString: string): PgPool {
+  let pool = writePoolCache.get(connectionString);
+  if (!pool) {
+    const Pool = getPgPoolConstructor();
+    pool = new Pool({
+      connectionString,
+      max: 4,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
+    });
+    writePoolCache.set(connectionString, pool);
+  }
+  return pool;
+}
+
 async function rollbackQuietly(client: PoolClient): Promise<void> {
   try {
     await client.query('ROLLBACK');
   } catch {
     // Preserve the original read failure; rollback is best-effort cleanup.
   }
+}
+
+function requireUuidScope(userId: string): string {
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) {
+    throw new Error('A canonical UUID user scope is required for a scoped database client');
+  }
+  return userId;
 }
 
 export type ReadOnlyDatabaseClient =
@@ -90,28 +132,14 @@ export type DatabaseClient =
     }
   | ConfiguredDatabaseClient;
 
-export function createReadOnlyDatabaseClient(
-  env: ServerEnv = parseServerEnv(),
-): ReadOnlyDatabaseClient {
-  const connectionString = resolveDatabaseConnectionStrings(env).read;
-  if (connectionString === undefined) {
-    return {
-      kind: 'disabled',
-      reason: 'DATABASE_URL is not configured',
-    };
-  }
-
-  if (cachedConfiguredClient?.connectionString === connectionString) return cachedConfiguredClient;
-
-  const Pool = getPgPoolConstructor();
-  const pool = new Pool({
-    connectionString,
-    max: 4,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-  });
-
-  const configuredClient: ConfiguredReadOnlyDatabaseClient = {
+// Build a read-only client bound to an explicit scope (may be undefined for
+// unscoped/global reads). The pool is shared; the scope is applied per query.
+function buildReadOnlyClient(
+  connectionString: string,
+  scopeUserId: string | undefined,
+): ConfiguredReadOnlyDatabaseClient {
+  const pool = getReadPool(connectionString);
+  return {
     kind: 'configured',
     connectionString,
     async queryRows<TRow extends QueryResultRow = QueryResultRow>(
@@ -121,8 +149,8 @@ export function createReadOnlyDatabaseClient(
       const client = await pool.connect();
       try {
         await client.query('BEGIN READ ONLY');
-        if (env.userId) {
-          await client.query("SELECT set_config('stock_insight.user_id', $1, true)", [env.userId]);
+        if (scopeUserId) {
+          await client.query("SELECT set_config('stock_insight.user_id', $1, true)", [scopeUserId]);
         }
         const result = await client.query<TRow>(sql, [...params]);
         await client.query('ROLLBACK');
@@ -157,41 +185,26 @@ export function createReadOnlyDatabaseClient(
           },
         },
         work,
-        { ...defaultReadSnapshotOptions, ...options, sessionUserId: env.userId },
+        { ...defaultReadSnapshotOptions, ...options, sessionUserId: scopeUserId },
       );
     },
     async close() {
-      if (cachedConfiguredClient?.connectionString === connectionString)
-        cachedConfiguredClient = undefined;
-      await pool.end();
+      // Scoped clients share the process pool; the pool is torn down centrally.
+      const cached = readPoolCache.get(connectionString);
+      if (cached === pool) {
+        readPoolCache.delete(connectionString);
+        await pool.end();
+      }
     },
   };
-
-  cachedConfiguredClient = configuredClient;
-  return configuredClient;
 }
 
-export function createDatabaseClient(env: ServerEnv = parseServerEnv()): DatabaseClient {
-  const connectionString = resolveDatabaseConnectionStrings(env).write;
-  if (!connectionString) {
-    return {
-      kind: 'disabled',
-      reason: 'DATABASE_WRITE_URL is not configured',
-    };
-  }
-
-  if (cachedConfiguredWriteClient?.connectionString === connectionString)
-    return cachedConfiguredWriteClient;
-
-  const Pool = getPgPoolConstructor();
-  const pool = new Pool({
-    connectionString,
-    max: 4,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-  });
-
-  cachedConfiguredWriteClient = {
+function buildWriteClient(
+  connectionString: string,
+  scopeUserId: string | undefined,
+): ConfiguredDatabaseClient {
+  const pool = getWritePool(connectionString);
+  return {
     kind: 'configured',
     connectionString,
     async queryRows<TRow extends QueryResultRow = QueryResultRow>(
@@ -201,8 +214,8 @@ export function createDatabaseClient(env: ServerEnv = parseServerEnv()): Databas
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
-        if (env.userId) {
-          await client.query("SELECT set_config('stock_insight.user_id', $1, true)", [env.userId]);
+        if (scopeUserId) {
+          await client.query("SELECT set_config('stock_insight.user_id', $1, true)", [scopeUserId]);
         }
         const result = await client.query<TRow>(sql, [...params]);
         await client.query('COMMIT');
@@ -218,7 +231,7 @@ export function createDatabaseClient(env: ServerEnv = parseServerEnv()): Databas
       work: (executor: WriteTransactionExecutor) => Promise<TResult>,
       options: Partial<Omit<WriteTransactionOptions, 'sessionUserId'>> = {},
     ): Promise<TResult> {
-      if (!env.userId) throw new Error('STOCK_INSIGHT_USER_ID is required for writes');
+      if (!scopeUserId) throw new Error('A user scope is required for writes');
       return withWriteTransaction(
         {
           async connect() {
@@ -238,15 +251,60 @@ export function createDatabaseClient(env: ServerEnv = parseServerEnv()): Databas
           },
         },
         work,
-        { ...defaultWriteTransactionOptions, ...options, sessionUserId: env.userId },
+        { ...defaultWriteTransactionOptions, ...options, sessionUserId: scopeUserId },
       );
     },
     async close() {
-      if (cachedConfiguredWriteClient?.connectionString === connectionString)
-        cachedConfiguredWriteClient = undefined;
-      await pool.end();
+      const cached = writePoolCache.get(connectionString);
+      if (cached === pool) {
+        writePoolCache.delete(connectionString);
+        await pool.end();
+      }
     },
   };
+}
 
-  return cachedConfiguredWriteClient;
+// Legacy factory: scope comes from the environment (single-user fallback).
+export function createReadOnlyDatabaseClient(
+  env: ServerEnv = parseServerEnv(),
+): ReadOnlyDatabaseClient {
+  const connectionString = resolveDatabaseConnectionStrings(env).read;
+  if (connectionString === undefined) {
+    return { kind: 'disabled', reason: 'DATABASE_URL is not configured' };
+  }
+  return buildReadOnlyClient(connectionString, env.userId);
+}
+
+export function createDatabaseClient(env: ServerEnv = parseServerEnv()): DatabaseClient {
+  const connectionString = resolveDatabaseConnectionStrings(env).write;
+  if (!connectionString) {
+    return { kind: 'disabled', reason: 'DATABASE_WRITE_URL is not configured' };
+  }
+  return buildWriteClient(connectionString, env.userId);
+}
+
+// Multi-user factories: the scope is the verified session subject, bound per
+// request. A missing/malformed scope fails closed before any pool is touched.
+export function createScopedReadOnlyDatabaseClient(
+  userId: string,
+  env: ServerEnv = parseServerEnv(),
+): ReadOnlyDatabaseClient {
+  const scope = requireUuidScope(userId);
+  const connectionString = resolveDatabaseConnectionStrings(env).read;
+  if (connectionString === undefined) {
+    return { kind: 'disabled', reason: 'DATABASE_URL is not configured' };
+  }
+  return buildReadOnlyClient(connectionString, scope);
+}
+
+export function createScopedDatabaseClient(
+  userId: string,
+  env: ServerEnv = parseServerEnv(),
+): DatabaseClient {
+  const scope = requireUuidScope(userId);
+  const connectionString = resolveDatabaseConnectionStrings(env).write;
+  if (!connectionString) {
+    return { kind: 'disabled', reason: 'DATABASE_WRITE_URL is not configured' };
+  }
+  return buildWriteClient(connectionString, scope);
 }

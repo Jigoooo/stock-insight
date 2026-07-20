@@ -59,6 +59,48 @@ export async function loadLocalAccount(
   return parseRow(rows[0]!, userId);
 }
 
+const USERNAME_LOGIN_PATTERN = /^[A-Za-z0-9._-]{3,64}$/;
+
+function parseAnyRow(row: Record<string, unknown>): LocalAccount {
+  const userId = row.user_id;
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) throw invalidState();
+  return parseRow(row, userId);
+}
+
+// Multi-user login: resolve an account by canonical username without knowing the
+// user id first. Backed by the SECURITY DEFINER public.lookup_login_account so
+// the FORCE-RLS credential table can be searched exactly once, fail-closed.
+export async function loadLocalAccountByUsername(
+  executor: LocalAccountQueryExecutor,
+  username: string,
+): Promise<LocalAccount | undefined> {
+  if (typeof username !== 'string' || !USERNAME_LOGIN_PATTERN.test(username)) return undefined;
+  const rows = await executor(
+    `SELECT user_id::text, username, password_record
+       FROM public.lookup_login_account($1)`,
+    [username],
+  );
+  if (rows.length === 0) return undefined;
+  if (rows.length !== 1) throw invalidState();
+  return parseAnyRow(rows[0]!);
+}
+
+// Session refresh: rebuild the credential from the verified token subject.
+export async function loadLocalAccountById(
+  executor: LocalAccountQueryExecutor,
+  userId: string,
+): Promise<LocalAccount | undefined> {
+  requireUserId(userId);
+  const rows = await executor(
+    `SELECT user_id::text, username, password_record
+       FROM public.lookup_account_by_id($1::uuid)`,
+    [userId],
+  );
+  if (rows.length === 0) return undefined;
+  if (rows.length !== 1) throw invalidState();
+  return parseRow(rows[0]!, userId);
+}
+
 export async function isEnrollmentConsumed(
   executor: LocalAccountQueryExecutor,
   userId: string,

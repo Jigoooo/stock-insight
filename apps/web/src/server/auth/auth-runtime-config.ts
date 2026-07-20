@@ -13,6 +13,7 @@ export type AuthRuntimeConfig = {
   sessionSecret: string;
   appOrigin: string;
   sessionTtlSeconds: number;
+  signupEnabled: boolean;
 };
 
 const invalidConfig = () => new Error('Invalid authentication runtime configuration');
@@ -101,6 +102,7 @@ export async function loadAuthRuntimeConfig(
       sessionSecret,
       appOrigin,
       sessionTtlSeconds,
+      signupEnabled: source.STOCK_INSIGHT_SIGNUP_ENABLED === 'true',
     };
     if (username && passwordRecord) config.staticCredential = { username, passwordRecord };
     if (enrollmentTokenHash) config.enrollmentTokenHash = enrollmentTokenHash;
