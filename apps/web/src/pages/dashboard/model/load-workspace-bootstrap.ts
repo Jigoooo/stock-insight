@@ -4,7 +4,7 @@ import { authFunctionMiddleware } from '@/server/auth/auth-middleware';
 
 export const loadWorkspaceBootstrap = createServerFn({ method: 'GET' })
   .middleware([authFunctionMiddleware])
-  .handler(async () => {
+  .handler(async ({ context }) => {
     const { loadWorkspaceBootstrapDirect } = await import('@/server/workspace-bootstrap');
-    return loadWorkspaceBootstrapDirect();
+    return loadWorkspaceBootstrapDirect(context.session.sub);
   });

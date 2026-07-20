@@ -4,6 +4,11 @@ import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { loadResearchFeedPage } from '@/server/research-workspace';
 
 type FeedRouteContext = { request: Request };
@@ -24,8 +29,10 @@ const handlers = {
       return jsonResponse({ error: { code: 'invalid_feed_query' } }, { status: 400 });
     }
     try {
-      return jsonResponse(await loadResearchFeedPage({ lane, limit, cursor }));
+      const userId = await resolveRequestUserId(request);
+      return jsonResponse(await loadResearchFeedPage(userId, { lane, limit, cursor }));
     } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
       if (error instanceof Error && error.message.toLowerCase().includes('cursor')) {
         return jsonResponse({ error: { code: 'invalid_feed_cursor' } }, { status: 400 });
       }

@@ -6,16 +6,16 @@ import {
   routeManualPortfolioMutation,
   type ManualPortfolioMutationPolicy,
 } from './mutation-policy.ts';
+import { RequestScopeError, resolveRequestUserId } from './request-scope.ts';
 
 import {
   claimMutation,
   completeMutation,
-  createDatabaseClient,
+  createScopedDatabaseClient,
   createPostgresManualPortfolioWriteModel,
   createPostgresMeBootstrapReadModel,
   getManualPortfolioBootstrapAfterMutation,
   parseServerEnv,
-  requireUserScope,
   type ManualPortfolioWriteExecutor,
   type ManualPortfolioWriteModel,
   type MeBootstrapRowQueryExecutor,
@@ -50,15 +50,14 @@ const idempotencyKeyPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type RouteDatabase = {
-  database: Extract<ReturnType<typeof createDatabaseClient>, { kind: 'configured' }>;
-  userScope: ReturnType<typeof requireUserScope>;
+  database: Extract<ReturnType<typeof createScopedDatabaseClient>, { kind: 'configured' }>;
+  userScope: { userId: string };
 };
 
-function createRouteDatabase(): RouteDatabase | undefined {
+function createRouteDatabase(userId: string): RouteDatabase | undefined {
   const env = parseServerEnv();
-  const userScope = requireUserScope(env);
-  const database = createDatabaseClient(env);
-  return database.kind === 'disabled' ? undefined : { database, userScope };
+  const database = createScopedDatabaseClient(userId, env);
+  return database.kind === 'disabled' ? undefined : { database, userScope: { userId } };
 }
 
 function unavailableResponse() {
@@ -118,6 +117,13 @@ function idempotencyRequiredResponse() {
   return jsonResponse(
     { error: { code: 'IDEMPOTENCY_KEY_REQUIRED', message: 'Idempotency-Key UUID가 필요합니다.' } },
     { status: 428 },
+  );
+}
+
+function unauthorizedResponse() {
+  return jsonResponse(
+    { error: { code: 'UNAUTHORIZED', message: '로그인이 필요합니다.' } },
+    { status: 401 },
   );
 }
 
@@ -199,7 +205,14 @@ async function mutateManualPortfolio(
       if (!idempotencyKeyPattern.test(idempotencyKey)) {
         return badRequestResponse('Idempotency-Key 형식이 올바르지 않습니다.');
       }
-      const routeDatabase = createRouteDatabase();
+      let userId: string;
+      try {
+        userId = await resolveRequestUserId(request);
+      } catch (error) {
+        if (error instanceof RequestScopeError) return unauthorizedResponse();
+        throw error;
+      }
+      const routeDatabase = createRouteDatabase(userId);
       if (!routeDatabase) return unavailableResponse();
 
       let result;

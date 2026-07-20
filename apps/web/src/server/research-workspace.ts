@@ -8,7 +8,7 @@ import type {
 } from '@/pages/research-workspace/model/workspace-view-payload';
 import {
   createPostgresStockReadModel,
-  createReadOnlyDatabaseClient,
+  createScopedReadOnlyDatabaseClient,
   getDecisionHistory,
   getEntityRelationsWithV2Preference,
   getMyResearchOverview,
@@ -20,7 +20,6 @@ import {
   getThemeResearchList,
   getWorkspaceToday,
   parseServerEnv,
-  requireUserScope,
   type StockDatabaseRow,
 } from '@stock-insight/api';
 import type {
@@ -30,20 +29,22 @@ import type {
 
 type WithoutShell<Payload> = Payload extends unknown ? Omit<Payload, 'shell'> : never;
 
-function createResearchReadContext() {
+// The scope is the verified session subject, bound per request. Every read runs
+// under this user's RLS context; there is no ambient/server-owned fallback id.
+function createResearchReadContext(userId: string) {
   const env = parseServerEnv();
-  const userScope = requireUserScope(env);
-  const database = createReadOnlyDatabaseClient(env);
+  const database = createScopedReadOnlyDatabaseClient(userId, env);
   if (database.kind === 'disabled') {
     throw new Error('Research database is not configured');
   }
-  return { database, userScope };
+  return { database, userScope: { userId } };
 }
 
 export async function loadResearchWorkspaceView(
+  userId: string,
   options: ResearchWorkspaceViewOptions,
 ): Promise<ResearchWorkspaceViewPayload> {
-  const { database, userScope } = createResearchReadContext();
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot(async (executor) => {
     let activeRadar: RadarSignalPage | undefined;
     let activeResearch: MyResearchOverview | undefined;
@@ -131,60 +132,69 @@ export async function loadResearchWorkspaceView(
   });
 }
 
-export async function loadResearchWorkspace() {
-  const { database, userScope } = createResearchReadContext();
+export async function loadResearchWorkspace(userId: string) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
 }
 
-export async function loadResearchFeedPage(options: {
-  lane: 'must_know' | 'for_you' | 'explore';
-  cursor?: string;
-  limit?: number;
-}) {
-  const { database, userScope } = createResearchReadContext();
+export async function loadResearchFeedPage(
+  userId: string,
+  options: {
+    lane: 'must_know' | 'for_you' | 'explore';
+    cursor?: string;
+    limit?: number;
+  },
+) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) =>
     getResearchFeedPage(executor, { userScope, ...options }),
   );
 }
 
-export async function loadResearchRecord(recordKey: string) {
-  const { database, userScope } = createResearchReadContext();
+export async function loadResearchRecord(userId: string, recordKey: string) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) =>
     getResearchRecordDetail(executor, { userScope, recordKey }),
   );
 }
 
-export async function loadResearchStatus() {
-  const { database } = createResearchReadContext();
+export async function loadResearchStatus(userId: string) {
+  const { database } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getSystemStatus(executor));
 }
 
-export async function loadDecisionHistoryPage(options: { cursor?: string; limit?: number }) {
-  const { database, userScope } = createResearchReadContext();
+export async function loadDecisionHistoryPage(
+  userId: string,
+  options: { cursor?: string; limit?: number },
+) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) =>
     getDecisionHistory(executor, { userScope, ...options }),
   );
 }
 
-export async function loadMyResearchOverview() {
-  const { database, userScope } = createResearchReadContext();
+export async function loadMyResearchOverview(userId: string) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getMyResearchOverview(executor, { userScope }));
 }
 
-export async function loadRadarSignalPage(options: { cursor?: string; limit?: number }) {
-  const { database, userScope } = createResearchReadContext();
+export async function loadRadarSignalPage(
+  userId: string,
+  options: { cursor?: string; limit?: number },
+) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) =>
     getRadarSignals(executor, { userScope, ...options }),
   );
 }
 
-export async function loadThemeResearch() {
-  const { database, userScope } = createResearchReadContext();
+export async function loadThemeResearch(userId: string) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getThemeResearchList(executor, { userScope }));
 }
 
-export async function loadEntityRelationGraph(entityKey: string, depth: number) {
-  const { database, userScope } = createResearchReadContext();
+export async function loadEntityRelationGraph(userId: string, entityKey: string, depth: number) {
+  const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot(async (executor) => {
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey,

@@ -43,7 +43,8 @@ describe('workspace active-view server loader', () => {
     assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
     assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);
     assert.match(source, /export const loadResearchWorkspaceView = createServerFn/);
-    assert.match(source, /return loadDirect\(data\)/);
+    // The loader is now scoped to the verified session subject, not a fixed id.
+    assert.match(source, /return loadDirect\(context\.session\.sub, data\)/);
   });
 
   it('does not convert active read errors into empty payloads', async () => {

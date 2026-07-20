@@ -18,7 +18,7 @@ const workspaceViewInputSchema = z
 export const loadResearchWorkspaceView = createServerFn({ method: 'GET' })
   .middleware([authFunctionMiddleware])
   .validator(workspaceViewInputSchema)
-  .handler(async ({ data }): Promise<ResearchWorkspaceViewPayload> => {
+  .handler(async ({ data, context }): Promise<ResearchWorkspaceViewPayload> => {
     const { loadResearchWorkspaceView: loadDirect } = await import('@/server/research-workspace');
-    return loadDirect(data);
+    return loadDirect(context.session.sub, data);
   });

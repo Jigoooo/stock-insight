@@ -5,6 +5,11 @@ import '@tanstack/react-start/server-only';
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
 import { loadMarketConfirmations } from '@/server/product-api';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
 
 const handlers = {
@@ -12,10 +17,18 @@ const handlers = {
     const url = new URL(request.url);
     const entityKey = normalizeProductTextParam(url.searchParams.getAll('entityKey'));
     const limit = normalizeProductLimitParam(url.searchParams.getAll('limit'));
-    return jsonResponse(await loadMarketConfirmations({
-      ...(entityKey !== undefined ? { entityKey } : {}),
-      ...(limit !== undefined ? { limit } : {}),
-    }));
+    try {
+      const userId = await resolveRequestUserId(request);
+      return jsonResponse(
+        await loadMarketConfirmations(userId, {
+          ...(entityKey !== undefined ? { entityKey } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
+      throw error;
+    }
   },
 } satisfies Partial<Record<RouteMethod, ({ request }: { request: Request }) => Promise<Response>>>;
 

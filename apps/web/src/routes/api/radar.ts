@@ -4,6 +4,11 @@ import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { loadRadarSignalPage } from '@/server/research-workspace';
 
 type RadarRouteContext = { request: Request };
@@ -18,8 +23,10 @@ const handlers = {
       return jsonResponse({ error: { code: 'invalid_radar_query' } }, { status: 400 });
     }
     try {
-      return jsonResponse(await loadRadarSignalPage({ cursor, limit }));
+      const userId = await resolveRequestUserId(request);
+      return jsonResponse(await loadRadarSignalPage(userId, { cursor, limit }));
     } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
       if (error instanceof Error && error.message === 'Radar cursor is invalid') {
         return jsonResponse({ error: { code: 'invalid_radar_cursor' } }, { status: 400 });
       }

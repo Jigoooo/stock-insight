@@ -5,6 +5,11 @@ import '@tanstack/react-start/server-only';
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
 import { loadPersonalizedFeed } from '@/server/product-api';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { normalizeProductTextParam } from '@stock-insight/api';
 
 const handlers = {
@@ -12,7 +17,13 @@ const handlers = {
     const date = normalizeProductTextParam(
       new URL(request.url).searchParams.getAll('date'),
     );
-    return jsonResponse(await loadPersonalizedFeed(date));
+    try {
+      const userId = await resolveRequestUserId(request);
+      return jsonResponse(await loadPersonalizedFeed(userId, date));
+    } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
+      throw error;
+    }
   },
 } satisfies Partial<Record<RouteMethod, ({ request }: { request: Request }) => Promise<Response>>>;
 

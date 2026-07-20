@@ -25,8 +25,10 @@ describe('workspace route and legacy SSR self-HTTP boundary', () => {
     assert.match(serverFn, /createServerFn/);
     assert.match(serverFn, /loadWorkspaceBootstrapDirect/);
     assert.doesNotMatch(serverFn, /fetch\s*\(/);
-    assert.match(facade, /createReadOnlyDatabaseClient/);
-    assert.match(facade, /requireUserScope/);
+    // Multi-user: the bootstrap facade binds a per-request session scope instead
+    // of a fixed server-owned id.
+    assert.match(facade, /createScopedReadOnlyDatabaseClient/);
+    assert.match(facade, /loadWorkspaceBootstrapDirect\(userId: string\)/);
     assert.doesNotMatch(facade, /fetch\s*\(|buildRequestOrigin|\/api\//);
     assert.match(researchFacade, /withReadSnapshot/);
     assert.doesNotMatch(researchFacade, /Promise\.all\(/);

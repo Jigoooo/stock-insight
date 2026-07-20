@@ -6,14 +6,13 @@ import {
   createPostgresMeBootstrapReadModel,
   createPostgresPortfolioDigestReadModel,
   createPostgresStockReadModel,
-  createReadOnlyDatabaseClient,
+  createScopedReadOnlyDatabaseClient,
   getDashboardBootstrap,
   getMarketNews,
   getMeBootstrap,
   getPortfolioDigest,
   getStockList,
   parseServerEnv,
-  requireUserScope,
   type StockDatabaseRow,
 } from '@stock-insight/api';
 import type {
@@ -32,9 +31,9 @@ export type WorkspaceBootstrap = {
   stockListResponse: StockListResponse;
 };
 
-export async function loadWorkspaceBootstrapDirect(): Promise<WorkspaceBootstrap> {
-  const userScope = requireUserScope(parseServerEnv());
-  const db = createReadOnlyDatabaseClient();
+export async function loadWorkspaceBootstrapDirect(userId: string): Promise<WorkspaceBootstrap> {
+  const userScope = { userId };
+  const db = createScopedReadOnlyDatabaseClient(userId, parseServerEnv());
 
   if (db.kind === 'disabled') {
     const [

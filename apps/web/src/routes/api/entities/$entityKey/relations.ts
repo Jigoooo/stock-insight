@@ -4,6 +4,11 @@ import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { loadEntityRelationGraph } from '@/server/research-workspace';
 
 type RelationRouteContext = {
@@ -25,10 +30,16 @@ const handlers = {
     ) {
       return jsonResponse({ error: { code: 'invalid_relation_query' } }, { status: 400 });
     }
-    const graph = await loadEntityRelationGraph(params.entityKey, depth);
-    return graph
-      ? jsonResponse(graph)
-      : jsonResponse({ error: { code: 'entity_not_found' } }, { status: 404 });
+    try {
+      const userId = await resolveRequestUserId(request);
+      const graph = await loadEntityRelationGraph(userId, params.entityKey, depth);
+      return graph
+        ? jsonResponse(graph)
+        : jsonResponse({ error: { code: 'entity_not_found' } }, { status: 404 });
+    } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
+      throw error;
+    }
   },
 } satisfies Partial<Record<RouteMethod, (context: RelationRouteContext) => Promise<Response>>>;
 

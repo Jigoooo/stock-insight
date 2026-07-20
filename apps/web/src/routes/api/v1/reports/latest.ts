@@ -5,6 +5,11 @@ import '@tanstack/react-start/server-only';
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
 import { jsonResponse } from '@/server/http';
 import { loadLatestReports } from '@/server/product-api';
+import {
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
 
 const handlers = {
@@ -13,11 +18,19 @@ const handlers = {
     const reportType = normalizeProductTextParam(url.searchParams.getAll('type'));
     const scopeKey = normalizeProductTextParam(url.searchParams.getAll('scope'));
     const limit = normalizeProductLimitParam(url.searchParams.getAll('limit'));
-    return jsonResponse(await loadLatestReports({
-      ...(reportType !== undefined ? { reportType } : {}),
-      ...(scopeKey !== undefined ? { scopeKey } : {}),
-      ...(limit !== undefined ? { limit } : {}),
-    }));
+    try {
+      const userId = await resolveRequestUserId(request);
+      return jsonResponse(
+        await loadLatestReports(userId, {
+          ...(reportType !== undefined ? { reportType } : {}),
+          ...(scopeKey !== undefined ? { scopeKey } : {}),
+          ...(limit !== undefined ? { limit } : {}),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
+      throw error;
+    }
   },
 } satisfies Partial<Record<RouteMethod, ({ request }: { request: Request }) => Promise<Response>>>;
 
