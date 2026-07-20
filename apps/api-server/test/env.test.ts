@@ -41,3 +41,22 @@ test('invalid STOCK_INSIGHT_USER_ID rejects', () => {
     /Invalid api-server environment/,
   );
 });
+
+test('reads an absolute internal-context secret file path', () => {
+  const env = parseApiServerEnv({
+    STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: '/run/secrets/stock-insight-internal-context',
+  });
+  assert.equal(env.internalContextSecretFile, '/run/secrets/stock-insight-internal-context');
+});
+
+test('rejects a relative internal-context secret file path', () => {
+  assert.throws(
+    () => parseApiServerEnv({ STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: 'relative/secret' }),
+    /Invalid api-server environment/,
+  );
+});
+
+test('treats a blank internal-context secret file path as unset', () => {
+  const env = parseApiServerEnv({ STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: '   ' });
+  assert.equal(env.internalContextSecretFile, undefined);
+});

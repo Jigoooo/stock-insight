@@ -3,8 +3,12 @@ import test from 'node:test';
 
 import { createApp } from '../dist/index.js';
 
+// Data routes require a signed internal context; health/meta are public. These
+// tests only exercise public/liveness routes, so a fixed test secret suffices.
+const TEST_INTERNAL_SECRET = 'test-internal-context-secret-0123456789';
+
 async function buildTestApp() {
-  const app = await createApp();
+  const app = await createApp({ internalContextSecret: TEST_INTERNAL_SECRET });
   await app.init();
   const instance = app.getHttpAdapter().getInstance();
   await instance.ready();
@@ -57,6 +61,18 @@ test('GET /meta without prefix is 404 (prefix enforced)', async () => {
   }
 });
 
+test('data routes fail closed with 401 when no internal context is present', async () => {
+  const { app, instance } = await buildTestApp();
+  try {
+    const res = await instance.inject({ method: 'GET', url: '/v1/workspace' });
+    assert.equal(res.statusCode, 401);
+    const body = JSON.parse(res.body) as { error?: { code?: string } };
+    assert.equal(body.error?.code, 'UNAUTHORIZED');
+  } finally {
+    await app.close();
+  }
+});
+
 test('unknown route returns structured 404', async () => {
   const { app, instance } = await buildTestApp();
   try {
@@ -68,7 +84,7 @@ test('unknown route returns structured 404', async () => {
 });
 
 test('live listen on ephemeral port serves /health over real socket', async () => {
-  const app = await createApp();
+  const app = await createApp({ internalContextSecret: TEST_INTERNAL_SECRET });
   try {
     await app.listen({ host: '127.0.0.1', port: 0 });
     const url = await app.getUrl();

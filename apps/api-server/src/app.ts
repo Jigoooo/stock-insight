@@ -2,9 +2,12 @@ import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import { readFile } from 'node:fs/promises';
 
 import { AppModule } from './app.module.ts';
 import { NoStoreInterceptor } from './common/no-store.interceptor.ts';
+import { parseApiServerEnv } from './config/env.ts';
+import { createInternalContextInterceptor } from './read/internal-context.interceptor.ts';
 
 export { AppModule } from './app.module.ts';
 export { parseApiServerEnv, type ApiServerEnv } from './config/env.ts';
@@ -27,7 +30,13 @@ export {
   type ManualPortfolioMutationPolicy,
 } from './write/mutation-policy.ts';
 
-export async function createApp(): Promise<NestFastifyApplication> {
+export type CreateAppOptions = Readonly<{
+  // Test/override hook: supply the internal-context signing secret directly
+  // instead of reading it from the mounted secret file.
+  internalContextSecret?: string;
+}>;
+
+export async function createApp(options: CreateAppOptions = {}): Promise<NestFastifyApplication> {
   const adapter = new FastifyAdapter({ maxParamLength: 32_768 });
 
   // Legacy parity: apps/web parseJsonBody() swallows malformed/empty JSON and
@@ -65,6 +74,30 @@ export async function createApp(): Promise<NestFastifyApplication> {
   );
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.useGlobalInterceptors(new NoStoreInterceptor());
+
+  // Internal-context enforcement: every data route requires a fresh HMAC-signed
+  // per-request scope minted by the web/BFF. The api-server is never browser
+  // reachable, so a missing/invalid context fails closed with 401. The signing
+  // secret is mounted as a file; without it the server refuses to start rather
+  // than silently accepting unauthenticated internal traffic.
+  let secret = options.internalContextSecret?.trim();
+  if (!secret) {
+    const env = parseApiServerEnv();
+    if (!env.internalContextSecretFile) {
+      throw new Error('STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE is required');
+    }
+    secret = (await readFile(env.internalContextSecretFile, 'utf8')).trim();
+  }
+  if (secret.length < 32) {
+    throw new Error('Internal context secret must be at least 32 characters');
+  }
+  app.useGlobalInterceptors(
+    createInternalContextInterceptor({
+      secret: Buffer.from(secret, 'utf8'),
+      // Liveness endpoints are unauthenticated: /health (no prefix) and /v1/meta.
+      publicPaths: ['/health', '/v1/meta'],
+    }),
+  );
   app.enableShutdownHooks();
 
   return app;

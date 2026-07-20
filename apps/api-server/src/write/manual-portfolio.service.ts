@@ -5,16 +5,16 @@ import {
   resolveManualPortfolioMutationPolicy,
   type ManualPortfolioMutationPolicy,
 } from './mutation-policy.ts';
+import { requireRequestUserScope } from '../read/internal-context-store.ts';
 
 import {
   claimMutation,
   completeMutation,
-  createDatabaseClient,
+  createScopedDatabaseClient,
   createPostgresManualPortfolioWriteModel,
   createPostgresMeBootstrapReadModel,
   getManualPortfolioBootstrapAfterMutation,
   parseServerEnv,
-  requireUserScope,
   type ManualPortfolioWriteExecutor,
   type ManualPortfolioWriteModel,
   type MeBootstrapRowQueryExecutor,
@@ -55,14 +55,13 @@ const idempotencyKeyPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type RouteDatabase = {
-  database: Extract<ReturnType<typeof createDatabaseClient>, { kind: 'configured' }>;
-  userScope: ReturnType<typeof requireUserScope>;
+  database: Extract<ReturnType<typeof createScopedDatabaseClient>, { kind: 'configured' }>;
+  userScope: { userId: string };
 };
 
 function createRouteDatabase(): RouteDatabase | undefined {
-  const env = parseServerEnv();
-  const userScope = requireUserScope(env);
-  const database = createDatabaseClient(env);
+  const userScope = requireRequestUserScope();
+  const database = createScopedDatabaseClient(userScope.userId, parseServerEnv());
   return database.kind === 'disabled' ? undefined : { database, userScope };
 }
 
