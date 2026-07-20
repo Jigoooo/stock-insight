@@ -15,7 +15,7 @@ import {
 import { readSessionCookie } from './session-cookie.ts';
 import { createScryptPasswordRecordAsync, type SessionClaims } from './session-core.ts';
 
-import { createDatabaseClient, createReadOnlyDatabaseClient } from '@stock-insight/api';
+import { createReadOnlyDatabaseClient, createSignupDatabaseClient } from '@stock-insight/api';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -111,7 +111,9 @@ export async function enrollLocalAccountCredentials(input: {
 
   const passwordRecord = await createScryptPasswordRecordAsync(input.password);
   const codeDigest = hashEnrollmentCode(input.enrollmentCode);
-  const writeDatabase = createDatabaseClient();
+  // Signup mints the user, so there is no pre-existing scope; the SECURITY
+  // DEFINER consume function sets its own scope internally.
+  const writeDatabase = createSignupDatabaseClient();
   if (writeDatabase.kind !== 'configured') {
     throw new Error('Authentication database is unavailable');
   }

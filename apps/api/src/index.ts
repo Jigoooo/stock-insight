@@ -108,6 +108,7 @@ export {
   createReadOnlyDatabaseClient,
   createScopedDatabaseClient,
   createScopedReadOnlyDatabaseClient,
+  createSignupDatabaseClient,
   parseServerEnv,
   requireUserScope,
 } from './server';

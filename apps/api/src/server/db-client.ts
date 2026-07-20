@@ -283,6 +283,72 @@ export function createDatabaseClient(env: ServerEnv = parseServerEnv()): Databas
   return buildWriteClient(connectionString, env.userId);
 }
 
+// Signup bootstrap write client: multi-user signup mints the user, so there is
+// no pre-existing scope to bind. The invitation-consume function is SECURITY
+// DEFINER and sets its own transaction-local user GUC internally, so this client
+// runs a plain BEGIN/COMMIT transaction WITHOUT requiring env.userId. It must
+// only ever be used for the invitation signup path.
+export function createSignupDatabaseClient(env: ServerEnv = parseServerEnv()): DatabaseClient {
+  const connectionString = resolveDatabaseConnectionStrings(env).write;
+  if (!connectionString) {
+    return { kind: 'disabled', reason: 'DATABASE_WRITE_URL is not configured' };
+  }
+  const pool = getWritePool(connectionString);
+  return {
+    kind: 'configured',
+    connectionString,
+    async queryRows<TRow extends QueryResultRow = QueryResultRow>(
+      sql: string,
+      params: readonly unknown[] = [],
+    ): Promise<TRow[]> {
+      const client = await pool.connect();
+      try {
+        const result = await client.query<TRow>(sql, [...params]);
+        return result.rows;
+      } finally {
+        client.release();
+      }
+    },
+    async withTransaction<TResult>(
+      work: (executor: WriteTransactionExecutor) => Promise<TResult>,
+    ): Promise<TResult> {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query("SELECT set_config('statement_timeout', $1, true)", [
+          `${defaultWriteTransactionOptions.statementTimeoutMs}ms`,
+        ]);
+        await client.query("SELECT set_config('lock_timeout', $1, true)", [
+          `${defaultWriteTransactionOptions.lockTimeoutMs}ms`,
+        ]);
+        const result = await work({
+          queryRows: async <TRow extends Record<string, unknown> = Record<string, unknown>>(
+            sql: string,
+            params: readonly unknown[] = [],
+          ): Promise<TRow[]> => {
+            const rows = await client.query<TRow & QueryResultRow>(sql, [...params]);
+            return rows.rows;
+          },
+        });
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await rollbackQuietly(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+    async close() {
+      const cached = writePoolCache.get(connectionString);
+      if (cached === pool) {
+        writePoolCache.delete(connectionString);
+        await pool.end();
+      }
+    },
+  };
+}
+
 // Multi-user factories: the scope is the verified session subject, bound per
 // request. A missing/malformed scope fails closed before any pool is touched.
 export function createScopedReadOnlyDatabaseClient(

@@ -3,6 +3,7 @@ export {
   createReadOnlyDatabaseClient,
   createScopedDatabaseClient,
   createScopedReadOnlyDatabaseClient,
+  createSignupDatabaseClient,
 } from './db-client';
 export type { DatabaseClient, ReadOnlyDatabaseClient } from './db-client';
 export { parseServerEnv } from './env';
