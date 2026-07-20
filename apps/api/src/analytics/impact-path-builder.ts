@@ -45,6 +45,15 @@ export type ImpactPathOptions = {
   maxExpandedStates: number;
   /** Walk terminates only on these (Stock) entities. */
   stockEntityIds: ReadonlySet<number>;
+  /**
+   * When true, every snapshot edge is walkable in BOTH directions (subject→object
+   * and object→subject). The recorded step still carries the exact
+   * graph_snapshot_edge FK plus the actual traversal direction
+   * (fromEntityId/toEntityId), so step evidence stays exact. Structural
+   * predicates in the sealed snapshot (peer/basket/sector pairs) are
+   * symmetric, which is why the walk may treat them as undirected.
+   */
+  undirectedEdges?: boolean;
 };
 
 export function buildImpactPaths(
@@ -90,7 +99,9 @@ export function buildImpactPaths(
     throw new Error('event source stock is terminal and cannot be expanded');
   }
 
-  // Deterministic adjacency: edges sorted by snapshot edge id.
+  // Deterministic adjacency: edges sorted by snapshot edge id. In undirected
+  // mode each edge is registered under both endpoints with subject/object
+  // swapped for the reverse hop — the snapshot edge FK is unchanged.
   const adjacency = new Map<number, ImpactPathEdge[]>();
   const seenEdgeIds = new Set<number>();
   for (const edge of [...edges].sort((a, b) => a.graphSnapshotEdgeId - b.graphSnapshotEdgeId)) {
@@ -112,6 +123,18 @@ export function buildImpactPaths(
     const list = adjacency.get(edge.subjectEntityId) ?? [];
     list.push(edge);
     adjacency.set(edge.subjectEntityId, list);
+    if (options.undirectedEdges === true && edge.objectEntityId !== edge.subjectEntityId) {
+      const reverse: ImpactPathEdge = {
+        graphSnapshotEdgeId: edge.graphSnapshotEdgeId,
+        subjectEntityId: edge.objectEntityId,
+        objectEntityId: edge.subjectEntityId,
+        predicate: edge.predicate,
+        confidence: edge.confidence,
+      };
+      const reverseList = adjacency.get(reverse.subjectEntityId) ?? [];
+      reverseList.push(reverse);
+      adjacency.set(reverse.subjectEntityId, reverseList);
+    }
   }
 
   const results: ImpactPath[] = [];

@@ -25,6 +25,7 @@ import { relationBuilderFoundationMigrationSql } from './migrations/024_relation
 import { graphSnapshotAnalyticsMigrationSql } from './migrations/025_graph_snapshot_analytics';
 import { backendServingV2MigrationSql } from './migrations/026_backend_serving_v2';
 import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_claim';
+import { undirectedImpactStepGuardMigrationSql } from './migrations/028_undirected_impact_step_guard';
 
 export type AppTableName =
   | 'company_profiles'
@@ -268,6 +269,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['pipeline_run_claim'],
     sql: pipelineRunClaimMigrationSql,
   },
+  {
+    id: '028_undirected_impact_step_guard',
+    description:
+      'P0-3 impact-path step endpoint guard accepts either edge orientation (symmetric structural predicates); all other snapshot/step invariants unchanged.',
+    tables: ['graph_snapshot_analytics'],
+    sql: undirectedImpactStepGuardMigrationSql,
+  },
 ];
 
 export {
@@ -298,4 +306,5 @@ export {
   graphSnapshotAnalyticsMigrationSql,
   backendServingV2MigrationSql,
   pipelineRunClaimMigrationSql,
+  undirectedImpactStepGuardMigrationSql,
 };

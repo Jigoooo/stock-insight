@@ -30,6 +30,8 @@
     "ingest:ohlcv:apply": "node src/ingest/run-ohlcv.ts --apply",
     "analytics:v2-graph:dry-run": "node src/analytics/run-v2-graph-publish.ts",
     "analytics:v2-graph:apply": "node src/analytics/run-v2-graph-publish.ts --apply",
+    "analytics:v2-l5:dry-run": "node src/analytics/run-v2-analytics-publish.ts",
+    "analytics:v2-l5:apply": "node src/analytics/run-v2-analytics-publish.ts --apply",
     "lint": "oxlint src",
     "format": "oxfmt src package.json tsconfig.json",
     "format:check": "oxfmt --check src package.json tsconfig.json"
