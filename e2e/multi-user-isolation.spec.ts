@@ -10,7 +10,8 @@ const usernameA = process.env.PLAYWRIGHT_MU_USERNAME_A;
 const usernameB = process.env.PLAYWRIGHT_MU_USERNAME_B;
 const passwordA = process.env.PLAYWRIGHT_MU_PASSWORD_A;
 const passwordB = process.env.PLAYWRIGHT_MU_PASSWORD_B;
-const entityKey = process.env.PLAYWRIGHT_MU_ENTITY_KEY ?? 'KR:005930';
+const ticker = process.env.PLAYWRIGHT_MU_TICKER ?? '005930';
+const market = process.env.PLAYWRIGHT_MU_MARKET ?? 'KR';
 
 const configured = Boolean(inviteA && inviteB && usernameA && usernameB && passwordA && passwordB);
 
@@ -40,26 +41,28 @@ async function login(page: Page, username: string, password: string): Promise<vo
 }
 
 // Add a watchlist item via the authenticated JSON API (same origin as the page).
-async function addWatchlist(page: Page, key: string): Promise<number> {
-  return page.evaluate(async (k) => {
+async function addWatchlist(page: Page, input: { market: string; ticker: string }): Promise<number> {
+  return page.evaluate(async (payload) => {
     const res = await fetch('/api/watchlist', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Idempotency-Key': crypto.randomUUID(),
       },
-      body: JSON.stringify({ entityKey: k, market: 'KR', displayName: 'ISO A' }),
+      body: JSON.stringify({ ...payload, displayName: 'ISO A' }),
     });
     return res.status;
-  }, key);
+  }, input);
 }
 
-async function watchlistKeys(page: Page): Promise<string[]> {
+async function watchlistTickers(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
     const res = await fetch('/api/me/bootstrap');
     if (!res.ok) return [];
-    const body = (await res.json()) as { data?: { watchlist?: Array<{ entityKey?: string }> } };
-    return (body.data?.watchlist ?? []).map((w) => w.entityKey ?? '');
+    const body = (await res.json()) as {
+      data?: { watchlist?: Array<{ ticker?: string; entityKey?: string }> };
+    };
+    return (body.data?.watchlist ?? []).map((w) => w.ticker ?? w.entityKey ?? '');
   });
 }
 
@@ -85,12 +88,12 @@ test.describe('multi-user A/B data isolation', () => {
       await login(pageB, usernameB!, passwordB!);
 
       // A adds a watchlist item.
-      const addStatus = await addWatchlist(pageA, entityKey);
+      const addStatus = await addWatchlist(pageA, { market, ticker });
       expect(addStatus).toBe(200);
 
       // A sees it; B does not.
-      expect(await watchlistKeys(pageA)).toContain(entityKey);
-      expect(await watchlistKeys(pageB)).not.toContain(entityKey);
+      expect(await watchlistTickers(pageA)).toContain(ticker);
+      expect(await watchlistTickers(pageB)).not.toContain(ticker);
 
       // B's own private status stays authenticated and independent.
       const bStatus = await pageB.evaluate(async () => (await fetch('/api/status')).status);
