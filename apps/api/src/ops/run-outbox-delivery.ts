@@ -170,13 +170,18 @@ async function main(): Promise<void> {
       }
       if (!LOOP) break;
     }
-    const unresolved = await client.query<QueryResultRow & { count: string | number }>(
-      `SELECT count(*) AS count
+    const unresolved = await client.query<
+      QueryResultRow & { dead_count: string | number; undelivered_count: string | number }
+    >(
+      `SELECT
+         count(*) FILTER (WHERE status = 'dead') AS dead_count,
+         count(*) FILTER (WHERE status IN ('pending','leased')) AS undelivered_count
        FROM ops.outbox_delivery
-       WHERE destination = $1 AND status = 'dead'`,
+       WHERE destination = $1`,
       [DESTINATION],
     );
-    const unresolvedDead = Number(unresolved.rows[0]!.count);
+    const unresolvedDead = Number(unresolved.rows[0]!.dead_count);
+    const unresolvedUndelivered = Number(unresolved.rows[0]!.undelivered_count);
     console.log(
       JSON.stringify({
         mode: 'apply',
@@ -184,9 +189,15 @@ async function main(): Promise<void> {
         consumerId: CONSUMER_ID,
         terminatedBySignal: terminated,
         unresolvedDead,
+        unresolvedUndelivered,
         ...totals,
       }),
     );
+    if (terminated || unresolvedUndelivered > 0) {
+      throw new Error(
+        `outbox delivery stopped before drain: signal=${terminated} undelivered=${unresolvedUndelivered}`,
+      );
+    }
     if (unresolvedDead > 0) {
       throw new Error(`outbox delivery has ${unresolvedDead} unresolved dead deliveries`);
     }

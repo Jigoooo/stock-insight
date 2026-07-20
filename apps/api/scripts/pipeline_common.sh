@@ -67,43 +67,75 @@ pipeline_db_now() {
   printf '%s\n' "$result"
 }
 
-pipeline_record_stage_success() {
-  local job_name="$1"
-  local started_at="$2"
-  # P0-9: stage attempts carry code identity (commit) + config hash so any
-  # output row is traceable to the exact code/config that produced it.
-  local repo_root wrapper_script common_script code_commit config_hash source_tree_hash
-  repo_root="${ROOT:-$PWD}"
-  if ! wrapper_script="$(realpath -e -- "$0")" ||
+pipeline_resolve_provenance() {
+  local label="$1"
+  local repo_root wrapper_script common_script git_root wrapper_relative common_relative
+  if [[ -z "${ROOT:-}" ]]; then
+    echo "$label provenance ROOT is required" >&2
+    return 70
+  fi
+  if ! repo_root="$(realpath -e -- "$ROOT")" ||
+     ! wrapper_script="$(realpath -e -- "$0")" ||
      ! common_script="$(realpath -e -- "${BASH_SOURCE[0]}")"; then
-    echo "$job_name provenance script resolution failed" >&2
+    echo "$label provenance script resolution failed" >&2
     return 70
   fi
-  if ! code_commit="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" ||
-     [[ -z "$code_commit" ]]; then
-    echo "$job_name provenance commit resolution failed" >&2
+  if ! git_root="$(git -C "$repo_root" rev-parse --show-toplevel 2>/dev/null)" ||
+     ! git_root="$(realpath -e -- "$git_root")" || [[ "$git_root" != "$repo_root" ]]; then
+    echo "$label provenance repository root mismatch" >&2
     return 70
   fi
-  if ! config_hash="$({ sha256sum --binary "$common_script" "$wrapper_script"; } | sha256sum | cut -d' ' -f1)" ||
-     [[ ! "$config_hash" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "$job_name provenance config hash failed" >&2
+  case "$wrapper_script" in
+    "$repo_root"/*) wrapper_relative="${wrapper_script#"$repo_root"/}" ;;
+    *) echo "$label provenance wrapper is outside ROOT" >&2; return 70 ;;
+  esac
+  case "$common_script" in
+    "$repo_root"/*) common_relative="${common_script#"$repo_root"/}" ;;
+    *) echo "$label provenance common script is outside ROOT" >&2; return 70 ;;
+  esac
+  if ! git -C "$repo_root" ls-files --error-unmatch \
+    "$wrapper_relative" "$common_relative" >/dev/null 2>&1; then
+    echo "$label provenance scripts are not tracked" >&2
     return 70
   fi
-  if ! source_tree_hash="$(
+  if ! PIPELINE_PROVENANCE_CODE_COMMIT="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" ||
+     [[ -z "$PIPELINE_PROVENANCE_CODE_COMMIT" ]]; then
+    echo "$label provenance commit resolution failed" >&2
+    return 70
+  fi
+  if ! PIPELINE_PROVENANCE_CONFIG_HASH="$({ sha256sum --binary "$common_script" "$wrapper_script"; } | sha256sum | cut -d' ' -f1)" ||
+     [[ ! "$PIPELINE_PROVENANCE_CONFIG_HASH" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$label provenance config hash failed" >&2
+    return 70
+  fi
+  if ! PIPELINE_PROVENANCE_SOURCE_TREE_HASH="$(
     set -o pipefail
     git -C "$repo_root" ls-files -z |
       while IFS= read -r -d '' tracked_file; do
         sha256sum --binary "$repo_root/$tracked_file" || exit 1
       done |
       sha256sum | cut -d' ' -f1
-  )" || [[ ! "$source_tree_hash" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "$job_name provenance source tree hash failed" >&2
+  )" || [[ ! "$PIPELINE_PROVENANCE_SOURCE_TREE_HASH" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$label provenance source tree hash failed" >&2
     return 70
   fi
+  PIPELINE_PROVENANCE_REPO_ROOT="$repo_root"
+  PIPELINE_PROVENANCE_WRAPPER_SCRIPT="$wrapper_script"
+}
+
+pipeline_record_stage_success() {
+  local job_name="$1"
+  local started_at="$2"
+  # P0-9: stage attempts carry code identity (commit) + config hash so any
+  # output row is traceable to the exact code/config that produced it.
+  pipeline_resolve_provenance "$job_name" || return $?
   if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
     -v stage_job="$job_name" -v stage_started_at="$started_at" \
-    -v stage_commit="$code_commit" -v stage_config_hash="$config_hash" \
-    -v stage_source_tree_hash="$source_tree_hash" -v stage_wrapper_script="$wrapper_script" <<'SQL' >/dev/null
+    -v stage_commit="$PIPELINE_PROVENANCE_CODE_COMMIT" \
+    -v stage_config_hash="$PIPELINE_PROVENANCE_CONFIG_HASH" \
+    -v stage_source_tree_hash="$PIPELINE_PROVENANCE_SOURCE_TREE_HASH" \
+    -v stage_repo_root="$PIPELINE_PROVENANCE_REPO_ROOT" \
+    -v stage_wrapper_script="$PIPELINE_PROVENANCE_WRAPPER_SCRIPT" <<'SQL' >/dev/null
 INSERT INTO public.migration_runs (
   run_id, job_name, source_system, status, started_at, finished_at,
   rows_read, rows_written, rows_skipped, error, summary
@@ -120,6 +152,7 @@ INSERT INTO public.migration_runs (
     'code_commit', :'stage_commit',
     'config_hash', :'stage_config_hash',
     'source_tree_hash', :'stage_source_tree_hash',
+    'repo_root', :'stage_repo_root',
     'wrapper_script', :'stage_wrapper_script'
   )
 );
@@ -133,8 +166,14 @@ SQL
 pipeline_start_wrapper_attempt() {
   local job_name="$1"
   local started_at="$2"
+  pipeline_resolve_provenance "$job_name" || return $?
   psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
-    -v wrapper_job="$job_name" -v wrapper_started_at="$started_at" <<'SQL'
+    -v wrapper_job="$job_name" -v wrapper_started_at="$started_at" \
+    -v wrapper_commit="$PIPELINE_PROVENANCE_CODE_COMMIT" \
+    -v wrapper_config_hash="$PIPELINE_PROVENANCE_CONFIG_HASH" \
+    -v wrapper_source_tree_hash="$PIPELINE_PROVENANCE_SOURCE_TREE_HASH" \
+    -v wrapper_repo_root="$PIPELINE_PROVENANCE_REPO_ROOT" \
+    -v wrapper_script="$PIPELINE_PROVENANCE_WRAPPER_SCRIPT" <<'SQL'
 INSERT INTO public.migration_runs (
   run_id, job_name, source_system, status, started_at, finished_at,
   rows_read, rows_written, rows_skipped, error, summary
@@ -146,7 +185,14 @@ INSERT INTO public.migration_runs (
   :'wrapper_started_at'::timestamptz,
   NULL,
   0, 0, 0, NULL,
-  jsonb_build_object('wrapper_attempt', true)
+  jsonb_build_object(
+    'wrapper_attempt', true,
+    'code_commit', :'wrapper_commit',
+    'config_hash', :'wrapper_config_hash',
+    'source_tree_hash', :'wrapper_source_tree_hash',
+    'repo_root', :'wrapper_repo_root',
+    'wrapper_script', :'wrapper_script'
+  )
 )
 RETURNING run_id;
 SQL
@@ -168,6 +214,17 @@ SET status = :'wrapper_status',
     error = CASE WHEN :'wrapper_status' = 'failed' THEN 'wrapper_failed' ELSE NULL END
 WHERE run_id = :'wrapper_run_id'
   AND status = 'running'
+  AND (
+    :'wrapper_status' = 'failed'
+    OR (
+      summary ->> 'wrapper_attempt' = 'true'
+      AND summary ->> 'code_commit' ~ '^[0-9a-f]{40,64}$'
+      AND summary ->> 'config_hash' ~ '^[0-9a-f]{64}$'
+      AND summary ->> 'source_tree_hash' ~ '^[0-9a-f]{64}$'
+      AND summary ->> 'repo_root' LIKE '/%'
+      AND summary ->> 'wrapper_script' LIKE (summary ->> 'repo_root') || '/%'
+    )
+  )
 RETURNING 1;
 SQL
 )"; then

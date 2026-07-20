@@ -91,7 +91,9 @@ SELECT CASE WHEN
   AND EXISTS (SELECT 1 FROM analytics.impact_path_v2 WHERE status='sealed')
   AND EXISTS (SELECT 1 FROM analytics.graph_community)
   AND EXISTS (SELECT 1 FROM analytics.relation_measurement)
-  AND (SELECT count(*) FROM ops.outbox_delivery WHERE status IN ('pending','leased') AND not_before <= now() - interval '10 minutes') = 0
+  AND (SELECT count(*) FROM ops.outbox_delivery
+       WHERE destination='consumer_inbox:selective-recompute'
+         AND status IN ('pending','leased')) = 0
   AND (SELECT count(*) FROM ops.outbox_delivery WHERE status = 'dead') = 0
   AND (SELECT count(*) FROM ops.dead_letter WHERE dead_at >= '${RUN_STARTED_AT}'::timestamptz) = 0
   AND EXISTS (
