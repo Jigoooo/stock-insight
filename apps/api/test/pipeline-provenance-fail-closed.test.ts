@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import pg from 'pg';
+
 const common = new URL('../scripts/pipeline_common.sh', import.meta.url).pathname;
+const databaseUrl = process.env.STOCK_INSIGHT_MIGRATION_TEST_DB_URL;
 
 test('pipeline stage provenance fails closed and fingerprints wrapper plus tracked source tree', async () => {
   const source = await readFile(common, 'utf8');
@@ -18,6 +21,8 @@ test('pipeline stage provenance fails closed and fingerprints wrapper plus track
   assert.match(source, /ls-files --error-unmatch/);
   assert.match(source, /wrapper_attempt[\s\S]*code_commit[\s\S]*source_tree_hash/);
   assert.match(source, /wrapper_status' = 'failed'[\s\S]*code_commit[\s\S]*source_tree_hash/);
+  assert.match(source, /pipeline_finish_wrapper_attempt\(\)[\s\S]*pipeline_resolve_provenance/);
+  assert.match(source, /summary ->> 'wrapper_script' = :'finish_wrapper_script'/);
 
   const root = await mkdtemp(join(tmpdir(), 'pipeline-provenance-'));
   const bin = join(root, 'bin');
@@ -87,3 +92,69 @@ test('pipeline provenance rejects a tracked launcher that sources common code ou
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test(
+  'wrapper completion rejects a different tracked caller even with a valid run id',
+  { skip: databaseUrl ? false : 'STOCK_INSIGHT_MIGRATION_TEST_DB_URL is required' },
+  async () => {
+    assert.ok(databaseUrl);
+    const root = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
+    const analytics = join(root, 'apps/api/scripts/run_analytics_pipeline.sh');
+    const ohlcv = join(root, 'apps/api/scripts/run_ohlcv_daily.sh');
+    const start = spawnSync(
+      'bash',
+      [
+        '-c',
+        `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\nstarted=$(pipeline_db_now)\npipeline_start_wrapper_attempt fixture-caller-binding "$started"`,
+        analytics,
+      ],
+      { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl } },
+    );
+    assert.equal(start.status, 0, start.stderr);
+    const runId = start.stdout.trim();
+    assert.match(runId, /^wrapper-attempt-/);
+
+    const client = new pg.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+      const finish = spawnSync(
+        'bash',
+        [
+          '-c',
+          `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\npipeline_finish_wrapper_attempt "$RUN_ID" completed`,
+          ohlcv,
+        ],
+        { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl, RUN_ID: runId } },
+      );
+      assert.notEqual(finish.status, 0, finish.stdout);
+      const state = await client.query('SELECT status FROM public.migration_runs WHERE run_id=$1', [
+        runId,
+      ]);
+      assert.equal(state.rows[0]?.status, 'running');
+
+      const validFinish = spawnSync(
+        'bash',
+        [
+          '-c',
+          `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\npipeline_finish_wrapper_attempt "$RUN_ID" completed`,
+          analytics,
+        ],
+        { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl, RUN_ID: runId } },
+      );
+      assert.equal(validFinish.status, 0, validFinish.stderr);
+      const completed = await client.query(
+        'SELECT status FROM public.migration_runs WHERE run_id=$1',
+        [runId],
+      );
+      assert.equal(completed.rows[0]?.status, 'completed');
+    } finally {
+      await client.query(
+        `UPDATE public.migration_runs
+         SET status='failed',finished_at=clock_timestamp(),error='test_cleanup'
+         WHERE run_id=$1 AND status='running'`,
+        [runId],
+      );
+      await client.end();
+    }
+  },
+);

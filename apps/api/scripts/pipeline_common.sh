@@ -201,13 +201,26 @@ SQL
 pipeline_finish_wrapper_attempt() {
   local run_id="$1"
   local status="$2"
-  local result
+  local result finish_commit="" finish_config_hash="" finish_source_tree_hash=""
+  local finish_repo_root="" finish_wrapper_script=""
   if [[ "$status" != "completed" && "$status" != "failed" ]]; then
     echo "invalid wrapper attempt status: $status" >&2
     return 64
   fi
+  if [[ "$status" = "completed" ]]; then
+    pipeline_resolve_provenance "$run_id completion" || return $?
+    finish_commit="$PIPELINE_PROVENANCE_CODE_COMMIT"
+    finish_config_hash="$PIPELINE_PROVENANCE_CONFIG_HASH"
+    finish_source_tree_hash="$PIPELINE_PROVENANCE_SOURCE_TREE_HASH"
+    finish_repo_root="$PIPELINE_PROVENANCE_REPO_ROOT"
+    finish_wrapper_script="$PIPELINE_PROVENANCE_WRAPPER_SCRIPT"
+  fi
   if ! result="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
-    -v wrapper_run_id="$run_id" -v wrapper_status="$status" <<'SQL'
+    -v wrapper_run_id="$run_id" -v wrapper_status="$status" \
+    -v finish_commit="$finish_commit" -v finish_config_hash="$finish_config_hash" \
+    -v finish_source_tree_hash="$finish_source_tree_hash" \
+    -v finish_repo_root="$finish_repo_root" \
+    -v finish_wrapper_script="$finish_wrapper_script" <<'SQL'
 UPDATE public.migration_runs
 SET status = :'wrapper_status',
     finished_at = clock_timestamp(),
@@ -223,6 +236,11 @@ WHERE run_id = :'wrapper_run_id'
       AND summary ->> 'source_tree_hash' ~ '^[0-9a-f]{64}$'
       AND summary ->> 'repo_root' LIKE '/%'
       AND summary ->> 'wrapper_script' LIKE (summary ->> 'repo_root') || '/%'
+      AND summary ->> 'code_commit' = :'finish_commit'
+      AND summary ->> 'config_hash' = :'finish_config_hash'
+      AND summary ->> 'source_tree_hash' = :'finish_source_tree_hash'
+      AND summary ->> 'repo_root' = :'finish_repo_root'
+      AND summary ->> 'wrapper_script' = :'finish_wrapper_script'
     )
   )
 RETURNING 1;
