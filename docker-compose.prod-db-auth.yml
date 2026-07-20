@@ -9,7 +9,11 @@ services:
       HOST: 0.0.0.0
       PORT: '6200'
       DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
-      STOCK_INSIGHT_USER_ID: ${STOCK_INSIGHT_USER_ID:?set in .env.docker}
+      # Multi-user: no fixed server-owned id. The api-server verifies a signed
+      # per-request internal context and refuses to boot without the secret.
+      STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: /run/secrets/stock-insight-internal-context
+    secrets:
+      - stock-insight-internal-context
     ports:
       - '127.0.0.1:8093:6200'
     networks:
@@ -43,7 +47,8 @@ services:
       STOCK_INSIGHT_MUTATIONS_ENABLED: 'true'
       DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
       DATABASE_WRITE_URL: ${STOCK_INSIGHT_DATABASE_WRITE_URL:?set in .env.docker}
-      STOCK_INSIGHT_USER_ID: ${STOCK_INSIGHT_USER_ID:?set in .env.docker}
+      # Multi-user: signup mints users via invitation codes; no fixed user id.
+      STOCK_INSIGHT_SIGNUP_ENABLED: ${STOCK_INSIGHT_SIGNUP_ENABLED:-true}
       STOCK_INSIGHT_SESSION_SECRET_FILE: /run/secrets/stock-insight-session-secret
       STOCK_INSIGHT_APP_ORIGIN: ${STOCK_INSIGHT_APP_ORIGIN:?set in .env.docker}
       STOCK_INSIGHT_SESSION_TTL_SECONDS: ${STOCK_INSIGHT_SESSION_TTL_SECONDS:-28800}
@@ -80,6 +85,8 @@ services:
 secrets:
   stock-insight-session-secret:
     file: ${STOCK_INSIGHT_SESSION_SECRET_HOST_PATH:?set in .env.docker}
+  stock-insight-internal-context:
+    file: ${STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_HOST_PATH:?set in .env.docker}
 
 networks:
   edge:
