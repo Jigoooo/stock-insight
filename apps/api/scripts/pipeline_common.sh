@@ -70,8 +70,14 @@ pipeline_db_now() {
 pipeline_record_stage_success() {
   local job_name="$1"
   local started_at="$2"
+  # P0-9: stage attempts carry code identity (commit) + config hash so any
+  # output row is traceable to the exact code/config that produced it.
+  local code_commit config_hash
+  code_commit="$(git -C "${ROOT:-$PWD}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  config_hash="$(sha256sum "${BASH_SOURCE[0]}" 2>/dev/null | cut -c1-16 || echo unknown)"
   if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
-    -v stage_job="$job_name" -v stage_started_at="$started_at" <<'SQL' >/dev/null
+    -v stage_job="$job_name" -v stage_started_at="$started_at" \
+    -v stage_commit="$code_commit" -v stage_config_hash="$config_hash" <<'SQL' >/dev/null
 INSERT INTO public.migration_runs (
   run_id, job_name, source_system, status, started_at, finished_at,
   rows_read, rows_written, rows_skipped, error, summary
@@ -83,7 +89,11 @@ INSERT INTO public.migration_runs (
   :'stage_started_at'::timestamptz,
   clock_timestamp(),
   0, 0, 0, NULL,
-  jsonb_build_object('wrapper_stage', true)
+  jsonb_build_object(
+    'wrapper_stage', true,
+    'code_commit', :'stage_commit',
+    'config_hash', :'stage_config_hash'
+  )
 );
 SQL
   then
