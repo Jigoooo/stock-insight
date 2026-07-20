@@ -8,7 +8,8 @@ source "$ROOT/apps/api/scripts/pipeline_common.sh"
 
 pipeline_acquire_lock analytics
 RUN_STARTED_AT=$(pipeline_db_now) || exit $?
-WRAPPER_ATTEMPT_ID=$(pipeline_start_wrapper_attempt stock-insight-analytics-wrapper "$RUN_STARTED_AT") || exit $?
+pipeline_start_wrapper_attempt stock-insight-analytics-wrapper "$RUN_STARTED_AT" || exit $?
+WRAPPER_ATTEMPT_ID="$PIPELINE_WRAPPER_ATTEMPT_ID"
 trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" failed >/dev/null 2>&1 || true; fi; exit "$rc"' EXIT
 pipeline_require_db_assertion analytics-input "
 WITH latest_wrapper AS (

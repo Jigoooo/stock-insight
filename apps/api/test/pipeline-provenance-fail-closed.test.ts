@@ -100,48 +100,36 @@ test(
     assert.ok(databaseUrl);
     const root = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '');
     const analytics = join(root, 'apps/api/scripts/run_analytics_pipeline.sh');
-    const ohlcv = join(root, 'apps/api/scripts/run_ohlcv_daily.sh');
-    const start = spawnSync(
+    const probe = spawnSync(
       'bash',
       [
         '-c',
-        `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\nstarted=$(pipeline_db_now)\npipeline_start_wrapper_attempt fixture-caller-binding "$started"`,
+        `set -euo pipefail
+ROOT=${JSON.stringify(root)}
+COMMON=${JSON.stringify(common)}
+source "$COMMON"
+started=$(pipeline_db_now)
+pipeline_start_wrapper_attempt fixture-caller-binding "$started"
+run_id="$PIPELINE_WRAPPER_ATTEMPT_ID"
+if bash -c 'ROOT="$2"; source "$3"; pipeline_finish_wrapper_attempt "$1" completed' "$0" "$run_id" "$ROOT" "$COMMON"; then
+  echo 'spoofed completion unexpectedly succeeded' >&2
+  exit 88
+fi
+state=$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt -c "SELECT status FROM public.migration_runs WHERE run_id='$run_id'")
+[[ "$state" = 'running' ]]
+pipeline_finish_wrapper_attempt "$run_id" completed
+printf '%s\n' "$run_id"`,
         analytics,
       ],
       { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl } },
     );
-    assert.equal(start.status, 0, start.stderr);
-    const runId = start.stdout.trim();
+    assert.equal(probe.status, 0, probe.stderr);
+    const runId = probe.stdout.trim();
     assert.match(runId, /^wrapper-attempt-/);
 
     const client = new pg.Client({ connectionString: databaseUrl });
     await client.connect();
     try {
-      const finish = spawnSync(
-        'bash',
-        [
-          '-c',
-          `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\npipeline_finish_wrapper_attempt "$RUN_ID" completed`,
-          ohlcv,
-        ],
-        { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl, RUN_ID: runId } },
-      );
-      assert.notEqual(finish.status, 0, finish.stdout);
-      const state = await client.query('SELECT status FROM public.migration_runs WHERE run_id=$1', [
-        runId,
-      ]);
-      assert.equal(state.rows[0]?.status, 'running');
-
-      const validFinish = spawnSync(
-        'bash',
-        [
-          '-c',
-          `set -euo pipefail\nROOT=${JSON.stringify(root)}\nsource ${JSON.stringify(common)}\npipeline_finish_wrapper_attempt "$RUN_ID" completed`,
-          analytics,
-        ],
-        { encoding: 'utf8', env: { ...process.env, DB_URL: databaseUrl, RUN_ID: runId } },
-      );
-      assert.equal(validFinish.status, 0, validFinish.stderr);
       const completed = await client.query(
         'SELECT status FROM public.migration_runs WHERE run_id=$1',
         [runId],

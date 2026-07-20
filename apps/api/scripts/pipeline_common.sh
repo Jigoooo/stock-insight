@@ -166,14 +166,25 @@ SQL
 pipeline_start_wrapper_attempt() {
   local job_name="$1"
   local started_at="$2"
+  local attempt_token attempt_token_hash run_id
   pipeline_resolve_provenance "$job_name" || return $?
-  psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
+  if ! attempt_token="$(openssl rand -hex 32)" || [[ ! "$attempt_token" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$job_name wrapper attempt token generation failed" >&2
+    return 70
+  fi
+  if ! attempt_token_hash="$(printf '%s' "$attempt_token" | sha256sum | cut -d' ' -f1)" ||
+     [[ ! "$attempt_token_hash" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$job_name wrapper attempt token hash failed" >&2
+    return 70
+  fi
+  if ! run_id="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
     -v wrapper_job="$job_name" -v wrapper_started_at="$started_at" \
     -v wrapper_commit="$PIPELINE_PROVENANCE_CODE_COMMIT" \
     -v wrapper_config_hash="$PIPELINE_PROVENANCE_CONFIG_HASH" \
     -v wrapper_source_tree_hash="$PIPELINE_PROVENANCE_SOURCE_TREE_HASH" \
     -v wrapper_repo_root="$PIPELINE_PROVENANCE_REPO_ROOT" \
-    -v wrapper_script="$PIPELINE_PROVENANCE_WRAPPER_SCRIPT" <<'SQL'
+    -v wrapper_script="$PIPELINE_PROVENANCE_WRAPPER_SCRIPT" \
+    -v wrapper_token_hash="$attempt_token_hash" <<'SQL'
 INSERT INTO public.migration_runs (
   run_id, job_name, source_system, status, started_at, finished_at,
   rows_read, rows_written, rows_skipped, error, summary
@@ -191,21 +202,39 @@ INSERT INTO public.migration_runs (
     'config_hash', :'wrapper_config_hash',
     'source_tree_hash', :'wrapper_source_tree_hash',
     'repo_root', :'wrapper_repo_root',
-    'wrapper_script', :'wrapper_script'
+    'wrapper_script', :'wrapper_script',
+    'attempt_token_hash', :'wrapper_token_hash'
   )
 )
 RETURNING run_id;
 SQL
+  )" || [[ ! "$run_id" =~ ^wrapper-attempt-[0-9a-f-]{36}$ ]]; then
+    echo "$job_name wrapper attempt audit creation failed" >&2
+    return 70
+  fi
+  PIPELINE_WRAPPER_ATTEMPT_ID="$run_id"
+  PIPELINE_WRAPPER_ATTEMPT_TOKEN="$attempt_token"
 }
 
 pipeline_finish_wrapper_attempt() {
   local run_id="$1"
   local status="$2"
   local result finish_commit="" finish_config_hash="" finish_source_tree_hash=""
-  local finish_repo_root="" finish_wrapper_script=""
+  local finish_repo_root="" finish_wrapper_script="" finish_token finish_token_hash
   if [[ "$status" != "completed" && "$status" != "failed" ]]; then
     echo "invalid wrapper attempt status: $status" >&2
     return 64
+  fi
+  finish_token="${PIPELINE_WRAPPER_ATTEMPT_TOKEN:-}"
+  if [[ "$run_id" != "${PIPELINE_WRAPPER_ATTEMPT_ID:-}" ||
+        ! "$finish_token" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$run_id wrapper attempt capability is unavailable" >&2
+    return 70
+  fi
+  if ! finish_token_hash="$(printf '%s' "$finish_token" | sha256sum | cut -d' ' -f1)" ||
+     [[ ! "$finish_token_hash" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$run_id wrapper attempt capability hash failed" >&2
+    return 70
   fi
   if [[ "$status" = "completed" ]]; then
     pipeline_resolve_provenance "$run_id completion" || return $?
@@ -220,13 +249,15 @@ pipeline_finish_wrapper_attempt() {
     -v finish_commit="$finish_commit" -v finish_config_hash="$finish_config_hash" \
     -v finish_source_tree_hash="$finish_source_tree_hash" \
     -v finish_repo_root="$finish_repo_root" \
-    -v finish_wrapper_script="$finish_wrapper_script" <<'SQL'
+    -v finish_wrapper_script="$finish_wrapper_script" \
+    -v finish_token_hash="$finish_token_hash" <<'SQL'
 UPDATE public.migration_runs
 SET status = :'wrapper_status',
     finished_at = clock_timestamp(),
     error = CASE WHEN :'wrapper_status' = 'failed' THEN 'wrapper_failed' ELSE NULL END
 WHERE run_id = :'wrapper_run_id'
   AND status = 'running'
+  AND summary ->> 'attempt_token_hash' = :'finish_token_hash'
   AND (
     :'wrapper_status' = 'failed'
     OR (
