@@ -5,7 +5,7 @@ import { apiError, firstParam } from '../common/http.ts';
 
 import {
   getDecisionHistory,
-  getEntityRelations,
+  getEntityRelationsWithV2Preference,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
@@ -153,10 +153,15 @@ export class ResearchWorkspaceController {
       throw apiError('invalid_relation_query', 400);
     }
     const { withSnapshot, userScope } = researchContext();
-    const graph = await withSnapshot((executor) =>
-      getEntityRelations(executor, { userScope, entityKey, depth }),
+    const result = await withSnapshot((executor) =>
+      getEntityRelationsWithV2Preference(executor, {
+        entityKey,
+        depth,
+        userId: userScope.userId,
+        now: new Date(),
+      }),
     );
-    if (!graph) throw apiError('entity_not_found', 404);
-    return graph;
+    if (!result.graph) throw apiError('entity_not_found', 404);
+    return result.graph;
   }
 }
