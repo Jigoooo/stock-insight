@@ -34,6 +34,7 @@ WITH due AS (
   FROM ops.outbox_delivery delivery
   WHERE delivery.destination = $1
     AND delivery.status IN ('pending', 'leased')
+    AND delivery.attempts < delivery.max_attempts
     AND delivery.not_before <= now()
     AND (delivery.status = 'pending' OR delivery.lease_until < now())
   ORDER BY delivery.not_before
@@ -77,36 +78,73 @@ INSERT INTO ops.dead_letter (delivery_id, event_id, destination, attempts, last_
 VALUES ($1, $2, $3, $4, $5)
 `;
 
+const EXPIRE_EXHAUSTED_SQL = `
+WITH due AS (
+  SELECT delivery.delivery_id
+  FROM ops.outbox_delivery delivery
+  WHERE delivery.destination = $1
+    AND delivery.attempts >= delivery.max_attempts
+    AND delivery.not_before <= now()
+    AND (
+      delivery.status = 'pending'
+      OR (delivery.status = 'leased' AND delivery.lease_until < now())
+    )
+  ORDER BY delivery.not_before
+  FOR UPDATE SKIP LOCKED
+), marked AS (
+  UPDATE ops.outbox_delivery delivery
+  SET status = 'dead',
+      lease_token = NULL,
+      lease_until = NULL,
+      last_error = coalesce(delivery.last_error, 'lease expired after final claimed attempt')
+  FROM due
+  WHERE delivery.delivery_id = due.delivery_id
+  RETURNING delivery.delivery_id, delivery.event_id, delivery.destination,
+            delivery.attempts, delivery.last_error
+)
+INSERT INTO ops.dead_letter (delivery_id, event_id, destination, attempts, last_error)
+SELECT delivery_id, event_id, destination, attempts, last_error
+FROM marked
+RETURNING delivery_id
+`;
+
+/** Terminalize due deliveries whose final claimed lease expired before settlement. */
+export async function expireExhaustedDeliveries(
+  client: PoolClient,
+  destination: string,
+): Promise<number> {
+  const result = await client.query(EXPIRE_EXHAUSTED_SQL, [destination]);
+  return result.rowCount ?? 0;
+}
+
 /** Claim up to `limit` due deliveries for one destination (fenced lease). */
 export async function claimDueDeliveries(
   client: PoolClient,
   options: { destination: string; limit?: number; leaseSeconds?: number },
 ): Promise<ClaimedDelivery[]> {
   const leaseToken = randomUUID();
-  const result = await client.query<QueryResultRow & {
-    delivery_id: string;
-    event_id: string;
-    destination: string;
-    attempts: number;
-    lease_token: string;
-    lease_until: Date;
-    payload: Record<string, unknown>;
-    event_type: string;
-    schema_version: number;
-    partition_key: string;
-  }>(CLAIM_SQL, [
-    options.destination,
-    options.limit ?? 10,
-    leaseToken,
-    options.leaseSeconds ?? 60,
-  ]);
+  const result = await client.query<
+    QueryResultRow & {
+      delivery_id: string;
+      event_id: string;
+      destination: string;
+      attempts: number;
+      lease_token: string;
+      lease_until: Date;
+      payload: Record<string, unknown>;
+      event_type: string;
+      schema_version: number;
+      partition_key: string;
+    }
+  >(CLAIM_SQL, [options.destination, options.limit ?? 10, leaseToken, options.leaseSeconds ?? 60]);
   return result.rows.map((row) => ({
     deliveryId: row.delivery_id,
     eventId: row.event_id,
     destination: row.destination,
     attempts: row.attempts,
     leaseToken: row.lease_token,
-    leaseUntil: row.lease_until instanceof Date ? row.lease_until.toISOString() : String(row.lease_until),
+    leaseUntil:
+      row.lease_until instanceof Date ? row.lease_until.toISOString() : String(row.lease_until),
     payload: row.payload,
     eventType: row.event_type,
     schemaVersion: row.schema_version,
@@ -136,19 +174,25 @@ export async function failDelivery(
   error: string,
   retryDelaySeconds = 30,
 ): Promise<'pending' | 'dead' | 'lost_lease'> {
-  const result = await client.query<QueryResultRow & {
-    delivery_id: string;
-    event_id: string;
-    destination: string;
-    attempts: number;
-    status: string;
-    last_error: string | null;
-  }>(FAIL_SQL, [deliveryId, leaseToken, error.slice(0, 2000), retryDelaySeconds]);
+  const result = await client.query<
+    QueryResultRow & {
+      delivery_id: string;
+      event_id: string;
+      destination: string;
+      attempts: number;
+      status: string;
+      last_error: string | null;
+    }
+  >(FAIL_SQL, [deliveryId, leaseToken, error.slice(0, 2000), retryDelaySeconds]);
   const row = result.rows[0];
   if (row === undefined) return 'lost_lease';
   if (row.status === 'dead') {
     await client.query(DEAD_LETTER_SQL, [
-      row.delivery_id, row.event_id, row.destination, row.attempts, row.last_error,
+      row.delivery_id,
+      row.event_id,
+      row.destination,
+      row.attempts,
+      row.last_error,
     ]);
     return 'dead';
   }

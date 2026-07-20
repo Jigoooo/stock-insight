@@ -134,6 +134,33 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
     assert.match(result.graph.evidenceSummary.limitation, /확인된 관계가 없습니다/);
   });
 
+  it('never labels an expired no-data snapshot as available', async () => {
+    const executor = makeExecutor({
+      entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
+      packRows: [],
+      headerRows: [
+        {
+          builder_version: 'pack-v1',
+          as_of: '2026-07-19T00:00:00.000Z',
+          known_at: '2026-07-19T00:00:00.000Z',
+          built_at: '2026-07-19T00:00:00.000Z',
+          fresh_until: '2026-07-19T11:59:59.000Z',
+        },
+      ],
+    });
+    const result = await getEntityRelationsWithV2Preference(executor, {
+      entityKey: 'KR:005930',
+      depth: 1,
+      userId: USER_ID,
+      now: NOW,
+    });
+    assert.equal(result.source, 'v2_no_data');
+    if (result.source !== 'v2_no_data') return;
+    assert.equal(result.graph.meta.freshness, 'stale');
+    assert.ok(result.graph.meta.qualityFlags.includes('graph_snapshot_stale'));
+    assert.match(result.graph.evidenceSummary.limitation, /만료/);
+  });
+
   it('serves the v2 pack graph when a servable pack carries a valid graph payload', async () => {
     const graphPayload = {
       ...BASE_GRAPH,
@@ -367,7 +394,7 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
     assert.equal(result.source, 'v2_no_data');
   });
 
-  it('recovers an aborted PostgreSQL snapshot with the savepoint and degrades explicitly', async () => {
+  it('recovers an aborted PostgreSQL snapshot and rethrows identity lookup failures', async () => {
     let aborted = false;
     let savepointActive = false;
     const executor: EntityRelationSourceExecutor = {
@@ -392,9 +419,6 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
           throw error;
         }
         if (/entity_identifier/.test(sql)) {
-          return [{ entity_id: 42, canonical_name: '삼성전자' }] as never;
-        }
-        if (/v_relation_graph_freshness/.test(sql) && /entity_id = \$2/.test(sql)) {
           aborted = true;
           throw new Error('v2 storage outage');
         }
@@ -416,16 +440,15 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
       },
     };
 
-    const result = await getEntityRelationsWithV2Preference(executor, {
-      entityKey: 'KR:005930',
-      depth: 1,
-      userId: USER_ID,
-      now: NOW,
-    });
-
-    // Outage on the pack read degrades to the explicit no-data envelope built
-    // from the recovered snapshot — never a silent legacy read.
-    assert.equal(result.source, 'v2_no_data');
+    await assert.rejects(
+      getEntityRelationsWithV2Preference(executor, {
+        entityKey: 'KR:005930',
+        depth: 1,
+        userId: USER_ID,
+        now: NOW,
+      }),
+      /v2 storage outage/,
+    );
     assert.equal(aborted, false);
     assert.equal(savepointActive, false);
   });

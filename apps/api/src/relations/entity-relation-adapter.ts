@@ -129,18 +129,20 @@ async function buildNoDataEnvelope(
   const headers = await executor.queryRows(LATEST_SERVABLE_HEADER_SQL);
   const header = headers[0];
   if (header === undefined) return null; // no sealed serving state at all
+  const freshUntil = toIso(header['fresh_until']);
+  const freshness = new Date(freshUntil).getTime() > options.now.getTime() ? 'available' : 'stale';
   const graph = entityRelationGraphSchema.parse({
     meta: {
       schemaVersion: 'v3',
       visibility: 'internal',
       generatedAt: options.now.toISOString(),
-      freshness: 'available',
+      freshness,
       contentSnapshot: {
         analysisRunId: String(header['builder_version']),
         analysisRevision: 1,
         analysisCutoffAt: toIso(header['as_of']),
         sourceWatermarkAt: toIso(header['known_at']),
-        freshUntil: toIso(header['fresh_until']),
+        freshUntil,
       },
       graphSnapshot: {
         requestedAsOf: toIso(header['as_of']),
@@ -149,7 +151,7 @@ async function buildNoDataEnvelope(
       },
       marketSnapshot: { marketDataAsOf: null },
       sourceCoverage: { linked: 0, clickable: 0, total: 0 },
-      qualityFlags: [],
+      qualityFlags: freshness === 'available' ? [] : ['graph_snapshot_stale'],
     },
     rootEntityKey: options.entityKey,
     depth: options.depth,
@@ -166,7 +168,10 @@ async function buildNoDataEnvelope(
     evidenceSummary: {
       evidenceCount: 0,
       clickableSourceCount: 0,
-      limitation: 'V2 관계 원장에서 이 종목과 확인된 관계가 없습니다',
+      limitation:
+        freshness === 'available'
+          ? 'V2 관계 원장에서 이 종목과 확인된 관계가 없습니다'
+          : 'V2 관계 스냅샷의 freshness가 만료되어 최신 관계 부재를 확정할 수 없습니다',
     },
   });
   return overlayUserRelationState(executor, graph, options.userId);
@@ -225,11 +230,12 @@ export async function getEntityRelationsWithV2Preference(
         }
       }
     }
-  } catch {
+  } catch (error) {
     // PostgreSQL keeps the transaction aborted after a failed statement — roll
-    // back the v2 read attempt so the same snapshot executor can continue.
+    // back the v2 read attempt before propagating the infrastructure failure.
+    // Only a successful empty lookup may become v2_unresolved/v2_no_data.
     await executor.queryRows(`ROLLBACK TO SAVEPOINT ${V2_SAVEPOINT}`);
-    packResultGraph = null;
+    throw error;
   } finally {
     await executor.queryRows(`RELEASE SAVEPOINT ${V2_SAVEPOINT}`);
   }

@@ -7,8 +7,15 @@
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 
-WITH tier_map(provider_key, tier, usage, redistribution) AS (
-  VALUES
+CREATE TEMP TABLE p0_source_tier_map (
+  provider_key TEXT PRIMARY KEY,
+  tier TEXT NOT NULL,
+  usage TEXT NOT NULL,
+  redistribution TEXT NOT NULL
+) ON COMMIT DROP;
+
+INSERT INTO p0_source_tier_map(provider_key, tier, usage, redistribution)
+VALUES
     ('bok-ecos',                 'T1', 'accepted_evidence_and_display', 'attribution_required'),
     ('fred',                     'T1', 'accepted_evidence_and_display', 'attribution_required'),
     ('ny-fed',                   'T1', 'accepted_evidence_and_display', 'attribution_required'),
@@ -37,51 +44,99 @@ WITH tier_map(provider_key, tier, usage, redistribution) AS (
     ('stock-candidate',          'T5', 'internal_ops_only',             'forbidden'),
     ('crypto-candidate',         'T5', 'internal_ops_only',             'forbidden'),
     ('env',                      'T5', 'internal_ops_only',             'forbidden'),
-    ('yfinance-error',           'T5', 'internal_ops_only',             'forbidden')
-)
-INSERT INTO ingestion.source_contract_revision (
-  source_id, revision_no, policy_status,
-  cadence_policy, cutoff_policy, delay_policy, correction_policy,
-  required_fields, license_policy, redistribution_policy,
-  raw_retention_policy, quality_gate_policy,
-  effective_from, known_from, supersedes_contract_revision_id, content_hash
-)
-SELECT current_contract.source_id,
-       current_contract.revision_no + 1,
-       'approved',
-       current_contract.cadence_policy,
-       current_contract.cutoff_policy,
-       current_contract.delay_policy,
-       current_contract.correction_policy,
-       current_contract.required_fields,
-       current_contract.license_policy || jsonb_build_object(
-         'adr', 'ADR-002',
-         'tier', tier_map.tier,
-         'approved_usage', tier_map.usage,
-         'approved_at', now()::text
-       ),
-       current_contract.redistribution_policy || jsonb_build_object(
-         'adr', 'ADR-002',
-         'mode', tier_map.redistribution
-       ),
-       current_contract.raw_retention_policy || jsonb_build_object(
-         'crypto_shredding_supported', true,
-         'takedown_procedure', 'restricted_vault_then_shred'
-       ),
-       current_contract.quality_gate_policy,
-       now(), now(),
-       current_contract.source_contract_revision_id,
-       encode(sha256(convert_to(
-         source.provider_key || ':ADR-002:' || tier_map.tier || ':' || (current_contract.revision_no + 1)::text,
-         'UTF8')), 'hex')
-FROM ingestion.source_contract_current_v1 current_contract
-JOIN ingestion.source source USING (source_id)
-JOIN tier_map ON tier_map.provider_key = source.provider_key
-WHERE current_contract.policy_status = 'provisional_review_required';
+    ('yfinance-error',           'T5', 'internal_ops_only',             'forbidden');
+DO $$
+DECLARE
+  candidate_count INTEGER := 0;
+  unmapped_count INTEGER := 0;
+  inserted_count INTEGER := 0;
+  unmapped_providers TEXT;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('p0-7-source-contract-approval', 0));
 
-INSERT INTO public.migration_runs (run_id, job_name, source_system, status, started_at, finished_at, rows_read, rows_written, rows_skipped, error, summary)
-VALUES (gen_random_uuid()::text, 'p0-7-source-contract-approval', 'governance', 'completed', now(), now(), 29, 29, 0, NULL,
-        '{"adr":"ADR-002","action":"approve provisional source contracts with tier boundaries"}'::jsonb);
+  SELECT count(*)::int,
+         count(*) FILTER (WHERE tier_map.provider_key IS NULL)::int,
+         string_agg(source.provider_key, ',' ORDER BY source.provider_key)
+           FILTER (WHERE tier_map.provider_key IS NULL)
+  INTO candidate_count, unmapped_count, unmapped_providers
+  FROM ingestion.source_contract_current_v1 current_contract
+  JOIN ingestion.source source USING (source_id)
+  LEFT JOIN p0_source_tier_map tier_map ON tier_map.provider_key = source.provider_key
+  WHERE current_contract.policy_status = 'provisional_review_required';
+
+  IF unmapped_count > 0 THEN
+    RAISE EXCEPTION 'unmapped provisional source providers: %', unmapped_providers;
+  END IF;
+
+  INSERT INTO ingestion.source_contract_revision (
+    source_id, revision_no, policy_status,
+    cadence_policy, cutoff_policy, delay_policy, correction_policy,
+    required_fields, license_policy, redistribution_policy,
+    raw_retention_policy, quality_gate_policy,
+    effective_from, known_from, supersedes_contract_revision_id, content_hash
+  )
+  SELECT current_contract.source_id,
+         current_contract.revision_no + 1,
+         'approved',
+         current_contract.cadence_policy,
+         current_contract.cutoff_policy,
+         current_contract.delay_policy,
+         current_contract.correction_policy,
+         current_contract.required_fields,
+         current_contract.license_policy || jsonb_build_object(
+           'adr', 'ADR-002',
+           'tier', tier_map.tier,
+           'approved_usage', tier_map.usage,
+           'approved_at', clock_timestamp()::text
+         ),
+         current_contract.redistribution_policy || jsonb_build_object(
+           'adr', 'ADR-002',
+           'mode', tier_map.redistribution
+         ),
+         current_contract.raw_retention_policy || jsonb_build_object(
+           'crypto_shredding_supported', true,
+           'takedown_procedure', 'restricted_vault_then_shred'
+         ),
+         current_contract.quality_gate_policy,
+         clock_timestamp(), clock_timestamp(),
+         current_contract.source_contract_revision_id,
+         encode(sha256(convert_to(
+           source.provider_key || ':ADR-002:' || tier_map.tier || ':' ||
+             (current_contract.revision_no + 1)::text,
+           'UTF8')), 'hex')
+  FROM ingestion.source_contract_current_v1 current_contract
+  JOIN ingestion.source source USING (source_id)
+  JOIN p0_source_tier_map tier_map ON tier_map.provider_key = source.provider_key
+  WHERE current_contract.policy_status = 'provisional_review_required';
+
+  GET DIAGNOSTICS inserted_count = ROW_COUNT;
+  IF inserted_count <> candidate_count THEN
+    RAISE EXCEPTION 'source contract approval count mismatch: candidates=% inserted=%',
+      candidate_count, inserted_count;
+  END IF;
+
+  INSERT INTO public.migration_runs (
+    run_id, job_name, source_system, status, started_at, finished_at,
+    rows_read, rows_written, rows_skipped, error, summary
+  ) VALUES (
+    gen_random_uuid()::text,
+    'p0-7-source-contract-approval',
+    'governance',
+    'completed',
+    clock_timestamp(),
+    clock_timestamp(),
+    candidate_count,
+    inserted_count,
+    candidate_count - inserted_count,
+    NULL,
+    jsonb_build_object(
+      'adr', 'ADR-002',
+      'action', 'approve provisional source contracts with tier boundaries',
+      'candidate_count', candidate_count,
+      'inserted_count', inserted_count
+    )
+  );
+END $$;
 
 COMMIT;
 

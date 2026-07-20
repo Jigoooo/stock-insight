@@ -72,12 +72,38 @@ pipeline_record_stage_success() {
   local started_at="$2"
   # P0-9: stage attempts carry code identity (commit) + config hash so any
   # output row is traceable to the exact code/config that produced it.
-  local code_commit config_hash
-  code_commit="$(git -C "${ROOT:-$PWD}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-  config_hash="$(sha256sum "${BASH_SOURCE[0]}" 2>/dev/null | cut -c1-16 || echo unknown)"
+  local repo_root wrapper_script common_script code_commit config_hash source_tree_hash
+  repo_root="${ROOT:-$PWD}"
+  if ! wrapper_script="$(realpath -e -- "$0")" ||
+     ! common_script="$(realpath -e -- "${BASH_SOURCE[0]}")"; then
+    echo "$job_name provenance script resolution failed" >&2
+    return 70
+  fi
+  if ! code_commit="$(git -C "$repo_root" rev-parse --verify HEAD 2>/dev/null)" ||
+     [[ -z "$code_commit" ]]; then
+    echo "$job_name provenance commit resolution failed" >&2
+    return 70
+  fi
+  if ! config_hash="$({ sha256sum --binary "$common_script" "$wrapper_script"; } | sha256sum | cut -d' ' -f1)" ||
+     [[ ! "$config_hash" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$job_name provenance config hash failed" >&2
+    return 70
+  fi
+  if ! source_tree_hash="$(
+    set -o pipefail
+    git -C "$repo_root" ls-files -z |
+      while IFS= read -r -d '' tracked_file; do
+        sha256sum --binary "$repo_root/$tracked_file" || exit 1
+      done |
+      sha256sum | cut -d' ' -f1
+  )" || [[ ! "$source_tree_hash" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "$job_name provenance source tree hash failed" >&2
+    return 70
+  fi
   if ! psql "$DB_URL" -X -v ON_ERROR_STOP=1 \
     -v stage_job="$job_name" -v stage_started_at="$started_at" \
-    -v stage_commit="$code_commit" -v stage_config_hash="$config_hash" <<'SQL' >/dev/null
+    -v stage_commit="$code_commit" -v stage_config_hash="$config_hash" \
+    -v stage_source_tree_hash="$source_tree_hash" -v stage_wrapper_script="$wrapper_script" <<'SQL' >/dev/null
 INSERT INTO public.migration_runs (
   run_id, job_name, source_system, status, started_at, finished_at,
   rows_read, rows_written, rows_skipped, error, summary
@@ -92,7 +118,9 @@ INSERT INTO public.migration_runs (
   jsonb_build_object(
     'wrapper_stage', true,
     'code_commit', :'stage_commit',
-    'config_hash', :'stage_config_hash'
+    'config_hash', :'stage_config_hash',
+    'source_tree_hash', :'stage_source_tree_hash',
+    'wrapper_script', :'stage_wrapper_script'
   )
 );
 SQL

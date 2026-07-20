@@ -1,7 +1,12 @@
-import { randomUUID } from 'node:crypto';
-import { hostname } from 'node:os';
+import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 
-import { Client, type QueryResultRow } from 'pg';
+import {
+  ackDelivery,
+  claimDueDeliveries,
+  expireExhaustedDeliveries,
+  failDelivery,
+  type ClaimedDelivery,
+} from '../events/outbox-dispatcher.ts';
 
 // P0-6 — outbox delivery worker (roadmap §4 P0-6; e2e-layers X2; §6.2 limits).
 // Guarantees: at-least-once delivery to a SMALL set of internal consumers,
@@ -28,14 +33,7 @@ const DESTINATION = 'consumer_inbox:selective-recompute';
 const CONSUMER_ID = 'selective-recompute-v1';
 const BACKOFF_BASE_SECONDS = 30;
 
-type DeliveryRow = QueryResultRow & {
-  delivery_id: string;
-  event_id: string;
-  attempts: number;
-  max_attempts: number;
-};
-
-async function seedMissingDeliveries(client: Client): Promise<number> {
+async function seedMissingDeliveries(client: PoolClient): Promise<number> {
   // Every outbox event gets exactly one delivery row per destination.
   const result = await client.query(
     `INSERT INTO ops.outbox_delivery (delivery_id, event_id, destination)
@@ -51,36 +49,9 @@ async function seedMissingDeliveries(client: Client): Promise<number> {
   return result.rowCount ?? 0;
 }
 
-async function leaseBatch(client: Client, leaseToken: string): Promise<DeliveryRow[]> {
-  const result = await client.query<DeliveryRow>(
-    `UPDATE ops.outbox_delivery delivery
-     SET status = 'leased',
-         lease_token = $1,
-         lease_until = now() + make_interval(secs => $2),
-         attempts = delivery.attempts + 1
-     WHERE delivery.delivery_id IN (
-       SELECT candidate.delivery_id
-       FROM ops.outbox_delivery candidate
-       WHERE candidate.destination = $3
-         AND candidate.not_before <= now()
-         AND (
-           candidate.status = 'pending'
-           OR (candidate.status = 'leased' AND candidate.lease_until < now())
-         )
-       ORDER BY candidate.created_at
-       LIMIT $4
-       FOR UPDATE SKIP LOCKED
-     )
-     RETURNING delivery.delivery_id, delivery.event_id, delivery.attempts, delivery.max_attempts`,
-    [leaseToken, LEASE_SECONDS, DESTINATION, BATCH_SIZE],
-  );
-  return result.rows;
-}
-
 async function deliverOne(
-  client: Client,
-  delivery: DeliveryRow,
-  leaseToken: string,
+  client: PoolClient,
+  delivery: ClaimedDelivery,
 ): Promise<'delivered' | 'dead' | 'retry'> {
   try {
     await client.query('BEGIN');
@@ -89,16 +60,9 @@ async function deliverOne(
       `INSERT INTO ops.consumer_inbox (consumer_id, event_id)
        VALUES ($1, $2)
        ON CONFLICT (consumer_id, event_id) DO NOTHING`,
-      [CONSUMER_ID, delivery.event_id],
+      [CONSUMER_ID, delivery.eventId],
     );
-    const marked = await client.query(
-      `UPDATE ops.outbox_delivery
-       SET status = 'delivered', delivered_at = now(), lease_token = NULL, lease_until = NULL
-       WHERE delivery_id = $1 AND lease_token = $2 AND status = 'leased'`,
-      [delivery.delivery_id, leaseToken],
-    );
-    if (marked.rowCount !== 1) {
-      // Lease was fenced out (another worker took over) — do not double-count.
+    if (!(await ackDelivery(client, delivery.deliveryId, delivery.leaseToken))) {
       await client.query('ROLLBACK');
       return 'retry';
     }
@@ -107,38 +71,29 @@ async function deliverOne(
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     const message = error instanceof Error ? error.message : String(error);
-    if (delivery.attempts >= delivery.max_attempts) {
+    const backoffSeconds = BACKOFF_BASE_SECONDS * 2 ** Math.min(delivery.attempts, 6);
+    try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO ops.dead_letter (delivery_id, event_id, destination, attempts, last_error)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [delivery.delivery_id, delivery.event_id, DESTINATION, delivery.attempts, message],
-      );
-      await client.query(
-        `UPDATE ops.outbox_delivery
-         SET status = 'dead', last_error = $2, lease_token = NULL, lease_until = NULL
-         WHERE delivery_id = $1`,
-        [delivery.delivery_id, message],
+      const outcome = await failDelivery(
+        client,
+        delivery.deliveryId,
+        delivery.leaseToken,
+        message,
+        backoffSeconds,
       );
       await client.query('COMMIT');
-      return 'dead';
+      return outcome === 'dead' ? 'dead' : 'retry';
+    } catch (settlementError) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw settlementError;
     }
-    const backoffSeconds = BACKOFF_BASE_SECONDS * 2 ** Math.min(delivery.attempts, 6);
-    await client.query(
-      `UPDATE ops.outbox_delivery
-       SET status = 'pending', last_error = $2, lease_token = NULL, lease_until = NULL,
-           not_before = now() + make_interval(secs => $3)
-       WHERE delivery_id = $1`,
-      [delivery.delivery_id, message, backoffSeconds],
-    );
-    return 'retry';
   }
 }
 
 async function main(): Promise<void> {
   if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
-  const client = new Client({ connectionString: DATABASE_URL });
-  await client.connect();
+  const pool = new Pool({ connectionString: DATABASE_URL, max: 1 });
+  const client = await pool.connect();
   let terminated = false;
   const stop = (): void => {
     terminated = true;
@@ -171,30 +126,73 @@ async function main(): Promise<void> {
     for (;;) {
       if (terminated) break;
       totals.seeded += await seedMissingDeliveries(client);
-      const leaseToken = `${hostname()}:${process.pid}:${randomUUID()}`;
-      const batch = await leaseBatch(client, leaseToken);
+      await client.query('BEGIN');
+      try {
+        totals.dead += await expireExhaustedDeliveries(client, DESTINATION);
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+      }
+      const batch = await claimDueDeliveries(client, {
+        destination: DESTINATION,
+        limit: BATCH_SIZE,
+        leaseSeconds: LEASE_SECONDS,
+      });
       if (batch.length === 0) break;
       totals.batches += 1;
-      for (const delivery of batch) {
+      let index = 0;
+      for (; index < batch.length; index += 1) {
         if (terminated) break;
-        const outcome = await deliverOne(client, delivery, leaseToken);
+        const outcome = await deliverOne(client, batch[index]!);
         if (outcome === 'delivered') totals.delivered += 1;
         else if (outcome === 'dead') totals.dead += 1;
         else totals.retried += 1;
       }
+      for (; index < batch.length; index += 1) {
+        const delivery = batch[index]!;
+        await client.query('BEGIN');
+        try {
+          const outcome = await failDelivery(
+            client,
+            delivery.deliveryId,
+            delivery.leaseToken,
+            'worker terminated before delivery',
+            0,
+          );
+          await client.query('COMMIT');
+          if (outcome === 'dead') totals.dead += 1;
+          else totals.retried += 1;
+        } catch (error) {
+          await client.query('ROLLBACK').catch(() => undefined);
+          throw error;
+        }
+      }
       if (!LOOP) break;
     }
+    const unresolved = await client.query<QueryResultRow & { count: string | number }>(
+      `SELECT count(*) AS count
+       FROM ops.outbox_delivery
+       WHERE destination = $1 AND status = 'dead'`,
+      [DESTINATION],
+    );
+    const unresolvedDead = Number(unresolved.rows[0]!.count);
     console.log(
       JSON.stringify({
         mode: 'apply',
         destination: DESTINATION,
         consumerId: CONSUMER_ID,
         terminatedBySignal: terminated,
+        unresolvedDead,
         ...totals,
       }),
     );
+    if (unresolvedDead > 0) {
+      throw new Error(`outbox delivery has ${unresolvedDead} unresolved dead deliveries`);
+    }
   } finally {
-    await client.end();
+    client.release();
+    await pool.end();
   }
 }
 
