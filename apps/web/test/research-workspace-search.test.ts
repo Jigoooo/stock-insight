@@ -34,4 +34,20 @@ describe('research workspace URL state', () => {
     );
     assert.deepEqual(validateWorkspaceSearch({ record: '   ' }), {});
   });
+
+  it('accepts one valid snapshot pair and rejects partial or malformed identities', () => {
+    assert.deepEqual(validateWorkspaceSearch({ analysisRunId: 'run-1', analysisRevision: 3 }), {
+      analysisRunId: 'run-1',
+      analysisRevision: 3,
+    });
+    assert.throws(() => validateWorkspaceSearch({ analysisRunId: 'run-1' }), /snapshot/i);
+    assert.throws(
+      () => validateWorkspaceSearch({ analysisRunId: ' ', analysisRevision: 3 }),
+      /snapshot/i,
+    );
+    assert.throws(
+      () => validateWorkspaceSearch({ analysisRunId: 'run-1', analysisRevision: -1 }),
+      /snapshot/i,
+    );
+  });
 });

@@ -218,7 +218,10 @@ describe('v3 research API client', () => {
       (await client.researchFeed({ lane: 'for_you', cursor: 'abc', limit: 10 })).lane,
       'for_you',
     );
-    assert.equal((await client.researchRecord('record-1')).sources[0]?.bindingState, 'verified');
+    assert.equal(
+      (await client.researchRecord('record-1', meta.contentSnapshot)).sources[0]?.bindingState,
+      'verified',
+    );
     assert.equal((await client.researchStatus()).overall, 'missing');
     assert.equal(
       (await client.decisionHistory({ cursor: 'history-cursor', limit: 10 })).scopeTotal,
@@ -227,18 +230,18 @@ describe('v3 research API client', () => {
     assert.equal((await client.radarSignals({ cursor: 'radar-cursor', limit: 10 })).scopeTotal, 1);
     assert.equal((await client.themeResearch()).items[0]?.themeKey, 'THEME:ai_semi');
     assert.equal((await client.myResearch()).watchlistCount, 8);
-    assert.equal((await client.entityRelations('US:NVDA', 2)).depth, 2);
+    assert.equal((await client.entityRelations('US:NVDA', 2, meta.contentSnapshot)).depth, 2);
 
     assert.deepEqual(calls, [
       'http://stock.local/api/workspace',
       'http://stock.local/api/feed?lane=for_you&cursor=abc&limit=10',
-      'http://stock.local/api/records/record-1',
+      'http://stock.local/api/records/record-1?analysisRunId=stock%3A2026-07-16%3Aus_premarket&analysisRevision=1',
       'http://stock.local/api/status',
       'http://stock.local/api/history?cursor=history-cursor&limit=10',
       'http://stock.local/api/radar?cursor=radar-cursor&limit=10',
       'http://stock.local/api/themes',
       'http://stock.local/api/my-research',
-      'http://stock.local/api/entities/US%3ANVDA/relations?depth=2',
+      'http://stock.local/api/entities/US%3ANVDA/relations?depth=2&analysisRunId=stock%3A2026-07-16%3Aus_premarket&analysisRevision=1',
     ]);
   });
 });

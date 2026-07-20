@@ -70,6 +70,8 @@ export type ResearchWorkspaceUrlState = {
   lane?: ResearchFeedLaneId;
   record?: string;
   cursor?: string;
+  analysisRunId?: string;
+  analysisRevision?: number;
 };
 
 type ResearchWorkspacePageProps = {
@@ -376,10 +378,14 @@ export function ResearchWorkspacePage({
   const initialDetail = data.view === 'today' ? data.defaultRecord : null;
   const [detail, setDetail] = useState<ResearchRecordDetail | null>(initialDetail);
   const [relation, setRelation] = useState<EntityRelationGraph | null>(null);
-  const [relationState, setRelationState] = useState<DetailState>('error');
+  const [relationState, setRelationState] = useState<DetailState>(
+    urlState.record ? 'loading' : 'error',
+  );
   const [themeRelation, setThemeRelation] = useState<EntityRelationGraph | null | undefined>();
   const [themeRelationState, setThemeRelationState] = useState<DetailState>('ready');
-  const [detailState, setDetailState] = useState<DetailState>(initialDetail ? 'ready' : 'error');
+  const [detailState, setDetailState] = useState<DetailState>(
+    urlState.record ? 'loading' : initialDetail ? 'ready' : 'error',
+  );
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
   const [dismissedInspectorRecords, setDismissedInspectorRecords] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -460,13 +466,28 @@ export function ResearchWorkspacePage({
 
   useEffect(() => {
     const recordKey = urlState.record;
-    if (!recordKey || recordKey === detail?.recordKey) return;
+    if (!recordKey) return;
+    const snapshot =
+      urlState.analysisRunId !== undefined && urlState.analysisRevision !== undefined
+        ? {
+            analysisRunId: urlState.analysisRunId,
+            analysisRevision: urlState.analysisRevision,
+          }
+        : undefined;
     let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setDetailState('loading');
+      setRelation(null);
+      setRelationState('loading');
+    });
     void api
-      .researchRecord(recordKey)
+      .researchRecord(recordKey, snapshot)
       .then(async (nextDetail) => {
         const entityKey = nextDetail.affectedEntityKeys[0];
-        const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
+        const nextRelation = entityKey
+          ? await api.entityRelations(entityKey, 1, nextDetail.meta.contentSnapshot)
+          : null;
         if (!active) return;
         setDetail(nextDetail);
         setRelation(nextRelation);
@@ -481,7 +502,7 @@ export function ResearchWorkspacePage({
     return () => {
       active = false;
     };
-  }, [api, detail?.recordKey, urlState.record]);
+  }, [api, urlState.analysisRevision, urlState.analysisRunId, urlState.record]);
 
   const feedPaginationValue =
     data.view === 'today'
@@ -506,6 +527,14 @@ export function ResearchWorkspacePage({
       .researchFeed({ lane, cursor, limit: 20 })
       .then((page) => {
         if (!active) return;
+        const expectedSnapshot = authoritativeToday.meta.contentSnapshot;
+        const actualSnapshot = page.meta.contentSnapshot;
+        if (
+          actualSnapshot.analysisRunId !== expectedSnapshot.analysisRunId ||
+          actualSnapshot.analysisRevision !== expectedSnapshot.analysisRevision
+        ) {
+          throw new Error('Feed page snapshot does not match the active workspace');
+        }
         setFeedPagination((current) => {
           const value =
             resolveWorkspaceAuthoritativeOverride(authoritativeToday, current) ??
@@ -608,13 +637,20 @@ export function ResearchWorkspacePage({
       setThemeRelation(undefined);
       setThemeRelationState('ready');
     }
-    setMobileNavOpen(false);
-    if (!onUrlStateChange) {
-      setLocalSection(next);
+    const commitSectionSelection = () => {
+      if (!onUrlStateChange) {
+        setLocalSection(next);
+        return;
+      }
+      if (next === section && navigationIntent.pendingSection === null) return;
+      requestNavigation('section', next, { view: next });
+    };
+    if (mobileNavOpen) {
+      setMobileNavOpen(false);
+      window.requestAnimationFrame(commitSectionSelection);
       return;
     }
-    if (next === section && navigationIntent.pendingSection === null) return;
-    requestNavigation('section', next, { view: next });
+    commitSectionSelection();
   };
 
   const selectLane = (next: ResearchFeedLaneId) => {
@@ -623,7 +659,15 @@ export function ResearchWorkspacePage({
       return;
     }
     if (next === lane && navigationIntent.pendingLane === null) return;
-    requestNavigation('lane', next, { lane: next, cursor: undefined });
+    setInspectorOpen(false);
+    requestNavigation('lane', next, {
+      view: 'today',
+      lane: next,
+      cursor: undefined,
+      record: undefined,
+      analysisRunId: undefined,
+      analysisRevision: undefined,
+    });
   };
 
   const selectRecord = async (item: ResearchFeedItem) => {
@@ -634,18 +678,27 @@ export function ResearchWorkspacePage({
     }
     setInspectorOpen(true);
     if (onUrlStateChange) {
-      setDetailState(detail?.recordKey === item.recordKey ? 'ready' : 'loading');
-      setRelationState(detail?.recordKey === item.recordKey ? 'ready' : 'loading');
-      void onUrlStateChange({ record: item.recordKey });
+      setDetailState('loading');
+      setRelation(null);
+      setRelationState('loading');
+      const snapshot = data.view === 'today' ? data.today.meta.contentSnapshot : undefined;
+      void onUrlStateChange({
+        record: item.recordKey,
+        analysisRunId: snapshot?.analysisRunId,
+        analysisRevision: snapshot?.analysisRevision,
+      });
       return;
     }
     setDetailState('loading');
     setRelationState('loading');
     try {
-      const nextDetail = await api.researchRecord(item.recordKey);
+      const snapshot = data.view === 'today' ? data.today.meta.contentSnapshot : undefined;
+      const nextDetail = await api.researchRecord(item.recordKey, snapshot);
       setDetail(nextDetail);
       const entityKey = nextDetail.affectedEntityKeys[0];
-      setRelation(entityKey ? await api.entityRelations(entityKey, 1) : null);
+      setRelation(
+        entityKey ? await api.entityRelations(entityKey, 1, nextDetail.meta.contentSnapshot) : null,
+      );
       setRelationState('ready');
       setDetailState('ready');
     } catch {
@@ -779,11 +832,23 @@ export function ResearchWorkspacePage({
       const opener = inspectorOpenerRef.current;
       if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
     }
-    void onUrlStateChange?.({ record: undefined });
+    void onUrlStateChange?.({
+      record: undefined,
+      analysisRunId: undefined,
+      analysisRevision: undefined,
+    });
   };
 
   return (
     <ResearchWorkspaceShell className={styles.canvas} data-testid="research-workspace-v3">
+      <output
+        className={styles.navigationLiveStatus}
+        data-testid="workspace-navigation-live-status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {navigationPending ? '선택한 화면을 불러오는 중입니다.' : '리서치 워크스페이스'}
+      </output>
       <aside
         ref={navigationRef}
         id="workspace-navigation"
@@ -874,8 +939,6 @@ export function ResearchWorkspacePage({
               className={styles.navigationStatus}
               data-testid="workspace-navigation-status"
               data-pending={navigationPending || undefined}
-              aria-live="polite"
-              aria-atomic="true"
             >
               {navigationPending ? '선택한 화면을 불러오는 중입니다.' : '리서치 워크스페이스'}
             </span>
@@ -933,7 +996,12 @@ export function ResearchWorkspacePage({
                       value: { ...value, failedCursor: undefined },
                     };
                   });
-                  void onUrlStateChange?.({ cursor: currentLane.nextCursor });
+                  const snapshot = data.today.meta.contentSnapshot;
+                  void onUrlStateChange?.({
+                    cursor: currentLane.nextCursor,
+                    analysisRunId: snapshot.analysisRunId,
+                    analysisRevision: snapshot.analysisRevision,
+                  });
                 }
               }}
               selectedRecordKey={visibleDetail?.recordKey}

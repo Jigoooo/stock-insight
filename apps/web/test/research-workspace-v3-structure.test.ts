@@ -59,7 +59,7 @@ describe('v3 research workspace structure', () => {
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
-    assert.match(workspace, /researchRecord\(recordKey\)/);
+    assert.match(workspace, /researchRecord\(recordKey, snapshot\)/);
     assert.match(workspace, /evidence\.map/);
     assert.match(workspace, /sources\.map/);
     assert.match(workspace, /limitations\.map/);
@@ -79,6 +79,11 @@ describe('v3 research workspace structure', () => {
     assert.match(workspaceRoute, /workspace-route-error/);
     assert.match(page, /workspace-view-load-error/);
     assert.match(workspaceRoute, /window\.location\.reload\(\)/);
+    assert.match(page, /<output[\s\S]+data-testid="workspace-navigation-live-status"/);
+    assert.ok(
+      page.indexOf('data-testid="workspace-navigation-live-status"') <
+        page.indexOf('data-testid="workspace-content"'),
+    );
   });
 
   it('maps every machine-facing value to stable Korean workspace copy', () => {

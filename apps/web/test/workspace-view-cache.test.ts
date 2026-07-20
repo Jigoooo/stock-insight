@@ -79,6 +79,119 @@ describe('authenticated workspace view cache', () => {
     assert.deepEqual(await Promise.all(requests), ['radar', 'stocks', 'themes']);
   });
 
+  it('promotes a queued prefetch when an active route joins the same request', async () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1', 1);
+    const stocksGate = deferred<string>();
+    const themesGate = deferred<string>();
+    const starts: string[] = [];
+    const prefetch = (
+      view: WorkspaceViewCacheKey['view'],
+      gate: ReturnType<typeof deferred<string>>,
+    ) =>
+      cache.prefetch(
+        key(view),
+        () => {
+          starts.push(view);
+          return gate.promise;
+        },
+        { priority: 'intent' },
+      );
+
+    const radar = prefetch('radar', deferred<string>());
+    const stocks = prefetch('stocks', stocksGate);
+    const themes = prefetch('themes', themesGate);
+    const activeThemes = cache.load(key('themes'), () =>
+      Promise.reject(new Error('dedupe failed')),
+    );
+    assert.deepEqual(starts, ['radar', 'themes']);
+    assert.equal(await radar, false);
+
+    themesGate.resolve('themes');
+    assert.equal(await activeThemes, 'themes');
+    await Promise.resolve();
+    assert.deepEqual(starts, ['radar', 'themes', 'stocks']);
+
+    stocksGate.resolve('stocks');
+    assert.equal(await themes, true);
+    assert.equal(await stocks, true);
+  });
+
+  it('preempts a running speculative prefetch when an active route needs a slot', async () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1');
+    const prefetchSignals: AbortSignal[] = [];
+    const neverSettles = ({ signal }: { signal: AbortSignal }) => {
+      prefetchSignals.push(signal);
+      return new Promise<string>(() => undefined);
+    };
+
+    const radar = cache.prefetch(key('radar'), neverSettles, { priority: 'intent' });
+    const stocks = cache.prefetch(key('stocks'), neverSettles, { priority: 'intent' });
+    assert.equal(prefetchSignals.length, 2);
+
+    const active = cache.load(key('themes'), () => Promise.resolve('active-themes'));
+
+    assert.equal(await active, 'active-themes');
+    assert.equal(prefetchSignals.filter((signal) => signal.aborted).length, 1);
+    assert.equal(await Promise.race([radar, stocks]), false);
+  });
+
+  it('preempts a running prefetch when active navigation joins a queued prefetch', async () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1');
+    const runningSignals: AbortSignal[] = [];
+    const neverSettles = ({ signal }: { signal: AbortSignal }) => {
+      runningSignals.push(signal);
+      return new Promise<string>(() => undefined);
+    };
+    const themesGate = deferred<string>();
+    let themesStarted = false;
+
+    const radar = cache.prefetch(key('radar'), neverSettles, { priority: 'intent' });
+    const stocks = cache.prefetch(key('stocks'), neverSettles, { priority: 'intent' });
+    const themes = cache.prefetch(
+      key('themes'),
+      () => {
+        themesStarted = true;
+        return themesGate.promise;
+      },
+      { priority: 'intent' },
+    );
+    const activeThemes = cache.load(key('themes'), () =>
+      Promise.reject(new Error('queued prefetch was not reused')),
+    );
+
+    assert.equal(themesStarted, true);
+    assert.equal(runningSignals.filter((signal) => signal.aborted).length, 1);
+    themesGate.resolve('themes');
+    assert.equal(await activeThemes, 'themes');
+    assert.equal(await themes, true);
+    assert.equal(await Promise.race([radar, stocks]), false);
+  });
+
+  it('reclassifies a running prefetch after its last active waiter aborts', async () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1', 1);
+    let radarSignal: AbortSignal | undefined;
+    const radar = cache.prefetch(
+      key('radar'),
+      ({ signal }) => {
+        radarSignal = signal;
+        return new Promise<string>(() => undefined);
+      },
+      { priority: 'intent' },
+    );
+    const routeAbort = new AbortController();
+    const activeRadar = cache.load(key('radar'), () => Promise.resolve('unexpected'), {
+      signal: routeAbort.signal,
+    });
+
+    routeAbort.abort();
+    const activeStocks = cache.load(key('stocks'), () => Promise.resolve('stocks'));
+
+    await assert.rejects(activeRadar, /abort/i);
+    assert.equal(await activeStocks, 'stocks');
+    assert.equal(radarSignal?.aborted, true);
+    assert.equal(await radar, false);
+  });
+
   it('allows only one idle candidate while intent prefetch still uses the bounded pool', async () => {
     const cache = new WorkspaceViewCache<string>('user-a:v1');
     const idleGate = deferred<string>();
@@ -222,6 +335,17 @@ describe('authenticated workspace view cache', () => {
     assert.equal(cache.commitActive('client-radar', token), true);
     cache.seedActive('ssr-today');
     assert.equal(cache.getActive(), 'client-radar');
+  });
+
+  it('atomically adopts the hydrated user scope without clearing its SSR payload later', () => {
+    const cache = new WorkspaceViewCache<string>('anonymous');
+    cache.hydrateActive('user-a:v1', 'ssr-today');
+    assert.equal(cache.getActive(), 'ssr-today');
+
+    cache.setScopeVersion('user-a:v1');
+    assert.equal(cache.getActive(), 'ssr-today');
+    cache.hydrateActive('user-a:v1', 'late-ssr-value');
+    assert.equal(cache.getActive(), 'ssr-today');
   });
 
   it('lets only the latest active route token commit a fallback payload', () => {

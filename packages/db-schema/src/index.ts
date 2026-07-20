@@ -25,6 +25,7 @@ import { relationBuilderFoundationMigrationSql } from './migrations/024_relation
 import { graphSnapshotAnalyticsMigrationSql } from './migrations/025_graph_snapshot_analytics';
 import { backendServingV2MigrationSql } from './migrations/026_backend_serving_v2';
 import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_claim';
+import { stalePublicationServingMigrationSql } from './migrations/028_stale_publication_serving';
 
 export type AppTableName =
   | 'company_profiles'
@@ -59,6 +60,7 @@ export type AppTableName =
   | 'graph_snapshot_analytics'
   | 'backend_serving_v2'
   | 'pipeline_run_claim'
+  | 'stale_publication_serving'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -268,6 +270,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['pipeline_run_claim'],
     sql: pipelineRunClaimMigrationSql,
   },
+  {
+    id: '028_stale_publication_serving',
+    description:
+      'Serve the latest immutable publication projection after freshness expiry while preserving lifecycle and payload-integrity guards.',
+    tables: ['stale_publication_serving'],
+    sql: stalePublicationServingMigrationSql,
+  },
 ];
 
 export {
@@ -298,4 +307,5 @@ export {
   graphSnapshotAnalyticsMigrationSql,
   backendServingV2MigrationSql,
   pipelineRunClaimMigrationSql,
+  stalePublicationServingMigrationSql,
 };

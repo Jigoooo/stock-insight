@@ -1,3 +1,7 @@
+import {
+  selectPublicationProjection,
+  type PublicationSnapshotIdentity,
+} from './publication-snapshot.ts';
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -16,15 +20,7 @@ export type GetResearchRecordDetailOptions = {
   userScope: UserScope;
   recordKey: string;
   now?: Date;
-};
-
-type LatestRunRow = {
-  analysis_run_id: string;
-  analysis_revision: number;
-  cutoff_at: string | Date;
-  source_watermark_at: string | Date;
-  fresh_until: string | Date;
-  projection_status: string;
+  snapshot?: PublicationSnapshotIdentity;
 };
 
 type DetailRow = {
@@ -58,16 +54,6 @@ type SourceRow = {
 };
 
 type MarketAsOfRow = { market_data_as_of: string | null };
-
-const LATEST_RUN_SQL = `
-  SELECT analysis_run_id, analysis_revision, cutoff_at, source_watermark_at,
-         fresh_until, projection_status
-  FROM ops.publication_projection_status
-  WHERE domain = 'stock'
-    AND projection_status IN ('available', 'stale')
-  ORDER BY cutoff_at DESC, analysis_revision DESC
-  LIMIT 1
-`;
 
 const DETAIL_SQL = `
   SELECT
@@ -203,7 +189,7 @@ export async function getResearchRecordDetail(
     throw new Error('recordKey must be between 1 and 320 characters');
   }
   const now = options.now ?? new Date();
-  const [latestRun] = await executor.queryRows<LatestRunRow>(LATEST_RUN_SQL);
+  const latestRun = await selectPublicationProjection(executor, options.snapshot);
   if (!latestRun) return null;
 
   const cutoffAt = toIso(latestRun.cutoff_at);

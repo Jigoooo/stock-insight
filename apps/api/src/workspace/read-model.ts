@@ -1,3 +1,7 @@
+import {
+  selectPublicationProjection,
+  type PublicationSnapshotIdentity,
+} from './publication-snapshot.ts';
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -21,6 +25,7 @@ export type GetWorkspaceTodayOptions = {
   userScope: UserScope;
   now?: Date;
   laneLimit?: number;
+  snapshot?: PublicationSnapshotIdentity;
 };
 
 export type GetResearchFeedPageOptions = {
@@ -29,15 +34,6 @@ export type GetResearchFeedPageOptions = {
   cursor?: string;
   limit?: number;
   now?: Date;
-};
-
-type LatestRunRow = {
-  analysis_run_id: string;
-  analysis_revision: number;
-  cutoff_at: string | Date;
-  source_watermark_at: string | Date;
-  fresh_until: string | Date;
-  projection_status: string;
 };
 
 type FeedRow = {
@@ -62,16 +58,6 @@ type FeedRow = {
 
 type CountRow = { relation_count?: number | string; watchlist_count?: number | string };
 type MarketAsOfRow = { market_data_as_of: string | null };
-
-const LATEST_RUN_SQL = `
-  SELECT analysis_run_id, analysis_revision, cutoff_at, source_watermark_at,
-         fresh_until, projection_status
-  FROM ops.publication_projection_status
-  WHERE domain = 'stock'
-    AND projection_status IN ('available', 'stale')
-  ORDER BY cutoff_at DESC, analysis_revision DESC
-  LIMIT 1
-`;
 
 const FEED_SQL = `
   WITH source_links AS (
@@ -235,9 +221,19 @@ function laneFor(row: FeedRow): ResearchFeedLaneId {
   return 'explore';
 }
 
-function encodeCursor(lane: ResearchFeedLaneId, item: ResearchFeedItem): string {
+function encodeCursor(
+  lane: ResearchFeedLaneId,
+  item: ResearchFeedItem,
+  snapshot: PublicationSnapshotIdentity,
+): string {
   return Buffer.from(
-    JSON.stringify({ version: 1, lane, publishedAt: item.publishedAt, recordKey: item.recordKey }),
+    JSON.stringify({
+      version: 2,
+      lane,
+      publishedAt: item.publishedAt,
+      recordKey: item.recordKey,
+      ...snapshot,
+    }),
   ).toString('base64url');
 }
 
@@ -248,16 +244,25 @@ function decodeCursor(cursor: string, lane: ResearchFeedLaneId) {
       lane?: unknown;
       publishedAt?: unknown;
       recordKey?: unknown;
+      analysisRunId?: unknown;
+      analysisRevision?: unknown;
     };
     if (
-      payload.version !== 1 ||
+      payload.version !== 2 ||
       payload.lane !== lane ||
       typeof payload.publishedAt !== 'string' ||
-      typeof payload.recordKey !== 'string'
+      typeof payload.recordKey !== 'string' ||
+      typeof payload.analysisRunId !== 'string' ||
+      !Number.isInteger(payload.analysisRevision)
     ) {
       throw new Error('invalid cursor payload');
     }
-    return { publishedAt: payload.publishedAt, recordKey: payload.recordKey };
+    return {
+      publishedAt: payload.publishedAt,
+      recordKey: payload.recordKey,
+      analysisRunId: payload.analysisRunId,
+      analysisRevision: payload.analysisRevision as number,
+    };
   } catch {
     throw new Error('cursor is invalid for the requested feed lane');
   }
@@ -267,6 +272,7 @@ function buildLane(
   lane: ResearchFeedLaneId,
   items: ResearchFeedItem[],
   limit: number,
+  snapshot: PublicationSnapshotIdentity,
 ): ResearchFeedLane {
   const page = items.slice(0, limit);
   return {
@@ -274,7 +280,9 @@ function buildLane(
     scopeTotal: items.length,
     items: page,
     nextCursor:
-      items.length > page.length && page.length > 0 ? encodeCursor(lane, page.at(-1)!) : null,
+      items.length > page.length && page.length > 0
+        ? encodeCursor(lane, page.at(-1)!, snapshot)
+        : null,
   };
 }
 
@@ -288,7 +296,7 @@ export async function getWorkspaceToday(
     throw new Error('laneLimit must be an integer between 1 and 50');
   }
 
-  const [latestRun] = await executor.queryRows<LatestRunRow>(LATEST_RUN_SQL);
+  const latestRun = await selectPublicationProjection(executor, options.snapshot);
   if (!latestRun) throw new Error('No available stock publication projection exists');
 
   const cutoffAt = toIso(latestRun.cutoff_at);
@@ -311,10 +319,14 @@ export async function getWorkspaceToday(
   };
   for (const row of feedRows) grouped[laneFor(row)]!.push(mapFeedItem(row));
 
+  const snapshot = {
+    analysisRunId: latestRun.analysis_run_id,
+    analysisRevision: latestRun.analysis_revision,
+  };
   const lanes = [
-    buildLane('must_know', grouped.must_know!, Math.min(laneLimit, 12)),
-    buildLane('for_you', grouped.for_you!, laneLimit),
-    buildLane('explore', grouped.explore!, laneLimit),
+    buildLane('must_know', grouped.must_know!, Math.min(laneLimit, 12), snapshot),
+    buildLane('for_you', grouped.for_you!, laneLimit, snapshot),
+    buildLane('explore', grouped.explore!, laneLimit, snapshot),
   ] satisfies ResearchFeedLane[];
   const returnedItems = lanes.flatMap(({ items }) => items);
   const linkedRecords = feedRows.filter((row) => toCount(row.source_count) > 0).length;
@@ -378,7 +390,16 @@ export async function getResearchFeedPage(
     throw new Error('limit must be an integer between 1 and 50');
   }
 
-  const [latestRun] = await executor.queryRows<LatestRunRow>(LATEST_RUN_SQL);
+  const cursor = options.cursor ? decodeCursor(options.cursor, options.lane) : undefined;
+  const latestRun = await selectPublicationProjection(
+    executor,
+    cursor
+      ? {
+          analysisRunId: cursor.analysisRunId,
+          analysisRevision: cursor.analysisRevision,
+        }
+      : undefined,
+  );
   if (!latestRun) throw new Error('No available stock publication projection exists');
   const cutoffAt = toIso(latestRun.cutoff_at);
   const feedRows = await executor.queryRows<FeedRow>(FEED_SQL, [
@@ -392,8 +413,8 @@ export async function getResearchFeedPage(
     .filter((row) => laneFor(row) === options.lane)
     .map((row) => mapFeedItem(row));
   let startIndex = 0;
-  if (options.cursor) {
-    const anchor = decodeCursor(options.cursor, options.lane);
+  if (cursor) {
+    const anchor = cursor;
     const anchorIndex = laneItems.findIndex(
       (item) => item.recordKey === anchor.recordKey && item.publishedAt === anchor.publishedAt,
     );
@@ -403,7 +424,10 @@ export async function getResearchFeedPage(
   const items = laneItems.slice(startIndex, startIndex + limit);
   const nextCursor =
     startIndex + items.length < laneItems.length && items.length > 0
-      ? encodeCursor(options.lane, items.at(-1)!)
+      ? encodeCursor(options.lane, items.at(-1)!, {
+          analysisRunId: latestRun.analysis_run_id,
+          analysisRevision: latestRun.analysis_revision,
+        })
       : null;
   const linkedRecords = feedRows.filter((row) => toCount(row.source_count) > 0).length;
   const clickableRecords = feedRows.filter((row) => toCount(row.clickable_source_count) > 0).length;

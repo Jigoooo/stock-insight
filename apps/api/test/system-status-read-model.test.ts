@@ -12,7 +12,19 @@ describe('system status read model', () => {
         _params: readonly unknown[] = [],
       ): Promise<TRow[]> {
         calls.push(sql);
-        if (sql.includes('dataset_watermark')) return [];
+        if (sql.includes('dataset_watermark')) {
+          return [
+            {
+              domain: 'stock',
+              dataset_name: 'publication_records',
+              status: 'stale',
+              watermark_at: '2026-07-16T12:47:35.000Z',
+              row_count: '12',
+              analysis_run_id: 'stock:2026-07-16:us_premarket',
+              analysis_revision: 1,
+            },
+          ] as unknown as TRow[];
+        }
         if (sql.includes('analysis_run_record_source')) {
           return [{ total: 12, linked: 10, clickable: 8 }] as unknown as TRow[];
         }
@@ -23,11 +35,19 @@ describe('system status read model', () => {
       },
     };
 
-    await getSystemStatus(executor);
+    const status = await getSystemStatus(executor, {
+      now: new Date('2026-07-16T15:55:00.000Z'),
+    });
 
     const coverageSql = calls.find((sql) => sql.includes('analysis_run_record_source'));
     assert.ok(coverageSql);
     assert.match(coverageSql, /projection_status\s+IN\s+\('available',\s*'stale'\)/);
+    assert.equal(status.overall, 'stale');
+    assert.deepEqual(
+      status.datasets.map(({ datasetName, availability }) => ({ datasetName, availability })),
+      [{ datasetName: 'publication_records', availability: 'stale' }],
+    );
+    assert.deepEqual(status.sourceCoverage, { total: 12, linked: 10, clickable: 8 });
   });
 
   it('preserves independent dataset watermarks and source coverage', async () => {

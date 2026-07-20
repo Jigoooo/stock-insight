@@ -12,4 +12,12 @@ describe('credentialed auth E2E concurrency', () => {
       /test\.describe\('private workspace authentication',[\s\S]{0,160}test\.describe\.configure\(\{\s*mode:\s*'serial'\s*\}\)/,
     );
   });
+
+  it('uses a retry-scoped client identity for every auth test', async () => {
+    const source = await readFile(authSpecUrl, 'utf8');
+    assert.match(source, /testInfo\.testId/);
+    assert.match(source, /testInfo\.retry/);
+    assert.match(source, /cf-connecting-ip['"]?:\s*authClientIp\(testInfo\)/);
+    assert.doesNotMatch(source, /project\.name\s*===\s*'mobile'\s*\?\s*'2001:db8::2'/);
+  });
 });

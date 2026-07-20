@@ -35,10 +35,33 @@ export function validateWorkspaceSearch(
     search.cursor.length <= 1_024
       ? search.cursor
       : undefined;
+  const hasAnalysisRunId = search.analysisRunId !== undefined;
+  const hasAnalysisRevision = search.analysisRevision !== undefined;
+  const analysisRunId =
+    typeof search.analysisRunId === 'string' &&
+    search.analysisRunId.trim().length > 0 &&
+    search.analysisRunId.length <= 128
+      ? search.analysisRunId
+      : undefined;
+  const analysisRevision =
+    typeof search.analysisRevision === 'number' &&
+    Number.isInteger(search.analysisRevision) &&
+    search.analysisRevision >= 0
+      ? search.analysisRevision
+      : undefined;
+  if (
+    hasAnalysisRunId !== hasAnalysisRevision ||
+    (hasAnalysisRunId && (analysisRunId === undefined || analysisRevision === undefined))
+  ) {
+    throw new Error('Invalid workspace publication snapshot');
+  }
   return {
     ...(view ? { view } : {}),
     ...(lane ? { lane } : {}),
     ...(record ? { record } : {}),
     ...(cursor ? { cursor } : {}),
+    ...(analysisRunId !== undefined && analysisRevision !== undefined
+      ? { analysisRunId, analysisRevision }
+      : {}),
   };
 }

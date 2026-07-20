@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import {
   AvailabilityNotice,
@@ -50,12 +50,26 @@ export function TodayView({
   onSelectRecord: (item: ResearchFeedItem) => void;
 }) {
   const laneTabRefs = useRef<Partial<Record<ResearchFeedLaneId, HTMLButtonElement | null>>>({});
+  const requestedLaneFocusRef = useRef<ResearchFeedLaneId | null>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   useWorkspaceAppendReveal({
     keys: items.map((item) => item.recordKey),
     resetKey: lane,
     scopeRef: feedRef,
   });
+  useLayoutEffect(() => {
+    const requestedLane = requestedLaneFocusRef.current;
+    if (requestedLane === null) return;
+    requestedLaneFocusRef.current = null;
+    laneTabRefs.current[requestedLane]?.focus();
+  }, [lane]);
+
+  useLayoutEffect(() => {
+    const requestedLane = requestedLaneFocusRef.current;
+    if (pendingLane === null && requestedLane !== null && requestedLane !== lane) {
+      requestedLaneFocusRef.current = null;
+    }
+  }, [lane, pendingLane]);
   const moveLaneFocus = (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
     const lastIndex = data.lanes.length - 1;
     let nextIndex: number | undefined;
@@ -67,8 +81,9 @@ export function TodayView({
     event.preventDefault();
     const nextLane = data.lanes[nextIndex]?.lane;
     if (!nextLane) return;
+    requestedLaneFocusRef.current = nextLane;
+    laneTabRefs.current[nextLane]?.focus();
     onLaneChange(nextLane);
-    requestAnimationFrame(() => laneTabRefs.current[nextLane]?.focus());
   };
   const activeLaneIndex = Math.max(
     0,
@@ -137,6 +152,13 @@ export function TodayView({
               tabIndex={lane === item.lane ? 0 : -1}
               disabled={!interactive}
               onKeyDown={(event) => moveLaneFocus(event, index)}
+              onBlur={(event) => {
+                requestedLaneFocusRef.current =
+                  data.lanes.find(
+                    ({ lane: candidateLane }) =>
+                      laneTabRefs.current[candidateLane] === event.relatedTarget,
+                  )?.lane ?? null;
+              }}
               onClick={() => onLaneChange(item.lane)}
             >
               {laneLabels[item.lane]} <small>{item.scopeTotal}</small>

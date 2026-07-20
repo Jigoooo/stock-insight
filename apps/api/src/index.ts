@@ -94,6 +94,7 @@ export type {
   GetWorkspaceTodayOptions,
   WorkspaceRowQueryExecutor,
 } from './workspace/read-model';
+export type { PublicationSnapshotIdentity } from './workspace/publication-snapshot';
 export {
   getCalibrationScorecard,
   getFeatureSnapshots,

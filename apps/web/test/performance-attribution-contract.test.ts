@@ -28,6 +28,18 @@ describe('startup performance attribution contract', () => {
     assert.match(source, /STARTUP_LONG_TASK_GATE_MS = 500/);
     assert.match(source, /STARTUP_SCRIPT_GATE_MS = 150/);
     assert.match(source, /STARTUP_STYLE_LAYOUT_GATE_MS = 500/);
+    assert.match(source, /WORKSPACE_LONG_TASK_GATE_MS = 350/);
+    assert.match(source, /WORKSPACE_SCRIPT_GATE_MS = 350/);
+    assert.match(source, /expect\(snapshot\.probe\.observerFailures\)\.toEqual\(\[\]\)/);
+    assert.match(source, /expect\(snapshot\.probe\.supportedEntryTypes\)\.toContain\(entryType\)/);
+    assert.match(
+      source,
+      /expect\(navigationFrameTargets\)\.toEqual\(expectedNavigationFrameTargets\)/,
+    );
+    assert.doesNotMatch(
+      source,
+      /Math\.max\(0, \.\.\.baseline\.navigation\.eventToNextAnimationFrame/,
+    );
     assert.match(source, /Math\.min\(entry\.duration, Math\.max\(0, endTime - renderStart\)\)/);
     assert.match(source, /durationMs:\s*round\(entry\.duration\)/);
     assert.match(source, /phase\.styleAndLayoutMs\)\.toBeLessThanOrEqual\(phase\.durationMs\)/);
@@ -35,5 +47,23 @@ describe('startup performance attribution contract', () => {
     assert.match(source, /baseline\.performance\.longTasks\.maxMs/);
     assert.match(source, /baseline\.transfer\.totalTransferBytes/);
     assert.match(source, /baseline\.performance\.layoutShifts\.cumulativeScore/);
+  });
+
+  it('times three real lane transitions without a current-lane no-op', async () => {
+    const source = await readFile(performanceSpecUrl, 'utf8');
+    assert.match(source, /WORKSPACE_LANES = \['for_you', 'explore', 'must_know'\]/);
+    assert.match(source, /expect\(beforeId\)\.not\.toBe\(target\.id\)/);
+    assert.match(source, /expect\(afterId\)\.toBe\(target\.id\)/);
+  });
+
+  it('excludes initial hydration work from the navigation-only performance budget', async () => {
+    const source = await readFile(performanceSpecUrl, 'utf8');
+    assert.match(
+      source,
+      /waitForLoadState\('networkidle'\);[\s\S]+settlePerformanceObservers\(page\);[\s\S]+resetBrowserProbe\(page\);[\s\S]+runWorkspaceNavigationPlan/,
+    );
+    assert.match(source, /probe\.resourceEntries\.length = 0/);
+    assert.match(source, /performance\.clearResourceTimings\(\)/);
+    assert.match(source, /transfer:\s*summarizeTransfer\(snapshot, false\)/);
   });
 });

@@ -1,4 +1,8 @@
 import type { UserScope } from '../shared/user-scope';
+import {
+  selectPublicationProjection,
+  type PublicationSnapshotIdentity,
+} from '../workspace/publication-snapshot.ts';
 
 import {
   entityRelationGraphSchema,
@@ -17,15 +21,7 @@ export type GetEntityRelationsOptions = {
   entityKey: string;
   depth?: number;
   now?: Date;
-};
-
-type LatestRunRow = {
-  analysis_run_id: string;
-  analysis_revision: number;
-  cutoff_at: string | Date;
-  source_watermark_at: string | Date;
-  fresh_until: string | Date;
-  projection_status: string;
+  snapshot?: PublicationSnapshotIdentity;
 };
 
 type RootEntityRow = {
@@ -58,16 +54,6 @@ type RelationRow = {
 };
 
 type MarketAsOfRow = { market_data_as_of: string | null };
-
-const LATEST_RUN_SQL = `
-  SELECT analysis_run_id, analysis_revision, cutoff_at, source_watermark_at,
-         fresh_until, projection_status
-  FROM ops.publication_projection_status
-  WHERE domain = 'stock'
-    AND projection_status IN ('available', 'stale')
-  ORDER BY cutoff_at DESC, analysis_revision DESC
-  LIMIT 1
-`;
 
 const ROOT_ENTITY_SQL = `
   SELECT
@@ -257,7 +243,7 @@ export async function getEntityRelations(
     throw new Error('depth must be 1 or 2');
   }
   const now = options.now ?? new Date();
-  const [latestRun] = await executor.queryRows<LatestRunRow>(LATEST_RUN_SQL);
+  const latestRun = await selectPublicationProjection(executor, options.snapshot);
   if (!latestRun) return null;
   const cutoffAt = toIso(latestRun.cutoff_at);
   const [root] = await executor.queryRows<RootEntityRow>(ROOT_ENTITY_SQL, [

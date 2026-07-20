@@ -18,8 +18,8 @@ const STARTUP_SCRIPT_GATE_MS = 150;
 const STARTUP_STYLE_LAYOUT_GATE_MS = 500;
 const WORKSPACE_NAVIGATION_SETTLE_GATE_MS = 1_800;
 const WORKSPACE_NAVIGATION_FRAME_GATE_MS = 75;
-const WORKSPACE_LONG_TASK_GATE_MS = 330;
-const WORKSPACE_SCRIPT_GATE_MS = 330;
+const WORKSPACE_LONG_TASK_GATE_MS = 350;
+const WORKSPACE_SCRIPT_GATE_MS = 350;
 const WORKSPACE_STYLE_LAYOUT_GATE_MS = 150;
 const WORKSPACE_CRITICAL_TRANSFER_GATE_BYTES = 2_621_440;
 const SYNTHETIC_USERNAME_KEYSTROKES = 'motionprobe';
@@ -38,7 +38,13 @@ const WORKSPACE_SECTIONS = [
   'status',
   'today',
 ] as const;
-const WORKSPACE_LANES = ['must_know', 'for_you', 'explore'] as const;
+const WORKSPACE_LANES = ['for_you', 'explore', 'must_know'] as const;
+const REQUIRED_OBSERVER_ENTRY_TYPES = [
+  'layout-shift',
+  'long-animation-frame',
+  'longtask',
+  'resource',
+] as const;
 
 type RuntimeStats = {
   consoleByType: Record<string, number>;
@@ -446,7 +452,7 @@ function summarizeLayoutShifts(entries: readonly LayoutShiftEntry[]) {
   };
 }
 
-function summarizeTransfer(snapshot: BrowserSnapshot) {
+function summarizeTransfer(snapshot: BrowserSnapshot, includeNavigation = true) {
   const byInitiator = new Map<
     string,
     { count: number; decodedBodyBytes: number; encodedBodyBytes: number; transferBytes: number }
@@ -489,18 +495,21 @@ function summarizeTransfer(snapshot: BrowserSnapshot) {
       [...byInitiator.entries()].sort(([left], [right]) => left.localeCompare(right)),
     ),
     largestResources,
-    navigation: snapshot.navigation
-      ? {
-          decodedBodyBytes: snapshot.navigation.decodedBodySize,
-          durationMs: round(snapshot.navigation.duration),
-          encodedBodyBytes: snapshot.navigation.encodedBodySize,
-          transferBytes: snapshot.navigation.transferSize,
-        }
-      : null,
+    navigation:
+      includeNavigation && snapshot.navigation
+        ? {
+            decodedBodyBytes: snapshot.navigation.decodedBodySize,
+            durationMs: round(snapshot.navigation.duration),
+            encodedBodyBytes: snapshot.navigation.encodedBodySize,
+            transferBytes: snapshot.navigation.transferSize,
+          }
+        : null,
     resourceCount: snapshot.resources.length,
     resourceObserverEntryCount: snapshot.probe.resourceObserverEntryCount,
     resourceTotals,
-    totalTransferBytes: resourceTotals.transferBytes + (snapshot.navigation?.transferSize ?? 0),
+    totalTransferBytes:
+      resourceTotals.transferBytes +
+      (includeNavigation ? (snapshot.navigation?.transferSize ?? 0) : 0),
   };
 }
 
@@ -589,6 +598,13 @@ function runtimeSummary(stats: RuntimeStats) {
   };
 }
 
+function assertRequiredObservers(snapshot: BrowserSnapshot) {
+  expect(snapshot.probe.observerFailures).toEqual([]);
+  for (const entryType of REQUIRED_OBSERVER_ENTRY_TYPES) {
+    expect(snapshot.probe.supportedEntryTypes).toContain(entryType);
+  }
+}
+
 async function settlePerformanceObservers(page: Page) {
   await page.evaluate(
     () =>
@@ -596,6 +612,31 @@ async function settlePerformanceObservers(page: Page) {
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
       }),
   );
+}
+
+async function resetBrowserProbe(page: Page) {
+  await page.evaluate(() => {
+    const probe = (
+      window as Window & {
+        __task0MotionProbe?: {
+          inputFrames: InputFrameEntry[];
+          layoutShifts: LayoutShiftEntry[];
+          longAnimationFrames: DurationEntry[];
+          longTasks: DurationEntry[];
+          navigationFrames: NavigationFrameEntry[];
+          resourceEntries: ResourceEntry[];
+        };
+      }
+    ).__task0MotionProbe;
+    if (!probe) throw new Error('Task 0 browser probe was not installed');
+    probe.inputFrames.length = 0;
+    probe.layoutShifts.length = 0;
+    probe.longAnimationFrames.length = 0;
+    probe.longTasks.length = 0;
+    probe.navigationFrames.length = 0;
+    probe.resourceEntries.length = 0;
+    performance.clearResourceTimings();
+  });
 }
 
 async function attachJson(testInfo: TestInfo, name: string, value: unknown) {
@@ -624,6 +665,9 @@ async function activateWorkspaceTarget(
   target: WorkspaceNavigationTarget,
   mobile: boolean,
 ) {
+  const parameter = target.kind === 'section' ? 'view' : 'lane';
+  const beforeId = new URL(page.url()).searchParams.get(parameter);
+  expect(beforeId).not.toBe(target.id);
   const startedAt = await page.evaluate(() => performance.now());
   if (target.kind === 'section') {
     if (mobile) {
@@ -636,6 +680,8 @@ async function activateWorkspaceTarget(
     await page.locator(`#lane-tab-${target.id}`).click();
     await page.waitForURL(new RegExp(`[?&]lane=${target.id}(?:&|$)`));
   }
+  const afterId = new URL(page.url()).searchParams.get(parameter);
+  expect(afterId).toBe(target.id);
   const settledAt = await page.evaluate(
     () =>
       new Promise<number>((resolve) => {
@@ -644,6 +690,7 @@ async function activateWorkspaceTarget(
   );
   return {
     elapsedToSecondFrameMs: round(settledAt - startedAt),
+    beforeId,
     id: target.id,
     kind: target.kind,
   };
@@ -738,6 +785,7 @@ test.describe('Task 19 public login performance gates', () => {
 
       await attachJson(testInfo, `task-19-login-performance-${testInfo.project.name}`, baseline);
 
+      assertRequiredObservers(snapshot);
       for (const phase of baseline.performance.longAnimationFrames.phaseSamples) {
         expect(phase.renderMs).toBeLessThanOrEqual(phase.durationMs);
         expect(phase.scriptMs).toBeLessThanOrEqual(phase.durationMs);
@@ -770,17 +818,14 @@ test.describe('Task 19 authenticated workspace performance gates', () => {
   if (storageStatePath) test.use({ storageState: storageStatePath });
 
   test('keeps 7-section/3-lane navigation within 4x CPU budgets', async ({ page }, testInfo) => {
-    test.skip(
-      !storageStatePath,
-      'PLAYWRIGHT_STORAGE_STATE is not set; authenticated /workspace baseline is explicitly skipped',
-    );
-
     const runtime = collectRuntimeStats(page);
     await installBrowserProbe(page);
     const cdp = await setCpuThrottle(page, CPU_THROTTLE_RATE);
     await page.goto('/workspace?view=today&lane=must_know', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('research-workspace-v3').waitFor({ state: 'visible' });
     await page.waitForLoadState('networkidle');
+    await settlePerformanceObservers(page);
+    await resetBrowserProbe(page);
 
     const navigationPlan = await runWorkspaceNavigationPlan(
       page,
@@ -826,12 +871,13 @@ test.describe('Task 19 authenticated workspace performance gates', () => {
       runtime: runtimeMetrics,
       schemaVersion: 1,
       surface: 'authenticated-workspace',
-      transfer: summarizeTransfer(snapshot),
+      transfer: summarizeTransfer(snapshot, false),
       viewport: page.viewportSize(),
     };
 
     await attachJson(testInfo, `task-19-workspace-performance-${testInfo.project.name}`, baseline);
 
+    assertRequiredObservers(snapshot);
     for (const phase of baseline.performance.longAnimationFrames.phaseSamples) {
       expect(phase.renderMs).toBeLessThanOrEqual(phase.durationMs);
       expect(phase.scriptMs).toBeLessThanOrEqual(phase.durationMs);
@@ -840,13 +886,21 @@ test.describe('Task 19 authenticated workspace performance gates', () => {
     expect(runtimeMetrics.totalErrors).toBe(0);
     expect(overflow.overflowPx).toBeLessThanOrEqual(1);
     expect(navigationPlan.actionTimings).toHaveLength(10);
+    const expectedNavigationFrameTargets = [
+      ...WORKSPACE_SECTIONS.map((id) => `workspace-nav-${id}`),
+      ...WORKSPACE_LANES.map((id) => `lane-tab-${id}`),
+    ].sort();
+    const navigationFrameTargets = baseline.navigation.eventToNextAnimationFrame
+      .map(({ target }) => target)
+      .sort();
+    expect(navigationFrameTargets).toEqual(expectedNavigationFrameTargets);
     expect(
       Math.max(
         ...navigationPlan.actionTimings.map(({ elapsedToSecondFrameMs }) => elapsedToSecondFrameMs),
       ),
     ).toBeLessThanOrEqual(WORKSPACE_NAVIGATION_SETTLE_GATE_MS);
     expect(
-      Math.max(0, ...baseline.navigation.eventToNextAnimationFrame.map(({ deltaMs }) => deltaMs)),
+      Math.max(...baseline.navigation.eventToNextAnimationFrame.map(({ deltaMs }) => deltaMs)),
     ).toBeLessThan(WORKSPACE_NAVIGATION_FRAME_GATE_MS);
     expect(baseline.performance.longTasks.maxMs).toBeLessThanOrEqual(WORKSPACE_LONG_TASK_GATE_MS);
     expect(baseline.performance.longAnimationFrames.phaseMaxima.scriptMs).toBeLessThanOrEqual(

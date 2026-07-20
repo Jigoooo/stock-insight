@@ -1,3 +1,4 @@
+import type { PublicationSnapshotIdentity } from '@stock-insight/api';
 import type { StockListResponse } from '@stock-insight/contracts';
 import type {
   DecisionHistoryPage,
@@ -24,6 +25,7 @@ export type ResearchWorkspaceViewOptions = {
   cursor?: string;
   lane?: ResearchFeedLaneId;
   record?: string;
+  snapshot?: PublicationSnapshotIdentity;
   view: ResearchWorkspaceViewId;
 };
 

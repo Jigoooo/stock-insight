@@ -25,25 +25,35 @@ type CacheEntry<Value> =
   | {
       controller: AbortController;
       promise: Promise<Value>;
+      request: QueuedRequest<Value>;
       status: 'pending';
     };
 
 type QueuedRequest<Value> = {
+  activeWaiters: number;
+  basePriority: 'active' | 'prefetch';
   controller: AbortController;
   detachExternalAbort?: () => void;
   generation: number;
   key: string;
   loader: WorkspaceViewLoader<Value>;
+  priority: 'active' | 'prefetch';
   promise: Promise<Value>;
   reject: (reason: unknown) => void;
   resolve: (value: Value) => void;
   scopeVersion: string;
   settled: boolean;
+  slotReleased: boolean;
   started: boolean;
 };
 
 type PrefetchOptions = {
   priority: 'idle' | 'intent';
+};
+
+type LoadOptions = {
+  priority?: 'active' | 'prefetch';
+  signal?: AbortSignal;
 };
 
 function createAbortError(message: string) {
@@ -85,11 +95,13 @@ export class WorkspaceViewCache<Value> {
   readonly #entries = new Map<string, CacheEntry<Value>>();
   readonly #maxConcurrency: number;
   readonly #queue: Array<QueuedRequest<Value>> = [];
+  readonly #running = new Set<QueuedRequest<Value>>();
   #activeCount = 0;
   #activeLoadToken = 0;
   #activeValue: Value | undefined;
   #generation = 0;
   #idlePrefetch: Promise<boolean> | null = null;
+  #pumpSuspended = false;
   #scopeVersion: string;
 
   constructor(scopeVersion: string, maxConcurrency = 2) {
@@ -104,7 +116,7 @@ export class WorkspaceViewCache<Value> {
   load(
     key: WorkspaceViewCacheKey,
     loader: WorkspaceViewLoader<Value>,
-    options: Readonly<{ signal?: AbortSignal }> = {},
+    options: Readonly<LoadOptions> = {},
   ): Promise<Value> {
     if (key.scopeVersion !== this.#scopeVersion) {
       return Promise.reject(createAbortError('Workspace cache scope does not match'));
@@ -118,7 +130,18 @@ export class WorkspaceViewCache<Value> {
     const serializedKey = serializeKey(key);
     const cached = this.#entries.get(serializedKey);
     if (cached?.status === 'ready') return Promise.resolve(cached.data);
-    if (cached?.status === 'pending') return waitForCaller(cached.promise, options.signal);
+    if (cached?.status === 'pending') {
+      if ((options.priority ?? 'active') === 'active') {
+        this.#promote(cached.request);
+        if (cached.request.basePriority === 'prefetch') {
+          cached.request.activeWaiters += 1;
+          return waitForCaller(cached.promise, options.signal).finally(() =>
+            this.#releaseActiveWaiter(cached.request),
+          );
+        }
+      }
+      return waitForCaller(cached.promise, options.signal);
+    }
 
     const controller = new AbortController();
     let resolve!: (value: Value) => void;
@@ -128,19 +151,23 @@ export class WorkspaceViewCache<Value> {
       reject = onReject;
     });
     const request: QueuedRequest<Value> = {
+      activeWaiters: 0,
+      basePriority: options.priority ?? 'active',
       controller,
       generation: this.#generation,
       key: serializedKey,
       loader,
+      priority: options.priority ?? 'active',
       promise,
       reject,
       resolve,
       scopeVersion: key.scopeVersion,
       settled: false,
+      slotReleased: false,
       started: false,
     };
 
-    this.#entries.set(serializedKey, { controller, promise, status: 'pending' });
+    this.#entries.set(serializedKey, { controller, promise, request, status: 'pending' });
     controller.signal.addEventListener('abort', () => this.#rejectAborted(request), { once: true });
     if (options.signal) {
       if (options.signal.aborted) controller.abort(options.signal.reason);
@@ -152,7 +179,10 @@ export class WorkspaceViewCache<Value> {
           externalSignal.removeEventListener('abort', onExternalAbort);
       }
     }
-    this.#queue.push(request);
+    if (request.priority === 'active') {
+      this.#queue.unshift(request);
+      this.#preemptPrefetchForActive();
+    } else this.#queue.push(request);
     this.#pump();
     return promise;
   }
@@ -164,7 +194,7 @@ export class WorkspaceViewCache<Value> {
   ): Promise<boolean> {
     if (priority === 'idle' && this.#idlePrefetch) return Promise.resolve(false);
 
-    const work = this.load(key, loader).then(
+    const work = this.load(key, loader, { priority: 'prefetch' }).then(
       () => true,
       () => false,
     );
@@ -200,17 +230,32 @@ export class WorkspaceViewCache<Value> {
     if (this.#activeValue === undefined) this.#activeValue = value;
   }
 
+  hydrateActive(scopeVersion: string, value: Value) {
+    if (!scopeVersion) throw new Error('Workspace cache scope version is required');
+    if (scopeVersion !== this.#scopeVersion) {
+      this.#scopeVersion = scopeVersion;
+      this.clear();
+    }
+    this.seedActive(value);
+  }
+
   clear() {
     this.#generation += 1;
     this.#activeLoadToken += 1;
     this.#activeValue = undefined;
     this.#idlePrefetch = null;
-    for (const entry of this.#entries.values()) {
-      if (entry.status === 'pending') {
-        entry.controller.abort(createAbortError('Workspace cache cleared'));
+    this.#pumpSuspended = true;
+    try {
+      for (const entry of this.#entries.values()) {
+        if (entry.status === 'pending') {
+          entry.controller.abort(createAbortError('Workspace cache cleared'));
+        }
       }
+      this.#entries.clear();
+    } finally {
+      this.#pumpSuspended = false;
     }
-    this.#entries.clear();
+    this.#pump();
   }
 
   setScopeVersion(scopeVersion: string) {
@@ -228,7 +273,19 @@ export class WorkspaceViewCache<Value> {
     }
   }
 
+  #promote(request: QueuedRequest<Value>) {
+    request.priority = 'active';
+    if (request.started || request.settled) return;
+    const index = this.#queue.indexOf(request);
+    if (index > 0) {
+      this.#queue.splice(index, 1);
+      this.#queue.unshift(request);
+    }
+    this.#preemptPrefetchForActive();
+  }
+
   #pump() {
+    if (this.#pumpSuspended) return;
     while (this.#activeCount < this.#maxConcurrency) {
       const request = this.#queue.shift();
       if (!request) return;
@@ -236,6 +293,7 @@ export class WorkspaceViewCache<Value> {
 
       request.started = true;
       this.#activeCount += 1;
+      this.#running.add(request);
       let work: Promise<Value>;
       try {
         work = request.loader({ signal: request.controller.signal });
@@ -268,8 +326,7 @@ export class WorkspaceViewCache<Value> {
           },
         )
         .finally(() => {
-          this.#activeCount -= 1;
-          this.#pump();
+          this.#releaseSlot(request);
         });
     }
   }
@@ -284,5 +341,37 @@ export class WorkspaceViewCache<Value> {
       const index = this.#queue.indexOf(request);
       if (index >= 0) this.#queue.splice(index, 1);
     }
+    this.#releaseSlot(request);
+  }
+
+  #preemptPrefetchForActive() {
+    if (this.#activeCount < this.#maxConcurrency) return;
+    const victim = [...this.#running].find(
+      (request) => request.priority === 'prefetch' && !request.settled,
+    );
+    victim?.controller.abort(createAbortError('Workspace prefetch preempted by active navigation'));
+  }
+
+  #releaseActiveWaiter(request: QueuedRequest<Value>) {
+    if (request.basePriority !== 'prefetch' || request.activeWaiters === 0) return;
+    request.activeWaiters -= 1;
+    if (request.activeWaiters === 0 && !request.settled) {
+      request.priority = 'prefetch';
+      if (
+        this.#queue.some(
+          (queued) => queued.priority === 'active' && !queued.started && !queued.settled,
+        )
+      ) {
+        this.#preemptPrefetchForActive();
+      }
+    }
+  }
+
+  #releaseSlot(request: QueuedRequest<Value>) {
+    if (!request.started || request.slotReleased) return;
+    request.slotReleased = true;
+    this.#running.delete(request);
+    this.#activeCount -= 1;
+    this.#pump();
   }
 }

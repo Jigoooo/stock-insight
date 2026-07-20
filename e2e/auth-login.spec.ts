@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 const username = process.env.PLAYWRIGHT_AUTH_USERNAME;
@@ -79,12 +79,25 @@ async function authStateAppearance(page: Page) {
   });
 }
 
+function authClientIp(testInfo: TestInfo) {
+  const seed = `${testInfo.project.name}:${testInfo.testId}:${testInfo.retry}`;
+  let hash = 2_166_136_261;
+  for (const character of seed) {
+    hash ^= character.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16_777_619) >>> 0;
+  }
+  const project = testInfo.project.name.includes('mobile') ? 2 : 1;
+  return `2001:db8:${project.toString(16)}:${testInfo.retry.toString(16)}:${(hash >>> 16).toString(
+    16,
+  )}:${(hash & 0xffff).toString(16)}::1`;
+}
+
 test.describe('private workspace authentication', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }, testInfo) => {
     await page.setExtraHTTPHeaders({
-      'cf-connecting-ip': testInfo.project.name === 'mobile' ? '2001:db8::2' : '2001:db8::1',
+      'cf-connecting-ip': authClientIp(testInfo),
     });
   });
 

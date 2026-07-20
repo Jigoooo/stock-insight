@@ -100,6 +100,7 @@ export type GetEntityRelationsWithV2Options<TGraph> = {
   depth: number;
   userId: string;
   now: Date;
+  snapshot?: { analysisRunId: string; analysisRevision: number };
   /** Legacy loader invoked when no servable v2 pack exists. */
   loadV1: () => Promise<TGraph>;
 };
@@ -108,6 +109,9 @@ export async function getEntityRelationsWithV2Preference<TGraph = EntityRelation
   executor: EntityRelationSourceExecutor,
   options: GetEntityRelationsWithV2Options<TGraph>,
 ): Promise<EntityRelationAdapterResult<TGraph>> {
+  if (options.snapshot !== undefined) {
+    return { source: 'v1_fallback', graph: await options.loadV1() };
+  }
   let v2Result: Extract<EntityRelationAdapterResult<TGraph>, { source: 'v2_content_pack' }> | null =
     null;
 

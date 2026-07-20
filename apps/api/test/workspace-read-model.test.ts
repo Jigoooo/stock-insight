@@ -9,7 +9,7 @@ import {
 
 const userScope = { userId: '11111111-1111-4111-8111-111111111111' } as const;
 
-function createExecutor() {
+function createExecutor({ projectionStatus = 'available' } = {}) {
   const calls: Array<{ sql: string; params: readonly unknown[] }> = [];
   const executor: WorkspaceRowQueryExecutor = {
     async queryRows(sql, params = []) {
@@ -22,7 +22,7 @@ function createExecutor() {
             cutoff_at: '2026-07-16T13:05:26.678Z',
             source_watermark_at: '2026-07-16T12:47:35.000Z',
             fresh_until: '2026-07-17T07:05:26.678Z',
-            projection_status: 'available',
+            projection_status: projectionStatus,
           },
         ];
       }
@@ -150,16 +150,31 @@ describe('workspace read model', () => {
   });
 
   it('falls back to the latest stale publication snapshot', async () => {
-    const { calls, executor } = createExecutor();
-    await getWorkspaceToday(executor, { userScope });
+    const { calls, executor } = createExecutor({ projectionStatus: 'stale' });
+    const result = await getWorkspaceToday(executor, {
+      userScope,
+      now: new Date('2026-07-16T15:55:00.000Z'),
+    });
 
     const projectionCall = calls.find(({ sql }) => sql.includes('publication_projection_status'));
     assert.ok(projectionCall);
-    assert.match(projectionCall.sql, /projection_status\s+IN\s+\('available',\s*'stale'\)/);
+    assert.match(projectionCall?.sql ?? '', /projection_status\s+IN\s+\('available',\s*'stale'\)/);
+    assert.equal(result.meta.freshness, 'stale');
+    assert.deepEqual(result.meta.contentSnapshot, {
+      analysisRunId: 'stock:2026-07-16:us_premarket',
+      analysisRevision: 1,
+      analysisCutoffAt: '2026-07-16T13:05:26.678Z',
+      sourceWatermarkAt: '2026-07-16T12:47:35.000Z',
+      freshUntil: '2026-07-17T07:05:26.678Z',
+    });
+    assert.deepEqual(
+      result.lanes.flatMap(({ items }) => items.map(({ recordKey }) => recordKey)),
+      ['record-direct', 'record-related', 'record-indirect', 'record-explore'],
+    );
   });
 
   it('consumes an opaque cursor without duplicating records', async () => {
-    const { executor } = createExecutor();
+    const { calls, executor } = createExecutor();
     const first = await getResearchFeedPage(executor, {
       userScope,
       lane: 'must_know',
@@ -185,5 +200,9 @@ describe('workspace read model', () => {
     );
     assert.equal(second.nextCursor, null);
     assert.equal(second.scopeTotal, 2);
+    const projectionCalls = calls.filter(({ sql }) =>
+      sql.includes('publication_projection_status'),
+    );
+    assert.deepEqual(projectionCalls[1]?.params, ['stock:2026-07-16:us_premarket', 1]);
   });
 });

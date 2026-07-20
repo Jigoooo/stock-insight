@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Request } from '@playwright/test';
 
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
 if (storageState) test.use({ storageState });
@@ -44,6 +44,24 @@ test.describe('v3 research workspace candidate', () => {
     for (const rawToken of ['related_ticker:', 'STAGE:', 'R/R', 'Companyfacts']) {
       await expect(workspace).not.toContainText(rawToken);
     }
+    const firstRecord = page.getByTestId('research-feed-record').first();
+    await expect(firstRecord).toBeVisible();
+    const recordKey = await firstRecord.getAttribute('data-append-key');
+    expect(recordKey).toBeTruthy();
+    await firstRecord.click();
+    await expect(page).toHaveURL(new RegExp(`[?&]record=${encodeURIComponent(recordKey!)}`));
+    await expect(page).toHaveURL(/[?&]analysisRunId=[^&]+/);
+    await expect(page).toHaveURL(/[?&]analysisRevision=\d+/);
+    const inspector = page.getByTestId('evidence-inspector');
+    await expect(inspector).toBeVisible();
+    await expect(inspector.locator('h2')).not.toBeEmpty({ timeout: 20_000 });
+    const evidenceSection = inspector
+      .getByRole('heading', { name: '검증 근거', exact: true })
+      .locator('..');
+    await expect(evidenceSection.locator('article').first()).toBeVisible({ timeout: 20_000 });
+    await inspector.getByRole('button', { name: '인스펙터 닫기' }).click();
+    await expect(page).not.toHaveURL(/[?&]record=/);
+    await expect(page).not.toHaveURL(/[?&]analysisRunId=/);
     const sections = [
       ['radar', '세계 레이더'],
       ['stocks', '종목'],
@@ -67,6 +85,98 @@ test.describe('v3 research workspace candidate', () => {
     }));
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
     expect(runtimeErrors).toEqual([]);
+  });
+
+  test('loads relations when the URL-selected record already matches the default detail', async ({
+    page,
+  }) => {
+    await page.route('**/api/records/**', async (route) => {
+      const response = await route.fetch();
+      const detail = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response,
+        json: { ...detail, affectedEntityKeys: ['KR:005930'] },
+      });
+    });
+    await page.goto('/workspace?view=today&lane=must_know');
+    const firstRecord = page.getByTestId('research-feed-record').first();
+    await expect(firstRecord).toBeVisible();
+    const relationResponsePromise = page.waitForResponse((response) =>
+      /\/api\/entities\/[^/]+\/relations$/.test(new URL(response.url()).pathname),
+    );
+
+    await firstRecord.click();
+    const relationResponse = await relationResponsePromise;
+    expect(relationResponse.ok()).toBe(true);
+    const relationRequestUrl = new URL(relationResponse.url());
+    const workspaceUrl = new URL(page.url());
+    expect(relationRequestUrl.searchParams.get('analysisRunId')).toBe(
+      workspaceUrl.searchParams.get('analysisRunId'),
+    );
+    expect(relationRequestUrl.searchParams.get('analysisRevision')).toBe(
+      workspaceUrl.searchParams.get('analysisRevision'),
+    );
+    const relationCount = page
+      .getByTestId('evidence-inspector')
+      .locator('dt', { hasText: /^관계 경로$/ })
+      .locator('xpath=following-sibling::dd');
+    await expect(relationCount).not.toHaveText('0');
+
+    let releaseRelation!: () => void;
+    let markRelationRequested!: () => void;
+    const relationHold = new Promise<void>((resolve) => {
+      releaseRelation = resolve;
+    });
+    const relationRequested = new Promise<void>((resolve) => {
+      markRelationRequested = resolve;
+    });
+    await page.route('**/api/entities/**/relations?**', async (route) => {
+      markRelationRequested();
+      await relationHold;
+      await route.continue();
+    });
+
+    await page.goto(workspaceUrl.toString());
+    await relationRequested;
+    await expect(page.getByTestId('evidence-inspector')).toContainText(
+      '근거와 출처를 불러오고 있습니다',
+    );
+    const directRelationResponse = page.waitForResponse((response) =>
+      /\/api\/entities\/[^/]+\/relations$/.test(new URL(response.url()).pathname),
+    );
+    releaseRelation();
+    expect((await directRelationResponse).ok()).toBe(true);
+    await expect(relationCount).not.toHaveText('0');
+  });
+
+  test('clears record snapshot binding when selecting another Today lane', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'desktop inspector leaves lane tabs interactive');
+    await page.goto('/workspace?view=today&lane=must_know');
+    await page.getByTestId('research-feed-record').first().click();
+    await expect(page).toHaveURL(/[?&]record=/);
+    await expect(page).toHaveURL(/[?&]analysisRunId=/);
+
+    await page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab').nth(1).click();
+    await expect(page).toHaveURL(/[?&]lane=for_you/);
+    await expect(page).not.toHaveURL(/[?&]record=/);
+    await expect(page).not.toHaveURL(/[?&]analysisRunId=/);
+    await expect(page.getByTestId('evidence-inspector')).not.toBeVisible();
+  });
+
+  test('rejects blank record and relation snapshot pairs with 400', async ({ page }) => {
+    await page.goto('/workspace');
+    for (const path of [
+      '/api/records/e2e-record?analysisRunId=%20&analysisRevision=1',
+      '/api/entities/US%3AAAPL/relations?depth=1&analysisRunId=run-1&analysisRevision=',
+    ]) {
+      const status = await page.evaluate(
+        async (url) => (await fetch(url, { credentials: 'same-origin' })).status,
+        path,
+      );
+      expect(status).toBe(400);
+    }
   });
 
   test('keeps the current view visible with explicit feedback while a section loads', async ({
@@ -130,6 +240,113 @@ test.describe('v3 research workspace candidate', () => {
     });
   });
 
+  test('commits a lane as the latest intent while a section load is pending', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/workspace?view=today&lane=must_know');
+    await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    let delayRadarWorkspaceLoads = false;
+    let releaseWorkspaceLoad!: () => void;
+    let markWorkspaceLoadRequested!: () => void;
+    let resolveWorkspaceLoadsDrained!: () => void;
+    let rejectWorkspaceLoadsDrained!: (error: Error) => void;
+    let workspaceLoadAdmissionClosed = false;
+    const heldWorkspaceLoads = new Set<Request>();
+    const finishedWorkspaceLoads = new Set<Request>();
+    const workspaceLoadHold = new Promise<void>((resolve) => {
+      releaseWorkspaceLoad = resolve;
+    });
+    const workspaceLoadRequested = new Promise<void>((resolve) => {
+      markWorkspaceLoadRequested = resolve;
+    });
+    const workspaceLoadsDrained = new Promise<void>((resolve, reject) => {
+      resolveWorkspaceLoadsDrained = resolve;
+      rejectWorkspaceLoadsDrained = reject;
+    });
+    const settleWorkspaceLoadsIfDrained = () => {
+      if (workspaceLoadAdmissionClosed && finishedWorkspaceLoads.size === heldWorkspaceLoads.size) {
+        resolveWorkspaceLoadsDrained();
+      }
+    };
+    const onHeldWorkspaceLoadFinished = (request: Request) => {
+      if (!heldWorkspaceLoads.has(request)) return;
+      finishedWorkspaceLoads.add(request);
+      settleWorkspaceLoadsIfDrained();
+    };
+    const onHeldWorkspaceLoadFailed = (request: Request) => {
+      if (!heldWorkspaceLoads.has(request)) return;
+      rejectWorkspaceLoadsDrained(
+        new Error(
+          `Held Radar workspace request failed: ${request.failure()?.errorText ?? 'unknown'}`,
+        ),
+      );
+    };
+    page.on('requestfinished', onHeldWorkspaceLoadFinished);
+    page.on('requestfailed', onHeldWorkspaceLoadFailed);
+    await page.route('**/_serverFn/**', async (route) => {
+      const isRadarWorkspaceLoad = decodeURIComponent(route.request().url()).includes('"radar"');
+      if (
+        !delayRadarWorkspaceLoads ||
+        route.request().method() !== 'GET' ||
+        !isRadarWorkspaceLoad
+      ) {
+        await route.continue();
+        return;
+      }
+      heldWorkspaceLoads.add(route.request());
+      markWorkspaceLoadRequested();
+      await workspaceLoadHold;
+      await route.continue();
+    });
+
+    if (testInfo.project.name === 'mobile') {
+      await page.getByRole('button', { name: '메뉴 열기' }).click();
+    }
+    delayRadarWorkspaceLoads = true;
+    await page.getByTestId('workspace-nav-radar').click({ noWaitAfter: true });
+    await workspaceLoadRequested;
+    if (testInfo.project.name === 'mobile') {
+      await page.locator('button[aria-label="메뉴 닫기"]').waitFor({ state: 'detached' });
+    }
+    const failClosedTimer = setTimeout(() => {
+      delayRadarWorkspaceLoads = false;
+      workspaceLoadAdmissionClosed = true;
+      rejectWorkspaceLoadsDrained(new Error('Held Radar workspace request timed out'));
+      releaseWorkspaceLoad();
+    }, 25_000);
+    try {
+      const exploreTab = page.locator('[role="tab"]').nth(2);
+      if (testInfo.project.name === 'mobile') {
+        await exploreTab.evaluate((element) => (element as HTMLElement).click());
+      } else {
+        await exploreTab.click();
+      }
+    } finally {
+      delayRadarWorkspaceLoads = false;
+      workspaceLoadAdmissionClosed = true;
+      clearTimeout(failClosedTimer);
+      releaseWorkspaceLoad();
+      settleWorkspaceLoadsIfDrained();
+    }
+
+    try {
+      await workspaceLoadsDrained;
+    } finally {
+      page.off('requestfinished', onHeldWorkspaceLoadFinished);
+      page.off('requestfailed', onHeldWorkspaceLoadFailed);
+    }
+    await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('aria-busy');
+    await expect(page).toHaveURL(/view=today/);
+    await expect(page).toHaveURL(/lane=explore/);
+    await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible();
+    await expect(
+      page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab').nth(2),
+    ).toHaveAttribute('aria-selected', 'true');
+  });
+
   test('opens a URL-bound evidence inspector loading state accessibly', async ({
     page,
   }, testInfo) => {
@@ -182,17 +399,42 @@ test.describe('v3 research workspace candidate', () => {
     await page.goto('/workspace');
     const tabs = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab');
     await expect(tabs.first()).toBeEnabled();
-    await tabs.first().focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
-    await expect(page).toHaveURL(/lane=for_you/);
-    await page.keyboard.press('End');
-    await expect(tabs.nth(2)).toBeFocused();
+    const immediateFocusIndices = await page.evaluate(() => {
+      const laneTabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+      const dispatchArrowRight = () =>
+        document.activeElement?.dispatchEvent(
+          new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }),
+        );
+      laneTabs[0]?.focus();
+      dispatchArrowRight();
+      const afterFirst = laneTabs.indexOf(document.activeElement as HTMLElement);
+      dispatchArrowRight();
+      const afterSecond = laneTabs.indexOf(document.activeElement as HTMLElement);
+      laneTabs[0]?.focus();
+      return {
+        afterFirst,
+        afterSecond,
+        afterInternalFocusMove: laneTabs.indexOf(document.activeElement as HTMLElement),
+      };
+    });
+    expect(immediateFocusIndices).toEqual({
+      afterFirst: 1,
+      afterSecond: 2,
+      afterInternalFocusMove: 0,
+    });
     await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
-    await page.keyboard.press('Home');
     await expect(tabs.first()).toBeFocused();
+    await expect(page).toHaveURL(/lane=explore/);
+
+    const searchInput = page.getByRole('textbox', { name: '종목명 또는 티커 검색' });
+    await page.evaluate(() => {
+      const laneTabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+      laneTabs[2]?.focus();
+      laneTabs[2]?.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Home' }));
+      document.querySelector<HTMLElement>('[aria-label="종목명 또는 티커 검색"]')?.focus();
+    });
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(searchInput).toBeFocused();
   });
 
   test('commits section, lane, and drawer state under reduced motion', async ({
@@ -239,6 +481,20 @@ test.describe('v3 research workspace candidate', () => {
       await historyLoadMore.click();
       await expect.poll(() => historyRows.count()).toBeGreaterThan(initialHistoryCount);
     }
+  });
+
+  test('pins Today pagination to the active publication snapshot', async ({ page }) => {
+    await page.goto('/workspace?view=today&lane=must_know');
+    const records = page.getByTestId('research-feed-record');
+    const initialCount = await records.count();
+    const loadMore = page.getByRole('button', { name: '다음 변화 더 보기' });
+    await expect(loadMore).toBeEnabled();
+    await loadMore.click();
+
+    await expect(page).toHaveURL(/[?&]cursor=[^&]+/);
+    await expect(page).toHaveURL(/[?&]analysisRunId=[^&]+/);
+    await expect(page).toHaveURL(/[?&]analysisRevision=\d+/);
+    await expect.poll(() => records.count(), { timeout: 20_000 }).toBeGreaterThan(initialCount);
   });
 
   test('supports mobile navigation and keyboard-visible controls', async ({ page }, testInfo) => {
@@ -336,6 +592,8 @@ test.describe('v3 research workspace candidate', () => {
 
     await page.goto('/workspace?view=history');
     const loadMore = page.getByTestId('history-load-more');
+    const historyRows = page.getByTestId('history-row');
+    const initialHistoryCount = await historyRows.count();
     await expect(loadMore).toBeEnabled();
     let releaseFailure!: () => void;
     let markRequest!: () => void;
@@ -346,8 +604,14 @@ test.describe('v3 research workspace candidate', () => {
       markRequest = resolve;
     });
     let failNextPage = true;
+    let historyRequestCount = 0;
     await page.route('**/api/history**', async (route) => {
-      if (!failNextPage || route.request().method() !== 'GET') {
+      if (route.request().method() !== 'GET') {
+        await route.continue();
+        return;
+      }
+      historyRequestCount += 1;
+      if (!failNextPage) {
         await route.continue();
         return;
       }
@@ -363,7 +627,20 @@ test.describe('v3 research workspace candidate', () => {
     releaseFailure();
     await expect(page.getByRole('alert')).toContainText('다음 판단 기록을 불러오지 못했습니다.');
     await expect(loadMore).toHaveText('다시 시도');
-    await loadMore.click();
+    const retryResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/history' &&
+        response.request().method() === 'GET',
+    );
+    await loadMore.click({ noWaitAfter: true });
+    expect((await retryResponse).status()).toBe(200);
     await expect(page.getByRole('alert')).toBeHidden();
+    await expect.poll(() => historyRows.count()).toBeGreaterThan(initialHistoryCount);
+    const historyKeys = await historyRows.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute('data-append-key')),
+    );
+    expect(historyRequestCount).toBe(2);
+    expect(historyKeys.every(Boolean)).toBe(true);
+    expect(new Set(historyKeys).size).toBe(historyKeys.length);
   });
 });

@@ -13,6 +13,7 @@ import {
   getSystemStatus,
   getThemeResearchList,
   getWorkspaceToday,
+  type PublicationSnapshotIdentity,
 } from '@stock-insight/api';
 
 // Mirrors apps/web/src/routes/api/entities/$entityKey/relations.ts
@@ -30,6 +31,29 @@ function parsePagination(
     return undefined;
   }
   return cursor === undefined ? { limit } : { cursor, limit };
+}
+
+function parseSnapshot(
+  analysisRunIdRaw: string | string[] | undefined,
+  analysisRevisionRaw: string | string[] | undefined,
+): PublicationSnapshotIdentity | undefined {
+  const analysisRunId = firstParam(analysisRunIdRaw);
+  const rawRevision = firstParam(analysisRevisionRaw);
+  if ((analysisRunId === undefined) !== (rawRevision === undefined)) {
+    throw apiError('invalid_snapshot_query', 400);
+  }
+  if (analysisRunId === undefined || rawRevision === undefined) return undefined;
+  const analysisRevision = Number(rawRevision);
+  if (
+    analysisRunId.trim().length < 1 ||
+    analysisRunId.length > 128 ||
+    rawRevision.trim().length < 1 ||
+    !Number.isInteger(analysisRevision) ||
+    analysisRevision < 0
+  ) {
+    throw apiError('invalid_snapshot_query', 400);
+  }
+  return { analysisRunId, analysisRevision };
 }
 
 @Controller()
@@ -131,13 +155,18 @@ export class ResearchWorkspaceController {
   }
 
   @Get('records/:recordKey')
-  async getRecord(@Param('recordKey') recordKey: string) {
+  async getRecord(
+    @Param('recordKey') recordKey: string,
+    @Query('analysisRunId') analysisRunIdRaw?: string | string[],
+    @Query('analysisRevision') analysisRevisionRaw?: string | string[],
+  ) {
     if (!recordKey.trim() || recordKey.length > 320) {
       throw apiError('invalid_record_key', 400);
     }
+    const snapshot = parseSnapshot(analysisRunIdRaw, analysisRevisionRaw);
     const { withSnapshot, userScope } = researchContext();
     const detail = await withSnapshot((executor) =>
-      getResearchRecordDetail(executor, { userScope, recordKey }),
+      getResearchRecordDetail(executor, { userScope, recordKey, snapshot }),
     );
     if (!detail) throw apiError('record_not_found', 404);
     return detail;
@@ -147,14 +176,17 @@ export class ResearchWorkspaceController {
   async getRelations(
     @Param('entityKey') entityKey: string,
     @Query('depth') depthRaw?: string | string[],
+    @Query('analysisRunId') analysisRunIdRaw?: string | string[],
+    @Query('analysisRevision') analysisRevisionRaw?: string | string[],
   ) {
     const depth = Number(firstParam(depthRaw) ?? '1');
     if (!entityKeyPattern.test(entityKey) || !Number.isInteger(depth) || depth < 1 || depth > 2) {
       throw apiError('invalid_relation_query', 400);
     }
+    const snapshot = parseSnapshot(analysisRunIdRaw, analysisRevisionRaw);
     const { withSnapshot, userScope } = researchContext();
     const graph = await withSnapshot((executor) =>
-      getEntityRelations(executor, { userScope, entityKey, depth }),
+      getEntityRelations(executor, { userScope, entityKey, depth, snapshot }),
     );
     if (!graph) throw apiError('entity_not_found', 404);
     return graph;

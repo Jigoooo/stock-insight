@@ -14,31 +14,80 @@ import { Button } from '@/shared/ui/primitives/button';
 export const Route = createFileRoute('/_authenticated/workspace')({
   validateSearch: validateWorkspaceSearch,
   loaderDeps: ({ search }) => ({
+    analysisRevision: search.analysisRevision,
+    analysisRunId: search.analysisRunId,
     cursor: search.cursor,
     lane: search.lane ?? 'must_know',
+    record: search.record,
     view: search.view ?? 'today',
   }),
   loader: async ({ abortController, context, deps }) => {
+    const active = context.workspaceViewCache.getActive();
+    const canReuseActiveToday =
+      deps.view === 'today' &&
+      deps.record === undefined &&
+      deps.analysisRunId === undefined &&
+      active?.view === 'today' &&
+      (active.defaultRecord?.recordKey ?? null) === active.today.defaultRecordKey;
+    if (canReuseActiveToday) {
+      const activeLoadToken = context.workspaceViewCache.beginActiveLoad();
+      const data = { ...active, lane: deps.lane };
+      if (!context.workspaceViewCache.commitActive(data, activeLoadToken)) {
+        throw createRouteAbortError();
+      }
+      return { data, viewLoadError: undefined };
+    }
+
     const activeLoadToken = context.workspaceViewCache.beginActiveLoad();
     try {
-      const data = await context.workspaceViewCache.load(
-        workspaceCacheKey(context.session.user.id, deps.view, deps.lane, deps.cursor),
+      const loadedData = await context.workspaceViewCache.load(
+        workspaceCacheKey(
+          context.session.user.id,
+          deps.view,
+          deps.record !== undefined || deps.analysisRunId !== undefined
+            ? JSON.stringify([
+                deps.record ?? null,
+                deps.analysisRunId ?? null,
+                deps.analysisRevision ?? null,
+                deps.cursor ?? null,
+              ])
+            : deps.view === 'today'
+              ? undefined
+              : deps.cursor,
+        ),
         ({ signal }) => {
           if (signal.aborted) return Promise.reject(signal.reason);
           return loadResearchWorkspaceView({
             data: {
               cursor: deps.cursor,
               lane: deps.lane,
+              record: deps.record,
+              snapshot:
+                deps.analysisRunId !== undefined && deps.analysisRevision !== undefined
+                  ? {
+                      analysisRunId: deps.analysisRunId,
+                      analysisRevision: deps.analysisRevision,
+                    }
+                  : undefined,
               view: deps.view,
             },
           });
         },
         { signal: abortController.signal },
       );
+      const data =
+        loadedData.view === 'today' && deps.record === undefined && deps.analysisRunId === undefined
+          ? { ...loadedData, lane: deps.lane }
+          : loadedData;
       if (abortController.signal.aborted) {
         throw abortController.signal.reason ?? createRouteAbortError();
       }
-      if (!context.workspaceViewCache.commitActive(data, activeLoadToken)) {
+      const canCommitActive = deps.record === undefined && deps.analysisRunId === undefined;
+      if (
+        canCommitActive
+          ? !context.workspaceViewCache.commitActive(data, activeLoadToken)
+          : !context.workspaceViewCache.isActiveLoad(activeLoadToken)
+      ) {
         throw createRouteAbortError();
       }
       return { data, viewLoadError: undefined };
@@ -50,6 +99,7 @@ export const Route = createFileRoute('/_authenticated/workspace')({
       ) {
         throw error;
       }
+      if (deps.record !== undefined || deps.analysisRunId !== undefined) throw error;
       const data = context.workspaceViewCache.getActive();
       if (!data) throw error;
       return { data, viewLoadError: deps.view };
@@ -99,7 +149,9 @@ function ResearchWorkspaceRoute() {
   const navigate = Route.useNavigate();
   const loaderData = Route.useLoaderData();
   const { session, workspaceViewCache } = Route.useRouteContext();
-  workspaceViewCache.seedActive(loaderData.data);
+  if (search.record === undefined && search.analysisRunId === undefined) {
+    workspaceViewCache.hydrateActive(session.user.id, loaderData.data);
+  }
   return (
     <ResearchWorkspacePage
       data={loaderData.data}
@@ -112,7 +164,7 @@ function ResearchWorkspaceRoute() {
       onPrefetchSection={(view) => {
         const lane = search.lane ?? 'must_know';
         void workspaceViewCache.prefetch(
-          workspaceCacheKey(session.user.id, view, lane),
+          workspaceCacheKey(session.user.id, view),
           () => loadResearchWorkspaceView({ data: { lane, view } }),
           { priority: 'intent' },
         );
@@ -139,12 +191,11 @@ function createRouteAbortError() {
 function workspaceCacheKey(
   scopeVersion: string,
   view: SectionId,
-  lane: WorkspaceViewCacheKey['lane'],
   cursor?: string,
 ): WorkspaceViewCacheKey {
   return {
     cursor: cursor ?? null,
-    lane: view === 'today' ? lane : null,
+    lane: null,
     scopeVersion,
     view,
   };

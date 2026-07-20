@@ -101,6 +101,26 @@ describe('B8/UI — entity relation adapter (v2 preference, v1 fallback)', () =>
     assert.equal(result.graph, V1_GRAPH);
   });
 
+  it('routes exact publication snapshots through the projection-validating v1 path', async () => {
+    const executor = makeExecutor({});
+    let v1Calls = 0;
+    const result = await getEntityRelationsWithV2Preference(executor, {
+      entityKey: 'KR:005930',
+      depth: 1,
+      userId: USER_ID,
+      now: NOW,
+      snapshot: { analysisRunId: 'run-exact', analysisRevision: 7 },
+      loadV1: async () => {
+        v1Calls += 1;
+        return V1_GRAPH;
+      },
+    });
+
+    assert.equal(result.source, 'v1_fallback');
+    assert.equal(result.graph, V1_GRAPH);
+    assert.equal(v1Calls, 1);
+  });
+
   it('serves the v2 pack graph when a servable pack carries a valid graph payload', async () => {
     const graphPayload = {
       ...V1_GRAPH,

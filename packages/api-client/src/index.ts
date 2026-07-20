@@ -241,8 +241,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
       if (!response.ok) throw new Error(`Research feed failed with ${response.status}`);
       return researchFeedPageSchema.parse(await response.json());
     },
-    async researchRecord(recordKey: string): Promise<ResearchRecordDetail> {
-      const response = await fetcher(buildUrl(`/api/records/${encodeURIComponent(recordKey)}`));
+    async researchRecord(
+      recordKey: string,
+      snapshot?: { analysisRunId: string; analysisRevision: number },
+    ): Promise<ResearchRecordDetail> {
+      const response = await fetcher(
+        buildUrl(`/api/records/${encodeURIComponent(recordKey)}`, {
+          analysisRunId: snapshot?.analysisRunId,
+          analysisRevision: snapshot === undefined ? undefined : String(snapshot.analysisRevision),
+        }),
+      );
       if (!response.ok) throw new Error(`Research record failed with ${response.status}`);
       return researchRecordDetailSchema.parse(await response.json());
     },
@@ -291,10 +299,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
       if (!response.ok) throw new Error(`My Research failed with ${response.status}`);
       return myResearchOverviewSchema.parse(await response.json());
     },
-    async entityRelations(entityKey: string, depth = 1): Promise<EntityRelationGraph> {
+    async entityRelations(
+      entityKey: string,
+      depth = 1,
+      snapshot?: { analysisRunId: string; analysisRevision: number },
+    ): Promise<EntityRelationGraph> {
       const response = await fetcher(
         buildUrl(`/api/entities/${encodeURIComponent(entityKey)}/relations`, {
           depth: String(depth),
+          analysisRunId: snapshot?.analysisRunId,
+          analysisRevision: snapshot === undefined ? undefined : String(snapshot.analysisRevision),
         }),
       );
       if (!response.ok) throw new Error(`Entity relations failed with ${response.status}`);

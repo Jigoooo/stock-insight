@@ -52,10 +52,11 @@ export async function loadResearchWorkspaceView(
 
     switch (options.view) {
       case 'today': {
-        const today = await getWorkspaceToday(executor, { userScope });
+        const today = await getWorkspaceToday(executor, { userScope, snapshot: options.snapshot });
         const recordKey = options.record ?? today.defaultRecordKey;
+        const snapshot = today.meta.contentSnapshot;
         const defaultRecord = recordKey
-          ? await getResearchRecordDetail(executor, { userScope, recordKey })
+          ? await getResearchRecordDetail(executor, { userScope, recordKey, snapshot })
           : null;
         activeSlice = {
           defaultRecord,
@@ -154,10 +155,13 @@ export async function loadResearchFeedPage(options: {
   );
 }
 
-export async function loadResearchRecord(recordKey: string) {
+export async function loadResearchRecord(
+  recordKey: string,
+  snapshot?: { analysisRunId: string; analysisRevision: number },
+) {
   const { database, userScope } = createResearchReadContext();
   return database.withReadSnapshot((executor) =>
-    getResearchRecordDetail(executor, { userScope, recordKey }),
+    getResearchRecordDetail(executor, { userScope, recordKey, snapshot }),
   );
 }
 
@@ -190,7 +194,11 @@ export async function loadThemeResearch() {
   return database.withReadSnapshot((executor) => getThemeResearchList(executor, { userScope }));
 }
 
-export async function loadEntityRelationGraph(entityKey: string, depth: number) {
+export async function loadEntityRelationGraph(
+  entityKey: string,
+  depth: number,
+  snapshot?: { analysisRunId: string; analysisRevision: number },
+) {
   const { database, userScope } = createResearchReadContext();
   return database.withReadSnapshot(async (executor) => {
     const result = await getEntityRelationsWithV2Preference(executor, {
@@ -198,7 +206,8 @@ export async function loadEntityRelationGraph(entityKey: string, depth: number) 
       depth,
       userId: userScope.userId,
       now: new Date(),
-      loadV1: () => getEntityRelations(executor, { userScope, entityKey, depth }),
+      snapshot,
+      loadV1: () => getEntityRelations(executor, { userScope, entityKey, depth, snapshot }),
     });
     return result.graph;
   });

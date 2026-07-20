@@ -11,6 +11,12 @@ const workspaceViewInputSchema = z
     cursor: z.string().min(1).max(512).optional(),
     lane: z.enum(['must_know', 'for_you', 'explore']).optional(),
     record: z.string().min(1).max(256).optional(),
+    snapshot: z
+      .object({
+        analysisRunId: z.string().min(1).max(128),
+        analysisRevision: z.number().int().nonnegative(),
+      })
+      .optional(),
     view: z.enum(['today', 'radar', 'stocks', 'themes', 'research', 'history', 'status']),
   })
   .strict();

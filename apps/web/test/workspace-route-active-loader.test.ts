@@ -17,7 +17,20 @@ describe('workspace active-view route loader', () => {
     assert.match(source, /lane:\s*search\.lane\s*\?\?\s*'must_know'/);
     assert.match(source, /cursor:\s*search\.cursor/);
     assert.match(source, /context\.workspaceViewCache\.load\(/);
-    assert.match(source, /workspaceCacheKey\(context\.session\.user\.id/);
+    assert.match(source, /const canReuseActiveToday/);
+    assert.match(source, /deps\.record === undefined/);
+    assert.match(
+      source,
+      /active\.defaultRecord\?\.recordKey \?\? null\) === active\.today\.defaultRecordKey/,
+    );
+    assert.match(source, /const data = \{ \.\.\.active, lane: deps\.lane \}/);
+    assert.match(
+      source,
+      /canReuseActiveToday[\s\S]+beginActiveLoad\(\)[\s\S]+commitActive\(data, activeLoadToken\)/,
+    );
+    assert.match(source, /loadedData\.view === 'today'/);
+    assert.match(source, /\{\s*\.\.\.loadedData,\s*lane:\s*deps\.lane\s*\}/);
+    assert.match(source, /workspaceCacheKey\(\s*context\.session\.user\.id/);
     assert.match(source, /signal:\s*abortController\.signal/);
     assert.doesNotMatch(source, /loadResearchWorkspaceInitial/);
   });
@@ -60,7 +73,16 @@ describe('workspace active-view route loader', () => {
     assert.match(route, /workspaceViewCache\.commitActive\(data, activeLoadToken\)/);
     assert.match(route, /abortController\.signal\.aborted/);
     assert.match(route, /workspaceViewCache\.getActive\(\)/);
-    assert.match(route, /workspaceViewCache\.seedActive\(loaderData\.data\)/);
+    assert.match(route, /workspaceViewCache\.hydrateActive\(session\.user\.id, loaderData\.data\)/);
+    assert.match(
+      route,
+      /if \(search\.record === undefined && search\.analysisRunId === undefined\)[\s\S]+hydrateActive/,
+    );
+    assert.match(route, /const canCommitActive = deps\.record === undefined/);
+    assert.match(
+      route,
+      /if \(deps\.record !== undefined \|\| deps\.analysisRunId !== undefined\) throw error/,
+    );
     assert.match(route, /viewLoadError/);
     assert.match(route, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
     assert.doesNotMatch(route, /pendingComponent:\s*WorkspaceRoutePending/);
