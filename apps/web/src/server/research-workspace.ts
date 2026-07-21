@@ -193,14 +193,19 @@ export async function loadThemeResearch(userId: string) {
   return database.withReadSnapshot((executor) => getThemeResearchList(executor, { userScope }));
 }
 
-export async function loadEntityRelationGraph(userId: string, entityKey: string, depth: number) {
+export async function loadEntityRelationGraph(
+  userId: string,
+  entityKey: string,
+  depth: number,
+  options: { knownAt?: Date } = {},
+) {
   const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot(async (executor) => {
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey,
       depth,
       userId: userScope.userId,
-      now: new Date(),
+      now: options.knownAt ?? new Date(),
     });
     return result.graph;
   });

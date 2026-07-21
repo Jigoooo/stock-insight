@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./research-workspace": "./src/research-workspace.ts"
+    "./research-workspace": "./src/research-workspace.ts",
+    "./temporal": "./src/temporal.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

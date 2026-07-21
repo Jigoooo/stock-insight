@@ -17,8 +17,9 @@
     "test:design:hard": "pnpm --filter @stock-insight/web test:design:hard",
     "test:design:browser": "playwright test e2e/auth-login.spec.ts --grep 'loads the active profile|redirects an anonymous root request|alternative visual profile|input focus visible|dark-mode authentication accessible'",
     "test:design:browser:production": "PLAYWRIGHT_USE_PRODUCTION_BUILD=1 PLAYWRIGHT_PORT=8094 playwright test e2e/auth-login.spec.ts --grep 'loads the active profile|redirects an anonymous root request|alternative visual profile|input focus visible|dark-mode authentication accessible'",
+    "test:sigma:browser:production": "node scripts/run-sigma-production-e2e.mjs",
     "audit:design": "pnpm --filter @stock-insight/web audit:design",
-    "verify:release": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:design:hard && pnpm build && pnpm test:design:browser:production",
+    "verify:release": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:design:hard && pnpm build && pnpm test:design:browser:production && pnpm test:sigma:browser:production",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },
