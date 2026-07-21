@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./research-workspace": "./src/research-workspace.ts",
-    "./temporal": "./src/temporal.ts"
+    "./temporal": "./src/temporal.ts",
+    "./graphrag-router": "./src/graphrag-router.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
