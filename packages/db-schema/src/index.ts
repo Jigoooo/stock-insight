@@ -28,6 +28,12 @@ import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_clai
 import { undirectedImpactStepGuardMigrationSql } from './migrations/028_undirected_impact_step_guard';
 import { coreIdentityGapBackfillMigrationSql } from './migrations/029_core_identity_gap_backfill';
 import { multiUserInvitationSignupMigrationSql } from './migrations/030_multi_user_invitation_signup';
+import { truthKernelMigrationSql } from './migrations/031_truth_kernel';
+import { worldEventTemporalLineageMigrationSql } from './migrations/032_world_event_temporal_lineage';
+import { entityResolutionOntologyMigrationSql } from './migrations/033_entity_resolution_ontology';
+import { geoFoundationMigrationSql } from './migrations/034_geo_foundation';
+import { geoExposurePitUniverseMigrationSql } from './migrations/035_geo_exposure_pit_universe';
+import { truthGeoServingMigrationSql } from './migrations/036_truth_geo_serving';
 
 export type AppTableName =
   | 'company_profiles'
@@ -64,6 +70,40 @@ export type AppTableName =
   | 'graph_snapshot_analytics'
   | 'backend_serving_v2'
   | 'pipeline_run_claim'
+  | 'truth_assertion'
+  | 'truth_numeric_fact'
+  | 'truth_derivation_dag'
+  | 'truth_coverage_ledger'
+  | 'truth_conflict_set'
+  | 'world_event'
+  | 'world_event_revision'
+  | 'world_event_participant'
+  | 'world_reified_obligation'
+  | 'ingestion_story'
+  | 'ingestion_content_artifact'
+  | 'resolution_candidate'
+  | 'resolution_feature'
+  | 'resolution_decision'
+  | 'ontology_rfc'
+  | 'ontology_revision'
+  | 'ontology_crosswalk'
+  | 'geo_entity'
+  | 'geo_entity_revision'
+  | 'geo_location_mention'
+  | 'geo_location_candidate'
+  | 'geo_location_decision'
+  | 'geo_crosswalk'
+  | 'geo_entity_exposure_revision'
+  | 'security_master'
+  | 'security_listing_revision'
+  | 'security_ticker_history'
+  | 'security_corporate_action'
+  | 'pit_universe_membership'
+  | 'v_truth_assertion_pit_v1'
+  | 'v_world_event_current_v1'
+  | 'v_geo_entity_exposure_v1'
+  | 'v_pit_universe_current_v1'
+  | 'truth_geo_serving_manifest'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -294,6 +334,88 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['app_invitations', 'app_invitation_consumptions'],
     sql: multiUserInvitationSignupMigrationSql,
   },
+  {
+    id: '031_truth_kernel',
+    description:
+      'P1-W1 truth kernel: source-backed assertions, normalized numeric facts, sealed multi-input derivation DAG, coverage revisions, and conflict/supersession revisions.',
+    tables: [
+      'truth_assertion',
+      'truth_numeric_fact',
+      'truth_derivation_dag',
+      'truth_coverage_ledger',
+      'truth_conflict_set',
+    ],
+    sql: truthKernelMigrationSql,
+  },
+  {
+    id: '032_world_event_temporal_lineage',
+    description:
+      'P1-W2 world event, temporal lineage, and source provenance: n-ary stateful event object with bitemporal revisions, participant/location roles, reified Contract/Regulation obligations, story syndication clusters, and translation/artifact provenance. Legacy knowledge.event rows are one-to-one back-projected without destructive rewrite.',
+    tables: [
+      'world_event',
+      'world_event_revision',
+      'world_event_participant',
+      'world_reified_obligation',
+      'ingestion_story',
+      'ingestion_content_artifact',
+    ],
+    sql: worldEventTemporalLineageMigrationSql,
+  },
+  {
+    id: '033_entity_resolution_ontology',
+    description:
+      'P1-W3 entity resolution and ontology RFC control: append-only candidate/feature/decision resolution ledger with an ambiguous-auto-link machine gate, plus an ontology RFC → revision → crosswalk ledger with a breaking-change compatibility gate. Legacy predicate revisions are seeded additively without destructive rewrite.',
+    tables: [
+      'resolution_candidate',
+      'resolution_feature',
+      'resolution_decision',
+      'ontology_rfc',
+      'ontology_revision',
+      'ontology_crosswalk',
+    ],
+    sql: entityResolutionOntologyMigrationSql,
+  },
+  {
+    id: '034_geo_foundation',
+    description:
+      'P1-W4 geo foundation: canonical PostGIS geo entities with spatial/precision/boundary/bitemporal revisions, external standard crosswalk (ISO3166/UN M49/GeoNames/UN LOCODE/IANA tz), append-only location mention → candidate → decision resolution with abstention and an ambiguous-auto-resolve machine gate, and a gold set. Existing country codes are seeded additively without destructive rewrite.',
+    tables: [
+      'geo_entity',
+      'geo_entity_revision',
+      'geo_location_mention',
+      'geo_location_candidate',
+      'geo_location_decision',
+      'geo_crosswalk',
+    ],
+    sql: geoFoundationMigrationSql,
+  },
+  {
+    id: '035_geo_exposure_pit_universe',
+    description:
+      'P1-W5 geo exposure and point-in-time security universe: evidenced country/facility exposure ratios that cannot drop their denominator, an append-only security master with non-overlapping ticker tenure (GiST exclusion), corporate actions (delist/split/merger/ticker reuse), and a PIT universe that cannot leak a future constituent. Existing listings are seeded additively.',
+    tables: [
+      'geo_entity_exposure_revision',
+      'security_master',
+      'security_listing_revision',
+      'security_ticker_history',
+      'security_corporate_action',
+      'pit_universe_membership',
+    ],
+    sql: geoExposurePitUniverseMigrationSql,
+  },
+  {
+    id: '036_truth_geo_serving',
+    description:
+      'P1-W6 truth/geo serving and compatibility: read-only additive views over the canonical truth assertion (PIT, accepted-tier), current world event, geo exposure, and PIT universe ledgers, plus a lineage manifest of canonical row counts. No canonical ledger is mutated; existing consumers ignore the additive surfaces.',
+    tables: [
+      'v_truth_assertion_pit_v1',
+      'v_world_event_current_v1',
+      'v_geo_entity_exposure_v1',
+      'v_pit_universe_current_v1',
+      'truth_geo_serving_manifest',
+    ],
+    sql: truthGeoServingMigrationSql,
+  },
 ];
 
 export {
@@ -327,4 +449,10 @@ export {
   undirectedImpactStepGuardMigrationSql,
   coreIdentityGapBackfillMigrationSql,
   multiUserInvitationSignupMigrationSql,
+  truthKernelMigrationSql,
+  worldEventTemporalLineageMigrationSql,
+  entityResolutionOntologyMigrationSql,
+  geoFoundationMigrationSql,
+  geoExposurePitUniverseMigrationSql,
+  truthGeoServingMigrationSql,
 };
