@@ -34,6 +34,11 @@ import { entityResolutionOntologyMigrationSql } from './migrations/033_entity_re
 import { geoFoundationMigrationSql } from './migrations/034_geo_foundation';
 import { geoExposurePitUniverseMigrationSql } from './migrations/035_geo_exposure_pit_universe';
 import { truthGeoServingMigrationSql } from './migrations/036_truth_geo_serving';
+import { impactExposureLedgerMigrationSql } from './migrations/037_impact_exposure_ledger';
+import { productionNetworkMigrationSql } from './migrations/038_production_network';
+import { methodologyRegistryMigrationSql } from './migrations/039_methodology_registry';
+import { scenarioSpatialImpactMigrationSql } from './migrations/040_scenario_spatial_impact';
+import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_cache_ledger';
 
 export type AppTableName =
   | 'company_profiles'
@@ -104,6 +109,29 @@ export type AppTableName =
   | 'v_geo_entity_exposure_v1'
   | 'v_pit_universe_current_v1'
   | 'truth_geo_serving_manifest'
+  | 'impact_shock'
+  | 'impact_channel'
+  | 'impact_exposure_revision'
+  | 'impact_score_component'
+  | 'io_industry_linkage'
+  | 'firm_supply_relation'
+  | 'product_classification'
+  | 'trade_route'
+  | 'industry_firm_allocation'
+  | 'meta_path_policy'
+  | 'methodology_template'
+  | 'method_estimate'
+  | 'method_assumption'
+  | 'method_diagnostic'
+  | 'conformal_interval'
+  | 'scenario_set'
+  | 'scenario_branch'
+  | 'scenario_invalidation'
+  | 'spatial_impact_path'
+  | 'spatial_impact_step'
+  | 'precompute_policy'
+  | 'precompute_cache_entry'
+  | 'precompute_invalidation'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -416,6 +444,65 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: truthGeoServingMigrationSql,
   },
+  {
+    id: '037_impact_exposure_ledger',
+    description:
+      'P2-WA impact engine exposure ledger: shock (anchored to world.event_revision) -> channel (17-class §7.2 taxonomy) -> append-only bitemporal exposure revision with the full §7.3 field set, plus the §7.4 eight-way score decomposition forced before sealing. Economic magnitude and epistemic confidence stay in separate columns and are never collapsed into one number.',
+    tables: [
+      'impact_shock',
+      'impact_channel',
+      'impact_exposure_revision',
+      'impact_score_component',
+    ],
+    sql: impactExposureLedgerMigrationSql,
+  },
+  {
+    id: '038_production_network',
+    description:
+      'P2-WB production network: industry IO linkage (OECD ICIO/Leontief coefficients), disclosed firm supplier/customer relations, product classification (HS/ECCN), geographic trade routes (ports via the geo layer), bounded industry->firm allocation (weights <= 1 per industry/basis/as_of), and a typed meta-path traversal policy (UI <= 3 hops, no mixed-relation shortest path). Append-only, least-privilege.',
+    tables: [
+      'io_industry_linkage',
+      'firm_supply_relation',
+      'product_classification',
+      'trade_route',
+      'industry_firm_allocation',
+      'meta_path_policy',
+    ],
+    sql: productionNetworkMigrationSql,
+  },
+  {
+    id: '039_methodology_registry',
+    description:
+      'P2-WC causal/statistical methodology registry: standard method templates (event study, local projection, SCM, DiD, DML, IV, PCMCI) with a claim class separating statistical association from causal estimate, replayable estimates (program + input snapshot + CI), assumptions and diagnostics as evidenced rows, and a conformal prediction wrapper. Hard rules: PCMCI is candidate-only and never causal; a causal estimate requires stored assumptions and diagnostics. Append-only, least-privilege.',
+    tables: [
+      'methodology_template',
+      'method_estimate',
+      'method_assumption',
+      'method_diagnostic',
+      'conformal_interval',
+    ],
+    sql: methodologyRegistryMigrationSql,
+  },
+  {
+    id: '040_scenario_spatial_impact',
+    description:
+      'P2-WD scenario branches and spatial impact paths: bull/base/bear scenario branches with policy delay/exemption modifiers that must carry counter-evidence and an invalidation condition before sealing, plus the three standard spatial impact paths (disaster x facility, sanction jurisdiction, port closure) with a named stable method. Pure spatial distance may never promote an impact edge. Append-only, least-privilege, PostGIS geometry.',
+    tables: [
+      'scenario_set',
+      'scenario_branch',
+      'scenario_invalidation',
+      'spatial_impact_path',
+      'spatial_impact_step',
+    ],
+    sql: scenarioSpatialImpactMigrationSql,
+  },
+  {
+    id: '041_precompute_cache_ledger',
+    description:
+      'P2-WE precompute strategy and cache-key ledger: three-tier precompute policy (always/conditional/on_demand) and an append-only cache-entry ledger whose key must carry all four version components (snapshot, query, ontology, model) so a stale precompute can never be served, plus an append-only invalidation ledger. Least-privilege, no delete.',
+    tables: ['precompute_policy', 'precompute_cache_entry', 'precompute_invalidation'],
+    sql: precomputeCacheLedgerMigrationSql,
+  },
 ];
 
 export {
@@ -455,4 +542,9 @@ export {
   geoFoundationMigrationSql,
   geoExposurePitUniverseMigrationSql,
   truthGeoServingMigrationSql,
+  impactExposureLedgerMigrationSql,
+  productionNetworkMigrationSql,
+  methodologyRegistryMigrationSql,
+  scenarioSpatialImpactMigrationSql,
+  precomputeCacheLedgerMigrationSql,
 };
