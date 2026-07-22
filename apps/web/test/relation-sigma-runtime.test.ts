@@ -87,6 +87,21 @@ describe('relation Sigma runtime state', () => {
     assert.deepEqual(killed, ['renderer', 'late-layout']);
   });
 
+  it('keeps bbox release independent from automated layout cancellation', async () => {
+    let layoutStopped = false;
+    let bboxReleased = false;
+    const runtime = createRelationRuntimeCleanup();
+    runtime.setTimer(setTimeout(() => (layoutStopped = true), 0));
+    runtime.setBBoxTimer(setTimeout(() => (bboxReleased = true), 0));
+
+    runtime.clearTimer();
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+
+    assert.equal(layoutStopped, false);
+    assert.equal(bboxReleased, true);
+    runtime.cleanup();
+  });
+
   it('clears a pending settle timer during cleanup', async () => {
     let fired = false;
     const runtime = createRelationRuntimeCleanup();

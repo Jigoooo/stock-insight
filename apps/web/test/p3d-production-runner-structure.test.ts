@@ -4,10 +4,16 @@ import { describe, it } from 'node:test';
 
 const runnerPath = new URL('../../../scripts/run-p3d-production-e2e.mjs', import.meta.url);
 const runnerSource = existsSync(runnerPath) ? readFileSync(runnerPath, 'utf8') : '';
+const rootPackage = readFileSync(new URL('../../../package.json', import.meta.url), 'utf8');
 
 describe('P3-D production E2E evidence runner', () => {
   it('exists as the only supported production evidence entrypoint', () => {
     assert.equal(existsSync(runnerPath), true);
+  });
+
+  it('is mandatory in the top-level release gate', () => {
+    assert.match(rootPackage, /"test:p3d:browser:production"/);
+    assert.match(rootPackage, /"verify:release"[^\n]*test:p3d:browser:production/);
   });
 
   it('binds each of two rounds to the same production artifact before and after browsers', () => {

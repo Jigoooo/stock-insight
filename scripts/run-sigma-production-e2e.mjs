@@ -70,7 +70,8 @@ try {
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests ?? []) {
         const status = test.status ?? 'unknown';
-        if (status in counts) counts[status] += 1;
+        if (status === 'expected' && test.expectedStatus !== 'passed') counts.unexpected += 1;
+        else if (status in counts) counts[status] += 1;
         else counts.unexpected += 1;
       }
     }
@@ -88,6 +89,13 @@ try {
   if (counts.expected !== EXPECTED_TESTS) {
     failures.push(`${counts.expected} passed (need exactly ${EXPECTED_TESTS})`);
   }
+  const reportPassed =
+    (stats.expected ?? 0) === EXPECTED_TESTS &&
+    (stats.unexpected ?? 0) === 0 &&
+    (stats.skipped ?? 0) === 0 &&
+    (stats.flaky ?? 0) === 0 &&
+    (report.errors?.length ?? 0) === 0;
+  if (!reportPassed) failures.push('JSON report did not converge to an all-passed result');
 
   console.log(
     `sigma_production_e2e expected=${counts.expected} skipped=${counts.skipped} ` +

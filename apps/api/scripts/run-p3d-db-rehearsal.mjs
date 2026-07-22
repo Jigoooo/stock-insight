@@ -8,8 +8,35 @@ import pg from 'pg';
 
 const { Client } = pg;
 const DISPOSABLE_PREFIX = 'stock_insight_p3d_rehearsal_';
-const CANDIDATE_BUNDLE_START_ID = '031_truth_kernel';
-const CANDIDATE_BUNDLE_END_ID = '042_geo_entity_identity_immutability';
+const EXPECTED_CANDIDATE_MIGRATION_IDS = [
+  '031_truth_kernel',
+  '032_world_event_temporal_lineage',
+  '033_entity_resolution_ontology',
+  '034_geo_foundation',
+  '035_geo_exposure_pit_universe',
+  '036_truth_geo_serving',
+  '037_impact_exposure_ledger',
+  '038_production_network',
+  '039_methodology_registry',
+  '040_scenario_spatial_impact',
+  '041_precompute_cache_ledger',
+  '042_geo_entity_identity_immutability',
+];
+const CANDIDATE_BASELINE_ABSENCE_RELATIONS = [
+  'knowledge.assertion',
+  'world.event',
+  'knowledge.resolution_policy',
+  'geo.entity',
+  'geo.entity_exposure_revision',
+  'serving.v_truth_assertion_pit_v1',
+  'analytics.impact_shock',
+  'analytics.io_industry_linkage',
+  'analytics.methodology_template',
+  'analytics.scenario_set',
+  'analytics.precompute_policy',
+];
+const CANDIDATE_BUNDLE_START_ID = EXPECTED_CANDIDATE_MIGRATION_IDS[0];
+const CANDIDATE_BUNDLE_END_ID = EXPECTED_CANDIDATE_MIGRATION_IDS.at(-1);
 
 function runCommand(command, args, password) {
   return new Promise((resolve, reject) => {
@@ -152,6 +179,13 @@ const candidateMigrationBundle = additiveAppMigrations.slice(
   candidateStartIndex,
   candidateEndIndex + 1,
 );
+const candidateMigrationIds = candidateMigrationBundle.map((migration) => migration.id);
+if (
+  candidateMigrationIds.length !== EXPECTED_CANDIDATE_MIGRATION_IDS.length ||
+  candidateMigrationIds.some((id, index) => id !== EXPECTED_CANDIDATE_MIGRATION_IDS[index])
+) {
+  throw new Error('Migration registry P3-D candidate bundle is not the exact ordered 031→042 set');
+}
 
 function assertDisposableDatabaseName(databaseName) {
   if (!new RegExp(`^${DISPOSABLE_PREFIX}[a-z0-9_]+$`).test(databaseName)) {
@@ -185,7 +219,6 @@ async function assertP3dBaseline(client) {
   const baseline = await client.query(
     `SELECT
        to_regclass('public.app_invitations') IS NOT NULL AS has_migration_030,
-       to_regclass('knowledge.assertion') IS NOT NULL AS has_migration_031,
        (
          SELECT count(*)::int
          FROM pg_trigger
@@ -196,11 +229,22 @@ async function assertP3dBaseline(client) {
   if (baseline.rows[0]?.has_migration_030 !== true) {
     throw new Error('P3-D rehearsal source is missing migration 030 baseline');
   }
-  if (baseline.rows[0]?.has_migration_031 !== false) {
-    throw new Error('P3-D rehearsal source already contains candidate migration 031');
-  }
   if (baseline.rows[0]?.p3d_trigger_count !== 0) {
     throw new Error('P3-D rehearsal source already contains migration 042');
+  }
+  const candidateSurfaces = await client.query(
+    `SELECT relation_name
+     FROM unnest($1::text[]) AS candidate(relation_name)
+     WHERE to_regclass(relation_name) IS NOT NULL
+     ORDER BY relation_name`,
+    [CANDIDATE_BASELINE_ABSENCE_RELATIONS],
+  );
+  if (candidateSurfaces.rows.length > 0) {
+    throw new Error(
+      `P3-D rehearsal source already contains candidate surfaces: ${candidateSurfaces.rows
+        .map((row) => row.relation_name)
+        .join(', ')}`,
+    );
   }
 }
 

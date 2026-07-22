@@ -67,6 +67,7 @@ export function RelationSigmaGraph({
   const interactionRef = useRef<GraphInteractionState>({});
   const onSelectEntityRef = useRef(onSelectEntity);
   const pendingSelectionRef = useRef<string | null>(null);
+  const cancelAutomatedLayoutRef = useRef<() => void>(() => undefined);
   const [query, setQuery] = useState('');
   const [selectedNode, setSelectedNode] = useState<string>();
   const [liveMessage, setLiveMessage] = useState('관계 지도를 탐색할 수 있습니다.');
@@ -94,6 +95,7 @@ export function RelationSigmaGraph({
   }, []);
 
   function selectAndFocusNode(node: string) {
+    cancelAutomatedLayoutRef.current();
     const renderer = rendererRef.current;
     const sourceNode = source.nodes.find(({ entityKey }) => entityKey === node);
     if (!sourceNode) return;
@@ -129,6 +131,7 @@ export function RelationSigmaGraph({
   }, [source]);
 
   function zoom(multiplier: number) {
+    cancelAutomatedLayoutRef.current();
     const renderer = rendererRef.current;
     if (!renderer) return;
     const camera = renderer.getCamera();
@@ -139,6 +142,7 @@ export function RelationSigmaGraph({
   }
 
   function resetCamera() {
+    cancelAutomatedLayoutRef.current();
     const renderer = rendererRef.current;
     if (!renderer) return;
     const camera = renderer.getCamera();
@@ -158,6 +162,7 @@ export function RelationSigmaGraph({
     let ownedGraph: RelationGraphology | null = null;
     const runtime = createRelationRuntimeCleanup();
     const release = () => {
+      cancelAutomatedLayoutRef.current = () => undefined;
       runtime.cleanup();
       if (rendererRef.current === ownedRenderer) rendererRef.current = null;
       if (graphRef.current === ownedGraph) {
@@ -255,6 +260,7 @@ export function RelationSigmaGraph({
         const transition = transitionRelationDrag(dragState, { type: 'click' });
         dragState = transition.state;
         if (transition.suppressClick) return;
+        cancelAutomatedLayoutRef.current();
         const fullLabel = graph.getNodeAttribute(node, 'fullLabel');
         setQuery(fullLabel);
         refreshSelection(node);
@@ -281,13 +287,17 @@ export function RelationSigmaGraph({
           })
         : null;
       runtime.setLayout(layout);
+      const cancelAutomatedLayout = () => {
+        runtime.clearTimer();
+        layout?.stop();
+      };
+      cancelAutomatedLayoutRef.current = cancelAutomatedLayout;
 
       function refitCamera() {
         renderer.setCustomBBox(null);
         renderer.refresh();
         const camera = renderer.getCamera();
-        if (normalizeMotion) camera.setState({ angle: 0, ratio: 1, x: 0.5, y: 0.5 });
-        else camera.animatedReset({ duration: 360 });
+        camera.setState({ angle: 0, ratio: 1, x: 0.5, y: 0.5 });
       }
 
       function releaseCustomBBox() {
@@ -302,13 +312,13 @@ export function RelationSigmaGraph({
           else if (releaseBBox) releaseCustomBBox();
           return;
         }
-        runtime.setTimer(
-          setTimeout(() => {
-            layout.stop();
-            if (refit) refitCamera();
-            else if (releaseBBox) releaseCustomBBox();
-          }, delay),
-        );
+        const nextTimer = setTimeout(() => {
+          layout.stop();
+          if (refit) refitCamera();
+          else if (releaseBBox) releaseCustomBBox();
+        }, delay);
+        if (releaseBBox) runtime.setBBoxTimer(nextTimer);
+        else runtime.setTimer(nextTimer);
       }
 
       if (!normalizeMotion) {
@@ -318,8 +328,11 @@ export function RelationSigmaGraph({
         scheduleLayoutStop(1_400, true);
       }
 
+      renderer.on('downStage', cancelAutomatedLayout);
+      renderer.on('wheelStage', cancelAutomatedLayout);
       renderer.on('downNode', ({ node, event }) => {
         runtime.clearTimer();
+        runtime.clearBBoxTimer();
         dragState = transitionRelationDrag(dragState, {
           type: 'down',
           node,

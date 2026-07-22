@@ -74,6 +74,7 @@ export function StocksView({
     const region = deepDiveRegionRef.current;
     const active = document.activeElement;
     if (!region || !(active instanceof HTMLElement) || !region.contains(active)) {
+      if (active === document.body && pendingFocusRestoreRef.current !== null) return;
       pendingFocusRestoreRef.current = null;
       return;
     }
@@ -88,9 +89,17 @@ export function StocksView({
   const restoreDeepDiveFocus = useCallback(() => {
     const pendingFocus = pendingFocusRestoreRef.current;
     if (pendingFocus === null) return;
-    pendingFocusRestoreRef.current = null;
     const region = deepDiveRegionRef.current;
-    if (!region) return;
+    if (!region) {
+      pendingFocusRestoreRef.current = null;
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body && !region.contains(active)) {
+      pendingFocusRestoreRef.current = null;
+      return;
+    }
+    pendingFocusRestoreRef.current = null;
     if (pendingFocus === 'region') {
       region.focus({ preventScroll: true });
       return;

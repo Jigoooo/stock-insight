@@ -289,6 +289,24 @@ describe('P3-WB stock deep dive view model', () => {
     assert.doesNotMatch(judgment?.summary ?? '', /매수|매도|추천/);
   });
 
+  it('does not claim a primary thesis when a holding has no thesis', () => {
+    const { primaryThesis: omittedPrimaryThesis, ...stockWithoutThesis } = stockDetail.data.stock;
+    void omittedPrimaryThesis;
+    const result = buildStockDeepDive(
+      {
+        ...stockDetail,
+        data: {
+          ...stockDetail.data,
+          stock: { ...stockWithoutThesis, isHolding: true },
+        },
+      } as unknown as StockDetailResponse,
+      relation as unknown as EntityRelationGraph,
+    );
+    const judgment = result.sections.find((item) => item.id === 'holding_judgment');
+    assert.deepEqual(judgment?.items, ['현재 보유 상태']);
+    assert.doesNotMatch(judgment?.summary ?? '', /기본 논지/);
+  });
+
   it('does not treat a thesis as a holding judgment for a non-held stock', () => {
     const result = buildStockDeepDive(
       {

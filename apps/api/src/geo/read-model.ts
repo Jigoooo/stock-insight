@@ -184,10 +184,18 @@ function compareText(first: string, second: string): number {
   return first < second ? -1 : first > second ? 1 : 0;
 }
 
-function parseFinite(value: number | string | null): number | undefined {
+const INVALID_FINITE = Symbol('invalid-finite');
+const DECIMAL_SCALAR_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+function parseFinite(value: number | string | null): number | undefined | typeof INVALID_FINITE {
   if (value === null) return undefined;
-  const result = Number(value);
-  return Number.isFinite(result) ? result : undefined;
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!DECIMAL_SCALAR_PATTERN.test(text)) return INVALID_FINITE;
+    const result = Number(text);
+    return Number.isFinite(result) ? result : INVALID_FINITE;
+  }
+  return Number.isFinite(value) ? value : INVALID_FINITE;
 }
 
 function parsePositiveIdentifier(
@@ -332,11 +340,20 @@ function mapRows(rows: GeoSnapshotRow[]) {
     }
     const longitude = parseFinite(row.longitude);
     const latitude = parseFinite(row.latitude);
-    if (longitude === undefined || latitude === undefined) {
+    if (
+      longitude === undefined ||
+      longitude === INVALID_FINITE ||
+      latitude === undefined ||
+      latitude === INVALID_FINITE
+    ) {
       rejected.push('invalid_geometry');
       continue;
     }
     const uncertaintyRadiusKm = parseFinite(row.uncertainty_radius_km);
+    if (uncertaintyRadiusKm === INVALID_FINITE) {
+      rejected.push('invalid_geometry');
+      continue;
+    }
     const result = geoFeatureSchema.safeParse({
       type: 'Feature',
       geometry: parseGeometry(row.geometry_json),
@@ -498,7 +515,7 @@ export async function getGeoMvtTile(
     acceptedSourceRevisionIds,
   ]);
   const tile = rows[0]?.tile;
-  if (tile === null || tile === undefined) return new Uint8Array();
+  if (tile === null || tile === undefined) throw new Error('Geo MVT tile payload is missing');
   if (!(tile instanceof Uint8Array)) throw new Error('Geo MVT tile payload is invalid');
   return tile;
 }

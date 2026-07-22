@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -8,6 +8,11 @@ import {
   compareArtifactPaths,
   hashProductionArtifact,
 } from '../../../scripts/production-artifact-hash.mjs';
+
+const hasherSource = readFileSync(
+  new URL('../../../scripts/production-artifact-hash.mjs', import.meta.url),
+  'utf8',
+);
 
 describe('production artifact hash', () => {
   it('orders artifact paths independently of the host locale', () => {
@@ -45,6 +50,26 @@ describe('production artifact hash', () => {
       const baseline = hashProductionArtifact(output);
       writeFileSync(join(output, 'public', 'manifest.webmanifest'), '{"name":"two"}');
       assert.notEqual(hashProductionArtifact(output), baseline);
+    } finally {
+      rmSync(output, { recursive: true, force: true });
+    }
+  });
+
+  it('covers root-level output metadata and binds file reads to no-follow descriptors', () => {
+    const output = mkdtempSync(join(tmpdir(), 'stock-insight-artifact-root-file-'));
+    try {
+      mkdirSync(join(output, 'server'));
+      mkdirSync(join(output, 'public'));
+      writeFileSync(join(output, 'server', 'index.mjs'), 'export {};');
+      writeFileSync(join(output, 'public', 'workspace.js'), 'console.log(1);');
+      writeFileSync(join(output, 'nitro.json'), '{"preset":"node-server"}');
+
+      const baseline = hashProductionArtifact(output);
+      writeFileSync(join(output, 'nitro.json'), '{"preset":"node-cluster"}');
+      assert.notEqual(hashProductionArtifact(output), baseline);
+      assert.match(hasherSource, /O_NOFOLLOW/);
+      assert.match(hasherSource, /fstatSync/);
+      assert.match(hasherSource, /readFileSync\(descriptor\)/);
     } finally {
       rmSync(output, { recursive: true, force: true });
     }

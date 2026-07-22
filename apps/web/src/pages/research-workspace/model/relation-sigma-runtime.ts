@@ -107,6 +107,7 @@ export function createRelationRuntimeCleanup() {
   let renderer: Killable | undefined;
   let layout: Killable | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let bboxTimer: ReturnType<typeof setTimeout> | undefined;
   const trackedTimers = new Set<ReturnType<typeof setTimeout>>();
   let cleaned = false;
 
@@ -114,6 +115,12 @@ export function createRelationRuntimeCleanup() {
     if (!timer) return;
     clearTimeout(timer);
     timer = undefined;
+  }
+
+  function clearBBoxTimer() {
+    if (!bboxTimer) return;
+    clearTimeout(bboxTimer);
+    bboxTimer = undefined;
   }
 
   return {
@@ -131,15 +138,22 @@ export function createRelationRuntimeCleanup() {
       if (cleaned) clearTimeout(nextTimer);
       else timer = nextTimer;
     },
+    setBBoxTimer(nextTimer: ReturnType<typeof setTimeout>) {
+      clearBBoxTimer();
+      if (cleaned) clearTimeout(nextTimer);
+      else bboxTimer = nextTimer;
+    },
     trackTimer(nextTimer: ReturnType<typeof setTimeout>) {
       if (cleaned) clearTimeout(nextTimer);
       else trackedTimers.add(nextTimer);
     },
     clearTimer,
+    clearBBoxTimer,
     cleanup() {
       if (cleaned) return;
       cleaned = true;
       clearTimer();
+      clearBBoxTimer();
       for (const trackedTimer of trackedTimers) clearTimeout(trackedTimer);
       trackedTimers.clear();
       layout?.kill();

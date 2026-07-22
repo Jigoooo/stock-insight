@@ -29,7 +29,14 @@ describe('RelationSigmaGraph structure', () => {
   it('implements official Sigma drag lifecycle and camera suppression', async () => {
     const source = await readFile(componentPath, 'utf8');
 
-    for (const eventName of ['downNode', 'moveBody', 'upNode', 'upStage']) {
+    for (const eventName of [
+      'downNode',
+      'downStage',
+      'wheelStage',
+      'moveBody',
+      'upNode',
+      'upStage',
+    ]) {
       assert.match(source, new RegExp(`renderer\\.on\\('${eventName}'`));
     }
     assert.match(source, /renderer\.viewportToGraph\(event\)/);
@@ -44,12 +51,34 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(source, /scheduleLayoutStop\(650, false, true\)/);
     assert.match(source, /dataset\.customBbox = 'fixed'/);
     assert.match(source, /dataset\.customBbox = 'released'/);
+    assert.match(source, /if \(releaseBBox\) runtime\.setBBoxTimer\(nextTimer\)/);
     assert.doesNotMatch(source, /scheduleLayoutStop\(650, true\)/);
     const downNodeHandler = source.slice(
       source.indexOf("renderer.on('downNode'"),
       source.indexOf("renderer.on('moveBody'"),
     );
     assert.match(downNodeHandler, /runtime\.clearTimer\(\)/);
+    assert.match(downNodeHandler, /runtime\.clearBBoxTimer\(\)/);
+    const clickNodeHandler = source.slice(
+      source.indexOf("renderer.on('clickNode'"),
+      source.indexOf('const layout =', source.indexOf("renderer.on('clickNode'")),
+    );
+    assert.ok(
+      clickNodeHandler.indexOf('if (transition.suppressClick) return;') <
+        clickNodeHandler.indexOf('cancelAutomatedLayoutRef.current();'),
+      'a suppressed drag-click must not cancel the pending custom-bbox release',
+    );
+    assert.match(source, /const cancelAutomatedLayout = \(\) => \{/);
+    assert.match(source, /renderer\.on\('downStage', cancelAutomatedLayout\)/);
+    assert.match(source, /renderer\.on\('wheelStage', cancelAutomatedLayout\)/);
+    const initialRefit = source.match(/function refitCamera\(\) \{[\s\S]*?\n      \}/)?.[0] ?? '';
+    assert.match(initialRefit, /camera\.setState\(/);
+    assert.doesNotMatch(initialRefit, /animatedReset|camera\.animate/);
+    for (const control of ['selectAndFocusNode', 'zoom', 'resetCamera']) {
+      const start = source.indexOf(`function ${control}`);
+      const end = source.indexOf('\n  }', start);
+      assert.match(source.slice(start, end), /cancelAutomatedLayoutRef\.current\(\)/);
+    }
   });
 
   it('uses hover reducers and animated camera focus without creating graph data', async () => {
@@ -144,6 +173,9 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(hasher, /rootFiles\.length === 0/);
     assert.match(runner, /const EXPECTED_TESTS = 10/);
     assert.match(runner, /counts\.expected !== EXPECTED_TESTS/);
+    assert.match(runner, /test\.expectedStatus !== 'passed'/);
+    assert.match(runner, /const reportPassed =/);
+    assert.match(runner, /!reportPassed/);
     assert.match(runner, /PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256/);
     assert.match(runner, /delete process\.env\[key\]/);
     assert.match(runner, /PLAYWRIGHT_GREP/);

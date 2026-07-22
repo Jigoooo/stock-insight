@@ -41,6 +41,15 @@ describe('P3-WA2 geo API contract', () => {
     }
   });
 
+  it('rejects zero-radius exact markers and whitespace-only identities', () => {
+    assert.equal(
+      parseGeoMarker({ ...validMarker, precisionClass: 'exact', uncertaintyRadiusKm: 0 }).ok,
+      false,
+    );
+    assert.equal(parseGeoMarker({ ...validMarker, geoEntityKey: '   ' }).ok, false);
+    assert.equal(parseGeoMarker({ ...validMarker, label: '\t' }).ok, false);
+  });
+
   it('rejects a marker with no evidence locator (every geo item must be traceable)', () => {
     const bad = { ...validMarker, evidenceLocator: undefined };
     const parsed = parseGeoMarker(bad);

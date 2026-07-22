@@ -80,6 +80,14 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(stocksSource, /deepDiveRegionRef\.current\?\.focus/);
     assert.match(stocksSource, /scrollIntoView/);
     assert.match(stocksSource, /prefers-reduced-motion: reduce/);
+    assert.match(
+      stocksSource,
+      /active === document\.body && pendingFocusRestoreRef\.current !== null/,
+    );
+    assert.match(
+      stocksSource,
+      /active instanceof HTMLElement && active !== document\.body && !region\.contains\(active\)/,
+    );
     assert.match(stocksSource, /<caption[^>]*>종목 커버리지<\/caption>/);
     assert.match(pageStyles, /grid-template-areas:\s*'table detail'/);
     assert.match(pageStyles, /grid-template-areas:\s*'detail'\s*'table'/);

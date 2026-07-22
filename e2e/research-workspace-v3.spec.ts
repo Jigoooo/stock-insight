@@ -212,7 +212,7 @@ function positiveGeoSnapshotFixture() {
       resolution: 3,
       cells: [
         {
-          cellId: '832830fffffffff',
+          cellId: '83489efffffffff',
           featureCount: 1,
           geoEntityKeys: ['geo:facility:austin'],
         },
@@ -897,6 +897,92 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
+
+    await page.evaluate(() => {
+      const target = window as typeof window & {
+        __stockInsightNativeRaf?: typeof window.requestAnimationFrame;
+      };
+      target.__stockInsightNativeRaf = window.requestAnimationFrame;
+      window.requestAnimationFrame = ((callback: FrameRequestCallback) =>
+        window.setTimeout(
+          () => callback(performance.now()),
+          250,
+        )) as typeof window.requestAnimationFrame;
+    });
+    await page.setViewportSize({ width: 1200, height: 900 });
+    const search = page.getByRole('textbox', { name: '종목명 또는 티커 검색' });
+    await search.focus();
+    await expect(search).toBeFocused();
+    await page.waitForTimeout(650);
+    await expect(search).toBeFocused();
+    await page.evaluate(() => {
+      const target = window as typeof window & {
+        __stockInsightNativeRaf?: typeof window.requestAnimationFrame;
+      };
+      if (target.__stockInsightNativeRaf) {
+        window.requestAnimationFrame = target.__stockInsightNativeRaf;
+        delete target.__stockInsightNativeRaf;
+      }
+    });
+  });
+
+  test('keeps the relation panel reachable at short desktop heights and narrow widths', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop sticky-panel contract');
+    await page.setViewportSize({ width: 1366, height: 480 });
+    await page.goto('/workspace?view=themes');
+    const panel = page.getByTestId('relation-ledger');
+    await expect(panel).toBeVisible();
+    await panel.evaluate((element) => {
+      const probe = document.createElement('div');
+      probe.dataset.relationScrollProbe = 'true';
+      probe.setAttribute('aria-hidden', 'true');
+      probe.style.height = '900px';
+      element.append(probe);
+    });
+    await panel.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, 64));
+
+    const desktop = await panel.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      const rect = element.getBoundingClientRect();
+      const last = element.lastElementChild?.getBoundingClientRect();
+      return {
+        bottom: rect.bottom,
+        clientHeight: element.clientHeight,
+        lastBottom: last?.bottom ?? Number.POSITIVE_INFINITY,
+        position: getComputedStyle(element).position,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(desktop.position).toBe('sticky');
+    expect(desktop.bottom).toBeLessThanOrEqual(desktop.viewportHeight + 1);
+    expect(desktop.scrollHeight).toBeGreaterThan(desktop.clientHeight);
+    expect(desktop.scrollTop).toBeGreaterThan(0);
+    expect(desktop.lastBottom).toBeLessThanOrEqual(desktop.bottom + 1);
+
+    await page.setViewportSize({ width: 1100, height: 480 });
+    await panel
+      .locator(':scope > :last-child')
+      .evaluate((element) => element.scrollIntoView({ block: 'end' }));
+    const narrow = await panel.evaluate((element) => {
+      const last = element.lastElementChild?.getBoundingClientRect();
+      return {
+        clientHeight: element.clientHeight,
+        lastBottom: last?.bottom ?? Number.POSITIVE_INFINITY,
+        maxHeight: getComputedStyle(element).maxHeight,
+        position: getComputedStyle(element).position,
+        scrollHeight: element.scrollHeight,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(narrow.position).toBe('static');
+    expect(narrow.maxHeight).toBe('none');
+    expect(narrow.scrollHeight).toBeLessThanOrEqual(narrow.clientHeight + 1);
+    expect(narrow.lastBottom).toBeLessThanOrEqual(narrow.viewportHeight + 1);
   });
 
   test('reflows stock and status tables without horizontal clipping on mobile', async ({

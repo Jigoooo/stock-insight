@@ -130,6 +130,35 @@ describe('sealed geo snapshot read model', () => {
     assert.deepEqual(executor.parameters[1], [knownAt.toISOString(), knownAt.toISOString()]);
   });
 
+  it('rejects blank and non-decimal numeric scalars before coercion', async () => {
+    const rows = [
+      {
+        ...validRows[0],
+        geo_entity_key: 'geo:facility:blank-longitude',
+        geometry_json: { type: 'Point', coordinates: [0, 37.4979] },
+        longitude: '   ',
+      },
+      {
+        ...validRows[0],
+        geo_entity_key: 'geo:facility:hex-longitude',
+        geometry_json: { type: 'Point', coordinates: [16, 37.4979] },
+        longitude: '0x10',
+      },
+      {
+        ...validRows[0],
+        geo_entity_key: 'geo:facility:blank-uncertainty',
+        uncertainty_radius_km: '',
+      },
+    ];
+
+    const snapshot = await getGeoSnapshot(executorFor(rows), { knownAt, now });
+    assert.deepEqual(snapshot.geojson.features, []);
+    assert.deepEqual(snapshot.rejected, {
+      count: 3,
+      reasons: [{ code: 'invalid_geometry', count: 3 }],
+    });
+  });
+
   it('returns an honest empty snapshot when geo tables exist without spatial revisions', async () => {
     const snapshot = await getGeoSnapshot(executorFor([]), { knownAt, now });
     assert.equal(snapshot.availability, 'empty');
@@ -167,6 +196,7 @@ describe('sealed geo snapshot read model', () => {
     const snapshot = await getGeoSnapshot(snapshotExecutor, { knownAt, now, h3Resolution: 3 });
     const sql: string[] = [];
     const parameters: unknown[][] = [];
+    let returnNullTile = false;
     const executor: GeoSnapshotQueryExecutor = {
       async queryRows<TRow extends Record<string, unknown>>(
         query: string,
@@ -183,7 +213,9 @@ describe('sealed geo snapshot read model', () => {
           ] as unknown as TRow[];
         }
         if (query.includes('ST_AsMVT(')) {
-          return [{ tile: Buffer.from([26, 3, 103, 101, 111]) }] as unknown as TRow[];
+          return [
+            { tile: returnNullTile ? null : Buffer.from([26, 3, 103, 101, 111]) },
+          ] as unknown as TRow[];
         }
         return [...validRows] as unknown as TRow[];
       },
@@ -223,6 +255,21 @@ describe('sealed geo snapshot read model', () => {
       [143, 142],
       [43, 42],
     ]);
+
+    returnNullTile = true;
+    await assert.rejects(
+      () =>
+        getGeoMvtTile(executor, {
+          z: 3,
+          x: 6,
+          y: 3,
+          knownAt,
+          validAt: knownAt,
+          snapshotId: snapshot.snapshotId,
+          now,
+        }),
+      /tile payload is missing/,
+    );
 
     await assert.rejects(
       () =>

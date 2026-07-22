@@ -195,6 +195,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /themeTitleLabel\(theme\.title\)/);
     assert.match(page, /className=\{styles\.themeSelect\}/);
     assert.match(page, /onSelectEntity\(entityKey\)/);
+    const relationPanel = css.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
+    assert.match(relationPanel, /overflow-y:\s*auto/);
+    assert.match(relationPanel, /overscroll-behavior:\s*contain/);
+    assert.match(relationPanel, /scrollbar-gutter:\s*stable/);
   });
 
   it('consumes the stable semantic interface without banning profile styling choices', () => {

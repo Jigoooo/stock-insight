@@ -61,7 +61,7 @@ const availableMaterial = {
     resolution: 3,
     cells: [
       {
-        cellId: '832830fffffffff',
+        cellId: '8330e1fffffffff',
         featureCount: 1,
         geoEntityKeys: ['geo:facility:seoul-fixture'],
       },
@@ -76,6 +76,27 @@ const availableSnapshot = sealFixture(availableMaterial);
 describe('sealed geo snapshot contract', () => {
   it('accepts a coherent renderer-neutral GeoJSON/MVT/H3 snapshot', () => {
     assert.equal(geoSnapshotSchema.parse(availableSnapshot).geojson.features.length, 1);
+  });
+
+  it('rejects an H3 cell that does not contain the sealed feature position', () => {
+    assert.equal(
+      geoSnapshotSchema.safeParse(
+        sealFixture({
+          ...availableMaterial,
+          h3: {
+            resolution: 3,
+            cells: [
+              {
+                cellId: '832830fffffffff',
+                featureCount: 1,
+                geoEntityKeys: ['geo:facility:seoul-fixture'],
+              },
+            ],
+          },
+        }),
+      ).success,
+      false,
+    );
   });
 
   it('rejects a sealed feature without an exact geo entity revision id', () => {

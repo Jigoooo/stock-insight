@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { latLngToCell } from 'h3-js';
 import { z } from 'zod';
 
 /**
@@ -57,8 +58,8 @@ const latitudeSchema = z.number().gte(-90).lte(90);
 
 export const geoMarkerSchema = z
   .object({
-    geoEntityKey: z.string().min(1),
-    label: z.string().min(1),
+    geoEntityKey: z.string().trim().min(1),
+    label: z.string().trim().min(1),
     geoKind: geoKindSchema,
     precisionClass: precisionClassSchema,
     longitude: longitudeSchema,
@@ -78,10 +79,14 @@ export const geoMarkerSchema = z
     }
     // False-precision gate: an 'exact' marker must state its uncertainty so the
     // UI can draw an honest halo instead of an over-confident pin.
-    if (value.precisionClass === 'exact' && value.uncertaintyRadiusKm === undefined) {
+    if (
+      value.precisionClass === 'exact' &&
+      (value.uncertaintyRadiusKm === undefined || value.uncertaintyRadiusKm <= 0)
+    ) {
       context.addIssue({
         code: 'custom',
-        message: 'exact precision marker must declare an uncertainty radius (false-precision gate)',
+        message:
+          'exact precision marker must declare a positive uncertainty radius (false-precision gate)',
         path: ['uncertaintyRadiusKm'],
       });
     }
@@ -510,6 +515,24 @@ export const geoSnapshotSchema = z
         path: ['h3', 'cells'],
       });
     }
+    const h3CellByGeoEntityKey = new Map<string, { cellId: string; index: number }>();
+    snapshot.h3.cells.forEach((cell, index) => {
+      cell.geoEntityKeys.forEach((key) =>
+        h3CellByGeoEntityKey.set(key, { cellId: cell.cellId, index }),
+      );
+    });
+    snapshot.geojson.features.forEach((feature) => {
+      const { geoEntityKey, latitude, longitude } = feature.properties;
+      const assignment = h3CellByGeoEntityKey.get(geoEntityKey);
+      const expectedCellId = latLngToCell(latitude, longitude, snapshot.h3.resolution);
+      if (assignment && assignment.cellId !== expectedCellId) {
+        context.addIssue({
+          code: 'custom',
+          message: 'H3 cell must contain its sealed feature position at the declared resolution',
+          path: ['h3', 'cells', assignment.index, 'cellId'],
+        });
+      }
+    });
     const rejectedCount = snapshot.rejected.reasons.reduce((total, item) => total + item.count, 0);
     if (rejectedCount !== snapshot.rejected.count) {
       context.addIssue({

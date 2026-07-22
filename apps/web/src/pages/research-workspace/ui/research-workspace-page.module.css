@@ -762,6 +762,9 @@
   max-height: calc(100dvh - 112px);
   position: sticky;
   top: 88px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .relationUpdating {

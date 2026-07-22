@@ -34,6 +34,32 @@ describe('P3-D disposable DB rehearsal runner', () => {
   });
 
   it('applies the exact 031→042 candidate bundle twice on a migration-030 snapshot', () => {
+    const expectedCandidateIds = [
+      '031_truth_kernel',
+      '032_world_event_temporal_lineage',
+      '033_entity_resolution_ontology',
+      '034_geo_foundation',
+      '035_geo_exposure_pit_universe',
+      '036_truth_geo_serving',
+      '037_impact_exposure_ledger',
+      '038_production_network',
+      '039_methodology_registry',
+      '040_scenario_spatial_impact',
+      '041_precompute_cache_ledger',
+      '042_geo_entity_identity_immutability',
+    ];
+    const expectedBlockStart = source.indexOf('const EXPECTED_CANDIDATE_MIGRATION_IDS');
+    const expectedBlockEnd = source.indexOf('];', expectedBlockStart);
+    const expectedBlock = source.slice(expectedBlockStart, expectedBlockEnd);
+    assert.deepEqual(
+      [...expectedBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]),
+      expectedCandidateIds,
+    );
+    assert.match(
+      source,
+      /candidateMigrationIds\.length !== EXPECTED_CANDIDATE_MIGRATION_IDS\.length/,
+    );
+    assert.match(source, /candidateMigrationIds\.some/);
     assert.match(source, /pg_dump/);
     assert.match(source, /pg_restore/);
     assert.match(source, /--exclude-table-data=_timescaledb_catalog\.bgw_job/);
@@ -49,6 +75,31 @@ describe('P3-D disposable DB rehearsal runner', () => {
     assert.match(source, /knowledge\.assertion/);
     assert.match(source, /for \(const round of \[1, 2\]\)/);
     assert.match(source, /for \(const migration of candidateMigrationBundle\)/);
+  });
+
+  it('requires the migration-030 baseline to exclude every 031→041 surface', () => {
+    const expectedRelations = [
+      'knowledge.assertion',
+      'world.event',
+      'knowledge.resolution_policy',
+      'geo.entity',
+      'geo.entity_exposure_revision',
+      'serving.v_truth_assertion_pit_v1',
+      'analytics.impact_shock',
+      'analytics.io_industry_linkage',
+      'analytics.methodology_template',
+      'analytics.scenario_set',
+      'analytics.precompute_policy',
+    ];
+    const blockStart = source.indexOf('const CANDIDATE_BASELINE_ABSENCE_RELATIONS');
+    const blockEnd = source.indexOf('];', blockStart);
+    const block = source.slice(blockStart, blockEnd);
+    assert.deepEqual(
+      [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]),
+      expectedRelations,
+    );
+    assert.match(source, /unnest\(\$1::text\[\]\).*relation_name/s);
+    assert.match(source, /to_regclass\(relation_name\) IS NOT NULL/);
   });
 
   it('proves insert acceptance plus UPDATE and DELETE rejection before rollback', () => {

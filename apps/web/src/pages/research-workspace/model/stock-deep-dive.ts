@@ -189,6 +189,11 @@ export function buildStockDeepDive(
         detail.stock.primaryThesis ? `기본 논지: ${detail.stock.primaryThesis}` : null,
       ].filter((value): value is string => Boolean(value))
     : [];
+  const holdingSummary = detail.stock.isHolding
+    ? detail.stock.primaryThesis
+      ? '보유 상태와 기본 논지를 의사결정 근거로 표시합니다. 투자 행동 제안은 포함하지 않습니다.'
+      : '보유 상태만 의사결정 근거로 표시합니다. 투자 행동 제안은 포함하지 않습니다.'
+    : undefined;
 
   const sections: StockDeepDiveSection[] = [
     section('identity', identityItems.length > 0 ? 'available' : 'missing', identityItems),
@@ -211,9 +216,7 @@ export function buildStockDeepDive(
       'holding_judgment',
       holdingItems.length > 0 ? 'partial' : 'missing',
       holdingItems,
-      holdingItems.length > 0
-        ? '보유 상태와 기본 논지를 의사결정 근거로 표시합니다. 투자 행동 제안은 포함하지 않습니다.'
-        : undefined,
+      holdingSummary,
     ),
     // Generic checkpoints are not a sealed decision-packet invalidation contract.
     section('invalidation', 'missing', []),
