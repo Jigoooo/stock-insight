@@ -1,11 +1,175 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+type SerializedNode = {
+  t?: number;
+  i?: number;
+  s?: unknown;
+  p?: { k: string[]; v: SerializedNode[] };
+  a?: SerializedNode[];
+  [key: string]: unknown;
+};
+
+function findSerializedRecord(node: SerializedNode, key: string): SerializedNode | undefined {
+  if (node.p?.k.includes(key)) return node;
+  for (const value of node.p?.v ?? []) {
+    const found = findSerializedRecord(value, key);
+    if (found) return found;
+  }
+  for (const value of node.a ?? []) {
+    const found = findSerializedRecord(value, key);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function serializedRecordValue(node: SerializedNode, key: string): SerializedNode | undefined {
+  const index = node.p?.k.indexOf(key) ?? -1;
+  return index >= 0 ? node.p?.v[index] : undefined;
+}
+
+function setSerializedRecordValue(node: SerializedNode, key: string, value: SerializedNode) {
+  const index = node.p?.k.indexOf(key) ?? -1;
+  if (index >= 0 && node.p) node.p.v[index] = value;
+}
+
+function maxSerializedId(node: SerializedNode): number {
+  let maximum = typeof node.i === 'number' ? node.i : -1;
+  for (const value of node.p?.v ?? []) maximum = Math.max(maximum, maxSerializedId(value));
+  for (const value of node.a ?? []) maximum = Math.max(maximum, maxSerializedId(value));
+  return maximum;
+}
+
+function serializedPrimitive(value: string | number | boolean | null): SerializedNode {
+  if (typeof value === 'string') return { t: 1, s: value };
+  if (typeof value === 'number') return { t: 0, s: value };
+  if (typeof value === 'boolean') return { t: 2, s: value ? 2 : 3 };
+  return { t: 2, s: 1 };
+}
+
+function serializedRecord(
+  id: number,
+  record: Record<string, string | number | boolean | null>,
+): SerializedNode {
+  const entries = Object.entries(record);
+  return {
+    t: 10,
+    i: id,
+    p: {
+      k: entries.map(([key]) => key),
+      v: entries.map(([, value]) => serializedPrimitive(value)),
+    },
+  };
+}
+
+type RadarWireEvidence = { matched: boolean; itemCount: number; scopeTotal: number };
+
+async function installRadarLoader(
+  page: Page,
+  mutate: (context: {
+    radar: SerializedNode;
+    shell: SerializedNode | undefined;
+    items: SerializedNode | undefined;
+    evidence: RadarWireEvidence;
+    nextId: number;
+  }) => void,
+) {
+  const evidence: RadarWireEvidence = { matched: false, itemCount: 0, scopeTotal: -1 };
+  await page.route('**/_serverFn/**', async (route) => {
+    if (!decodeURIComponent(route.request().url()).includes('radar')) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    let payload: SerializedNode;
+    try {
+      payload = (await response.json()) as SerializedNode;
+    } catch {
+      await route.fulfill({ response });
+      return;
+    }
+    const result = findSerializedRecord(payload, 'radar');
+    const radar = result ? serializedRecordValue(result, 'radar') : undefined;
+    if (!radar?.p?.k.includes('items')) {
+      await route.fulfill({ response });
+      return;
+    }
+    const items = serializedRecordValue(radar, 'items');
+    const shell = findSerializedRecord(payload, 'radarScopeTotal');
+    evidence.itemCount = items?.a?.length ?? 0;
+    mutate({ radar, shell, items, evidence, nextId: maxSerializedId(payload) + 1 });
+    evidence.matched = true;
+    await route.fulfill({ response, json: payload });
+  });
+  return evidence;
+}
+
+async function installEmptyRadarLoader(page: Page) {
+  return installRadarLoader(page, ({ radar, shell, items, evidence }) => {
+    setSerializedRecordValue(radar, 'items', { ...(items ?? { t: 9 }), a: [] });
+    setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 0 });
+    setSerializedRecordValue(radar, 'nextCursor', { t: 2, s: 1 });
+    if (shell) setSerializedRecordValue(shell, 'radarScopeTotal', { t: 0, s: 0 });
+    evidence.itemCount = 0;
+    evidence.scopeTotal = 0;
+  });
+}
+
+async function installPositiveRadarLoader(page: Page) {
+  return installRadarLoader(page, ({ radar, shell, items, evidence, nextId }) => {
+    const fixtureItems = [
+      serializedRecord(nextId, {
+        signalKey: 'p3-c-fixture-initial-holding',
+        entityKey: 'US:P3CONE',
+        market: 'US',
+        symbol: 'P3C1',
+        name: 'P3-C 초기 보유 관심 신호',
+        signalType: 'price_spike',
+        polarity: 'positive',
+        strength: 0.8,
+        summary: '결정론적 초기 행 보존과 다중 모드 렌더 검증용 신호입니다.',
+        occurredAt: '2026-07-22T00:00:00.000Z',
+        sourceName: 'P3-C E2E fixture',
+        watched: true,
+        holding: true,
+      }),
+      serializedRecord(nextId + 1, {
+        signalKey: 'p3-c-fixture-initial-general',
+        entityKey: 'KR:123456',
+        market: 'KR',
+        symbol: '123456',
+        name: 'P3-C 초기 일반 신호',
+        signalType: 'volume_spike',
+        polarity: 'neutral',
+        strength: 0.4,
+        summary: '두 번째 유형의 결정론적 지원 모드 렌더 검증용 신호입니다.',
+        occurredAt: '2026-07-21T23:00:00.000Z',
+        sourceName: null,
+        watched: false,
+        holding: false,
+      }),
+    ];
+    setSerializedRecordValue(radar, 'items', {
+      ...(items ?? { t: 9, i: nextId + 2 }),
+      a: fixtureItems,
+    });
+    setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 3 });
+    setSerializedRecordValue(radar, 'nextCursor', { t: 1, s: 'p3-c-fixture-cursor' });
+    if (shell) setSerializedRecordValue(shell, 'radarScopeTotal', { t: 0, s: 3 });
+    evidence.itemCount = fixtureItems.length;
+    evidence.scopeTotal = 3;
+  });
+}
 
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
 if (storageState) test.use({ storageState });
 
 test.describe('v3 research workspace candidate', () => {
-  test.skip(!storageState, 'PLAYWRIGHT_STORAGE_STATE is required for authenticated candidate QA');
+  test.beforeAll(() => {
+    if (!storageState) {
+      throw new Error('PLAYWRIGHT_STORAGE_STATE is required for authenticated candidate QA');
+    }
+  });
 
   test('redirects the authenticated root to the v3 workspace', async ({ page }) => {
     await page.goto('/');
@@ -165,25 +329,205 @@ test.describe('v3 research workspace candidate', () => {
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('loads additional Radar and History pages when cursors are available', async ({ page }) => {
-    await page.goto('/workspace?view=radar');
+  test('switches all eight market screens without fabricating unavailable data', async ({
+    page,
+  }) => {
+    await page.goto('/workspace?view=today');
+    const evidence = await installPositiveRadarLoader(page);
+    const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
+    if (await menuButton.isVisible()) await menuButton.click();
+    await page.getByTestId('workspace-nav-radar').click();
+    await page.waitForURL(/view=radar/);
+    await expect.poll(() => evidence.matched).toBe(true);
+    expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
+    await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
+    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    await expect(tabs).toHaveCount(8);
+    const danglingControls = await tabs.evaluateAll((elements) =>
+      elements
+        .map((element) => element.getAttribute('aria-controls'))
+        .filter((id) => !id || !document.getElementById(id)),
+    );
+    expect(danglingControls).toEqual([]);
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('radar-row')).toHaveCount(2);
+    await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
+
+    await tabs.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tabs.nth(1)).toBeFocused();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('note')).toContainText('인과 추정값이 아니라');
+    await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
+    await expect(page.getByTestId('market-factor-group').first()).toContainText('건 관측');
+
+    await tabs.nth(2).click();
+    await expect(page.getByRole('note')).toContainText('인과관계를 뜻하지 않습니다');
+    await expect(page.getByTestId('market-propagation-group')).toHaveCount(2);
+    await expect(page.getByTestId('market-propagation-group').first()).toContainText(
+      '동일 유형 관측',
+    );
+
+    await tabs.nth(3).click();
+    const themePanel = page.getByTestId('market-mode-theme_community');
+    await expect(themePanel).toContainText('테마 구성원 원천이 연결되지 않았습니다');
+    await expect(themePanel).toHaveAttribute('data-display-state', 'missing');
+    await expect(themePanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
+    await expect(themePanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
+
+    await tabs.nth(4).click();
+    await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
+    await expect(page.getByTestId('market-heatmap-row').first()).toBeVisible();
+
+    await tabs.nth(5).click();
+    await expect(page.getByTestId('market-timeline-row')).toHaveCount(2);
+    await expect(page.getByTestId('market-timeline-row').first()).toBeVisible();
+
+    await tabs.nth(6).click();
+    const mapPanel = page.getByTestId('market-mode-map_globe');
+    await expect(mapPanel).toContainText('검증된 GeoJSON 위치 원천은 P3-D에서 연결됩니다');
+    await expect(mapPanel).toHaveAttribute('data-display-state', 'missing');
+    await expect(mapPanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
+    await expect(mapPanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
+
+    await tabs.last().click();
+    const valueChainPanel = page.getByTestId('market-mode-value_chain');
+    await expect(valueChainPanel).toContainText(
+      '현재 레이더 응답에는 승인된 공급망 관계가 없습니다',
+    );
+    await expect(valueChainPanel).toHaveAttribute('data-display-state', 'missing');
+    await expect(valueChainPanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
+    await expect(valueChainPanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
+
+    await tabs.last().focus();
+    await page.keyboard.press('Home');
+    await expect(tabs.first()).toBeFocused();
+    await expect(page.getByTestId('radar-row')).toHaveCount(2);
+
+    const geometry = await tabs.evaluateAll((elements) => ({
+      minHeight: Math.min(...elements.map((element) => element.getBoundingClientRect().height)),
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    }));
+    expect(geometry.minHeight).toBeGreaterThanOrEqual(44);
+    expect(geometry.documentOverflow).toBe(0);
+
+    const results = await new AxeBuilder({ page }).include('[aria-label="시장 시각화"]').analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test('renders controlled empty and unsupported market modes as distinct runtime states', async ({
+    page,
+  }) => {
+    await page.goto('/workspace?view=today');
+    const evidence = await installEmptyRadarLoader(page);
+    const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
+    if (await menuButton.isVisible()) await menuButton.click();
+    await page.getByRole('button', { name: /세계 레이더/ }).click();
+    await page.waitForURL(/view=radar/);
+    await expect.poll(() => evidence.matched).toBe(true);
+    expect(evidence).toEqual({ matched: true, itemCount: 0, scopeTotal: 0 });
+    await expect(page.getByTestId('workspace-nav-radar')).toContainText('0');
+    await expect(page.getByTestId('radar-row')).toHaveCount(0);
+    await expect(page.getByTestId('radar-load-more')).toHaveCount(0);
+
+    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    for (const [index, title] of [
+      [0, '이벤트 레이더'],
+      [1, '팩터 맵'],
+      [2, '전파 맵'],
+      [4, '히트맵 매트릭스'],
+      [5, '타임라인'],
+    ] as const) {
+      await tabs.nth(index).click();
+      const panel = page.getByRole('tabpanel');
+      await expect(panel).toContainText(`${title}에 표시할 신호 없음`);
+      await expect(panel).toHaveAttribute('data-display-state', 'empty');
+      await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
+      await expect(panel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+      await expect(tabs.nth(index)).toContainText('신호 없음');
+    }
+
+    for (const [index, title] of [
+      [3, '테마 커뮤니티'],
+      [6, '지도·글로브'],
+      [7, '밸류체인'],
+    ] as const) {
+      await tabs.nth(index).click();
+      const panel = page.getByRole('tabpanel');
+      await expect(panel).toContainText(`${title} 데이터 준비 중`);
+      await expect(panel).toHaveAttribute('data-display-state', 'missing');
+      await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
+      await expect(panel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+      await expect(tabs.nth(index)).toContainText('원천 준비 중');
+      await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
+    }
+
+    const results = await new AxeBuilder({ page }).include('[aria-label="시장 시각화"]').analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test('loads a deterministic Radar cursor page and exhausts the cursor', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'cursor transport is viewport-independent');
+    await page.goto('/workspace?view=today');
+    const evidence = await installPositiveRadarLoader(page);
+    let requestedCursor: string | null = null;
+    await page.route('**/api/radar**', async (route) => {
+      requestedCursor = new URL(route.request().url()).searchParams.get('cursor');
+      const scopeTotal = evidence.itemCount + 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        json: {
+          generatedAt: '2026-07-22T00:00:00.000Z',
+          signalAsOf: '2026-07-22T00:00:00.000Z',
+          scopeTotal,
+          items: [
+            {
+              signalKey: 'p3-c-fixture-page-2',
+              entityKey: 'US:P3CFIX',
+              market: 'US',
+              symbol: 'P3C',
+              name: 'P3-C 회귀 신호',
+              signalType: 'price_spike',
+              polarity: 'positive',
+              strength: 0.42,
+              summary: '결정론적 페이지 추가 회귀 검증용 신호입니다.',
+              occurredAt: '2026-07-22T00:00:00.000Z',
+              sourceName: 'P3-C E2E fixture',
+              watched: true,
+              holding: true,
+            },
+          ],
+          nextCursor: null,
+        },
+      });
+    });
+
+    await page.getByTestId('workspace-nav-radar').click();
+    await page.waitForURL(/view=radar/);
+    await expect.poll(() => evidence.matched).toBe(true);
+    expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
+    await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
     const radarRows = page.getByTestId('radar-row');
-    const initialRadarCount = await radarRows.count();
+    await expect(radarRows).toHaveCount(2);
+    const initialHolding = radarRows.filter({ hasText: 'P3-C 초기 보유 관심 신호' });
+    await expect(initialHolding).toContainText('보유 · 관심');
     const radarLoadMore = page.getByTestId('radar-load-more');
+    await expect(radarLoadMore).toBeVisible();
     await expect(radarLoadMore).toBeEnabled();
     await radarLoadMore.click();
-    await expect.poll(() => radarRows.count()).toBeGreaterThan(initialRadarCount);
-
-    await page.goto('/workspace?view=history');
-    await expect(page.getByText(/건 표시 · 전체 \d+건/)).toBeVisible();
-    const historyLoadMore = page.getByTestId('history-load-more');
-    if (await historyLoadMore.isVisible().catch(() => false)) {
-      const historyRows = page.getByTestId('history-row');
-      const initialHistoryCount = await historyRows.count();
-      await expect(historyLoadMore).toBeEnabled();
-      await historyLoadMore.click();
-      await expect.poll(() => historyRows.count()).toBeGreaterThan(initialHistoryCount);
-    }
+    await expect(radarRows).toHaveCount(3);
+    await expect(initialHolding).toBeVisible();
+    const appended = radarRows.filter({ hasText: 'P3-C 회귀 신호' });
+    await expect(appended).toContainText('보유 · 관심');
+    expect(requestedCursor).toBe('p3-c-fixture-cursor');
+    await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
+    await expect(radarLoadMore).toHaveCount(0);
   });
 
   test('supports mobile navigation and keyboard-visible controls', async ({ page }, testInfo) => {
