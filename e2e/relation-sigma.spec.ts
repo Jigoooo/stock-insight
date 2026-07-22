@@ -6,37 +6,16 @@ import {
   type Response as PlaywrightResponse,
 } from '@playwright/test';
 
-import { createHash } from 'node:crypto';
-import {
-  chmodSync,
-  existsSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { chmodSync, existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+
+import { hashProductionArtifact } from '../scripts/production-artifact-hash.mjs';
 
 const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
 const expectedArtifactSha256 = process.env.PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256;
 
-function hashShippedArtifact(): string {
-  const hash = createHash('sha256');
-  hash.update('server/index.mjs\0');
-  hash.update(readFileSync(new URL('../apps/web/.output/server/index.mjs', import.meta.url)));
-  const assetsDir = new URL('../apps/web/.output/public/assets/', import.meta.url);
-  const assetFiles = readdirSync(assetsDir)
-    .filter((name) => name.endsWith('.js') || name.endsWith('.css'))
-    .sort();
-  if (assetFiles.length === 0) throw new Error('No client assets found to hash');
-  for (const name of assetFiles) {
-    hash.update(`\0public/assets/${name}\0`);
-    hash.update(readFileSync(new URL(name, assetsDir)));
-  }
-  return hash.digest('hex');
-}
-
-const actualArtifactSha256 = useProductionBuild ? hashShippedArtifact() : undefined;
+const actualArtifactSha256 = useProductionBuild
+  ? hashProductionArtifact(new URL('../apps/web/.output/', import.meta.url))
+  : undefined;
 
 const edgeHeaders = readFileSync(
   new URL('../deploy/stock-edge/security-headers.conf', import.meta.url),
@@ -290,9 +269,46 @@ test.describe('Sigma relationship graph', () => {
       if (message.type() === 'error') runtimeErrors.push(message.text());
     });
 
+    await page.addInitScript(() => {
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      const nativeClearTimeout = window.clearTimeout.bind(window);
+      const pendingInitialStops = new Map<number, () => void>();
+      let nextSyntheticTimer = -1;
+      window.setTimeout = ((handler: TimerHandler, timeout = 0, ...args: unknown[]) => {
+        if (timeout === 1_400 && typeof handler === 'function') {
+          const timer = nextSyntheticTimer--;
+          pendingInitialStops.set(timer, () => handler(...args));
+          return timer;
+        }
+        return nativeSetTimeout(handler, timeout, ...args);
+      }) as typeof window.setTimeout;
+      window.clearTimeout = ((timer?: number) => {
+        if (timer !== undefined && pendingInitialStops.delete(timer)) return;
+        nativeClearTimeout(timer);
+      }) as typeof window.clearTimeout;
+      Object.assign(window, {
+        __firePendingSigmaInitialStop: () => {
+          let fired = 0;
+          for (const [timer, callback] of pendingInitialStops) {
+            pendingInitialStops.delete(timer);
+            callback();
+            fired += 1;
+          }
+          return fired;
+        },
+      });
+    });
+
+    await installRootEchoingFixture(page);
     const response = await gotoWorkspace(page, '/workspace?view=themes');
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
     await expect(page).toHaveURL(/\/workspace\?view=themes/);
+    const fixtureResponse = page.waitForResponse(
+      (candidate) =>
+        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
+    );
+    await page.getByTestId('theme-select').nth(1).click();
+    await fixtureResponse;
 
     const graph = page.getByTestId('relation-graph');
     await expect(graph).toBeVisible();
@@ -372,9 +388,19 @@ test.describe('Sigma relationship graph', () => {
     await page.mouse.move(nodePoint!.x, nodePoint!.y);
     await page.mouse.down();
     await expect(status).toContainText('이동 중');
+    await expect(map).toHaveAttribute('data-custom-bbox', 'fixed');
+    const staleInitialStops = await page.evaluate(() =>
+      (
+        window as unknown as Window & {
+          __firePendingSigmaInitialStop: () => number;
+        }
+      ).__firePendingSigmaInitialStop(),
+    );
+    expect(staleInitialStops).toBe(0);
     await page.mouse.move(nodePoint!.x + 26, nodePoint!.y + 18, { steps: 4 });
     await page.mouse.up();
     await expect(status).toContainText('배치 조정 완료');
+    await expect(map).toHaveAttribute('data-custom-bbox', 'released');
     const postDragButton = nodeButtons.nth(1);
     const selectionRequest = page.waitForRequest(
       (request) => request.url().includes('/api/entities/') && request.url().includes('/relations'),
@@ -421,15 +447,13 @@ test.describe('Sigma relationship graph', () => {
     await page.goto('/workspace?view=themes');
 
     const ledger = page.getByTestId('relation-ledger');
-    let graph = ledger.getByTestId('relation-graph');
-    await expect(graph).toBeVisible();
     const fixtureResponse = page.waitForResponse(
       (response) =>
         response.url().includes('/api/entities/') && response.url().includes('/relations'),
     );
     await page.getByTestId('theme-select').nth(1).click();
     await fixtureResponse;
-    graph = ledger.getByTestId('relation-graph');
+    let graph = ledger.getByTestId('relation-graph');
     await expect(graph).toBeVisible();
     // The rendered canvas — not just the text fallback — must carry the exact
     // directed/undirected counts and the requested root identity.
@@ -475,8 +499,15 @@ test.describe('Sigma relationship graph', () => {
       if (message.type() === 'error') runtimeErrors.push(message.text());
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    await installRootEchoingFixture(page);
     const response = await page.goto('/workspace?view=themes');
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
+    const fixtureResponse = page.waitForResponse(
+      (candidate) =>
+        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
+    );
+    await page.getByTestId('theme-select').nth(1).click();
+    await fixtureResponse;
 
     const graph = page.getByTestId('relation-graph');
     await expect(graph).toBeVisible();
@@ -490,5 +521,34 @@ test.describe('Sigma relationship graph', () => {
     expect(probe.workerSchemes).toEqual([]);
     expect(probe.cspViolations).toEqual([]);
     expect(runtimeErrors).toEqual([]);
+  });
+
+  test('keeps text-node selection working when WebGL initialization fails', async ({ page }) => {
+    await page.addInitScript(() => {
+      const originalGetContext = HTMLCanvasElement.prototype.getContext;
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+        configurable: true,
+        value(type: string, ...args: unknown[]) {
+          if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') return null;
+          return Reflect.apply(originalGetContext, this, [type, ...args]);
+        },
+      });
+    });
+    await installRootEchoingFixture(page);
+    await page.goto('/workspace?view=themes');
+    const fixtureResponse = page.waitForResponse(
+      (candidate) =>
+        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
+    );
+    await page.getByTestId('theme-select').nth(1).click();
+    await fixtureResponse;
+
+    const graph = page.getByTestId('relation-graph');
+    await expect(graph.getByRole('alert')).toContainText('관계 지도를 표시하지 못했습니다');
+    const selectionRequest = page.waitForRequest((request) =>
+      request.url().includes('/api/entities/US%3ATO/relations'),
+    );
+    await graph.getByRole('button', { name: /수신기업/ }).click();
+    expect((await selectionRequest).method()).toBe('GET');
   });
 });

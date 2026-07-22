@@ -16,6 +16,10 @@ const productionRunnerPath = new URL(
   '../../../scripts/run-sigma-production-e2e.mjs',
   import.meta.url,
 );
+const productionHashPath = new URL(
+  '../../../scripts/production-artifact-hash.mjs',
+  import.meta.url,
+);
 const edgeHeadersPath = new URL(
   '../../../deploy/stock-edge/security-headers.conf',
   import.meta.url,
@@ -37,8 +41,15 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(source, /type: 'move',\s*\n\s*x: event\.x,\s*\n\s*y: event\.y,/);
     assert.match(source, /if \(!transition\.moved\) return;/);
     // A gesture release must never reset the camera (only user "원위치" does).
-    assert.match(source, /scheduleLayoutStop\(650, false\)/);
+    assert.match(source, /scheduleLayoutStop\(650, false, true\)/);
+    assert.match(source, /dataset\.customBbox = 'fixed'/);
+    assert.match(source, /dataset\.customBbox = 'released'/);
     assert.doesNotMatch(source, /scheduleLayoutStop\(650, true\)/);
+    const downNodeHandler = source.slice(
+      source.indexOf("renderer.on('downNode'"),
+      source.indexOf("renderer.on('moveBody'"),
+    );
+    assert.match(downNodeHandler, /runtime\.clearTimer\(\)/);
   });
 
   it('uses hover reducers and animated camera focus without creating graph data', async () => {
@@ -82,6 +93,19 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(source, /aria-label="관계 노드 목록"/);
   });
 
+  it('surfaces initialization failure with an accessible retry path', async () => {
+    const source = await readFile(componentPath, 'utf8');
+    assert.match(source, /runtimeState/);
+    assert.match(source, /setRuntimeState\('error'\)/);
+    assert.match(source, /data-runtime-state=\{runtimeState\}/);
+    assert.match(source, /role="alert"/);
+    assert.match(source, /관계 지도 다시 시도/);
+    assert.match(source, /setRuntimeRevision/);
+    assert.match(source, /const sourceNode = source\.nodes\.find/);
+    assert.doesNotMatch(source, /if \(!renderer \|\| !graphRef\.current/);
+    assert.match(source, /onSelectEntityRef\.current\(node\)/);
+  });
+
   it('allows only the pinned ForceAtlas2 blob worker through app and edge CSP', async () => {
     const [viteConfig, edgeHeaders] = await Promise.all([
       readFile(viteConfigPath, 'utf8'),
@@ -95,10 +119,11 @@ describe('RelationSigmaGraph structure', () => {
   });
 
   it('keeps mobile controls at 44px and binds Sigma CSP checks to a production artifact gate', async () => {
-    const [styles, rootPackage, runner] = await Promise.all([
+    const [styles, rootPackage, runner, hasher] = await Promise.all([
       readFile(componentStylesPath, 'utf8'),
       readFile(rootPackagePath, 'utf8'),
       readFile(productionRunnerPath, 'utf8'),
+      readFile(productionHashPath, 'utf8'),
     ]);
 
     assert.match(styles, /grid-template-columns:\s*repeat\(3, 44px\)/);
@@ -111,8 +136,14 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(rootPackage, /"verify:release"[^\n]*test:sigma:browser:production/);
     // The release runner must hash the client bundle (not only the server
     // entry), strip ambient grep, and enforce zero-skip pass counts.
-    assert.match(runner, /\.output\/server\/index\.mjs/);
-    assert.match(runner, /public\/assets/);
+    assert.match(runner, /hashProductionArtifact/);
+    assert.match(hasher, /walkFiles/);
+    assert.match(hasher, /join\(outputRoot, 'server'\)/);
+    assert.match(hasher, /join\(outputRoot, 'public'\)/);
+    assert.match(hasher, /entry\.isSymbolicLink\(\)/);
+    assert.match(hasher, /rootFiles\.length === 0/);
+    assert.match(runner, /const EXPECTED_TESTS = 10/);
+    assert.match(runner, /counts\.expected !== EXPECTED_TESTS/);
     assert.match(runner, /PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256/);
     assert.match(runner, /delete process\.env\[key\]/);
     assert.match(runner, /PLAYWRIGHT_GREP/);

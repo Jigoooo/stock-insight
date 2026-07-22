@@ -232,6 +232,25 @@ test.describe('v3 research workspace candidate', () => {
     await expect(asOf).toContainText('기준 시각');
   });
 
+  test('preserves Deep Dive focus when crossing the compact-layout breakpoint', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop breakpoint transition contract');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/workspace?view=stocks');
+    const region = page.getByTestId('stock-deep-dive-region');
+    await expect(region).toBeVisible();
+    await page.getByRole('table').locator('tbody button').first().click();
+    await expect(region).not.toHaveAttribute('data-state', 'idle');
+    await region.focus();
+    await expect(region).toBeFocused();
+
+    await page.setViewportSize({ width: 1200, height: 900 });
+    await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
+  });
+
   test('reflows stock and status tables without horizontal clipping on mobile', async ({
     page,
   }, testInfo) => {

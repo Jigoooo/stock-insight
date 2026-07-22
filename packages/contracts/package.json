@@ -8,7 +8,9 @@
     ".": "./src/index.ts",
     "./research-workspace": "./src/research-workspace.ts",
     "./temporal": "./src/temporal.ts",
-    "./graphrag-router": "./src/graphrag-router.ts"
+    "./graphrag-router": "./src/graphrag-router.ts",
+    "./truth-visual-language": "./src/truth-visual-language.ts",
+    "./geo-api-contract": "./src/geo-api-contract.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

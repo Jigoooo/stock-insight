@@ -32,6 +32,8 @@ type GraphInteractionState = {
   selectedNode?: string;
 };
 
+type RelationRuntimeState = 'initializing' | 'ready' | 'error';
+
 function focusRendererOnNode(renderer: RelationRenderer, node: string, normalizeMotion: boolean) {
   const position = renderer.getNodeDisplayData(node);
   if (!position) return;
@@ -68,6 +70,8 @@ export function RelationSigmaGraph({
   const [query, setQuery] = useState('');
   const [selectedNode, setSelectedNode] = useState<string>();
   const [liveMessage, setLiveMessage] = useState('관계 지도를 탐색할 수 있습니다.');
+  const [runtimeState, setRuntimeState] = useState<RelationRuntimeState>('initializing');
+  const [runtimeRevision, setRuntimeRevision] = useState(0);
   const suggestionId = useId();
   const descriptionId = useId();
   const { forcedColors, reducedMotion } = useMotionPreferences();
@@ -91,11 +95,15 @@ export function RelationSigmaGraph({
 
   function selectAndFocusNode(node: string) {
     const renderer = rendererRef.current;
-    if (!renderer || !graphRef.current?.hasNode(node)) return;
-    const fullLabel = graphRef.current.getNodeAttribute(node, 'fullLabel');
+    const sourceNode = source.nodes.find(({ entityKey }) => entityKey === node);
+    if (!sourceNode) return;
+    const graph = graphRef.current;
+    const fullLabel = graph?.hasNode(node)
+      ? graph.getNodeAttribute(node, 'fullLabel')
+      : sourceNode.label;
     setQuery(fullLabel);
     refreshSelection(node);
-    focusRendererOnNode(renderer, node, normalizeMotion);
+    if (renderer && graph?.hasNode(node)) focusRendererOnNode(renderer, node, normalizeMotion);
     pendingSelectionRef.current = node;
     setLiveMessage(`${fullLabel} 관계를 불러오는 중`);
     onSelectEntityRef.current(node);
@@ -143,6 +151,7 @@ export function RelationSigmaGraph({
     const container = containerRef.current;
     if (!container) return;
     const mountTarget: HTMLElement = container;
+    setRuntimeState('initializing');
 
     let disposed = false;
     let ownedRenderer: RelationRenderer | null = null;
@@ -164,6 +173,7 @@ export function RelationSigmaGraph({
       if (disposed) return;
 
       const graph = buildRelationGraph(source);
+      mountTarget.dataset.customBbox = 'released';
       ownedGraph = graph;
       graphRef.current = graph;
       // Stamp the canvas with the exact directed/undirected edge counts the
@@ -280,15 +290,23 @@ export function RelationSigmaGraph({
         else camera.animatedReset({ duration: 360 });
       }
 
-      function scheduleLayoutStop(delay: number, refit = false) {
+      function releaseCustomBBox() {
+        renderer.setCustomBBox(null);
+        mountTarget.dataset.customBbox = 'released';
+        renderer.refresh();
+      }
+
+      function scheduleLayoutStop(delay: number, refit = false, releaseBBox = false) {
         if (!layout) {
           if (refit) refitCamera();
+          else if (releaseBBox) releaseCustomBBox();
           return;
         }
         runtime.setTimer(
           setTimeout(() => {
             layout.stop();
             if (refit) refitCamera();
+            else if (releaseBBox) releaseCustomBBox();
           }, delay),
         );
       }
@@ -301,6 +319,7 @@ export function RelationSigmaGraph({
       }
 
       renderer.on('downNode', ({ node, event }) => {
+        runtime.clearTimer();
         dragState = transitionRelationDrag(dragState, {
           type: 'down',
           node,
@@ -310,6 +329,7 @@ export function RelationSigmaGraph({
         graph.mergeNodeAttributes(node, { fixed: true, highlighted: true });
         setLiveMessage(`${graph.getNodeAttribute(node, 'fullLabel')} 이동 중`);
         if (!renderer.getCustomBBox()) renderer.setCustomBBox(renderer.getBBox());
+        mountTarget.dataset.customBbox = 'fixed';
         layout?.start();
       });
       renderer.on('moveBody', ({ event }) => {
@@ -354,22 +374,26 @@ export function RelationSigmaGraph({
         // Settle the worker after the node is pinned, but never reset the camera
         // on a gesture — that would yank away the focus/pan the user just set.
         // Camera reset stays user-initiated through the "원위치" control only.
-        scheduleLayoutStop(650, false);
+        scheduleLayoutStop(650, false, true);
       };
       renderer.on('upNode', handleUp);
       renderer.on('upStage', handleUp);
+      if (!disposed) setRuntimeState('ready');
     }
 
     void initialize().catch((error: unknown) => {
       release();
-      if (!disposed) console.error('Failed to initialize relationship graph', error);
+      if (!disposed) {
+        setRuntimeState('error');
+        console.error('Failed to initialize relationship graph', error);
+      }
     });
 
     return () => {
       disposed = true;
       release();
     };
-  }, [normalizeMotion, refreshSelection, source]);
+  }, [normalizeMotion, refreshSelection, runtimeRevision, source]);
 
   const matchingNodes = query.trim()
     ? source.nodes.filter(({ label }) =>
@@ -378,7 +402,11 @@ export function RelationSigmaGraph({
     : source.nodes;
 
   return (
-    <div className={styles.graphFrame} data-testid="relation-graph">
+    <div
+      className={styles.graphFrame}
+      data-runtime-state={runtimeState}
+      data-testid="relation-graph"
+    >
       <div className={styles.graphSearch} data-testid="relation-graph-search">
         <Search aria-hidden="true" />
         <input
@@ -415,6 +443,20 @@ export function RelationSigmaGraph({
           ))}
         </datalist>
       </div>
+
+      {runtimeState === 'error' && (
+        <div className={styles.graphRuntimeError} role="alert">
+          <strong>관계 지도를 표시하지 못했습니다</strong>
+          <p>텍스트 노드 목록은 계속 사용할 수 있습니다.</p>
+          <Button
+            motion="quiet"
+            variant="secondary"
+            onClick={() => setRuntimeRevision((value) => value + 1)}
+          >
+            관계 지도 다시 시도
+          </Button>
+        </div>
+      )}
 
       <section
         ref={containerRef}

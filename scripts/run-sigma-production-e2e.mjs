@@ -1,36 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, openSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { closeSync, openSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
-const serverEntry = fileURLToPath(new URL('../apps/web/.output/server/index.mjs', import.meta.url));
-const clientAssetsDir = fileURLToPath(
-  new URL('../apps/web/.output/public/assets/', import.meta.url),
-);
+import { hashProductionArtifact } from './production-artifact-hash.mjs';
 
-/**
- * Deterministically hash the whole shipped surface — the SSR server entry AND
- * every client bundle in public/assets. Sigma, Zod and the relation graph code
- * live in the client chunks, so hashing only the server entry (the previous
- * behaviour) let a changed browser bundle pass with an unchanged artifact hash.
- */
-function hashShippedArtifact() {
-  const hash = createHash('sha256');
-  hash.update('server/index.mjs\0');
-  hash.update(readFileSync(serverEntry));
-  const assetFiles = readdirSync(clientAssetsDir)
-    .filter((name) => name.endsWith('.js') || name.endsWith('.css'))
-    .sort();
-  if (assetFiles.length === 0) throw new Error('No client assets found to hash');
-  for (const name of assetFiles) {
-    hash.update(`\0public/assets/${name}\0`);
-    hash.update(readFileSync(join(clientAssetsDir, name)));
-  }
-  return hash.digest('hex');
-}
+const root = fileURLToPath(new URL('../', import.meta.url));
+const productionOutput = new URL('../apps/web/.output/', import.meta.url);
 
 // Ambient grep/worker/skip knobs would let the release gate pass a reduced or
 // fully-skipped suite. Strip them and pin our own values so the gate is total.
@@ -38,7 +16,7 @@ for (const key of ['PLAYWRIGHT_GREP', 'PLAYWRIGHT_GREP_INVERT', 'PLAYWRIGHT_SKIP
   delete process.env[key];
 }
 
-const artifactSha256 = hashShippedArtifact();
+const artifactSha256 = hashProductionArtifact(productionOutput);
 console.log(`sigma_production_artifact_sha256=${artifactSha256}`);
 
 // Exclusive-create the auth-state file at an unpredictable path so a local
@@ -100,15 +78,15 @@ try {
   };
   for (const suite of report.suites ?? []) walk(suite);
 
-  const MIN_EXPECTED = 8;
+  const EXPECTED_TESTS = 10;
   const failures = [];
   if (counts.unexpected > 0) failures.push(`${counts.unexpected} unexpected`);
   if (counts.skipped > 0 || (stats.skipped ?? 0) > 0) {
     failures.push(`${counts.skipped || stats.skipped} skipped`);
   }
   if (counts.flaky > 0) failures.push(`${counts.flaky} flaky`);
-  if (counts.expected < MIN_EXPECTED) {
-    failures.push(`only ${counts.expected} passed (need >= ${MIN_EXPECTED})`);
+  if (counts.expected !== EXPECTED_TESTS) {
+    failures.push(`${counts.expected} passed (need exactly ${EXPECTED_TESTS})`);
   }
 
   console.log(

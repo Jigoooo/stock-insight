@@ -765,6 +765,7 @@
 }
 
 .relationUpdating {
+  display: block;
   margin: 0;
   padding: 8px 16px;
   color: var(--color-text-secondary);
@@ -845,6 +846,37 @@
   overflow: hidden;
   background: var(--color-surface);
   box-shadow: 0 -1px 0 color-mix(in srgb, var(--color-border) 52%, transparent) inset;
+}
+
+.graphRuntimeError {
+  position: absolute;
+  inset: 68px 16px auto;
+  z-index: 2;
+  display: block;
+  padding: 16px;
+  pointer-events: none;
+  text-align: left;
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px var(--color-border) inset;
+}
+
+.graphRuntimeError button {
+  pointer-events: auto;
+}
+
+.graphRuntimeError strong {
+  font-size: 14px;
+}
+
+.graphRuntimeError p {
+  margin: 6px 0 14px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.graphFrame[data-runtime-state='error'] .graphControls {
+  display: none;
 }
 
 .sigmaCanvas {
@@ -1070,6 +1102,38 @@
   overflow-x: auto;
 }
 
+.stocksWorkspace {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(560px, 1.35fr) minmax(360px, 0.85fr);
+  grid-template-areas: 'table detail';
+  align-items: start;
+  gap: 18px;
+}
+
+.stocksWorkspace > .panel,
+.deepDiveRegion {
+  min-width: 0;
+}
+
+.stocksWorkspace > .panel {
+  grid-area: table;
+}
+
+.deepDiveRegion {
+  grid-area: detail;
+  scroll-margin-top: 84px;
+}
+
+.deepDiveRegion:focus {
+  outline: none;
+}
+
+.deepDiveRegion:focus-visible {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 3px var(--color-focus) inset;
+}
+
 .panel[data-pending='true'] .tableWrap {
   opacity: 0.72;
 }
@@ -1126,6 +1190,35 @@
   margin-top: 4px;
   color: var(--color-text-tertiary);
   font-size: 12px;
+}
+
+.stockSelectButton {
+  width: 100%;
+  min-width: 132px;
+  min-height: 44px;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stockSelectButton:hover {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.stockSelectButton[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--color-accent) 11%, var(--color-surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent) inset;
+}
+
+.stockTable tr[data-selected='true'] td {
+  background: color-mix(in srgb, var(--color-accent) 3%, transparent);
 }
 
 .positive {
@@ -1453,6 +1546,17 @@
   .content {
     padding-inline: 28px;
   }
+
+  .stocksWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'detail'
+      'table';
+  }
+
+  .deepDiveRegion[data-state='idle'] {
+    display: none;
+  }
 }
 
 @media (max-width: 1120px) {
@@ -1687,6 +1791,10 @@
 }
 
 @media (max-width: 420px) {
+  .deepDiveRegion {
+    scroll-margin-top: 124px;
+  }
+
   .topbar {
     min-height: 110px;
     display: grid;
@@ -1694,6 +1802,9 @@
     align-content: center;
     gap: 8px 10px;
     padding: 10px 12px;
+    background: var(--color-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .crumbs {

@@ -194,9 +194,9 @@ function RelationLedger({
       ) : (
         <>
           {state === 'loading' ? (
-            <p className={styles.relationUpdating} role="status">
+            <output className={styles.relationUpdating}>
               선택한 종목의 관계를 업데이트하고 있습니다.
-            </p>
+            </output>
           ) : null}
           <div aria-busy={state === 'loading'}>
             <RelationSigmaGraph graph={graph} onSelectEntity={onSelectEntity} />
