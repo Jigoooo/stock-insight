@@ -40,6 +40,7 @@ import { methodologyRegistryMigrationSql } from './migrations/039_methodology_re
 import { scenarioSpatialImpactMigrationSql } from './migrations/040_scenario_spatial_impact';
 import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_cache_ledger';
 import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_entity_identity_immutability';
+import { personalizationDecisionSupportMigrationSql } from './migrations/043_personalization_decision_support';
 
 export type AppTableName =
   | 'company_profiles'
@@ -133,6 +134,11 @@ export type AppTableName =
   | 'precompute_policy'
   | 'precompute_cache_entry'
   | 'precompute_invalidation'
+  | 'user_profile_revision'
+  | 'portfolio_snapshot'
+  | 'portfolio_lot_snapshot'
+  | 'thesis_revision'
+  | 'decision_packet'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -511,6 +517,19 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['geo_entity'],
     sql: geoEntityIdentityImmutabilityMigrationSql,
   },
+  {
+    id: '043_personalization_decision_support',
+    description:
+      'P4 private personalization and read-only decision support: append-only user profile, portfolio/lot snapshot, thesis revision, and decision packet ledgers with same-user composite foreign keys, FORCE RLS, abstention-first semantics, immutable common-view lineage, and hard legal/order prohibitions.',
+    tables: [
+      'user_profile_revision',
+      'portfolio_snapshot',
+      'portfolio_lot_snapshot',
+      'thesis_revision',
+      'decision_packet',
+    ],
+    sql: personalizationDecisionSupportMigrationSql,
+  },
 ];
 
 export {
@@ -556,4 +575,5 @@ export {
   scenarioSpatialImpactMigrationSql,
   precomputeCacheLedgerMigrationSql,
   geoEntityIdentityImmutabilityMigrationSql,
+  personalizationDecisionSupportMigrationSql,
 };

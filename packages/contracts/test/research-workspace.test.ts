@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 
 import {
   decisionHistoryPageSchema,
+  decisionSupportPacketSchema,
+  decisionSupportSummarySchema,
   entityRelationGraphSchema,
   myResearchOverviewSchema,
   radarSignalPageSchema,
@@ -393,8 +395,79 @@ describe('research workspace v3 contracts', () => {
           createdAt: generatedAt,
         },
       ],
+      decisionSupport: {
+        availability: 'missing',
+        sourceState: 'migration_missing',
+        packetCount: 0,
+        latestPacket: null,
+      },
     });
     assert.equal(parsed.recentHistory.length, 1);
     assert.equal('userId' in parsed, false);
+  });
+
+  it('rejects temporally inconsistent or contradictory decision-support packets', () => {
+    const packet = {
+      decisionPacketId: '50000000-0000-4000-8000-000000000005',
+      entityKey: 'KR:005930',
+      entityName: '삼성전자',
+      action: 'HOLD',
+      actionReason: '현재 상태 유지',
+      abstentionReason: null,
+      commonViewAsOf: '2026-07-16T13:00:00.000Z',
+      generatedAt: '2026-07-16T14:00:00.000Z',
+      expiresAt: '2026-07-17T14:00:00.000Z',
+      legalReviewStatus: 'approved_read_only',
+      restrictionReason: null,
+      adviceProhibited: true,
+      orderExecutable: false,
+    } as const;
+    assert.equal(decisionSupportPacketSchema.safeParse(packet).success, true);
+    for (const invalid of [
+      { ...packet, abstentionReason: '모순된 abstention' },
+      { ...packet, commonViewAsOf: '2026-07-16T15:00:00.000Z' },
+      { ...packet, expiresAt: '2026-07-16T14:00:00.000Z' },
+    ]) {
+      assert.equal(decisionSupportPacketSchema.safeParse(invalid).success, false);
+    }
+  });
+
+  it('rejects decision-support summaries whose count, source, and latest packet disagree', () => {
+    const packet = decisionSupportPacketSchema.parse({
+      decisionPacketId: '50000000-0000-4000-8000-000000000005',
+      entityKey: 'KR:005930',
+      entityName: '삼성전자',
+      action: 'HOLD',
+      actionReason: '현재 상태 유지',
+      abstentionReason: null,
+      commonViewAsOf: '2026-07-16T13:00:00.000Z',
+      generatedAt: '2026-07-16T14:00:00.000Z',
+      expiresAt: '2026-07-17T14:00:00.000Z',
+      legalReviewStatus: 'approved_read_only',
+      restrictionReason: null,
+      adviceProhibited: true,
+      orderExecutable: false,
+    });
+    assert.equal(
+      decisionSupportSummarySchema.safeParse({
+        availability: 'available',
+        sourceState: 'ready',
+        packetCount: 1,
+        latestPacket: packet,
+      }).success,
+      true,
+    );
+    for (const invalid of [
+      { availability: 'available', sourceState: 'ready', packetCount: 0, latestPacket: packet },
+      { availability: 'missing', sourceState: 'ready', packetCount: 1, latestPacket: null },
+      {
+        availability: 'available',
+        sourceState: 'migration_missing',
+        packetCount: 1,
+        latestPacket: packet,
+      },
+    ]) {
+      assert.equal(decisionSupportSummarySchema.safeParse(invalid).success, false);
+    }
   });
 });

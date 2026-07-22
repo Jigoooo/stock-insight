@@ -205,6 +205,12 @@ const myResearch: MyResearchOverview = {
   openHistoryCount: 3,
   reviewDueCount: 0,
   recentHistory: history.items,
+  decisionSupport: {
+    availability: 'missing',
+    sourceState: 'migration_missing',
+    packetCount: 0,
+    latestPacket: null,
+  },
 };
 
 const relations: EntityRelationGraph = {

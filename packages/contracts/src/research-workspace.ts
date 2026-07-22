@@ -483,6 +483,120 @@ export const themeResearchListSchema = z.object({
 
 export type ThemeResearchList = z.infer<typeof themeResearchListSchema>;
 
+export const decisionSupportActionSchema = z.enum([
+  'ADD',
+  'HOLD',
+  'REDUCE',
+  'EXIT',
+  'WATCH',
+  'NO_ACTION',
+  'INSUFFICIENT_DATA',
+]);
+
+export const decisionSupportPacketSchema = z
+  .object({
+    decisionPacketId: z.string().uuid(),
+    entityKey: stockEntityKeySchema.nullable(),
+    entityName: boundedText(320),
+    action: decisionSupportActionSchema.nullable(),
+    actionReason: boundedText(2_000).nullable(),
+    abstentionReason: boundedText(320).nullable(),
+    commonViewAsOf: dateTimeSchema,
+    generatedAt: dateTimeSchema,
+    expiresAt: dateTimeSchema,
+    legalReviewStatus: z.enum(['required', 'approved_read_only']),
+    restrictionReason: z.enum(['LEGAL_REVIEW_REQUIRED', 'PACKET_EXPIRED']).nullable(),
+    adviceProhibited: z.literal(true),
+    orderExecutable: z.literal(false),
+  })
+  .superRefine((packet, context) => {
+    const commonViewAsOf = Date.parse(packet.commonViewAsOf);
+    const generatedAt = Date.parse(packet.generatedAt);
+    const expiresAt = Date.parse(packet.expiresAt);
+    if (commonViewAsOf > generatedAt || generatedAt >= expiresAt) {
+      context.addIssue({ code: 'custom', message: 'packet timestamps must be causally ordered' });
+    }
+    if (
+      packet.action !== null &&
+      packet.action !== 'INSUFFICIENT_DATA' &&
+      packet.abstentionReason !== null
+    ) {
+      context.addIssue({ code: 'custom', message: 'non-abstention action cannot carry a reason' });
+    }
+    if (packet.restrictionReason === 'PACKET_EXPIRED') {
+      if (
+        packet.action !== null ||
+        packet.actionReason !== null ||
+        packet.abstentionReason !== null
+      ) {
+        context.addIssue({ code: 'custom', message: 'expired packet must remain redacted' });
+      }
+      return;
+    }
+    if (packet.legalReviewStatus === 'required') {
+      if (
+        packet.action !== null ||
+        packet.actionReason !== null ||
+        packet.abstentionReason !== null ||
+        packet.restrictionReason !== 'LEGAL_REVIEW_REQUIRED'
+      ) {
+        context.addIssue({ code: 'custom', message: 'unreviewed action must remain redacted' });
+      }
+      return;
+    }
+    if (
+      packet.action === null ||
+      packet.actionReason === null ||
+      packet.restrictionReason !== null
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'approved read-only packet must expose its state',
+      });
+    }
+    if (packet.action === 'INSUFFICIENT_DATA' && packet.abstentionReason === null) {
+      context.addIssue({ code: 'custom', message: 'abstention packet requires a reason' });
+    }
+  });
+
+export type DecisionSupportPacket = z.infer<typeof decisionSupportPacketSchema>;
+
+export const decisionSupportSummarySchema = z
+  .object({
+    availability: canonicalAvailabilitySchema,
+    sourceState: z.enum(['migration_missing', 'ready']),
+    packetCount: countSchema,
+    latestPacket: decisionSupportPacketSchema.nullable(),
+  })
+  .superRefine((summary, context) => {
+    const hasPacket = summary.latestPacket !== null;
+    if (summary.packetCount > 0 !== hasPacket) {
+      context.addIssue({ code: 'custom', message: 'packet count and latest packet must agree' });
+    }
+    if (summary.sourceState === 'migration_missing') {
+      if (summary.availability !== 'missing' || summary.packetCount !== 0 || hasPacket) {
+        context.addIssue({ code: 'custom', message: 'missing migration cannot expose packets' });
+      }
+      return;
+    }
+    if (!summary.latestPacket) {
+      if (summary.availability !== 'missing') {
+        context.addIssue({ code: 'custom', message: 'ready source without packets is missing' });
+      }
+      return;
+    }
+    const expectedAvailability =
+      summary.latestPacket.restrictionReason === 'PACKET_EXPIRED' ? 'stale' : 'available';
+    if (summary.availability !== expectedAvailability) {
+      context.addIssue({
+        code: 'custom',
+        message: 'packet restriction and availability must agree',
+      });
+    }
+  });
+
+export type DecisionSupportSummary = z.infer<typeof decisionSupportSummarySchema>;
+
 export const myResearchOverviewSchema = z.object({
   generatedAt: dateTimeSchema,
   availability: canonicalAvailabilitySchema,
@@ -491,6 +605,7 @@ export const myResearchOverviewSchema = z.object({
   openHistoryCount: countSchema,
   reviewDueCount: countSchema,
   recentHistory: z.array(decisionHistoryItemSchema).max(10),
+  decisionSupport: decisionSupportSummarySchema,
 });
 
 export type MyResearchOverview = z.infer<typeof myResearchOverviewSchema>;
