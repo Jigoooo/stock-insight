@@ -159,6 +159,37 @@ describe('sealed geo snapshot read model', () => {
     });
   });
 
+  it('rejects every non-finite scalar while accepting scientific decimals and absent uncertainty', async () => {
+    const invalidRows = ['NaN', 'Infinity', '-Infinity', '1e309'].map((longitude, index) => ({
+      ...validRows[1],
+      geo_entity_key: `geo:facility:non-finite-${index}`,
+      longitude,
+    }));
+    const invalidSnapshot = await getGeoSnapshot(executorFor(invalidRows), { knownAt, now });
+    assert.deepEqual(invalidSnapshot.geojson.features, []);
+    assert.deepEqual(invalidSnapshot.rejected, {
+      count: 4,
+      reasons: [{ code: 'invalid_geometry', count: 4 }],
+    });
+
+    const scientificSnapshot = await getGeoSnapshot(
+      executorFor([
+        {
+          ...validRows[1],
+          longitude: '-9.77431e1',
+          latitude: '3.02672e1',
+          uncertainty_radius_km: null,
+        },
+      ]),
+      { knownAt, now },
+    );
+    assert.equal(scientificSnapshot.geojson.features.length, 1);
+    assert.equal(
+      'uncertaintyRadiusKm' in scientificSnapshot.geojson.features[0]!.properties,
+      false,
+    );
+  });
+
   it('returns an honest empty snapshot when geo tables exist without spatial revisions', async () => {
     const snapshot = await getGeoSnapshot(executorFor([]), { knownAt, now });
     assert.equal(snapshot.availability, 'empty');
@@ -196,7 +227,7 @@ describe('sealed geo snapshot read model', () => {
     const snapshot = await getGeoSnapshot(snapshotExecutor, { knownAt, now, h3Resolution: 3 });
     const sql: string[] = [];
     const parameters: unknown[][] = [];
-    let returnNullTile = false;
+    let tileMode: 'valid' | 'null' | 'missing' | 'invalid' = 'valid';
     const executor: GeoSnapshotQueryExecutor = {
       async queryRows<TRow extends Record<string, unknown>>(
         query: string,
@@ -213,9 +244,14 @@ describe('sealed geo snapshot read model', () => {
           ] as unknown as TRow[];
         }
         if (query.includes('ST_AsMVT(')) {
-          return [
-            { tile: returnNullTile ? null : Buffer.from([26, 3, 103, 101, 111]) },
-          ] as unknown as TRow[];
+          if (tileMode === 'missing') return [];
+          const tile =
+            tileMode === 'null'
+              ? null
+              : tileMode === 'invalid'
+                ? 'not-bytea'
+                : Buffer.from([26, 3, 103, 101, 111]);
+          return [{ tile }] as unknown as TRow[];
         }
         return [...validRows] as unknown as TRow[];
       },
@@ -241,6 +277,13 @@ describe('sealed geo snapshot read model', () => {
       sql[tileSqlIndex]!,
       /accepted\.source_revision_id = revision\.source_revision_id/i,
     );
+    assert.match(sql[tileSqlIndex]!, /accepted\.geo_entity_key = entity\.geo_entity_key/i);
+    assert.match(
+      sql[tileSqlIndex]!,
+      /accepted\.geo_entity_revision_id = revision\.geo_entity_revision_id/i,
+    );
+    assert.match(sql[tileSqlIndex]!, /current_revision\.geo_entity_revision_id,/i);
+    assert.match(sql[tileSqlIndex]!, /current_revision\.source_revision_id,/i);
     assert.match(sql[tileSqlIndex]!, /current_revision\.geo_entity_revision_id/i);
     assert.match(sql[tileSqlIndex]!, /current_revision\.source_revision_id/i);
     assert.match(sql[tileSqlIndex]!, /WHERE latest_revision\.geom IS NOT NULL/i);
@@ -256,7 +299,7 @@ describe('sealed geo snapshot read model', () => {
       [43, 42],
     ]);
 
-    returnNullTile = true;
+    tileMode = 'null';
     await assert.rejects(
       () =>
         getGeoMvtTile(executor, {
@@ -269,6 +312,36 @@ describe('sealed geo snapshot read model', () => {
           now,
         }),
       /tile payload is missing/,
+    );
+
+    tileMode = 'missing';
+    await assert.rejects(
+      () =>
+        getGeoMvtTile(executor, {
+          z: 3,
+          x: 6,
+          y: 3,
+          knownAt,
+          validAt: knownAt,
+          snapshotId: snapshot.snapshotId,
+          now,
+        }),
+      /tile payload is missing/,
+    );
+
+    tileMode = 'invalid';
+    await assert.rejects(
+      () =>
+        getGeoMvtTile(executor, {
+          z: 3,
+          x: 6,
+          y: 3,
+          knownAt,
+          validAt: knownAt,
+          snapshotId: snapshot.snapshotId,
+          now,
+        }),
+      /tile payload is invalid/,
     );
 
     await assert.rejects(

@@ -6,22 +6,10 @@ import { join } from 'node:path';
 
 import pg from 'pg';
 
+import { selectExactP3dCandidateBundle } from './p3d-candidate-bundle.mjs';
+
 const { Client } = pg;
 const DISPOSABLE_PREFIX = 'stock_insight_p3d_rehearsal_';
-const EXPECTED_CANDIDATE_MIGRATION_IDS = [
-  '031_truth_kernel',
-  '032_world_event_temporal_lineage',
-  '033_entity_resolution_ontology',
-  '034_geo_foundation',
-  '035_geo_exposure_pit_universe',
-  '036_truth_geo_serving',
-  '037_impact_exposure_ledger',
-  '038_production_network',
-  '039_methodology_registry',
-  '040_scenario_spatial_impact',
-  '041_precompute_cache_ledger',
-  '042_geo_entity_identity_immutability',
-];
 const CANDIDATE_BASELINE_ABSENCE_RELATIONS = [
   'knowledge.assertion',
   'world.event',
@@ -35,8 +23,6 @@ const CANDIDATE_BASELINE_ABSENCE_RELATIONS = [
   'analytics.scenario_set',
   'analytics.precompute_policy',
 ];
-const CANDIDATE_BUNDLE_START_ID = EXPECTED_CANDIDATE_MIGRATION_IDS[0];
-const CANDIDATE_BUNDLE_END_ID = EXPECTED_CANDIDATE_MIGRATION_IDS.at(-1);
 
 function runCommand(command, args, password) {
   return new Promise((resolve, reject) => {
@@ -166,26 +152,7 @@ async function loadAdditiveAppMigrations() {
 }
 
 const additiveAppMigrations = await loadAdditiveAppMigrations();
-const candidateStartIndex = additiveAppMigrations.findIndex(
-  (migration) => migration.id === CANDIDATE_BUNDLE_START_ID,
-);
-const candidateEndIndex = additiveAppMigrations.findIndex(
-  (migration) => migration.id === CANDIDATE_BUNDLE_END_ID,
-);
-if (candidateStartIndex < 0 || candidateEndIndex < candidateStartIndex) {
-  throw new Error('Migration registry is missing the P3-D candidate bundle');
-}
-const candidateMigrationBundle = additiveAppMigrations.slice(
-  candidateStartIndex,
-  candidateEndIndex + 1,
-);
-const candidateMigrationIds = candidateMigrationBundle.map((migration) => migration.id);
-if (
-  candidateMigrationIds.length !== EXPECTED_CANDIDATE_MIGRATION_IDS.length ||
-  candidateMigrationIds.some((id, index) => id !== EXPECTED_CANDIDATE_MIGRATION_IDS[index])
-) {
-  throw new Error('Migration registry P3-D candidate bundle is not the exact ordered 031→042 set');
-}
+const candidateMigrationBundle = selectExactP3dCandidateBundle(additiveAppMigrations);
 
 function assertDisposableDatabaseName(databaseName) {
   if (!new RegExp(`^${DISPOSABLE_PREFIX}[a-z0-9_]+$`).test(databaseName)) {
@@ -383,8 +350,8 @@ try {
   console.log(
     JSON.stringify({
       ok: true,
-      bundleStart: CANDIDATE_BUNDLE_START_ID,
-      bundleEnd: CANDIDATE_BUNDLE_END_ID,
+      bundleStart: candidateMigrationBundle[0].id,
+      bundleEnd: candidateMigrationBundle.at(-1).id,
       migrationCount: candidateMigrationBundle.length,
       rounds: 2,
       timescaleVersion,

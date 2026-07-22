@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { EXPECTED_P3D_CANDIDATE_MIGRATION_IDS } from '../../../apps/api/scripts/p3d-candidate-bundle.mjs';
+
 const runnerPath = new URL('../../../apps/api/scripts/run-p3d-db-rehearsal.mjs', import.meta.url);
 const source = existsSync(runnerPath) ? readFileSync(runnerPath, 'utf8') : '';
 
@@ -16,21 +18,30 @@ describe('P3-D disposable DB rehearsal runner', () => {
   });
 
   it('rejects connection URLs whose query parameters can override the inspected host or port', () => {
-    const result = spawnSync(process.execPath, [fileURLToPath(runnerPath)], {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        STOCK_INSIGHT_ALLOW_DOCKER_BRIDGE_REHEARSAL: '0',
-        STOCK_INSIGHT_REHEARSAL_SOURCE_DATABASE_URL:
-          'postgresql://postgres:dummy@127.0.0.1:5432/research_app',
-        STOCK_INSIGHT_TEST_ADMIN_DATABASE_URL:
-          'postgresql://postgres:dummy@127.0.0.1:5432/postgres?host=127.0.0.1&port=1',
-      },
-      timeout: 30_000,
-    });
+    const safeAdmin = 'postgresql://postgres:***@127.0.0.1:5432/postgres';
+    const safeSource = 'postgresql://postgres:***@127.0.0.1:5432/research_app';
+    const cases = [
+      { admin: `${safeAdmin}?host=127.0.0.1&port=1`, source: safeSource },
+      { admin: `${safeAdmin}#override`, source: safeSource },
+      { admin: safeAdmin, source: `${safeSource}?host=127.0.0.1&port=1` },
+      { admin: safeAdmin, source: `${safeSource}#override` },
+    ];
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /query parameters or fragments/i);
+    for (const fixture of cases) {
+      const result = spawnSync(process.execPath, [fileURLToPath(runnerPath)], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          STOCK_INSIGHT_ALLOW_DOCKER_BRIDGE_REHEARSAL: '0',
+          STOCK_INSIGHT_REHEARSAL_SOURCE_DATABASE_URL: fixture.source,
+          STOCK_INSIGHT_TEST_ADMIN_DATABASE_URL: fixture.admin,
+        },
+        timeout: 30_000,
+      });
+
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /query parameters or fragments/i);
+    }
   });
 
   it('applies the exact 031→042 candidate bundle twice on a migration-030 snapshot', () => {
@@ -48,18 +59,11 @@ describe('P3-D disposable DB rehearsal runner', () => {
       '041_precompute_cache_ledger',
       '042_geo_entity_identity_immutability',
     ];
-    const expectedBlockStart = source.indexOf('const EXPECTED_CANDIDATE_MIGRATION_IDS');
-    const expectedBlockEnd = source.indexOf('];', expectedBlockStart);
-    const expectedBlock = source.slice(expectedBlockStart, expectedBlockEnd);
-    assert.deepEqual(
-      [...expectedBlock.matchAll(/'([^']+)'/g)].map((match) => match[1]),
-      expectedCandidateIds,
-    );
-    assert.match(
-      source,
-      /candidateMigrationIds\.length !== EXPECTED_CANDIDATE_MIGRATION_IDS\.length/,
-    );
-    assert.match(source, /candidateMigrationIds\.some/);
+    assert.deepEqual(EXPECTED_P3D_CANDIDATE_MIGRATION_IDS, expectedCandidateIds);
+    assert.match(source, /selectExactP3dCandidateBundle\(additiveAppMigrations\)/);
+    assert.match(source, /bundleStart: candidateMigrationBundle\[0\]\.id/);
+    assert.match(source, /bundleEnd: candidateMigrationBundle\.at\(-1\)\.id/);
+    assert.doesNotMatch(source, /CANDIDATE_BUNDLE_(?:START|END)_ID/);
     assert.match(source, /pg_dump/);
     assert.match(source, /pg_restore/);
     assert.match(source, /--exclude-table-data=_timescaledb_catalog\.bgw_job/);
@@ -69,8 +73,6 @@ describe('P3-D disposable DB rehearsal runner', () => {
     assert.match(source, /timescaledb VERSION '\$\{timescaleVersion\}'/);
     assert.match(source, /restoreProductionShapedSnapshot/);
     assert.match(source, /additiveAppMigrations/);
-    assert.match(source, /031_truth_kernel/);
-    assert.match(source, /042_geo_entity_identity_immutability/);
     assert.match(source, /public\.app_invitations/);
     assert.match(source, /knowledge\.assertion/);
     assert.match(source, /for \(const round of \[1, 2\]\)/);
@@ -100,6 +102,8 @@ describe('P3-D disposable DB rehearsal runner', () => {
     );
     assert.match(source, /unnest\(\$1::text\[\]\).*relation_name/s);
     assert.match(source, /to_regclass\(relation_name\) IS NOT NULL/);
+    assert.match(source, /tgname = 'geo_entity_identity_immutable'/);
+    assert.match(source, /p3d_trigger_count !== 0/);
   });
 
   it('proves insert acceptance plus UPDATE and DELETE rejection before rollback', () => {
