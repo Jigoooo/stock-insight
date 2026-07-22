@@ -1,5 +1,9 @@
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
-import type { RadarSignalItem } from '@stock-insight/contracts/research-workspace';
+import type {
+  MarketComponentWatermark,
+  MarketComponentWatermarks,
+  RadarSignalItem,
+} from '@stock-insight/contracts/research-workspace';
 
 export const MARKET_MODE_IDS = [
   'event_radar',
@@ -204,6 +208,22 @@ function geoModeDefinition(
         : snapshot.availability === 'partial'
           ? `검증을 통과한 위치만 표시합니다. 거부된 행 ${snapshot.rejected.count}건은 제외했습니다.`
           : 'WGS84 정본 geometry를 표시하며 H3는 화면 집계용 파생 투영입니다.',
+  };
+}
+
+export function resolveMarketComponentWatermark(
+  modeId: MarketModeId,
+  watermarks: MarketComponentWatermarks,
+  geoSnapshot?: GeoSnapshot,
+): MarketComponentWatermark {
+  if (modeId !== 'map_globe' || !geoSnapshot) return watermarks[modeId];
+  const availability =
+    geoSnapshot.availability === 'unavailable' ? 'missing' : geoSnapshot.availability;
+  const contentState = ['available', 'partial', 'stale'].includes(availability);
+  return {
+    availability,
+    watermarkAt: contentState ? geoSnapshot.sourceAsOf : null,
+    rowCount: contentState ? geoSnapshot.geojson.features.length : 0,
   };
 }
 

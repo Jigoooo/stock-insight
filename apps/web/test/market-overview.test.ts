@@ -6,10 +6,14 @@ import {
   buildMarketOverview,
   describeMarketModeState,
   marketConnectionLabel,
+  resolveMarketComponentWatermark,
 } from '../src/pages/research-workspace/model/market-overview.ts';
 
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
-import type { RadarSignalItem } from '@stock-insight/contracts/research-workspace';
+import type {
+  MarketComponentWatermarks,
+  RadarSignalItem,
+} from '@stock-insight/contracts/research-workspace';
 
 const signals: RadarSignalItem[] = [
   {
@@ -192,6 +196,39 @@ describe('P3-WC market overview model', () => {
       const overview = buildMarketOverview([], snapshot(availability, featureCount));
       assert.equal(overview.modes[6]?.availability, expected);
     }
+  });
+
+  it('uses API component clocks and lets the sealed Geo snapshot own the map clock', () => {
+    const watermarks = {
+      event_radar: { availability: 'stale', watermarkAt: '2026-07-20T00:00:00.000Z', rowCount: 3 },
+      factor_map: { availability: 'partial', watermarkAt: '2026-07-21T00:00:00.000Z', rowCount: 3 },
+      propagation_map: {
+        availability: 'partial',
+        watermarkAt: '2026-07-21T00:00:00.000Z',
+        rowCount: 3,
+      },
+      theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      heatmap_matrix: {
+        availability: 'available',
+        watermarkAt: '2026-07-21T00:00:00.000Z',
+        rowCount: 3,
+      },
+      timeline: { availability: 'available', watermarkAt: '2026-07-21T00:00:00.000Z', rowCount: 3 },
+      map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+    } satisfies MarketComponentWatermarks;
+    assert.equal(resolveMarketComponentWatermark('event_radar', watermarks).availability, 'stale');
+
+    const geoSnapshot = {
+      availability: 'partial',
+      sourceAsOf: '2026-07-21T03:00:00.000Z',
+      geojson: { features: [{}, {}] },
+    } as unknown as GeoSnapshot;
+    assert.deepEqual(resolveMarketComponentWatermark('map_globe', watermarks, geoSnapshot), {
+      availability: 'partial',
+      watermarkAt: '2026-07-21T03:00:00.000Z',
+      rowCount: 2,
+    });
   });
 
   it('preserves simultaneous holding and watchlist relationships', () => {

@@ -279,10 +279,21 @@ describe('research workspace v3 contracts', () => {
   });
 
   it('parses personalized radar signals with bounded strength and stable pagination', () => {
+    const componentWatermarks = {
+      event_radar: { availability: 'available', watermarkAt: cutoffAt, rowCount: 1 },
+      factor_map: { availability: 'partial', watermarkAt: cutoffAt, rowCount: 1 },
+      propagation_map: { availability: 'partial', watermarkAt: cutoffAt, rowCount: 1 },
+      theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      heatmap_matrix: { availability: 'available', watermarkAt: cutoffAt, rowCount: 1 },
+      timeline: { availability: 'available', watermarkAt: cutoffAt, rowCount: 1 },
+      map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+    } as const;
     const parsed = radarSignalPageSchema.parse({
       generatedAt,
       signalAsOf: cutoffAt,
       scopeTotal: 1,
+      componentWatermarks,
       items: [
         {
           signalKey: 'market-signal:nvda:price-mover',
@@ -303,6 +314,21 @@ describe('research workspace v3 contracts', () => {
       nextCursor: 'opaque-radar-cursor',
     });
     assert.equal(parsed.items[0]?.strength, 0.83);
+    assert.deepEqual(parsed.componentWatermarks, componentWatermarks);
+    assert.equal(
+      radarSignalPageSchema.safeParse({ ...parsed, componentWatermarks: undefined }).success,
+      false,
+    );
+    assert.equal(
+      radarSignalPageSchema.safeParse({
+        ...parsed,
+        componentWatermarks: {
+          ...componentWatermarks,
+          event_radar: { availability: 'available', watermarkAt: null, rowCount: 1 },
+        },
+      }).success,
+      false,
+    );
     assert.equal(
       radarSignalPageSchema.safeParse({
         ...parsed,

@@ -94,7 +94,8 @@ describe('P3-WD geo map UI contract', () => {
     assert.match(panelSource, /<GeoMarketMap snapshot=\{geoSnapshot\}/);
     assert.match(mapSource, /cooperativeGestures:\s*true/);
     assert.match(mapSource, /fadeDuration:\s*reducedMotion === true \? 0 : 250/);
-    assert.match(mapSource, /duration:\s*reducedMotion === true \? 0 : 500/);
+    assert.match(mapSource, /fitSnapshotToViewport\(reducedMotion === true \? 0 : 500\)/);
+    assert.match(mapSource, /fitSnapshotToViewport\?\.\(0\)/);
     assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.geoMapCanvas/);
   });
 });

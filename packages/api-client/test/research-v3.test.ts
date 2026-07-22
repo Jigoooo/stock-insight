@@ -136,6 +136,28 @@ const radar: RadarSignalPage = {
   generatedAt: '2026-07-17T01:00:00.000Z',
   signalAsOf: '2026-07-16T14:00:00.000Z',
   scopeTotal: 1,
+  componentWatermarks: {
+    event_radar: {
+      availability: 'available',
+      watermarkAt: '2026-07-16T14:00:00.000Z',
+      rowCount: 1,
+    },
+    factor_map: { availability: 'partial', watermarkAt: '2026-07-16T14:00:00.000Z', rowCount: 1 },
+    propagation_map: {
+      availability: 'partial',
+      watermarkAt: '2026-07-16T14:00:00.000Z',
+      rowCount: 1,
+    },
+    theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+    heatmap_matrix: {
+      availability: 'available',
+      watermarkAt: '2026-07-16T14:00:00.000Z',
+      rowCount: 1,
+    },
+    timeline: { availability: 'available', watermarkAt: '2026-07-16T14:00:00.000Z', rowCount: 1 },
+    map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+    value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+  },
   items: [
     {
       signalKey: 'signal-nvda',

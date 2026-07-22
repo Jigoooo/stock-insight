@@ -139,6 +139,7 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
     let cancelled = false;
     let loaded = false;
     let ownedMap: MapLibreMap | null = null;
+    let fitSnapshotToViewport: ((duration: number) => void) | null = null;
     void import('maplibre-gl')
       .then(({ LngLatBounds, Map }) => {
         if (cancelled) return;
@@ -163,6 +164,7 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
           if (cancelled) return;
           setRenderState({ key: renderKey, status: 'loading', visibleFeatureCount: 0 });
           map.setMinZoom(minimumWorldZoomForWidth(map.getContainer().clientWidth));
+          fitSnapshotToViewport?.(0);
         };
         map.on('resize', syncMinimumWorldZoom);
         ownedMap = map;
@@ -195,15 +197,18 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
           );
           const bounds = new LngLatBounds();
           for (const coordinate of coordinates) bounds.extend(coordinate);
-          if (coordinates.length === 1) {
-            map.jumpTo({ center: coordinates[0], zoom: 5 });
-          } else if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, {
-              padding: MAP_FIT_PADDING,
-              maxZoom: 7,
-              duration: reducedMotion === true ? 0 : 500,
-            });
-          }
+          fitSnapshotToViewport = (duration) => {
+            if (coordinates.length === 1) {
+              map.jumpTo({ center: coordinates[0], zoom: 5 });
+            } else if (!bounds.isEmpty()) {
+              map.fitBounds(bounds, {
+                padding: MAP_FIT_PADDING,
+                maxZoom: 7,
+                duration,
+              });
+            }
+          };
+          fitSnapshotToViewport(reducedMotion === true ? 0 : 500);
         });
         map.once('error', () => {
           if (!cancelled && !loaded) {

@@ -3,6 +3,7 @@ import type { UserScope } from '../shared/user-scope';
 import {
   radarSignalItemSchema,
   radarSignalPageSchema,
+  type MarketComponentWatermarks,
   type RadarSignalItem,
   type RadarSignalPage,
 } from '@stock-insight/contracts/research-workspace';
@@ -46,6 +47,62 @@ type RadarCursor = Readonly<{
   occurredAt: string;
   signalKey: string;
 }>;
+
+const MARKET_COMPONENT_FRESHNESS_MS = 24 * 60 * 60 * 1_000;
+
+function buildComponentWatermarks(
+  scopeTotal: number,
+  signalAsOf: string | null,
+  now: Date,
+): MarketComponentWatermarks {
+  const missing = { availability: 'missing', watermarkAt: null, rowCount: 0 } as const;
+  if (scopeTotal === 0) {
+    const empty = { availability: 'empty', watermarkAt: null, rowCount: 0 } as const;
+    return {
+      event_radar: empty,
+      factor_map: empty,
+      propagation_map: empty,
+      theme_community: missing,
+      heatmap_matrix: empty,
+      timeline: empty,
+      map_globe: missing,
+      value_chain: missing,
+    };
+  }
+  if (signalAsOf === null) {
+    const error = { availability: 'error', watermarkAt: null, rowCount: scopeTotal } as const;
+    return {
+      event_radar: error,
+      factor_map: error,
+      propagation_map: error,
+      theme_community: missing,
+      heatmap_matrix: error,
+      timeline: error,
+      map_globe: missing,
+      value_chain: missing,
+    };
+  }
+  const stale = now.getTime() - new Date(signalAsOf).getTime() > MARKET_COMPONENT_FRESHNESS_MS;
+  const direct = {
+    availability: stale ? ('stale' as const) : ('available' as const),
+    watermarkAt: signalAsOf,
+    rowCount: scopeTotal,
+  };
+  const derived = {
+    ...direct,
+    availability: stale ? ('stale' as const) : ('partial' as const),
+  };
+  return {
+    event_radar: direct,
+    factor_map: derived,
+    propagation_map: derived,
+    theme_community: missing,
+    heatmap_matrix: direct,
+    timeline: direct,
+    map_globe: missing,
+    value_chain: missing,
+  };
+}
 
 const RADAR_SQL = `
   WITH base AS (
@@ -224,11 +281,13 @@ export async function getRadarSignals(
   const hasMore = mapped.length > limit;
   const returned = mapped.slice(0, limit);
   const last = returned.at(-1);
+  const now = options.now ?? new Date();
 
   return radarSignalPageSchema.parse({
-    generatedAt: (options.now ?? new Date()).toISOString(),
+    generatedAt: now.toISOString(),
     signalAsOf,
     scopeTotal,
+    componentWatermarks: buildComponentWatermarks(scopeTotal, signalAsOf, now),
     items: returned.map(({ item }) => item),
     nextCursor: hasMore && last ? encodeCursor(last.item, last.priority) : null,
   });

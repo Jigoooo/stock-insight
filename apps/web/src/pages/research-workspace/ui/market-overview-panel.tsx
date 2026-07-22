@@ -13,6 +13,7 @@ import {
   buildMarketOverview,
   describeMarketModeState,
   marketConnectionLabel,
+  resolveMarketComponentWatermark,
   type MarketModeId,
 } from '../model/market-overview';
 
@@ -24,6 +25,14 @@ const availabilityLabel = {
   partial: '관측 기반',
   empty: '신호 없음',
   missing: '원천 준비 중',
+} as const;
+const componentAvailabilityLabel = {
+  available: '최신',
+  partial: '부분 제공',
+  empty: '데이터 없음',
+  stale: '갱신 지연',
+  missing: '원천 미연결',
+  error: '확인 필요',
 } as const;
 const panelId = 'market-mode-panel';
 
@@ -45,6 +54,11 @@ export function MarketOverviewPanel({
   const [activeMode, setActiveMode] = useState<MarketModeId>(MARKET_MODE_IDS[0]);
   const mode = overview.modes.find(({ id }) => id === activeMode) ?? overview.modes[0]!;
   const displayState = describeMarketModeState(mode);
+  const componentWatermark = resolveMarketComponentWatermark(
+    mode.id,
+    data.componentWatermarks,
+    geoSnapshot,
+  );
 
   const selectMode = (nextMode: MarketModeId, focus = false) => {
     setActiveMode(nextMode);
@@ -237,6 +251,23 @@ export function MarketOverviewPanel({
         </div>
         <span data-availability={mode.availability}>{availabilityLabel[mode.availability]}</span>
       </header>
+
+      <output
+        className={styles.marketComponentWatermark}
+        data-testid="market-component-watermark"
+        data-component-availability={componentWatermark.availability}
+        aria-live="polite"
+      >
+        <strong>{componentAvailabilityLabel[componentWatermark.availability]}</strong>
+        {componentWatermark.watermarkAt ? (
+          <time dateTime={componentWatermark.watermarkAt}>
+            기준 {formatDate(componentWatermark.watermarkAt, true)}
+          </time>
+        ) : (
+          <span>기준 시각 없음</span>
+        )}
+        <span>{componentWatermark.rowCount.toLocaleString('ko-KR')}건</span>
+      </output>
 
       {mode.limitation && mode.availability !== 'missing' ? (
         <p className={styles.marketLimitation} role="note">

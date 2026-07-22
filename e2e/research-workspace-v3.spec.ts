@@ -139,10 +139,30 @@ async function installRadarLoader(
 }
 
 async function installEmptyRadarLoader(page: Page) {
-  return installRadarLoader(page, ({ radar, shell, items, evidence }) => {
+  return installRadarLoader(page, ({ radar, shell, items, evidence, nextId }) => {
     setSerializedRecordValue(radar, 'items', { ...(items ?? { t: 9 }), a: [] });
     setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 0 });
     setSerializedRecordValue(radar, 'nextCursor', { t: 2, s: 1 });
+    let allocatedId = nextId;
+    const empty = { availability: 'empty', watermarkAt: null, rowCount: 0 };
+    const missing = { availability: 'missing', watermarkAt: null, rowCount: 0 };
+    setSerializedRecordValue(
+      radar,
+      'componentWatermarks',
+      serializedValue(
+        {
+          event_radar: empty,
+          factor_map: empty,
+          propagation_map: empty,
+          theme_community: missing,
+          heatmap_matrix: empty,
+          timeline: empty,
+          map_globe: missing,
+          value_chain: missing,
+        },
+        () => allocatedId++,
+      ),
+    );
     if (shell) setSerializedRecordValue(shell, 'radarScopeTotal', { t: 0, s: 0 });
     evidence.itemCount = 0;
     evidence.scopeTotal = 0;
@@ -298,10 +318,47 @@ async function installPositiveRadarLoader(page: Page) {
     setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 3 });
     setSerializedRecordValue(radar, 'nextCursor', { t: 1, s: 'p3-c-fixture-cursor' });
     if (shell) setSerializedRecordValue(shell, 'radarScopeTotal', { t: 0, s: 3 });
+    let allocatedId = nextId + fixtureItems.length;
+    setSerializedRecordValue(
+      radar,
+      'componentWatermarks',
+      serializedValue(
+        {
+          event_radar: {
+            availability: 'available',
+            watermarkAt: '2026-07-22T00:00:00.000Z',
+            rowCount: 3,
+          },
+          factor_map: {
+            availability: 'partial',
+            watermarkAt: '2026-07-22T00:00:00.000Z',
+            rowCount: 3,
+          },
+          propagation_map: {
+            availability: 'partial',
+            watermarkAt: '2026-07-22T00:00:00.000Z',
+            rowCount: 3,
+          },
+          theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+          heatmap_matrix: {
+            availability: 'available',
+            watermarkAt: '2026-07-22T00:00:00.000Z',
+            rowCount: 3,
+          },
+          timeline: {
+            availability: 'available',
+            watermarkAt: '2026-07-22T00:00:00.000Z',
+            rowCount: 3,
+          },
+          map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+          value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+        },
+        () => allocatedId++,
+      ),
+    );
     if (!result.p?.k.includes('geoSnapshot')) {
       throw new Error('Radar payload is missing geoSnapshot');
     }
-    let allocatedId = nextId + fixtureItems.length;
     setSerializedRecordValue(
       result,
       'geoSnapshot',
@@ -543,11 +600,15 @@ test.describe('v3 research workspace candidate', () => {
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('radar-row')).toHaveCount(2);
     await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
+    const componentWatermark = page.getByTestId('market-component-watermark');
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
+    await expect(componentWatermark).toContainText('3건');
 
     await tabs.first().focus();
     await page.keyboard.press('ArrowRight');
     await expect(tabs.nth(1)).toBeFocused();
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'partial');
     await expect(page.getByRole('note')).toContainText('인과 추정값이 아니라');
     await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
     await expect(page.getByTestId('market-factor-group').first()).toContainText('건 관측');
@@ -560,6 +621,7 @@ test.describe('v3 research workspace candidate', () => {
     );
 
     await tabs.nth(3).click();
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'missing');
     const themePanel = page.getByTestId('market-mode-theme_community');
     await expect(themePanel).toContainText('테마 구성원 원천이 연결되지 않았습니다');
     await expect(themePanel).toHaveAttribute('data-display-state', 'missing');
@@ -568,6 +630,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.nth(4).click();
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
     await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
     await expect(page.getByTestId('market-heatmap-row').first()).toBeVisible();
 
@@ -576,6 +639,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('market-timeline-row').first()).toBeVisible();
 
     await tabs.nth(6).click();
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel).toHaveAttribute('data-display-state', 'content');
     await expect(page.getByTestId('geo-map-canvas')).toBeVisible();
@@ -617,6 +681,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.last().click();
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'missing');
     const valueChainPanel = page.getByTestId('market-mode-value_chain');
     await expect(valueChainPanel).toContainText(
       '현재 레이더 응답에는 승인된 공급망 관계가 없습니다',
@@ -790,6 +855,36 @@ test.describe('v3 research workspace candidate', () => {
           generatedAt: '2026-07-22T00:00:00.000Z',
           signalAsOf: '2026-07-22T00:00:00.000Z',
           scopeTotal,
+          componentWatermarks: {
+            event_radar: {
+              availability: 'available',
+              watermarkAt: '2026-07-22T00:00:00.000Z',
+              rowCount: 3,
+            },
+            factor_map: {
+              availability: 'partial',
+              watermarkAt: '2026-07-22T00:00:00.000Z',
+              rowCount: 3,
+            },
+            propagation_map: {
+              availability: 'partial',
+              watermarkAt: '2026-07-22T00:00:00.000Z',
+              rowCount: 3,
+            },
+            theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+            heatmap_matrix: {
+              availability: 'available',
+              watermarkAt: '2026-07-22T00:00:00.000Z',
+              rowCount: 3,
+            },
+            timeline: {
+              availability: 'available',
+              watermarkAt: '2026-07-22T00:00:00.000Z',
+              rowCount: 3,
+            },
+            map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+            value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+          },
           items: [
             {
               signalKey: 'p3-c-fixture-page-2',

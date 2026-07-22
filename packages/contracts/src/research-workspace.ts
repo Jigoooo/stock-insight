@@ -385,11 +385,57 @@ export const radarSignalItemSchema = z.object({
 
 export type RadarSignalItem = z.infer<typeof radarSignalItemSchema>;
 
+export const marketComponentAvailabilitySchema = z.enum([
+  'available',
+  'partial',
+  'empty',
+  'stale',
+  'missing',
+  'error',
+]);
+
+export const marketComponentWatermarkSchema = z
+  .object({
+    availability: marketComponentAvailabilitySchema,
+    watermarkAt: dateTimeSchema.nullable(),
+    rowCount: countSchema,
+  })
+  .superRefine(({ availability, rowCount, watermarkAt }, context) => {
+    if (['available', 'partial', 'stale'].includes(availability) && watermarkAt === null) {
+      context.addIssue({
+        code: 'custom',
+        message: 'content component watermark requires a timestamp',
+        path: ['watermarkAt'],
+      });
+    }
+    if (['empty', 'missing'].includes(availability) && (watermarkAt !== null || rowCount !== 0)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'empty or missing component watermark cannot claim rows or a timestamp',
+      });
+    }
+  });
+
+export const marketComponentWatermarksSchema = z.object({
+  event_radar: marketComponentWatermarkSchema,
+  factor_map: marketComponentWatermarkSchema,
+  propagation_map: marketComponentWatermarkSchema,
+  theme_community: marketComponentWatermarkSchema,
+  heatmap_matrix: marketComponentWatermarkSchema,
+  timeline: marketComponentWatermarkSchema,
+  map_globe: marketComponentWatermarkSchema,
+  value_chain: marketComponentWatermarkSchema,
+});
+
+export type MarketComponentWatermark = z.infer<typeof marketComponentWatermarkSchema>;
+export type MarketComponentWatermarks = z.infer<typeof marketComponentWatermarksSchema>;
+
 export const radarSignalPageSchema = z
   .object({
     generatedAt: dateTimeSchema,
     signalAsOf: dateTimeSchema.nullable(),
     scopeTotal: countSchema,
+    componentWatermarks: marketComponentWatermarksSchema,
     items: z.array(radarSignalItemSchema).max(50),
     nextCursor: boundedText(1_024).nullable(),
   })

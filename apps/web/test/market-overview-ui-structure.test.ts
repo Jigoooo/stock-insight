@@ -47,6 +47,15 @@ describe('P3-WC market overview UI structure', () => {
     assert.match(overview, /onKeyDown=\{handleModeKeyDown\}/);
   });
 
+  it('announces the active component watermark without replacing the mode semantics', async () => {
+    const overview = await read('market-overview-panel.tsx');
+    assert.match(overview, /<output/);
+    assert.match(overview, /data-testid="market-component-watermark"/);
+    assert.match(overview, /data-component-availability=\{componentWatermark\.availability\}/);
+    assert.match(overview, /aria-live="polite"/);
+    assert.match(overview, /resolveMarketComponentWatermark/);
+  });
+
   it('renders direct data with semantic table and timeline structures', async () => {
     const [radar, overview] = await Promise.all([
       read('views/radar-view.tsx'),
