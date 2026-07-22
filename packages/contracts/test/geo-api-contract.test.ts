@@ -91,6 +91,17 @@ describe('P3-WA2 geo API contract', () => {
     );
   });
 
+  it('accepts Point coordinates within the PostGIS 9-decimal serialization tolerance', () => {
+    assert.equal(
+      geoFeatureSchema.safeParse({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [127.5000000004, 36.4999999996] },
+        properties: validMarker,
+      }).success,
+      true,
+    );
+  });
+
   it('rejects open, degenerate or self-intersecting Polygon rings and exterior holes', () => {
     for (const coordinates of [
       [

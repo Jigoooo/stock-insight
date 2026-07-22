@@ -39,6 +39,7 @@ import { productionNetworkMigrationSql } from './migrations/038_production_netwo
 import { methodologyRegistryMigrationSql } from './migrations/039_methodology_registry';
 import { scenarioSpatialImpactMigrationSql } from './migrations/040_scenario_spatial_impact';
 import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_cache_ledger';
+import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_entity_identity_immutability';
 
 export type AppTableName =
   | 'company_profiles'
@@ -503,6 +504,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['precompute_policy', 'precompute_cache_entry', 'precompute_invalidation'],
     sql: precomputeCacheLedgerMigrationSql,
   },
+  {
+    id: '042_geo_entity_identity_immutability',
+    description:
+      'P3-D canonical geo identity immutability: geo.entity remains insert-only so current name/kind/key state cannot leak into historical point-in-time snapshots; spatial and precision corrections continue through append-only geo.entity_revision rows.',
+    tables: ['geo_entity'],
+    sql: geoEntityIdentityImmutabilityMigrationSql,
+  },
 ];
 
 export {
@@ -547,4 +555,5 @@ export {
   methodologyRegistryMigrationSql,
   scenarioSpatialImpactMigrationSql,
   precomputeCacheLedgerMigrationSql,
+  geoEntityIdentityImmutabilityMigrationSql,
 };

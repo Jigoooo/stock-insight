@@ -1,4 +1,5 @@
 import type { StockListResponse } from '@stock-insight/contracts';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type {
   DecisionHistoryPage,
   EntityRelationGraph,
@@ -40,7 +41,12 @@ export type ResearchWorkspaceViewPayload =
       today: WorkspaceToday;
       view: 'today';
     }
-  | { radar: RadarSignalPage; shell: ResearchWorkspaceShellSummary; view: 'radar' }
+  | {
+      geoSnapshot: GeoSnapshot;
+      radar: RadarSignalPage;
+      shell: ResearchWorkspaceShellSummary;
+      view: 'radar';
+    }
   | { shell: ResearchWorkspaceShellSummary; stocks: StockListResponse; view: 'stocks' }
   | {
       relation: EntityRelationGraph | null;

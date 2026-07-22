@@ -11,6 +11,8 @@ import {
   createScopedReadOnlyDatabaseClient,
   getDecisionHistory,
   getEntityRelationsWithV2Preference,
+  getGeoMvtTile,
+  getGeoSnapshot,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
@@ -45,6 +47,7 @@ export async function loadResearchWorkspaceView(
   options: ResearchWorkspaceViewOptions,
 ): Promise<ResearchWorkspaceViewPayload> {
   const { database, userScope } = createResearchReadContext(userId);
+  const requestNow = new Date();
   return database.withReadSnapshot(async (executor) => {
     let activeRadar: RadarSignalPage | undefined;
     let activeResearch: MyResearchOverview | undefined;
@@ -71,7 +74,12 @@ export async function loadResearchWorkspaceView(
           cursor: options.cursor,
           limit: 30,
         });
-        activeSlice = { radar: activeRadar, view: options.view };
+        const geoSnapshot = await getGeoSnapshot(executor, {
+          knownAt: requestNow,
+          validAt: requestNow,
+          now: requestNow,
+        });
+        activeSlice = { geoSnapshot, radar: activeRadar, view: options.view };
         break;
       }
       case 'stocks': {
@@ -209,4 +217,34 @@ export async function loadEntityRelationGraph(
     });
     return result.graph;
   });
+}
+
+export async function loadGeoSnapshot(
+  userId: string,
+  options: { knownAt?: Date; validAt?: Date } = {},
+) {
+  const { database } = createResearchReadContext(userId);
+  const requestNow = new Date();
+  return database.withReadSnapshot((executor) =>
+    getGeoSnapshot(executor, {
+      knownAt: options.knownAt ?? requestNow,
+      validAt: options.validAt ?? options.knownAt ?? requestNow,
+      now: requestNow,
+    }),
+  );
+}
+
+export async function loadGeoMvtTile(
+  userId: string,
+  options: {
+    z: number;
+    x: number;
+    y: number;
+    knownAt: Date;
+    validAt: Date;
+    snapshotId: string;
+  },
+) {
+  const { database } = createResearchReadContext(userId);
+  return database.withReadSnapshot((executor) => getGeoMvtTile(executor, options));
 }

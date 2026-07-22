@@ -1,5 +1,6 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 
+import { GeoMarketMap } from './geo-market-map';
 import {
   WorkspaceState,
   formatDate,
@@ -15,6 +16,7 @@ import {
   type MarketModeId,
 } from '../model/market-overview';
 
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 const availabilityLabel = {
@@ -29,12 +31,17 @@ export function MarketOverviewPanel({
   data,
   eventContent,
   footer,
+  geoSnapshot,
 }: {
   data: RadarSignalPage;
   eventContent: ReactNode;
   footer?: ReactNode;
+  geoSnapshot: GeoSnapshot;
 }) {
-  const overview = useMemo(() => buildMarketOverview(data.items), [data.items]);
+  const overview = useMemo(
+    () => buildMarketOverview(data.items, geoSnapshot),
+    [data.items, geoSnapshot],
+  );
   const [activeMode, setActiveMode] = useState<MarketModeId>(MARKET_MODE_IDS[0]);
   const mode = overview.modes.find(({ id }) => id === activeMode) ?? overview.modes[0]!;
   const displayState = describeMarketModeState(mode);
@@ -194,6 +201,8 @@ export function MarketOverviewPanel({
       );
     }
 
+    if (mode.id === 'map_globe') return <GeoMarketMap snapshot={geoSnapshot} />;
+
     return null;
   };
 
@@ -246,7 +255,7 @@ export function MarketOverviewPanel({
       >
         {renderModeBody()}
       </div>
-      {footer && mode.evidenceBasis !== 'unavailable' ? (
+      {footer && mode.id === 'event_radar' ? (
         <footer className={styles.marketModeFooter} data-testid="market-mode-footer">
           {footer}
         </footer>

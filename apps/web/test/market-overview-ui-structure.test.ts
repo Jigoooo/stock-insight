@@ -31,7 +31,7 @@ describe('P3-WC market overview UI structure', () => {
     assert.match(radar, /marketConnectionLabel\(item\)/);
     assert.doesNotMatch(radar, /item\.watched\s*\?/);
     assert.match(overview, /MARKET_MODE_IDS/);
-    assert.match(overview, /buildMarketOverview\(data\.items\)/);
+    assert.match(overview, /buildMarketOverview\(data\.items, geoSnapshot\)/);
   });
 
   it('uses a keyboard-addressable tablist and a single labelled tabpanel', async () => {
@@ -104,7 +104,7 @@ describe('P3-WC market overview UI structure', () => {
     assert.match(overview, /<WorkspaceState/);
     assert.match(overview, /description=\{displayState\.description\}/);
     assert.match(overview, /data-display-state=\{displayState\.kind\}/);
-    assert.match(overview, /mode\.evidenceBasis !== 'unavailable'/);
+    assert.match(overview, /mode\.id === 'event_radar'/);
     assert.match(overview, /data-testid="market-mode-footer"/);
     assert.doesNotMatch(overview, /mock|placeholderData|Math\.random|dummy/i);
   });

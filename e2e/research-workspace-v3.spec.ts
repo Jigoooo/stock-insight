@@ -1,5 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import {
+  computeGeoSnapshotDigest,
+  deriveGeoSnapshotId,
+  type GeoSnapshot,
+} from '../packages/contracts/src/geo-api-contract.ts';
+
+import { hashProductionArtifact } from '../scripts/production-artifact-hash.mjs';
 
 type SerializedNode = {
   t?: number;
@@ -62,11 +69,38 @@ function serializedRecord(
   };
 }
 
+function serializedValue(value: unknown, allocateId: () => number): SerializedNode {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return serializedPrimitive(value);
+  }
+  if (Array.isArray(value)) {
+    return { t: 9, i: allocateId(), a: value.map((item) => serializedValue(item, allocateId)) };
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    return {
+      t: 10,
+      i: allocateId(),
+      p: {
+        k: entries.map(([key]) => key),
+        v: entries.map(([, item]) => serializedValue(item, allocateId)),
+      },
+    };
+  }
+  throw new Error(`Unsupported E2E fixture value: ${typeof value}`);
+}
+
 type RadarWireEvidence = { matched: boolean; itemCount: number; scopeTotal: number };
 
 async function installRadarLoader(
   page: Page,
   mutate: (context: {
+    result: SerializedNode;
     radar: SerializedNode;
     shell: SerializedNode | undefined;
     items: SerializedNode | undefined;
@@ -90,14 +124,14 @@ async function installRadarLoader(
     }
     const result = findSerializedRecord(payload, 'radar');
     const radar = result ? serializedRecordValue(result, 'radar') : undefined;
-    if (!radar?.p?.k.includes('items')) {
+    if (!result || !radar?.p?.k.includes('items')) {
       await route.fulfill({ response });
       return;
     }
     const items = serializedRecordValue(radar, 'items');
     const shell = findSerializedRecord(payload, 'radarScopeTotal');
     evidence.itemCount = items?.a?.length ?? 0;
-    mutate({ radar, shell, items, evidence, nextId: maxSerializedId(payload) + 1 });
+    mutate({ result, radar, shell, items, evidence, nextId: maxSerializedId(payload) + 1 });
     evidence.matched = true;
     await route.fulfill({ response, json: payload });
   });
@@ -115,8 +149,116 @@ async function installEmptyRadarLoader(page: Page) {
   });
 }
 
+function positiveGeoSnapshotFixture() {
+  const provisionalSnapshotId = 'geo_bbbbbbbbbbbbbbbbbbbbbbbb';
+  const fixture: GeoSnapshot = {
+    version: 1,
+    snapshotId: provisionalSnapshotId,
+    digest: 'b'.repeat(64),
+    generatedAt: '2026-07-22T05:00:00.000Z',
+    knownAt: '2026-07-22T05:00:00.000Z',
+    validAt: '2026-07-22T05:00:00.000Z',
+    sourceAsOf: '2026-07-22T04:55:00.000Z',
+    availability: 'available',
+    geojson: {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [127.0276, 37.4979] },
+          properties: {
+            geoEntityKey: 'geo:facility:seoul',
+            label: '서울 데이터센터',
+            geoKind: 'facility',
+            precisionClass: 'exact',
+            longitude: 127.0276,
+            latitude: 37.4979,
+            uncertaintyRadiusKm: 0.2,
+            evidenceLocator: {
+              geoEntityRevisionId: 1001,
+              sourceRevisionId: 101,
+              sourceId: 'p3-d-e2e',
+            },
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [-97.7431, 30.2672] },
+          properties: {
+            geoEntityKey: 'geo:facility:austin',
+            label: '오스틴 반도체 시설',
+            geoKind: 'facility',
+            precisionClass: 'approximate',
+            longitude: -97.7431,
+            latitude: 30.2672,
+            uncertaintyRadiusKm: 4.5,
+            evidenceLocator: {
+              geoEntityRevisionId: 1002,
+              sourceRevisionId: 102,
+              sourceId: 'p3-d-e2e',
+            },
+          },
+        },
+      ],
+    },
+    mvt: {
+      available: true,
+      contentType: 'application/vnd.mapbox-vector-tile',
+      minZoom: 0,
+      maxZoom: 14,
+      urlTemplate: `/api/geo/tiles/{z}/{x}/{y}?snapshot=${provisionalSnapshotId}&validAt=2026-07-22T05%3A00%3A00.000Z&knownAt=2026-07-22T05%3A00%3A00.000Z`,
+    },
+    h3: {
+      resolution: 3,
+      cells: [
+        {
+          cellId: '832830fffffffff',
+          featureCount: 1,
+          geoEntityKeys: ['geo:facility:austin'],
+        },
+        {
+          cellId: '8330e1fffffffff',
+          featureCount: 1,
+          geoEntityKeys: ['geo:facility:seoul'],
+        },
+      ],
+    },
+    rejected: { count: 0, reasons: [] },
+    limitations: [
+      'H3 셀은 화면 집계용 파생 투영이며 정본 위치를 대체하지 않습니다.',
+      '지도 기준점은 실제 시설 범위를 과장하지 않습니다.',
+    ],
+  };
+  const digest = computeGeoSnapshotDigest({
+    version: fixture.version,
+    knownAt: fixture.knownAt,
+    validAt: fixture.validAt,
+    sourceAsOf: fixture.sourceAsOf,
+    availability: fixture.availability,
+    geojson: fixture.geojson,
+    mvt: {
+      contentType: fixture.mvt.contentType,
+      minZoom: fixture.mvt.minZoom,
+      maxZoom: fixture.mvt.maxZoom,
+    },
+    h3: fixture.h3,
+    rejected: fixture.rejected,
+    limitations: fixture.limitations,
+  });
+  const snapshotId = deriveGeoSnapshotId(digest);
+  return {
+    ...fixture,
+    snapshotId,
+    digest,
+    mvt: {
+      ...fixture.mvt,
+      urlTemplate: fixture.mvt.urlTemplate?.replace(provisionalSnapshotId, snapshotId) ?? null,
+    },
+  };
+}
+
 async function installPositiveRadarLoader(page: Page) {
-  return installRadarLoader(page, ({ radar, shell, items, evidence, nextId }) => {
+  return installRadarLoader(page, ({ result, radar, shell, items, evidence, nextId }) => {
     const fixtureItems = [
       serializedRecord(nextId, {
         signalKey: 'p3-c-fixture-initial-holding',
@@ -156,20 +298,69 @@ async function installPositiveRadarLoader(page: Page) {
     setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 3 });
     setSerializedRecordValue(radar, 'nextCursor', { t: 1, s: 'p3-c-fixture-cursor' });
     if (shell) setSerializedRecordValue(shell, 'radarScopeTotal', { t: 0, s: 3 });
+    if (!result.p?.k.includes('geoSnapshot')) {
+      throw new Error('Radar payload is missing geoSnapshot');
+    }
+    let allocatedId = nextId + fixtureItems.length;
+    setSerializedRecordValue(
+      result,
+      'geoSnapshot',
+      serializedValue(positiveGeoSnapshotFixture(), () => allocatedId++),
+    );
     evidence.itemCount = fixtureItems.length;
     evidence.scopeTotal = 3;
   });
 }
 
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
+const username = process.env.STOCK_INSIGHT_E2E_USERNAME;
+const password = process.env.STOCK_INSIGHT_E2E_PASSWORD;
+const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
+const expectedArtifactSha256 = process.env.PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256;
+let authenticatedCookies: Parameters<BrowserContext['addCookies']>[0] = [];
+
+function assertProductionArtifactIdentity(): void {
+  if (!useProductionBuild) return;
+  if (!expectedArtifactSha256 || !/^[0-9a-f]{64}$/.test(expectedArtifactSha256)) {
+    throw new Error('PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256 is required for production QA');
+  }
+  const actual = hashProductionArtifact(new URL('../apps/web/.output/', import.meta.url));
+  if (actual !== expectedArtifactSha256) {
+    throw new Error(
+      `Production artifact mismatch: expected ${expectedArtifactSha256}, got ${actual}`,
+    );
+  }
+}
+
 if (storageState) test.use({ storageState });
 
 test.describe('v3 research workspace candidate', () => {
-  test.beforeAll(() => {
-    if (!storageState) {
-      throw new Error('PLAYWRIGHT_STORAGE_STATE is required for authenticated candidate QA');
+  test.beforeAll(async ({ browser }, testInfo) => {
+    assertProductionArtifactIdentity();
+    if (storageState) return;
+    if (!username || !password) {
+      throw new Error('Stock Insight E2E credentials or storage state are required');
     }
+    const context = await browser.newContext({ baseURL: String(testInfo.project.use.baseURL) });
+    const page = await context.newPage();
+    await page.goto('/login?redirect=%2Fworkspace%3Fview%3Dradar');
+    await page.getByLabel('사용자 이름').fill(username);
+    await page.locator('#login-password').fill(password);
+    await page.getByRole('button', { name: '로그인', exact: true }).click();
+    await expect(page).toHaveURL(/\/workspace\?view=radar/);
+    authenticatedCookies = (await context.storageState()).cookies;
+    await context.close();
   });
+
+  test.beforeEach(async ({ context }, testInfo) => {
+    testInfo.annotations.push({
+      type: 'production-artifact-sha256',
+      description: expectedArtifactSha256 ?? 'development',
+    });
+    if (!storageState) await context.addCookies(authenticatedCookies);
+  });
+
+  test.afterAll(() => assertProductionArtifactIdentity());
 
   test('redirects the authenticated root to the v3 workspace', async ({ page }) => {
     await page.goto('/');
@@ -331,7 +522,7 @@ test.describe('v3 research workspace candidate', () => {
 
   test('switches all eight market screens without fabricating unavailable data', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await page.goto('/workspace?view=today');
     const evidence = await installPositiveRadarLoader(page);
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
@@ -386,10 +577,43 @@ test.describe('v3 research workspace candidate', () => {
 
     await tabs.nth(6).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
-    await expect(mapPanel).toContainText('검증된 GeoJSON 위치 원천은 P3-D에서 연결됩니다');
-    await expect(mapPanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(mapPanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-    await expect(mapPanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(mapPanel).toHaveAttribute('data-display-state', 'content');
+    await expect(page.getByTestId('geo-map-canvas')).toBeVisible();
+    await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
+    await expect(mapPanel).toContainText(positiveGeoSnapshotFixture().snapshotId);
+    await expect(mapPanel).toContainText('H3 파생 셀 2개');
+    await expect(page.getByRole('button', { name: '지도 확대' })).toBeEnabled();
+    await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
+    await expect(mapPanel.locator('[data-map-generation]')).toHaveAttribute(
+      'data-visible-feature-count',
+      '2',
+    );
+    if (process.env.P3D_CAPTURE_SCREENSHOTS === '1') {
+      await page.screenshot({
+        path: testInfo.outputPath('p3-d-map.png'),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+    if (testInfo.project.name === 'desktop') {
+      const desktopViewport = page.viewportSize();
+      expect(desktopViewport).not.toBeNull();
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(mapPanel.locator('[data-map-generation]')).toHaveAttribute(
+        'data-visible-feature-count',
+        '2',
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+      await page.setViewportSize(desktopViewport!);
+      await expect(mapPanel.locator('[data-map-generation]')).toHaveAttribute(
+        'data-visible-feature-count',
+        '2',
+      );
+    }
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.last().click();
@@ -416,6 +640,86 @@ test.describe('v3 research workspace candidate', () => {
 
     const results = await new AxeBuilder({ page }).include('[aria-label="시장 시각화"]').analyze();
     expect(results.violations).toEqual([]);
+  });
+
+  test('keeps sealed geo evidence visible when WebGL is unavailable', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'WebGL fallback is viewport-independent');
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+        configurable: true,
+        value(this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+          if (['webgl', 'webgl2', 'experimental-webgl'].includes(contextId)) return null;
+          return Reflect.apply(original, this, [contextId, ...args]);
+        },
+      });
+    });
+    await page.goto('/workspace?view=today');
+    const evidence = await installPositiveRadarLoader(page);
+    await page.getByTestId('workspace-nav-radar').click();
+    await page.waitForURL(/view=radar/);
+    await expect.poll(() => evidence.matched).toBe(true);
+    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    await tabs.nth(6).click();
+    const mapPanel = page.getByTestId('market-mode-map_globe');
+    await expect(mapPanel.getByRole('status')).toContainText(
+      '지도 렌더링을 사용할 수 없어 근거 표를 유지합니다',
+    );
+    await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: '지도 확대' })).toHaveCount(0);
+    await expect(mapPanel).toContainText('geo revision 1001 · source revision 101');
+    if (process.env.P3D_CAPTURE_SCREENSHOTS === '1') {
+      await page.screenshot({
+        path: testInfo.outputPath('p3-d-map-webgl-fallback.png'),
+        fullPage: true,
+        animations: 'disabled',
+      });
+    }
+    const results = await new AxeBuilder({ page })
+      .include('[data-testid="market-mode-map_globe"]')
+      .analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  test('settles the geo camera without motion when reduced motion is requested', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'desktop covers the reduced-motion branch');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/workspace?view=today');
+    const evidence = await installPositiveRadarLoader(page);
+    await page.getByTestId('workspace-nav-radar').click();
+    await page.waitForURL(/view=radar/);
+    await expect.poll(() => evidence.matched).toBe(true);
+
+    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    await tabs.nth(6).click();
+    const mapPanel = page.getByTestId('market-mode-map_globe');
+    await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
+    const mapStage = mapPanel.locator('[data-map-generation]');
+    const initialGeneration = await mapStage.getAttribute('data-map-generation');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(mapStage).toHaveAttribute('data-map-generation', /:reduced$/);
+    expect(await mapStage.getAttribute('data-map-generation')).not.toBe(initialGeneration);
+    await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
+    await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
+    await expect(page.getByRole('button', { name: '지도 확대' })).toBeEnabled();
+    const motionDurations = await page.getByTestId('geo-map-canvas').evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        transitionSeconds: Number.parseFloat(style.transitionDuration),
+        animationSeconds: Number.parseFloat(style.animationDuration),
+      };
+    });
+    expect(motionDurations.transitionSeconds).toBe(0);
+    expect(motionDurations.animationSeconds).toBeLessThanOrEqual(0.000001);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
   });
 
   test('renders controlled empty and unsupported market modes as distinct runtime states', async ({

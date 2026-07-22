@@ -1,3 +1,5 @@
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { z } from 'zod';
 
 /**
@@ -20,6 +22,9 @@ import { z } from 'zod';
 const dateTimeSchema = z.string().datetime();
 const evidenceLocatorSchema = z
   .object({
+    geoEntityRevisionId: z
+      .union([z.number().int().positive(), z.string().trim().min(1)])
+      .optional(),
     sourceRevisionId: z.union([z.number().int().positive(), z.string().trim().min(1)]),
     rawObjectId: z.union([z.number().int().positive(), z.string().trim().min(1)]).optional(),
     sourceId: z.string().trim().min(1).optional(),
@@ -241,6 +246,8 @@ const geoGeometrySchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('MultiPolygon'), coordinates: multiPolygonCoordinatesSchema }),
 ]);
 
+const POINT_COORDINATE_TOLERANCE = 1e-9;
+
 export const geoFeatureSchema = z
   .object({
     type: z.literal('Feature'),
@@ -250,8 +257,10 @@ export const geoFeatureSchema = z
   .superRefine((feature, context) => {
     if (
       feature.geometry.type === 'Point' &&
-      (feature.geometry.coordinates[0] !== feature.properties.longitude ||
-        feature.geometry.coordinates[1] !== feature.properties.latitude)
+      (Math.abs(feature.geometry.coordinates[0] - feature.properties.longitude) >
+        POINT_COORDINATE_TOLERANCE ||
+        Math.abs(feature.geometry.coordinates[1] - feature.properties.latitude) >
+          POINT_COORDINATE_TOLERANCE)
     ) {
       context.addIssue({
         code: 'custom',
@@ -262,6 +271,274 @@ export const geoFeatureSchema = z
   });
 
 export type GeoFeature = z.infer<typeof geoFeatureSchema>;
+
+export const geoFeatureCollectionSchema = z
+  .object({
+    type: z.literal('FeatureCollection'),
+    features: z.array(geoFeatureSchema),
+  })
+  .superRefine((collection, context) => {
+    const keys = collection.features.map((feature) => feature.properties.geoEntityKey);
+    if (new Set(keys).size !== keys.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'GeoJSON feature collection must not repeat a geo entity key',
+        path: ['features'],
+      });
+    }
+  });
+
+export type GeoFeatureCollection = z.infer<typeof geoFeatureCollectionSchema>;
+
+export const geoSnapshotAvailabilitySchema = z.enum([
+  'available',
+  'partial',
+  'empty',
+  'unavailable',
+  'stale',
+  'error',
+]);
+
+const geoMvtDescriptorSchema = z.discriminatedUnion('available', [
+  z.object({
+    available: z.literal(true),
+    contentType: z.literal('application/vnd.mapbox-vector-tile'),
+    minZoom: z.number().int().min(0).max(22),
+    maxZoom: z.number().int().min(0).max(22),
+    urlTemplate: z.string().min(1),
+  }),
+  z.object({
+    available: z.literal(false),
+    contentType: z.literal('application/vnd.mapbox-vector-tile'),
+    minZoom: z.number().int().min(0).max(22),
+    maxZoom: z.number().int().min(0).max(22),
+    urlTemplate: z.null(),
+  }),
+]);
+
+const h3CellSchema = z
+  .object({
+    cellId: z.string().regex(/^[0-9a-f]{15}$/),
+    featureCount: z.number().int().positive(),
+    geoEntityKeys: z.array(z.string().min(1)).min(1),
+  })
+  .superRefine((cell, context) => {
+    const uniqueKeys = new Set(cell.geoEntityKeys);
+    if (uniqueKeys.size !== cell.geoEntityKeys.length || cell.featureCount !== uniqueKeys.size) {
+      context.addIssue({
+        code: 'custom',
+        message: 'H3 feature count must equal its unique geo entity keys',
+        path: ['geoEntityKeys'],
+      });
+    }
+  });
+
+export type GeoSnapshotSealMaterial = Readonly<{
+  version: 1;
+  knownAt: string;
+  validAt: string;
+  sourceAsOf: string | null;
+  availability: z.infer<typeof geoSnapshotAvailabilitySchema>;
+  geojson: GeoFeatureCollection;
+  mvt: Readonly<{
+    contentType: 'application/vnd.mapbox-vector-tile';
+    minZoom: number;
+    maxZoom: number;
+  }>;
+  h3: Readonly<{
+    resolution: number;
+    cells: ReadonlyArray<z.infer<typeof h3CellSchema>>;
+  }>;
+  rejected: Readonly<{
+    count: number;
+    reasons: ReadonlyArray<Readonly<{ code: string; count: number }>>;
+  }>;
+  limitations: readonly string[];
+}>;
+
+function compareCanonicalText(first: string, second: string): number {
+  return first < second ? -1 : first > second ? 1 : 0;
+}
+
+function stableJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort(compareCanonicalText)
+    .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
+    .join(',')}}`;
+}
+
+export function computeGeoSnapshotDigest(material: GeoSnapshotSealMaterial): string {
+  const canonical = stableJson({
+    version: material.version,
+    knownAt: material.knownAt,
+    validAt: material.validAt,
+    sourceAsOf: material.sourceAsOf,
+    availability: material.availability,
+    geojson: material.geojson,
+    h3: material.h3,
+    rejected: material.rejected,
+    limitations: material.limitations,
+    mvt: {
+      contentType: material.mvt.contentType,
+      minZoom: material.mvt.minZoom,
+      maxZoom: material.mvt.maxZoom,
+    },
+  });
+  return bytesToHex(sha256(utf8ToBytes(canonical)));
+}
+
+export function deriveGeoSnapshotId(digest: string): string {
+  if (!/^[0-9a-f]{64}$/.test(digest)) throw new Error('Geo snapshot digest is invalid');
+  return `geo_${digest.slice(0, 24)}`;
+}
+
+export const geoSnapshotSchema = z
+  .object({
+    version: z.literal(1),
+    snapshotId: z.string().regex(/^geo_[0-9a-f]{24}$/),
+    digest: z.string().regex(/^[0-9a-f]{64}$/),
+    generatedAt: dateTimeSchema,
+    knownAt: dateTimeSchema,
+    validAt: dateTimeSchema,
+    sourceAsOf: dateTimeSchema.nullable(),
+    availability: geoSnapshotAvailabilitySchema,
+    geojson: geoFeatureCollectionSchema,
+    mvt: geoMvtDescriptorSchema.superRefine((descriptor, context) => {
+      if (descriptor.maxZoom < descriptor.minZoom) {
+        context.addIssue({
+          code: 'custom',
+          message: 'MVT max zoom must not precede min zoom',
+          path: ['maxZoom'],
+        });
+      }
+    }),
+    h3: z.object({
+      resolution: z.number().int().min(0).max(15),
+      cells: z.array(h3CellSchema),
+    }),
+    rejected: z.object({
+      count: z.number().int().nonnegative(),
+      reasons: z.array(
+        z.object({
+          code: z.string().regex(/^[a-z][a-z0-9_]*$/),
+          count: z.number().int().positive(),
+        }),
+      ),
+    }),
+    limitations: z.array(z.string().min(1)),
+  })
+  .superRefine((snapshot, context) => {
+    const featureCount = snapshot.geojson.features.length;
+    const contentState = ['available', 'partial', 'stale'].includes(snapshot.availability);
+    snapshot.geojson.features.forEach((feature, index) => {
+      if (feature.properties.evidenceLocator?.geoEntityRevisionId === undefined) {
+        context.addIssue({
+          code: 'custom',
+          message: 'sealed geo feature requires exact geo entity revision lineage',
+          path: ['geojson', 'features', index, 'properties', 'evidenceLocator'],
+        });
+      }
+    });
+    if (contentState && (featureCount === 0 || snapshot.sourceAsOf === null)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'content-bearing geo snapshot requires features and sourceAsOf',
+        path: ['availability'],
+      });
+    }
+    if (!contentState && featureCount > 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'non-content geo snapshot must not expose features',
+        path: ['geojson', 'features'],
+      });
+    }
+    if (snapshot.availability === 'partial' && snapshot.rejected.count === 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'partial geo snapshot requires rejected rows',
+        path: ['rejected', 'count'],
+      });
+    }
+    if (contentState && snapshot.availability !== 'partial' && snapshot.rejected.count > 0) {
+      context.addIssue({
+        code: 'custom',
+        message: 'non-partial content snapshot must not carry rejected rows',
+        path: ['rejected', 'count'],
+      });
+    }
+    if (snapshot.mvt.available !== contentState || snapshot.h3.cells.length > featureCount) {
+      context.addIssue({
+        code: 'custom',
+        message: 'geo representations must match snapshot content availability',
+        path: ['mvt'],
+      });
+    }
+    if (
+      snapshot.mvt.available &&
+      (!snapshot.mvt.urlTemplate.includes(`snapshot=${snapshot.snapshotId}`) ||
+        !snapshot.mvt.urlTemplate.includes('knownAt=') ||
+        !snapshot.mvt.urlTemplate.includes('validAt='))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'MVT descriptor must bind snapshot id, validAt, and knownAt',
+        path: ['mvt', 'urlTemplate'],
+      });
+    }
+    const cellIds = snapshot.h3.cells.map((cell) => cell.cellId);
+    if (new Set(cellIds).size !== cellIds.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'H3 cells must be unique',
+        path: ['h3', 'cells'],
+      });
+    }
+    const featureKeys = snapshot.geojson.features.map((feature) => feature.properties.geoEntityKey);
+    const h3Keys = snapshot.h3.cells.flatMap((cell) => cell.geoEntityKeys);
+    if (
+      h3Keys.length !== featureKeys.length ||
+      new Set(h3Keys).size !== h3Keys.length ||
+      h3Keys.some((key) => !featureKeys.includes(key))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'H3 membership must exactly cover the sealed feature set',
+        path: ['h3', 'cells'],
+      });
+    }
+    const rejectedCount = snapshot.rejected.reasons.reduce((total, item) => total + item.count, 0);
+    if (rejectedCount !== snapshot.rejected.count) {
+      context.addIssue({
+        code: 'custom',
+        message: 'geo rejection count must equal reason counts',
+        path: ['rejected', 'count'],
+      });
+    }
+    const expectedDigest = computeGeoSnapshotDigest(snapshot);
+    if (snapshot.digest !== expectedDigest) {
+      context.addIssue({
+        code: 'custom',
+        message: 'geo snapshot digest must bind the canonical payload',
+        path: ['digest'],
+      });
+    }
+    if (
+      /^[0-9a-f]{64}$/.test(snapshot.digest) &&
+      snapshot.snapshotId !== deriveGeoSnapshotId(snapshot.digest)
+    ) {
+      context.addIssue({
+        code: 'custom',
+        message: 'geo snapshot id must derive from its digest',
+        path: ['snapshotId'],
+      });
+    }
+  });
+
+export type GeoSnapshot = z.infer<typeof geoSnapshotSchema>;
 
 export const geoEventLocationSchema = z.object({
   eventId: z.string().min(1),

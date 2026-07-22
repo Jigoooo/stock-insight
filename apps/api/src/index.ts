@@ -77,6 +77,12 @@ export type {
 } from './my-research/read-model';
 export { getRadarSignals } from './radar/read-model';
 export type { GetRadarSignalsOptions, RadarSignalQueryExecutor } from './radar/read-model';
+export { getGeoMvtTile, getGeoSnapshot } from './geo/read-model';
+export type {
+  GetGeoMvtTileOptions,
+  GetGeoSnapshotOptions,
+  GeoSnapshotQueryExecutor,
+} from './geo/read-model';
 export { getThemeResearchList } from './themes/read-model';
 export type { GetThemeResearchListOptions, ThemeResearchQueryExecutor } from './themes/read-model';
 export { getSystemStatus } from './status/read-model';

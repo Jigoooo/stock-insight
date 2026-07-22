@@ -8,6 +8,7 @@ import {
   marketConnectionLabel,
 } from '../src/pages/research-workspace/model/market-overview.ts';
 
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalItem } from '@stock-insight/contracts/research-workspace';
 
 const signals: RadarSignalItem[] = [
@@ -170,6 +171,27 @@ describe('P3-WC market overview model', () => {
       title: '테마 커뮤니티 데이터 준비 중',
       description: '현재 레이더 응답에 테마 구성원 원천이 연결되지 않았습니다.',
     });
+  });
+
+  it('derives the map mode from a sealed geo snapshot without promoting missing data', () => {
+    const snapshot = (availability: GeoSnapshot['availability'], featureCount: number) =>
+      ({
+        availability,
+        geojson: { features: Array.from({ length: featureCount }, () => ({})) },
+        rejected: { count: availability === 'partial' ? 1 : 0, reasons: [] },
+      }) as unknown as GeoSnapshot;
+
+    for (const [availability, featureCount, expected] of [
+      ['available', 1, 'available'],
+      ['partial', 1, 'partial'],
+      ['stale', 1, 'partial'],
+      ['empty', 0, 'empty'],
+      ['unavailable', 0, 'missing'],
+      ['error', 0, 'missing'],
+    ] as const) {
+      const overview = buildMarketOverview([], snapshot(availability, featureCount));
+      assert.equal(overview.modes[6]?.availability, expected);
+    }
   });
 
   it('preserves simultaneous holding and watchlist relationships', () => {

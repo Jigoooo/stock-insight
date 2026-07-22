@@ -20,6 +20,7 @@
     "format:check": "oxfmt --check src package.json tsconfig.json"
   },
   "dependencies": {
+    "@noble/hashes": "2.2.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

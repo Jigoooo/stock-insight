@@ -956,6 +956,7 @@ export function ResearchWorkspacePage({
           {section === 'radar' && data.view === 'radar' && (
             <RadarView
               data={visibleRadarPage ?? data.radar}
+              geoSnapshot={data.geoSnapshot}
               interactive={hydrated}
               pageState={visibleRadarPageState}
               onLoadMore={() => void loadMoreRadar()}

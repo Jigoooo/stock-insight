@@ -15,15 +15,18 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/primitives';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 export function RadarView({
   data,
+  geoSnapshot,
   interactive,
   pageState,
   onLoadMore,
 }: {
   data: RadarSignalPage;
+  geoSnapshot: GeoSnapshot;
   interactive: boolean;
   pageState: DetailState;
   onLoadMore: () => void;
@@ -43,6 +46,7 @@ export function RadarView({
       />
       <MarketOverviewPanel
         data={data}
+        geoSnapshot={geoSnapshot}
         eventContent={
           <div ref={ledgerRef} className={styles.ledger}>
             {data.items.length === 0 ? (

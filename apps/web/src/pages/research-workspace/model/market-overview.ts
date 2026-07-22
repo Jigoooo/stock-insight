@@ -1,3 +1,4 @@
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalItem } from '@stock-insight/contracts/research-workspace';
 
 export const MARKET_MODE_IDS = [
@@ -178,14 +179,48 @@ function buildSignalTypeGroups(items: RadarSignalItem[]): SignalTypeGroup[] {
   return [...groups.values()];
 }
 
-export function buildMarketOverview(items: RadarSignalItem[]): MarketOverview {
+function geoModeDefinition(
+  base: MarketModeDefinition,
+  snapshot?: GeoSnapshot,
+): MarketModeDefinition {
+  if (!snapshot || snapshot.availability === 'unavailable' || snapshot.availability === 'error') {
+    return base;
+  }
+  if (snapshot.availability === 'empty') {
+    return {
+      ...base,
+      availability: 'empty',
+      evidenceBasis: 'direct',
+      limitation: '정본 GeoJSON 원천은 연결되어 있으나 현재 기준 시점에 표시할 위치가 없습니다.',
+    };
+  }
+  return {
+    ...base,
+    availability: snapshot.availability === 'available' ? 'available' : 'partial',
+    evidenceBasis: 'direct',
+    limitation:
+      snapshot.availability === 'stale'
+        ? '정본 위치 snapshot이 신선도 기준을 넘었습니다. 기준 시각을 확인하세요.'
+        : snapshot.availability === 'partial'
+          ? `검증을 통과한 위치만 표시합니다. 거부된 행 ${snapshot.rejected.count}건은 제외했습니다.`
+          : 'WGS84 정본 geometry를 표시하며 H3는 화면 집계용 파생 투영입니다.',
+  };
+}
+
+export function buildMarketOverview(
+  items: RadarSignalItem[],
+  geoSnapshot?: GeoSnapshot,
+): MarketOverview {
   const hasSignals = items.length > 0;
   return {
-    modes: MODE_DEFINITIONS.map((mode) => ({
-      ...mode,
-      availability:
-        hasSignals || mode.evidenceBasis === 'unavailable' ? mode.availability : 'empty',
-    })),
+    modes: MODE_DEFINITIONS.map((mode) => {
+      if (mode.id === 'map_globe') return geoModeDefinition(mode, geoSnapshot);
+      return {
+        ...mode,
+        availability:
+          hasSignals || mode.evidenceBasis === 'unavailable' ? mode.availability : 'empty',
+      };
+    }),
     signalTypeGroups: buildSignalTypeGroups(items),
     heatmapRows: items.map((item) => ({
       ...item,
