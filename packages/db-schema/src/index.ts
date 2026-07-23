@@ -44,6 +44,7 @@ import { personalizationDecisionSupportMigrationSql } from './migrations/043_per
 import { personalizationApiSurfaceMigrationSql } from './migrations/044_personalization_api_surface';
 import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_experiment_ledger';
 import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_identity_foundation';
+import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth_foundation';
 
 export type AppTableName =
   | 'company_profiles'
@@ -137,6 +138,12 @@ export type AppTableName =
   | 'crypto_entity_alias'
   | 'crypto_identity_evidence'
   | 'crypto_core_crosswalk'
+  | 'crypto_event'
+  | 'crypto_event_revision'
+  | 'crypto_event_participant'
+  | 'crypto_event_evidence'
+  | 'crypto_contract_dependency_revision'
+  | 'crypto_depeg_observation'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -568,6 +575,20 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoIdentityFoundationMigrationSql,
   },
+  {
+    id: '047_crypto_truth_foundation',
+    description:
+      'P6-2 separate crypto truth module with append-only bitemporal event lifecycle, evidence, contract dependency revisions, chain finality, and depeg observations.',
+    tables: [
+      'crypto_event',
+      'crypto_event_revision',
+      'crypto_event_participant',
+      'crypto_event_evidence',
+      'crypto_contract_dependency_revision',
+      'crypto_depeg_observation',
+    ],
+    sql: cryptoTruthFoundationMigrationSql,
+  },
 ];
 
 export {
@@ -617,4 +638,5 @@ export {
   personalizationApiSurfaceMigrationSql,
   shadowExperimentLedgerMigrationSql,
   cryptoIdentityFoundationMigrationSql,
+  cryptoTruthFoundationMigrationSql,
 };

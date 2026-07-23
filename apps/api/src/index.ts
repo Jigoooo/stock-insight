@@ -205,6 +205,14 @@ export type {
 } from './experimental/shadow-artifact-writer';
 export { compileCryptoIdentityKey } from './crypto/identity-key';
 export type { CryptoEntityKind, CryptoIdentityKeyResult } from './crypto/identity-key';
+export { compileCryptoTruthEvent } from './crypto/truth-event';
+export type {
+  CryptoEventLifecycleState,
+  CryptoEventParticipantRole,
+  CryptoFinalityState,
+  CryptoTruthEventResult,
+  CryptoTruthEventType,
+} from './crypto/truth-event';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
