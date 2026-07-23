@@ -213,6 +213,8 @@ export type {
   CryptoTruthEventResult,
   CryptoTruthEventType,
 } from './crypto/truth-event';
+export { evaluateTokenUnlock } from './crypto/token-unlock';
+export type { TokenUnlockEvaluationResult } from './crypto/token-unlock';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,

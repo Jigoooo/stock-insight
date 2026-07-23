@@ -45,6 +45,7 @@ import { personalizationApiSurfaceMigrationSql } from './migrations/044_personal
 import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_experiment_ledger';
 import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_identity_foundation';
 import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth_foundation';
+import { cryptoTokenomicsMigrationSql } from './migrations/048_crypto_tokenomics';
 
 export type AppTableName =
   | 'company_profiles'
@@ -144,6 +145,12 @@ export type AppTableName =
   | 'crypto_event_evidence'
   | 'crypto_contract_dependency_revision'
   | 'crypto_depeg_observation'
+  | 'crypto_token_supply_revision'
+  | 'crypto_unlock_schedule_revision'
+  | 'crypto_emission_schedule_revision'
+  | 'crypto_governance_proposal'
+  | 'crypto_governance_proposal_revision'
+  | 'crypto_governance_action'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -589,6 +596,20 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoTruthFoundationMigrationSql,
   },
+  {
+    id: '048_crypto_tokenomics',
+    description:
+      'P6-3 append-only token supply, unlock, emission, governance proposal, revision, and action economics with raw coefficients, units, PIT, and provenance.',
+    tables: [
+      'crypto_token_supply_revision',
+      'crypto_unlock_schedule_revision',
+      'crypto_emission_schedule_revision',
+      'crypto_governance_proposal',
+      'crypto_governance_proposal_revision',
+      'crypto_governance_action',
+    ],
+    sql: cryptoTokenomicsMigrationSql,
+  },
 ];
 
 export {
@@ -639,4 +660,5 @@ export {
   shadowExperimentLedgerMigrationSql,
   cryptoIdentityFoundationMigrationSql,
   cryptoTruthFoundationMigrationSql,
+  cryptoTokenomicsMigrationSql,
 };
