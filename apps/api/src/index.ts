@@ -177,6 +177,11 @@ export type {
   EventRagPathStep,
   EventRagResult,
 } from './experimental/eventrag-retriever';
+export { rankGraphCandidates } from './experimental/graph-candidate-ranker';
+export type {
+  GraphCandidateRankingResult,
+  GraphRankingMethod,
+} from './experimental/graph-candidate-ranker';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,

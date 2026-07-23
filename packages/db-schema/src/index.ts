@@ -42,6 +42,7 @@ import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_c
 import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_entity_identity_immutability';
 import { personalizationDecisionSupportMigrationSql } from './migrations/043_personalization_decision_support';
 import { personalizationApiSurfaceMigrationSql } from './migrations/044_personalization_api_surface';
+import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_experiment_ledger';
 
 export type AppTableName =
   | 'company_profiles'
@@ -127,6 +128,9 @@ export type AppTableName =
   | 'method_assumption'
   | 'method_diagnostic'
   | 'conformal_interval'
+  | 'shadow_experiment_run'
+  | 'candidate_score'
+  | 'shadow_metric'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -538,6 +542,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['thesis_revision'],
     sql: personalizationApiSurfaceMigrationSql,
   },
+  {
+    id: '045_shadow_experiment_ledger',
+    description:
+      'P5 append-only shadow experiment runs, candidate-only scores, and evaluation metrics with structural prohibitions on accepted facts, product actions, and orders.',
+    tables: ['shadow_experiment_run', 'candidate_score', 'shadow_metric'],
+    sql: shadowExperimentLedgerMigrationSql,
+  },
 ];
 
 export {
@@ -585,4 +596,5 @@ export {
   geoEntityIdentityImmutabilityMigrationSql,
   personalizationDecisionSupportMigrationSql,
   personalizationApiSurfaceMigrationSql,
+  shadowExperimentLedgerMigrationSql,
 };
