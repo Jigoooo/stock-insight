@@ -203,6 +203,8 @@ export type {
   AppendShadowArtifactResult,
   ShadowArtifactQueryExecutor,
 } from './experimental/shadow-artifact-writer';
+export { compileCryptoIdentityKey } from './crypto/identity-key';
+export type { CryptoEntityKind, CryptoIdentityKeyResult } from './crypto/identity-key';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,

@@ -43,6 +43,7 @@ import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_
 import { personalizationDecisionSupportMigrationSql } from './migrations/043_personalization_decision_support';
 import { personalizationApiSurfaceMigrationSql } from './migrations/044_personalization_api_surface';
 import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_experiment_ledger';
+import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_identity_foundation';
 
 export type AppTableName =
   | 'company_profiles'
@@ -131,6 +132,11 @@ export type AppTableName =
   | 'shadow_experiment_run'
   | 'candidate_score'
   | 'shadow_metric'
+  | 'crypto_entity'
+  | 'crypto_entity_revision'
+  | 'crypto_entity_alias'
+  | 'crypto_identity_evidence'
+  | 'crypto_core_crosswalk'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -549,6 +555,19 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['shadow_experiment_run', 'candidate_score', 'shadow_metric'],
     sql: shadowExperimentLedgerMigrationSql,
   },
+  {
+    id: '046_crypto_identity_foundation',
+    description:
+      'P6-1 separate crypto identity module with CAIP-compatible stable keys, append-only bitemporal revisions, aliases, source evidence, and reviewed crosswalks to shared core identity.',
+    tables: [
+      'crypto_entity',
+      'crypto_entity_revision',
+      'crypto_entity_alias',
+      'crypto_identity_evidence',
+      'crypto_core_crosswalk',
+    ],
+    sql: cryptoIdentityFoundationMigrationSql,
+  },
 ];
 
 export {
@@ -597,4 +616,5 @@ export {
   personalizationDecisionSupportMigrationSql,
   personalizationApiSurfaceMigrationSql,
   shadowExperimentLedgerMigrationSql,
+  cryptoIdentityFoundationMigrationSql,
 };
