@@ -186,6 +186,8 @@ export { compileCausalDiscoveryCandidates } from './experimental/causal-discover
 export type { CausalDiscoveryCandidateResult } from './experimental/causal-discovery-candidate';
 export { runSequentialConformal } from './experimental/sequential-conformal';
 export type { SequentialConformalResult } from './experimental/sequential-conformal';
+export { evaluateContentRankingPolicy } from './experimental/contextual-bandit-ope';
+export type { BanditOpeResult } from './experimental/contextual-bandit-ope';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
