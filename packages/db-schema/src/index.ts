@@ -47,6 +47,7 @@ import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_id
 import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth_foundation';
 import { cryptoTokenomicsMigrationSql } from './migrations/048_crypto_tokenomics';
 import { cryptoContagionImpactMigrationSql } from './migrations/049_crypto_contagion_impact';
+import { cryptoCrossDomainGraphMigrationSql } from './migrations/050_crypto_cross_domain_graph';
 
 export type AppTableName =
   | 'company_profiles'
@@ -158,6 +159,11 @@ export type AppTableName =
   | 'crypto_risk_score_component'
   | 'crypto_contagion_edge_revision'
   | 'crypto_liquidation_observation'
+  | 'cross_crypto_core_relation_revision'
+  | 'cross_crypto_core_metric_revision'
+  | 'cross_crypto_geo_relation_revision'
+  | 'cross_crypto_macro_relation_revision'
+  | 'cross_crypto_world_event_link_revision'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -631,6 +637,19 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoContagionImpactMigrationSql,
   },
+  {
+    id: '050_crypto_cross_domain_graph',
+    description:
+      'P6-5 first-class crypto-to-company, security, metric, regulation, risk, geo, and world-event graph with PIT evidence and separate economic/confidence fields.',
+    tables: [
+      'cross_crypto_core_relation_revision',
+      'cross_crypto_core_metric_revision',
+      'cross_crypto_geo_relation_revision',
+      'cross_crypto_macro_relation_revision',
+      'cross_crypto_world_event_link_revision',
+    ],
+    sql: cryptoCrossDomainGraphMigrationSql,
+  },
 ];
 
 export {
@@ -683,4 +702,5 @@ export {
   cryptoTruthFoundationMigrationSql,
   cryptoTokenomicsMigrationSql,
   cryptoContagionImpactMigrationSql,
+  cryptoCrossDomainGraphMigrationSql,
 };

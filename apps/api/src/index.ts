@@ -217,6 +217,11 @@ export { evaluateTokenUnlock } from './crypto/token-unlock';
 export type { TokenUnlockEvaluationResult } from './crypto/token-unlock';
 export { evaluateCryptoContagion } from './crypto/contagion';
 export type { CryptoContagionChannel, CryptoContagionResult } from './crypto/contagion';
+export { compileCryptoCoreRelation } from './crypto/cross-domain-relation';
+export type {
+  CryptoCoreRelationKind,
+  CryptoCoreRelationResult,
+} from './crypto/cross-domain-relation';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,

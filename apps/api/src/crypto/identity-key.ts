@@ -73,6 +73,26 @@ function normalizeAccount(namespace: string, value: unknown): string | null {
   return /^[A-Za-z0-9._~%+-]{3,128}$/.test(value) ? value : null;
 }
 
+function parseAssetId(value: unknown): { assetId: string; chainId: string } | null {
+  if (typeof value !== 'string') return null;
+  const separator = value.indexOf('/');
+  if (separator <= 0 || separator !== value.lastIndexOf('/')) return null;
+  const chain = parseChainId(value.slice(0, separator));
+  const asset = value.slice(separator + 1);
+  const match = /^([a-z0-9-]{3,32}):([A-Za-z0-9._~%+-]{1,128})$/.exec(asset);
+  if (chain === null || match === null) return null;
+  const [, namespace, rawReference] = match;
+  if (namespace === undefined || rawReference === undefined) return null;
+  let reference = rawReference;
+  if (namespace === 'slip44') {
+    if (!/^\d+$/.test(reference)) return null;
+  } else if (namespace === 'erc20') {
+    if (chain.namespace !== 'eip155' || !/^0x[0-9a-fA-F]{40}$/.test(reference)) return null;
+    reference = reference.toLowerCase();
+  }
+  return { assetId: `${chain.chainId}/${namespace}:${reference}`, chainId: chain.chainId };
+}
+
 export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResult {
   try {
     const record = asRecord(input);
@@ -86,7 +106,12 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
     const kind = record.kind as CryptoEntityKind;
     if (chainKinds.has(kind)) {
       const chain = parseChainId(record.chainId);
-      if (chain === null || record.accountAddress !== undefined || record.slug !== undefined) {
+      if (
+        chain === null ||
+        record.accountAddress !== undefined ||
+        record.slug !== undefined ||
+        record.assetId !== undefined
+      ) {
         return abstained;
       }
       return {
@@ -99,9 +124,30 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
         orderExecutable: false,
       };
     }
+    if ((kind === 'token' || kind === 'stablecoin') && record.assetId !== undefined) {
+      const asset = parseAssetId(record.assetId);
+      if (
+        asset === null ||
+        record.chainId !== undefined ||
+        record.accountAddress !== undefined ||
+        record.slug !== undefined
+      ) {
+        return abstained;
+      }
+      return {
+        status: 'ok',
+        entityKind: kind,
+        entityKey: `crypto:${kind}:${asset.assetId}`,
+        chainId: asset.chainId,
+        accountAddress: null,
+        readOnly: true,
+        orderExecutable: false,
+      };
+    }
     if (onchainKinds.has(kind)) {
       const chain = parseChainId(record.chainId);
-      if (chain === null || record.slug !== undefined) return abstained;
+      if (chain === null || record.slug !== undefined || record.assetId !== undefined)
+        return abstained;
       const accountAddress = normalizeAccount(chain.namespace, record.accountAddress);
       if (accountAddress === null) return abstained;
       return {
@@ -119,7 +165,8 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
       typeof record.slug !== 'string' ||
       !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(record.slug) ||
       record.chainId !== undefined ||
-      record.accountAddress !== undefined
+      record.accountAddress !== undefined ||
+      record.assetId !== undefined
     ) {
       return abstained;
     }

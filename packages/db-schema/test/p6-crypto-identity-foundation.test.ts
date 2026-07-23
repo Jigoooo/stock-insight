@@ -25,6 +25,8 @@ describe('P6-1 crypto identity foundation migration', () => {
       sql,
       /entity_kind IN \([\s\S]*'blockchain'[\s\S]*'l2'[\s\S]*'protocol'[\s\S]*'smart_contract'[\s\S]*'token'[\s\S]*'stablecoin'[\s\S]*'bridge'[\s\S]*'oracle'[\s\S]*'validator'[\s\S]*'exchange'[\s\S]*'custodian'[\s\S]*'wallet_cluster'/,
     );
+    assert.match(sql, /asset_id\s+TEXT/);
+    assert.match(sql, /slip44|erc20/);
   });
 
   it('is append-only, bitemporal, and source-revision anchored', () => {

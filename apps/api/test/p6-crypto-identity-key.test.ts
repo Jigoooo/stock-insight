@@ -56,6 +56,24 @@ describe('P6-1 crypto canonical identity keys', () => {
     );
   });
 
+  it('supports CAIP-19 native assets such as bitcoin without inventing a contract address', () => {
+    assert.deepEqual(
+      compileCryptoIdentityKey({
+        kind: 'token',
+        assetId: 'bip122:000000000019d6689c085ae165831e93/slip44:0',
+      }),
+      {
+        status: 'ok',
+        entityKind: 'token',
+        entityKey: 'crypto:token:bip122:000000000019d6689c085ae165831e93/slip44:0',
+        chainId: 'bip122:000000000019d6689c085ae165831e93',
+        accountAddress: null,
+        readOnly: true,
+        orderExecutable: false,
+      },
+    );
+  });
+
   it('fails closed on ticker-only, malformed CAIP, missing locator, or wrong address case rules', () => {
     for (const input of [
       { kind: 'token', slug: 'usdc' },
