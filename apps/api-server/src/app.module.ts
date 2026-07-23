@@ -5,6 +5,7 @@ import { API_SERVER_DB, API_SERVER_ENV } from './config/tokens.ts';
 import { createDbService } from './db/db-service.ts';
 import { HealthController } from './health/health.controller.ts';
 import { MetaController } from './meta/meta.controller.ts';
+import { PersonalizationController } from './personalization/personalization.controller.ts';
 import { DashboardController } from './read/dashboard.controller.ts';
 import { DiscoverController } from './read/discover.controller.ts';
 import { MarketNewsController } from './read/market-news.controller.ts';
@@ -27,6 +28,7 @@ import { ManualPortfolioController } from './write/manual-portfolio.controller.t
     DiscoverController,
     ResearchWorkspaceController,
     ManualPortfolioController,
+    PersonalizationController,
     // StocksController is intentionally LAST: its `GET stocks/:entityKey` wildcard
     // must not shadow other static routes during registration.
     StocksController,

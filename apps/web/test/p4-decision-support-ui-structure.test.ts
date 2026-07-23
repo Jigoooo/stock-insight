@@ -75,6 +75,7 @@ describe('P4 decision-support read-only UI', () => {
       'DecisionSupportContent',
       'PageHeader',
       'AvailabilityNotice',
+      'PersonalizationWorkspacePanel',
       'DecisionSupportPanel',
       'HistoryRows',
     ]);

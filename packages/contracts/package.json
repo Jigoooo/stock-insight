@@ -6,6 +6,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./personalization": "./src/personalization.ts",
     "./research-workspace": "./src/research-workspace.ts",
     "./temporal": "./src/temporal.ts",
     "./graphrag-router": "./src/graphrag-router.ts",
@@ -14,6 +15,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
     "format": "oxfmt src package.json tsconfig.json",

@@ -110,6 +110,65 @@ export {
 } from './product/read-model';
 export type { ProductListOptions, ProductQueryExecutor } from './product/read-model';
 export {
+  DECISION_REASON_CODES,
+  compileDecisionRuntimePacket,
+} from './personalization/decision-runtime';
+export type {
+  DecisionReasonCode,
+  DecisionRuntimeInput,
+  DecisionRuntimePacket,
+  ThesisState,
+} from './personalization/decision-runtime';
+export { buildDynamicProbabilityContext } from './personalization/dynamic-probability-model';
+export type {
+  DynamicProbabilityModelInput,
+  DynamicProbabilityModelResult,
+  DynamicProbabilityRuntimeContext,
+} from './personalization/dynamic-probability-model';
+export { optimizeConvexPortfolio } from './personalization/multi-asset-optimizer';
+export type {
+  ExposureConstraintKind,
+  MultiAssetOptimizerInput,
+  MultiAssetOptimizerResult,
+} from './personalization/multi-asset-optimizer';
+export { optimizeTargetWeight } from './personalization/portfolio-optimizer';
+export type {
+  ConvexTargetOptimizerInput,
+  ConvexTargetOptimizerResult,
+  OptimizerBindingConstraint,
+} from './personalization/portfolio-optimizer';
+export { getPersonalizationPortfolioSnapshot } from './personalization/portfolio-read-model';
+export type {
+  GetPersonalizationPortfolioSnapshotOptions,
+  PersonalizationQueryExecutor,
+} from './personalization/portfolio-read-model';
+export { getPersonalizationPortfolioImpact } from './personalization/impact-read-model';
+export type {
+  GetPersonalizationPortfolioImpactOptions,
+  PersonalizationImpactQueryExecutor,
+} from './personalization/impact-read-model';
+export {
+  getPersonalizationDecisionHistory,
+  getPersonalizationDecisionSupport,
+} from './personalization/decision-read-model';
+export type {
+  GetPersonalizationDecisionHistoryOptions,
+  GetPersonalizationDecisionOptions,
+  PersonalizationDecisionQueryExecutor,
+} from './personalization/decision-read-model';
+export { appendUserThesisRevision, getPersonalizationThesis } from './personalization/thesis-model';
+export type {
+  AppendUserThesisRevisionOptions,
+  GetPersonalizationThesisOptions,
+  PersonalizationThesisExecutor,
+} from './personalization/thesis-model';
+export { evaluatePersonalizationReleaseGate } from './personalization/evaluation-gate';
+export type {
+  EvaluatePersonalizationReleaseGateInput,
+  PersonalizationEvaluationMetrics,
+  PersonalizationEvaluationPolicy,
+} from './personalization/evaluation-gate';
+export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
   createScopedDatabaseClient,

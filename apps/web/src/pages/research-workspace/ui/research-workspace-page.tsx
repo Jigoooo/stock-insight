@@ -975,7 +975,7 @@ export function ResearchWorkspacePage({
             />
           )}
           {section === 'research' && data.view === 'research' && (
-            <MyResearchView data={data.myResearch} />
+            <MyResearchView data={data.myResearch} personalization={data.personalization} />
           )}
           {section === 'history' && data.view === 'history' && (
             <HistoryView

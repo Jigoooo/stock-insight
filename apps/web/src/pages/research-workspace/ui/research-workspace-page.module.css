@@ -3027,6 +3027,94 @@
   }
 }
 
+.personalizationPanel {
+  display: grid;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.personalizationGrid,
+.explanationGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.personalizationGrid > section,
+.explanationGrid > article {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.personalizationGrid h3,
+.explanationPanel h3,
+.explanationGrid h4 {
+  margin: 0 0 8px;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.personalizationGrid p,
+.explanationPanel p,
+.explanationGrid li {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.personalizationGrid dl,
+.personalizationGrid ul,
+.explanationGrid ul {
+  margin: 0;
+  padding: 0;
+}
+
+.personalizationGrid dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.personalizationGrid dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.explanationPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.explanationPanel > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .personalizationGrid,
+  .explanationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .personalizationGrid,
+  .explanationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .explanationPanel > header {
+    display: grid;
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .topbar,
   .inspector,

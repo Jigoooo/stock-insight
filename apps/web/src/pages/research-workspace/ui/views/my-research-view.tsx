@@ -3,6 +3,8 @@ import styles from '../research-workspace-page.module.css';
 import { DecisionSupportContent } from './decision-support-content';
 import { getDecisionSupportPresentation } from './decision-support-presentation';
 import { HistoryRows } from './history-view';
+import { PersonalizationWorkspacePanel } from './personalization-workspace-panel';
+import type { PersonalizationResearchWorkspace } from '../../model/workspace-view-payload';
 
 import type { MyResearchOverview } from '@stock-insight/contracts/research-workspace';
 
@@ -53,7 +55,13 @@ function DecisionSupportPanel({ data }: { data: MyResearchOverview['decisionSupp
   );
 }
 
-export function MyResearchView({ data }: { data: MyResearchOverview }) {
+export function MyResearchView({
+  data,
+  personalization,
+}: {
+  data: MyResearchOverview;
+  personalization: PersonalizationResearchWorkspace;
+}) {
   return (
     <>
       <PageHeader
@@ -81,6 +89,7 @@ export function MyResearchView({ data }: { data: MyResearchOverview }) {
           <strong>{data.reviewDueCount}</strong>
         </div>
       </section>
+      <PersonalizationWorkspacePanel data={personalization} />
       <div className={styles.researchSections}>
         <DecisionSupportPanel data={data.decisionSupport} />
         <section className={styles.panel}>

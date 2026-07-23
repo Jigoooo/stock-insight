@@ -1,6 +1,13 @@
 import type { StockListResponse } from '@stock-insight/contracts';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type {
+  PersonalizationDecisionHistory,
+  PersonalizationDecisionSupport,
+  PersonalizationPortfolioImpact,
+  PersonalizationPortfolioSnapshot,
+  PersonalizationThesis,
+} from '@stock-insight/contracts/personalization';
+import type {
   DecisionHistoryPage,
   EntityRelationGraph,
   MyResearchOverview,
@@ -33,6 +40,15 @@ export type ResearchWorkspaceShellSummary = {
   watchlistCount: number;
 };
 
+export type PersonalizationResearchWorkspace = {
+  decision: PersonalizationDecisionSupport | null;
+  decisionHistory: PersonalizationDecisionHistory | null;
+  impact: PersonalizationPortfolioImpact | null;
+  portfolio: PersonalizationPortfolioSnapshot | null;
+  selectedEntityKey: string | null;
+  thesis: PersonalizationThesis | null;
+};
+
 export type ResearchWorkspaceViewPayload =
   | {
       defaultRecord: ResearchRecordDetail | null;
@@ -56,6 +72,7 @@ export type ResearchWorkspaceViewPayload =
     }
   | {
       myResearch: MyResearchOverview;
+      personalization: PersonalizationResearchWorkspace;
       shell: ResearchWorkspaceShellSummary;
       view: 'research';
     }

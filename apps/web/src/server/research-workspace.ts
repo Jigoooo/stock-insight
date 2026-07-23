@@ -14,6 +14,11 @@ import {
   getGeoMvtTile,
   getGeoSnapshot,
   getMyResearchOverview,
+  getPersonalizationDecisionHistory,
+  getPersonalizationDecisionSupport,
+  getPersonalizationPortfolioImpact,
+  getPersonalizationPortfolioSnapshot,
+  getPersonalizationThesis,
   getRadarSignals,
   getResearchFeedPage,
   getResearchRecordDetail,
@@ -110,7 +115,54 @@ export async function loadResearchWorkspaceView(
       }
       case 'research': {
         activeResearch = await getMyResearchOverview(executor, { userScope });
-        activeSlice = { myResearch: activeResearch, view: options.view };
+        const portfolio = await getPersonalizationPortfolioSnapshot(executor, { userScope });
+        const selectedEntityKey =
+          activeResearch.decisionSupport.latestPacket?.entityKey ??
+          portfolio?.positions[0]?.entityKey ??
+          null;
+        const impact = portfolio
+          ? await getPersonalizationPortfolioImpact(executor, {
+              userScope,
+              eventId: null,
+              scenarioId: null,
+              horizon: null,
+              knownAt: requestNow,
+            })
+          : null;
+        const decision = selectedEntityKey
+          ? await getPersonalizationDecisionSupport(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+            })
+          : null;
+        const decisionHistory = selectedEntityKey
+          ? await getPersonalizationDecisionHistory(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+              limit: 20,
+            })
+          : null;
+        const thesis = selectedEntityKey
+          ? await getPersonalizationThesis(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+            })
+          : null;
+        activeSlice = {
+          myResearch: activeResearch,
+          personalization: {
+            decision,
+            decisionHistory,
+            impact,
+            portfolio,
+            selectedEntityKey,
+            thesis,
+          },
+          view: options.view,
+        };
         break;
       }
       case 'history': {

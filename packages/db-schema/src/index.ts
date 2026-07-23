@@ -41,6 +41,7 @@ import { scenarioSpatialImpactMigrationSql } from './migrations/040_scenario_spa
 import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_cache_ledger';
 import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_entity_identity_immutability';
 import { personalizationDecisionSupportMigrationSql } from './migrations/043_personalization_decision_support';
+import { personalizationApiSurfaceMigrationSql } from './migrations/044_personalization_api_surface';
 
 export type AppTableName =
   | 'company_profiles'
@@ -530,6 +531,13 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: personalizationDecisionSupportMigrationSql,
   },
+  {
+    id: '044_personalization_api_surface',
+    description:
+      'P4-C personalization API surface: distinguish user-authored and system-generated thesis revisions without weakening the append-only private ledger.',
+    tables: ['thesis_revision'],
+    sql: personalizationApiSurfaceMigrationSql,
+  },
 ];
 
 export {
@@ -576,4 +584,5 @@ export {
   precomputeCacheLedgerMigrationSql,
   geoEntityIdentityImmutabilityMigrationSql,
   personalizationDecisionSupportMigrationSql,
+  personalizationApiSurfaceMigrationSql,
 };
