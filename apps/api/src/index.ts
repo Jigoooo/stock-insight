@@ -184,6 +184,8 @@ export type {
 } from './experimental/graph-candidate-ranker';
 export { compileCausalDiscoveryCandidates } from './experimental/causal-discovery-candidate';
 export type { CausalDiscoveryCandidateResult } from './experimental/causal-discovery-candidate';
+export { runSequentialConformal } from './experimental/sequential-conformal';
+export type { SequentialConformalResult } from './experimental/sequential-conformal';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
