@@ -182,6 +182,8 @@ export type {
   GraphCandidateRankingResult,
   GraphRankingMethod,
 } from './experimental/graph-candidate-ranker';
+export { compileCausalDiscoveryCandidates } from './experimental/causal-discovery-candidate';
+export type { CausalDiscoveryCandidateResult } from './experimental/causal-discovery-candidate';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
