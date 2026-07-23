@@ -188,6 +188,11 @@ export { runSequentialConformal } from './experimental/sequential-conformal';
 export type { SequentialConformalResult } from './experimental/sequential-conformal';
 export { evaluateContentRankingPolicy } from './experimental/contextual-bandit-ope';
 export type { BanditOpeResult } from './experimental/contextual-bandit-ope';
+export { evaluatePolicySandbox } from './experimental/policy-sandbox-gate';
+export type {
+  PolicySandboxFailedGate,
+  PolicySandboxResult,
+} from './experimental/policy-sandbox-gate';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
