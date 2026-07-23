@@ -193,6 +193,11 @@ export type {
   PolicySandboxFailedGate,
   PolicySandboxResult,
 } from './experimental/policy-sandbox-gate';
+export { compileFacilityCandidates } from './experimental/remote-sensing-candidate';
+export type {
+  RemoteSensingCandidateResult,
+  RemoteSensingFacilityKind,
+} from './experimental/remote-sensing-candidate';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
