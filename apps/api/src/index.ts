@@ -198,6 +198,11 @@ export type {
   RemoteSensingCandidateResult,
   RemoteSensingFacilityKind,
 } from './experimental/remote-sensing-candidate';
+export { appendShadowExperimentArtifact } from './experimental/shadow-artifact-writer';
+export type {
+  AppendShadowArtifactResult,
+  ShadowArtifactQueryExecutor,
+} from './experimental/shadow-artifact-writer';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
