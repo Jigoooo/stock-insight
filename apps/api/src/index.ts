@@ -168,6 +168,15 @@ export type {
   PersonalizationEvaluationMetrics,
   PersonalizationEvaluationPolicy,
 } from './personalization/evaluation-gate';
+export { retrieveEventCandidates } from './experimental/eventrag-retriever';
+export type {
+  EventRagEntityEdge,
+  EventRagEvent,
+  EventRagEventEdge,
+  EventRagInput,
+  EventRagPathStep,
+  EventRagResult,
+} from './experimental/eventrag-retriever';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
