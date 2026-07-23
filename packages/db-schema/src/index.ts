@@ -46,6 +46,7 @@ import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_expe
 import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_identity_foundation';
 import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth_foundation';
 import { cryptoTokenomicsMigrationSql } from './migrations/048_crypto_tokenomics';
+import { cryptoContagionImpactMigrationSql } from './migrations/049_crypto_contagion_impact';
 
 export type AppTableName =
   | 'company_profiles'
@@ -151,6 +152,12 @@ export type AppTableName =
   | 'crypto_governance_proposal'
   | 'crypto_governance_proposal_revision'
   | 'crypto_governance_action'
+  | 'crypto_risk_shock'
+  | 'crypto_transmission_channel'
+  | 'crypto_risk_exposure_revision'
+  | 'crypto_risk_score_component'
+  | 'crypto_contagion_edge_revision'
+  | 'crypto_liquidation_observation'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -610,6 +617,20 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoTokenomicsMigrationSql,
   },
+  {
+    id: '049_crypto_contagion_impact',
+    description:
+      'P6-4 crypto impact chain with event shocks, typed transmission channels, decomposed sealed exposures, contagion edges, and liquidation observations.',
+    tables: [
+      'crypto_risk_shock',
+      'crypto_transmission_channel',
+      'crypto_risk_exposure_revision',
+      'crypto_risk_score_component',
+      'crypto_contagion_edge_revision',
+      'crypto_liquidation_observation',
+    ],
+    sql: cryptoContagionImpactMigrationSql,
+  },
 ];
 
 export {
@@ -661,4 +682,5 @@ export {
   cryptoIdentityFoundationMigrationSql,
   cryptoTruthFoundationMigrationSql,
   cryptoTokenomicsMigrationSql,
+  cryptoContagionImpactMigrationSql,
 };

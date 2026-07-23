@@ -215,6 +215,8 @@ export type {
 } from './crypto/truth-event';
 export { evaluateTokenUnlock } from './crypto/token-unlock';
 export type { TokenUnlockEvaluationResult } from './crypto/token-unlock';
+export { evaluateCryptoContagion } from './crypto/contagion';
+export type { CryptoContagionChannel, CryptoContagionResult } from './crypto/contagion';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
