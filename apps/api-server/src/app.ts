@@ -26,9 +26,16 @@ export {
 } from './write/manual-portfolio.service.ts';
 export {
   areManualPortfolioMutationsEnabled,
+  resolvePersonalizationMutationPolicy,
   resolveManualPortfolioMutationPolicy,
   type ManualPortfolioMutationPolicy,
+  type PersonalizationMutationPolicy,
 } from './write/mutation-policy.ts';
+export {
+  handleThesisAppend,
+  type PersonalizationMutationDeps,
+  type PersonalizationMutationHttpResult,
+} from './personalization/personalization.service.ts';
 
 export type CreateAppOptions = Readonly<{
   // Test/override hook: supply the internal-context signing secret directly

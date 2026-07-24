@@ -1,4 +1,13 @@
 import type { StockListResponse } from '@stock-insight/contracts';
+import type { CryptoResearchWorkspace } from '@stock-insight/contracts/crypto-research';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
+import type {
+  PersonalizationDecisionHistory,
+  PersonalizationDecisionSupport,
+  PersonalizationPortfolioImpact,
+  PersonalizationPortfolioSnapshot,
+  PersonalizationThesis,
+} from '@stock-insight/contracts/personalization';
 import type {
   DecisionHistoryPage,
   EntityRelationGraph,
@@ -15,6 +24,7 @@ export type ResearchWorkspaceViewId =
   | 'today'
   | 'radar'
   | 'stocks'
+  | 'crypto'
   | 'themes'
   | 'research'
   | 'history'
@@ -32,6 +42,15 @@ export type ResearchWorkspaceShellSummary = {
   watchlistCount: number;
 };
 
+export type PersonalizationResearchWorkspace = {
+  decision: PersonalizationDecisionSupport | null;
+  decisionHistory: PersonalizationDecisionHistory | null;
+  impact: PersonalizationPortfolioImpact | null;
+  portfolio: PersonalizationPortfolioSnapshot | null;
+  selectedEntityKey: string | null;
+  thesis: PersonalizationThesis | null;
+};
+
 export type ResearchWorkspaceViewPayload =
   | {
       defaultRecord: ResearchRecordDetail | null;
@@ -40,8 +59,14 @@ export type ResearchWorkspaceViewPayload =
       today: WorkspaceToday;
       view: 'today';
     }
-  | { radar: RadarSignalPage; shell: ResearchWorkspaceShellSummary; view: 'radar' }
+  | {
+      geoSnapshot: GeoSnapshot;
+      radar: RadarSignalPage;
+      shell: ResearchWorkspaceShellSummary;
+      view: 'radar';
+    }
   | { shell: ResearchWorkspaceShellSummary; stocks: StockListResponse; view: 'stocks' }
+  | { crypto: CryptoResearchWorkspace; shell: ResearchWorkspaceShellSummary; view: 'crypto' }
   | {
       relation: EntityRelationGraph | null;
       shell: ResearchWorkspaceShellSummary;
@@ -50,6 +75,7 @@ export type ResearchWorkspaceViewPayload =
     }
   | {
       myResearch: MyResearchOverview;
+      personalization: PersonalizationResearchWorkspace;
       shell: ResearchWorkspaceShellSummary;
       view: 'research';
     }

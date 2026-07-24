@@ -28,6 +28,28 @@ import { pipelineRunClaimMigrationSql } from './migrations/027_pipeline_run_clai
 import { undirectedImpactStepGuardMigrationSql } from './migrations/028_undirected_impact_step_guard';
 import { coreIdentityGapBackfillMigrationSql } from './migrations/029_core_identity_gap_backfill';
 import { multiUserInvitationSignupMigrationSql } from './migrations/030_multi_user_invitation_signup';
+import { truthKernelMigrationSql } from './migrations/031_truth_kernel';
+import { worldEventTemporalLineageMigrationSql } from './migrations/032_world_event_temporal_lineage';
+import { entityResolutionOntologyMigrationSql } from './migrations/033_entity_resolution_ontology';
+import { geoFoundationMigrationSql } from './migrations/034_geo_foundation';
+import { geoExposurePitUniverseMigrationSql } from './migrations/035_geo_exposure_pit_universe';
+import { truthGeoServingMigrationSql } from './migrations/036_truth_geo_serving';
+import { impactExposureLedgerMigrationSql } from './migrations/037_impact_exposure_ledger';
+import { productionNetworkMigrationSql } from './migrations/038_production_network';
+import { methodologyRegistryMigrationSql } from './migrations/039_methodology_registry';
+import { scenarioSpatialImpactMigrationSql } from './migrations/040_scenario_spatial_impact';
+import { precomputeCacheLedgerMigrationSql } from './migrations/041_precompute_cache_ledger';
+import { geoEntityIdentityImmutabilityMigrationSql } from './migrations/042_geo_entity_identity_immutability';
+import { personalizationDecisionSupportMigrationSql } from './migrations/043_personalization_decision_support';
+import { personalizationApiSurfaceMigrationSql } from './migrations/044_personalization_api_surface';
+import { shadowExperimentLedgerMigrationSql } from './migrations/045_shadow_experiment_ledger';
+import { cryptoIdentityFoundationMigrationSql } from './migrations/046_crypto_identity_foundation';
+import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth_foundation';
+import { cryptoTokenomicsMigrationSql } from './migrations/048_crypto_tokenomics';
+import { cryptoContagionImpactMigrationSql } from './migrations/049_crypto_contagion_impact';
+import { cryptoCrossDomainGraphMigrationSql } from './migrations/050_crypto_cross_domain_graph';
+import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_views';
+import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening';
 
 export type AppTableName =
   | 'company_profiles'
@@ -64,6 +86,103 @@ export type AppTableName =
   | 'graph_snapshot_analytics'
   | 'backend_serving_v2'
   | 'pipeline_run_claim'
+  | 'truth_assertion'
+  | 'truth_numeric_fact'
+  | 'truth_derivation_dag'
+  | 'truth_coverage_ledger'
+  | 'truth_conflict_set'
+  | 'world_event'
+  | 'world_event_revision'
+  | 'world_event_participant'
+  | 'world_reified_obligation'
+  | 'ingestion_story'
+  | 'ingestion_content_artifact'
+  | 'resolution_candidate'
+  | 'resolution_feature'
+  | 'resolution_decision'
+  | 'ontology_rfc'
+  | 'ontology_revision'
+  | 'ontology_crosswalk'
+  | 'geo_entity'
+  | 'geo_entity_revision'
+  | 'geo_location_mention'
+  | 'geo_location_candidate'
+  | 'geo_location_decision'
+  | 'geo_crosswalk'
+  | 'geo_entity_exposure_revision'
+  | 'security_master'
+  | 'security_listing_revision'
+  | 'security_ticker_history'
+  | 'security_corporate_action'
+  | 'pit_universe_membership'
+  | 'v_truth_assertion_pit_v1'
+  | 'v_world_event_current_v1'
+  | 'v_geo_entity_exposure_v1'
+  | 'v_pit_universe_current_v1'
+  | 'truth_geo_serving_manifest'
+  | 'impact_shock'
+  | 'impact_channel'
+  | 'impact_exposure_revision'
+  | 'impact_score_component'
+  | 'io_industry_linkage'
+  | 'firm_supply_relation'
+  | 'product_classification'
+  | 'trade_route'
+  | 'industry_firm_allocation'
+  | 'meta_path_policy'
+  | 'methodology_template'
+  | 'method_estimate'
+  | 'method_assumption'
+  | 'method_diagnostic'
+  | 'conformal_interval'
+  | 'shadow_experiment_run'
+  | 'candidate_score'
+  | 'shadow_metric'
+  | 'crypto_entity'
+  | 'crypto_entity_revision'
+  | 'crypto_entity_alias'
+  | 'crypto_identity_evidence'
+  | 'crypto_core_crosswalk'
+  | 'crypto_event'
+  | 'crypto_event_revision'
+  | 'crypto_event_participant'
+  | 'crypto_event_evidence'
+  | 'crypto_contract_dependency_revision'
+  | 'crypto_depeg_observation'
+  | 'crypto_token_supply_revision'
+  | 'crypto_unlock_schedule_revision'
+  | 'crypto_emission_schedule_revision'
+  | 'crypto_governance_proposal'
+  | 'crypto_governance_proposal_revision'
+  | 'crypto_governance_action'
+  | 'crypto_risk_shock'
+  | 'crypto_transmission_channel'
+  | 'crypto_risk_exposure_revision'
+  | 'crypto_risk_score_component'
+  | 'crypto_contagion_edge_revision'
+  | 'crypto_liquidation_observation'
+  | 'cross_crypto_core_relation_revision'
+  | 'cross_crypto_core_metric_revision'
+  | 'cross_crypto_geo_relation_revision'
+  | 'cross_crypto_macro_relation_revision'
+  | 'cross_crypto_world_event_link_revision'
+  | 'crypto_serving_entity_revision'
+  | 'crypto_serving_event_revision'
+  | 'crypto_serving_core_relation_revision'
+  | 'crypto_serving_risk_exposure_revision'
+  | 'scenario_set'
+  | 'scenario_branch'
+  | 'scenario_invalidation'
+  | 'spatial_impact_path'
+  | 'spatial_impact_step'
+  | 'precompute_policy'
+  | 'precompute_cache_entry'
+  | 'precompute_invalidation'
+  | 'user_profile_revision'
+  | 'portfolio_snapshot'
+  | 'portfolio_lot_snapshot'
+  | 'thesis_revision'
+  | 'decision_packet'
   | 'v_user_decision_history_v3'
   | 'v_user_decision_journal'
   | 'v_stock_learning_status';
@@ -294,6 +413,268 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['app_invitations', 'app_invitation_consumptions'],
     sql: multiUserInvitationSignupMigrationSql,
   },
+  {
+    id: '031_truth_kernel',
+    description:
+      'P1-W1 truth kernel: source-backed assertions, normalized numeric facts, sealed multi-input derivation DAG, coverage revisions, and conflict/supersession revisions.',
+    tables: [
+      'truth_assertion',
+      'truth_numeric_fact',
+      'truth_derivation_dag',
+      'truth_coverage_ledger',
+      'truth_conflict_set',
+    ],
+    sql: truthKernelMigrationSql,
+  },
+  {
+    id: '032_world_event_temporal_lineage',
+    description:
+      'P1-W2 world event, temporal lineage, and source provenance: n-ary stateful event object with bitemporal revisions, participant/location roles, reified Contract/Regulation obligations, story syndication clusters, and translation/artifact provenance. Legacy knowledge.event rows are one-to-one back-projected without destructive rewrite.',
+    tables: [
+      'world_event',
+      'world_event_revision',
+      'world_event_participant',
+      'world_reified_obligation',
+      'ingestion_story',
+      'ingestion_content_artifact',
+    ],
+    sql: worldEventTemporalLineageMigrationSql,
+  },
+  {
+    id: '033_entity_resolution_ontology',
+    description:
+      'P1-W3 entity resolution and ontology RFC control: append-only candidate/feature/decision resolution ledger with an ambiguous-auto-link machine gate, plus an ontology RFC → revision → crosswalk ledger with a breaking-change compatibility gate. Legacy predicate revisions are seeded additively without destructive rewrite.',
+    tables: [
+      'resolution_candidate',
+      'resolution_feature',
+      'resolution_decision',
+      'ontology_rfc',
+      'ontology_revision',
+      'ontology_crosswalk',
+    ],
+    sql: entityResolutionOntologyMigrationSql,
+  },
+  {
+    id: '034_geo_foundation',
+    description:
+      'P1-W4 geo foundation: canonical PostGIS geo entities with spatial/precision/boundary/bitemporal revisions, external standard crosswalk (ISO3166/UN M49/GeoNames/UN LOCODE/IANA tz), append-only location mention → candidate → decision resolution with abstention and an ambiguous-auto-resolve machine gate, and a gold set. Existing country codes are seeded additively without destructive rewrite.',
+    tables: [
+      'geo_entity',
+      'geo_entity_revision',
+      'geo_location_mention',
+      'geo_location_candidate',
+      'geo_location_decision',
+      'geo_crosswalk',
+    ],
+    sql: geoFoundationMigrationSql,
+  },
+  {
+    id: '035_geo_exposure_pit_universe',
+    description:
+      'P1-W5 geo exposure and point-in-time security universe: evidenced country/facility exposure ratios that cannot drop their denominator, an append-only security master with non-overlapping ticker tenure (GiST exclusion), corporate actions (delist/split/merger/ticker reuse), and a PIT universe that cannot leak a future constituent. Existing listings are seeded additively.',
+    tables: [
+      'geo_entity_exposure_revision',
+      'security_master',
+      'security_listing_revision',
+      'security_ticker_history',
+      'security_corporate_action',
+      'pit_universe_membership',
+    ],
+    sql: geoExposurePitUniverseMigrationSql,
+  },
+  {
+    id: '036_truth_geo_serving',
+    description:
+      'P1-W6 truth/geo serving and compatibility: read-only additive views over the canonical truth assertion (PIT, accepted-tier), current world event, geo exposure, and PIT universe ledgers, plus a lineage manifest of canonical row counts. No canonical ledger is mutated; existing consumers ignore the additive surfaces.',
+    tables: [
+      'v_truth_assertion_pit_v1',
+      'v_world_event_current_v1',
+      'v_geo_entity_exposure_v1',
+      'v_pit_universe_current_v1',
+      'truth_geo_serving_manifest',
+    ],
+    sql: truthGeoServingMigrationSql,
+  },
+  {
+    id: '037_impact_exposure_ledger',
+    description:
+      'P2-WA impact engine exposure ledger: shock (anchored to world.event_revision) -> channel (17-class §7.2 taxonomy) -> append-only bitemporal exposure revision with the full §7.3 field set, plus the §7.4 eight-way score decomposition forced before sealing. Economic magnitude and epistemic confidence stay in separate columns and are never collapsed into one number.',
+    tables: [
+      'impact_shock',
+      'impact_channel',
+      'impact_exposure_revision',
+      'impact_score_component',
+    ],
+    sql: impactExposureLedgerMigrationSql,
+  },
+  {
+    id: '038_production_network',
+    description:
+      'P2-WB production network: industry IO linkage (OECD ICIO/Leontief coefficients), disclosed firm supplier/customer relations, product classification (HS/ECCN), geographic trade routes (ports via the geo layer), bounded industry->firm allocation (weights <= 1 per industry/basis/as_of), and a typed meta-path traversal policy (UI <= 3 hops, no mixed-relation shortest path). Append-only, least-privilege.',
+    tables: [
+      'io_industry_linkage',
+      'firm_supply_relation',
+      'product_classification',
+      'trade_route',
+      'industry_firm_allocation',
+      'meta_path_policy',
+    ],
+    sql: productionNetworkMigrationSql,
+  },
+  {
+    id: '039_methodology_registry',
+    description:
+      'P2-WC causal/statistical methodology registry: standard method templates (event study, local projection, SCM, DiD, DML, IV, PCMCI) with a claim class separating statistical association from causal estimate, replayable estimates (program + input snapshot + CI), assumptions and diagnostics as evidenced rows, and a conformal prediction wrapper. Hard rules: PCMCI is candidate-only and never causal; a causal estimate requires stored assumptions and diagnostics. Append-only, least-privilege.',
+    tables: [
+      'methodology_template',
+      'method_estimate',
+      'method_assumption',
+      'method_diagnostic',
+      'conformal_interval',
+    ],
+    sql: methodologyRegistryMigrationSql,
+  },
+  {
+    id: '040_scenario_spatial_impact',
+    description:
+      'P2-WD scenario branches and spatial impact paths: bull/base/bear scenario branches with policy delay/exemption modifiers that must carry counter-evidence and an invalidation condition before sealing, plus the three standard spatial impact paths (disaster x facility, sanction jurisdiction, port closure) with a named stable method. Pure spatial distance may never promote an impact edge. Append-only, least-privilege, PostGIS geometry.',
+    tables: [
+      'scenario_set',
+      'scenario_branch',
+      'scenario_invalidation',
+      'spatial_impact_path',
+      'spatial_impact_step',
+    ],
+    sql: scenarioSpatialImpactMigrationSql,
+  },
+  {
+    id: '041_precompute_cache_ledger',
+    description:
+      'P2-WE precompute strategy and cache-key ledger: three-tier precompute policy (always/conditional/on_demand) and an append-only cache-entry ledger whose key must carry all four version components (snapshot, query, ontology, model) so a stale precompute can never be served, plus an append-only invalidation ledger. Least-privilege, no delete.',
+    tables: ['precompute_policy', 'precompute_cache_entry', 'precompute_invalidation'],
+    sql: precomputeCacheLedgerMigrationSql,
+  },
+  {
+    id: '042_geo_entity_identity_immutability',
+    description:
+      'P3-D canonical geo identity immutability: geo.entity remains insert-only so current name/kind/key state cannot leak into historical point-in-time snapshots; spatial and precision corrections continue through append-only geo.entity_revision rows.',
+    tables: ['geo_entity'],
+    sql: geoEntityIdentityImmutabilityMigrationSql,
+  },
+  {
+    id: '043_personalization_decision_support',
+    description:
+      'P4 private personalization and read-only decision support: append-only user profile, portfolio/lot snapshot, thesis revision, and decision packet ledgers with same-user composite foreign keys, FORCE RLS, abstention-first semantics, immutable common-view lineage, and hard legal/order prohibitions.',
+    tables: [
+      'user_profile_revision',
+      'portfolio_snapshot',
+      'portfolio_lot_snapshot',
+      'thesis_revision',
+      'decision_packet',
+    ],
+    sql: personalizationDecisionSupportMigrationSql,
+  },
+  {
+    id: '044_personalization_api_surface',
+    description:
+      'P4-C personalization API surface: distinguish user-authored and system-generated thesis revisions without weakening the append-only private ledger.',
+    tables: ['thesis_revision'],
+    sql: personalizationApiSurfaceMigrationSql,
+  },
+  {
+    id: '045_shadow_experiment_ledger',
+    description:
+      'P5 append-only shadow experiment runs, candidate-only scores, and evaluation metrics with structural prohibitions on accepted facts, product actions, and orders.',
+    tables: ['shadow_experiment_run', 'candidate_score', 'shadow_metric'],
+    sql: shadowExperimentLedgerMigrationSql,
+  },
+  {
+    id: '046_crypto_identity_foundation',
+    description:
+      'P6-1 separate crypto identity module with CAIP-compatible stable keys, append-only bitemporal revisions, aliases, source evidence, and reviewed crosswalks to shared core identity.',
+    tables: [
+      'crypto_entity',
+      'crypto_entity_revision',
+      'crypto_entity_alias',
+      'crypto_identity_evidence',
+      'crypto_core_crosswalk',
+    ],
+    sql: cryptoIdentityFoundationMigrationSql,
+  },
+  {
+    id: '047_crypto_truth_foundation',
+    description:
+      'P6-2 separate crypto truth module with append-only bitemporal event lifecycle, evidence, contract dependency revisions, chain finality, and depeg observations.',
+    tables: [
+      'crypto_event',
+      'crypto_event_revision',
+      'crypto_event_participant',
+      'crypto_event_evidence',
+      'crypto_contract_dependency_revision',
+      'crypto_depeg_observation',
+    ],
+    sql: cryptoTruthFoundationMigrationSql,
+  },
+  {
+    id: '048_crypto_tokenomics',
+    description:
+      'P6-3 append-only token supply, unlock, emission, governance proposal, revision, and action economics with raw coefficients, units, PIT, and provenance.',
+    tables: [
+      'crypto_token_supply_revision',
+      'crypto_unlock_schedule_revision',
+      'crypto_emission_schedule_revision',
+      'crypto_governance_proposal',
+      'crypto_governance_proposal_revision',
+      'crypto_governance_action',
+    ],
+    sql: cryptoTokenomicsMigrationSql,
+  },
+  {
+    id: '049_crypto_contagion_impact',
+    description:
+      'P6-4 crypto impact chain with event shocks, typed transmission channels, decomposed sealed exposures, contagion edges, and liquidation observations.',
+    tables: [
+      'crypto_risk_shock',
+      'crypto_transmission_channel',
+      'crypto_risk_exposure_revision',
+      'crypto_risk_score_component',
+      'crypto_contagion_edge_revision',
+      'crypto_liquidation_observation',
+    ],
+    sql: cryptoContagionImpactMigrationSql,
+  },
+  {
+    id: '050_crypto_cross_domain_graph',
+    description:
+      'P6-5 first-class crypto-to-company, security, metric, regulation, risk, geo, and world-event graph with PIT evidence and separate economic/confidence fields.',
+    tables: [
+      'cross_crypto_core_relation_revision',
+      'cross_crypto_core_metric_revision',
+      'cross_crypto_geo_relation_revision',
+      'cross_crypto_macro_relation_revision',
+      'cross_crypto_world_event_link_revision',
+    ],
+    sql: cryptoCrossDomainGraphMigrationSql,
+  },
+  {
+    id: '051_crypto_serving_views',
+    description:
+      'P6-6 sanitized read-only crypto entity, event, stock-linked relation, and risk revision views for explicit PIT API selection.',
+    tables: [
+      'crypto_serving_entity_revision',
+      'crypto_serving_event_revision',
+      'crypto_serving_core_relation_revision',
+      'crypto_serving_risk_exposure_revision',
+    ],
+    sql: cryptoServingViewsMigrationSql,
+  },
+  {
+    id: '052_personalization_reader_surface_hardening',
+    description:
+      'XG least-privilege cutover from raw personalization decision tables to exact reader column grants.',
+    tables: ['decision_packet'],
+    sql: personalizationReaderSurfaceHardeningMigrationSql,
+  },
 ];
 
 export {
@@ -327,4 +708,26 @@ export {
   undirectedImpactStepGuardMigrationSql,
   coreIdentityGapBackfillMigrationSql,
   multiUserInvitationSignupMigrationSql,
+  truthKernelMigrationSql,
+  worldEventTemporalLineageMigrationSql,
+  entityResolutionOntologyMigrationSql,
+  geoFoundationMigrationSql,
+  geoExposurePitUniverseMigrationSql,
+  truthGeoServingMigrationSql,
+  impactExposureLedgerMigrationSql,
+  productionNetworkMigrationSql,
+  methodologyRegistryMigrationSql,
+  scenarioSpatialImpactMigrationSql,
+  precomputeCacheLedgerMigrationSql,
+  geoEntityIdentityImmutabilityMigrationSql,
+  personalizationDecisionSupportMigrationSql,
+  personalizationApiSurfaceMigrationSql,
+  shadowExperimentLedgerMigrationSql,
+  cryptoIdentityFoundationMigrationSql,
+  cryptoTruthFoundationMigrationSql,
+  cryptoTokenomicsMigrationSql,
+  cryptoContagionImpactMigrationSql,
+  cryptoCrossDomainGraphMigrationSql,
+  cryptoServingViewsMigrationSql,
+  personalizationReaderSurfaceHardeningMigrationSql,
 };

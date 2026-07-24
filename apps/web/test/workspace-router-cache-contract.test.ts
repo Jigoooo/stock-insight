@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 
 const rootUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 const routerUrl = new URL('../src/router.tsx', import.meta.url);
+const zodJitlessUrl = new URL('../src/zod-jitless.ts', import.meta.url);
 const authRouteUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
 const workspaceRouteUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
 const pageUrl = new URL(
@@ -12,6 +13,17 @@ const pageUrl = new URL(
 );
 
 describe('workspace router-owned session cache', () => {
+  it('disables Zod JIT so the client never probes unsafe eval under edge CSP', async () => {
+    const [router, bootstrap] = await Promise.all([
+      readFile(routerUrl, 'utf8'),
+      readFile(zodJitlessUrl, 'utf8'),
+    ]);
+
+    assert.match(router, /^import '\.\/zod-jitless';/);
+    assert.doesNotMatch(router, /from 'zod'/);
+    assert.match(bootstrap, /z\.config\(\{\s*jitless:\s*true\s*\}\)/);
+  });
+
   it('creates one cache per router instance instead of a module-global user cache', async () => {
     const [root, router] = await Promise.all([
       readFile(rootUrl, 'utf8'),

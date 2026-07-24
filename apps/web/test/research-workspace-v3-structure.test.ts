@@ -16,6 +16,10 @@ const workspace = [
     new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
     'utf8',
   ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
+    'utf8',
+  ),
   ...[
     'today-view.tsx',
     'radar-view.tsx',
@@ -159,14 +163,19 @@ describe('v3 research workspace structure', () => {
   });
 
   it('keeps the relation graph bounded, accessible, and text-readable', () => {
-    assert.match(page, /viewBox="0 0 560 300"/);
-    assert.match(
-      page,
-      /aria-label=\{`\$\{relationNodeLabel\(graph, graph\.rootEntityKey\)\} 관계 지도`\}/,
-    );
-    assert.match(page, /aria-describedby="relation-graph-desc"/);
+    assert.match(page, /data-testid="relation-graph"/);
+    assert.match(page, /className=\{styles\.sigmaCanvas\}/);
+    assert.match(page, /aria-label=\{`\$\{relationRootLabel\(source\)\} 관계 지도`\}/);
+    assert.match(page, /data-root-entity=\{source\.rootEntityKey\}/);
+    assert.match(page, /data-directed-edges=\{directedEdgeCount\}/);
+    assert.match(page, /aria-describedby=\{descriptionId\}/);
     assert.doesNotMatch(page, /<title id="relation-graph-title"/);
     assert.match(page, /사람이 확인한 관계/);
+    assert.match(page, /graph\?\.edges\.every\(isVerifiedRelationEdge\)/);
+    assert.match(page, /state === 'loading' && !graph/);
+    assert.match(page, /aria-busy=\{state === 'loading'\}/);
+    assert.match(page, /edge\.direction === 'directed'/);
+    assert.match(page, /와 방향 없는 관계/);
     assert.doesNotMatch(page, /approved=true · inferred=false/);
     assert.doesNotMatch(page, /분석 cutoff|비추론 관계/);
     assert.match(page, /<details open className=\{styles\.relationFallback\}>/);
@@ -186,6 +195,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /themeTitleLabel\(theme\.title\)/);
     assert.match(page, /className=\{styles\.themeSelect\}/);
     assert.match(page, /onSelectEntity\(entityKey\)/);
+    const relationPanel = css.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
+    assert.match(relationPanel, /overflow-y:\s*auto/);
+    assert.match(relationPanel, /overscroll-behavior:\s*contain/);
+    assert.match(relationPanel, /scrollbar-gutter:\s*stable/);
   });
 
   it('consumes the stable semantic interface without banning profile styling choices', () => {

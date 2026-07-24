@@ -2,6 +2,7 @@ import {
   Activity,
   AlertCircle,
   BarChart3,
+  Bitcoin,
   BookOpen,
   ChevronRight,
   CircleDot,
@@ -29,6 +30,7 @@ import { EvidenceInspector } from './evidence-inspector';
 import styles from './research-workspace-page.module.css';
 import { ResearchWorkspaceShell } from './research-workspace-shell';
 import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
+import { CryptoWorkspaceView } from './views/crypto-workspace-view';
 import { HistoryView } from './views/history-view';
 import { MyResearchView } from './views/my-research-view';
 import { RadarView } from './views/radar-view';
@@ -62,7 +64,15 @@ import type {
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
 
-export type SectionId = 'today' | 'radar' | 'stocks' | 'themes' | 'research' | 'history' | 'status';
+export type SectionId =
+  | 'today'
+  | 'radar'
+  | 'stocks'
+  | 'crypto'
+  | 'themes'
+  | 'research'
+  | 'history'
+  | 'status';
 export type DetailState = 'ready' | 'loading' | 'error';
 
 export type ResearchWorkspaceUrlState = {
@@ -103,6 +113,7 @@ const sections: Array<{ id: SectionId; label: string; icon: LucideIcon }> = [
   { id: 'today', label: '오늘', icon: LayoutDashboard },
   { id: 'radar', label: '세계 레이더', icon: Activity },
   { id: 'stocks', label: '종목', icon: BarChart3 },
+  { id: 'crypto', label: '크립토', icon: Bitcoin },
   { id: 'themes', label: '테마·관계', icon: Network },
   { id: 'research', label: '내 리서치', icon: BookOpen },
   { id: 'history', label: '판단 이력', icon: History },
@@ -143,7 +154,31 @@ const whySurfacedLabels: Record<string, string> = {
 };
 
 const signalTypeLabels: Record<string, string> = {
+  fundamental: '기초 재무',
+  insider_trade: '내부자 거래',
+  analyst: '애널리스트 변화',
+  sec_8k: 'SEC 8-K 공시',
   price_mover: '가격 변화',
+  sentiment: '시장 심리',
+  short_volume: '공매도 거래',
+  segment: '사업 부문',
+  market_news: '시장 뉴스',
+  earnings_event: '실적 발표',
+  attention_spike: '관심 급증',
+  gdelt_theme: '글로벌 뉴스 테마',
+  policy_event: '정책 이벤트',
+  major_holder: '주요 주주',
+  policy_prob: '정책 확률',
+  valuation: '가치평가',
+  growth: '성장 지표',
+  sec_filing: 'SEC 공시',
+  earnings_macro: '실적·거시',
+  price_stress: '가격 스트레스',
+  quake: '지진 이벤트',
+  dart_disclosure: 'DART 공시',
+  macro_indicator: '거시 지표',
+  financial_conditions: '금융 여건',
+  volatility: '변동성',
   volume_mover: '거래량 변화',
   news: '새 소식',
   disclosure: '공시 변화',
@@ -932,6 +967,7 @@ export function ResearchWorkspacePage({
           {section === 'radar' && data.view === 'radar' && (
             <RadarView
               data={visibleRadarPage ?? data.radar}
+              geoSnapshot={data.geoSnapshot}
               interactive={hydrated}
               pageState={visibleRadarPageState}
               onLoadMore={() => void loadMoreRadar()}
@@ -939,6 +975,9 @@ export function ResearchWorkspacePage({
           )}
           {section === 'stocks' && data.view === 'stocks' && (
             <StocksView data={data.stocks} pending={searchPending} stocks={stocks} />
+          )}
+          {section === 'crypto' && data.view === 'crypto' && (
+            <CryptoWorkspaceView data={data.crypto} />
           )}
           {section === 'themes' && data.view === 'themes' && (
             <ThemesView
@@ -950,7 +989,7 @@ export function ResearchWorkspacePage({
             />
           )}
           {section === 'research' && data.view === 'research' && (
-            <MyResearchView data={data.myResearch} />
+            <MyResearchView data={data.myResearch} personalization={data.personalization} />
           )}
           {section === 'history' && data.view === 'history' && (
             <HistoryView

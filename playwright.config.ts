@@ -46,7 +46,7 @@ export default defineConfig({
       ? undefined
       : {
           command: useProductionBuild
-            ? `cd apps/web && env NODE_ENV=production HOST=127.0.0.1 PORT=${serverPort} STOCK_INSIGHT_APP_ORIGIN=${baseURL} node .output/server/index.mjs`
+            ? `cd apps/web && env NODE_ENV=production HOST=127.0.0.1 PORT=${serverPort} DATABASE_URL="\${DATABASE_URL:-postgresql://research_app@127.0.0.1:55432/research_app}" STOCK_INSIGHT_APP_ORIGIN=${baseURL} STOCK_INSIGHT_SESSION_SECRET_FILE="$STOCK_INSIGHT_E2E_SESSION_SECRET_PATH" node .output/server/index.mjs`
             : `env PLAYWRIGHT_E2E=1 pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
           reuseExistingServer: useProductionBuild ? false : !process.env.CI,
           timeout: 120_000,

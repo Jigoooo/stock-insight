@@ -1,0 +1,411 @@
+.root {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.safetyBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.safetyBar strong {
+  flex: none;
+  color: var(--color-accent-strong);
+}
+
+.safetyBar span {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.stats > div {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 16px;
+  background: var(--color-surface-subtle);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.stats dt {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.stats dd {
+  margin: 8px 0 0;
+  color: var(--color-text-primary);
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.assetPanel,
+.companyPanel,
+.eventPanel,
+.riskPanel {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow:
+    0 12px 30px color-mix(in srgb, var(--color-text-primary) 5%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.assetPanel,
+.companyPanel {
+  grid-column: 1 / -1;
+}
+
+.assetList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.assetList li {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--color-surface-subtle);
+}
+
+.assetList li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.assetList span {
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--color-accent-strong);
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.assetList p,
+.assetList small {
+  display: block;
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionHeader span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-accent-strong);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.018em;
+}
+
+.sectionHeader small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableWrap {
+  min-width: 0;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.tableScrollHint {
+  display: none;
+}
+
+.tableWrap table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 14px;
+}
+
+.tableWrap caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 13px 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tableWrap th {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.tableWrap tbody tr + tr td {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.tableWrap td strong,
+.tableWrap td small,
+.tableWrap td time {
+  display: block;
+}
+
+.tableWrap td small,
+.tableWrap td time {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tableWrap td:nth-child(4),
+.tableWrap td:nth-child(5) {
+  font-variant-numeric: tabular-nums;
+}
+
+.tableWrap [data-state='verified'] {
+  color: #16704a;
+  font-weight: 650;
+}
+
+.eventList,
+.riskList {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.eventList li,
+.riskList li {
+  min-width: 0;
+  padding: 15px;
+  border-radius: 14px;
+  background: var(--color-surface-subtle);
+}
+
+.eventList li > div,
+.riskList li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eventList strong,
+.riskList strong {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.eventList span,
+.riskList span {
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-size: 12px;
+}
+
+.eventList .eventStates,
+.riskList .riskStates {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.riskList [data-lifecycle='sealed'] {
+  color: #16704a;
+  background: #eaf8f1;
+}
+
+.eventList p,
+.riskList p {
+  margin: 9px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.eventList time,
+.eventList li > small {
+  display: block;
+  margin-top: 10px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.riskList [data-direction='-1'] {
+  color: #a9342c;
+  background: #fff0ee;
+}
+
+.riskList [data-direction='1'] {
+  color: #16704a;
+  background: #eaf8f1;
+}
+
+.riskList dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.riskList dl > div {
+  min-width: 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.riskList dt {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.riskList dd {
+  margin: 5px 0 0;
+  font-size: 13px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.riskList dd small {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.emptyCopy {
+  margin: 0;
+  padding: 24px;
+  border-radius: 14px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .assetPanel,
+  .companyPanel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .safetyBar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stats {
+    gap: 8px;
+  }
+
+  .stats > div,
+  .assetPanel,
+  .companyPanel,
+  .eventPanel,
+  .riskPanel {
+    padding: 15px;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tableScrollHint {
+    position: sticky;
+    left: 0;
+    display: block;
+    width: fit-content;
+    margin: 0 0 8px;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+  }
+
+  .riskList dl {
+    grid-template-columns: 1fr;
+  }
+}

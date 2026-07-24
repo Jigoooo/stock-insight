@@ -22,6 +22,12 @@ import {
   type StockListResponse,
 } from '@stock-insight/contracts';
 import {
+  cryptoResearchQuerySchema,
+  cryptoResearchWorkspaceSchema,
+  type CryptoResearchQuery,
+  type CryptoResearchWorkspace,
+} from '@stock-insight/contracts/crypto-research';
+import {
   decisionHistoryPageSchema,
   entityRelationGraphSchema,
   myResearchOverviewSchema,
@@ -223,6 +229,19 @@ export function createApiClient(options: ApiClientOptions = {}) {
       const response = await fetcher(buildUrl('/api/workspace'));
       if (!response.ok) throw new Error(`Research workspace failed with ${response.status}`);
       return workspaceTodaySchema.parse(await response.json());
+    },
+    async cryptoResearchWorkspace(
+      options: CryptoResearchQuery = {},
+    ): Promise<CryptoResearchWorkspace> {
+      const query = cryptoResearchQuerySchema.parse(options);
+      const response = await fetcher(
+        buildUrl('/api/v1/crypto/workspace', {
+          knownAt: query.knownAt,
+          limit: query.limit === undefined ? undefined : String(query.limit),
+        }),
+      );
+      if (!response.ok) throw new Error(`Crypto research workspace failed with ${response.status}`);
+      return cryptoResearchWorkspaceSchema.parse(await response.json());
     },
     async researchFeed(
       options: {

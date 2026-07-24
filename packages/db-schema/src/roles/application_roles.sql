@@ -18,10 +18,11 @@ ALTER ROLE stock_insight_writer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NORE
 
 GRANT stock_insight_reader TO stock_insight_writer;
 GRANT CONNECT ON DATABASE research_app TO stock_insight_reader, stock_insight_writer;
-GRANT USAGE ON SCHEMA public, ops, stock TO stock_insight_reader, stock_insight_writer;
+GRANT USAGE ON SCHEMA public, ops, stock, personalization
+  TO stock_insight_reader, stock_insight_writer;
 GRANT USAGE ON SCHEMA watchlist TO stock_insight_reader, stock_insight_writer;
 
-REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, ops, stock, watchlist
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public, ops, stock, watchlist, personalization
   FROM stock_insight_reader, stock_insight_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, ops
   FROM stock_insight_reader, stock_insight_writer;
@@ -83,11 +84,33 @@ GRANT SELECT ON stock.candidates TO stock_insight_reader;
 GRANT SELECT ON stock.market_snapshots TO stock_insight_reader;
 GRANT SELECT ON watchlist.deep_cache TO stock_insight_reader;
 
+GRANT SELECT ON personalization.user_profile_revision TO stock_insight_reader;
+GRANT SELECT ON personalization.portfolio_snapshot TO stock_insight_reader;
+GRANT SELECT ON personalization.portfolio_lot_snapshot TO stock_insight_reader;
+GRANT SELECT ON personalization.portfolio_snapshot_seal TO stock_insight_reader;
+GRANT SELECT ON personalization.thesis_revision TO stock_insight_reader;
+GRANT SELECT (
+  decision_packet_id, user_id, security_entity_id, portfolio_snapshot_id,
+  action, action_reason, abstention_reason, common_view_key, common_view_digest,
+  common_view_as_of, generated_at, expires_at, advice_prohibited,
+  order_executable, runtime_packet
+) ON personalization.decision_packet TO stock_insight_reader;
+GRANT SELECT (
+  decision_packet_legal_review_id, decision_packet_id, user_id, review_status,
+  reviewed_at, advice_prohibited, order_executable
+) ON personalization.decision_packet_legal_review TO stock_insight_reader;
+
 GRANT INSERT, UPDATE ON public.user_watchlist TO stock_insight_writer;
 GRANT INSERT, UPDATE ON public.user_positions TO stock_insight_writer;
 GRANT INSERT, UPDATE ON public.app_mutation_idempotency TO stock_insight_writer;
 GRANT INSERT ON public.app_auth_bootstrap_state TO stock_insight_writer;
 GRANT INSERT ON public.app_local_accounts TO stock_insight_writer;
+GRANT INSERT ON personalization.user_profile_revision TO stock_insight_writer;
+GRANT INSERT ON personalization.portfolio_snapshot TO stock_insight_writer;
+GRANT INSERT ON personalization.portfolio_lot_snapshot TO stock_insight_writer;
+GRANT INSERT ON personalization.portfolio_snapshot_seal TO stock_insight_writer;
+GRANT INSERT ON personalization.thesis_revision TO stock_insight_writer;
+GRANT INSERT ON personalization.decision_packet TO stock_insight_writer;
 GRANT USAGE ON SEQUENCE public.user_watchlist_id_seq TO stock_insight_writer;
 GRANT USAGE ON SEQUENCE public.user_positions_id_seq TO stock_insight_writer;
 

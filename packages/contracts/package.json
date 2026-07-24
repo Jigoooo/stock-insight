@@ -6,16 +6,25 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./research-workspace": "./src/research-workspace.ts"
+    "./personalization": "./src/personalization.ts",
+    "./research-workspace": "./src/research-workspace.ts",
+    "./temporal": "./src/temporal.ts",
+    "./graphrag-router": "./src/graphrag-router.ts",
+    "./truth-visual-language": "./src/truth-visual-language.ts",
+    "./geo-api-contract": "./src/geo-api-contract.ts",
+    "./crypto-research": "./src/crypto-research.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "oxlint src",
     "format": "oxfmt src package.json tsconfig.json",
     "format:check": "oxfmt --check src package.json tsconfig.json"
   },
   "dependencies": {
+    "@noble/hashes": "2.2.0",
+    "h3-js": "4.5.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {

@@ -9,9 +9,17 @@ import type {
 import {
   createPostgresStockReadModel,
   createScopedReadOnlyDatabaseClient,
+  getCryptoResearchWorkspace,
   getDecisionHistory,
   getEntityRelationsWithV2Preference,
+  getGeoMvtTile,
+  getGeoSnapshot,
   getMyResearchOverview,
+  getPersonalizationDecisionHistory,
+  getPersonalizationDecisionSupport,
+  getPersonalizationPortfolioImpact,
+  getPersonalizationPortfolioSnapshot,
+  getPersonalizationThesis,
   getRadarSignals,
   getResearchFeedPage,
   getResearchRecordDetail,
@@ -45,6 +53,7 @@ export async function loadResearchWorkspaceView(
   options: ResearchWorkspaceViewOptions,
 ): Promise<ResearchWorkspaceViewPayload> {
   const { database, userScope } = createResearchReadContext(userId);
+  const requestNow = new Date();
   return database.withReadSnapshot(async (executor) => {
     let activeRadar: RadarSignalPage | undefined;
     let activeResearch: MyResearchOverview | undefined;
@@ -71,7 +80,12 @@ export async function loadResearchWorkspaceView(
           cursor: options.cursor,
           limit: 30,
         });
-        activeSlice = { radar: activeRadar, view: options.view };
+        const geoSnapshot = await getGeoSnapshot(executor, {
+          knownAt: requestNow,
+          validAt: requestNow,
+          now: requestNow,
+        });
+        activeSlice = { geoSnapshot, radar: activeRadar, view: options.view };
         break;
       }
       case 'stocks': {
@@ -82,6 +96,14 @@ export async function loadResearchWorkspaceView(
           ),
         });
         activeSlice = { stocks, view: options.view };
+        break;
+      }
+      case 'crypto': {
+        const crypto = await getCryptoResearchWorkspace(executor, {
+          knownAt: requestNow,
+          limit: 40,
+        });
+        activeSlice = { crypto, view: options.view };
         break;
       }
       case 'themes': {
@@ -102,7 +124,54 @@ export async function loadResearchWorkspaceView(
       }
       case 'research': {
         activeResearch = await getMyResearchOverview(executor, { userScope });
-        activeSlice = { myResearch: activeResearch, view: options.view };
+        const portfolio = await getPersonalizationPortfolioSnapshot(executor, { userScope });
+        const selectedEntityKey =
+          activeResearch.decisionSupport.latestPacket?.entityKey ??
+          portfolio?.positions[0]?.entityKey ??
+          null;
+        const impact = portfolio
+          ? await getPersonalizationPortfolioImpact(executor, {
+              userScope,
+              eventId: null,
+              scenarioId: null,
+              horizon: null,
+              knownAt: requestNow,
+            })
+          : null;
+        const decision = selectedEntityKey
+          ? await getPersonalizationDecisionSupport(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+            })
+          : null;
+        const decisionHistory = selectedEntityKey
+          ? await getPersonalizationDecisionHistory(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+              limit: 20,
+            })
+          : null;
+        const thesis = selectedEntityKey
+          ? await getPersonalizationThesis(executor, {
+              userScope,
+              entityKey: selectedEntityKey,
+              now: requestNow,
+            })
+          : null;
+        activeSlice = {
+          myResearch: activeResearch,
+          personalization: {
+            decision,
+            decisionHistory,
+            impact,
+            portfolio,
+            selectedEntityKey,
+            thesis,
+          },
+          view: options.view,
+        };
         break;
       }
       case 'history': {
@@ -135,6 +204,19 @@ export async function loadResearchWorkspaceView(
 export async function loadResearchWorkspace(userId: string) {
   const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
+}
+
+export async function loadCryptoResearchWorkspace(
+  userId: string,
+  options: { knownAt?: Date; limit?: number } = {},
+) {
+  const { database } = createResearchReadContext(userId);
+  return database.withReadSnapshot((executor) =>
+    getCryptoResearchWorkspace(executor, {
+      knownAt: options.knownAt ?? new Date(),
+      limit: options.limit ?? 40,
+    }),
+  );
 }
 
 export async function loadResearchFeedPage(
@@ -193,15 +275,50 @@ export async function loadThemeResearch(userId: string) {
   return database.withReadSnapshot((executor) => getThemeResearchList(executor, { userScope }));
 }
 
-export async function loadEntityRelationGraph(userId: string, entityKey: string, depth: number) {
+export async function loadEntityRelationGraph(
+  userId: string,
+  entityKey: string,
+  depth: number,
+  options: { knownAt?: Date } = {},
+) {
   const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot(async (executor) => {
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey,
       depth,
       userId: userScope.userId,
-      now: new Date(),
+      now: options.knownAt ?? new Date(),
     });
     return result.graph;
   });
+}
+
+export async function loadGeoSnapshot(
+  userId: string,
+  options: { knownAt?: Date; validAt?: Date } = {},
+) {
+  const { database } = createResearchReadContext(userId);
+  const requestNow = new Date();
+  return database.withReadSnapshot((executor) =>
+    getGeoSnapshot(executor, {
+      knownAt: options.knownAt ?? requestNow,
+      validAt: options.validAt ?? options.knownAt ?? requestNow,
+      now: requestNow,
+    }),
+  );
+}
+
+export async function loadGeoMvtTile(
+  userId: string,
+  options: {
+    z: number;
+    x: number;
+    y: number;
+    knownAt: Date;
+    validAt: Date;
+    snapshotId: string;
+  },
+) {
+  const { database } = createResearchReadContext(userId);
+  return database.withReadSnapshot((executor) => getGeoMvtTile(executor, options));
 }

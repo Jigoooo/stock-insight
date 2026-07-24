@@ -18,6 +18,14 @@ export type ManualPortfolioMutationPolicy =
       errorCode: 'MANUAL_PORTFOLIO_MUTATIONS_DISABLED';
     };
 
+export type PersonalizationMutationPolicy =
+  | { enabled: true }
+  | {
+      enabled: false;
+      status: 503;
+      errorCode: 'PERSONALIZATION_MUTATIONS_DISABLED';
+    };
+
 export function resolveManualPortfolioMutationPolicy(
   source: EnvSource = getDefaultEnv(),
 ): ManualPortfolioMutationPolicy {
@@ -27,5 +35,16 @@ export function resolveManualPortfolioMutationPolicy(
     enabled: false,
     status: 503,
     errorCode: 'MANUAL_PORTFOLIO_MUTATIONS_DISABLED',
+  };
+}
+
+export function resolvePersonalizationMutationPolicy(
+  source: EnvSource = getDefaultEnv(),
+): PersonalizationMutationPolicy {
+  if (areManualPortfolioMutationsEnabled(source)) return { enabled: true };
+  return {
+    enabled: false,
+    status: 503,
+    errorCode: 'PERSONALIZATION_MUTATIONS_DISABLED',
   };
 }

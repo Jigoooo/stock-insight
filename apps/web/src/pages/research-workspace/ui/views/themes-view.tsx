@@ -1,4 +1,4 @@
-import { ChevronRight, GitBranch } from 'lucide-react';
+import { ChevronRight, GitBranch, MoveHorizontal } from 'lucide-react';
 import { useRef } from 'react';
 
 import {
@@ -15,7 +15,8 @@ import styles from '../research-workspace-page.module.css';
 import { useWorkspaceRelationCrossfade } from '../use-workspace-relation-crossfade';
 
 import { themeTitleLabel } from '@/pages/research-workspace/model/presentation';
-import { layoutRelationNodes } from '@/pages/research-workspace/model/relation-layout';
+import { isVerifiedRelationEdge } from '@/pages/research-workspace/model/relation-graphology';
+import { RelationSigmaGraph } from '@/pages/research-workspace/ui/relation-sigma-graph';
 import { Button } from '@/shared/ui/primitives';
 import type {
   EntityRelationGraph,
@@ -123,6 +124,7 @@ export function ThemesView({
         <RelationLedger
           graph={relation}
           contextTitle={activeTheme ? themeTitleLabel(activeTheme.title) : undefined}
+          onSelectEntity={onSelectEntity}
           state={relationState}
         />
       </div>
@@ -133,13 +135,16 @@ export function ThemesView({
 function RelationLedger({
   graph,
   contextTitle,
+  onSelectEntity,
   state,
 }: {
   graph: EntityRelationGraph | null;
   contextTitle?: string;
+  onSelectEntity: (entityKey: string) => void;
   state: DetailState;
 }) {
   const rootLabel = graph ? relationNodeLabel(graph, graph.rootEntityKey) : undefined;
+  const hasOnlyVerifiedEdges = graph?.edges.every(isVerifiedRelationEdge) ?? true;
   const relationRef = useRef<HTMLElement>(null);
   useWorkspaceRelationCrossfade({
     scopeRef: relationRef,
@@ -150,6 +155,7 @@ function RelationLedger({
       ref={relationRef}
       className={`${styles.panel} ${styles.relationPanel}`}
       data-relation-motion="container"
+      data-testid="relation-ledger"
     >
       <header className={styles.panelHeader}>
         <div>
@@ -161,7 +167,7 @@ function RelationLedger({
         </div>
         <GitBranch aria-hidden="true" />
       </header>
-      {state === 'loading' ? (
+      {state === 'loading' && !graph ? (
         <WorkspaceState
           kind="loading"
           title="관계 지도를 불러오고 있습니다"
@@ -179,17 +185,41 @@ function RelationLedger({
           title="표시할 관계가 없습니다"
           description="테마의 대표 종목과 연결된 관계가 확인되면 이곳에 지도가 나타납니다."
         />
+      ) : !hasOnlyVerifiedEdges ? (
+        <WorkspaceState
+          kind="error"
+          title="검증되지 않은 관계가 포함되어 표시를 중단했습니다"
+          description="관계 검증 상태를 다시 확인한 뒤 지도를 불러와 주세요."
+        />
       ) : (
         <>
-          <RelationGraphSvg graph={graph} />
+          {state === 'loading' ? (
+            <output className={styles.relationUpdating}>
+              선택한 종목의 관계를 업데이트하고 있습니다.
+            </output>
+          ) : null}
+          <div aria-busy={state === 'loading'}>
+            <RelationSigmaGraph graph={graph} onSelectEntity={onSelectEntity} />
+          </div>
           <details open className={styles.relationFallback}>
             <summary>관계를 텍스트로 보기</summary>
             <section className={styles.edgeList} aria-label="관계 근거 목록">
               {graph.edges.map((edge) => (
-                <div key={edge.edgeId}>
-                  <span>{relationNodeLabel(graph, edge.from)}</span>
-                  <ChevronRight aria-hidden="true" />
-                  <span>{relationNodeLabel(graph, edge.to)}</span>
+                <div key={edge.edgeId} data-direction={edge.direction}>
+                  <span data-endpoint="from">{relationNodeLabel(graph, edge.from)}</span>
+                  <span
+                    className={styles.edgeDirection}
+                    aria-label={
+                      edge.direction === 'directed' ? '에서 대상으로' : '와 방향 없는 관계'
+                    }
+                  >
+                    {edge.direction === 'directed' ? (
+                      <ChevronRight aria-hidden="true" />
+                    ) : (
+                      <MoveHorizontal aria-hidden="true" />
+                    )}
+                  </span>
+                  <span data-endpoint="to">{relationNodeLabel(graph, edge.to)}</span>
                   <small>
                     {relationTypeLabel(edge.relationType)} · {edge.evidenceCount}개 근거 ·{' '}
                     {confidenceLabel(edge.evidenceQuality)}
@@ -205,63 +235,5 @@ function RelationLedger({
         </>
       )}
     </section>
-  );
-}
-
-function RelationGraphSvg({ graph }: { graph: EntityRelationGraph }) {
-  const layout = layoutRelationNodes(graph.nodes, graph.rootEntityKey);
-  const positions = new Map(layout.map((node) => [node.entityKey, node]));
-  return (
-    <div className={styles.graphFrame} data-testid="relation-graph">
-      <svg
-        viewBox="0 0 560 300"
-        aria-label={`${relationNodeLabel(graph, graph.rootEntityKey)} 관계 지도`}
-        aria-describedby="relation-graph-desc"
-      >
-        <desc id="relation-graph-desc">
-          기준 시각까지 사람이 확인한 관계 {graph.edges.length}개
-        </desc>
-        <g className={styles.graphEdges}>
-          {graph.edges.map((edge) => {
-            const from = positions.get(edge.from);
-            const to = positions.get(edge.to);
-            if (!from || !to) return null;
-            return (
-              <line
-                key={edge.edgeId}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                strokeWidth={0.8 + edge.weight * 2.2}
-                data-quality={edge.evidenceQuality}
-              />
-            );
-          })}
-        </g>
-        <g className={styles.graphNodes}>
-          {layout.map((node) => {
-            const source = graph.nodes.find(({ entityKey }) => entityKey === node.entityKey);
-            const isRoot = node.entityKey === graph.rootEntityKey;
-            const shortLabel = node.label.length > 12 ? `${node.label.slice(0, 11)}…` : node.label;
-            return (
-              <g
-                key={node.entityKey}
-                transform={`translate(${node.x} ${node.y})`}
-                data-root={isRoot}
-                data-personal={
-                  source?.holding ? 'holding' : source?.watched ? 'watched' : undefined
-                }
-              >
-                <circle r={isRoot ? 21 : 14} />
-                <text y={isRoot ? 34 : 27} textAnchor="middle">
-                  {shortLabel}
-                </text>
-              </g>
-            );
-          })}
-        </g>
-      </svg>
-    </div>
   );
 }

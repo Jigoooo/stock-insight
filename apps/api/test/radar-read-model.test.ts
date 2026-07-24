@@ -95,8 +95,61 @@ describe('radar signal read model', () => {
     );
     assert.equal(first.items[0]?.strength, 0.9);
     assert.equal(first.scopeTotal, 3);
+    assert.deepEqual(first.componentWatermarks, {
+      event_radar: {
+        availability: 'available',
+        watermarkAt: '2026-07-16T14:00:00.000Z',
+        rowCount: 3,
+      },
+      factor_map: {
+        availability: 'partial',
+        watermarkAt: '2026-07-16T14:00:00.000Z',
+        rowCount: 3,
+      },
+      propagation_map: {
+        availability: 'partial',
+        watermarkAt: '2026-07-16T14:00:00.000Z',
+        rowCount: 3,
+      },
+      theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      heatmap_matrix: {
+        availability: 'available',
+        watermarkAt: '2026-07-16T14:00:00.000Z',
+        rowCount: 3,
+      },
+      timeline: {
+        availability: 'available',
+        watermarkAt: '2026-07-16T14:00:00.000Z',
+        rowCount: 3,
+      },
+      map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+      value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+    });
     assert.equal(first.nextCursor === null, false);
     assert.equal(second.nextCursor, null);
     assert.equal('userId' in (first.items[0] ?? {}), false);
+  });
+
+  it('marks old and empty component clocks without promoting unavailable sources', async () => {
+    const rowsExecutor: RadarSignalQueryExecutor = {
+      queryRows: async <TRow extends Record<string, unknown>>() => rows as unknown as TRow[],
+    };
+    const emptyExecutor: RadarSignalQueryExecutor = {
+      queryRows: async <TRow extends Record<string, unknown>>() => [] as TRow[],
+    };
+    const stale = await getRadarSignals(rowsExecutor, {
+      userScope,
+      now: new Date('2026-07-18T15:00:00.000Z'),
+    });
+    assert.equal(stale.componentWatermarks.event_radar.availability, 'stale');
+    assert.equal(stale.componentWatermarks.factor_map.availability, 'stale');
+
+    const empty = await getRadarSignals(emptyExecutor, {
+      userScope,
+      now: new Date('2026-07-18T15:00:00.000Z'),
+    });
+    assert.equal(empty.componentWatermarks.event_radar.availability, 'empty');
+    assert.equal(empty.componentWatermarks.theme_community.availability, 'missing');
+    assert.equal(empty.componentWatermarks.map_globe.availability, 'missing');
   });
 });

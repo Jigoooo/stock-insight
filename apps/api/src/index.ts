@@ -77,6 +77,12 @@ export type {
 } from './my-research/read-model';
 export { getRadarSignals } from './radar/read-model';
 export type { GetRadarSignalsOptions, RadarSignalQueryExecutor } from './radar/read-model';
+export { getGeoMvtTile, getGeoSnapshot } from './geo/read-model';
+export type {
+  GetGeoMvtTileOptions,
+  GetGeoSnapshotOptions,
+  GeoSnapshotQueryExecutor,
+} from './geo/read-model';
 export { getThemeResearchList } from './themes/read-model';
 export type { GetThemeResearchListOptions, ThemeResearchQueryExecutor } from './themes/read-model';
 export { getSystemStatus } from './status/read-model';
@@ -103,6 +109,124 @@ export {
   normalizeProductTextParam,
 } from './product/read-model';
 export type { ProductListOptions, ProductQueryExecutor } from './product/read-model';
+export {
+  DECISION_REASON_CODES,
+  compileDecisionRuntimePacket,
+} from './personalization/decision-runtime';
+export type {
+  DecisionReasonCode,
+  DecisionRuntimeInput,
+  DecisionRuntimePacket,
+  ThesisState,
+} from './personalization/decision-runtime';
+export { buildDynamicProbabilityContext } from './personalization/dynamic-probability-model';
+export type {
+  DynamicProbabilityModelInput,
+  DynamicProbabilityModelResult,
+  DynamicProbabilityRuntimeContext,
+} from './personalization/dynamic-probability-model';
+export { optimizeConvexPortfolio } from './personalization/multi-asset-optimizer';
+export type {
+  ExposureConstraintKind,
+  MultiAssetOptimizerInput,
+  MultiAssetOptimizerResult,
+} from './personalization/multi-asset-optimizer';
+export { optimizeTargetWeight } from './personalization/portfolio-optimizer';
+export type {
+  ConvexTargetOptimizerInput,
+  ConvexTargetOptimizerResult,
+  OptimizerBindingConstraint,
+} from './personalization/portfolio-optimizer';
+export { getPersonalizationPortfolioSnapshot } from './personalization/portfolio-read-model';
+export type {
+  GetPersonalizationPortfolioSnapshotOptions,
+  PersonalizationQueryExecutor,
+} from './personalization/portfolio-read-model';
+export { getPersonalizationPortfolioImpact } from './personalization/impact-read-model';
+export type {
+  GetPersonalizationPortfolioImpactOptions,
+  PersonalizationImpactQueryExecutor,
+} from './personalization/impact-read-model';
+export {
+  getPersonalizationDecisionHistory,
+  getPersonalizationDecisionSupport,
+} from './personalization/decision-read-model';
+export type {
+  GetPersonalizationDecisionHistoryOptions,
+  GetPersonalizationDecisionOptions,
+  PersonalizationDecisionQueryExecutor,
+} from './personalization/decision-read-model';
+export { appendUserThesisRevision, getPersonalizationThesis } from './personalization/thesis-model';
+export type {
+  AppendUserThesisRevisionOptions,
+  GetPersonalizationThesisOptions,
+  PersonalizationThesisExecutor,
+} from './personalization/thesis-model';
+export { evaluatePersonalizationReleaseGate } from './personalization/evaluation-gate';
+export type {
+  EvaluatePersonalizationReleaseGateInput,
+  PersonalizationEvaluationMetrics,
+  PersonalizationEvaluationPolicy,
+} from './personalization/evaluation-gate';
+export { retrieveEventCandidates } from './experimental/eventrag-retriever';
+export type {
+  EventRagEntityEdge,
+  EventRagEvent,
+  EventRagEventEdge,
+  EventRagInput,
+  EventRagPathStep,
+  EventRagResult,
+} from './experimental/eventrag-retriever';
+export { rankGraphCandidates } from './experimental/graph-candidate-ranker';
+export type {
+  GraphCandidateRankingResult,
+  GraphRankingMethod,
+} from './experimental/graph-candidate-ranker';
+export { compileCausalDiscoveryCandidates } from './experimental/causal-discovery-candidate';
+export type { CausalDiscoveryCandidateResult } from './experimental/causal-discovery-candidate';
+export { runSequentialConformal } from './experimental/sequential-conformal';
+export type { SequentialConformalResult } from './experimental/sequential-conformal';
+export { evaluateContentRankingPolicy } from './experimental/contextual-bandit-ope';
+export type { BanditOpeResult } from './experimental/contextual-bandit-ope';
+export { evaluatePolicySandbox } from './experimental/policy-sandbox-gate';
+export type {
+  PolicySandboxFailedGate,
+  PolicySandboxResult,
+} from './experimental/policy-sandbox-gate';
+export { compileFacilityCandidates } from './experimental/remote-sensing-candidate';
+export type {
+  RemoteSensingCandidateResult,
+  RemoteSensingFacilityKind,
+} from './experimental/remote-sensing-candidate';
+export { appendShadowExperimentArtifact } from './experimental/shadow-artifact-writer';
+export type {
+  AppendShadowArtifactResult,
+  ShadowArtifactQueryExecutor,
+} from './experimental/shadow-artifact-writer';
+export { compileCryptoIdentityKey } from './crypto/identity-key';
+export type { CryptoEntityKind, CryptoIdentityKeyResult } from './crypto/identity-key';
+export { compileCryptoTruthEvent } from './crypto/truth-event';
+export type {
+  CryptoEventLifecycleState,
+  CryptoEventParticipantRole,
+  CryptoFinalityState,
+  CryptoTruthEventResult,
+  CryptoTruthEventType,
+} from './crypto/truth-event';
+export { evaluateTokenUnlock } from './crypto/token-unlock';
+export type { TokenUnlockEvaluationResult } from './crypto/token-unlock';
+export { evaluateCryptoContagion } from './crypto/contagion';
+export type { CryptoContagionChannel, CryptoContagionResult } from './crypto/contagion';
+export { compileCryptoCoreRelation } from './crypto/cross-domain-relation';
+export type {
+  CryptoCoreRelationKind,
+  CryptoCoreRelationResult,
+} from './crypto/cross-domain-relation';
+export { getCryptoResearchWorkspace } from './crypto/read-model';
+export type {
+  CryptoResearchQueryExecutor,
+  GetCryptoResearchWorkspaceOptions,
+} from './crypto/read-model';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,
