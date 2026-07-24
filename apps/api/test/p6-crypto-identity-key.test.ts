@@ -16,19 +16,27 @@ describe('P6-1 crypto canonical identity keys', () => {
     });
     assert.deepEqual(
       compileCryptoIdentityKey({
-        kind: 'token',
+        kind: 'smart_contract',
         chainId: 'eip155:1',
         accountAddress: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       }),
       {
         status: 'ok',
-        entityKind: 'token',
-        entityKey: 'crypto:token:eip155:1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        entityKind: 'smart_contract',
+        entityKey: 'crypto:smart_contract:eip155:1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         chainId: 'eip155:1',
         accountAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         readOnly: true,
         orderExecutable: false,
       },
+    );
+    assert.equal(
+      compileCryptoIdentityKey({
+        kind: 'oracle',
+        chainId: 'solana:main',
+        accountAddress: 'a+b',
+      }).status,
+      'ok',
     );
   });
 
@@ -72,6 +80,13 @@ describe('P6-1 crypto canonical identity keys', () => {
         orderExecutable: false,
       },
     );
+    assert.equal(
+      compileCryptoIdentityKey({
+        kind: 'stablecoin',
+        assetId: 'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      }).status,
+      'ok',
+    );
   });
 
   it('fails closed on ticker-only, malformed CAIP, missing locator, or wrong address case rules', () => {
@@ -80,7 +95,13 @@ describe('P6-1 crypto canonical identity keys', () => {
       { kind: 'blockchain', chainId: 'EIP155:1' },
       { kind: 'smart_contract', chainId: 'eip155:1' },
       { kind: 'exchange', slug: 'Binance' },
+      {
+        kind: 'token',
+        chainId: 'eip155:1',
+        accountAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      },
       { kind: 'token', chainId: 'eip155:1', accountAddress: '0x1234' },
+      { kind: 'oracle', chainId: 'solana:main', accountAddress: 'a!b' },
     ]) {
       assert.deepEqual(compileCryptoIdentityKey(input), {
         status: 'abstained',

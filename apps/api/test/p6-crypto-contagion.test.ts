@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { evaluateCryptoContagion } from '../src/crypto/contagion.ts';
 
-const usdc = 'crypto:stablecoin:eip155:1:0x0000000000000000000000000000000000000001';
+const usdc = 'crypto:stablecoin:eip155:1/erc20:0x0000000000000000000000000000000000000001';
 const protocol = 'crypto:protocol:lending-v1';
 const exchange = 'crypto:exchange:venue-a';
 const base = {

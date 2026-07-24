@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { evaluateTokenUnlock } from '../src/crypto/token-unlock.ts';
 
 const base = {
-  tokenEntityKey: 'crypto:token:eip155:1:0x0000000000000000000000000000000000000001',
+  tokenEntityKey: 'crypto:token:eip155:1/erc20:0x0000000000000000000000000000000000000001',
   amountUnit: 'TOKEN',
   unlockAmount: 100,
   circulatingSupply: 1_000,

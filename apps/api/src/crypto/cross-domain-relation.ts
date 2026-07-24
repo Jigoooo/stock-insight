@@ -1,3 +1,5 @@
+import { parseCanonicalCryptoKey } from '@stock-insight/contracts/crypto-research';
+
 export type CryptoCoreRelationKind =
   | 'issued_by_company'
   | 'treasury_held_by_company'
@@ -84,9 +86,9 @@ export function compileCryptoCoreRelation(input: unknown): CryptoCoreRelationRes
     if (
       record === null ||
       typeof record.cryptoEntityKey !== 'string' ||
-      !record.cryptoEntityKey.startsWith('crypto:') ||
+      parseCanonicalCryptoKey(record.cryptoEntityKey) === null ||
       typeof record.coreEntityKey !== 'string' ||
-      !/^(?:COMPANY|STOCK|ETF|FUND|LEGAL_ENTITY):[A-Z0-9][A-Z0-9._:-]{1,255}$/.test(
+      !/^(?:COMPANY|STOCK|ETF|FUND|LEGAL_ENTITY):[A-Z0-9._-]+:[A-Z0-9._:-]+$/.test(
         record.coreEntityKey,
       ) ||
       typeof record.relationKind !== 'string' ||

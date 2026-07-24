@@ -31,13 +31,18 @@ describe('P6-5 crypto-core relation compiler', () => {
     assert.equal(result.epistemicConfidence, 0.99);
     assert.equal(result.readOnly, true);
     assert.equal(result.orderExecutable, false);
+    assert.equal(
+      compileCryptoCoreRelation({ ...base, coreEntityKey: 'US:MSTR' }).status,
+      'abstained',
+    );
   });
 
   it('supports stablecoin issuer and reserve-manager company links', () => {
     const cases = [
       {
         ...base,
-        cryptoEntityKey: 'crypto:stablecoin:eip155:1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        cryptoEntityKey:
+          'crypto:stablecoin:eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
         coreEntityKey: 'COMPANY:US:CIRCLE',
         relationKind: 'issued_by_company',
         economicMagnitude: null,
@@ -45,7 +50,8 @@ describe('P6-5 crypto-core relation compiler', () => {
       },
       {
         ...base,
-        cryptoEntityKey: 'crypto:stablecoin:eip155:1:0xdac17f958d2ee523a2206206994597c13d831ec7',
+        cryptoEntityKey:
+          'crypto:stablecoin:eip155:1/erc20:0xdac17f958d2ee523a2206206994597c13d831ec7',
         coreEntityKey: 'LEGAL_ENTITY:VG:TETHER',
         relationKind: 'reserve_managed_by_company',
         economicMagnitude: null,
@@ -66,6 +72,7 @@ describe('P6-5 crypto-core relation compiler', () => {
       { ...base, confidenceWeightedMagnitude: 211_860 },
       { ...base, knownAt: '2026-07-19T00:00:00.000Z' },
       { ...base, economicMagnitude: 10, economicMagnitudeUnit: null },
+      { ...base, cryptoEntityKey: 'crypto:x' },
     ]) {
       assert.deepEqual(compileCryptoCoreRelation(input), {
         status: 'abstained',

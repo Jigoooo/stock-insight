@@ -2,6 +2,7 @@ import {
   Activity,
   AlertCircle,
   BarChart3,
+  Bitcoin,
   BookOpen,
   ChevronRight,
   CircleDot,
@@ -29,6 +30,7 @@ import { EvidenceInspector } from './evidence-inspector';
 import styles from './research-workspace-page.module.css';
 import { ResearchWorkspaceShell } from './research-workspace-shell';
 import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
+import { CryptoWorkspaceView } from './views/crypto-workspace-view';
 import { HistoryView } from './views/history-view';
 import { MyResearchView } from './views/my-research-view';
 import { RadarView } from './views/radar-view';
@@ -62,7 +64,15 @@ import type {
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
 
-export type SectionId = 'today' | 'radar' | 'stocks' | 'themes' | 'research' | 'history' | 'status';
+export type SectionId =
+  | 'today'
+  | 'radar'
+  | 'stocks'
+  | 'crypto'
+  | 'themes'
+  | 'research'
+  | 'history'
+  | 'status';
 export type DetailState = 'ready' | 'loading' | 'error';
 
 export type ResearchWorkspaceUrlState = {
@@ -103,6 +113,7 @@ const sections: Array<{ id: SectionId; label: string; icon: LucideIcon }> = [
   { id: 'today', label: '오늘', icon: LayoutDashboard },
   { id: 'radar', label: '세계 레이더', icon: Activity },
   { id: 'stocks', label: '종목', icon: BarChart3 },
+  { id: 'crypto', label: '크립토', icon: Bitcoin },
   { id: 'themes', label: '테마·관계', icon: Network },
   { id: 'research', label: '내 리서치', icon: BookOpen },
   { id: 'history', label: '판단 이력', icon: History },
@@ -964,6 +975,9 @@ export function ResearchWorkspacePage({
           )}
           {section === 'stocks' && data.view === 'stocks' && (
             <StocksView data={data.stocks} pending={searchPending} stocks={stocks} />
+          )}
+          {section === 'crypto' && data.view === 'crypto' && (
+            <CryptoWorkspaceView data={data.crypto} />
           )}
           {section === 'themes' && data.view === 'themes' && (
             <ThemesView

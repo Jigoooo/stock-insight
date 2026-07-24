@@ -5,6 +5,7 @@ const allowedViews = new Set<SectionId>([
   'today',
   'radar',
   'stocks',
+  'crypto',
   'themes',
   'research',
   'history',

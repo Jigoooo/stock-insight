@@ -40,6 +40,7 @@ import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/sto
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
 import { Route as ApiV1ReportsLatestRouteImport } from './routes/api/v1/reports/latest'
 import { Route as ApiV1PersonalFeedRouteImport } from './routes/api/v1/personal/feed'
+import { Route as ApiV1CryptoWorkspaceRouteImport } from './routes/api/v1/crypto/workspace'
 import { Route as ApiV1CalibrationScorecardRouteImport } from './routes/api/v1/calibration/scorecard'
 import { Route as ApiStocksEntityKeyPricesRouteImport } from './routes/api/stocks/$entityKey.prices'
 import { Route as ApiEntitiesEntityKeyRelationsRouteImport } from './routes/api/entities/$entityKey/relations'
@@ -199,6 +200,11 @@ const ApiV1PersonalFeedRoute = ApiV1PersonalFeedRouteImport.update({
   path: '/api/v1/personal/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1CryptoWorkspaceRoute = ApiV1CryptoWorkspaceRouteImport.update({
+  id: '/api/v1/crypto/workspace',
+  path: '/api/v1/crypto/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1CalibrationScorecardRoute =
   ApiV1CalibrationScorecardRouteImport.update({
     id: '/api/v1/calibration/scorecard',
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -291,6 +298,7 @@ export interface FileRoutesByTo {
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
+  '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -367,6 +376,7 @@ export interface FileRouteTypes {
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
+    | '/api/v1/crypto/workspace'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -403,6 +413,7 @@ export interface FileRouteTypes {
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
+    | '/api/v1/crypto/workspace'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -440,6 +451,7 @@ export interface FileRouteTypes {
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
+    | '/api/v1/crypto/workspace'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -473,6 +485,7 @@ export interface RootRouteChildren {
   ApiV1ImpactRoute: typeof ApiV1ImpactRoute
   ApiEntitiesEntityKeyRelationsRoute: typeof ApiEntitiesEntityKeyRelationsRoute
   ApiV1CalibrationScorecardRoute: typeof ApiV1CalibrationScorecardRoute
+  ApiV1CryptoWorkspaceRoute: typeof ApiV1CryptoWorkspaceRoute
   ApiV1PersonalFeedRoute: typeof ApiV1PersonalFeedRoute
   ApiV1ReportsLatestRoute: typeof ApiV1ReportsLatestRoute
   ApiGeoTilesZXYRoute: typeof ApiGeoTilesZXYRoute
@@ -697,6 +710,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1PersonalFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/crypto/workspace': {
+      id: '/api/v1/crypto/workspace'
+      path: '/api/v1/crypto/workspace'
+      fullPath: '/api/v1/crypto/workspace'
+      preLoaderRoute: typeof ApiV1CryptoWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/calibration/scorecard': {
       id: '/api/v1/calibration/scorecard'
       path: '/api/v1/calibration/scorecard'
@@ -815,6 +835,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1ImpactRoute: ApiV1ImpactRoute,
   ApiEntitiesEntityKeyRelationsRoute: ApiEntitiesEntityKeyRelationsRoute,
   ApiV1CalibrationScorecardRoute: ApiV1CalibrationScorecardRoute,
+  ApiV1CryptoWorkspaceRoute: ApiV1CryptoWorkspaceRoute,
   ApiV1PersonalFeedRoute: ApiV1PersonalFeedRoute,
   ApiV1ReportsLatestRoute: ApiV1ReportsLatestRoute,
   ApiGeoTilesZXYRoute: ApiGeoTilesZXYRoute,

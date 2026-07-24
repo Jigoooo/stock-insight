@@ -36,8 +36,11 @@ CREATE TABLE IF NOT EXISTS cross_domain.crypto_core_relation_revision (
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (relation_key, revision_no),
     CHECK (length(btrim(relation_key)) > 0),
-    CHECK (economic_magnitude IS NULL OR
-      (economic_magnitude_unit IS NOT NULL AND length(btrim(economic_magnitude_unit)) > 0)),
+    CHECK (
+      (economic_magnitude IS NULL AND economic_magnitude_unit IS NULL) OR
+      (economic_magnitude IS NOT NULL AND economic_magnitude_unit IS NOT NULL AND
+       length(btrim(economic_magnitude_unit)) > 0)
+    ),
     CHECK (relation_state <> 'verified' OR
       (reviewer_id IS NOT NULL AND epistemic_confidence IS NOT NULL)),
     CHECK (known_at >= available_at),
@@ -221,6 +224,8 @@ DECLARE
   v_key_field TEXT;
   v_id_field TEXT;
   v_supersedes_field TEXT;
+  v_identity_fields TEXT[];
+  v_identity_field TEXT;
   v_core_type TEXT;
 BEGIN
   IF TG_OP <> 'INSERT' THEN
@@ -237,14 +242,17 @@ BEGIN
     v_key_field := 'relation_key';
     v_id_field := 'crypto_core_relation_revision_id';
     v_supersedes_field := 'supersedes_crypto_core_relation_revision_id';
+    v_identity_fields := ARRAY['crypto_entity_id', 'core_entity_id', 'relation_kind'];
   ELSIF TG_TABLE_NAME = 'crypto_core_metric_revision' THEN
     v_key_field := 'metric_key';
     v_id_field := 'crypto_core_metric_revision_id';
     v_supersedes_field := 'supersedes_crypto_core_metric_revision_id';
+    v_identity_fields := ARRAY['crypto_core_relation_revision_id', 'metric_kind'];
   ELSIF TG_TABLE_NAME = 'crypto_geo_relation_revision' THEN
     v_key_field := 'relation_key';
     v_id_field := 'crypto_geo_relation_revision_id';
     v_supersedes_field := 'supersedes_crypto_geo_relation_revision_id';
+    v_identity_fields := ARRAY['crypto_entity_id', 'geo_entity_id', 'geo_relation_kind'];
   ELSIF TG_TABLE_NAME = 'crypto_macro_relation_revision' THEN
     SELECT entity_type INTO v_core_type FROM core.entity
     WHERE entity_id = NEW.macro_core_entity_id;
@@ -254,10 +262,16 @@ BEGIN
     v_key_field := 'relation_key';
     v_id_field := 'crypto_macro_relation_revision_id';
     v_supersedes_field := 'supersedes_crypto_macro_relation_revision_id';
+    v_identity_fields := ARRAY[
+      'crypto_entity_id', 'macro_core_entity_id', 'macro_relation_kind'
+    ];
   ELSE
     v_key_field := 'link_key';
     v_id_field := 'crypto_world_event_link_revision_id';
     v_supersedes_field := 'supersedes_crypto_world_event_link_revision_id';
+    v_identity_fields := ARRAY[
+      'crypto_event_revision_id', 'world_event_revision_id', 'link_kind'
+    ];
   END IF;
 
   IF NEW.revision_no > 1 THEN
@@ -270,6 +284,11 @@ BEGIN
        OR (v_previous ->> 'revision_no')::INTEGER IS DISTINCT FROM NEW.revision_no - 1 THEN
       RAISE EXCEPTION 'cross-domain supersession must preserve key and advance one revision';
     END IF;
+    FOREACH v_identity_field IN ARRAY v_identity_fields LOOP
+      IF (v_previous ->> v_identity_field) IS DISTINCT FROM (v_new ->> v_identity_field) THEN
+        RAISE EXCEPTION 'cross-domain supersession must preserve canonical targets';
+      END IF;
+    END LOOP;
   END IF;
   RETURN NEW;
 END $$;

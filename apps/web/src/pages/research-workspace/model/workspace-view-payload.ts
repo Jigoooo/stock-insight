@@ -1,4 +1,5 @@
 import type { StockListResponse } from '@stock-insight/contracts';
+import type { CryptoResearchWorkspace } from '@stock-insight/contracts/crypto-research';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type {
   PersonalizationDecisionHistory,
@@ -23,6 +24,7 @@ export type ResearchWorkspaceViewId =
   | 'today'
   | 'radar'
   | 'stocks'
+  | 'crypto'
   | 'themes'
   | 'research'
   | 'history'
@@ -64,6 +66,7 @@ export type ResearchWorkspaceViewPayload =
       view: 'radar';
     }
   | { shell: ResearchWorkspaceShellSummary; stocks: StockListResponse; view: 'stocks' }
+  | { crypto: CryptoResearchWorkspace; shell: ResearchWorkspaceShellSummary; view: 'crypto' }
   | {
       relation: EntityRelationGraph | null;
       shell: ResearchWorkspaceShellSummary;

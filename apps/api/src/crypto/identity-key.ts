@@ -1,3 +1,5 @@
+import { cryptoResearchEntitySchema } from '@stock-insight/contracts/crypto-research';
+
 export type CryptoEntityKind =
   | 'blockchain'
   | 'l2'
@@ -37,17 +39,48 @@ const abstained: CryptoIdentityKeyResult = {
 };
 
 const chainKinds = new Set<CryptoEntityKind>(['blockchain', 'l2']);
+const assetKinds = new Set<CryptoEntityKind>(['token', 'stablecoin']);
 const onchainKinds = new Set<CryptoEntityKind>([
   'smart_contract',
-  'token',
-  'stablecoin',
   'bridge',
   'oracle',
   'validator',
   'wallet_cluster',
 ]);
 const offchainKinds = new Set<CryptoEntityKind>(['protocol', 'exchange', 'custodian']);
-const allKinds = new Set<CryptoEntityKind>([...chainKinds, ...onchainKinds, ...offchainKinds]);
+const allKinds = new Set<CryptoEntityKind>([
+  ...chainKinds,
+  ...assetKinds,
+  ...onchainKinds,
+  ...offchainKinds,
+]);
+
+function compiledIdentity(
+  kind: CryptoEntityKind,
+  entityKey: string,
+  chainId: string | null,
+  accountAddress: string | null,
+): CryptoIdentityKeyResult {
+  const canonical = cryptoResearchEntitySchema.safeParse({
+    entityKey,
+    entityKind: kind,
+    displayName: 'canonical identity validation',
+    symbol: null,
+    chainId,
+    sourceRevisionId: 1,
+    knownAt: '1970-01-01T00:00:00.000Z',
+  });
+  if (!canonical.success) return abstained;
+  return {
+    status: 'ok',
+    entityKind: kind,
+    entityKey,
+    chainId,
+    accountAddress,
+    readOnly: true,
+    orderExecutable: false,
+  };
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -114,17 +147,9 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
       ) {
         return abstained;
       }
-      return {
-        status: 'ok',
-        entityKind: kind,
-        entityKey: `crypto:${kind}:${chain.chainId}`,
-        chainId: chain.chainId,
-        accountAddress: null,
-        readOnly: true,
-        orderExecutable: false,
-      };
+      return compiledIdentity(kind, `crypto:${kind}:${chain.chainId}`, chain.chainId, null);
     }
-    if ((kind === 'token' || kind === 'stablecoin') && record.assetId !== undefined) {
+    if (assetKinds.has(kind)) {
       const asset = parseAssetId(record.assetId);
       if (
         asset === null ||
@@ -134,15 +159,7 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
       ) {
         return abstained;
       }
-      return {
-        status: 'ok',
-        entityKind: kind,
-        entityKey: `crypto:${kind}:${asset.assetId}`,
-        chainId: asset.chainId,
-        accountAddress: null,
-        readOnly: true,
-        orderExecutable: false,
-      };
+      return compiledIdentity(kind, `crypto:${kind}:${asset.assetId}`, asset.chainId, null);
     }
     if (onchainKinds.has(kind)) {
       const chain = parseChainId(record.chainId);
@@ -150,15 +167,12 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
         return abstained;
       const accountAddress = normalizeAccount(chain.namespace, record.accountAddress);
       if (accountAddress === null) return abstained;
-      return {
-        status: 'ok',
-        entityKind: kind,
-        entityKey: `crypto:${kind}:${chain.chainId}:${accountAddress}`,
-        chainId: chain.chainId,
+      return compiledIdentity(
+        kind,
+        `crypto:${kind}:${chain.chainId}:${accountAddress}`,
+        chain.chainId,
         accountAddress,
-        readOnly: true,
-        orderExecutable: false,
-      };
+      );
     }
     if (
       !offchainKinds.has(kind) ||
@@ -170,15 +184,7 @@ export function compileCryptoIdentityKey(input: unknown): CryptoIdentityKeyResul
     ) {
       return abstained;
     }
-    return {
-      status: 'ok',
-      entityKind: kind,
-      entityKey: `crypto:${kind}:${record.slug}`,
-      chainId: null,
-      accountAddress: null,
-      readOnly: true,
-      orderExecutable: false,
-    };
+    return compiledIdentity(kind, `crypto:${kind}:${record.slug}`, null, null);
   } catch {
     return abstained;
   }

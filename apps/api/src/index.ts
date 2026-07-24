@@ -222,6 +222,11 @@ export type {
   CryptoCoreRelationKind,
   CryptoCoreRelationResult,
 } from './crypto/cross-domain-relation';
+export { getCryptoResearchWorkspace } from './crypto/read-model';
+export type {
+  CryptoResearchQueryExecutor,
+  GetCryptoResearchWorkspaceOptions,
+} from './crypto/read-model';
 export {
   createDatabaseClient,
   createReadOnlyDatabaseClient,

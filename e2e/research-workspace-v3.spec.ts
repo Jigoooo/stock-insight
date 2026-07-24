@@ -653,6 +653,12 @@ test.describe('v3 research workspace candidate', () => {
       '2',
     );
     if (process.env.P3D_CAPTURE_SCREENSHOTS === '1') {
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      });
       await page.screenshot({
         path: testInfo.outputPath('p3-d-map.png'),
         fullPage: true,
@@ -736,6 +742,12 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByRole('button', { name: '지도 확대' })).toHaveCount(0);
     await expect(mapPanel).toContainText('geo revision 1001 · source revision 101');
     if (process.env.P3D_CAPTURE_SCREENSHOTS === '1') {
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      });
       await page.screenshot({
         path: testInfo.outputPath('p3-d-map-webgl-fallback.png'),
         fullPage: true,

@@ -27,6 +27,14 @@ describe('P6-1 crypto identity foundation migration', () => {
     );
     assert.match(sql, /asset_id\s+TEXT/);
     assert.match(sql, /slip44|erc20/);
+    assert.match(sql, /entity_key = 'crypto:' \|\| entity_kind \|\| ':' \|\| asset_id/);
+    assert.match(sql, /split_part\(asset_id, '\/', 1\) = chain_id/);
+    assert.match(sql, /chain_id ~ '\^eip155:\[0-9\]\+\$'/);
+    assert.match(sql, /account_address ~ '\^0x\[0-9a-f\]\{40\}\$'/);
+    assert.match(sql, /account_address ~ '\^\[A-Za-z0-9\._~%\+-\]\{3,128\}\$'/);
+    assert.match(sql, /split_part\(asset_id, '\/', 2\) ~ '\^slip44:\[0-9\]\+\$'/);
+    assert.match(sql, /split_part\(asset_id, '\/', 2\) ~ '\^erc20:0x\[0-9a-f\]\{40\}\$'/);
+    assert.doesNotMatch(sql, /account_address IS NOT NULL AND asset_id IS NULL\) OR/);
   });
 
   it('is append-only, bitemporal, and source-revision anchored', () => {

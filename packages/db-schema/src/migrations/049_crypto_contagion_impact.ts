@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS crypto_analytics.risk_shock (
     metadata       JSONB NOT NULL DEFAULT '{}',
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (length(btrim(shock_key)) > 0),
+    CHECK (
+      (economic_magnitude IS NULL AND economic_magnitude_unit IS NULL) OR
+      (economic_magnitude IS NOT NULL AND economic_magnitude >= 0 AND
+       economic_magnitude_unit IS NOT NULL AND
+       length(btrim(economic_magnitude_unit)) > 0)
+    ),
     CHECK (known_at >= available_at),
     CHECK (jsonb_typeof(evidence_locator) = 'object'),
     CHECK (jsonb_typeof(metadata) = 'object'),
@@ -81,6 +87,8 @@ CREATE TABLE IF NOT EXISTS crypto_analytics.risk_exposure_revision (
     source_revision_id BIGINT NOT NULL REFERENCES ingestion.source_revision(source_revision_id),
     available_at   TIMESTAMPTZ NOT NULL,
     known_at       TIMESTAMPTZ NOT NULL,
+    valid_from     TIMESTAMPTZ,
+    valid_until    TIMESTAMPTZ,
     sealed_at      TIMESTAMPTZ,
     supersedes_risk_exposure_revision_id BIGINT
       REFERENCES crypto_analytics.risk_exposure_revision(risk_exposure_revision_id),
@@ -88,7 +96,14 @@ CREATE TABLE IF NOT EXISTS crypto_analytics.risk_exposure_revision (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (exposure_key, revision_no),
     CHECK (length(btrim(exposure_key)) > 0),
+    CHECK (
+      (economic_magnitude IS NULL AND economic_magnitude_unit IS NULL) OR
+      (economic_magnitude IS NOT NULL AND economic_magnitude >= 0 AND
+       economic_magnitude_unit IS NOT NULL AND
+       length(btrim(economic_magnitude_unit)) > 0)
+    ),
     CHECK (known_at >= available_at),
+    CHECK (valid_until IS NULL OR valid_from IS NULL OR valid_until >= valid_from),
     CHECK (jsonb_typeof(evidence_locator) = 'object'),
     CHECK (jsonb_typeof(metadata) = 'object'),
     CHECK (NOT (metadata ? 'confidence_weighted_magnitude')),
@@ -197,6 +212,7 @@ DECLARE
   v_previous_key TEXT;
   v_previous_revision INTEGER;
   v_previous_entity BIGINT;
+  v_previous_state TEXT;
   v_component_count INTEGER;
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -207,14 +223,18 @@ BEGIN
       RAISE EXCEPTION 'crypto risk exposure must start in building state';
     END IF;
     IF NEW.revision_no > 1 THEN
-      SELECT exposure_key, revision_no, crypto_entity_id
-        INTO v_previous_key, v_previous_revision, v_previous_entity
+      SELECT exposure_key, revision_no, crypto_entity_id, exposure_state
+        INTO v_previous_key, v_previous_revision, v_previous_entity, v_previous_state
       FROM crypto_analytics.risk_exposure_revision
-      WHERE risk_exposure_revision_id = NEW.supersedes_risk_exposure_revision_id;
+      WHERE risk_exposure_revision_id = NEW.supersedes_risk_exposure_revision_id
+      FOR UPDATE;
       IF v_previous_key IS DISTINCT FROM NEW.exposure_key
          OR v_previous_revision IS DISTINCT FROM NEW.revision_no - 1
          OR v_previous_entity IS DISTINCT FROM NEW.crypto_entity_id THEN
         RAISE EXCEPTION 'crypto risk exposure supersession must preserve key and entity';
+      END IF;
+      IF v_previous_state = 'retracted' THEN
+        RAISE EXCEPTION 'retracted crypto risk exposure cannot be superseded';
       END IF;
     END IF;
     RETURN NEW;
@@ -222,13 +242,30 @@ BEGIN
   IF ROW(
     NEW.risk_exposure_revision_id, NEW.exposure_key, NEW.revision_no,
     NEW.risk_shock_id, NEW.transmission_channel_id, NEW.crypto_entity_id,
-    NEW.economic_magnitude, NEW.epistemic_confidence, NEW.available_at, NEW.known_at
+    NEW.sign, NEW.sensitivity, NEW.horizon, NEW.lag_seconds,
+    NEW.threshold_value, NEW.threshold_unit,
+    NEW.economic_magnitude, NEW.economic_magnitude_unit, NEW.epistemic_confidence,
+    NEW.evidence_locator, NEW.source_revision_id, NEW.available_at, NEW.known_at,
+    NEW.valid_from, NEW.valid_until, NEW.supersedes_risk_exposure_revision_id,
+    NEW.metadata, NEW.created_at
   ) IS DISTINCT FROM ROW(
     OLD.risk_exposure_revision_id, OLD.exposure_key, OLD.revision_no,
     OLD.risk_shock_id, OLD.transmission_channel_id, OLD.crypto_entity_id,
-    OLD.economic_magnitude, OLD.epistemic_confidence, OLD.available_at, OLD.known_at
+    OLD.sign, OLD.sensitivity, OLD.horizon, OLD.lag_seconds,
+    OLD.threshold_value, OLD.threshold_unit,
+    OLD.economic_magnitude, OLD.economic_magnitude_unit, OLD.epistemic_confidence,
+    OLD.evidence_locator, OLD.source_revision_id, OLD.available_at, OLD.known_at,
+    OLD.valid_from, OLD.valid_until, OLD.supersedes_risk_exposure_revision_id,
+    OLD.metadata, OLD.created_at
   ) THEN
     RAISE EXCEPTION 'crypto risk exposure immutable fields cannot change';
+  END IF;
+  IF NEW.exposure_state = 'retracted' AND EXISTS (
+    SELECT 1
+    FROM crypto_analytics.risk_exposure_revision successor
+    WHERE successor.supersedes_risk_exposure_revision_id = OLD.risk_exposure_revision_id
+  ) THEN
+    RAISE EXCEPTION 'crypto risk exposure with a successor cannot be retracted';
   END IF;
   IF OLD.exposure_state = 'building' AND NEW.exposure_state = 'sealed' THEN
     SELECT count(DISTINCT component_kind) INTO v_component_count

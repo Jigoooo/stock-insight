@@ -41,6 +41,10 @@ describe('P6-5 crypto cross-domain graph migration', () => {
   it('keeps economic magnitude separate from confidence with PIT provenance and append-only revisions', () => {
     assert.match(sql, /economic_magnitude\s+NUMERIC/);
     assert.match(sql, /epistemic_confidence\s+NUMERIC/);
+    assert.match(
+      sql,
+      /economic_magnitude IS NULL AND economic_magnitude_unit IS NULL[\s\S]*economic_magnitude IS NOT NULL AND economic_magnitude_unit IS NOT NULL/,
+    );
     assert.match(sql, /source_revision_id\s+BIGINT NOT NULL REFERENCES ingestion\.source_revision/);
     assert.match(sql, /known_at\s+TIMESTAMPTZ NOT NULL/);
     for (const table of [
@@ -51,6 +55,23 @@ describe('P6-5 crypto cross-domain graph migration', () => {
       'crypto_world_event_link_revision',
     ]) {
       assert.match(sql, new RegExp(`${table}_append_only`));
+    }
+    assert.match(sql, /supersession must preserve canonical targets/);
+    for (const identityField of [
+      'crypto_entity_id',
+      'core_entity_id',
+      'relation_kind',
+      'crypto_core_relation_revision_id',
+      'metric_kind',
+      'geo_entity_id',
+      'geo_relation_kind',
+      'macro_core_entity_id',
+      'macro_relation_kind',
+      'crypto_event_revision_id',
+      'world_event_revision_id',
+      'link_kind',
+    ]) {
+      assert.match(sql, new RegExp(identityField));
     }
     assert.doesNotMatch(sql, /order|broker|leverage/i);
   });

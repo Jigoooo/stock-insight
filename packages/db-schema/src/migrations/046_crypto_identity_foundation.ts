@@ -15,27 +15,41 @@ CREATE TABLE IF NOT EXISTS crypto_identity.entity (
     asset_id         TEXT,
     canonical_slug   TEXT,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CHECK (entity_key LIKE 'crypto:' || entity_kind || ':%'),
     CHECK (
       (entity_kind IN ('blockchain','l2')
         AND chain_id IS NOT NULL AND account_address IS NULL
-        AND asset_id IS NULL AND canonical_slug IS NULL) OR
+        AND asset_id IS NULL AND canonical_slug IS NULL
+        AND entity_key = 'crypto:' || entity_kind || ':' || chain_id) OR
       (entity_kind IN ('token','stablecoin')
-        AND chain_id IS NOT NULL AND canonical_slug IS NULL
-        AND ((account_address IS NOT NULL AND asset_id IS NULL) OR
-             (account_address IS NULL AND asset_id IS NOT NULL))) OR
+        AND chain_id IS NOT NULL AND account_address IS NULL
+        AND asset_id IS NOT NULL AND canonical_slug IS NULL
+        AND entity_key = 'crypto:' || entity_kind || ':' || asset_id) OR
       (entity_kind IN ('smart_contract','bridge','oracle','validator','wallet_cluster')
         AND chain_id IS NOT NULL AND account_address IS NOT NULL
-        AND asset_id IS NULL AND canonical_slug IS NULL) OR
+        AND asset_id IS NULL AND canonical_slug IS NULL
+        AND entity_key = 'crypto:' || entity_kind || ':' || chain_id || ':' || account_address) OR
       (entity_kind IN ('protocol','exchange','custodian')
         AND chain_id IS NULL AND account_address IS NULL
-        AND asset_id IS NULL AND canonical_slug IS NOT NULL)
+        AND asset_id IS NULL AND canonical_slug IS NOT NULL
+        AND entity_key = 'crypto:' || entity_kind || ':' || canonical_slug)
     ),
     CHECK (chain_id IS NULL OR chain_id ~ '^[a-z0-9-]{3,32}:[A-Za-z0-9-]{1,32}$'),
-    CHECK (account_address IS NULL OR length(account_address) BETWEEN 3 AND 128),
+    CHECK (chain_id IS NULL OR chain_id !~ '^eip155:' OR chain_id ~ '^eip155:[0-9]+$'),
+    CHECK (account_address IS NULL OR account_address ~ '^[A-Za-z0-9._~%+-]{3,128}$'),
+    CHECK (account_address IS NULL OR chain_id !~ '^eip155:' OR
+      account_address ~ '^0x[0-9a-f]{40}$'),
     -- CAIP-19 includes native slip44 assets and contract-backed erc20 assets.
     CHECK (asset_id IS NULL OR asset_id ~
       '^[a-z0-9-]{3,32}:[A-Za-z0-9-]{1,32}/[a-z0-9-]{3,32}:[A-Za-z0-9._~%+-]{1,128}$'),
+    CHECK (asset_id IS NULL OR split_part(asset_id, '/', 1) = chain_id),
+    CHECK (asset_id IS NULL OR CASE
+      WHEN split_part(asset_id, '/', 2) LIKE 'slip44:%' THEN
+        split_part(asset_id, '/', 2) ~ '^slip44:[0-9]+$'
+      WHEN split_part(asset_id, '/', 2) LIKE 'erc20:%' THEN
+        chain_id ~ '^eip155:[0-9]+$' AND
+        split_part(asset_id, '/', 2) ~ '^erc20:0x[0-9a-f]{40}$'
+      ELSE true
+    END),
     CHECK (canonical_slug IS NULL OR canonical_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
 );
 CREATE INDEX IF NOT EXISTS ix_crypto_entity_kind

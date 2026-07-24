@@ -22,7 +22,16 @@ describe('workspace active-view server loader', () => {
     assert.match(payload, /export type ResearchWorkspaceViewPayload/);
     assert.match(source, /export async function loadResearchWorkspaceView/);
     assert.match(source, /switch \(options\.view\)/);
-    for (const view of ['today', 'radar', 'stocks', 'themes', 'research', 'history', 'status']) {
+    for (const view of [
+      'today',
+      'radar',
+      'stocks',
+      'crypto',
+      'themes',
+      'research',
+      'history',
+      'status',
+    ]) {
       assert.match(source, new RegExp(`case '${view}'`));
     }
     assert.match(
@@ -38,7 +47,7 @@ describe('workspace active-view server loader', () => {
     assert.match(source, /workspaceViewInputSchema/);
     assert.match(
       source,
-      /z\.enum\(\['today', 'radar', 'stocks', 'themes', 'research', 'history', 'status'\]\)/,
+      /z\.enum\(\['today', 'radar', 'stocks', 'crypto', 'themes', 'research', 'history', 'status'\]\)/,
     );
     assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
     assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);

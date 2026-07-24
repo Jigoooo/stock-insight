@@ -48,6 +48,8 @@ import { cryptoTruthFoundationMigrationSql } from './migrations/047_crypto_truth
 import { cryptoTokenomicsMigrationSql } from './migrations/048_crypto_tokenomics';
 import { cryptoContagionImpactMigrationSql } from './migrations/049_crypto_contagion_impact';
 import { cryptoCrossDomainGraphMigrationSql } from './migrations/050_crypto_cross_domain_graph';
+import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_views';
+import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening';
 
 export type AppTableName =
   | 'company_profiles'
@@ -164,6 +166,10 @@ export type AppTableName =
   | 'cross_crypto_geo_relation_revision'
   | 'cross_crypto_macro_relation_revision'
   | 'cross_crypto_world_event_link_revision'
+  | 'crypto_serving_entity_revision'
+  | 'crypto_serving_event_revision'
+  | 'crypto_serving_core_relation_revision'
+  | 'crypto_serving_risk_exposure_revision'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -650,6 +656,25 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoCrossDomainGraphMigrationSql,
   },
+  {
+    id: '051_crypto_serving_views',
+    description:
+      'P6-6 sanitized read-only crypto entity, event, stock-linked relation, and risk revision views for explicit PIT API selection.',
+    tables: [
+      'crypto_serving_entity_revision',
+      'crypto_serving_event_revision',
+      'crypto_serving_core_relation_revision',
+      'crypto_serving_risk_exposure_revision',
+    ],
+    sql: cryptoServingViewsMigrationSql,
+  },
+  {
+    id: '052_personalization_reader_surface_hardening',
+    description:
+      'XG least-privilege cutover from raw personalization decision tables to exact reader column grants.',
+    tables: ['decision_packet'],
+    sql: personalizationReaderSurfaceHardeningMigrationSql,
+  },
 ];
 
 export {
@@ -703,4 +728,6 @@ export {
   cryptoTokenomicsMigrationSql,
   cryptoContagionImpactMigrationSql,
   cryptoCrossDomainGraphMigrationSql,
+  cryptoServingViewsMigrationSql,
+  personalizationReaderSurfaceHardeningMigrationSql,
 };

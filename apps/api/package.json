@@ -8,6 +8,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.ts",
     "test:core-release": "node scripts/run-core-release-gate.mjs",
+    "test:p6-db-rehearsal": "node scripts/run-p6-db-rehearsal.mjs",
+    "test:xg-reader-privileges": "node scripts/run-xg-reader-privilege-rehearsal.mjs",
     "backfill:phase35": "node src/backfill/run-phase35.ts",
     "backfill:phase35:apply": "node src/backfill/run-phase35.ts --apply",
     "backfill:phase10": "node src/backfill/run-phase10.ts",

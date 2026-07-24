@@ -11,7 +11,8 @@
     "./temporal": "./src/temporal.ts",
     "./graphrag-router": "./src/graphrag-router.ts",
     "./truth-visual-language": "./src/truth-visual-language.ts",
-    "./geo-api-contract": "./src/geo-api-contract.ts"
+    "./geo-api-contract": "./src/geo-api-contract.ts",
+    "./crypto-research": "./src/crypto-research.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

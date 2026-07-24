@@ -9,6 +9,7 @@ import type {
 import {
   createPostgresStockReadModel,
   createScopedReadOnlyDatabaseClient,
+  getCryptoResearchWorkspace,
   getDecisionHistory,
   getEntityRelationsWithV2Preference,
   getGeoMvtTile,
@@ -95,6 +96,14 @@ export async function loadResearchWorkspaceView(
           ),
         });
         activeSlice = { stocks, view: options.view };
+        break;
+      }
+      case 'crypto': {
+        const crypto = await getCryptoResearchWorkspace(executor, {
+          knownAt: requestNow,
+          limit: 40,
+        });
+        activeSlice = { crypto, view: options.view };
         break;
       }
       case 'themes': {
@@ -195,6 +204,19 @@ export async function loadResearchWorkspaceView(
 export async function loadResearchWorkspace(userId: string) {
   const { database, userScope } = createResearchReadContext(userId);
   return database.withReadSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
+}
+
+export async function loadCryptoResearchWorkspace(
+  userId: string,
+  options: { knownAt?: Date; limit?: number } = {},
+) {
+  const { database } = createResearchReadContext(userId);
+  return database.withReadSnapshot((executor) =>
+    getCryptoResearchWorkspace(executor, {
+      knownAt: options.knownAt ?? new Date(),
+      limit: options.limit ?? 40,
+    }),
+  );
 }
 
 export async function loadResearchFeedPage(

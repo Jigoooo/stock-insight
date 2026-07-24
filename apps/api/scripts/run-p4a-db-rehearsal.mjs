@@ -697,7 +697,9 @@ try {
       roleStateAfter.membership_existed === roleStateBefore.membership_existed &&
       JSON.stringify(roleStateAfter.membership_state) ===
         JSON.stringify(roleStateBefore.membership_state);
-    if (!roleStateRestored) throw new Error('rehearsal cluster role state was not restored');
+    if (!roleStateRestored) {
+      cleanupErrors.push(new Error('rehearsal cluster role state was not restored'));
+    }
   } catch (error) {
     cleanupErrors.push(error);
   }

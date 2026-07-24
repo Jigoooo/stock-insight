@@ -50,7 +50,7 @@ try {
       env: {
         ...process.env,
         PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
-        PLAYWRIGHT_PORT: process.env.PLAYWRIGHT_PORT ?? '8095',
+        PLAYWRIGHT_PORT: process.env.PLAYWRIGHT_PORT ?? '18095',
         PLAYWRIGHT_PRODUCTION_ARTIFACT_SHA256: artifactSha256,
         PLAYWRIGHT_SIGMA_AUTH_STATE: authStatePath,
         PLAYWRIGHT_USE_PRODUCTION_BUILD: '1',

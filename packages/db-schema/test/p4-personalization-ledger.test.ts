@@ -180,15 +180,30 @@ describe('P4 personalization decision-support ledger', () => {
       /REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA[\s\S]*personalization[\s\S]*FROM stock_insight_reader, stock_insight_writer/i,
     );
     for (const table of privateTables) {
-      assert.match(
-        rolesSql,
-        new RegExp(`GRANT SELECT ON personalization\\.${table} TO stock_insight_reader`, 'i'),
-      );
+      if (table === 'decision_packet' || table === 'decision_packet_legal_review') {
+        assert.doesNotMatch(
+          rolesSql,
+          new RegExp(`GRANT SELECT ON personalization\\.${table} TO stock_insight_reader`, 'i'),
+        );
+      } else {
+        assert.match(
+          rolesSql,
+          new RegExp(`GRANT SELECT ON personalization\\.${table} TO stock_insight_reader`, 'i'),
+        );
+      }
       assert.doesNotMatch(
         rolesSql,
         new RegExp(`GRANT[^;]*(?:UPDATE|DELETE|TRUNCATE)[^;]*personalization\\.${table}`, 'i'),
       );
     }
+    assert.match(
+      rolesSql,
+      /GRANT SELECT \([\s\S]*runtime_packet[\s\S]*\) ON personalization\.decision_packet TO stock_insight_reader/i,
+    );
+    assert.match(
+      rolesSql,
+      /GRANT SELECT \([\s\S]*review_status[\s\S]*\) ON personalization\.decision_packet_legal_review TO stock_insight_reader/i,
+    );
     for (const table of writerTables) {
       assert.match(
         rolesSql,
