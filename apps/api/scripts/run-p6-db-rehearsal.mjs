@@ -8,6 +8,7 @@ import { cryptoTokenomicsMigrationSql } from '../../../packages/db-schema/src/mi
 import { cryptoContagionImpactMigrationSql } from '../../../packages/db-schema/src/migrations/049_crypto_contagion_impact.ts';
 import { cryptoCrossDomainGraphMigrationSql } from '../../../packages/db-schema/src/migrations/050_crypto_cross_domain_graph.ts';
 import { cryptoServingViewsMigrationSql } from '../../../packages/db-schema/src/migrations/051_crypto_serving_views.ts';
+import { cryptoServingAppReaderGrantMigrationSql } from '../../../packages/db-schema/src/migrations/053_crypto_serving_app_reader_grant.ts';
 import { getCryptoResearchWorkspace } from '../src/crypto/read-model.ts';
 
 const require = createRequire(import.meta.url);
@@ -25,7 +26,13 @@ if (!/^stock_insight_p6_rehearsal_[a-f0-9]+$/.test(databaseName)) throw new Erro
 const quotedDatabase = `"${databaseName}"`;
 const targetUrl = new URL(adminUrl);
 targetUrl.pathname = `/${databaseName}`;
-const roleNames = ['si_knowledge', 'si_analytics', 'si_publisher', 'si_readapi'];
+const roleNames = [
+  'si_knowledge',
+  'si_analytics',
+  'si_publisher',
+  'si_readapi',
+  'stock_insight_app_reader',
+];
 const migrations = [
   cryptoIdentityFoundationMigrationSql,
   cryptoTruthFoundationMigrationSql,
@@ -33,6 +40,7 @@ const migrations = [
   cryptoContagionImpactMigrationSql,
   cryptoCrossDomainGraphMigrationSql,
   cryptoServingViewsMigrationSql,
+  cryptoServingAppReaderGrantMigrationSql,
 ];
 
 const admin = new Client({ connectionString: adminUrl.toString() });
@@ -62,6 +70,7 @@ async function readRoleState() {
 const roleStateBefore = await readRoleState();
 const existingRoles = new Set(roleStateBefore.roles.map((row) => row.rolname));
 let target;
+let productionReader;
 let result;
 const cleanupErrors = [];
 let primaryError;
@@ -112,7 +121,9 @@ try {
     DO $roles$
     DECLARE role_name TEXT;
     BEGIN
-      FOREACH role_name IN ARRAY ARRAY['si_knowledge','si_analytics','si_publisher','si_readapi'] LOOP
+      FOREACH role_name IN ARRAY ARRAY[
+        'si_knowledge','si_analytics','si_publisher','si_readapi','stock_insight_app_reader'
+      ] LOOP
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
           EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS', role_name);
         END IF;
@@ -123,6 +134,29 @@ try {
 
   for (const sql of migrations) await target.query(sql);
   for (const sql of migrations) await target.query(sql);
+
+  const productionReaderAclResult = await target.query(`
+    SELECT (
+      has_schema_privilege('stock_insight_app_reader','crypto_serving','USAGE')
+      AND has_table_privilege('stock_insight_app_reader','crypto_serving.entity_revision','SELECT')
+      AND has_table_privilege('stock_insight_app_reader','crypto_serving.event_revision','SELECT')
+      AND has_table_privilege('stock_insight_app_reader','crypto_serving.core_relation_revision','SELECT')
+      AND has_table_privilege('stock_insight_app_reader','crypto_serving.risk_exposure_revision','SELECT')
+      AND NOT has_schema_privilege('stock_insight_app_reader','crypto_identity','USAGE')
+      AND NOT has_schema_privilege('stock_insight_app_reader','crypto_truth','USAGE')
+      AND NOT has_schema_privilege('stock_insight_app_reader','crypto_analytics','USAGE')
+      AND NOT has_schema_privilege('stock_insight_app_reader','cross_domain','USAGE')
+      AND NOT has_table_privilege('stock_insight_app_reader','crypto_identity.entity','SELECT')
+      AND NOT has_table_privilege('stock_insight_app_reader','crypto_truth.event_revision','SELECT')
+      AND NOT has_table_privilege(
+        'stock_insight_app_reader','cross_domain.crypto_core_relation_revision','SELECT'
+      )
+      AND NOT has_table_privilege(
+        'stock_insight_app_reader','crypto_analytics.risk_exposure_revision','SELECT'
+      )
+    ) AS ok
+  `);
+  const productionReaderAcl = productionReaderAclResult.rows[0]?.ok === true;
 
   const tokenAccountAlternativeRejected = await expectCheckRejected(`
     INSERT INTO crypto_identity.entity
@@ -516,8 +550,14 @@ try {
     terminalRelationIdentity.rows[0]?.crypto_name === null;
   const terminalRiskIdentityGapPreserved = terminalRiskIdentity.rows[0]?.crypto_name === null;
 
+  productionReader = new Client({ connectionString: targetUrl.toString() });
+  await productionReader.connect();
+  await productionReader.query('SET ROLE stock_insight_app_reader');
+  const productionReaderRole = await productionReader.query('SELECT current_user AS role_name');
+  const productionReaderSelector =
+    productionReaderRole.rows[0]?.role_name === 'stock_insight_app_reader';
   const executor = {
-    queryRows: async (sql, parameters = []) => (await target.query(sql, parameters)).rows,
+    queryRows: async (sql, parameters = []) => (await productionReader.query(sql, parameters)).rows,
   };
   const workspace = await getCryptoResearchWorkspace(executor, {
     knownAt: new Date('2026-07-23T00:00:00.000Z'),
@@ -532,6 +572,8 @@ try {
   const sortedSourceRevisionIds = sourceRevisionIds.toSorted((left, right) => left - right);
   result = {
     ok:
+      productionReaderAcl &&
+      productionReaderSelector &&
       workspace.entities.length === 2 &&
       workspace.events.length === 1 &&
       workspace.events[0]?.eventKey === 'crypto:event:chain_halt:visible' &&
@@ -565,6 +607,8 @@ try {
     replayed: true,
     connectedDatabaseVerified: true,
     roleStateRestored: false,
+    productionReaderAcl,
+    productionReaderSelector,
     stats: workspace.stats,
     sourceRevisionIds,
     sortedSourceRevisionIds,
@@ -599,6 +643,13 @@ try {
 } catch (error) {
   primaryError = error;
 } finally {
+  if (productionReader) {
+    try {
+      await productionReader.end();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
   if (target) {
     try {
       await target.end();

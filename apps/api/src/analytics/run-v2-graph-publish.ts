@@ -931,24 +931,136 @@ async function publishPacks(
   );
   for (let offset = 0; offset < itemRows.length; offset += 300) {
     const rows = itemRows.slice(offset, offset + 300);
+    const derivationValues: unknown[] = [];
+    const derivationKeys = rows.map(({ packId, item }, index) => {
+      const derivationKey = `content-pack:${packId}:item:${item.itemNo}:direct-v1`;
+      const start = index * 3;
+      derivationValues.push(
+        derivationKey,
+        builderVersion,
+        JSON.stringify({
+          source: 'canonical_v2_projection',
+          content_pack_id: packId,
+          item_no: item.itemNo,
+        }),
+      );
+      return {
+        derivationKey,
+        tuple: `($${start + 1},'direct_projection','canonical_v2_projection',$${start + 2},'stock-insight-v2-graph-publisher',$${start + 3}::jsonb)`,
+      };
+    });
+    const derivations = await client.query<
+      QueryResultRow & { derivation_id: string | number; derivation_key: string }
+    >(
+      `INSERT INTO knowledge.derivation (
+         derivation_key,derivation_kind,method,method_version,created_by,metadata
+       ) VALUES ${derivationKeys.map((row) => row.tuple).join(',')}
+       RETURNING derivation_id,derivation_key`,
+      derivationValues,
+    );
+    const derivationIdByKey = new Map(
+      derivations.rows.map((row) => [
+        row.derivation_key,
+        numeric(row.derivation_id, 'derivationId'),
+      ]),
+    );
+    const stepValues: unknown[] = [];
+    const rowsWithDerivations = rows.map(({ packId, item }, index) => {
+      const derivationKey = derivationKeys[index]!.derivationKey;
+      const derivationId = derivationIdByKey.get(derivationKey);
+      if (derivationId === undefined) throw new Error(`missing derivation ${derivationKey}`);
+      stepValues.push(
+        derivationId,
+        builderVersion,
+        JSON.stringify({ content_pack_id: packId, item_no: item.itemNo }),
+      );
+      return { packId, item, derivationId };
+    });
+    const steps = await client.query<
+      QueryResultRow & { derivation_step_id: string | number; derivation_id: string | number }
+    >(
+      `INSERT INTO knowledge.derivation_step (
+         derivation_id,step_no,activity_type,activity_version,
+         output_type,output_locator,parameters
+       ) VALUES ${rowsWithDerivations
+         .map((_, index) => {
+           const start = index * 3;
+           return `($${start + 1},1,'direct_projection',$${start + 2},'serving.content_pack_item',$${start + 3}::jsonb,'{}'::jsonb)`;
+         })
+         .join(',')}
+       RETURNING derivation_step_id,derivation_id`,
+      stepValues,
+    );
+    const stepIdByDerivationId = new Map(
+      steps.rows.map((row) => [
+        numeric(row.derivation_id, 'derivationId'),
+        numeric(row.derivation_step_id, 'derivationStepId'),
+      ]),
+    );
+    const inputValues: unknown[] = [];
+    const inputTuples = rowsWithDerivations.map(({ item, derivationId }, index) => {
+      const derivationStepId = stepIdByDerivationId.get(derivationId);
+      if (derivationStepId === undefined) {
+        throw new Error(`missing derivation step ${derivationId}`);
+      }
+      const anchors = [
+        { kind: 'relation_revision', id: item.relationRevisionId },
+        { kind: 'relation_evidence', id: item.relationEvidenceLedgerId },
+        { kind: 'impact_path', id: item.impactPathV2Id },
+        { kind: 'relation_measurement', id: item.relationMeasurementId },
+      ].filter((anchor): anchor is { kind: string; id: number } => anchor.id !== null);
+      if (anchors.length !== 1) throw new Error(`item ${item.itemNo} needs one typed anchor`);
+      const anchor = anchors[0]!;
+      const start = index * 7;
+      inputValues.push(
+        derivationStepId,
+        anchor.kind,
+        anchor.kind === 'relation_revision' ? anchor.id : null,
+        anchor.kind === 'relation_evidence' ? anchor.id : null,
+        anchor.kind === 'impact_path' ? anchor.id : null,
+        anchor.kind === 'relation_measurement' ? anchor.id : null,
+        JSON.stringify({ policy: 'p1-w1-direct-v1' }),
+      );
+      return `($${start + 1},1,$${start + 2},$${start + 3},$${start + 4},$${start + 5},$${start + 6},'evidence',$${start + 7}::jsonb)`;
+    });
+    await client.query(
+      `INSERT INTO knowledge.derivation_input (
+         derivation_step_id,input_no,input_kind,relation_revision_id,
+         relation_evidence_ledger_id,impact_path_v2_id,relation_measurement_id,
+         input_role,metadata
+       ) VALUES ${inputTuples.join(',')}`,
+      inputValues,
+    );
+    const derivationIds = rowsWithDerivations.map((row) => row.derivationId);
+    const sealed = await client.query(
+      `UPDATE knowledge.derivation AS derivation
+       SET status='sealed',step_count=1,input_count=1,
+           derivation_digest=knowledge.compute_derivation_digest(derivation.derivation_id),
+           sealed_at=clock_timestamp()
+       WHERE derivation.derivation_id = ANY($1::bigint[]) AND derivation.status='building'`,
+      [derivationIds],
+    );
+    if (sealed.rowCount !== derivationIds.length)
+      throw new Error('derivation sealing was incomplete');
     const values: unknown[] = [];
-    const tuples = rows.map(({ packId, item }, index) => {
-      const start = index * 8;
+    const tuples = rowsWithDerivations.map(({ packId, item, derivationId }, index) => {
+      const start = index * 9;
       values.push(
         packId,
         item.itemNo,
         item.itemKind,
+        derivationId,
         item.relationRevisionId,
         item.relationEvidenceLedgerId,
         item.impactPathV2Id,
         item.relationMeasurementId,
         JSON.stringify(item.displayPayload),
       );
-      return `(${Array.from({ length: 8 }, (_, column) => `$${start + column + 1}`).join(',')})`;
+      return `(${Array.from({ length: 9 }, (_, column) => `$${start + column + 1}`).join(',')})`;
     });
     await client.query(
       `INSERT INTO serving.content_pack_item (
-         content_pack_id,item_no,item_kind,relation_revision_id,
+         content_pack_id,item_no,item_kind,derivation_id,relation_revision_id,
          relation_evidence_ledger_id,impact_path_v2_id,relation_measurement_id,display_payload
        ) VALUES ${tuples.join(',')}`,
       values,

@@ -19,6 +19,21 @@ test('V2 publisher refuses an active foreign claim and only replays completed da
   assert.match(pipeline, /serving\.v_relation_graph_freshness[\s\S]*servable=true/);
 });
 
+test('V2 publisher seals one typed derivation before every content-pack item insert', () => {
+  assert.match(runner, /INSERT INTO knowledge\.derivation/);
+  assert.match(runner, /INSERT INTO knowledge\.derivation_step/);
+  assert.match(runner, /INSERT INTO knowledge\.derivation_input/);
+  assert.match(
+    runner,
+    /status='sealed'[\s\S]*knowledge\.compute_derivation_digest\(derivation\.derivation_id\)/,
+  );
+  assert.match(runner, /content_pack_id,item_no,item_kind,derivation_id,relation_revision_id/);
+  assert.ok(
+    runner.indexOf('INSERT INTO knowledge.derivation') <
+      runner.indexOf('INSERT INTO serving.content_pack_item'),
+  );
+});
+
 test('raw registration detects overlapping applicable source contracts', () => {
   assert.match(
     rawStore,

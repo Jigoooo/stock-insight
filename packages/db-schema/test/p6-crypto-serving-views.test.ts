@@ -39,6 +39,7 @@ describe('P6-6 crypto serving views migration', () => {
     assert.match(sql, /core_entity_key/);
     assert.match(sql, /treasury_held_by_company/);
     assert.match(sql, /GRANT SELECT ON[\s\S]*TO si_readapi/);
+    assert.doesNotMatch(sql, /stock_insight_app_reader/);
     assert.doesNotMatch(sql, /GRANT\s+(?:INSERT|UPDATE|DELETE)/i);
     assert.doesNotMatch(sql, /execution_order|\bbroker\b|\bleverage\b/i);
   });
