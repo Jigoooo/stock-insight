@@ -112,17 +112,20 @@ describe('P0-3 price correlation planner', () => {
       [1, series(base)],
       [2, series(doubled)],
     ]);
-    const inputs = planPriceCorrelations(
-      priceSeries,
-      [{ subjectEntityId: 2, objectEntityId: 1 }],
-      { asOf, windowDays: 45, minOverlappingReturns: 10, modelVersion: 'test-v1' },
-    );
+    const inputs = planPriceCorrelations(priceSeries, [{ subjectEntityId: 2, objectEntityId: 1 }], {
+      asOf,
+      windowDays: 45,
+      minOverlappingReturns: 10,
+      modelVersion: 'test-v1',
+    });
     assert.equal(inputs.length, 1);
     const input = inputs[0]!;
     // Canonical pair ordering: subject < object.
     assert.equal(input.subjectEntityId, 1);
     assert.equal(input.objectEntityId, 2);
     assert.ok(Math.abs(input.value - 1) < 1e-9);
+    assert.equal(input.windowEnd, '2026-07-18T23:59:59.999Z');
+    assert.equal(input.inputWatermark.lastObservedDate, '2026-07-18');
     // The full plan must pass the measurement PIT gate with zero rejections.
     const plan = planRelationMeasurements(inputs, { asOf });
     assert.equal(plan.rejected.length, 0);
@@ -134,11 +137,12 @@ describe('P0-3 price correlation planner', () => {
       [1, series(base)],
       [2, series(base.slice(0, 4))],
     ]);
-    const inputs = planPriceCorrelations(
-      priceSeries,
-      [{ subjectEntityId: 1, objectEntityId: 2 }],
-      { asOf, windowDays: 45, minOverlappingReturns: 10, modelVersion: 'test-v1' },
-    );
+    const inputs = planPriceCorrelations(priceSeries, [{ subjectEntityId: 1, objectEntityId: 2 }], {
+      asOf,
+      windowDays: 45,
+      minOverlappingReturns: 10,
+      modelVersion: 'test-v1',
+    });
     assert.equal(inputs.length, 0);
   });
 
@@ -148,14 +152,42 @@ describe('P0-3 price correlation planner', () => {
       [1, series(withFuture)],
       [2, series(withFuture)],
     ]);
-    const inputs = planPriceCorrelations(
-      priceSeries,
+    const inputs = planPriceCorrelations(priceSeries, [{ subjectEntityId: 1, objectEntityId: 2 }], {
+      asOf,
+      windowDays: 45,
+      minOverlappingReturns: 10,
+      modelVersion: 'test-v1',
+    });
+    const baselineInputs = planPriceCorrelations(
+      new Map([
+        [1, series(base)],
+        [2, series(base)],
+      ]),
       [{ subjectEntityId: 1, objectEntityId: 2 }],
       { asOf, windowDays: 45, minOverlappingReturns: 10, modelVersion: 'test-v1' },
     );
+    assert.deepEqual(inputs, baselineInputs);
+    assert.equal(inputs[0]!.inputWatermark.lastObservedDate, '2026-07-18');
+    assert.equal(inputs[0]!.windowEnd, '2026-07-18T23:59:59.999Z');
+  });
+
+  it('clamps a current-day correlation window to an intraday asOf', () => {
+    const intradayAsOf = '2026-07-18T12:00:00.000Z';
+    const priceSeries = new Map([
+      [1, series(base)],
+      [2, series(base.map(([date, value]) => [date, value * 2]))],
+    ]);
+    const inputs = planPriceCorrelations(priceSeries, [{ subjectEntityId: 1, objectEntityId: 2 }], {
+      asOf: intradayAsOf,
+      windowDays: 45,
+      minOverlappingReturns: 10,
+      modelVersion: 'test-v1',
+    });
     assert.equal(inputs.length, 1);
-    assert.ok(new Date(inputs[0]!.windowEnd).getTime() <= new Date(asOf).getTime() + 86_400_000);
-    assert.ok(!inputs[0]!.windowEnd.startsWith('2026-07-25'));
+    assert.equal(inputs[0]!.windowEnd, intradayAsOf);
+    const plan = planRelationMeasurements(inputs, { asOf: intradayAsOf });
+    assert.equal(plan.rejected.length, 0);
+    assert.equal(plan.accepted.length, 1);
   });
 
   it('deduplicates symmetric pairs and skips self-pairs', () => {

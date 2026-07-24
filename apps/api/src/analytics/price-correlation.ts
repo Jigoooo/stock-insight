@@ -99,20 +99,24 @@ export function planPriceCorrelations(
     const leftReturns = returnsByEntity.get(pair.subjectEntityId);
     const rightReturns = returnsByEntity.get(pair.objectEntityId);
     if (!leftReturns || !rightReturns) continue;
-    const overlappingDates = [...leftReturns.keys()].filter((date) => rightReturns.has(date)).sort();
+    const overlappingDates = [...leftReturns.keys()]
+      .filter((date) => rightReturns.has(date))
+      .sort();
     if (overlappingDates.length < options.minOverlappingReturns) continue;
     const leftValues = overlappingDates.map((date) => leftReturns.get(date)!);
     const rightValues = overlappingDates.map((date) => rightReturns.get(date)!);
     const correlation = pearson(leftValues, rightValues);
     if (correlation === null || !Number.isFinite(correlation)) continue;
+    const finalObservedDate = overlappingDates.at(-1)!;
+    const finalObservedDayEndMs = new Date(`${finalObservedDate}T23:59:59.999Z`).getTime();
     results.push({
       subjectEntityId: Math.min(pair.subjectEntityId, pair.objectEntityId),
       objectEntityId: Math.max(pair.subjectEntityId, pair.objectEntityId),
       measurementKind: 'correlation',
       windowStart: `${overlappingDates[0]!}T00:00:00.000Z`,
-      // Correlation of returns THROUGH the final overlapping date: close the
-      // window at end-of-day so window_end > window_start always holds.
-      windowEnd: `${overlappingDates.at(-1)!}T23:59:59.999Z`,
+      // Correlation of returns THROUGH the final overlapping date: use EOD for
+      // completed days, but clamp the current day to the immutable PIT cutoff.
+      windowEnd: new Date(Math.min(finalObservedDayEndMs, asOfMs)).toISOString(),
       value: Math.max(-1, Math.min(1, correlation)),
       modelConfig: {
         method: 'pearson_daily_returns',
@@ -122,7 +126,7 @@ export function planPriceCorrelations(
       },
       inputWatermark: {
         firstObservedDate: overlappingDates[0]!,
-        lastObservedDate: overlappingDates.at(-1)!,
+        lastObservedDate: finalObservedDate,
       },
     });
   }
