@@ -246,19 +246,7 @@ export async function registerRawObjectWithRevision(
 
   const contract = await client.query<
     QueryResultRow & { source_contract_revision_id: string | number }
-  >(
-    `SELECT source_contract_revision_id
-     FROM ingestion.source_contract_revision
-     WHERE source_id=$1
-       AND policy_status IN ('provisional_review_required','approved')
-       AND effective_from<=$2::timestamptz
-       AND (effective_to IS NULL OR effective_to>$2::timestamptz)
-       AND known_from<=$2::timestamptz
-       AND (known_to IS NULL OR known_to>$2::timestamptz)
-     ORDER BY revision_no DESC,known_from DESC
-     LIMIT 2`,
-    [input.sourceId, input.fetchedAt],
-  );
+  >(SELECT_SOURCE_CONTRACT_HEAD_SQL, [input.sourceId, input.fetchedAt]);
   if (contract.rows.length !== 1) {
     throw new Error(
       `source ${input.sourceId} requires exactly one current applicable contract; got ${contract.rows.length}`,
@@ -316,3 +304,26 @@ UPDATE ingestion.fetch_run SET
   summary = $9::jsonb
 WHERE fetch_run_id = $1
 `;
+export const SELECT_SOURCE_CONTRACT_HEAD_SQL = `
+WITH temporally_applicable AS (
+  SELECT contract.*
+  FROM ingestion.source_contract_revision contract
+  WHERE contract.source_id=$1
+    AND contract.effective_from<=$2::timestamptz
+    AND (contract.effective_to IS NULL OR contract.effective_to>$2::timestamptz)
+    AND contract.known_from<=$2::timestamptz
+    AND (contract.known_to IS NULL OR contract.known_to>$2::timestamptz)
+), logical_heads AS (
+  SELECT candidate.*
+  FROM temporally_applicable candidate
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM temporally_applicable successor
+    WHERE successor.supersedes_contract_revision_id = candidate.source_contract_revision_id
+  )
+)
+SELECT source_contract_revision_id
+FROM logical_heads
+WHERE policy_status IN ('provisional_review_required','approved')
+ORDER BY revision_no DESC,known_from DESC
+LIMIT 2`;

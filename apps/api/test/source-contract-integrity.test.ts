@@ -5,11 +5,105 @@ import { describe, it } from 'node:test';
 import pg from 'pg';
 
 import { sourceRevisionContractsMigrationSql } from '../../../packages/db-schema/src/migrations/020_source_revision_contracts.ts';
+import { SELECT_SOURCE_CONTRACT_HEAD_SQL } from '../src/ingest/raw-object-store.ts';
 
 const databaseUrl = process.env.STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL;
 const skipReason = databaseUrl ? false : 'STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is required';
 
 describe('B2 source contract coverage and immutability', () => {
+  it(
+    'selects the latest append-only contract head and never resurrects a retired predecessor',
+    { skip: skipReason },
+    async () => {
+      assert.ok(databaseUrl);
+      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended('b2-source-contract-head-test',0))",
+        );
+        const baseline = await client.query(`
+          SELECT * FROM ingestion.source_contract_current_v1
+          WHERE policy_status IN ('provisional_review_required','approved')
+          ORDER BY source_id LIMIT 1
+        `);
+        const row = baseline.rows[0]!;
+        const appended = await client.query(
+          `INSERT INTO ingestion.source_contract_revision (
+             source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
+             correction_policy,required_fields,license_policy,redistribution_policy,
+             raw_retention_policy,quality_gate_policy,effective_from,known_from,
+             supersedes_contract_revision_id,content_hash
+           ) VALUES ($1,$2,'approved',$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                     clock_timestamp(),clock_timestamp(),$12,$13)
+           RETURNING source_contract_revision_id`,
+          [
+            row.source_id,
+            row.revision_no + 1,
+            row.cadence_policy,
+            row.cutoff_policy,
+            row.delay_policy,
+            row.correction_policy,
+            row.required_fields,
+            row.license_policy,
+            row.redistribution_policy,
+            row.raw_retention_policy,
+            row.quality_gate_policy,
+            row.source_contract_revision_id,
+            createHash('sha256').update(randomUUID()).digest('hex'),
+          ],
+        );
+        const fetchedAt = (await client.query('SELECT clock_timestamp() AS fetched_at')).rows[0]!
+          .fetched_at;
+        const current = await client.query(SELECT_SOURCE_CONTRACT_HEAD_SQL, [
+          row.source_id,
+          fetchedAt,
+        ]);
+        assert.deepEqual(current.rows, [
+          { source_contract_revision_id: appended.rows[0]!.source_contract_revision_id },
+        ]);
+
+        await client.query(
+          `INSERT INTO ingestion.source_contract_revision (
+             source_id,revision_no,policy_status,cadence_policy,cutoff_policy,delay_policy,
+             correction_policy,required_fields,license_policy,redistribution_policy,
+             raw_retention_policy,quality_gate_policy,effective_from,known_from,
+             supersedes_contract_revision_id,content_hash
+           ) VALUES ($1,$2,'retired',$3,$4,$5,$6,$7,$8,$9,$10,$11,
+                     clock_timestamp(),clock_timestamp(),$12,$13)`,
+          [
+            row.source_id,
+            row.revision_no + 2,
+            row.cadence_policy,
+            row.cutoff_policy,
+            row.delay_policy,
+            row.correction_policy,
+            row.required_fields,
+            row.license_policy,
+            row.redistribution_policy,
+            row.raw_retention_policy,
+            row.quality_gate_policy,
+            appended.rows[0]!.source_contract_revision_id,
+            createHash('sha256').update(randomUUID()).digest('hex'),
+          ],
+        );
+        const retiredAt = (await client.query('SELECT clock_timestamp() AS fetched_at')).rows[0]!
+          .fetched_at;
+        const retired = await client.query(SELECT_SOURCE_CONTRACT_HEAD_SQL, [
+          row.source_id,
+          retiredAt,
+        ]);
+        assert.equal(retired.rows.length, 0);
+        await client.query('ROLLBACK');
+      } finally {
+        await client.query('ROLLBACK').catch(() => undefined);
+        client.release();
+        await pool.end();
+      }
+    },
+  );
+
   it(
     'covers every active source exactly once with an honest active baseline contract',
     { skip: skipReason },
@@ -26,25 +120,41 @@ describe('B2 source contract coverage and immutability', () => {
              SELECT 1 FROM ingestion.source_contract_current_v1 contract
              WHERE contract.source_id=source.source_id
            )) AS uncovered,
-          (SELECT count(*)::int FROM ingestion.source_contract_revision
-           WHERE policy_status='provisional_review_required' AND known_to IS NULL) AS provisional,
+          (SELECT count(*)::int FROM ingestion.source_contract_current_v1
+           WHERE policy_status='provisional_review_required') AS provisional,
           (SELECT count(*)::int FROM ingestion.source_contract_current_v1
            WHERE policy_status='approved') AS approved,
           (SELECT count(*)::int
            FROM ingestion.source_contract_current_v1 contract
            JOIN ingestion.source source USING(source_id)
            WHERE contract.policy_status='approved'
-             AND NOT (
+           AND NOT (
+             (
                source.source_type='internal'
                AND source.license_status='allowed'
                AND source.redistribution='internal_only'
                AND source.metadata->>'transitional_source'='true'
-             )) AS invalid_approved
+             )
+             OR (
+               contract.license_policy->>'adr'='ADR-002'
+               AND coalesce(contract.license_policy->>'approved_at','')<>''
+               AND (
+                 contract.license_policy->>'tier',
+                 contract.license_policy->>'approved_usage',
+                 contract.redistribution_policy->>'mode'
+               ) IN (
+                 ('T1','accepted_evidence_and_display','attribution_required'),
+                 ('T3','internal_research_only','no_redistribution'),
+                 ('T4','candidate_evidence_span_quote','quote_and_link_only'),
+                 ('T5','internal_ops_only','forbidden')
+               )
+             )
+           )) AS invalid_approved
       `);
         assert.equal(result.rows[0]!.uncovered, 0);
         assert.equal(result.rows[0]!.active_contracts, result.rows[0]!.active_sources);
-        // Initial backfill stays provisional; explicit internal transitional
-        // sources may be approved, but external/redistributable approvals fail closed.
+        // Initial backfill stays provisional; approvals require either the
+        // internal transitional exception or an exact ADR-002 tier contract.
         assert.equal(
           result.rows[0]!.provisional + result.rows[0]!.approved,
           result.rows[0]!.active_sources,
