@@ -1,0 +1,16 @@
+# Build-only release manifest. Never use this file with `docker compose up`.
+# After building, resolve each local image ID and deploy through docker-compose.prod.yml.
+name: stock-insight-release-build
+
+services:
+  api:
+    image: stock-insight-api:p1p6-380fb1cb
+    build:
+      context: .
+      dockerfile: apps/api-server/Dockerfile
+
+  app:
+    image: stock-insight-app:p1p6-380fb1cb
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile

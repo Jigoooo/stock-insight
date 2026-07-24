@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 const runner = readFileSync(new URL('../scripts/run-p6-db-rehearsal.mjs', import.meta.url), 'utf8');
 
 describe('P6 disposable PostgreSQL rehearsal runner', () => {
-  it('applies 046 through 051 twice and exercises the production read model', () => {
+  it('applies 046 through 053 twice and exercises the production read model', () => {
     for (const migration of [
       'cryptoIdentityFoundationMigrationSql',
       'cryptoTruthFoundationMigrationSql',
@@ -13,6 +13,7 @@ describe('P6 disposable PostgreSQL rehearsal runner', () => {
       'cryptoContagionImpactMigrationSql',
       'cryptoCrossDomainGraphMigrationSql',
       'cryptoServingViewsMigrationSql',
+      'cryptoServingAppReaderGrantMigrationSql',
     ]) {
       assert.match(runner, new RegExp(migration));
     }
@@ -21,6 +22,10 @@ describe('P6 disposable PostgreSQL rehearsal runner', () => {
       2,
     );
     assert.match(runner, /getCryptoResearchWorkspace\(executor/);
+    assert.match(runner, /productionReader = new Client/);
+    assert.match(runner, /SET ROLE stock_insight_app_reader/);
+    assert.match(runner, /productionReader\.query\(sql, parameters\)/);
+    assert.match(runner, /await productionReader\.end\(\)/);
   });
 
   it('proves temporal terminals, lineage, cleanup, and exact role-state restoration', () => {
@@ -52,12 +57,17 @@ describe('P6 disposable PostgreSQL rehearsal runner', () => {
       'connectedDatabaseVerified',
       'sourceRevisionIds',
       'roleStateRestored',
+      'productionReaderAcl',
+      'productionReaderSelector',
     ]) {
       assert.match(runner, new RegExp(invariant));
     }
     assert.match(runner, /DROP DATABASE IF EXISTS/);
     assert.match(runner, /pg_terminate_backend/);
     assert.match(runner, /pg_auth_members/);
+    assert.match(runner, /stock_insight_app_reader/);
+    assert.match(runner, /has_schema_privilege/);
+    assert.match(runner, /has_table_privilege/);
     assert.match(runner, /adminUrl\.search !== ''/);
     assert.match(runner, /adminUrl\.hash !== ''/);
     assert.match(runner, /SELECT current_database\(\) AS database_name/);

@@ -50,6 +50,7 @@ import { cryptoContagionImpactMigrationSql } from './migrations/049_crypto_conta
 import { cryptoCrossDomainGraphMigrationSql } from './migrations/050_crypto_cross_domain_graph';
 import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_views';
 import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening';
+import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto_serving_app_reader_grant';
 
 export type AppTableName =
   | 'company_profiles'
@@ -675,6 +676,18 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['decision_packet'],
     sql: personalizationReaderSurfaceHardeningMigrationSql,
   },
+  {
+    id: '053_crypto_serving_app_reader_grant',
+    description:
+      'P6 forward-only production app-reader grant for sanitized crypto serving views only.',
+    tables: [
+      'crypto_serving_entity_revision',
+      'crypto_serving_event_revision',
+      'crypto_serving_core_relation_revision',
+      'crypto_serving_risk_exposure_revision',
+    ],
+    sql: cryptoServingAppReaderGrantMigrationSql,
+  },
 ];
 
 export {
@@ -730,4 +743,5 @@ export {
   cryptoCrossDomainGraphMigrationSql,
   cryptoServingViewsMigrationSql,
   personalizationReaderSurfaceHardeningMigrationSql,
+  cryptoServingAppReaderGrantMigrationSql,
 };
