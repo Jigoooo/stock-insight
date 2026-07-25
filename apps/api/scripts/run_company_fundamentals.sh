@@ -66,7 +66,7 @@ if (!['available','blocked_403_cache_fallback','transient_cache_fallback'].inclu
 const fallback=x.liveStatus.endsWith('_cache_fallback');
 if (fallback && (x.cacheRunId !== x.runId + '-cache' || !x.cacheFallback || x.cacheFallback.rowsWritten < 30)) process.exit(70);
 if (!fallback && x.cacheRunId !== null) process.exit(70);
-if (!fallback && (!x.audit || !Number.isInteger(x.audit.metricGroups) || x.audit.metricGroups < 30)) process.exit(70);
+if (!fallback && (!x.audit || !x.audit.summary || !Number.isInteger(x.audit.summary.metricGroups) || x.audit.summary.metricGroups < 30)) process.exit(70);
 process.stdout.write([x.runId, x.cacheRunId ?? '', x.liveStatus].join('\\n'));
 " "$SEC_RESULT")" || RC=70
   if [[ "$RC" == 0 ]]; then
@@ -77,14 +77,14 @@ process.stdout.write([x.runId, x.cacheRunId ?? '', x.liveStatus].join('\\n'));
     RECEIPT_SQL="
 SELECT CASE WHEN EXISTS (
   SELECT 1 FROM public.migration_runs
-  WHERE run_id = :'sec_run_id'
+  WHERE run_id = '$SEC_RUN_ID'
     AND source_system = 'sec-edgar'
     AND status = 'completed'
 )"
     if [[ "$SEC_LIVE_STATUS" == *_cache_fallback ]]; then
       RECEIPT_SQL+=" AND EXISTS (
   SELECT 1 FROM public.migration_runs
-  WHERE run_id = :'cache_run_id'
+  WHERE run_id = '$SEC_CACHE_RUN_ID'
     AND source_system = 'sec-edgar-cache'
     AND status = 'completed'
     AND rows_written >= 30
@@ -93,15 +93,14 @@ SELECT CASE WHEN EXISTS (
     else
       RECEIPT_SQL+=" AND EXISTS (
   SELECT 1 FROM public.migration_runs
-  WHERE run_id = :'sec_run_id'
+  WHERE run_id = '$SEC_RUN_ID'
     AND source_system = 'sec-edgar'
     AND status = 'completed'
     AND (summary ->> 'metricGroups')::integer >= 30
 )"
     fi
     RECEIPT_SQL+=" THEN 1 ELSE 0 END"
-    RECEIPT_RESULT="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -v "sec_run_id=$SEC_RUN_ID" \
-      -v "cache_run_id=$SEC_CACHE_RUN_ID" -At -c "$RECEIPT_SQL")" || RC=70
+    RECEIPT_RESULT="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -At -c "$RECEIPT_SQL")" || RC=70
     if [[ "$RECEIPT_RESULT" != 1 ]]; then
       echo "fundamentals current SEC run receipt assertion failed" >&2
       RC=70
