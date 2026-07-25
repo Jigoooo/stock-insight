@@ -328,3 +328,87 @@ test('pgBackRest contract retains WAL, restores to a named point, and requires c
   assert.match(pgBackRestDrill, /current_setting\('data_checksums'\)/);
   assert.match(pgBackRestDrill, /pg_amcheck/);
 });
+
+test('pgBackRest drill waits for recovery promotion before running pg_amcheck', () => {
+  const root = mkdtempSync(join(tmpdir(), 'pgbackrest-recovery-ready-'));
+  const bin = join(root, 'bin');
+  const repo = join(root, 'repo');
+  const log = join(root, 'docker.log');
+  const timeoutLog = join(root, 'timeout.log');
+  const probes = join(root, 'recovery-probes');
+  try {
+    mkdirSync(bin, { recursive: true });
+    mkdirSync(repo, { recursive: true });
+    writeFileSync(join(repo, 'pgbackrest.conf'), '[research-app]\n');
+    executable(
+      join(bin, 'timeout'),
+      `#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >>${JSON.stringify(timeoutLog)}
+while [[ "\${1:-}" == --* ]]; do shift; done
+shift
+exec "$@"
+`,
+    );
+    executable(
+      join(bin, 'docker'),
+      `#!/usr/bin/env bash
+set -eu
+printf '%s\\n' "$*" >>${JSON.stringify(log)}
+args="$*"
+if [[ "$args" == "inspect research-app-postgres --format {{.Config.Image}}" ]]; then printf 'test-image\\n'; exit 0; fi
+if [[ "$args" == container\\ inspect* || "$args" == volume\\ inspect* ]]; then exit 1; fi
+if [[ "$args" == volume\\ create* || "$args" == rm\\ -f* || "$args" == volume\\ rm* ]]; then exit 0; fi
+if [[ "$args" == run* ]]; then [[ "$args" != *" -d "* ]] || printf 'test-container\\n'; exit 0; fi
+if [[ "$args" != exec* ]]; then exit 90; fi
+if [[ "$args" == *pg_create_restore_point* ]]; then
+  printf 'restore-label\\nDERIVATIONS=1\\nHYPERTABLES=9\\nITEMS=2\\nJOBS=7\\n'; exit 0
+fi
+if [[ "$args" == *pg_switch_wal* || "$args" == *"pgbackrest --stanza=research-app check"* ]]; then exit 0; fi
+if [[ "$args" == *pg_isready* ]]; then exit 0; fi
+if [[ "$args" == *pg_is_in_recovery* ]]; then
+  count=0; [[ ! -f ${JSON.stringify(probes)} ]] || count=$(cat ${JSON.stringify(probes)})
+  count=$((count + 1)); printf '%s' "$count" >${JSON.stringify(probes)}
+  if (( count < 3 )); then printf 't\\n'; else printf 'f\\n'; fi
+  exit 0
+fi
+if [[ "$args" == *pg_amcheck* ]]; then
+  [[ -f ${JSON.stringify(probes)} && $(cat ${JSON.stringify(probes)}) -ge 3 ]] || exit 92
+  exit 0
+fi
+if [[ "$args" == *"current_setting('data_checksums')"* ]]; then
+  printf 'CHECKSUMS=on\\nDERIVATIONS=1\\nHYPERTABLES=9\\nINVALID=0\\nITEMS=2\\nJOBS=7\\n'; exit 0
+fi
+exit 91
+`,
+    );
+    const result = spawnSync(
+      'bash',
+      [join(repoRoot, 'ops/scripts/verify-research-app-pgbackrest-restore.sh')],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH ?? ''}`,
+          RESEARCH_APP_PGBACKREST_DIR: repo,
+        },
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(probes, 'utf8'), '3');
+    assert.match(result.stdout, /pgbackrest_restore_drill=PASS/);
+    const calls = readFileSync(log, 'utf8');
+    assert.equal(calls.match(/pg_is_in_recovery/g)?.length, 3);
+    assert.equal(calls.match(/pg_amcheck/g)?.length, 1);
+    assert.match(calls, /pg_amcheck .*--heapallindexed --parent-check --rootdescend/);
+    assert.ok(calls.lastIndexOf('pg_is_in_recovery') < calls.indexOf('pg_amcheck'), calls);
+    const timeouts = readFileSync(timeoutLog, 'utf8').trim().split('\n');
+    assert.ok(timeouts.length >= 6);
+    assert.ok(
+      timeouts.every((call: string) => call.includes('--kill-after=1s')),
+      timeouts.join('\n'),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

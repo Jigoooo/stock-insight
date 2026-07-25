@@ -3,11 +3,16 @@ set -euo pipefail
 umask 077
 CONTAINER=${RESEARCH_APP_CONTAINER:-research-app-postgres}
 REPO_DIR=${RESEARCH_APP_PGBACKREST_DIR:-/home/jigoo/hermes-work/research-app-db/pgbackrest}
+RECOVERY_WAIT_SECONDS=${RESEARCH_APP_RECOVERY_WAIT_SECONDS:-180}
+PROBE_TIMEOUT_SECONDS=${RESEARCH_APP_RECOVERY_PROBE_TIMEOUT_SECONDS:-5}
 NAME=stock-insight-pgbackrest-restore-drill
 VOLUME=stock-insight-pgbackrest-restore-drill-pgdata
 IMAGE=$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')
 LABEL="stock_insight_drill_$(date -u +%Y%m%dT%H%M%SZ)"
 [[ -s "$REPO_DIR/pgbackrest.conf" ]] || { echo 'missing pgBackRest config' >&2; exit 66; }
+[[ "$RECOVERY_WAIT_SECONDS" =~ ^[1-9][0-9]*$ && "$PROBE_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] || {
+  echo 'invalid recovery timeout' >&2; exit 64;
+}
 if docker container inspect "$NAME" >/dev/null 2>&1; then docker rm -f "$NAME" >/dev/null; fi
 if docker volume inspect "$VOLUME" >/dev/null 2>&1; then docker volume rm "$VOLUME" >/dev/null; fi
 cleanup(){ rc=$?; docker rm -f "$NAME" >/dev/null 2>&1 || rc=1; docker volume rm "$VOLUME" >/dev/null 2>&1 || rc=1; return "$rc"; }
@@ -37,11 +42,30 @@ docker run -d --name "$NAME" --network none --label com.stock-insight.restore-pr
   -e PGBACKREST_CONFIG=/home/postgres/pgbackrest/pgbackrest.conf \
   -v "$VOLUME:/home/postgres/pgdata/data" -v "$REPO_DIR:/home/postgres/pgbackrest" \
   "$IMAGE" postgres -c archive_mode=off >/dev/null
-for _ in $(seq 1 180); do
-  docker exec "$NAME" pg_isready -U research_app -d research_app >/dev/null 2>&1 && break
+PROMOTED=0
+RECOVERY_DEADLINE=$((SECONDS + RECOVERY_WAIT_SECONDS))
+while (( SECONDS < RECOVERY_DEADLINE )); do
+  REMAINING=$((RECOVERY_DEADLINE - SECONDS))
+  PROBE_SECONDS=$PROBE_TIMEOUT_SECONDS
+  if (( REMAINING < PROBE_SECONDS )); then PROBE_SECONDS=$REMAINING; fi
+  if timeout --foreground --kill-after=1s "${PROBE_SECONDS}s" docker exec "$NAME" \
+    pg_isready -U research_app -d research_app >/dev/null 2>&1; then
+    REMAINING=$((RECOVERY_DEADLINE - SECONDS))
+    (( REMAINING > 0 )) || break
+    PROBE_SECONDS=$PROBE_TIMEOUT_SECONDS
+    if (( REMAINING < PROBE_SECONDS )); then PROBE_SECONDS=$REMAINING; fi
+    IN_RECOVERY=$(timeout --foreground --kill-after=1s "${PROBE_SECONDS}s" docker exec "$NAME" \
+      psql -U research_app -d research_app -X -At -v ON_ERROR_STOP=1 \
+      -c 'SELECT pg_is_in_recovery();' 2>/dev/null || printf 't')
+    if [[ "$IN_RECOVERY" == f ]]; then PROMOTED=1; break; fi
+  fi
   sleep 1
 done
-docker exec "$NAME" pg_isready -U research_app -d research_app >/dev/null
+if [[ "$PROMOTED" != 1 ]]; then
+  docker logs "$NAME" >&2 || true
+  echo 'restored database did not finish recovery and promote' >&2
+  exit 70
+fi
 docker exec "$NAME" pg_amcheck -U research_app -d research_app --heapallindexed --parent-check --rootdescend
 TARGET=$(docker exec "$NAME" psql -U research_app -d research_app -X -At -F= -v ON_ERROR_STOP=1 -c "
   SELECT 'CHECKSUMS', current_setting('data_checksums')
