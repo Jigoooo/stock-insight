@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily research_app logical backup at 04:30 KST
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=research-app-logical-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=research_app pgBackRest physical PITR backup
+StartLimitIntervalSec=2h
+StartLimitBurst=4
+OnFailure=research-app-logical-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStartPre=/home/jigoo/.hermes/workspace/stock-insight/ops/scripts/wait-research-app-ready.sh
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/ops/scripts/backup-research-app-pgbackrest.sh auto
+TimeoutStartSec=90min
+Restart=on-failure
+RestartSec=15min
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

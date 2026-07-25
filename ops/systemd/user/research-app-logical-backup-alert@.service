@@ -1,0 +1,6 @@
+[Unit]
+Description=Record a failed research_app logical backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-cat -t research-app-logical-backup -p err /usr/bin/printf "BACKUP_FAILURE unit=%i inspect=journalctl --user -u %i"

@@ -4,17 +4,19 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import {
   applySecMomentumSeeds,
-  assertSecMomentumSnapshotFresh,
+  assertSecMomentumFallbackReady,
   buildSecMomentumSeeds,
   type SecMomentumSnapshot,
 } from './sec-companyfacts-cache.ts';
+import { createSecFetcher } from './sec-edgar-fetcher.ts';
 import {
   applySecEdgarBackfillPlan,
   buildSecEdgarDryRunPlan,
   collectSecEdgarDryRunPlan,
+  isSecEdgarAccessBlocked,
+  isSecEdgarCacheFallbackEligible,
   SEC_APP_SURFACE_US_TICKER_ROWS_SQL,
   summarizeSecEdgarDryRunAudit,
-  type SecEdgarFetcher,
   type SecEdgarDryRunPlan,
   type SecCompanyTickerIndex,
   type SecEdgarWriteExecutor,
@@ -22,8 +24,7 @@ import {
 } from './sec-edgar.ts';
 
 const JOB_NAME = 'stock-insight-sec-edgar-backfill';
-const DEFAULT_SEC_USER_AGENT =
-  'stock-insight/0.0 research https://github.com/Jigoooo/stock-insight';
+const DEFAULT_SEC_USER_AGENT = 'stock-insight research contact@jigooo.com';
 const SEC_TICKER_CACHE =
   '/home/jigoo/.hermes/workspace/research-common/state/stock/sec-company-tickers.json';
 const SEC_FACTS_CACHE =
@@ -57,34 +58,6 @@ async function loadRows(client: PoolClient): Promise<SecTickerEntityRow[]> {
   return result.rows;
 }
 
-function createSecFetcher(userAgent: string): SecEdgarFetcher {
-  let lastRequestAt = 0;
-  return {
-    async fetchJson<T>(url: string): Promise<T> {
-      let lastError: unknown;
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
-        try {
-          const wait = Math.max(0, 125 - (Date.now() - lastRequestAt));
-          if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-          lastRequestAt = Date.now();
-          const response = await fetch(url, {
-            headers: { Accept: 'application/json', 'User-Agent': userAgent },
-            signal: AbortSignal.timeout(30_000),
-          });
-          if (!response.ok) {
-            throw new Error(`SEC request failed: HTTP ${response.status}`);
-          }
-          return (await response.json()) as T;
-        } catch (error) {
-          lastError = error;
-          if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
-        }
-      }
-      throw lastError;
-    },
-  };
-}
-
 function createWriteExecutor(client: PoolClient): SecEdgarWriteExecutor {
   return {
     async execute(sql, params = []) {
@@ -97,6 +70,8 @@ function createWriteExecutor(client: PoolClient): SecEdgarWriteExecutor {
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
   const startedAt = new Date();
+  const runId = makeRunId(startedAt);
+  const cacheRunId = `${runId}-cache`;
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: getDatabaseUrl(), max: 1 });
   const client = await pool.connect();
@@ -111,37 +86,40 @@ async function run(): Promise<void> {
     let cacheSnapshot: SecMomentumSnapshot | undefined;
     let cacheSeeds = [] as ReturnType<typeof buildSecMomentumSeeds>;
     let liveError: string | undefined;
+    let liveStatus: 'available' | 'blocked_403_cache_fallback' | 'transient_cache_fallback' =
+      'available';
     try {
       plan = await collectSecEdgarDryRunPlan(rows, createSecFetcher(userAgent));
     } catch (error) {
       liveError = error instanceof Error ? error.message : String(error);
-      if (!/SEC request failed: HTTP 403/.test(liveError)) throw error;
+      if (!isSecEdgarCacheFallbackEligible(error)) throw error;
+      liveStatus = isSecEdgarAccessBlocked(error)
+        ? 'blocked_403_cache_fallback'
+        : 'transient_cache_fallback';
       const tickerIndex = JSON.parse(
         await readFile(SEC_TICKER_CACHE, 'utf8'),
       ) as SecCompanyTickerIndex;
       cacheSnapshot = JSON.parse(await readFile(SEC_FACTS_CACHE, 'utf8')) as SecMomentumSnapshot;
-      assertSecMomentumSnapshotFresh(cacheSnapshot);
       plan = buildSecEdgarDryRunPlan(rows, tickerIndex, {});
       const canonicalEntityKeys = new Set(
         rows.flatMap((row) => (row.entity_key?.trim() ? [row.entity_key.trim()] : [])),
       );
-      cacheSeeds = buildSecMomentumSeeds(cacheSnapshot).filter((seed) =>
-        canonicalEntityKeys.has(seed.entityKey),
-      );
+      cacheSeeds = buildSecMomentumSeeds(cacheSnapshot);
+      assertSecMomentumFallbackReady(cacheSnapshot, cacheSeeds, canonicalEntityKeys);
     }
     const audit = summarizeSecEdgarDryRunAudit(plan);
 
     if (apply) {
       await client.query('BEGIN');
       const result = await applySecEdgarBackfillPlan(plan, createWriteExecutor(client), {
-        runId: makeRunId(startedAt),
+        runId,
         jobName: JOB_NAME,
         startedAt,
         finishedAt: new Date(),
       });
       const cacheResult = cacheSnapshot
         ? await applySecMomentumSeeds(cacheSnapshot, cacheSeeds, createWriteExecutor(client), {
-            runId: `${makeRunId(startedAt)}-cache`,
+            runId: cacheRunId,
             jobName: `${JOB_NAME}-cache-fallback`,
             startedAt,
             finishedAt: new Date(),
@@ -155,8 +133,10 @@ async function run(): Promise<void> {
           {
             mode: 'apply',
             jobName: JOB_NAME,
+            runId,
+            cacheRunId: cacheSnapshot ? cacheRunId : null,
             secUserAgentConfigured: userAgent !== DEFAULT_SEC_USER_AGENT,
-            liveStatus: liveError ? 'blocked_403_cache_fallback' : 'available',
+            liveStatus,
             audit: result.audit,
             cacheFallback: cacheResult,
           },
@@ -174,7 +154,7 @@ async function run(): Promise<void> {
           jobName: JOB_NAME,
           readOnly: true,
           secUserAgentConfigured: userAgent !== DEFAULT_SEC_USER_AGENT,
-          liveStatus: liveError ? 'blocked_403_cache_fallback' : 'available',
+          liveStatus,
           liveError: liveError ?? null,
           audit,
           cacheFallback: cacheSnapshot

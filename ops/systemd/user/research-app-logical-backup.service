@@ -1,0 +1,21 @@
+[Unit]
+Description=research_app daily logical backup with restore metadata
+After=default.target
+StartLimitIntervalSec=2h
+StartLimitBurst=4
+OnFailure=research-app-logical-backup-alert@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStartPre=/home/jigoo/.hermes/workspace/stock-insight/ops/scripts/wait-research-app-ready.sh
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/ops/scripts/backup-research-app-logical.sh
+ExecStartPost=/home/jigoo/.hermes/workspace/stock-insight/ops/scripts/publish-research-app-dr-bundle.sh
+TimeoutStartSec=60min
+Restart=on-failure
+RestartSec=15min
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

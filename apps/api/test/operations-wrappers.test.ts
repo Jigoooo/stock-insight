@@ -34,8 +34,21 @@ test('network checks and quality readbacks fail closed', () => {
     assert.match(body, /pipeline_require_db_assertion/);
   }
   const fundamentals = read('scripts/run_company_fundamentals.sh');
-  assert.match(fundamentals, /blocked_403_cache_fallback/);
-  assert.match(fundamentals, /if \[\[ "\$RC" -eq 0 \]\]; then RC=75; fi/);
+  assert.match(fundamentals, /STOCK_INSIGHT_ROOT/);
+  assert.match(fundamentals, /endsWith\('_cache_fallback'\)/);
+  assert.doesNotMatch(fundamentals, /RC=75/);
+  assert.match(fundamentals, /fresh cache fallback was applied; quality gate passed/);
+  const secRunner = read('src/backfill/run-sec-edgar.ts');
+  assert.match(secRunner, /stock-insight research contact@jigooo\.com/);
+  assert.match(secRunner, /assertSecMomentumFallbackReady/);
+  assert.match(secRunner, /createSecFetcher/);
+  assert.match(secRunner, /cacheRunId/);
+  assert.match(secRunner, /runId/);
+  assert.doesNotMatch(secRunner, /function createSecFetcher/);
+  const secFetcher = read('src/backfill/sec-edgar-fetcher.ts');
+  assert.match(secFetcher, /new SecEdgarHttpError\(response\.status, url\)/);
+  assert.match(secFetcher, /isSecEdgarAccessBlocked\(error\)/);
+  assert.doesNotMatch(secFetcher, /HTTP 403.*test\(/);
 });
 
 test('versioned systemd units avoid a missing user network target and retry fundamentals', () => {

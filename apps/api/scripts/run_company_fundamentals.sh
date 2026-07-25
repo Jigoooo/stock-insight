@@ -2,8 +2,8 @@
 set -uo pipefail
 umask 077
 
-ROOT=/home/jigoo/.hermes/workspace/stock-insight
-DB_URL=postgresql://research_app@127.0.0.1:55432/research_app
+ROOT=${STOCK_INSIGHT_ROOT:-/home/jigoo/.hermes/workspace/stock-insight}
+DB_URL=${STOCK_INSIGHT_DATABASE_URL:-postgresql://research_app@127.0.0.1:55432/research_app}
 source "$ROOT/apps/api/scripts/pipeline_common.sh"
 
 pipeline_acquire_lock fundamentals || exit $?
@@ -47,21 +47,70 @@ SELECT CASE WHEN
       AND rows_written >= 300 AND rows_skipped = 0
       AND finished_at >= now() - interval '6 days'
   )
-  AND EXISTS (
-    SELECT 1 FROM public.migration_runs
-    WHERE source_system = 'sec-edgar-cache' AND status = 'completed'
-      AND rows_written >= 30
-      AND (summary ->> 'snapshotGeneratedAt')::timestamptz >= now() - interval '48 hours'
-  )
 THEN 1 ELSE 0 END
 " || RC=$?
 
-if [[ -s "$SEC_RESULT" ]] && node -e "
+SEC_RUN_ID=
+SEC_CACHE_RUN_ID=
+SEC_LIVE_STATUS=
+if [[ "$RC" == 0 && ! -s "$SEC_RESULT" ]]; then
+  echo "fundamentals runner produced an empty SEC result" >&2
+  RC=70
+fi
+if [[ "$RC" == 0 ]]; then
+  SEC_META="$(node -e "
 const x=require(process.argv[1]);
-process.exit(x.liveStatus === 'blocked_403_cache_fallback' ? 0 : 1)
-" "$SEC_RESULT"; then
-  echo "SEC live endpoint degraded; fresh cache fallback was applied" >&2
-  if [[ "$RC" -eq 0 ]]; then RC=75; fi
+const runPattern=/^sec-edgar-[0-9]{8}-[0-9]{9}Z$/;
+if (x.mode !== 'apply' || !runPattern.test(x.runId)) process.exit(70);
+if (!['available','blocked_403_cache_fallback','transient_cache_fallback'].includes(x.liveStatus)) process.exit(70);
+const fallback=x.liveStatus.endsWith('_cache_fallback');
+if (fallback && (x.cacheRunId !== x.runId + '-cache' || !x.cacheFallback || x.cacheFallback.rowsWritten < 30)) process.exit(70);
+if (!fallback && x.cacheRunId !== null) process.exit(70);
+if (!fallback && (!x.audit || !Number.isInteger(x.audit.metricGroups) || x.audit.metricGroups < 30)) process.exit(70);
+process.stdout.write([x.runId, x.cacheRunId ?? '', x.liveStatus].join('\\n'));
+" "$SEC_RESULT")" || RC=70
+  if [[ "$RC" == 0 ]]; then
+    mapfile -t SEC_META_LINES <<<"$SEC_META"
+    SEC_RUN_ID=${SEC_META_LINES[0]:-}
+    SEC_CACHE_RUN_ID=${SEC_META_LINES[1]:-}
+    SEC_LIVE_STATUS=${SEC_META_LINES[2]:-}
+    RECEIPT_SQL="
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM public.migration_runs
+  WHERE run_id = :'sec_run_id'
+    AND source_system = 'sec-edgar'
+    AND status = 'completed'
+)"
+    if [[ "$SEC_LIVE_STATUS" == *_cache_fallback ]]; then
+      RECEIPT_SQL+=" AND EXISTS (
+  SELECT 1 FROM public.migration_runs
+  WHERE run_id = :'cache_run_id'
+    AND source_system = 'sec-edgar-cache'
+    AND status = 'completed'
+    AND rows_written >= 30
+    AND (summary ->> 'snapshotGeneratedAt')::timestamptz >= now() - interval '48 hours'
+)"
+    else
+      RECEIPT_SQL+=" AND EXISTS (
+  SELECT 1 FROM public.migration_runs
+  WHERE run_id = :'sec_run_id'
+    AND source_system = 'sec-edgar'
+    AND status = 'completed'
+    AND (summary ->> 'metricGroups')::integer >= 30
+)"
+    fi
+    RECEIPT_SQL+=" THEN 1 ELSE 0 END"
+    RECEIPT_RESULT="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -v "sec_run_id=$SEC_RUN_ID" \
+      -v "cache_run_id=$SEC_CACHE_RUN_ID" -At -c "$RECEIPT_SQL")" || RC=70
+    if [[ "$RECEIPT_RESULT" != 1 ]]; then
+      echo "fundamentals current SEC run receipt assertion failed" >&2
+      RC=70
+    fi
+  fi
+fi
+
+if [[ "$RC" == 0 && "$SEC_LIVE_STATUS" == *_cache_fallback ]]; then
+  echo "SEC live endpoint degraded; fresh cache fallback was applied; quality gate passed" >&2
 fi
 
 exit "$RC"
