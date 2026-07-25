@@ -311,6 +311,11 @@ test('pgBackRest contract retains WAL, restores to a named point, and requires c
   assert.match(pgBackRestCompose, /archive-push %p/);
   assert.match(pgBackRestCompose, /archive-get %f %p/);
   assert.match(pgBackRestDrill, /pg_create_restore_point/);
+  assert.match(pgBackRestDrill, /chown 1000:1000 \/restore/);
+  assert.match(pgBackRestDrill, /chmod 0700 \/restore/);
+  assert.match(pgBackRestDrill, /PGBACKREST_CONFIG=\/home\/postgres\/pgbackrest\/pgbackrest\.conf/);
+  assert.match(pgBackRestDrill, /--pg1-path=\/home\/postgres\/pgdata\/data/);
+  assert.doesNotMatch(pgBackRestDrill, /--pg1-path=\/restore/);
   assert.match(pgBackRestDrill, /--type=name/);
   assert.match(pgBackRestDrill, /--target-action=promote/);
   assert.match(pgBackRestDrill, /current_setting\('data_checksums'\)/);
