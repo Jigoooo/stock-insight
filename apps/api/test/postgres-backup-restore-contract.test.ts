@@ -305,6 +305,8 @@ test('pgBackRest contract retains WAL, restores to a named point, and requires c
   assert.match(pgBackRestConfig, /repo1-retention-full=2/);
   assert.match(pgBackRestConfig, /repo1-retention-diff=6/);
   assert.match(pgBackRestConfig, /repo1-retention-archive-type=full/);
+  assert.match(pgBackRestConfig, /^compress-type=zst$/m);
+  assert.doesNotMatch(pgBackRestConfig, /repo1-compress-type/);
   assert.match(pgBackRestCompose, /archive_mode=on/);
   assert.match(pgBackRestCompose, /archive-push %p/);
   assert.match(pgBackRestCompose, /archive-get %f %p/);
