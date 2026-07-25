@@ -7,10 +7,12 @@ BACKUP_ROOT=${RESEARCH_APP_LOGICAL_BACKUP_ROOT:-/home/jigoo/hermes-work/research
 IMAGE_DIR=${STOCK_INSIGHT_IMAGE_BUNDLE_DIR:-/home/jigoo/hermes-work/backups/stock-insight/images/p1p6-380fb1cb}
 DR_ROOT=${STOCK_INSIGHT_DR_ROOT:-/mnt/c/Users/HP/OneDrive/StockInsight-DR}
 RECIPIENT_FILE=${STOCK_INSIGHT_DR_AGE_RECIPIENT_FILE:-/home/jigoo/.hermes/secrets/stock-insight-dr-age.recipient}
+AGE_BIN=${STOCK_INSIGHT_DR_AGE_BIN:-/home/jigoo/.local/bin/age}
 [[ -s "$BACKUP_ROOT/LAST_SUCCESS" ]] || { echo 'missing LAST_SUCCESS' >&2; exit 66; }
 BACKUP_DIR=$(realpath "$(cat "$BACKUP_ROOT/LAST_SUCCESS")")
 [[ "$BACKUP_DIR" == "$BACKUP_ROOT"/logical-* && -d "$BACKUP_DIR" ]] || { echo 'unsafe backup path' >&2; exit 65; }
 [[ -d "$IMAGE_DIR" && -s "$RECIPIENT_FILE" ]] || { echo 'missing image bundle or age recipient' >&2; exit 66; }
+[[ -x "$AGE_BIN" ]] || { echo 'missing executable age binary' >&2; exit 69; }
 RECIPIENT=$(tr -d '\r\n' <"$RECIPIENT_FILE")
 [[ "$RECIPIENT" == age1* ]] || { echo 'invalid age recipient' >&2; exit 65; }
 python3 "$ROOT/ops/scripts/research-app-backup-contract.py" verify "$BACKUP_DIR" >/dev/null
@@ -45,7 +47,7 @@ tar -cf - \
   -C "$(dirname "$IMAGE_DIR")" "$(basename "$IMAGE_DIR")" \
   -C "$TMP" DR_MANIFEST SOURCE_SHA256SUMS "stock-insight-source-$SOURCE_TREE.tar" \
   | zstd -T0 -8 \
-  | age -r "$RECIPIENT" -o "$PARTIAL"
+  | "$AGE_BIN" -r "$RECIPIENT" -o "$PARTIAL"
 python3 - "$PARTIAL" "$DR_ROOT" <<'PY'
 import os,sys
 p=sys.argv[1]

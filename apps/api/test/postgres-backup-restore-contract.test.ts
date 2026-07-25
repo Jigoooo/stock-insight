@@ -15,6 +15,10 @@ const backupScript = readFileSync(
   join(repoRoot, 'ops/scripts/backup-research-app-logical.sh'),
   'utf8',
 );
+const drPublisher = readFileSync(
+  join(repoRoot, 'ops/scripts/publish-research-app-dr-bundle.sh'),
+  'utf8',
+);
 const backupService = readFileSync(
   join(repoRoot, 'ops/systemd/user/research-app-logical-backup.service'),
   'utf8',
@@ -296,6 +300,9 @@ test('logical backup timer names the actual recovery contract and runs the versi
   assert.match(backupService, /Restart=on-failure/);
   assert.match(backupService, /OnFailure=research-app-logical-backup-alert/);
   assert.match(backupService, /NoNewPrivileges=true/);
+  assert.match(drPublisher, /AGE_BIN=.*\/home\/jigoo\/\.local\/bin\/age/);
+  assert.match(drPublisher, /\[\[ -x "\$AGE_BIN" \]\]/);
+  assert.match(drPublisher, /\| "\$AGE_BIN" -r/);
   assert.match(backupTimer, /OnCalendar=\*-\*-\* 04:30:00/);
   assert.match(backupTimer, /Persistent=true/);
   assert.doesNotMatch(backupService + backupTimer, /base backup|WAL archiving/i);
