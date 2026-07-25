@@ -25,13 +25,16 @@ docker exec "$CONTAINER" psql -U research_app -d postgres -X -At -v ON_ERROR_STO
 docker exec "$CONTAINER" pgbackrest --stanza=research-app check
 
 docker volume create --label com.stock-insight.restore-proof=true "$VOLUME" >/dev/null
+docker run --rm --user 0:0 --entrypoint /bin/sh -v "$VOLUME:/restore" "$IMAGE" \
+  -c 'chown 1000:1000 /restore && chmod 0700 /restore'
 docker run --rm --user 1000:1000 --entrypoint pgbackrest \
   -e PGBACKREST_CONFIG=/home/postgres/pgbackrest/pgbackrest.conf \
-  -v "$REPO_DIR:/home/postgres/pgbackrest" -v "$VOLUME:/restore" "$IMAGE" \
-  --stanza=research-app --pg1-path=/restore --type=name --target="$LABEL" \
+  -v "$REPO_DIR:/home/postgres/pgbackrest" -v "$VOLUME:/home/postgres/pgdata/data" "$IMAGE" \
+  --stanza=research-app --pg1-path=/home/postgres/pgdata/data --type=name --target="$LABEL" \
   --target-action=promote --archive-mode=off restore
 docker run -d --name "$NAME" --network none --label com.stock-insight.restore-proof=true \
   -e POSTGRES_USER=research_app -e POSTGRES_DB=research_app \
+  -e PGBACKREST_CONFIG=/home/postgres/pgbackrest/pgbackrest.conf \
   -v "$VOLUME:/home/postgres/pgdata/data" -v "$REPO_DIR:/home/postgres/pgbackrest" \
   "$IMAGE" postgres -c archive_mode=off >/dev/null
 for _ in $(seq 1 180); do
