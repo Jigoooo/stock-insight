@@ -96,7 +96,7 @@ test('fundamentals wrapper rejects a live current run with fewer than 30 metric 
       runId: 'sec-edgar-20260725-111111000Z',
       cacheRunId: null,
       liveStatus: 'available',
-      audit: { metricGroups: 29 },
+      audit: { summary: { metricGroups: 29 } },
     }),
   );
   assert.notEqual(result.status, 0);
@@ -111,10 +111,11 @@ test('fundamentals wrapper binds live quality to current-run summary metric grou
       runId: 'sec-edgar-20260725-121212000Z',
       cacheRunId: null,
       liveStatus: 'available',
-      audit: { metricGroups: 79 },
+      audit: { summary: { metricGroups: 79 } },
     }),
   );
   assert.equal(result.status, 0, result.stderr);
   assert.match(psqlLog, /sec-edgar-20260725-121212000Z/);
   assert.match(psqlLog, /summary ->> 'metricGroups'/);
+  assert.doesNotMatch(psqlLog, /:'sec_run_id'/);
 });
