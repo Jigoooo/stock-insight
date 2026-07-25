@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily research_app pgBackRest physical backup at 05:30 KST
+
+[Timer]
+OnCalendar=*-*-* 05:30:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=research-app-pgbackrest-backup.service
+
+[Install]
+WantedBy=timers.target

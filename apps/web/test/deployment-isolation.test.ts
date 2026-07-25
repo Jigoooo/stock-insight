@@ -7,6 +7,15 @@ function read(relativePath: string) {
   return readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
 }
 
+function serviceBlock(manifest: string, service: string): string {
+  const match = new RegExp(
+    `^  ${service}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9_-]*:|^[a-z]|(?![\\s\\S]))`,
+    'm',
+  ).exec(manifest);
+  assert.ok(match?.[0], `missing service block: ${service}`);
+  return match![0];
+}
+
 const candidate = read('../../../docker-compose.candidate.yml');
 const production = read('../../../docker-compose.prod.yml');
 const productionDbOnly = read('../../../docker-compose.prod-db-auth.yml');
@@ -41,6 +50,12 @@ describe('release deployment isolation', () => {
     assert.doesNotMatch(production, /services:/);
     assert.ok(productionDbOnly.includes(`image: ${releaseImage}`));
     assert.ok(productionDbOnly.includes(`image: ${apiReleaseImage}`));
+    const api = serviceBlock(productionDbOnly, 'api');
+    const app = serviceBlock(productionDbOnly, 'app');
+    assert.match(api, new RegExp(`image: ${apiReleaseImage}\\n\\s+pull_policy: never`));
+    assert.match(app, new RegExp(`image: ${releaseImage}\\n\\s+pull_policy: never`));
+    assert.doesNotMatch(api, /^\s+build:/m);
+    assert.doesNotMatch(app, /^\s+build:/m);
     assert.doesNotMatch(productionDbOnly, /STOCK_INSIGHT_(APP|API)_IMAGE/);
     assert.equal((productionDbOnly.match(/pull_policy: never/g) ?? []).length, 2);
     assert.doesNotMatch(productionDbOnly, /^\s+build:/m);

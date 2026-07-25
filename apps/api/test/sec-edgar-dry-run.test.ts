@@ -7,6 +7,7 @@ import {
   cik10,
   collectSecEdgarDryRunPlan,
   SEC_APP_SURFACE_US_TICKER_ROWS_SQL,
+  SecEdgarHttpError,
   secCompanyFactsUrl,
   summarizeSecEdgarDryRunAudit,
   type SecCompanyFacts,
@@ -126,15 +127,77 @@ describe('SEC EDGAR dry-run planner', () => {
     );
   });
 
-  it('fails closed when every matched companyfacts request fails', async () => {
+  it('stops the batch on the first global SEC access block', async () => {
+    let companyFactsRequests = 0;
     await assert.rejects(
       collectSecEdgarDryRunPlan(rows, {
         async fetchJson<T>(url: string): Promise<T> {
           if (url.endsWith('company_tickers.json')) return tickerIndex as T;
-          throw new Error('SEC request failed: HTTP 403');
+          companyFactsRequests += 1;
+          throw new SecEdgarHttpError(403, url);
         },
       }),
-      /companyfacts unavailable for all 2 matched CIKs.*HTTP 403/i,
+      /SEC request failed: HTTP 403/i,
+    );
+    assert.equal(companyFactsRequests, 1);
+  });
+
+  it('does not publish a partial plan after a global SEC throttle begins', async () => {
+    let companyFactsRequests = 0;
+    await assert.rejects(
+      collectSecEdgarDryRunPlan(rows, {
+        async fetchJson<T>(url: string): Promise<T> {
+          if (url.endsWith('company_tickers.json')) return tickerIndex as T;
+          companyFactsRequests += 1;
+          if (companyFactsRequests === 1) return nvdaFacts as T;
+          throw new SecEdgarHttpError(429, url);
+        },
+      }),
+      /SEC request failed: HTTP 429/i,
+    );
+    assert.equal(companyFactsRequests, 2);
+  });
+
+  it('continues collecting other issuers after a single exhausted HTTP 500', async () => {
+    let companyFactsRequests = 0;
+    const plan = await collectSecEdgarDryRunPlan(rows, {
+      async fetchJson<T>(url: string): Promise<T> {
+        if (url.endsWith('company_tickers.json')) return tickerIndex as T;
+        companyFactsRequests += 1;
+        if (companyFactsRequests === 1) throw new SecEdgarHttpError(500, url);
+        return impossibleMarginFacts as T;
+      },
+    });
+    assert.equal(companyFactsRequests, 2);
+    assert.equal(plan.companyFactsAvailable, 1);
+  });
+
+  it('raises one provider-unavailable error when every issuer exhausts transient retries', async () => {
+    await assert.rejects(
+      collectSecEdgarDryRunPlan(rows, {
+        async fetchJson<T>(url: string): Promise<T> {
+          if (url.endsWith('company_tickers.json')) return tickerIndex as T;
+          throw new SecEdgarHttpError(500, url);
+        },
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.name === 'SecEdgarProviderUnavailableError' &&
+        /unavailable for all 2 matched CIKs/.test(error.message),
+    );
+  });
+
+  it('wraps an exhausted ticker-index HTTP 500 as provider unavailable for cache fallback', async () => {
+    await assert.rejects(
+      collectSecEdgarDryRunPlan(rows, {
+        async fetchJson<T>(url: string): Promise<T> {
+          throw new SecEdgarHttpError(500, url);
+        },
+      }),
+      (error: unknown) =>
+        error instanceof Error &&
+        error.name === 'SecEdgarProviderUnavailableError' &&
+        /ticker index unavailable/i.test(error.message),
     );
   });
 

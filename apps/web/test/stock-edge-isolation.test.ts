@@ -63,19 +63,18 @@ describe('Stock Insight edge isolation', () => {
   });
 
   it('moves both Stock app auth modes off the consulting network', async () => {
-    const manifests = await Promise.all([
+    const [productionAlias, production] = await Promise.all([
       source('docker-compose.prod.yml'),
       source('docker-compose.prod-db-auth.yml'),
     ]);
-
-    for (const manifest of manifests) {
-      const app = serviceBlock(manifest, 'app');
-      assert.match(
-        app,
-        /networks:\s*\n\s+edge:\s*\n\s+aliases:\s*\n\s+- stock-insight-app\s*\n\s+research:/,
-      );
-      assert.match(manifest, /^    name: stock-insight-edge$/m);
-      assert.doesNotMatch(manifest, /consulting-web_default/);
-    }
+    assert.match(productionAlias, /include:\s*\n\s+- path: docker-compose\.prod-db-auth\.yml/);
+    assert.doesNotMatch(productionAlias, /^services:/m);
+    const app = serviceBlock(production, 'app');
+    assert.match(
+      app,
+      /networks:\s*\n\s+edge:\s*\n\s+aliases:\s*\n\s+- stock-insight-app\s*\n\s+research:/,
+    );
+    assert.match(production, /^    name: stock-insight-edge$/m);
+    assert.doesNotMatch(productionAlias + production, /consulting-web_default/);
   });
 });

@@ -93,6 +93,38 @@ export function assertSecMomentumSnapshotFresh(
   return generatedAt.toISOString();
 }
 
+export function assertSecMomentumFallbackReady(
+  snapshot: SecMomentumSnapshot,
+  seeds: readonly SecMomentumSeed[],
+  canonicalEntityKeys: ReadonlySet<string>,
+  options: { now?: Date; minimumSeeds?: number } = {},
+): { generatedAt: string; sourceRows: number; seedCount: number } {
+  const generatedAt = assertSecMomentumSnapshotFresh(snapshot, options.now);
+  if (snapshot.source !== 'sec_companyfacts') {
+    throw new Error('SEC cache source must be sec_companyfacts');
+  }
+  const universe = numberValue(snapshot.n_universe);
+  const collected = numberValue(snapshot.n_collected);
+  if (!Number.isInteger(universe) || !Number.isInteger(collected) || !universe || !collected) {
+    throw new Error('SEC cache n_universe and n_collected must be positive integers');
+  }
+  if (collected > universe) throw new Error('SEC cache n_collected exceeds n_universe');
+  if (!Array.isArray(snapshot.companies) || snapshot.companies.length !== collected) {
+    throw new Error('SEC cache n_collected must equal companies length');
+  }
+  if (!Array.isArray(snapshot.errors) || snapshot.errors.length !== universe - collected) {
+    throw new Error('SEC cache errors length must equal n_universe minus n_collected');
+  }
+  const minimumSeeds = options.minimumSeeds ?? 30;
+  if (seeds.length < minimumSeeds) {
+    throw new Error(`SEC cache minimum seed coverage not met: ${seeds.length} < ${minimumSeeds}`);
+  }
+  if (seeds.some((seed) => !canonicalEntityKeys.has(seed.entityKey))) {
+    throw new Error('SEC cache contains a noncanonical seed entity');
+  }
+  return { generatedAt, sourceRows: collected, seedCount: seeds.length };
+}
+
 function metric(key: string, label: string, value: unknown, unit: string): StockCompanyMetric[] {
   const parsed = numberValue(value);
   return parsed === undefined ? [] : [{ key, label, value: parsed, unit }];
@@ -158,9 +190,20 @@ export async function applySecMomentumSeeds(
   snapshot: SecMomentumSnapshot,
   seeds: readonly SecMomentumSeed[],
   executor: SecMomentumWriteExecutor,
-  options: { runId: string; jobName: string; startedAt: Date; finishedAt: Date; liveError: string },
+  options: {
+    runId: string;
+    jobName: string;
+    startedAt: Date;
+    finishedAt: Date;
+    liveError: string;
+    minimumSeeds?: number;
+  },
 ): Promise<{ rowsWritten: number; rowsSkipped: number }> {
   assertSecMomentumSnapshotFresh(snapshot, options.finishedAt);
+  const minimumSeeds = options.minimumSeeds ?? 30;
+  if (seeds.length < minimumSeeds) {
+    throw new Error(`SEC cache minimum seed coverage not met: ${seeds.length} < ${minimumSeeds}`);
+  }
   let rowsWritten = 0;
   for (const seed of seeds) {
     const result = await executor.execute(UPSERT_SEC_MOMENTUM_SQL, [
@@ -179,6 +222,9 @@ export async function applySecMomentumSeeds(
       seed.reportedAt ?? null,
     ]);
     if ((result.rowCount ?? 0) > 0) rowsWritten += 1;
+  }
+  if (rowsWritten < minimumSeeds) {
+    throw new Error(`SEC cache minimum write coverage not met: ${rowsWritten} < ${minimumSeeds}`);
   }
   const sourceRows = Array.isArray(snapshot.companies) ? snapshot.companies.length : 0;
   const rowsSkipped = Math.max(0, sourceRows - rowsWritten);

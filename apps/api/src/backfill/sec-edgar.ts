@@ -46,6 +46,47 @@ export type SecEdgarFetcher = {
   fetchJson: <T>(url: string) => Promise<T>;
 };
 
+export class SecEdgarHttpError extends Error {
+  readonly status: number;
+  readonly url: string;
+
+  constructor(status: number, url: string) {
+    super(`SEC request failed: HTTP ${status}`);
+    this.name = 'SecEdgarHttpError';
+    this.status = status;
+    this.url = url;
+  }
+}
+
+export class SecEdgarProviderUnavailableError extends Error {
+  constructor(
+    attempted: number,
+    failures: string[],
+    stage: 'ticker-index' | 'companyfacts' = 'companyfacts',
+  ) {
+    super(
+      stage === 'ticker-index'
+        ? `SEC ticker index unavailable: ${failures.join('; ').slice(0, 500)}`
+        : `SEC companyfacts unavailable for all ${attempted} matched CIKs: ${failures.join('; ').slice(0, 500)}`,
+    );
+    this.name = 'SecEdgarProviderUnavailableError';
+  }
+}
+
+export function isSecEdgarAccessBlocked(error: unknown): error is SecEdgarHttpError {
+  return error instanceof SecEdgarHttpError && error.status === 403;
+}
+
+export function isSecEdgarGlobalFailure(error: unknown): error is SecEdgarHttpError {
+  return error instanceof SecEdgarHttpError && (error.status === 403 || error.status === 429);
+}
+
+export function isSecEdgarCacheFallbackEligible(
+  error: unknown,
+): error is SecEdgarHttpError | SecEdgarProviderUnavailableError {
+  return isSecEdgarGlobalFailure(error) || error instanceof SecEdgarProviderUnavailableError;
+}
+
 export type SecEdgarMetricGroupCandidate = {
   entityKey: string;
   symbol: string;
@@ -660,7 +701,17 @@ export async function collectSecEdgarDryRunPlan(
   rows: SecTickerEntityRow[],
   fetcher: SecEdgarFetcher,
 ): Promise<SecEdgarDryRunPlan> {
-  const tickerIndex = await fetcher.fetchJson<SecCompanyTickerIndex>(SEC_COMPANY_TICKERS_URL);
+  let tickerIndex: SecCompanyTickerIndex;
+  try {
+    tickerIndex = await fetcher.fetchJson<SecCompanyTickerIndex>(SEC_COMPANY_TICKERS_URL);
+  } catch (error) {
+    if (isSecEdgarGlobalFailure(error)) throw error;
+    if (error instanceof SecEdgarHttpError && error.status < 500 && error.status !== 408) {
+      throw error;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new SecEdgarProviderUnavailableError(1, [detail], 'ticker-index');
+  }
   const tickerMap = buildSecCompanyTickerMap(tickerIndex);
   const factsByCik: Record<string, SecCompanyFacts | undefined> = {};
   const failures: string[] = [];
@@ -677,15 +728,14 @@ export async function collectSecEdgarDryRunPlan(
     try {
       factsByCik[cik] = await fetcher.fetchJson<SecCompanyFacts>(secCompanyFactsUrl(cik));
     } catch (error) {
+      if (isSecEdgarGlobalFailure(error)) throw error;
       factsByCik[cik] = undefined;
       failures.push(error instanceof Error ? error.message : String(error));
     }
   }
 
   if (attempted > 0 && failures.length === attempted) {
-    throw new Error(
-      `SEC companyfacts unavailable for all ${attempted} matched CIKs: ${failures.join('; ').slice(0, 500)}`,
-    );
+    throw new SecEdgarProviderUnavailableError(attempted, failures);
   }
 
   return buildSecEdgarDryRunPlan(rows, tickerIndex, factsByCik);

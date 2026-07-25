@@ -1,0 +1,17 @@
+services:
+  postgres:
+    environment:
+      PGBACKREST_CONFIG: /home/postgres/pgbackrest/pgbackrest.conf
+      PGBACKREST_STANZA: research-app
+    volumes:
+      - ./pgbackrest:/home/postgres/pgbackrest
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=research-app archive-push %p
+      - -c
+      - archive_timeout=300
+      - -c
+      - restore_command=pgbackrest --stanza=research-app archive-get %f %p

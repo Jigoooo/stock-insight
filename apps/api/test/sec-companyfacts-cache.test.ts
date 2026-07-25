@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   applySecMomentumSeeds,
+  assertSecMomentumFallbackReady,
   assertSecMomentumSnapshotFresh,
   buildSecMomentumSeeds,
 } from '../src/backfill/sec-companyfacts-cache.ts';
@@ -63,6 +64,41 @@ test('rejects snapshots without explicit SEC companyfacts provenance', () => {
   assert.deepEqual(buildSecMomentumSeeds({ ...snapshot, source: 'unknown' }), []);
 });
 
+test('rejects partial, undersized, or noncanonical SEC fallback snapshots before writes', () => {
+  const seeds = buildSecMomentumSeeds(snapshot);
+  const canonical = new Set(['US:AAPL']);
+  assert.doesNotThrow(() =>
+    assertSecMomentumFallbackReady(snapshot, seeds, canonical, {
+      now: new Date('2026-07-18T00:00:00Z'),
+      minimumSeeds: 1,
+    }),
+  );
+  assert.throws(
+    () =>
+      assertSecMomentumFallbackReady({ ...snapshot, n_collected: 2 }, seeds, canonical, {
+        now: new Date('2026-07-18T00:00:00Z'),
+        minimumSeeds: 1,
+      }),
+    /n_collected.*companies/i,
+  );
+  assert.throws(
+    () =>
+      assertSecMomentumFallbackReady(snapshot, seeds, canonical, {
+        now: new Date('2026-07-18T00:00:00Z'),
+        minimumSeeds: 2,
+      }),
+    /minimum.*seed/i,
+  );
+  assert.throws(
+    () =>
+      assertSecMomentumFallbackReady(snapshot, seeds, new Set(), {
+        now: new Date('2026-07-18T00:00:00Z'),
+        minimumSeeds: 1,
+      }),
+    /canonical/i,
+  );
+});
+
 test('upserts cache metrics and records the live 403 fallback in migration audit', async () => {
   const seeds = buildSecMomentumSeeds(snapshot);
   const calls: { sql: string; params: readonly unknown[] }[] = [];
@@ -81,6 +117,7 @@ test('upserts cache metrics and records the live 403 fallback in migration audit
       startedAt: new Date('2026-07-18T00:00:00Z'),
       finishedAt: new Date('2026-07-18T00:00:01Z'),
       liveError: 'SEC request failed: HTTP 403',
+      minimumSeeds: 1,
     },
   );
   assert.deepEqual(result, { rowsWritten: 1, rowsSkipped: 0 });
@@ -92,4 +129,31 @@ test('upserts cache metrics and records the live 403 fallback in migration audit
   );
   assert.equal(calls[0]?.params[3], 'sec_companyfacts_momentum');
   assert.match(String(calls[1]?.params[7] ?? ''), /HTTP 403/);
+});
+
+test('rejects an undersized cache write before recording a completed migration receipt', async () => {
+  const seeds = buildSecMomentumSeeds(snapshot);
+  const calls: string[] = [];
+  await assert.rejects(
+    applySecMomentumSeeds(
+      snapshot,
+      seeds,
+      {
+        async execute(sql) {
+          calls.push(sql);
+          return { rowCount: 0 };
+        },
+      },
+      {
+        runId: 'sec-cache-partial-test',
+        jobName: 'sec-cache',
+        startedAt: new Date('2026-07-18T00:00:00Z'),
+        finishedAt: new Date('2026-07-18T00:00:01Z'),
+        liveError: 'SEC request failed: HTTP 503',
+        minimumSeeds: 1,
+      },
+    ),
+    /minimum.*write/i,
+  );
+  assert.equal(calls.length, 1);
 });
