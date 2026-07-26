@@ -608,7 +608,9 @@ export const featureSnapshotItemSchema = z.object({
   completenessScore: z.number().min(0).max(1),
 });
 export type FeatureSnapshotItem = z.infer<typeof featureSnapshotItemSchema>;
-export const featureSnapshotResponseSchema = createApiEnvelopeSchema(z.array(featureSnapshotItemSchema));
+export const featureSnapshotResponseSchema = createApiEnvelopeSchema(
+  z.array(featureSnapshotItemSchema),
+);
 export type FeatureSnapshotResponse = z.infer<typeof featureSnapshotResponseSchema>;
 
 export const impactSummaryItemSchema = z.object({
@@ -622,7 +624,9 @@ export const impactSummaryItemSchema = z.object({
   computedAt: z.string().datetime(),
 });
 export type ImpactSummaryItem = z.infer<typeof impactSummaryItemSchema>;
-export const impactSummaryResponseSchema = createApiEnvelopeSchema(z.array(impactSummaryItemSchema));
+export const impactSummaryResponseSchema = createApiEnvelopeSchema(
+  z.array(impactSummaryItemSchema),
+);
 export type ImpactSummaryResponse = z.infer<typeof impactSummaryResponseSchema>;
 
 export const marketConfirmationItemSchema = z.object({
@@ -690,7 +694,9 @@ export const calibrationScorecardSchema = z.object({
   probabilities: z.array(probabilityScorecardItemSchema),
 });
 export type CalibrationScorecard = z.infer<typeof calibrationScorecardSchema>;
-export const calibrationScorecardResponseSchema = createApiEnvelopeSchema(calibrationScorecardSchema);
+export const calibrationScorecardResponseSchema = createApiEnvelopeSchema(
+  calibrationScorecardSchema,
+);
 export type CalibrationScorecardResponse = z.infer<typeof calibrationScorecardResponseSchema>;
 
 export const latestReportItemSchema = z.object({

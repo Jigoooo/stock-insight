@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   Network,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -83,6 +84,7 @@ export type ResearchWorkspaceUrlState = {
 };
 
 type ResearchWorkspacePageProps = {
+  canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
   onLogout?: () => Promise<boolean>;
   onPrefetchSection?: (section: SectionId) => void;
@@ -386,6 +388,7 @@ export function whySurfacedLabel(item: ResearchFeedItem) {
 }
 
 export function ResearchWorkspacePage({
+  canManageInvitations = false,
   data,
   onLogout,
   onPrefetchSection,
@@ -869,6 +872,16 @@ export function ResearchWorkspacePage({
             <CircleDot aria-hidden="true" />
             <span>조회·리서치 전용</span>
           </div>
+          {canManageInvitations ? (
+            <Button
+              type="button"
+              motion="quiet"
+              disabled={!hydrated}
+              onClick={() => window.location.assign('/admin/invitations')}
+            >
+              <UserPlus aria-hidden="true" /> 가입 코드 관리
+            </Button>
+          ) : null}
           <Button
             type="button"
             motion="quiet"

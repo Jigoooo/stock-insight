@@ -45,9 +45,7 @@ const handlers = {
       throw error;
     }
   },
-} satisfies Partial<
-  Record<RouteMethod, (context: StockDetailRouteContext) => Promise<Response>>
->;
+} satisfies Partial<Record<RouteMethod, (context: StockDetailRouteContext) => Promise<Response>>>;
 
 export const Route = createFileRoute('/api/stocks/$entityKey')({
   server: {

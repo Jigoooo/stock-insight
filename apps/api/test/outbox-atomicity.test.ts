@@ -4,13 +4,21 @@ import { describe, it } from 'node:test';
 
 import pg, { type PoolClient } from 'pg';
 
-import { buildEnvelope, deterministicEventId, payloadHashOf } from '../src/events/event-envelope.ts';
+import {
+  buildEnvelope,
+  deterministicEventId,
+  payloadHashOf,
+} from '../src/events/event-envelope.ts';
 import { insertOutboxEvent, seedDeliveries } from '../src/events/outbox-store.ts';
 
 const databaseUrl = process.env.STOCK_INSIGHT_OUTBOX_TEST_DB_URL;
 const skipReason = databaseUrl ? false : 'STOCK_INSIGHT_OUTBOX_TEST_DB_URL is required';
 
-function envelopeFixture(aggregateId: string, version = 1, payload: Record<string, unknown> = { value: 'a' }) {
+function envelopeFixture(
+  aggregateId: string,
+  version = 1,
+  payload: Record<string, unknown> = { value: 'a' },
+) {
   return buildEnvelope({
     eventType: 'report.published',
     schemaVersion: 1,
@@ -39,12 +47,18 @@ async function withClient<T>(work: (client: PoolClient) => Promise<T>): Promise<
 describe('B1 outbox atomicity', () => {
   it('deterministic identities are stable and payload-hash canonicalized', () => {
     const idA = deterministicEventId({
-      aggregateType: 'report', aggregateId: 'r1', aggregateVersion: 1,
-      eventType: 'report.published', schemaVersion: 1,
+      aggregateType: 'report',
+      aggregateId: 'r1',
+      aggregateVersion: 1,
+      eventType: 'report.published',
+      schemaVersion: 1,
     });
     const idB = deterministicEventId({
-      aggregateType: 'report', aggregateId: 'r1', aggregateVersion: 1,
-      eventType: 'report.published', schemaVersion: 1,
+      aggregateType: 'report',
+      aggregateId: 'r1',
+      aggregateVersion: 1,
+      eventType: 'report.published',
+      schemaVersion: 1,
     });
     assert.equal(idA, idB);
     assert.equal(payloadHashOf({ a: 1, b: 2 }), payloadHashOf({ b: 2, a: 1 }));
@@ -61,46 +75,71 @@ describe('B1 outbox atomicity', () => {
       assert.equal(result.outcome, 'inserted');
       await client.query('ROLLBACK');
 
-      const domain = await client.query('SELECT count(*)::int AS n FROM ops.b1_test_domain WHERE id=$1', [aggregateId]);
+      const domain = await client.query(
+        'SELECT count(*)::int AS n FROM ops.b1_test_domain WHERE id=$1',
+        [aggregateId],
+      );
       const outbox = await client.query(
-        'SELECT count(*)::int AS n FROM ops.outbox_event WHERE aggregate_id=$1', [aggregateId],
+        'SELECT count(*)::int AS n FROM ops.outbox_event WHERE aggregate_id=$1',
+        [aggregateId],
       );
       assert.equal(domain.rows[0]!.n, 0);
       assert.equal(outbox.rows[0]!.n, 0);
     });
   });
 
-  it('exact replay is idempotent; different payload at the same version is a quarantined conflict', { skip: skipReason }, async () => {
-    await withClient(async (client) => {
-      const aggregateId = `atomicity-conflict-${randomUUID()}`;
-      await client.query('BEGIN');
-      const first = await insertOutboxEvent(client, envelopeFixture(aggregateId, 2, { value: 'a' }));
-      const replay = await insertOutboxEvent(client, envelopeFixture(aggregateId, 2, { value: 'a' }));
-      const conflict = await insertOutboxEvent(client, envelopeFixture(aggregateId, 2, { value: 'DIFFERENT' }));
-      await client.query('COMMIT');
+  it(
+    'exact replay is idempotent; different payload at the same version is a quarantined conflict',
+    { skip: skipReason },
+    async () => {
+      await withClient(async (client) => {
+        const aggregateId = `atomicity-conflict-${randomUUID()}`;
+        await client.query('BEGIN');
+        const first = await insertOutboxEvent(
+          client,
+          envelopeFixture(aggregateId, 2, { value: 'a' }),
+        );
+        const replay = await insertOutboxEvent(
+          client,
+          envelopeFixture(aggregateId, 2, { value: 'a' }),
+        );
+        const conflict = await insertOutboxEvent(
+          client,
+          envelopeFixture(aggregateId, 2, { value: 'DIFFERENT' }),
+        );
+        await client.query('COMMIT');
 
-      assert.equal(first.outcome, 'inserted');
-      assert.equal(replay.outcome, 'replayed');
-      assert.equal(replay.eventId, first.eventId);
-      assert.equal(conflict.outcome, 'conflict');
-      const quarantined = await client.query(
-        'SELECT count(*)::int AS n FROM ops.outbox_conflict WHERE aggregate_id=$1', [aggregateId],
-      );
-      const events = await client.query(
-        'SELECT count(*)::int AS n FROM ops.outbox_event WHERE aggregate_id=$1 AND aggregate_version=2', [aggregateId],
-      );
-      assert.equal(quarantined.rows[0]!.n, 1);
-      assert.equal(events.rows[0]!.n, 1);
-    });
-  });
+        assert.equal(first.outcome, 'inserted');
+        assert.equal(replay.outcome, 'replayed');
+        assert.equal(replay.eventId, first.eventId);
+        assert.equal(conflict.outcome, 'conflict');
+        const quarantined = await client.query(
+          'SELECT count(*)::int AS n FROM ops.outbox_conflict WHERE aggregate_id=$1',
+          [aggregateId],
+        );
+        const events = await client.query(
+          'SELECT count(*)::int AS n FROM ops.outbox_event WHERE aggregate_id=$1 AND aggregate_version=2',
+          [aggregateId],
+        );
+        assert.equal(quarantined.rows[0]!.n, 1);
+        assert.equal(events.rows[0]!.n, 1);
+      });
+    },
+  );
 
   it('unregistered event schema fails closed', { skip: skipReason }, async () => {
     await withClient(async (client) => {
       const aggregateId = `atomicity-schema-${randomUUID()}`;
       const bogus = buildEnvelope({
-        eventType: 'not.registered', schemaVersion: 99, aggregateType: 'report', aggregateId,
-        aggregateVersion: 3, partitionKey: aggregateId, occurredAt: '2026-07-19T00:00:00.000Z',
-        producer: 'outbox-atomicity-test', payload: {},
+        eventType: 'not.registered',
+        schemaVersion: 99,
+        aggregateType: 'report',
+        aggregateId,
+        aggregateVersion: 3,
+        partitionKey: aggregateId,
+        occurredAt: '2026-07-19T00:00:00.000Z',
+        producer: 'outbox-atomicity-test',
+        payload: {},
       });
       await client.query('BEGIN');
       await assert.rejects(() => insertOutboxEvent(client, bogus), /not registered/);
@@ -112,11 +151,17 @@ describe('B1 outbox atomicity', () => {
     await withClient(async (client) => {
       const aggregateId = `atomicity-delivery-${randomUUID()}`;
       await client.query('BEGIN');
-      const inserted = await insertOutboxEvent(client, envelopeFixture(aggregateId, 4, { value: 'seed' }));
+      const inserted = await insertOutboxEvent(
+        client,
+        envelopeFixture(aggregateId, 4, { value: 'seed' }),
+      );
       await seedDeliveries(client, inserted.eventId, ['projection', 'projection', 'webhook']);
       await seedDeliveries(client, inserted.eventId, ['projection']);
       await client.query('COMMIT');
-      const rows = await client.query('SELECT count(*)::int AS n FROM ops.outbox_delivery WHERE event_id=$1', [inserted.eventId]);
+      const rows = await client.query(
+        'SELECT count(*)::int AS n FROM ops.outbox_delivery WHERE event_id=$1',
+        [inserted.eventId],
+      );
       assert.equal(rows.rows[0]!.n, 2);
     });
   });

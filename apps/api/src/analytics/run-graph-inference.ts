@@ -17,8 +17,15 @@ const MAX_PATHS_PER_EVENT = 20;
 const FRESHNESS_HALF_LIFE_DAYS = 14;
 
 const RELATION_PREDICATES = [
-  'AFFECTS', 'SAME_THEME', 'SUPPLY_CHAIN', 'SAME_INDUSTRY', 'PEER_OF',
-  'EXPOSES', 'ROLLS_UP', 'STAGE', 'OWNS',
+  'AFFECTS',
+  'SAME_THEME',
+  'SUPPLY_CHAIN',
+  'SAME_INDUSTRY',
+  'PEER_OF',
+  'EXPOSES',
+  'ROLLS_UP',
+  'STAGE',
+  'OWNS',
 ] as const;
 
 const RECENT_EVENTS_SQL = `
@@ -115,8 +122,15 @@ function eventStrength(event: EventRow): number {
   // Document-backed events are stronger; legacy no-document events are dampened.
   const base = event.has_document ? 0.9 : 0.5;
   const typeBoost: Record<string, number> = {
-    capex_increase: 1.1, ma_deal: 1.1, regulation: 1.05, supply_disruption: 1.1,
-    earnings: 1.0, sec_8k: 0.9, policy_event: 0.95, analyst: 0.7, insider_trade: 0.6,
+    capex_increase: 1.1,
+    ma_deal: 1.1,
+    regulation: 1.05,
+    supply_disruption: 1.1,
+    earnings: 1.0,
+    sec_8k: 0.9,
+    policy_event: 0.95,
+    analyst: 0.7,
+    insider_trade: 0.6,
   };
   return Math.min(1, base * (typeBoost[event.event_type] ?? 0.8));
 }
@@ -138,9 +152,14 @@ async function run(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
-    const events = await client.query<EventRow>(RECENT_EVENTS_SQL, [asOf.toISOString(), eventLimit]);
+    const events = await client.query<EventRow>(RECENT_EVENTS_SQL, [
+      asOf.toISOString(),
+      eventLimit,
+    ]);
     const relations = await client.query<RelationRow>(RELATIONS_SQL, [[...RELATION_PREDICATES]]);
-    const stocks = await client.query<QueryResultRow & { entity_id: string | number }>(STOCK_ENTITIES_SQL);
+    const stocks = await client.query<QueryResultRow & { entity_id: string | number }>(
+      STOCK_ENTITIES_SQL,
+    );
     const backedRelations = await client.query<QueryResultRow & { relation_id: string | number }>(
       EVIDENCE_BACKED_RELATIONS_SQL,
     );
@@ -150,12 +169,18 @@ async function run(): Promise<void> {
 
     const stockSet = new Set(stocks.rows.map((row) => Number(row.entity_id)));
     // Undirected adjacency: relations connect either direction for expansion.
-    const adjacency = new Map<number, Array<{ neighbor: number; relationId: number; predicate: string; confidence: number }>>();
+    const adjacency = new Map<
+      number,
+      Array<{ neighbor: number; relationId: number; predicate: string; confidence: number }>
+    >();
     for (const relation of relations.rows) {
       const subject = Number(relation.subject_entity_id);
       const object = Number(relation.object_entity_id);
       const confidence = Math.min(1, Math.max(0.05, relation.confidence));
-      for (const [from, to] of [[subject, object], [object, subject]] as const) {
+      for (const [from, to] of [
+        [subject, object],
+        [object, subject],
+      ] as const) {
         if (!adjacency.has(from)) adjacency.set(from, []);
         adjacency.get(from)!.push({
           neighbor: to,
@@ -192,9 +217,16 @@ async function run(): Promise<void> {
       const found = new Map<number, Path>();
 
       // BFS up to MAX_HOPS keeping the best (highest confidence product) path per stock.
-      let frontier: Path[] = [{
-        target: origin, nodes: [origin], edges: [], predicates: [], confidenceProduct: 1, hops: 0,
-      }];
+      let frontier: Path[] = [
+        {
+          target: origin,
+          nodes: [origin],
+          edges: [],
+          predicates: [],
+          confidenceProduct: 1,
+          hops: 0,
+        },
+      ];
       for (let hop = 1; hop <= MAX_HOPS; hop += 1) {
         const next: Path[] = [];
         for (const path of frontier) {

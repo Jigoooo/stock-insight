@@ -16,9 +16,6 @@ test('probability refresh uses one fixed PIT cutoff and segment-level daily upse
 
   assert.match(source, /ON CONFLICT \([\s\S]*computed_at AT TIME ZONE 'UTC'/);
   assert.match(source, /WHERE method = 'label_hit_rate_v2/);
-  assert.match(
-    source,
-    /analytics\.calibration_profile\.computed_at <= EXCLUDED\.computed_at/,
-  );
+  assert.match(source, /analytics\.calibration_profile\.computed_at <= EXCLUDED\.computed_at/);
   assert.match(source, /pg_advisory_xact_lock\(hashtext\(\$1\)\)/);
 });

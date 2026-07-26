@@ -147,9 +147,16 @@ function required(name: string): string {
 
 function importance(event: EventRow): number {
   const typeWeight: Record<string, number> = {
-    ma_deal: 1.0, capex_increase: 0.95, regulation: 0.9, supply_disruption: 0.95,
-    earnings: 0.85, legal_action: 0.8, ipo_listing: 0.75, macro_shock: 0.9,
-    product_launch: 0.7, buyback_dividend: 0.7,
+    ma_deal: 1.0,
+    capex_increase: 0.95,
+    regulation: 0.9,
+    supply_disruption: 0.95,
+    earnings: 0.85,
+    legal_action: 0.8,
+    ipo_listing: 0.75,
+    macro_shock: 0.9,
+    product_launch: 0.7,
+    buyback_dividend: 0.7,
   };
   const base = typeWeight[event.event_type] ?? 0.5;
   const pathBonus = Math.min(0.2, event.path_count * 0.02);
@@ -169,7 +176,9 @@ async function run(): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(SEED_DEFINITION_SQL);
-    const definition = await client.query<QueryResultRow & { report_definition_id: number }>(DEFINITION_SQL);
+    const definition = await client.query<QueryResultRow & { report_definition_id: number }>(
+      DEFINITION_SQL,
+    );
     await client.query('COMMIT');
     const definitionId = definition.rows[0]?.report_definition_id;
     if (definitionId === undefined) throw new Error('event_brief definition missing');
@@ -214,13 +223,15 @@ async function run(): Promise<void> {
         sections: [
           {
             section_key: 'what_happened',
-            blocks: [{
-              block_id: 'what_happened-1',
-              block_type: publicBlockTypeForVerification(event.verification_status),
-              text,
-              citation_ids: ['cit-1'],
-              confidence: event.verification_status === 'verified' ? 0.9 : 0.6,
-            }],
+            blocks: [
+              {
+                block_id: 'what_happened-1',
+                block_type: publicBlockTypeForVerification(event.verification_status),
+                text,
+                citation_ids: ['cit-1'],
+                confidence: event.verification_status === 'verified' ? 0.9 : 0.6,
+              },
+            ],
           },
         ],
         citation_map: {
@@ -237,27 +248,50 @@ async function run(): Promise<void> {
 
       await client.query('BEGIN');
       await client.query("SELECT set_config('statement_timeout', '60s', true)");
-      const runRow = await client.query<QueryResultRow & { report_run_id: number }>(INSERT_RUN_SQL, [
-        definitionId, asOf.toISOString(), `knowledge@${asOf.toISOString()}`, `${PIPELINE_VERSION}:${event.event_id}`,
-      ]);
+      const runRow = await client.query<QueryResultRow & { report_run_id: number }>(
+        INSERT_RUN_SQL,
+        [
+          definitionId,
+          asOf.toISOString(),
+          `knowledge@${asOf.toISOString()}`,
+          `${PIPELINE_VERSION}:${event.event_id}`,
+        ],
+      );
       const reportRunId = runRow.rows[0]!.report_run_id;
-      const reportRow = await client.query<QueryResultRow & { report_id: number }>(INSERT_REPORT_SQL, [
-        reportRunId,
-        event.target_entity_id === null ? null : Number(event.target_entity_id),
-        payload.title,
-        payload.thesis || payload.title,
-        JSON.stringify(payload),
-        contentHash,
-      ]);
+      const reportRow = await client.query<QueryResultRow & { report_id: number }>(
+        INSERT_REPORT_SQL,
+        [
+          reportRunId,
+          event.target_entity_id === null ? null : Number(event.target_entity_id),
+          payload.title,
+          payload.thesis || payload.title,
+          JSON.stringify(payload),
+          contentHash,
+        ],
+      );
       const reportId = reportRow.rows[0]!.report_id;
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'what_happened', 'event', Number(event.event_id), 1]);
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'what_happened', 'document', Number(event.source_document_id), 1]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'what_happened',
+        'event',
+        Number(event.event_id),
+        1,
+      ]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'what_happened',
+        'document',
+        Number(event.source_document_id),
+        1,
+      ]);
       await client.query(PUBLISH_AND_POINT_SQL, [reportId, scopeKey]);
       await client.query(CLOSE_RUN_SQL, [reportRunId]);
       await client.query('COMMIT');
       published += 1;
       summary.briefs.push({
-        eventId: Number(event.event_id), score: Number(entry.score.toFixed(3)), scope: scopeKey,
+        eventId: Number(event.event_id),
+        score: Number(entry.score.toFixed(3)),
+        scope: scopeKey,
       });
     }
 
@@ -271,7 +305,9 @@ async function run(): Promise<void> {
       scored.length - published,
       JSON.stringify(summary),
     ]);
-    console.log(JSON.stringify({ mode: 'apply', jobName: JOB_NAME, published, audit: summary }, null, 2));
+    console.log(
+      JSON.stringify({ mode: 'apply', jobName: JOB_NAME, published, audit: summary }, null, 2),
+    );
   } catch (error) {
     try {
       await client.query('ROLLBACK');

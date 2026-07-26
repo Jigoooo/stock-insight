@@ -35,18 +35,23 @@ test('B2 raw object readback verifies immutable bytes and fails closed on tamper
   await writeFile(path, 'tampered bytes');
   await assert.rejects(() => readRawObjectVerified(stored), /hash mismatch/);
   await assert.rejects(
-    () => writeRawObject({
-      providerKey: 'fixture:source',
-      content: 'original immutable bytes',
-      extension: 'txt',
-      fetchedAt: new Date('2026-07-19T00:00:00Z'),
-      root,
-    }),
+    () =>
+      writeRawObject({
+        providerKey: 'fixture:source',
+        content: 'original immutable bytes',
+        extension: 'txt',
+        fetchedAt: new Date('2026-07-19T00:00:00Z'),
+        root,
+      }),
     /existing raw object hash mismatch/,
   );
   assert.equal((await readFile(path)).toString('utf8'), 'tampered bytes');
   await assert.rejects(
-    () => readRawObjectVerified({ objectUri: 'https://example.test/raw', contentHash: stored.contentHash }),
+    () =>
+      readRawObjectVerified({
+        objectUri: 'https://example.test/raw',
+        contentHash: stored.contentHash,
+      }),
     /unsupported raw object URI/,
   );
 });

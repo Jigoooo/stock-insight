@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { publicBlockTypeForVerification, resolveProductAvailability, PRODUCT_STALE_THRESHOLD_HOURS } from '../src/publish/truth-gate.ts';
+import {
+  publicBlockTypeForVerification,
+  resolveProductAvailability,
+  PRODUCT_STALE_THRESHOLD_HOURS,
+} from '../src/publish/truth-gate.ts';
 
 function read(relative: string): string {
   return readFileSync(new URL(relative, import.meta.url), 'utf8');
@@ -15,7 +19,15 @@ const readModel = read('../src/product/read-model.ts');
 // B0 RED case 1: unverified event must never publish as a public `fact` block.
 test('only verified events may become public fact blocks', () => {
   assert.equal(publicBlockTypeForVerification('verified'), 'fact');
-  for (const status of ['unverified', 'corroborated', 'contradicted', 'retracted', 'untrusted_legacy', '', 'anything']) {
+  for (const status of [
+    'unverified',
+    'corroborated',
+    'contradicted',
+    'retracted',
+    'untrusted_legacy',
+    '',
+    'anything',
+  ]) {
     assert.equal(publicBlockTypeForVerification(status), 'reported_claim');
   }
 });

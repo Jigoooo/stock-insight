@@ -141,8 +141,7 @@ export function verifyAssertionSemantics(input: {
     !numericallyConsistent ||
     input.documentSectionType === 'disclaimer' ||
     input.documentSectionType === 'advertisement';
-  const needsDowngrade =
-    conditional || attributed || modality !== 'factual';
+  const needsDowngrade = conditional || attributed || modality !== 'factual';
 
   return {
     decision: hardBlock ? 'quarantine' : needsDowngrade ? 'accept_downgraded' : 'accept',
@@ -157,10 +156,7 @@ export function verifyAssertionSemantics(input: {
 }
 
 /** Map a semantic verdict onto the claim_type actually persisted. */
-export function reconcileClaimType(
-  llmClaimType: string,
-  verdict: SemanticVerdict,
-): string {
+export function reconcileClaimType(llmClaimType: string, verdict: SemanticVerdict): string {
   if (verdict.decision === 'quarantine') return llmClaimType;
   switch (verdict.modality) {
     case 'forecast':

@@ -199,7 +199,8 @@ async function run(): Promise<void> {
 
     const accountToConcept = new Map<string, string>();
     for (const concept of concepts.rows) {
-      for (const accountId of concept.dart_account_ids) accountToConcept.set(accountId, concept.concept);
+      for (const accountId of concept.dart_account_ids)
+        accountToConcept.set(accountId, concept.concept);
     }
 
     const targets = issuers.rows.slice(offset, offset + limit);
@@ -257,9 +258,8 @@ async function run(): Promise<void> {
       if (issuerComplete) issuersCompleted += 1;
     }
 
-    const nextOffset = offset + issuersCompleted >= issuers.rows.length
-      ? 1
-      : offset + issuersCompleted + 1;
+    const nextOffset =
+      offset + issuersCompleted >= issuers.rows.length ? 1 : offset + issuersCompleted + 1;
 
     const summary = {
       issuers: targets.length,

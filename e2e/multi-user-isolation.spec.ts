@@ -41,7 +41,10 @@ async function login(page: Page, username: string, password: string): Promise<vo
 }
 
 // Add a watchlist item via the authenticated JSON API (same origin as the page).
-async function addWatchlist(page: Page, input: { market: string; ticker: string }): Promise<number> {
+async function addWatchlist(
+  page: Page,
+  input: { market: string; ticker: string },
+): Promise<number> {
   return page.evaluate(async (payload) => {
     const res = await fetch('/api/watchlist', {
       method: 'POST',

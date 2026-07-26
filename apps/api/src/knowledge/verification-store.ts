@@ -1,11 +1,7 @@
 import type { PoolClient } from 'pg';
 
 export type VerificationSubject = 'claim' | 'event';
-export type VerificationStatus =
-  | 'corroborated'
-  | 'verified'
-  | 'contradicted'
-  | 'retracted';
+export type VerificationStatus = 'corroborated' | 'verified' | 'contradicted' | 'retracted';
 
 /**
  * B4 verification transition. Caller owns the transaction. PostgreSQL triggers

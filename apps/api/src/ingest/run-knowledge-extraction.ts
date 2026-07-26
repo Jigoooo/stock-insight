@@ -2,10 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
-import {
-  reconcileClaimType,
-  verifyAssertionSemantics,
-} from './assertion-semantics.ts';
+import { reconcileClaimType, verifyAssertionSemantics } from './assertion-semantics.ts';
 
 // SET D / D-5: LLM claim/event extraction worker (Gemini structured output).
 // Scope: news documents in knowledge.document with processing_status='pending'.
@@ -18,18 +15,40 @@ const EXTRACTION_PIPELINE_VERSION = 'extract-v1';
 const BATCH_SIZE = 8;
 
 const PREDICATE_ALLOWLIST = new Set([
-  'ANNOUNCED', 'GUIDES', 'INCREASES_DEMAND_FOR', 'DECREASES_DEMAND_FOR',
-  'SUPPLIES', 'COMPETES_WITH', 'PRODUCES', 'REGULATES', 'AFFECTS_REGION',
-  'INVESTS_IN', 'ACQUIRES', 'PARTNERS_WITH',
+  'ANNOUNCED',
+  'GUIDES',
+  'INCREASES_DEMAND_FOR',
+  'DECREASES_DEMAND_FOR',
+  'SUPPLIES',
+  'COMPETES_WITH',
+  'PRODUCES',
+  'REGULATES',
+  'AFFECTS_REGION',
+  'INVESTS_IN',
+  'ACQUIRES',
+  'PARTNERS_WITH',
 ]);
 
 const CLAIM_TYPES = new Set([
-  'asserted_fact', 'reported_claim', 'forecast', 'opinion', 'guidance', 'rumor',
+  'asserted_fact',
+  'reported_claim',
+  'forecast',
+  'opinion',
+  'guidance',
+  'rumor',
 ]);
 
 const EVENT_TYPES = new Set([
-  'earnings', 'capex_increase', 'ma_deal', 'regulation', 'product_launch',
-  'supply_disruption', 'legal_action', 'macro_shock', 'ipo_listing', 'buyback_dividend',
+  'earnings',
+  'capex_increase',
+  'ma_deal',
+  'regulation',
+  'product_launch',
+  'supply_disruption',
+  'legal_action',
+  'macro_shock',
+  'ipo_listing',
+  'buyback_dividend',
 ]);
 
 // B0: source types that carry no extractable prose (structured API payloads,
@@ -38,7 +57,10 @@ const EVENT_TYPES = new Set([
 // masked by a successful wrapper. 'disclosure' stays pending intentionally —
 // it is the known B4 backlog and is surfaced (not hidden) by the wrapper gauge.
 const NON_EXTRACTION_SOURCE_TYPES = new Set([
-  'macro_api', 'market_api', 'briefing_link', 'candidate_source',
+  'macro_api',
+  'market_api',
+  'briefing_link',
+  'candidate_source',
 ]);
 
 const SKIP_NON_EXTRACTION_SQL = `
@@ -197,7 +219,16 @@ async function geminiExtract(
             type: 'ARRAY',
             items: {
               type: 'OBJECT',
-              required: ['document_id', 'subject_mention', 'predicate', 'object_text', 'claim_type', 'polarity', 'quote', 'confidence'],
+              required: [
+                'document_id',
+                'subject_mention',
+                'predicate',
+                'object_text',
+                'claim_type',
+                'polarity',
+                'quote',
+                'confidence',
+              ],
               properties: {
                 document_id: { type: 'INTEGER' },
                 subject_mention: { type: 'STRING' },
@@ -304,7 +335,9 @@ async function run(): Promise<void> {
     let nonExtractionSkipped = 0;
     if (apply) {
       await client.query('BEGIN');
-      const skipResult = await client.query(SKIP_NON_EXTRACTION_SQL, [[...NON_EXTRACTION_SOURCE_TYPES]]);
+      const skipResult = await client.query(SKIP_NON_EXTRACTION_SQL, [
+        [...NON_EXTRACTION_SOURCE_TYPES],
+      ]);
       nonExtractionSkipped = skipResult.rowCount ?? 0;
       await client.query('COMMIT');
     }
@@ -378,7 +411,10 @@ async function run(): Promise<void> {
           stats.claimsRejected[verdict] += 1;
           continue;
         }
-        const subjectId = resolveMention(claim.subject_mention, linksByDoc.get(claim.document_id) ?? []);
+        const subjectId = resolveMention(
+          claim.subject_mention,
+          linksByDoc.get(claim.document_id) ?? [],
+        );
         if (subjectId === null) {
           stats.claimsRejected.unresolved_subject += 1;
           continue;
@@ -399,32 +435,39 @@ async function run(): Promise<void> {
           stats.claimsDowngradedSemantics += 1;
         }
         const doc = docMeta.get(claim.document_id)!;
-        const inserted = await client.query<QueryResultRow & { claim_id: number }>(INSERT_CLAIM_SQL, [
-          subjectId,
-          claim.predicate,
-          JSON.stringify({ text: claim.object_text }),
-          persistedClaimType,
-          semantics.polarity,
-          doc.observed_at,
-          doc.published_at,
-          Math.min(1, Math.max(0, claim.confidence)),
-          extractionRunId,
-          JSON.stringify({
-            subject_mention: claim.subject_mention,
-            model,
-            semantics: {
-              decision: semantics.decision,
-              modality: semantics.modality,
-              attributed: semantics.attributed,
-              conditional: semantics.conditional,
-              reasons: semantics.reasons,
-              verifierVersion: 'assertion-semantics-v1',
-            },
-          }),
-        ]);
+        const inserted = await client.query<QueryResultRow & { claim_id: number }>(
+          INSERT_CLAIM_SQL,
+          [
+            subjectId,
+            claim.predicate,
+            JSON.stringify({ text: claim.object_text }),
+            persistedClaimType,
+            semantics.polarity,
+            doc.observed_at,
+            doc.published_at,
+            Math.min(1, Math.max(0, claim.confidence)),
+            extractionRunId,
+            JSON.stringify({
+              subject_mention: claim.subject_mention,
+              model,
+              semantics: {
+                decision: semantics.decision,
+                modality: semantics.modality,
+                attributed: semantics.attributed,
+                conditional: semantics.conditional,
+                reasons: semantics.reasons,
+                verifierVersion: 'assertion-semantics-v1',
+              },
+            }),
+          ],
+        );
         const claimId = inserted.rows[0]?.claim_id;
         if (claimId !== undefined) {
-          await client.query(INSERT_CLAIM_EVIDENCE_SQL, [claimId, claim.document_id, claim.quote.slice(0, 1000)]);
+          await client.query(INSERT_CLAIM_EVIDENCE_SQL, [
+            claimId,
+            claim.document_id,
+            claim.quote.slice(0, 1000),
+          ]);
           stats.claimsStored += 1;
         }
       }
@@ -435,7 +478,10 @@ async function run(): Promise<void> {
           stats.eventsRejected[verdict] += 1;
           continue;
         }
-        const targetId = resolveMention(event.target_mention, linksByDoc.get(event.document_id) ?? []);
+        const targetId = resolveMention(
+          event.target_mention,
+          linksByDoc.get(event.document_id) ?? [],
+        );
         const doc = docMeta.get(event.document_id)!;
         const dedupeKey = `${EXTRACTION_PIPELINE_VERSION}:${event.document_id}:${event.event_type}:${event.target_mention.toLowerCase().slice(0, 40)}`;
         const inserted = await client.query(INSERT_EVENT_SQL, [
@@ -449,7 +495,11 @@ async function run(): Promise<void> {
           event.document_id,
           event.quote.slice(0, 2000),
           extractionRunId,
-          JSON.stringify({ target_mention: event.target_mention, model, resolved: targetId !== null }),
+          JSON.stringify({
+            target_mention: event.target_mention,
+            model,
+            resolved: targetId !== null,
+          }),
         ]);
         if ((inserted.rowCount ?? 0) > 0) stats.eventsStored += 1;
       }
@@ -461,7 +511,13 @@ async function run(): Promise<void> {
 
     console.log(
       JSON.stringify(
-        { mode: apply ? 'apply' : 'dry-run', jobName: JOB_NAME, extractionRunId, model, audit: stats },
+        {
+          mode: apply ? 'apply' : 'dry-run',
+          jobName: JOB_NAME,
+          extractionRunId,
+          model,
+          audit: stats,
+        },
         null,
         2,
       ),

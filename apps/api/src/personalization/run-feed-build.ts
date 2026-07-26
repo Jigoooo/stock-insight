@@ -72,7 +72,11 @@ WHERE entity_id NOT IN (SELECT entity_id FROM seed)
 `;
 
 const NEGATIVE_EVENT_TYPES = new Set([
-  'legal_action', 'supply_disruption', 'regulation', 'macro_shock', 'sec_8k',
+  'legal_action',
+  'supply_disruption',
+  'regulation',
+  'macro_shock',
+  'sec_8k',
 ]);
 
 const CLEAR_SQL = `
@@ -122,34 +126,58 @@ async function run(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN READ ONLY');
-    const users = await client.query<QueryResultRow & { user_id: string; feed_date: string }>(USERS_SQL);
-    const affinities = await client.query<QueryResultRow & {
-      user_id: string; asset_entity_id: string | number; affinity_type: string; weight: number;
-    }>(AFFINITY_SQL);
-    const reports = await client.query<QueryResultRow & { report_id: string | number; title: string }>(PUBLISHED_REPORT_SQL);
-    const events = await client.query<QueryResultRow & {
-      event_id: string | number; event_type: string; target_entity_id: string | number;
-      occurred_at: Date; has_document: boolean; magnitude: string | number;
-    }>(CANDIDATE_EVENTS_SQL);
-    const paths = await client.query<QueryResultRow & {
-      impact_path_id: string | number; target_entity_id: string | number;
-      path_score: number; event_type: string | null;
-    }>(CANDIDATE_PATHS_SQL);
+    const users = await client.query<QueryResultRow & { user_id: string; feed_date: string }>(
+      USERS_SQL,
+    );
+    const affinities = await client.query<
+      QueryResultRow & {
+        user_id: string;
+        asset_entity_id: string | number;
+        affinity_type: string;
+        weight: number;
+      }
+    >(AFFINITY_SQL);
+    const reports = await client.query<
+      QueryResultRow & { report_id: string | number; title: string }
+    >(PUBLISHED_REPORT_SQL);
+    const events = await client.query<
+      QueryResultRow & {
+        event_id: string | number;
+        event_type: string;
+        target_entity_id: string | number;
+        occurred_at: Date;
+        has_document: boolean;
+        magnitude: string | number;
+      }
+    >(CANDIDATE_EVENTS_SQL);
+    const paths = await client.query<
+      QueryResultRow & {
+        impact_path_id: string | number;
+        target_entity_id: string | number;
+        path_score: number;
+        event_type: string | null;
+      }
+    >(CANDIDATE_PATHS_SQL);
     await client.query('COMMIT');
 
     let totalWritten = 0;
-    const perUser: Record<string, { candidates: number; written: number; negativeSlots: number }> = {};
+    const perUser: Record<string, { candidates: number; written: number; negativeSlots: number }> =
+      {};
 
     for (const user of users.rows) {
       const userAffinity = new Map<number, { type: string; weight: number }>();
       for (const row of affinities.rows) {
         if (row.user_id === user.user_id) {
-          userAffinity.set(Number(row.asset_entity_id), { type: row.affinity_type, weight: row.weight });
+          userAffinity.set(Number(row.asset_entity_id), {
+            type: row.affinity_type,
+            weight: row.weight,
+          });
         }
       }
       await client.query('BEGIN READ ONLY');
-      const neighbors = await client.query<QueryResultRow & { entity_id: string | number; hops: number }>(
-        NEIGHBOR_SQL, [user.user_id]);
+      const neighbors = await client.query<
+        QueryResultRow & { entity_id: string | number; hops: number }
+      >(NEIGHBOR_SQL, [user.user_id]);
       await client.query('COMMIT');
       const neighborHops = new Map(neighbors.rows.map((row) => [Number(row.entity_id), row.hops]));
 
@@ -157,8 +185,12 @@ async function run(): Promise<void> {
       // Editorial slot: latest published global report always leads the feed.
       for (const report of reports.rows) {
         candidates.push({
-          itemType: 'report', itemId: Number(report.report_id), entityId: null,
-          score: 10, codes: ['MARKET_ESSENTIAL'], negative: false,
+          itemType: 'report',
+          itemId: Number(report.report_id),
+          entityId: null,
+          score: 10,
+          codes: ['MARKET_ESSENTIAL'],
+          negative: false,
         });
       }
       for (const event of events.rows) {
@@ -168,17 +200,36 @@ async function run(): Promise<void> {
         const negative = NEGATIVE_EVENT_TYPES.has(event.event_type);
         let score = 0;
         const codes: string[] = [];
-        if (affinity?.type === 'holding') { score += 1.0; codes.push('HOLDING_DIRECT'); }
-        else if (affinity?.type === 'watchlist') { score += 0.9; codes.push('WATCHLIST_DIRECT'); }
-        else if (hops !== undefined) { score += 0.5 / hops; codes.push(`SUPPLY_CHAIN_${hops}HOP`); }
-        else { score += 0.1; codes.push('MARKET_WIDE'); }
-        if (event.has_document) { score += 0.3; codes.push('SOURCE_BACKED'); }
-        if (negative && affinity) { score += 0.4; codes.push('NEGATIVE_ON_HOLDING'); }
+        if (affinity?.type === 'holding') {
+          score += 1.0;
+          codes.push('HOLDING_DIRECT');
+        } else if (affinity?.type === 'watchlist') {
+          score += 0.9;
+          codes.push('WATCHLIST_DIRECT');
+        } else if (hops !== undefined) {
+          score += 0.5 / hops;
+          codes.push(`SUPPLY_CHAIN_${hops}HOP`);
+        } else {
+          score += 0.1;
+          codes.push('MARKET_WIDE');
+        }
+        if (event.has_document) {
+          score += 0.3;
+          codes.push('SOURCE_BACKED');
+        }
+        if (negative && affinity) {
+          score += 0.4;
+          codes.push('NEGATIVE_ON_HOLDING');
+        }
         const ageDays = (Date.now() - event.occurred_at.getTime()) / 86_400_000;
         score *= Math.exp(-Math.LN2 * (ageDays / 7));
         candidates.push({
-          itemType: 'event', itemId: Number(event.event_id), entityId,
-          score, codes, negative,
+          itemType: 'event',
+          itemId: Number(event.event_id),
+          entityId,
+          score,
+          codes,
+          negative,
         });
       }
       for (const path of paths.rows) {
@@ -186,9 +237,14 @@ async function run(): Promise<void> {
         const affinity = userAffinity.get(entityId);
         if (!affinity) continue; // impact paths only surface for followed assets
         candidates.push({
-          itemType: 'impact_path', itemId: Number(path.impact_path_id), entityId,
+          itemType: 'impact_path',
+          itemId: Number(path.impact_path_id),
+          entityId,
           score: 0.4 + path.path_score * 0.5,
-          codes: [affinity.type === 'holding' ? 'HOLDING_DIRECT' : 'WATCHLIST_DIRECT', 'GRAPH_LINKAGE'],
+          codes: [
+            affinity.type === 'holding' ? 'HOLDING_DIRECT' : 'WATCHLIST_DIRECT',
+            'GRAPH_LINKAGE',
+          ],
           negative: NEGATIVE_EVENT_TYPES.has(path.event_type ?? ''),
         });
       }
@@ -218,7 +274,8 @@ async function run(): Promise<void> {
       // Negative-slot guarantee: swap in the best negative candidate if absent.
       if (!selected.some((candidate) => candidate.negative)) {
         const bestNegative = candidates.find(
-          (candidate) => candidate.negative && !seen.has(`${candidate.itemType}:${candidate.itemId}`),
+          (candidate) =>
+            candidate.negative && !seen.has(`${candidate.itemType}:${candidate.itemId}`),
         );
         if (bestNegative && selected.length >= FEED_SIZE) {
           selected.pop();
@@ -242,8 +299,13 @@ async function run(): Promise<void> {
         for (const candidate of selected) {
           rank += 1;
           await client.query(INSERT_ITEM_SQL, [
-            user.user_id, user.feed_date, rank, candidate.itemType, candidate.itemId,
-            Number(candidate.score.toFixed(4)), candidate.codes,
+            user.user_id,
+            user.feed_date,
+            rank,
+            candidate.itemType,
+            candidate.itemId,
+            Number(candidate.score.toFixed(4)),
+            candidate.codes,
           ]);
           totalWritten += 1;
         }

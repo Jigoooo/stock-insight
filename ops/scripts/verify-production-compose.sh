@@ -19,8 +19,8 @@ node -e '
 const fs = require("node:fs");
 const model = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
 const expected = {
-  api: "sha256:f207a1c18c116d6e4c08c565da710ece5fa8444686953c072bfb1969da0fd6cd",
-  app: "sha256:ba69de3a275b097055f939fb3263821aac3fed8e9837c822f183301403d5f4d8",
+  api: "sha256:62ab22ab65ba9ecffd6fc87307e03069b22855f2b160d465c482edded92ec099",
+  app: "sha256:936f33193b76bf50392ef4afe94eb62a691da7f11271a9d6923886841cd800ae",
 };
 if (model.name !== "stock-insight") throw new Error(`project name mismatch: ${model.name}`);
 for (const [name, image] of Object.entries(expected)) {

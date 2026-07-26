@@ -159,9 +159,9 @@ function computeFeatures(closes: number[], volumes: Array<number | null>) {
 
   // volume z-score vs trailing 20d.
   let volumeZ: number | null = null;
-  const recentVolumes = volumes.slice(Math.max(0, last - 19), last + 1).filter(
-    (value): value is number => value !== null && value > 0,
-  );
+  const recentVolumes = volumes
+    .slice(Math.max(0, last - 19), last + 1)
+    .filter((value): value is number => value !== null && value > 0);
   const todayVolume = volumes[last];
   if (recentVolumes.length >= 15 && todayVolume !== null && todayVolume! > 0) {
     const mean = recentVolumes.reduce((sum, value) => sum + value, 0) / recentVolumes.length;
@@ -195,20 +195,38 @@ async function run(): Promise<void> {
   try {
     await client.query('BEGIN READ ONLY');
     const bars = await client.query<BarRow>(BARS_SQL, [asOf.toISOString()]);
-    const shorts = await client.query<QueryResultRow & { security_entity_id: string | number; short_ratio_5d: number }>(
-      SHORT_VOL_SQL, [asOf.toISOString().slice(0, 10)]);
-    const events = await client.query<QueryResultRow & { security_entity_id: string | number; event_count_7d: number }>(
-      EVENT_COUNT_SQL, [asOf.toISOString()]);
-    const revenues = await client.query<QueryResultRow & { issuer_entity_id: string | number; revenue: number; period_end: Date; fiscal_period: string }>(
-      REVENUE_SQL, [asOf.toISOString()]);
-    const issuerMap = await client.query<QueryResultRow & { issuer_entity_id: string | number; security_entity_id: string | number }>(
-      ISSUER_TO_SECURITY_SQL);
+    const shorts = await client.query<
+      QueryResultRow & { security_entity_id: string | number; short_ratio_5d: number }
+    >(SHORT_VOL_SQL, [asOf.toISOString().slice(0, 10)]);
+    const events = await client.query<
+      QueryResultRow & { security_entity_id: string | number; event_count_7d: number }
+    >(EVENT_COUNT_SQL, [asOf.toISOString()]);
+    const revenues = await client.query<
+      QueryResultRow & {
+        issuer_entity_id: string | number;
+        revenue: number;
+        period_end: Date;
+        fiscal_period: string;
+      }
+    >(REVENUE_SQL, [asOf.toISOString()]);
+    const issuerMap = await client.query<
+      QueryResultRow & { issuer_entity_id: string | number; security_entity_id: string | number }
+    >(ISSUER_TO_SECURITY_SQL);
     await client.query('COMMIT');
 
-    const shortBySecurity = new Map(shorts.rows.map((row) => [Number(row.security_entity_id), row.short_ratio_5d]));
-    const eventsBySecurity = new Map(events.rows.map((row) => [Number(row.security_entity_id), row.event_count_7d]));
-    const securityByIssuer = new Map(issuerMap.rows.map((row) => [Number(row.issuer_entity_id), Number(row.security_entity_id)]));
-    const revenueBySecurity = new Map<number, { revenue: number; period_end: string; fiscal_period: string }>();
+    const shortBySecurity = new Map(
+      shorts.rows.map((row) => [Number(row.security_entity_id), row.short_ratio_5d]),
+    );
+    const eventsBySecurity = new Map(
+      events.rows.map((row) => [Number(row.security_entity_id), row.event_count_7d]),
+    );
+    const securityByIssuer = new Map(
+      issuerMap.rows.map((row) => [Number(row.issuer_entity_id), Number(row.security_entity_id)]),
+    );
+    const revenueBySecurity = new Map<
+      number,
+      { revenue: number; period_end: string; fiscal_period: string }
+    >();
     for (const row of revenues.rows) {
       const securityId = securityByIssuer.get(Number(row.issuer_entity_id));
       if (securityId !== undefined) {
@@ -221,10 +239,14 @@ async function run(): Promise<void> {
     }
 
     // Group bars per security (already ordered by ts).
-    const barsBySecurity = new Map<number, { market: string; closes: number[]; volumes: Array<number | null> }>();
+    const barsBySecurity = new Map<
+      number,
+      { market: string; closes: number[]; volumes: Array<number | null> }
+    >();
     for (const bar of bars.rows) {
       const id = Number(bar.security_entity_id);
-      if (!barsBySecurity.has(id)) barsBySecurity.set(id, { market: bar.market, closes: [], volumes: [] });
+      if (!barsBySecurity.has(id))
+        barsBySecurity.set(id, { market: bar.market, closes: [], volumes: [] });
       const group = barsBySecurity.get(id)!;
       group.closes.push(bar.adj_close);
       group.volumes.push(bar.volume);

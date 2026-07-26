@@ -33,7 +33,11 @@ export function computeProbabilityMetrics(
     throw new Error('binCount must be an integer between 2 and 100');
   }
   for (const observation of observations) {
-    if (!Number.isFinite(observation.probability) || observation.probability < 0 || observation.probability > 1) {
+    if (
+      !Number.isFinite(observation.probability) ||
+      observation.probability < 0 ||
+      observation.probability > 1
+    ) {
       throw new Error(`probability out of range: ${observation.probability}`);
     }
   }
@@ -112,7 +116,8 @@ export function expandingLabelProbabilities(
 ): ExpandingProbability[] {
   if (!Number.isInteger(minPriorN) || minPriorN < 1) throw new Error('minPriorN must be positive');
   const bySegment = new Map<string, ExpandingForecast[]>();
-  const keyOf = (row: ExpandingForecast) => `${row.market}\0${row.horizonDays}\0${row.confidenceLabel}`;
+  const keyOf = (row: ExpandingForecast) =>
+    `${row.market}\0${row.horizonDays}\0${row.confidenceLabel}`;
   for (const row of forecasts) {
     const key = keyOf(row);
     const values = bySegment.get(key) ?? [];
