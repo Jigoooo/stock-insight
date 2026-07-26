@@ -1,0 +1,279 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(24px, 5vw, 72px);
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
+  font-family: inherit;
+}
+
+.header,
+.issuePanel,
+.listPanel {
+  width: min(1120px, 100%);
+  margin-inline: auto;
+}
+
+.header {
+  margin-bottom: 36px;
+}
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 650;
+}
+.backLink svg {
+  width: 17px;
+}
+.headingRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.eyebrow,
+.sectionIndex {
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.headingRow h1 {
+  margin: 7px 0 8px;
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+}
+.headingRow p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  font-size: 13px;
+  font-weight: 740;
+}
+.roleBadge svg {
+  width: 16px;
+}
+
+.issuePanel,
+.listPanel {
+  padding: clamp(22px, 3vw, 34px);
+  border-radius: 24px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+.issuePanel h2,
+.listPanel h2 {
+  margin: 5px 0 0;
+  font-size: 21px;
+  letter-spacing: -0.02em;
+}
+.form {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(145px, 1fr) minmax(145px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+  margin-top: 24px;
+}
+.form label {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.form input,
+.form select {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
+  font: inherit;
+  outline: none;
+}
+.form input:focus-visible,
+.form select:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.issueButton {
+  min-width: 128px;
+}
+.issueButton svg {
+  width: 17px;
+}
+.status {
+  display: block;
+  min-height: 18px;
+  margin-top: 18px;
+  color: var(--color-risk);
+  font-size: 13px;
+}
+.secretPanel {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 1.4fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 16px;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-canvas));
+}
+.secretPanel p {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+.secretPanel code {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.listPanel {
+  margin-top: 20px;
+}
+.listHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.listHeading > span {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+.tableViewport {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+th {
+  padding: 12px 14px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 730;
+  white-space: nowrap;
+}
+td {
+  padding: 16px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  vertical-align: middle;
+}
+.rowHeader {
+  padding: 16px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-align: left;
+  vertical-align: middle;
+}
+.rowHeader strong,
+.rowHeader small {
+  display: block;
+}
+.rowHeader strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+.rowHeader small {
+  margin-top: 4px;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+.statusBadge {
+  display: inline-flex;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  font-size: 11px;
+  font-weight: 730;
+  white-space: nowrap;
+}
+.statusBadge[data-status='active'] {
+  color: var(--color-positive);
+  background: color-mix(in srgb, var(--color-positive) 10%, transparent);
+}
+.empty {
+  padding-block: 48px;
+  text-align: center;
+}
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 840px) {
+  .headingRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .form label:first-child {
+    grid-column: 1 / -1;
+  }
+  .issueButton {
+    width: 100%;
+  }
+  .secretPanel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 20px 16px 40px;
+  }
+  .issuePanel,
+  .listPanel {
+    padding: 20px 16px;
+    border-radius: 18px;
+  }
+  .form {
+    grid-template-columns: 1fr;
+  }
+  .form label:first-child {
+    grid-column: auto;
+  }
+}

@@ -106,7 +106,9 @@ async function run(): Promise<void> {
     for (const split of splits.rows) {
       const id = Number(split.security_entity_id);
       if (!bySecurity.has(id)) bySecurity.set(id, []);
-      bySecurity.get(id)!.push({ date: toDateString(split.effective_date), ratio: Number(split.ratio) });
+      bySecurity
+        .get(id)!
+        .push({ date: toDateString(split.effective_date), ratio: Number(split.ratio) });
     }
 
     type Interval = { from: string; to: string | null; factor: number };
@@ -148,7 +150,12 @@ async function run(): Promise<void> {
     let written = 0;
     for (const [securityId, rows] of intervals) {
       for (const interval of rows) {
-        await client.query(INSERT_FACTOR_SQL, [securityId, interval.from, interval.to, interval.factor]);
+        await client.query(INSERT_FACTOR_SQL, [
+          securityId,
+          interval.from,
+          interval.to,
+          interval.factor,
+        ]);
         written += 1;
       }
     }
@@ -162,7 +169,9 @@ async function run(): Promise<void> {
       JSON.stringify(summary),
     ]);
     await client.query('COMMIT');
-    console.log(JSON.stringify({ mode: 'apply', jobName: JOB_NAME, audit: { ...summary, written } }, null, 2));
+    console.log(
+      JSON.stringify({ mode: 'apply', jobName: JOB_NAME, audit: { ...summary, written } }, null, 2),
+    );
   } catch (error) {
     try {
       await client.query('ROLLBACK');

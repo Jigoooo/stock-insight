@@ -38,6 +38,7 @@ import { Route as ApiMeBootstrapRouteImport } from './routes/api/me/bootstrap'
 import { Route as ApiGeoSnapshotRouteImport } from './routes/api/geo/snapshot'
 import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/stocks'
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
+import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated/admin/invitations'
 import { Route as ApiV1ReportsLatestRouteImport } from './routes/api/v1/reports/latest'
 import { Route as ApiV1PersonalFeedRouteImport } from './routes/api/v1/personal/feed'
 import { Route as ApiV1CryptoWorkspaceRouteImport } from './routes/api/v1/crypto/workspace'
@@ -190,6 +191,12 @@ const ApiDashboardTodayRoute = ApiDashboardTodayRouteImport.update({
   path: '/api/dashboard/today',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminInvitationsRoute =
+  AuthenticatedAdminInvitationsRouteImport.update({
+    id: '/admin/invitations',
+    path: '/admin/invitations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiV1ReportsLatestRoute = ApiV1ReportsLatestRouteImport.update({
   id: '/api/v1/reports/latest',
   path: '/api/v1/reports/latest',
@@ -246,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
+  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -283,6 +291,7 @@ export interface FileRoutesByTo {
   '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
+  '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -322,6 +331,7 @@ export interface FileRoutesById {
   '/api/themes': typeof ApiThemesRoute
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
+  '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -361,6 +371,7 @@ export interface FileRouteTypes {
     | '/api/themes'
     | '/api/watchlist'
     | '/api/workspace'
+    | '/admin/invitations'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -398,6 +409,7 @@ export interface FileRouteTypes {
     | '/api/themes'
     | '/api/watchlist'
     | '/api/workspace'
+    | '/admin/invitations'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -436,6 +448,7 @@ export interface FileRouteTypes {
     | '/api/themes'
     | '/api/watchlist'
     | '/api/workspace'
+    | '/_authenticated/admin/invitations'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -696,6 +709,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardTodayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/invitations': {
+      id: '/_authenticated/admin/invitations'
+      path: '/admin/invitations'
+      fullPath: '/admin/invitations'
+      preLoaderRoute: typeof AuthenticatedAdminInvitationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/v1/reports/latest': {
       id: '/api/v1/reports/latest'
       path: '/api/v1/reports/latest'
@@ -750,10 +770,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
+  AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
+  AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

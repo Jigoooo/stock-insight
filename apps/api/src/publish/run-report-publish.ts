@@ -179,7 +179,9 @@ function validateBlocks(blocks: ReportBlock[]): string[] {
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
   const asOf = new Date();
-  const scheduledFor = new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()));
+  const scheduledFor = new Date(
+    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
+  );
 
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
@@ -187,7 +189,9 @@ async function run(): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(SEED_DEFINITION_SQL);
-    const definition = await client.query<QueryResultRow & { report_definition_id: number }>(DEFINITION_SQL);
+    const definition = await client.query<QueryResultRow & { report_definition_id: number }>(
+      DEFINITION_SQL,
+    );
     await client.query('COMMIT');
     const definitionId = definition.rows[0]?.report_definition_id;
     if (definitionId === undefined) throw new Error('daily_market_stock definition missing');
@@ -198,7 +202,10 @@ async function run(): Promise<void> {
     await client.query('COMMIT');
 
     // Build structured payload (template generator — LLM narration lands later).
-    const citationMap: Record<string, { document_id: number; url: string | null; title: string | null }> = {};
+    const citationMap: Record<
+      string,
+      { document_id: number; url: string | null; title: string | null }
+    > = {};
     const eventBlocks: ReportBlock[] = events.rows.map((event, index) => {
       const citationId = `cit-e${index + 1}`;
       citationMap[citationId] = {
@@ -209,16 +216,22 @@ async function run(): Promise<void> {
       return {
         block_id: `verified_events-${index + 1}`,
         block_type: publicBlockTypeForVerification(event.verification_status),
-        text: `[${event.event_type}] ${event.target_name ?? '시장 전반'} — ${
-          (event.summary_text ?? event.document_title ?? '').slice(0, 300)
-        }`,
+        text: `[${event.event_type}] ${event.target_name ?? '시장 전반'} — ${(
+          event.summary_text ??
+          event.document_title ??
+          ''
+        ).slice(0, 300)}`,
         citation_ids: [citationId],
         confidence: event.verification_status === 'verified' ? 0.9 : 0.6,
       };
     });
     const claimBlocks: ReportBlock[] = claims.rows.map((claim, index) => {
       const citationId = `cit-c${index + 1}`;
-      citationMap[citationId] = { document_id: Number(claim.document_id), url: null, title: claim.quote };
+      citationMap[citationId] = {
+        document_id: Number(claim.document_id),
+        url: null,
+        title: claim.quote,
+      };
       const objectText =
         typeof claim.object_value === 'object' && claim.object_value !== null
           ? String((claim.object_value as { text?: string }).text ?? '')
@@ -279,25 +292,45 @@ async function run(): Promise<void> {
       PIPELINE_VERSION,
     ]);
     const reportRunId = runRow.rows[0]!.report_run_id;
-    const reportRow = await client.query<QueryResultRow & { report_id: number }>(INSERT_REPORT_SQL, [
-      reportRunId,
-      payload.title,
-      payload.thesis,
-      JSON.stringify(payload),
-      1.0,
-      contentHash,
-    ]);
+    const reportRow = await client.query<QueryResultRow & { report_id: number }>(
+      INSERT_REPORT_SQL,
+      [reportRunId, payload.title, payload.thesis, JSON.stringify(payload), 1.0, contentHash],
+    );
     const reportId = reportRow.rows[0]!.report_id;
     let citationOrder = 0;
     for (const event of events.rows) {
       citationOrder += 1;
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'verified_events', 'event', Number(event.event_id), citationOrder]);
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'verified_events', 'document', Number(event.source_document_id), citationOrder]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'verified_events',
+        'event',
+        Number(event.event_id),
+        citationOrder,
+      ]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'verified_events',
+        'document',
+        Number(event.source_document_id),
+        citationOrder,
+      ]);
     }
     for (const claim of claims.rows) {
       citationOrder += 1;
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'watch_claims', 'claim', Number(claim.claim_id), citationOrder]);
-      await client.query(INSERT_EVIDENCE_SQL, [reportId, 'watch_claims', 'document', Number(claim.document_id), citationOrder]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'watch_claims',
+        'claim',
+        Number(claim.claim_id),
+        citationOrder,
+      ]);
+      await client.query(INSERT_EVIDENCE_SQL, [
+        reportId,
+        'watch_claims',
+        'document',
+        Number(claim.document_id),
+        citationOrder,
+      ]);
     }
     // Atomic publish: supersede old target, publish new, swap pointer — one transaction.
     await client.query(SUPERSEDE_SQL, [reportId]);
@@ -307,8 +340,7 @@ async function run(): Promise<void> {
     await client.query('COMMIT');
 
     console.log(
-      JSON.stringify(
-        { mode: 'apply', jobName: JOB_NAME, reportId, reportRunId, audit }, null, 2),
+      JSON.stringify({ mode: 'apply', jobName: JOB_NAME, reportId, reportRunId, audit }, null, 2),
     );
   } catch (error) {
     try {

@@ -43,7 +43,9 @@ const handlers = {
       throw error;
     }
   },
-} satisfies Partial<Record<RouteMethod, (context: PortfolioDigestRouteContext) => Promise<Response>>>;
+} satisfies Partial<
+  Record<RouteMethod, (context: PortfolioDigestRouteContext) => Promise<Response>>
+>;
 
 export const Route = createFileRoute('/api/portfolio/digest')({
   server: {

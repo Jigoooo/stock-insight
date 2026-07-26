@@ -19,10 +19,7 @@ test('quarterly OpenDART runner advances only on success or explicit no-data', (
 
 test('manual offset runs never advance the durable OpenDART cursor', () => {
   assert.match(runnerSource, /const shouldAdvanceCursor = requestedOffset === undefined/);
-  assert.match(
-    runnerSource,
-    /if \(shouldAdvanceCursor\) \{[\s\S]*?client\.query\(SAVE_CURSOR_SQL/,
-  );
+  assert.match(runnerSource, /if \(shouldAdvanceCursor\) \{[\s\S]*?client\.query\(SAVE_CURSOR_SQL/);
   assert.match(runnerSource, /cursorAdvanced: apply && shouldAdvanceCursor/);
 });
 

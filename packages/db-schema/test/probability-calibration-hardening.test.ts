@@ -15,7 +15,10 @@ test('probability hardening migration bounds source values and de-duplicates dai
   assert.equal((migration.match(/predicted_probability BETWEEN 0 AND 1/g) ?? []).length, 3);
   assert.equal((migration.match(/NOT VALID/g) ?? []).length, 3);
   assert.equal((migration.match(/VALIDATE CONSTRAINT/g) ?? []).length, 3);
-  assert.match(migration, /CREATE UNIQUE INDEX IF NOT EXISTS uq_calibration_profile_v2_segment_utc_day/);
+  assert.match(
+    migration,
+    /CREATE UNIQUE INDEX IF NOT EXISTS uq_calibration_profile_v2_segment_utc_day/,
+  );
   assert.match(migration, /computed_at AT TIME ZONE 'UTC'/);
   assert.match(migration, /WHERE method = 'label_hit_rate_v2/);
   assert.doesNotMatch(migration, /DROP TABLE|TRUNCATE|DELETE FROM/);

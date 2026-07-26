@@ -218,7 +218,12 @@ function meta(dataLength: number, now: Date): ResponseMeta {
   return { source: dataLength > 0 ? 'database' : 'fallback', generatedAt: now.toISOString() };
 }
 
-function errorEnvelope<T>(schema: { parse: (value: unknown) => T }, data: unknown, now: Date, code: string): T {
+function errorEnvelope<T>(
+  schema: { parse: (value: unknown) => T },
+  data: unknown,
+  now: Date,
+  code: string,
+): T {
   return schema.parse({
     data,
     availability: 'error',
@@ -238,9 +243,13 @@ export async function getFeatureSnapshots(
       limitValue(options.limit, 300),
     ]);
     const data = rows.map((row) => ({
-      entityKey: String(row.entity_key), market: row.market, ticker: String(row.ticker),
-      asOf: iso(row.as_of), featureSetVersion: String(row.feature_set_version),
-      features: row.features ?? {}, completenessScore: numberValue(row.completeness_score),
+      entityKey: String(row.entity_key),
+      market: row.market,
+      ticker: String(row.ticker),
+      asOf: iso(row.as_of),
+      featureSetVersion: String(row.feature_set_version),
+      features: row.features ?? {},
+      completenessScore: numberValue(row.completeness_score),
     }));
     return featureSnapshotResponseSchema.parse({
       data,
@@ -269,8 +278,11 @@ export async function getImpactSummaries(
       limitValue(options.limit, 300),
     ]);
     const data = rows.map((row) => ({
-      entityKey: String(row.entity_key), market: row.market, ticker: String(row.ticker),
-      pathCount: numberValue(row.path_count), maxPathScore: numberValue(row.max_path_score),
+      entityKey: String(row.entity_key),
+      market: row.market,
+      ticker: String(row.ticker),
+      pathCount: numberValue(row.path_count),
+      maxPathScore: numberValue(row.max_path_score),
       averagePathScore: numberValue(row.avg_path_score),
       eventTypes: Array.isArray(row.event_types) ? row.event_types.map(String) : [],
       computedAt: iso(row.computed_at),
@@ -302,11 +314,17 @@ export async function getMarketConfirmations(
       limitValue(options.limit, 300),
     ]);
     const data = rows.map((row) => ({
-      entityKey: String(row.entity_key), market: row.market, ticker: String(row.ticker),
-      asOf: iso(row.as_of), industryLinkStrength: numberValue(row.industry_link_strength),
-      pathCount: nullableNumber(row.path_count), return20d: nullableNumber(row.ret_20d),
-      volumeZ20d: nullableNumber(row.volume_z_20d), marketConfirmation: row.market_confirmation,
-      rsi14: nullableNumber(row.rsi_14), ma20Gap: nullableNumber(row.ma20_gap),
+      entityKey: String(row.entity_key),
+      market: row.market,
+      ticker: String(row.ticker),
+      asOf: iso(row.as_of),
+      industryLinkStrength: numberValue(row.industry_link_strength),
+      pathCount: nullableNumber(row.path_count),
+      return20d: nullableNumber(row.ret_20d),
+      volumeZ20d: nullableNumber(row.volume_z_20d),
+      marketConfirmation: row.market_confirmation,
+      rsi14: nullableNumber(row.rsi_14),
+      ma20Gap: nullableNumber(row.ma20_gap),
       expectationPricedIn: row.expectation_priced_in,
     }));
     return marketConfirmationResponseSchema.parse({
@@ -321,7 +339,12 @@ export async function getMarketConfirmations(
       meta: meta(data.length, now),
     });
   } catch {
-    return errorEnvelope(marketConfirmationResponseSchema, [], now, 'MARKET_CONFIRMATION_READ_FAILED');
+    return errorEnvelope(
+      marketConfirmationResponseSchema,
+      [],
+      now,
+      'MARKET_CONFIRMATION_READ_FAILED',
+    );
   }
 }
 
@@ -336,10 +359,15 @@ export async function getPersonalizedFeed(
       options.feedDate ?? null,
     ]);
     const data = rows.map((row) => ({
-      rank: numberValue(row.rank), itemType: row.item_type, itemId: numberValue(row.item_id),
+      rank: numberValue(row.rank),
+      itemType: row.item_type,
+      itemId: numberValue(row.item_id),
       relevanceScore: numberValue(row.relevance_score),
-      explanationCodes: Array.isArray(row.explanation_codes) ? row.explanation_codes.map(String) : [],
-      title: String(row.title), summary: String(row.summary ?? ''),
+      explanationCodes: Array.isArray(row.explanation_codes)
+        ? row.explanation_codes.map(String)
+        : [],
+      title: String(row.title),
+      summary: String(row.summary ?? ''),
     }));
     const newestGenerated = newestTimestamp(
       rows.map((row) => (row.generated_at ? iso(row.generated_at) : null)),
@@ -372,21 +400,29 @@ export async function getCalibrationScorecard(
     ]);
     const data = {
       labels: labelRows.map((row) => ({
-        market: String(row.market), horizonDays: numberValue(row.horizon_days),
-        confidenceLabel: String(row.confidence_label), sampleN: numberValue(row.sample_n),
-        targetHitRate: nullableNumber(row.target_hit_rate), invalidationRate: nullableNumber(row.invalidation_rate),
+        market: String(row.market),
+        horizonDays: numberValue(row.horizon_days),
+        confidenceLabel: String(row.confidence_label),
+        sampleN: numberValue(row.sample_n),
+        targetHitRate: nullableNumber(row.target_hit_rate),
+        invalidationRate: nullableNumber(row.invalidation_rate),
         directionHitRate: nullableNumber(row.direction_hit_rate),
-        insufficientSample: Boolean(row.insufficient_sample), method: String(row.method),
+        insufficientSample: Boolean(row.insufficient_sample),
+        method: String(row.method),
         computedAt: iso(row.computed_at),
       })),
       probabilities: probabilityRows.map((row) => ({
-        evaluationMode: row.evaluation_mode, market: String(row.market),
-        horizonDays: numberValue(row.horizon_days), probabilityMethod: String(row.probability_method),
-        sampleN: numberValue(row.sample_n), brierScore: nullableNumber(row.brier_score),
+        evaluationMode: row.evaluation_mode,
+        market: String(row.market),
+        horizonDays: numberValue(row.horizon_days),
+        probabilityMethod: String(row.probability_method),
+        sampleN: numberValue(row.sample_n),
+        brierScore: nullableNumber(row.brier_score),
         logLoss: nullableNumber(row.log_loss),
         expectedCalibrationError: nullableNumber(row.expected_calibration_error),
         calibrationBins: Array.isArray(row.calibration_bins) ? row.calibration_bins : [],
-        insufficientSample: Boolean(row.insufficient_sample), computedAt: iso(row.computed_at),
+        insufficientSample: Boolean(row.insufficient_sample),
+        computedAt: iso(row.computed_at),
       })),
     };
     const count = data.labels.length + data.probabilities.length;
@@ -427,10 +463,15 @@ export async function getLatestReports(
       limitValue(options.limit, 50),
     ]);
     const data = rows.map((row) => ({
-      reportId: numberValue(row.report_id), reportType: String(row.report_type),
-      scopeKey: String(row.scope_key), title: String(row.title), summary: String(row.summary),
-      status: row.status, qualityScore: nullableNumber(row.quality_score),
-      publishedAt: iso(row.published_at), switchedAt: iso(row.switched_at),
+      reportId: numberValue(row.report_id),
+      reportType: String(row.report_type),
+      scopeKey: String(row.scope_key),
+      title: String(row.title),
+      summary: String(row.summary),
+      status: row.status,
+      qualityScore: nullableNumber(row.quality_score),
+      publishedAt: iso(row.published_at),
+      switchedAt: iso(row.switched_at),
     }));
     return latestReportsResponseSchema.parse({
       data,

@@ -56,7 +56,10 @@ export async function insertOutboxEvent(
   client: PoolClient,
   envelope: EventEnvelope,
 ): Promise<OutboxInsertResult> {
-  const schema = await client.query(SCHEMA_ACTIVE_SQL, [envelope.eventType, envelope.schemaVersion]);
+  const schema = await client.query(SCHEMA_ACTIVE_SQL, [
+    envelope.eventType,
+    envelope.schemaVersion,
+  ]);
   if (schema.rowCount === 0) {
     throw new Error(
       `event schema ${envelope.eventType} v${envelope.schemaVersion} is not registered/active`,

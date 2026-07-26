@@ -200,7 +200,17 @@ export const getCurrentSession = createServerFn({ method: 'GET' }).handler(async
   const session = await readBoundSession(getRequestHeader('cookie'));
   setResponseHeader('Cache-Control', 'private, no-store');
   setResponseHeader('Vary', 'Cookie');
-  return session ? { user: { id: session.sub, username: session.username } } : null;
+  if (!session) return null;
+  const { loadFailClosedAdminCapabilitiesForUser } =
+    await import('@/server/auth/admin-invitations');
+  const capabilities = await loadFailClosedAdminCapabilitiesForUser(session.sub);
+  return {
+    user: { id: session.sub, username: session.username },
+    capabilities: {
+      role: capabilities.role,
+      canManageInvitations: capabilities.canManageInvitations,
+    },
+  };
 });
 
 export const logout = createServerFn({ method: 'POST' }).handler(async () => {

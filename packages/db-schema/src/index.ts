@@ -51,6 +51,7 @@ import { cryptoCrossDomainGraphMigrationSql } from './migrations/050_crypto_cros
 import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_views';
 import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening';
 import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto_serving_app_reader_grant';
+import { adminInvitationControlMigrationSql } from './migrations/054_admin_invitation_control';
 
 export type AppTableName =
   | 'company_profiles'
@@ -65,6 +66,7 @@ export type AppTableName =
   | 'app_auth_bootstrap_state'
   | 'app_local_accounts'
   | 'app_user_identity_map'
+  | 'app_account_roles'
   | 'app_invitations'
   | 'app_invitation_consumptions'
   | 'app_mutation_idempotency'
@@ -688,6 +690,13 @@ export const additiveAppMigrations: AppMigration[] = [
     ],
     sql: cryptoServingAppReaderGrantMigrationSql,
   },
+  {
+    id: '054_admin_invitation_control',
+    description:
+      'P0-MU-2 server-authoritative owner/admin/member capabilities with digest-only invitation issue, list, and revocation functions.',
+    tables: ['app_account_roles', 'app_invitations', 'app_invitation_consumptions'],
+    sql: adminInvitationControlMigrationSql,
+  },
 ];
 
 export {
@@ -744,4 +753,5 @@ export {
   cryptoServingViewsMigrationSql,
   personalizationReaderSurfaceHardeningMigrationSql,
   cryptoServingAppReaderGrantMigrationSql,
+  adminInvitationControlMigrationSql,
 };

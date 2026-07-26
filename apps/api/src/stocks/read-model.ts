@@ -964,7 +964,9 @@ function parseCompanyMetrics(value: unknown): StockCompanyMetricGroup[] {
         : null,
     );
     const fiscalYear =
-      fiscalYearNumber !== undefined && Number.isInteger(fiscalYearNumber) && fiscalYearNumber > 1900
+      fiscalYearNumber !== undefined &&
+      Number.isInteger(fiscalYearNumber) &&
+      fiscalYearNumber > 1900
         ? fiscalYearNumber
         : undefined;
     const fiscalPeriod =

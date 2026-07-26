@@ -101,6 +101,7 @@ function ResearchWorkspaceRoute() {
   const { session, workspaceViewCache } = Route.useRouteContext();
   return (
     <ResearchWorkspacePage
+      canManageInvitations={session.capabilities.canManageInvitations}
       data={loaderData.data}
       onLogout={async () => {
         const result = await logout();

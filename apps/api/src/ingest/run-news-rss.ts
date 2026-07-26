@@ -124,7 +124,7 @@ function databaseUrl(): string {
   return value;
 }
 
-async function recordPreflightFailure(startedAt: Date,error: unknown): Promise<void> {
+async function recordPreflightFailure(startedAt: Date, error: unknown): Promise<void> {
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: databaseUrl(), max: 1 });
   const client = await pool.connect();
@@ -133,18 +133,31 @@ async function recordPreflightFailure(startedAt: Date,error: unknown): Promise<v
   try {
     await client.query('BEGIN');
     const opened = await client.query<QueryResultRow & { fetch_run_id: number }>(
-      OPEN_FETCH_RUN_SQL,['rss-news-bundle',runKey,runKey,startedAt.toISOString()],
+      OPEN_FETCH_RUN_SQL,
+      ['rss-news-bundle', runKey, runKey, startedAt.toISOString()],
     );
     const fetchRunId = opened.rows[0]?.fetch_run_id;
-    if (fetchRunId === undefined) throw new Error('preflight failure audit could not open fetch_run');
+    if (fetchRunId === undefined)
+      throw new Error('preflight failure audit could not open fetch_run');
     await client.query(CLOSE_FETCH_RUN_SQL, [
-      fetchRunId,new Date().toISOString(),'failed',0,0,0,
-      JSON.stringify({ message: message.slice(0,1000) }),null,
+      fetchRunId,
+      new Date().toISOString(),
+      'failed',
+      0,
+      0,
+      0,
+      JSON.stringify({ message: message.slice(0, 1000) }),
+      null,
       JSON.stringify({ failure: 'collector_preflight' }),
     ]);
     await client.query(INSERT_FAILED_MIGRATION_RUN_SQL, [
-      runKey,JOB_NAME,startedAt.toISOString(),new Date().toISOString(),0,
-      message.slice(0,1000),JSON.stringify({ fetch_run_id: fetchRunId }),
+      runKey,
+      JOB_NAME,
+      startedAt.toISOString(),
+      new Date().toISOString(),
+      0,
+      message.slice(0, 1000),
+      JSON.stringify({ fetch_run_id: fetchRunId }),
     ]);
     await client.query('COMMIT');
   } catch (auditError) {
@@ -230,7 +243,7 @@ async function run(): Promise<void> {
       maxCacheAgeSeconds: 3600,
     });
   } catch (error) {
-    if (apply) await recordPreflightFailure(startedAt,error);
+    if (apply) await recordPreflightFailure(startedAt, error);
     throw error;
   }
   const audit = buildNewsIngestAudit(bundle, new Date().toISOString());
@@ -346,7 +359,9 @@ async function run(): Promise<void> {
     await client.query('COMMIT');
     if (committedRaw !== null) {
       await appendRawObjectManifest({
-        providerKey: 'rss-news-bundle',ref: committedRaw,fetchedAt: startedAt,
+        providerKey: 'rss-news-bundle',
+        ref: committedRaw,
+        fetchedAt: startedAt,
       }).catch((manifestError: unknown) =>
         process.stderr.write(`raw object manifest write skipped: ${String(manifestError)}\n`),
       );
@@ -365,16 +380,28 @@ async function run(): Promise<void> {
         ['rss-news-bundle', runKey, runKey, startedAt.toISOString()],
       );
       const failedFetchRunId = failedOpened.rows[0]?.fetch_run_id;
-      if (failedFetchRunId === undefined) throw new Error('failed RSS run audit could not open fetch_run');
+      if (failedFetchRunId === undefined)
+        throw new Error('failed RSS run audit could not open fetch_run');
       const message = error instanceof Error ? error.message : String(error);
       await client.query(CLOSE_FETCH_RUN_SQL, [
-        failedFetchRunId,new Date().toISOString(),'failed',audit.collected,0,0,
-        JSON.stringify({ message: message.slice(0,1000) }),null,
+        failedFetchRunId,
+        new Date().toISOString(),
+        'failed',
+        audit.collected,
+        0,
+        0,
+        JSON.stringify({ message: message.slice(0, 1000) }),
+        null,
         JSON.stringify({ failure: 'end_to_end_transaction_rolled_back' }),
       ]);
       await client.query(INSERT_FAILED_MIGRATION_RUN_SQL, [
-        runKey,JOB_NAME,startedAt.toISOString(),new Date().toISOString(),audit.collected,
-        message.slice(0,1000),JSON.stringify({ fetch_run_id: failedFetchRunId }),
+        runKey,
+        JOB_NAME,
+        startedAt.toISOString(),
+        new Date().toISOString(),
+        audit.collected,
+        message.slice(0, 1000),
+        JSON.stringify({ fetch_run_id: failedFetchRunId }),
       ]);
       await client.query('COMMIT');
     } catch (auditError) {

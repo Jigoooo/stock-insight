@@ -64,7 +64,12 @@ export function deterministicDeliveryId(eventId: string, destination: string): s
 }
 
 const REQUIRED_STRING_FIELDS = [
-  'eventType', 'aggregateType', 'aggregateId', 'partitionKey', 'occurredAt', 'producer',
+  'eventType',
+  'aggregateType',
+  'aggregateId',
+  'partitionKey',
+  'occurredAt',
+  'producer',
 ] as const;
 
 export function buildEnvelope(input: EnvelopeInput): EventEnvelope {

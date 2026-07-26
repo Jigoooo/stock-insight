@@ -198,16 +198,17 @@ async function run(): Promise<void> {
       knownAt: row.known_at,
       targetHit: row.target_hit,
     }));
-    const expandingRows: ScoredRow[] = expandingLabelProbabilities(expandingInput, MIN_SAMPLE_N).map(
-      (row) => ({
-        market: row.market,
-        horizonDays: row.horizonDays,
-        method: 'expanding_label_target_hit_v1',
-        probability: row.probability,
-        outcome: row.targetHit,
-        observedOn: rows.find((source) => Number(source.id) === row.id)!.observed_on,
-      }),
-    );
+    const expandingRows: ScoredRow[] = expandingLabelProbabilities(
+      expandingInput,
+      MIN_SAMPLE_N,
+    ).map((row) => ({
+      market: row.market,
+      horizonDays: row.horizonDays,
+      method: 'expanding_label_target_hit_v1',
+      probability: row.probability,
+      outcome: row.targetHit,
+      observedOn: rows.find((source) => Number(source.id) === row.id)!.observed_on,
+    }));
 
     const modes = [
       { name: 'live_issued_probability', rows: liveRows },

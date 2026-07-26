@@ -108,7 +108,8 @@ async function fetchCompanyFacts(cik: string): Promise<unknown | null> {
     signal: AbortSignal.timeout(60_000),
   });
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`SEC companyfacts CIK${cik} failed with HTTP ${response.status}`);
+  if (!response.ok)
+    throw new Error(`SEC companyfacts CIK${cik} failed with HTTP ${response.status}`);
   return response.json();
 }
 

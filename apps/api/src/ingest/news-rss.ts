@@ -20,7 +20,7 @@ export type RssNewsBundle = {
 
 function objectValue(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : undefined;
 }
 
@@ -38,22 +38,31 @@ export function validateRssNewsBundle(
   if (!items || !by || !errors || !stats) {
     throw new Error('RSS collector bundle requires items/by/errors/stats');
   }
-  for (const [index,itemValue] of items.entries()) {
+  for (const [index, itemValue] of items.entries()) {
     const item = objectValue(itemValue);
-    if (!item || !['title','url','source','region','kind','when'].every(
-      (field) => typeof item[field] === 'string',
-    ) || (item.summary !== undefined && typeof item.summary !== 'string')) {
+    if (
+      !item ||
+      !['title', 'url', 'source', 'region', 'kind', 'when'].every(
+        (field) => typeof item[field] === 'string',
+      ) ||
+      (item.summary !== undefined && typeof item.summary !== 'string')
+    ) {
       throw new Error(`RSS collector item ${index} violates runtime schema`);
     }
   }
   const feedsTried = stats.feeds_tried;
   const collected = stats.collected;
   const errorCount = stats.errors;
-  if (!Number.isInteger(feedsTried) || Number(feedsTried) <= 0
-      || !Number.isInteger(collected) || Number(collected) !== items.length
-      || !Number.isInteger(errorCount) || Number(errorCount) < 0
-      || Number(errorCount) > Number(feedsTried)
-      || Object.keys(errors).length !== Number(errorCount)) {
+  if (
+    !Number.isInteger(feedsTried) ||
+    Number(feedsTried) <= 0 ||
+    !Number.isInteger(collected) ||
+    Number(collected) !== items.length ||
+    !Number.isInteger(errorCount) ||
+    Number(errorCount) < 0 ||
+    Number(errorCount) > Number(feedsTried) ||
+    Object.keys(errors).length !== Number(errorCount)
+  ) {
     throw new Error('RSS collector stats are inconsistent');
   }
   if (items.length === 0 || Number(feedsTried) - Number(errorCount) <= 0) {
@@ -67,8 +76,13 @@ export function validateRssNewsBundle(
     const created = cache?.created_at_epoch;
     const nowMs = options.nowMs ?? Date.now();
     const maxAgeMs = (options.maxCacheAgeSeconds ?? 3600) * 1000;
-    if (!cache || typeof cache.key !== 'string' || !cache.key
-        || typeof created !== 'number' || !Number.isFinite(created)) {
+    if (
+      !cache ||
+      typeof cache.key !== 'string' ||
+      !cache.key ||
+      typeof created !== 'number' ||
+      !Number.isFinite(created)
+    ) {
       throw new Error('RSS cache provenance is invalid');
     }
     const ageMs = nowMs - created * 1000;

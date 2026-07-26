@@ -65,8 +65,14 @@ test('wrapper attempts begin before work and complete only after each final read
     [ohlcv, 'stock-insight-ohlcv-wrapper'],
     [analytics, 'stock-insight-analytics-wrapper'],
   ] as const) {
-    assert.ok(script.indexOf('pipeline_start_wrapper_attempt') < script.indexOf('pipeline_require_db_assertion'));
-    assert.ok(script.lastIndexOf('pipeline_require_db_assertion') < script.lastIndexOf('pipeline_finish_wrapper_attempt'));
+    assert.ok(
+      script.indexOf('pipeline_start_wrapper_attempt') <
+        script.indexOf('pipeline_require_db_assertion'),
+    );
+    assert.ok(
+      script.lastIndexOf('pipeline_require_db_assertion') <
+        script.lastIndexOf('pipeline_finish_wrapper_attempt'),
+    );
     assert.match(script, new RegExp(`pipeline_start_wrapper_attempt ${marker}`));
     assert.match(script, /pipeline_finish_wrapper_attempt "\$WRAPPER_ATTEMPT_ID" completed/);
     assert.match(script, /pipeline_finish_wrapper_attempt "\$WRAPPER_ATTEMPT_ID" failed/);

@@ -14,9 +14,7 @@ import { normalizeProductTextParam } from '@stock-insight/api';
 
 const handlers = {
   GET: async ({ request }: { request: Request }) => {
-    const date = normalizeProductTextParam(
-      new URL(request.url).searchParams.getAll('date'),
-    );
+    const date = normalizeProductTextParam(new URL(request.url).searchParams.getAll('date'));
     try {
       const userId = await resolveRequestUserId(request);
       return jsonResponse(await loadPersonalizedFeed(userId, date));

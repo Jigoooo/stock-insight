@@ -58,7 +58,10 @@ test('expanding baseline cannot see outcomes known after issuance', () => {
     },
   ];
   const output = expandingLabelProbabilities(rows, 1);
-  assert.deepEqual(output.map((row) => row.id), [3]);
+  assert.deepEqual(
+    output.map((row) => row.id),
+    [3],
+  );
   assert.equal(output[0]!.probability, 1, 'only id=1 was known at id=3 issuance');
   assert.equal(output[0]!.priorSampleN, 1);
 });

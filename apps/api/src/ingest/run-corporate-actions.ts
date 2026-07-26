@@ -101,7 +101,9 @@ function parseLines(raw: string): { actions: ActionLine[]; invalid: number } {
       const validType = parsed.action_type === 'dividend' || parsed.action_type === 'split';
       const validDate = /^\d{4}-\d{2}-\d{2}$/.test(parsed.effective_date ?? '');
       const validValue =
-        (parsed.action_type === 'dividend' && typeof parsed.amount === 'number' && parsed.amount > 0) ||
+        (parsed.action_type === 'dividend' &&
+          typeof parsed.amount === 'number' &&
+          parsed.amount > 0) ||
         (parsed.action_type === 'split' && typeof parsed.ratio === 'number' && parsed.ratio > 0);
       if (validType && validDate && validValue) actions.push(parsed);
       else invalid += 1;
@@ -142,9 +144,7 @@ async function run(): Promise<void> {
     };
 
     if (!apply) {
-      console.log(
-        JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summaryBase }, null, 2),
-      );
+      console.log(JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summaryBase }, null, 2));
       return;
     }
     if (parsed.actions.length === 0)

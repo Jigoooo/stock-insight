@@ -41,15 +41,21 @@ describe('P0-2 assertion semantic verifier', () => {
     assert.equal(planned.decision, 'accept_downgraded');
     assert.equal(planned.modality, 'planned');
 
-    const possible = verifyAssertionSemantics({ quote: 'A사가 B사 인수를 검토 중인 것으로 알려졌다.' });
+    const possible = verifyAssertionSemantics({
+      quote: 'A사가 B사 인수를 검토 중인 것으로 알려졌다.',
+    });
     assert.equal(possible.decision, 'accept_downgraded');
     assert.notEqual(possible.modality, 'factual');
 
-    const forecast = verifyAssertionSemantics({ quote: '증권가는 내년 영업이익이 개선될 것으로 전망했다.' });
+    const forecast = verifyAssertionSemantics({
+      quote: '증권가는 내년 영업이익이 개선될 것으로 전망했다.',
+    });
     assert.equal(forecast.decision, 'accept_downgraded');
     assert.equal(forecast.modality, 'forecast');
 
-    const attributed = verifyAssertionSemantics({ quote: '회사 관계자는 수주가 확정됐다고 말했다.' });
+    const attributed = verifyAssertionSemantics({
+      quote: '회사 관계자는 수주가 확정됐다고 말했다.',
+    });
     assert.equal(attributed.decision, 'accept_downgraded');
     assert.equal(attributed.attributed, true);
   });
