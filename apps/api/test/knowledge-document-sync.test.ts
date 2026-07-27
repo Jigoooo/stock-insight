@@ -143,6 +143,9 @@ test('runtime knowledge sync promotes and revisions RSS documents before extract
   assert.ok(extractionPosition > syncPosition);
   assert.match(wrapper, /stock-insight-knowledge-document-sync-stage/);
   assert.match(wrapper, /KNOWLEDGE_SYNC_RUN_ID/);
+  assert.match(wrapper, /pending_news_for_run\(\) \{/);
+  assert.match(wrapper, /-f <\(printf '%s\\n'/);
+  assert.doesNotMatch(wrapper, /-c "SELECT count\(\*\).*:'sync_run_id'/);
   assert.match(wrapper, /while \(\( pending_news > 0 \)\)/);
   assert.match(wrapper, /after_pending >= pending_news/);
   assert.match(wrapper, /pending_news == 0/);

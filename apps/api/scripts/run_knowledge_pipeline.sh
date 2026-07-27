@@ -23,6 +23,12 @@ SELECT CASE WHEN EXISTS (
 cd "$ROOT"
 
 KNOWLEDGE_SYNC_RUN_ID="knowledge-sync-wrapper-$(openssl rand -hex 16)" || exit 70
+pending_news_for_run() {
+  local sync_run_id="$1"
+  psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
+    -v sync_run_id="$sync_run_id" \
+    -f <(printf '%s\n' "SELECT count(*) FROM knowledge.document WHERE processing_status='pending' AND source_type='news' AND metadata->>'knowledge_sync_run_id'=:'sync_run_id'")
+}
 DATABASE_URL="$DB_URL" KNOWLEDGE_SYNC_RUN_ID="$KNOWLEDGE_SYNC_RUN_ID" \
   node apps/api/src/ingest/run-knowledge-document-sync.ts --apply
 pipeline_record_stage_success stock-insight-knowledge-document-sync-stage "$RUN_STARTED_AT" || exit $?
@@ -30,9 +36,7 @@ pipeline_record_stage_success stock-insight-knowledge-document-sync-stage "$RUN_
 DATABASE_URL="$DB_URL" KNOWLEDGE_SYNC_RUN_ID="$KNOWLEDGE_SYNC_RUN_ID" node --env-file="$ENV_FILE" \
   apps/api/src/ingest/run-knowledge-extraction.ts --limit 100 --apply
 
-pending_news=$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
-  -v sync_run_id="$KNOWLEDGE_SYNC_RUN_ID" \
-  -c "SELECT count(*) FROM knowledge.document WHERE processing_status='pending' AND source_type='news' AND metadata->>'knowledge_sync_run_id'=:'sync_run_id'") || exit 70
+pending_news=$(pending_news_for_run "$KNOWLEDGE_SYNC_RUN_ID") || exit 70
 drain_iterations=0
 while (( pending_news > 0 )); do
   ((drain_iterations += 1))
@@ -42,9 +46,7 @@ while (( pending_news > 0 )); do
   fi
   DATABASE_URL="$DB_URL" KNOWLEDGE_SYNC_RUN_ID="$KNOWLEDGE_SYNC_RUN_ID" node --env-file="$ENV_FILE" \
     apps/api/src/ingest/run-knowledge-extraction.ts --limit 100 --apply
-  after_pending=$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt \
-    -v sync_run_id="$KNOWLEDGE_SYNC_RUN_ID" \
-    -c "SELECT count(*) FROM knowledge.document WHERE processing_status='pending' AND source_type='news' AND metadata->>'knowledge_sync_run_id'=:'sync_run_id'") || exit 70
+  after_pending=$(pending_news_for_run "$KNOWLEDGE_SYNC_RUN_ID") || exit 70
   if (( after_pending >= pending_news )); then
     echo "knowledge extraction current-run drain made no progress" >&2
     exit 70
