@@ -9,7 +9,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 import { parseOhlcvBar, type OhlcvBar } from './ohlcv.ts';
 
 const JOB_NAME = 'stock-insight-yfinance-ohlcv';
-const DEFAULT_PYTHON = '/home/jigoo/.hermes/hermes-agent/venv/bin/python3';
+const DEFAULT_PYTHON = '/home/jigoo/.local/share/stock-insight/python/bin/python3';
 const FETCH_SCRIPT = new URL('../../scripts/fetch_ohlcv.py', import.meta.url).pathname;
 const BATCH_INSERT_SIZE = 500;
 

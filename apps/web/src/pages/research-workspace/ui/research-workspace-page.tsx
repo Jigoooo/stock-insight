@@ -794,6 +794,13 @@ export function ResearchWorkspacePage({
   };
 
   const sectionTitle = sections.find((item) => item.id === section)?.label ?? '오늘';
+  const viewNavigationPending =
+    navigationIntent.pendingSection !== null || navigationIntent.pendingLane !== null;
+  const pendingNavigationLabel = navigationIntent.pendingSection
+    ? sections.find((item) => item.id === navigationIntent.pendingSection)?.label
+    : navigationIntent.pendingLane
+      ? laneLabels[navigationIntent.pendingLane as ResearchFeedLaneId]
+      : null;
   const activeSectionIndex = Math.max(
     0,
     sections.findIndex((item) => item.id === section),
@@ -917,6 +924,16 @@ export function ResearchWorkspacePage({
             <ChevronRight aria-hidden="true" />
             <span>리서치 워크스페이스</span>
           </div>
+          {viewNavigationPending ? (
+            <output
+              className={styles.navigationStatus}
+              data-testid="workspace-navigation-status"
+              aria-live="polite"
+            >
+              <LoaderCircle aria-hidden="true" />
+              {pendingNavigationLabel ?? '선택한 화면'} 여는 중
+            </output>
+          ) : null}
           <WorkspaceSearch
             disabled={!hydrated}
             onQueryChange={setQuery}
@@ -926,7 +943,12 @@ export function ResearchWorkspacePage({
           />
         </header>
 
-        <WorkspaceViewRegion className={styles.content} viewKey={section}>
+        <WorkspaceViewRegion
+          className={styles.content}
+          navigationSequence={navigationIntent.sequence}
+          pending={viewNavigationPending}
+          viewKey={section}
+        >
           {viewLoadError && (
             <section
               className={styles.viewLoadError}

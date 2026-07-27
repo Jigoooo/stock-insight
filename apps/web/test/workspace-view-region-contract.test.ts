@@ -41,29 +41,47 @@ describe('workspace shell and keyed view-region contract', () => {
     assert.match(shell, /children/);
   });
 
-  it('retains and neutralizes the previous view until the scoped transition completes', async () => {
+  it('uses one persistent view layer without page-wide opacity or translation animation', async () => {
     const region = await read('workspace-view-region.tsx');
 
-    assert.match(region, /useGSAP/);
-    assert.match(region, /contextSafe/);
-    assert.match(region, /killTweensOf/);
-    assert.match(region, /clearProps/);
-    assert.match(region, /aria-hidden/);
-    assert.match(region, /inert/);
-    assert.match(region, /key=\{layers\.exiting\.key\}/);
-    assert.match(region, /key=\{layers\.active\.key\}/);
+    assert.doesNotMatch(region, /useGSAP|\bgsap\b/);
+    assert.doesNotMatch(region, /layers\.exiting|exitingLayer/);
+    assert.doesNotMatch(region, /opacity|translate|transform|fromTo/);
+    assert.match(region, /data-workspace-view-layer="current"/);
+    assert.match(region, /aria-busy=\{pending \|\| undefined\}/);
     assert.match(region, /data-workspace-view-heading/);
     assert.match(region, /focus\(/);
-    assert.match(region, /duration:\s*0\.2[0-4]/);
-    assert.doesNotMatch(region, /stagger\s*:/);
+    assert.match(region, /navigationFocusOwnerRef/);
+    assert.match(region, /closest\('\[data-testid\^="workspace-nav-"\]'/);
+    assert.match(region, /currentRef\.current\?\.contains\(activeFocus\)/);
+    assert.match(region, /document\.activeElement === navigationFocusOwnerRef\.current/);
   });
 
-  it('uses an instant semantic swap when reduced motion is active', async () => {
-    const region = await read('workspace-view-region.tsx');
+  it('uses APG manual activation: arrows move roving focus without committing a lane', async () => {
+    const today = await read('views/today-view.tsx');
 
-    assert.match(region, /useMotionPreferences/);
-    assert.match(region, /reducedMotion/);
-    assert.match(region, /duration:\s*0/);
+    assert.doesNotMatch(today, /requestAnimationFrame/);
+    assert.match(today, /const \[rovingIntent, setRovingIntent\]/);
+    assert.match(today, /rovingIntent\.baseLane === lane \? rovingIntent\.targetLane : lane/);
+    assert.match(today, /setRovingIntent\(\{ baseLane: lane, targetLane: nextLane \}\)/);
+    assert.match(today, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
+    const focusHandler = today.slice(
+      today.indexOf('const moveLaneFocus'),
+      today.indexOf('return ('),
+    );
+    assert.match(focusHandler, /setRovingLane\(nextLane\)/);
+    assert.doesNotMatch(focusHandler, /onLaneChange\(nextLane\)/);
+  });
+
+  it('exposes navigation progress in persistent chrome while keeping committed content authoritative', async () => {
+    const page = await read('research-workspace-page.tsx');
+
+    assert.match(page, /const viewNavigationPending =/);
+    assert.match(page, /<output/);
+    assert.match(page, /aria-live="polite"/);
+    assert.match(page, /data-testid="workspace-navigation-status"/);
+    assert.match(page, /여는 중/);
+    assert.match(page, /pending=\{viewNavigationPending\}/);
   });
 
   it('does not let mobile-menu cleanup steal focus from the committed view heading', async () => {

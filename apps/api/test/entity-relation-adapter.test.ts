@@ -74,7 +74,7 @@ function makeExecutor(config: {
       if (/v_relation_graph_freshness/.test(sql) && /entity_id = \$2/.test(sql)) {
         return (config.packRows ?? []) as never;
       }
-      if (/v_relation_graph_freshness/.test(sql)) {
+      if (/v_relation_graph_freshness/.test(sql) || /analytics\.graph_snapshot/.test(sql)) {
         // latest servable header for the no-data envelope
         return (config.headerRows ?? [
           {
@@ -119,6 +119,15 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
     const executor = makeExecutor({
       entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
       packRows: [],
+      headerRows: [
+        {
+          builder_version: 'snapshot-v2',
+          as_of: '2026-07-19T00:00:00.000Z',
+          known_at: '2026-07-19T00:00:00.000Z',
+          built_at: '2026-07-19T00:00:00.000Z',
+          fresh_until: '2026-07-20T12:00:00.000Z',
+        },
+      ],
     });
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey: 'KR:005930',
@@ -135,6 +144,7 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
   });
 
   it('never labels an expired no-data snapshot as available', async () => {
+    let headerQuery = '';
     const executor = makeExecutor({
       entityRows: [{ entity_id: 42, canonical_name: '삼성전자' }],
       packRows: [],
@@ -147,6 +157,11 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
           fresh_until: '2026-07-19T11:59:59.000Z',
         },
       ],
+      onQuery(sql) {
+        if (/builder_version/.test(sql) && /LIMIT 1/.test(sql) && !/entity_id = \$2/.test(sql)) {
+          headerQuery = sql;
+        }
+      },
     });
     const result = await getEntityRelationsWithV2Preference(executor, {
       entityKey: 'KR:005930',
@@ -159,6 +174,13 @@ describe('P0-5 — entity relation adapter (V2-only, no legacy fallback)', () =>
     assert.equal(result.graph.meta.freshness, 'stale');
     assert.ok(result.graph.meta.qualityFlags.includes('graph_snapshot_stale'));
     assert.match(result.graph.evidenceSummary.limitation, /만료/);
+    assert.match(headerQuery, /analytics\.graph_snapshot\s+snapshot/);
+    assert.doesNotMatch(headerQuery, /JOIN\s+serving\.content_pack/);
+    assert.match(headerQuery, /snapshot\.status\s*=\s*'sealed'/);
+    assert.match(
+      headerQuery,
+      /ORDER BY snapshot\.as_of DESC, snapshot\.known_at DESC, snapshot\.graph_snapshot_id DESC/,
+    );
   });
 
   it('serves the v2 pack graph when a servable pack carries a valid graph payload', async () => {

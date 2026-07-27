@@ -279,6 +279,32 @@
   color: var(--color-border-strong);
 }
 
+.navigationStatus {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  font-size: 12px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.navigationStatus svg {
+  width: 14px;
+  height: 14px;
+  animation: workspaceNavigationSpin 0.8s linear infinite;
+}
+
+@keyframes workspaceNavigationSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .search {
   width: min(380px, 42vw);
   min-height: 44px;

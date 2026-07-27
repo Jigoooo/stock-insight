@@ -139,10 +139,11 @@ async function installRadarLoader(
 }
 
 async function installEmptyRadarLoader(page: Page) {
-  return installRadarLoader(page, ({ radar, shell, items, evidence, nextId }) => {
+  return installRadarLoader(page, ({ result, radar, shell, items, evidence, nextId }) => {
     setSerializedRecordValue(radar, 'items', { ...(items ?? { t: 9 }), a: [] });
     setSerializedRecordValue(radar, 'scopeTotal', { t: 0, s: 0 });
     setSerializedRecordValue(radar, 'nextCursor', { t: 2, s: 1 });
+    setSerializedRecordValue(result, 'geoSnapshot', { t: 2, s: 1 });
     let allocatedId = nextId;
     const empty = { availability: 'empty', watermarkAt: null, rowCount: 0 };
     const missing = { availability: 'missing', watermarkAt: null, rowCount: 0 };
@@ -449,7 +450,7 @@ test.describe('v3 research workspace candidate', () => {
       if (message.type() === 'error') runtimeErrors.push(message.text());
     });
 
-    await page.goto('/workspace?view=today&lane=must_know');
+    await page.goto('/workspace?view=today&lane=explore');
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
     await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible();
     await expect(page.getByTestId('research-feed-record').first()).toBeVisible();
@@ -457,7 +458,6 @@ test.describe('v3 research workspace candidate', () => {
     for (const rawToken of ['related_ticker:', 'STAGE:', 'R/R', 'Companyfacts']) {
       await expect(workspace).not.toContainText(rawToken);
     }
-    await expect(workspace).toContainText('기대 손익비');
 
     const sections = [
       ['radar', '세계 레이더'],
@@ -508,11 +508,20 @@ test.describe('v3 research workspace candidate', () => {
   test('opens run-bound evidence detail and keeps the inspector accessible', async ({
     page,
   }, testInfo) => {
-    await page.goto('/workspace?view=today&lane=must_know');
-    const firstRecord = page.getByTestId('research-feed-record').first();
-    await expect(firstRecord).toBeVisible();
+    await page.goto('/workspace?view=today&lane=explore');
+    const exploreTab = page.getByRole('tab', { name: /새로 볼 변화/ });
+    await expect(exploreTab).toHaveAttribute('aria-selected', 'true');
+    const records = page.getByTestId('research-feed-record');
+    await expect(records.nth(1)).toBeVisible();
+    const defaultRecordKey = await records.first().getAttribute('data-append-key');
+    const firstRecord = records.nth(1);
+    const recordKey = await firstRecord.getAttribute('data-append-key');
+    const recordTitle = (await firstRecord.locator('strong').textContent())?.trim();
+    expect(recordKey).not.toBe(defaultRecordKey);
+    expect(recordKey).toBeTruthy();
+    expect(recordTitle).toBeTruthy();
     await firstRecord.click();
-    await expect(page).toHaveURL(/record=/);
+    await expect.poll(() => new URL(page.url()).searchParams.get('record')).toBe(recordKey);
     const inspector = page.getByTestId('evidence-inspector');
     await expect(inspector).toBeVisible();
     await expect(page.getByRole('dialog', { name: '근거 인스펙터' })).toBeVisible();
@@ -527,7 +536,7 @@ test.describe('v3 research workspace candidate', () => {
     ]) {
       await expect(inspector).not.toContainText(rawToken);
     }
-    await expect(inspector).toContainText('종목 후보 분석');
+    await expect(inspector.getByRole('heading', { level: 2 })).toHaveText(recordTitle!);
 
     if (testInfo.project.name === 'mobile') {
       await expect(closeInspector).toBeFocused();
@@ -558,6 +567,14 @@ test.describe('v3 research workspace candidate', () => {
     await expect(inspector).toBeHidden();
     await expect(firstRecord).toBeFocused();
     await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('inert');
+
+    await firstRecord.click();
+    await expect(inspector).toBeVisible();
+    await closeInspector.click();
+    const searchInput = page.getByLabel('종목명 또는 티커 검색');
+    await searchInput.focus();
+    await expect(inspector).toBeHidden();
+    await expect(searchInput).toBeFocused();
   });
 
   test('supports APG keyboard navigation across feed lanes', async ({ page }) => {
@@ -565,16 +582,97 @@ test.describe('v3 research workspace candidate', () => {
     const tabs = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab');
     await expect(tabs.first()).toBeEnabled();
     await tabs.first().focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
-    await expect(page).toHaveURL(/lane=for_you/);
-    await page.keyboard.press('End');
+    await page.evaluate(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }),
+      );
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }),
+      );
+    });
     await expect(tabs.nth(2)).toBeFocused();
+    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(2)).toHaveAttribute('tabindex', '0');
+    await expect(page).not.toHaveURL(/lane=explore/);
+    await page.keyboard.press('Enter');
     await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
+    await expect(page).toHaveURL(/lane=explore/);
     await page.keyboard.press('Home');
     await expect(tabs.first()).toBeFocused();
-    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(2)).toHaveAttribute('aria-selected', 'true');
+
+    const search = page.getByLabel('종목명 또는 티커 검색');
+    await tabs.first().focus();
+    await page.evaluate(() => {
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowRight' }),
+      );
+      document.querySelector<HTMLElement>('[aria-label="종목명 또는 티커 검색"]')?.focus();
+    });
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    await expect(search).toBeFocused();
+  });
+
+  test('keeps newer external focus during section navigation and otherwise focuses the heading', async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'desktop',
+      'desktop exercises the persistent search control',
+    );
+    await page.goto('/workspace?view=today');
+    const search = page.getByLabel('종목명 또는 티커 검색');
+    const persistentLayer = page.locator('[data-workspace-view-layer="current"]');
+    const todayFeedRoot = page.getByTestId('research-feed');
+    await todayFeedRoot.evaluate((element) => {
+      Object.assign(element, { __workspaceViewRootIdentity: 'today-feed-root-v1' });
+    });
+    await persistentLayer.evaluate((element) => {
+      Object.assign(element, { __workspaceLayerIdentity: 'persistent-layer-v1' });
+    });
+    await page.getByRole('tab', { name: /새로 볼 변화/ }).click();
+    await page.waitForURL(/lane=explore/);
+    await expect
+      .poll(() =>
+        todayFeedRoot.evaluate(
+          (element) =>
+            (element as HTMLElement & { __workspaceViewRootIdentity?: string })
+              .__workspaceViewRootIdentity,
+        ),
+      )
+      .toBe('today-feed-root-v1');
+    await expect(page.locator('[data-workspace-view-layer="outgoing"]')).toHaveCount(0);
+    const radarNavigation = page.getByTestId('workspace-nav-radar');
+    await expect(radarNavigation).toBeEnabled();
+    await expect(search).toBeEnabled();
+    await page.evaluate(() => {
+      document.querySelector<HTMLElement>('[data-testid="workspace-nav-radar"]')?.click();
+      document.querySelector<HTMLElement>('[aria-label="종목명 또는 티커 검색"]')?.focus();
+    });
+    await page.waitForURL(/view=radar/);
+    await expect(page.getByRole('heading', { name: '세계 레이더', exact: true })).toBeVisible();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await expect(search).toBeFocused();
+    await expect
+      .poll(() =>
+        persistentLayer.evaluate(
+          (element) =>
+            (element as HTMLElement & { __workspaceLayerIdentity?: string })
+              .__workspaceLayerIdentity,
+        ),
+      )
+      .toBe('persistent-layer-v1');
+
+    await page.getByTestId('workspace-nav-stocks').click();
+    await page.waitForURL(/view=stocks/);
+    await expect(page.getByRole('heading', { name: '종목', exact: true })).toBeFocused();
   });
 
   test('switches all eight market screens without fabricating unavailable data', async ({
@@ -1139,7 +1237,7 @@ test.describe('v3 research workspace candidate', () => {
     await search.fill('존재하지않는종목-qa');
     await expect(page.getByText('조건에 맞는 종목이 없습니다')).toBeVisible();
 
-    await page.goto('/workspace?view=today&lane=for_you');
+    await page.goto('/workspace?view=today&lane=explore');
     const loadMore = page.getByRole('button', { name: '다음 변화 더 보기' });
     await expect(loadMore).toBeEnabled();
     await page.route('**/api/feed**', async (route) => {

@@ -1,0 +1,9 @@
+[project]
+name = "stock-insight-collectors"
+version = "0.1.0"
+description = "Locked Python runtime for Stock Insight market collectors"
+requires-python = ">=3.12,<3.13"
+dependencies = ["pandas>=2.2,<3", "yfinance>=0.2.54,<1"]
+
+[tool.uv]
+package = false

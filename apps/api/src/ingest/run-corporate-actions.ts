@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 const JOB_NAME = 'stock-insight-corporate-actions';
-const DEFAULT_PYTHON = '/home/jigoo/.hermes/hermes-agent/venv/bin/python3';
+const DEFAULT_PYTHON = '/home/jigoo/.local/share/stock-insight/python/bin/python3';
 const FETCH_SCRIPT = new URL('../../scripts/fetch_corporate_actions.py', import.meta.url).pathname;
 
 const UNIVERSE_SQL = `

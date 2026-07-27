@@ -1,4 +1,4 @@
-#!/home/jigoo/.hermes/hermes-agent/venv/bin/python3
+#!/usr/bin/env python3
 """Fetch 1D OHLCV from yfinance in bounded batches and emit NDJSON.
 
 Input JSON: [{"market":"KR|US","symbol":"..."}].

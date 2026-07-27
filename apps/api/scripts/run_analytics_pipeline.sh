@@ -44,6 +44,8 @@ SELECT CASE WHEN
 THEN 1 ELSE 0 END
 " || exit $?
 cd "$ROOT"
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-core-identity-sync.ts --apply
+pipeline_record_stage_success stock-insight-core-identity-sync-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
@@ -66,6 +68,7 @@ SELECT CASE WHEN
   (SELECT count(DISTINCT job_name)
    FROM public.migration_runs
    WHERE job_name IN (
+     'stock-insight-core-identity-sync-stage',
      'stock-insight-feature-snapshot-stage',
      'stock-insight-graph-inference-stage',
      'stock-insight-report-publish-stage',
@@ -76,7 +79,7 @@ SELECT CASE WHEN
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 8
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 9
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1

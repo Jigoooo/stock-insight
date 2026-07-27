@@ -145,7 +145,9 @@ describe('v3 research workspace structure', () => {
   });
 
   it('implements APG keyboard navigation for the feed lane tabs', () => {
-    assert.match(page, /tabIndex=\{lane === item\.lane \? 0 : -1\}/);
+    assert.match(page, /aria-selected=\{lane === item\.lane\}/);
+    assert.match(page, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
+    assert.match(page, /setRovingLane\(nextLane\)/);
     assert.match(page, /event\.key === 'ArrowRight'/);
     assert.match(page, /event\.key === 'ArrowLeft'/);
     assert.match(page, /event\.key === 'Home'/);
