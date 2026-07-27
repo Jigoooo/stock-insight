@@ -16,14 +16,36 @@ function serviceBlock(manifest: string, service: string): string {
   return match![0];
 }
 
+type ProductionImageManifest = {
+  api: { imageId: string; tag: string };
+  app: { imageId: string; tag: string };
+  formatVersion: number;
+};
+
+function assertProductionImagesBound(
+  compose: string,
+  expected: ProductionImageManifest,
+): { api: string; app: string } {
+  const imagePattern = /image: (sha256:[a-f0-9]{64})\n\s+pull_policy: never/;
+  const api = imagePattern.exec(serviceBlock(compose, 'api'))?.[1];
+  const app = imagePattern.exec(serviceBlock(compose, 'app'))?.[1];
+  assert.ok(api);
+  assert.ok(app);
+  assert.equal(api, expected.api.imageId, 'production API image does not match release metadata');
+  assert.equal(app, expected.app.imageId, 'production app image does not match release metadata');
+  return { api: api!, app: app! };
+}
+
 const candidate = read('../../../docker-compose.candidate.yml');
 const production = read('../../../docker-compose.prod.yml');
 const productionDbOnly = read('../../../docker-compose.prod-db-auth.yml');
 const releaseBuild = read('../../../docker-compose.release-build.yml');
+const productionImageManifest = JSON.parse(
+  read('../../../ops/release/production-image-manifest.json'),
+) as ProductionImageManifest;
 const dockerfile = read('../Dockerfile');
 const apiDockerfile = read('../../api-server/Dockerfile');
-const releaseImage = 'sha256:ba69de3a275b097055f939fb3263821aac3fed8e9837c822f183301403d5f4d8';
-const apiReleaseImage = 'sha256:f207a1c18c116d6e4c08c565da710ece5fa8444686953c072bfb1969da0fd6cd';
+const productionVerifier = read('../../../ops/scripts/verify-production-compose.sh');
 
 describe('release deployment isolation', () => {
   it('gives enrollment E2E only explicit candidate reader/writer DSNs and dedicated secrets', () => {
@@ -48,19 +70,25 @@ describe('release deployment isolation', () => {
     assert.match(production, /include:\s+- path: docker-compose\.prod-db-auth\.yml/);
     assert.match(production, /^name: stock-insight$/m);
     assert.doesNotMatch(production, /services:/);
-    assert.ok(productionDbOnly.includes(`image: ${releaseImage}`));
-    assert.ok(productionDbOnly.includes(`image: ${apiReleaseImage}`));
     const api = serviceBlock(productionDbOnly, 'api');
     const app = serviceBlock(productionDbOnly, 'app');
-    assert.match(api, new RegExp(`image: ${apiReleaseImage}\\n\\s+pull_policy: never`));
-    assert.match(app, new RegExp(`image: ${releaseImage}\\n\\s+pull_policy: never`));
+    const { api: apiImage, app: appImage } = assertProductionImagesBound(
+      productionDbOnly,
+      productionImageManifest,
+    );
+    assert.notEqual(apiImage, appImage);
+    assert.equal(productionImageManifest.formatVersion, 1);
+    assert.equal(apiImage, productionImageManifest.api.imageId);
+    assert.equal(appImage, productionImageManifest.app.imageId);
+    assert.match(releaseBuild, new RegExp(`image: ${productionImageManifest.api.tag}`));
+    assert.match(releaseBuild, new RegExp(`image: ${productionImageManifest.app.tag}`));
     assert.doesNotMatch(api, /^\s+build:/m);
     assert.doesNotMatch(app, /^\s+build:/m);
     assert.doesNotMatch(productionDbOnly, /STOCK_INSIGHT_(APP|API)_IMAGE/);
     assert.equal((productionDbOnly.match(/pull_policy: never/g) ?? []).length, 2);
     assert.doesNotMatch(productionDbOnly, /^\s+build:/m);
-    assert.match(releaseBuild, /image: stock-insight-app:p1p6-380fb1cb/);
-    assert.match(releaseBuild, /image: stock-insight-api:p1p6-380fb1cb/);
+    assert.match(productionImageManifest.app.tag, /^stock-insight-app:[a-f0-9]{7}$/);
+    assert.match(productionImageManifest.api.tag, /^stock-insight-api:[a-f0-9]{7}$/);
     assert.match(releaseBuild, /build:\s+context: \.\s+dockerfile: apps\/web\/Dockerfile/);
     assert.match(releaseBuild, /build:\s+context: \.\s+dockerfile: apps\/api-server\/Dockerfile/);
     for (const buildManifest of [dockerfile, apiDockerfile]) {
@@ -69,6 +97,27 @@ describe('release deployment isolation', () => {
       assert.equal(externalNodeStages.length, 2);
       assert.ok(externalNodeStages.every((line: string) => /@sha256:[a-f0-9]{64}/.test(line)));
     }
+  });
+
+  it('rejects a syntactically valid production digest that is not the release artifact', () => {
+    const mutated = productionDbOnly.replace(
+      productionImageManifest.api.imageId,
+      `sha256:${'0'.repeat(64)}`,
+    );
+    assert.throws(
+      () => assertProductionImagesBound(mutated, productionImageManifest),
+      /production API image does not match release metadata/,
+    );
+  });
+
+  it('derives the production verifier contract from canonical release metadata', () => {
+    assert.match(productionVerifier, /production-image-manifest\.json/);
+    assert.match(productionVerifier, /docker-compose\.release-build\.yml/);
+    assert.match(productionVerifier, /manifest\[name\]/);
+    assert.match(productionVerifier, /release\.imageId/);
+    assert.match(productionVerifier, /release\.tag/);
+    assert.match(productionVerifier, /docker["], \["image", "inspect"/);
+    assert.doesNotMatch(productionVerifier, /sha256:[a-f0-9]{64}/);
   });
 
   it('provides a post-enrollment DB-only runtime with no bootstrap credential mounts', () => {

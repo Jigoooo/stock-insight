@@ -80,7 +80,19 @@ function useFocusTrap(
     return () => {
       window.cancelAnimationFrame(frame);
       document.removeEventListener('keydown', onKeyDown);
-      if (previousFocus?.isConnected) window.setTimeout(() => previousFocus.focus(), 0);
+      if (previousFocus?.isConnected) {
+        window.setTimeout(() => {
+          const currentFocus = document.activeElement;
+          if (
+            previousFocus.isConnected &&
+            (currentFocus === null ||
+              currentFocus === document.body ||
+              container.contains(currentFocus))
+          ) {
+            previousFocus.focus();
+          }
+        }, 0);
+      }
     };
   }, [active, containerRef]);
 }

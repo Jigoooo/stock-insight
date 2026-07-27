@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { publicBlockTypeForVerification } from './truth-gate.ts';
+import { buildKnowledgeSnapshotId } from '../ingest/knowledge-revision-contract.ts';
 
 // SET D / D-6: report publishing skeleton with atomic pointer switch.
 // Seeds daily_market_stock definition v1, builds an evidence-first structured
@@ -36,30 +38,60 @@ SELECT report_definition_id FROM content.report_definition
 WHERE report_type = 'daily_market_stock' AND active AND version = 1
 `;
 
-const RECENT_EVENTS_SQL = `
+export const RECENT_EVENTS_SQL = `
 SELECT event.event_id, event.event_type, event.summary_text, event.occurred_at,
        event.verification_status,
        event.source_document_id, entity.canonical_name AS target_name,
-       document.title AS document_title, document.canonical_url
+       document.title AS document_title, document.canonical_url,
+       evidence.chunk_id, chunk.revision_no
 FROM knowledge.event event
+JOIN knowledge.event_evidence evidence
+  ON evidence.event_id=event.event_id
+ AND evidence.document_id=event.source_document_id
+JOIN knowledge.document_chunk chunk
+  ON chunk.chunk_id=evidence.chunk_id
+ AND chunk.document_id=evidence.document_id
+JOIN knowledge.document document ON document.document_id = event.source_document_id
 LEFT JOIN core.entity entity ON entity.entity_id = event.target_entity_id
-LEFT JOIN knowledge.document document ON document.document_id = event.source_document_id
 WHERE event.source_document_id IS NOT NULL
+  AND document.processing_status='extracted'
+  AND chunk.revision_no = coalesce(
+    CASE WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+      THEN (document.metadata ->> 'revision_no')::integer END,
+    1
+  )
+  AND event.created_at <= $1::timestamptz
+  AND document.available_at <= $1::timestamptz
+  AND chunk.available_at <= $1::timestamptz
+  AND chunk.ingested_at <= $1::timestamptz
   AND coalesce(event.occurred_at, event.created_at) <= $1::timestamptz
   AND coalesce(event.occurred_at, event.created_at) >= $1::timestamptz - interval '7 days'
 ORDER BY coalesce(event.occurred_at, event.created_at) DESC
 LIMIT $2
 `;
 
-const RECENT_CLAIMS_SQL = `
+export const RECENT_CLAIMS_SQL = `
 SELECT claim.claim_id, claim.predicate, claim.claim_type, claim.object_value,
        claim.extraction_confidence, subject.canonical_name AS subject_name,
-       evidence.quote, evidence.document_id
+       evidence.quote, evidence.document_id, evidence.chunk_id, chunk.revision_no
 FROM knowledge.claim claim
 JOIN core.entity subject ON subject.entity_id = claim.subject_entity_id
 JOIN knowledge.claim_evidence evidence ON evidence.claim_id = claim.claim_id
+JOIN knowledge.document_chunk chunk
+  ON chunk.chunk_id=evidence.chunk_id
+ AND chunk.document_id=evidence.document_id
+JOIN knowledge.document document ON document.document_id=evidence.document_id
 WHERE claim.observed_at <= $1::timestamptz
   AND claim.observed_at >= $1::timestamptz - interval '7 days'
+  AND document.processing_status='extracted'
+  AND chunk.revision_no = coalesce(
+    CASE WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+      THEN (document.metadata ->> 'revision_no')::integer END,
+    1
+  )
+  AND document.available_at <= $1::timestamptz
+  AND chunk.available_at <= $1::timestamptz
+  AND chunk.ingested_at <= $1::timestamptz
   AND claim.verification_status <> 'untrusted_legacy'
 ORDER BY claim.observed_at DESC
 LIMIT $2
@@ -129,6 +161,8 @@ type EventRow = QueryResultRow & {
   target_name: string | null;
   document_title: string | null;
   canonical_url: string | null;
+  chunk_id: string | number;
+  revision_no: number;
 };
 
 type ClaimRow = QueryResultRow & {
@@ -140,6 +174,8 @@ type ClaimRow = QueryResultRow & {
   subject_name: string;
   quote: string | null;
   document_id: string | number;
+  chunk_id: string | number;
+  revision_no: number;
 };
 
 type ReportBlock = {
@@ -178,10 +214,6 @@ function validateBlocks(blocks: ReportBlock[]): string[] {
 
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
-  const asOf = new Date();
-  const scheduledFor = new Date(
-    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
-  );
 
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
@@ -196,10 +228,31 @@ async function run(): Promise<void> {
     const definitionId = definition.rows[0]?.report_definition_id;
     if (definitionId === undefined) throw new Error('daily_market_stock definition missing');
 
-    await client.query('BEGIN READ ONLY');
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const cutoff = await client.query<QueryResultRow & { as_of: string | Date }>(
+      'SELECT clock_timestamp() AS as_of',
+    );
+    const asOf = new Date(cutoff.rows[0]!.as_of);
+    const scheduledFor = new Date(
+      Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
+    );
     const events = await client.query<EventRow>(RECENT_EVENTS_SQL, [asOf.toISOString(), 12]);
     const claims = await client.query<ClaimRow>(RECENT_CLAIMS_SQL, [asOf.toISOString(), 8]);
     await client.query('COMMIT');
+    const knowledgeSnapshotId = buildKnowledgeSnapshotId(asOf.toISOString(), [
+      ...events.rows.map((event) => ({
+        kind: 'event' as const,
+        id: event.event_id,
+        chunkId: event.chunk_id,
+        revisionNo: event.revision_no,
+      })),
+      ...claims.rows.map((claim) => ({
+        kind: 'claim' as const,
+        id: claim.claim_id,
+        chunkId: claim.chunk_id,
+        revisionNo: claim.revision_no,
+      })),
+    ]);
 
     // Build structured payload (template generator — LLM narration lands later).
     const citationMap: Record<
@@ -277,12 +330,13 @@ async function run(): Promise<void> {
       console.log(JSON.stringify({ mode: 'dry-run', jobName: JOB_NAME, audit }, null, 2));
       return;
     }
-    if (eventBlocks.length === 0) throw new Error('No verified events; refusing empty publish');
+    if (eventBlocks.length === 0) {
+      throw new Error('No recent document-backed events; refusing empty publish');
+    }
     if (gateFailures.length > 0) {
       throw new Error(`Hard gate failures: ${gateFailures.join('; ')}`);
     }
 
-    const knowledgeSnapshotId = `knowledge@${asOf.toISOString()}`;
     await client.query('BEGIN');
     await client.query("SELECT set_config('statement_timeout', '120s', true)");
     const runRow = await client.query<QueryResultRow & { report_run_id: number }>(INSERT_RUN_SQL, [
@@ -355,4 +409,4 @@ async function run(): Promise<void> {
   }
 }
 
-await run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await run();

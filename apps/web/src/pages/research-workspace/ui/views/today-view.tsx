@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import {
   AvailabilityNotice,
@@ -50,6 +50,10 @@ export function TodayView({
   onSelectRecord: (item: ResearchFeedItem) => void;
 }) {
   const laneTabRefs = useRef<Partial<Record<ResearchFeedLaneId, HTMLButtonElement | null>>>({});
+  const [rovingIntent, setRovingIntent] = useState({ baseLane: lane, targetLane: lane });
+  const rovingLane = rovingIntent.baseLane === lane ? rovingIntent.targetLane : lane;
+  const setRovingLane = (nextLane: ResearchFeedLaneId) =>
+    setRovingIntent({ baseLane: lane, targetLane: nextLane });
   const feedRef = useRef<HTMLDivElement>(null);
   useWorkspaceAppendReveal({
     keys: items.map((item) => item.recordKey),
@@ -67,8 +71,8 @@ export function TodayView({
     event.preventDefault();
     const nextLane = data.lanes[nextIndex]?.lane;
     if (!nextLane) return;
-    onLaneChange(nextLane);
-    requestAnimationFrame(() => laneTabRefs.current[nextLane]?.focus());
+    setRovingLane(nextLane);
+    laneTabRefs.current[nextLane]?.focus({ preventScroll: true });
   };
   const activeLaneIndex = Math.max(
     0,
@@ -134,10 +138,13 @@ export function TodayView({
               aria-busy={pendingLane === item.lane || undefined}
               aria-selected={lane === item.lane}
               aria-controls="research-feed-panel"
-              tabIndex={lane === item.lane ? 0 : -1}
+              tabIndex={rovingLane === item.lane ? 0 : -1}
               disabled={!interactive}
               onKeyDown={(event) => moveLaneFocus(event, index)}
-              onClick={() => onLaneChange(item.lane)}
+              onClick={() => {
+                setRovingLane(item.lane);
+                onLaneChange(item.lane);
+              }}
             >
               {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
             </Button>

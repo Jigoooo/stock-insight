@@ -33,11 +33,15 @@ LIMIT 1
 `;
 
 const LATEST_SERVABLE_HEADER_SQL = `
-SELECT builder_version, as_of, known_at, built_at, fresh_until
-FROM serving.v_relation_graph_freshness
-WHERE pack_kind = 'entity_relation_graph'
-  AND servable = true
-ORDER BY built_at DESC
+SELECT
+  snapshot.builder_version,
+  snapshot.as_of,
+  snapshot.known_at,
+  COALESCE(snapshot.sealed_at, snapshot.created_at) AS built_at,
+  COALESCE(snapshot.sealed_at, snapshot.created_at) + INTERVAL '36 hours' AS fresh_until
+FROM analytics.graph_snapshot snapshot
+WHERE snapshot.status = 'sealed'
+ORDER BY snapshot.as_of DESC, snapshot.known_at DESC, snapshot.graph_snapshot_id DESC
 LIMIT 1
 `;
 

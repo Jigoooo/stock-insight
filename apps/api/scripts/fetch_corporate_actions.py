@@ -1,4 +1,4 @@
-#!/home/jigoo/.hermes/hermes-agent/venv/bin/python3
+#!/usr/bin/env python3
 """Fetch corporate actions (dividends, splits) from yfinance and emit NDJSON.
 
 Input JSON: [{"market":"KR|US","symbol":"...","exchange":"KOSPI|KOSDAQ|US"}].

@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { reconcileClaimType, verifyAssertionSemantics } from './assertion-semantics.ts';
+import {
+  buildRevisionEventDedupeKey,
+  normalizeSourceRevision,
+} from './knowledge-revision-contract.ts';
 
 // SET D / D-5: LLM claim/event extraction worker (Gemini structured output).
 // Scope: news documents in knowledge.document with processing_status='pending'.
@@ -78,13 +83,68 @@ WHERE processing_status = 'pending'
 const PENDING_DOCS_SQL = `
 SELECT document.document_id, document.title,
        coalesce(nullif(document.metadata ->> 'summary', ''), '') AS summary,
-       document.published_at, document.observed_at
+       document.published_at, document.observed_at,
+       CASE
+         WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+           THEN (document.metadata ->> 'revision_no')::integer
+         ELSE 1
+       END AS revision_no
 FROM knowledge.document document
 WHERE document.processing_status = 'pending'
   AND document.source_type = 'news'
   AND document.title IS NOT NULL
+  AND ($2::text IS NULL OR document.metadata ->> 'knowledge_sync_run_id' = $2)
 ORDER BY document.observed_at DESC
 LIMIT $1
+`;
+
+export const CLAIM_PENDING_DOCUMENTS_SQL = `
+WITH candidates AS (
+  SELECT document.document_id
+  FROM knowledge.document document
+  WHERE document.source_type = 'news'
+    AND document.title IS NOT NULL
+    AND ($2::text IS NULL OR document.metadata ->> 'knowledge_sync_run_id' = $2)
+    AND (
+      document.processing_status = 'pending'
+      OR (
+        document.processing_status = 'chunked'
+        AND (
+          document.metadata ->> 'knowledge_extraction_owner' IS NULL
+          OR (document.metadata ->> 'knowledge_extraction_lease_until')::timestamptz
+             <= clock_timestamp()
+        )
+      )
+    )
+  ORDER BY document.observed_at DESC
+  FOR UPDATE SKIP LOCKED
+  LIMIT $1
+)
+UPDATE knowledge.document document
+SET processing_status = 'chunked',
+    metadata = document.metadata || jsonb_build_object(
+      'knowledge_extraction_owner', $3::text,
+      'knowledge_extraction_claimed_sync_run_id', document.metadata ->> 'knowledge_sync_run_id',
+      'knowledge_extraction_claimed_revision_no', CASE
+        WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+          THEN (document.metadata ->> 'revision_no')::integer
+        ELSE 1
+      END,
+      'knowledge_extraction_claimed_at', clock_timestamp()::text,
+      'knowledge_extraction_lease_until',
+        (clock_timestamp() + make_interval(secs => $4::double precision))::text
+    )
+FROM candidates
+WHERE document.document_id = candidates.document_id
+RETURNING document.document_id, document.title,
+          coalesce(nullif(document.metadata ->> 'summary', ''), '') AS summary,
+          document.published_at, document.observed_at,
+          CASE
+            WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+              THEN (document.metadata ->> 'revision_no')::integer
+            ELSE 1
+          END AS revision_no,
+          document.metadata ->> 'knowledge_sync_run_id' AS claimed_sync_run_id
 `;
 
 const DOC_ENTITIES_SQL = `
@@ -103,28 +163,111 @@ INSERT INTO knowledge.claim (
 RETURNING claim_id
 `;
 
-const INSERT_CLAIM_EVIDENCE_SQL = `
-INSERT INTO knowledge.claim_evidence (claim_id, document_id, chunk_id, quote)
-SELECT $1,$2,chunk.chunk_id,$3
-FROM knowledge.document_chunk chunk
-WHERE chunk.document_id=$2
-  AND position(lower(trim($3)) in lower(chunk.content))>0
-ORDER BY chunk.revision_no DESC,chunk.chunk_index
-LIMIT 1
-ON CONFLICT DO NOTHING
+export const INSERT_CLAIM_EVIDENCE_SQL = `
+WITH candidate AS (
+  SELECT chunk.chunk_id
+  FROM knowledge.document_chunk chunk
+  WHERE chunk.document_id=$2
+    AND position(lower(trim($3)) in lower(chunk.content))>0
+    AND chunk.revision_no=$4
+  ORDER BY chunk.chunk_index
+  LIMIT 1
+), inserted AS (
+  INSERT INTO knowledge.claim_evidence (claim_id, document_id, chunk_id, quote)
+  SELECT $1,$2,candidate.chunk_id,$3 FROM candidate
+  ON CONFLICT DO NOTHING
+  RETURNING chunk_id
+), bound AS (
+  SELECT chunk_id FROM inserted
+  UNION ALL
+  SELECT evidence.chunk_id
+  FROM knowledge.claim_evidence evidence
+  WHERE evidence.claim_id=$1 AND evidence.document_id=$2
+    AND NOT EXISTS (SELECT 1 FROM inserted)
+)
+SELECT candidate.chunk_id AS expected_chunk_id,
+       bound.chunk_id AS bound_chunk_id
+FROM candidate
+LEFT JOIN bound ON true
 `;
 
 const INSERT_EVENT_SQL = `
-INSERT INTO knowledge.event (
-  event_type, target_entity_id, occurred_at, announced_at, magnitude, magnitude_unit,
-  verification_status, dedupe_key, source_document_id, summary_text, extraction_run_id, metadata
-) VALUES ($1, $2, $3, $4, $5, $6, 'unverified', $7, $8, $9, $10, $11::jsonb)
-ON CONFLICT (dedupe_key) DO NOTHING
-RETURNING event_id
+WITH inserted AS (
+  INSERT INTO knowledge.event (
+    event_type, target_entity_id, occurred_at, announced_at, magnitude, magnitude_unit,
+    verification_status, dedupe_key, source_document_id, summary_text, extraction_run_id, metadata
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'unverified', $7, $8, $9, $10, $11::jsonb)
+  ON CONFLICT (dedupe_key) DO NOTHING
+  RETURNING event_id
+), resolved AS (
+  SELECT event_id FROM inserted
+  UNION ALL
+  SELECT event_id FROM knowledge.event WHERE dedupe_key=$7
+)
+SELECT event_id FROM resolved LIMIT 1
 `;
 
-const MARK_DOC_SQL = `
-UPDATE knowledge.document SET processing_status = $2 WHERE document_id = $1
+export const INSERT_EVENT_EVIDENCE_SQL = `
+WITH candidate AS (
+  SELECT chunk.chunk_id
+  FROM knowledge.document_chunk chunk
+  WHERE chunk.document_id=$2
+    AND position(lower(trim($3)) in lower(chunk.content))>0
+    AND chunk.revision_no=$4
+  ORDER BY chunk.chunk_index
+  LIMIT 1
+), inserted AS (
+  INSERT INTO knowledge.event_evidence (
+    event_id, document_id, chunk_id, quote, evidence_role, source_weight
+  )
+  SELECT $1,$2,candidate.chunk_id,$3,'support',NULL FROM candidate
+  ON CONFLICT (event_id, document_id) DO NOTHING
+  RETURNING chunk_id
+), bound AS (
+  SELECT chunk_id FROM inserted
+  UNION ALL
+  SELECT evidence.chunk_id
+  FROM knowledge.event_evidence evidence
+  WHERE evidence.event_id=$1 AND evidence.document_id=$2
+    AND NOT EXISTS (SELECT 1 FROM inserted)
+)
+SELECT candidate.chunk_id AS expected_chunk_id,
+       bound.chunk_id AS bound_chunk_id
+FROM candidate
+LEFT JOIN bound ON true
+`;
+
+export const MARK_DOCUMENT_EXTRACTED_SQL = `
+UPDATE knowledge.document document
+SET processing_status = 'extracted',
+    metadata = (
+      document.metadata
+      - 'knowledge_extraction_owner'
+      - 'knowledge_extraction_claimed_sync_run_id'
+      - 'knowledge_extraction_claimed_revision_no'
+      - 'knowledge_extraction_claimed_at'
+      - 'knowledge_extraction_lease_until'
+    ) || jsonb_build_object(
+      'knowledge_extraction_run_id', $2::text,
+      'knowledge_extracted_sync_run_id', $3::text,
+      'knowledge_extracted_revision_no', $4::integer,
+      'knowledge_extracted_at', clock_timestamp()::text
+    )
+WHERE document.document_id = $1
+  AND document.processing_status = 'chunked'
+  AND document.metadata ->> 'knowledge_extraction_owner' = $2
+  AND document.metadata ->> 'knowledge_extraction_claimed_sync_run_id'
+      IS NOT DISTINCT FROM $3::text
+  AND document.metadata ->> 'knowledge_sync_run_id' IS NOT DISTINCT FROM $3::text
+  AND (document.metadata ->> 'knowledge_extraction_claimed_revision_no')::integer = $4
+  AND CASE
+        WHEN document.metadata ->> 'revision_no' ~ '^[1-9][0-9]*$'
+          THEN (document.metadata ->> 'revision_no')::integer
+        ELSE 1
+      END = $4
+  AND (document.metadata ->> 'knowledge_extraction_lease_until')::timestamptz
+      > clock_timestamp()
+RETURNING document.document_id
 `;
 
 type PendingDoc = QueryResultRow & {
@@ -133,6 +276,13 @@ type PendingDoc = QueryResultRow & {
   summary: string;
   published_at: string | Date | null;
   observed_at: string | Date;
+  revision_no: number;
+  claimed_sync_run_id?: string | null;
+};
+
+type EvidenceBinding = QueryResultRow & {
+  expected_chunk_id: string | number;
+  bound_chunk_id: string | number | null;
 };
 
 type DocEntity = QueryResultRow & {
@@ -325,6 +475,10 @@ async function run(): Promise<void> {
   const limit = intOption('--limit', 24, 500);
   const extractionRunId = `${EXTRACTION_PIPELINE_VERSION}-${randomUUID()}`;
   const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
+  const syncRunId = process.env.KNOWLEDGE_SYNC_RUN_ID?.trim() || null;
+  if (syncRunId !== null && !/^knowledge-sync-[A-Za-z0-9._:-]{8,200}$/.test(syncRunId)) {
+    throw new Error('KNOWLEDGE_SYNC_RUN_ID has an invalid format');
+  }
 
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
@@ -342,8 +496,15 @@ async function run(): Promise<void> {
       await client.query('COMMIT');
     }
 
-    await client.query('BEGIN READ ONLY');
-    const pending = await client.query<PendingDoc>(PENDING_DOCS_SQL, [limit]);
+    await client.query(apply ? 'BEGIN' : 'BEGIN READ ONLY');
+    const pending = apply
+      ? await client.query<PendingDoc>(CLAIM_PENDING_DOCUMENTS_SQL, [
+          Math.min(limit, BATCH_SIZE),
+          syncRunId,
+          extractionRunId,
+          600,
+        ])
+      : await client.query<PendingDoc>(PENDING_DOCS_SQL, [limit, syncRunId]);
     const docIds = pending.rows.map((row) => Number(row.document_id));
     const links = docIds.length
       ? await client.query<DocEntity>(DOC_ENTITIES_SQL, [docIds])
@@ -435,6 +596,7 @@ async function run(): Promise<void> {
           stats.claimsDowngradedSemantics += 1;
         }
         const doc = docMeta.get(claim.document_id)!;
+        const revisionNo = normalizeSourceRevision(doc.revision_no);
         const inserted = await client.query<QueryResultRow & { claim_id: number }>(
           INSERT_CLAIM_SQL,
           [
@@ -449,6 +611,7 @@ async function run(): Promise<void> {
             extractionRunId,
             JSON.stringify({
               subject_mention: claim.subject_mention,
+              source_revision_no: revisionNo,
               model,
               semantics: {
                 decision: semantics.decision,
@@ -463,11 +626,16 @@ async function run(): Promise<void> {
         );
         const claimId = inserted.rows[0]?.claim_id;
         if (claimId !== undefined) {
-          await client.query(INSERT_CLAIM_EVIDENCE_SQL, [
+          const evidence = await client.query<EvidenceBinding>(INSERT_CLAIM_EVIDENCE_SQL, [
             claimId,
             claim.document_id,
             claim.quote.slice(0, 1000),
+            revisionNo,
           ]);
+          const binding = evidence.rows[0];
+          if (!binding || String(binding.expected_chunk_id) !== String(binding.bound_chunk_id)) {
+            throw new Error(`claim ${claimId} could not bind current-revision chunk evidence`);
+          }
           stats.claimsStored += 1;
         }
       }
@@ -483,28 +651,61 @@ async function run(): Promise<void> {
           linksByDoc.get(event.document_id) ?? [],
         );
         const doc = docMeta.get(event.document_id)!;
-        const dedupeKey = `${EXTRACTION_PIPELINE_VERSION}:${event.document_id}:${event.event_type}:${event.target_mention.toLowerCase().slice(0, 40)}`;
-        const inserted = await client.query(INSERT_EVENT_SQL, [
-          event.event_type,
-          targetId,
-          doc.published_at ?? doc.observed_at,
-          doc.published_at ?? doc.observed_at,
-          event.magnitude,
-          event.magnitude_unit,
-          dedupeKey,
-          event.document_id,
-          event.quote.slice(0, 2000),
-          extractionRunId,
-          JSON.stringify({
-            target_mention: event.target_mention,
-            model,
-            resolved: targetId !== null,
-          }),
-        ]);
-        if ((inserted.rowCount ?? 0) > 0) stats.eventsStored += 1;
+        const revisionNo = normalizeSourceRevision(doc.revision_no);
+        const dedupeKey = buildRevisionEventDedupeKey({
+          documentId: event.document_id,
+          revisionNo,
+          eventType: event.event_type,
+          targetMention: event.target_mention,
+        });
+        const inserted = await client.query<QueryResultRow & { event_id: number }>(
+          INSERT_EVENT_SQL,
+          [
+            event.event_type,
+            targetId,
+            doc.published_at ?? doc.observed_at,
+            doc.published_at ?? doc.observed_at,
+            event.magnitude,
+            event.magnitude_unit,
+            dedupeKey,
+            event.document_id,
+            event.quote.slice(0, 2000),
+            extractionRunId,
+            JSON.stringify({
+              target_mention: event.target_mention,
+              source_revision_no: revisionNo,
+              model,
+              resolved: targetId !== null,
+            }),
+          ],
+        );
+        const eventId = inserted.rows[0]?.event_id;
+        if (eventId !== undefined) {
+          const evidence = await client.query<EvidenceBinding>(INSERT_EVENT_EVIDENCE_SQL, [
+            eventId,
+            event.document_id,
+            event.quote.slice(0, 1000),
+            revisionNo,
+          ]);
+          const binding = evidence.rows[0];
+          if (!binding || String(binding.expected_chunk_id) !== String(binding.bound_chunk_id)) {
+            throw new Error(`event ${eventId} could not bind current-revision chunk evidence`);
+          }
+          stats.eventsStored += 1;
+        }
       }
       for (const doc of batch) {
-        await client.query(MARK_DOC_SQL, [doc.id, 'extracted']);
+        const claimedDocument = docMeta.get(doc.id);
+        if (!claimedDocument) throw new Error(`document ${doc.id} is outside the claimed batch`);
+        const terminal = await client.query(MARK_DOCUMENT_EXTRACTED_SQL, [
+          doc.id,
+          extractionRunId,
+          claimedDocument.claimed_sync_run_id ?? syncRunId,
+          normalizeSourceRevision(claimedDocument.revision_no),
+        ]);
+        if (terminal.rowCount !== 1) {
+          throw new Error(`document ${doc.id} lost extraction ownership before terminal commit`);
+        }
       }
       await client.query('COMMIT');
     }
@@ -535,4 +736,4 @@ async function run(): Promise<void> {
   }
 }
 
-await run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await run();

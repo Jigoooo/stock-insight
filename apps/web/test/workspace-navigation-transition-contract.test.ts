@@ -45,7 +45,7 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(today, /pendingLane\?: ResearchFeedLaneId \| null/);
     assert.match(today, /data-pending=\{pendingLane === item\.lane \|\| undefined\}/);
     assert.match(today, /aria-selected=\{lane === item\.lane\}/);
-    assert.match(today, /tabIndex=\{lane === item\.lane \? 0 : -1\}/);
+    assert.match(today, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
   });
 
   it('clears pending only from the current promise completion', async () => {
