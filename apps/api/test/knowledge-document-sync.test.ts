@@ -47,6 +47,13 @@ test('knowledge sync completion and snapshot lineage fail closed and stay determ
   assert.doesNotThrow(() =>
     assertKnowledgeSyncComplete({ unpromoted: 0, revision_drift: 0, chunks_missing: 0 }),
   );
+  const completedWithObservations = {
+    source_documents: 1_675,
+    unpromoted: 0,
+    revision_drift: 0,
+    chunks_missing: 0,
+  };
+  assert.doesNotThrow(() => assertKnowledgeSyncComplete(completedWithObservations));
   for (const field of ['unpromoted', 'revision_drift', 'chunks_missing'] as const) {
     assert.throws(() =>
       assertKnowledgeSyncComplete({

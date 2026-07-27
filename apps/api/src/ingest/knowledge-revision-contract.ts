@@ -46,7 +46,9 @@ export function buildRevisionEventDedupeKey(input: {
 }
 
 export function assertKnowledgeSyncComplete(plan: KnowledgeSyncPlan): void {
-  const unresolved = Object.entries(plan).filter(([, value]) => value !== 0);
+  const unresolved = (['unpromoted', 'revision_drift', 'chunks_missing'] as const)
+    .map((key) => [key, plan[key]] as const)
+    .filter(([, value]) => value !== 0);
   if (unresolved.length > 0) {
     throw new Error(
       `knowledge sync left unresolved rows: ${unresolved.map(([key, value]) => `${key}=${value}`).join(', ')}`,
