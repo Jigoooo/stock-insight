@@ -3,7 +3,7 @@ name: stock-insight
 
 services:
   api:
-    image: sha256:62ab22ab65ba9ecffd6fc87307e03069b22855f2b160d465c482edded92ec099
+    image: sha256:13d5d8f4bb657e051124e7cbabcb5d4eaf14b86bfefff41792658fe794e53661
     pull_policy: never
     environment:
       NODE_ENV: production
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: sha256:936f33193b76bf50392ef4afe94eb62a691da7f11271a9d6923886841cd800ae
+    image: sha256:ec178a425073d7404f940d6d4d586dd4a05a3eabe862f57724eede874c2bab49
     pull_policy: never
     environment:
       NODE_ENV: production

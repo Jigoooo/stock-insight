@@ -45,6 +45,7 @@ const productionImageManifest = JSON.parse(
 ) as ProductionImageManifest;
 const dockerfile = read('../Dockerfile');
 const apiDockerfile = read('../../api-server/Dockerfile');
+const productionVerifier = read('../../../ops/scripts/verify-production-compose.sh');
 
 describe('release deployment isolation', () => {
   it('gives enrollment E2E only explicit candidate reader/writer DSNs and dedicated secrets', () => {
@@ -86,8 +87,8 @@ describe('release deployment isolation', () => {
     assert.doesNotMatch(productionDbOnly, /STOCK_INSIGHT_(APP|API)_IMAGE/);
     assert.equal((productionDbOnly.match(/pull_policy: never/g) ?? []).length, 2);
     assert.doesNotMatch(productionDbOnly, /^\s+build:/m);
-    assert.match(releaseBuild, /image: stock-insight-app:p1p6-380fb1cb/);
-    assert.match(releaseBuild, /image: stock-insight-api:p1p6-380fb1cb/);
+    assert.match(productionImageManifest.app.tag, /^stock-insight-app:[a-f0-9]{7}$/);
+    assert.match(productionImageManifest.api.tag, /^stock-insight-api:[a-f0-9]{7}$/);
     assert.match(releaseBuild, /build:\s+context: \.\s+dockerfile: apps\/web\/Dockerfile/);
     assert.match(releaseBuild, /build:\s+context: \.\s+dockerfile: apps\/api-server\/Dockerfile/);
     for (const buildManifest of [dockerfile, apiDockerfile]) {
@@ -107,6 +108,16 @@ describe('release deployment isolation', () => {
       () => assertProductionImagesBound(mutated, productionImageManifest),
       /production API image does not match release metadata/,
     );
+  });
+
+  it('derives the production verifier contract from canonical release metadata', () => {
+    assert.match(productionVerifier, /production-image-manifest\.json/);
+    assert.match(productionVerifier, /docker-compose\.release-build\.yml/);
+    assert.match(productionVerifier, /manifest\[name\]/);
+    assert.match(productionVerifier, /release\.imageId/);
+    assert.match(productionVerifier, /release\.tag/);
+    assert.match(productionVerifier, /docker["], \["image", "inspect"/);
+    assert.doesNotMatch(productionVerifier, /sha256:[a-f0-9]{64}/);
   });
 
   it('provides a post-enrollment DB-only runtime with no bootstrap credential mounts', () => {
