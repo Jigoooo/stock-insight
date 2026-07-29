@@ -117,6 +117,29 @@ describe('admin invitations runtime', () => {
     );
   });
 
+  // get_app_capabilities() returns an empty set for an authenticated user who
+  // has no row in app_account_roles. That is an ordinary account, not a broken
+  // one, so it must resolve to the least-privileged answer instead of throwing.
+  it('treats a roleless account as a plain member without throwing', async () => {
+    const db = recordingExecutor([]);
+    assert.deepEqual(await loadAdminCapabilities(db.executor), {
+      role: 'member',
+      canManageInvitations: false,
+    });
+  });
+
+  // More than one row IS impossible and must stay loud.
+  it('still fails closed when the capability query returns multiple rows', async () => {
+    const db = recordingExecutor([
+      { role: 'owner', can_manage_invitations: true },
+      { role: 'member', can_manage_invitations: false },
+    ]);
+    await assert.rejects(
+      () => loadAdminCapabilities(db.executor),
+      /Invalid admin invitation state/,
+    );
+  });
+
   it('revokes through the DB function and distinguishes a missing active row', async () => {
     const successDb = recordingExecutor([
       {
