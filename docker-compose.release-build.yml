@@ -4,13 +4,13 @@ name: stock-insight-release-build
 
 services:
   api:
-    image: stock-insight-api:5e5cc7c
+    image: stock-insight-api:c8c583f
     build:
       context: .
       dockerfile: apps/api-server/Dockerfile
 
   app:
-    image: stock-insight-app:47842c5
+    image: stock-insight-app:c8c583f
     build:
       context: .
       dockerfile: apps/web/Dockerfile

@@ -26,11 +26,17 @@ function assertProductionImagesBound(
   compose: string,
   expected: ProductionImageManifest,
 ): { api: string; app: string } {
-  const imagePattern = /image: (sha256:[a-f0-9]{64})\n\s+pull_policy: never/;
+  // The digest is the DEFAULT of a per-host override variable (same shape
+  // docker-compose.edge.yml uses), so a host that builds its own image sets
+  // STOCK_INSIGHT_{API,APP}_IMAGE instead of editing a tracked file. The
+  // committed default must still be an immutable digest that matches the
+  // release manifest — a floating tag here would defeat the pin entirely.
+  const imagePattern =
+    /image: \$\{STOCK_INSIGHT_(?:API|APP)_IMAGE:-(sha256:[a-f0-9]{64})\}\n\s+pull_policy: never/;
   const api = imagePattern.exec(serviceBlock(compose, 'api'))?.[1];
   const app = imagePattern.exec(serviceBlock(compose, 'app'))?.[1];
-  assert.ok(api);
-  assert.ok(app);
+  assert.ok(api, 'api image must be a digest-defaulted override variable');
+  assert.ok(app, 'app image must be a digest-defaulted override variable');
   assert.equal(api, expected.api.imageId, 'production API image does not match release metadata');
   assert.equal(app, expected.app.imageId, 'production app image does not match release metadata');
   return { api: api!, app: app! };
@@ -84,7 +90,14 @@ describe('release deployment isolation', () => {
     assert.match(releaseBuild, new RegExp(`image: ${productionImageManifest.app.tag}`));
     assert.doesNotMatch(api, /^\s+build:/m);
     assert.doesNotMatch(app, /^\s+build:/m);
-    assert.doesNotMatch(productionDbOnly, /STOCK_INSIGHT_(APP|API)_IMAGE/);
+    // The override variable exists so a host can point at its own build without
+    // dirtying a tracked file, but it must NEVER let production float: the
+    // default is a digest (asserted above), and no other image reference may
+    // appear. A bare tag, a registry path, or a ':?required' form would all
+    // break the immutability guarantee this test exists to protect.
+    assert.doesNotMatch(productionDbOnly, /image: \$\{STOCK_INSIGHT_\w+_IMAGE\}/);
+    assert.doesNotMatch(productionDbOnly, /image: \$\{STOCK_INSIGHT_\w+_IMAGE:\?/);
+    assert.doesNotMatch(productionDbOnly, /image: [a-z][\w./-]*:[\w.-]+$/m);
     assert.equal((productionDbOnly.match(/pull_policy: never/g) ?? []).length, 2);
     assert.doesNotMatch(productionDbOnly, /^\s+build:/m);
     assert.match(productionImageManifest.app.tag, /^stock-insight-app:[a-f0-9]{7}$/);
