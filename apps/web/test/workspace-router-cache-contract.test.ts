@@ -6,7 +6,14 @@ const rootUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 const routerUrl = new URL('../src/router.tsx', import.meta.url);
 const zodJitlessUrl = new URL('../src/zod-jitless.ts', import.meta.url);
 const authRouteUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
-const workspaceRouteUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
+// Path updated by the workspace route split: the shared route body moved from
+// routes/_authenticated/workspace.tsx (one route, ?view= param) to
+// pages/research-workspace/ui/workspace-view-route.tsx, which every per-tab
+// route now renders. The assertions below are unchanged.
+const workspaceRouteUrl = new URL(
+  '../src/pages/research-workspace/ui/workspace-view-route.tsx',
+  import.meta.url,
+);
 const pageUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.tsx',
   import.meta.url,

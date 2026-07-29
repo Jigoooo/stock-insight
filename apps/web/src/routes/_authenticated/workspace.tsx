@@ -1,61 +1,20 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { Outlet, createFileRoute } from '@tanstack/react-router';
 
-import { logout } from '@/pages/auth/model/auth-functions';
-import { loadResearchWorkspaceView } from '@/pages/research-workspace/model/load-research-workspace';
 import { validateWorkspaceSearch } from '@/pages/research-workspace/model/workspace-search';
-import type { WorkspaceViewCacheKey } from '@/pages/research-workspace/model/workspace-view-cache';
-import {
-  ResearchWorkspacePage,
-  type SectionId,
-} from '@/pages/research-workspace/ui/research-workspace-page';
 import boundaryStyles from '@/pages/research-workspace/ui/workspace-route-boundary.module.css';
 import { Button } from '@/shared/ui/primitives/button';
 
+// Layout route for the workspace. Each tab is a child route under
+// routes/_authenticated/workspace/, so the tab is now part of the PATH
+// (/workspace/stocks) rather than a search param (?view=stocks). This route owns
+// nothing but the shared boundary: the shell chrome is rendered by the child,
+// which already receives the full payload it needs.
+//
+// `lane`, `record` and `cursor` remain search params on purpose — they are
+// filter/position state within a tab, not separate screens, and they must not
+// force a route change.
 export const Route = createFileRoute('/_authenticated/workspace')({
   validateSearch: validateWorkspaceSearch,
-  loaderDeps: ({ search }) => ({
-    cursor: search.cursor,
-    lane: search.lane ?? 'must_know',
-    view: search.view ?? 'today',
-  }),
-  loader: async ({ abortController, context, deps }) => {
-    const activeLoadToken = context.workspaceViewCache.beginActiveLoad();
-    try {
-      const data = await context.workspaceViewCache.load(
-        workspaceCacheKey(context.session.user.id, deps.view, deps.lane, deps.cursor),
-        ({ signal }) => {
-          if (signal.aborted) return Promise.reject(signal.reason);
-          return loadResearchWorkspaceView({
-            data: {
-              cursor: deps.cursor,
-              lane: deps.lane,
-              view: deps.view,
-            },
-          });
-        },
-        { signal: abortController.signal },
-      );
-      if (abortController.signal.aborted) {
-        throw abortController.signal.reason ?? createRouteAbortError();
-      }
-      if (!context.workspaceViewCache.commitActive(data, activeLoadToken)) {
-        throw createRouteAbortError();
-      }
-      return { data, viewLoadError: undefined };
-    } catch (error) {
-      if (
-        abortController.signal.aborted ||
-        isAbortError(error) ||
-        !context.workspaceViewCache.isActiveLoad(activeLoadToken)
-      ) {
-        throw error;
-      }
-      const data = context.workspaceViewCache.getActive();
-      if (!data) throw error;
-      return { data, viewLoadError: deps.view };
-    }
-  },
-  pendingMs: Number.POSITIVE_INFINITY,
   errorComponent: WorkspaceRouteError,
   head: () => ({
     links: [
@@ -77,8 +36,12 @@ export const Route = createFileRoute('/_authenticated/workspace')({
       },
     ],
   }),
-  component: ResearchWorkspaceRoute,
+  component: WorkspaceLayout,
 });
+
+function WorkspaceLayout() {
+  return <Outlet />;
+}
 
 function WorkspaceRouteError() {
   return (
@@ -92,60 +55,4 @@ function WorkspaceRouteError() {
       </section>
     </main>
   );
-}
-
-function ResearchWorkspaceRoute() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  const loaderData = Route.useLoaderData();
-  const { session, workspaceViewCache } = Route.useRouteContext();
-  return (
-    <ResearchWorkspacePage
-      canManageInvitations={session.capabilities.canManageInvitations}
-      data={loaderData.data}
-      onLogout={async () => {
-        const result = await logout();
-        if (!result.ok) return false;
-        workspaceViewCache.clear();
-        return true;
-      }}
-      onPrefetchSection={(view) => {
-        const lane = search.lane ?? 'must_know';
-        void workspaceViewCache.prefetch(
-          workspaceCacheKey(session.user.id, view, lane),
-          () => loadResearchWorkspaceView({ data: { lane, view } }),
-          { priority: 'intent' },
-        );
-      }}
-      viewLoadError={loaderData.viewLoadError}
-      urlState={search}
-      onUrlStateChange={(next) =>
-        navigate({ search: (previous) => ({ ...previous, ...next }), replace: true })
-      }
-    />
-  );
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === 'AbortError';
-}
-
-function createRouteAbortError() {
-  const error = new Error('Workspace route load was superseded');
-  error.name = 'AbortError';
-  return error;
-}
-
-function workspaceCacheKey(
-  scopeVersion: string,
-  view: SectionId,
-  lane: WorkspaceViewCacheKey['lane'],
-  cursor?: string,
-): WorkspaceViewCacheKey {
-  return {
-    cursor: cursor ?? null,
-    lane: view === 'today' ? lane : null,
-    scopeVersion,
-    view,
-  };
 }

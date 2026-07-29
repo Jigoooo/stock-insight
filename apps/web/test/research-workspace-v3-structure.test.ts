@@ -45,7 +45,17 @@ const authRoute = readFileSync(
   'utf8',
 );
 const workspaceRoute = readFileSync(
+  new URL('../src/pages/research-workspace/ui/workspace-view-route.tsx', import.meta.url),
+  'utf8',
+);
+// The tab split moved shared route config into the layout, and per-tab config
+// into each view route; assert each contract where it actually lives.
+const workspaceLayout = readFileSync(
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
+  'utf8',
+);
+const todayRoute = readFileSync(
+  new URL('../src/routes/_authenticated/workspace/today.tsx', import.meta.url),
   'utf8',
 );
 const viteConfig = readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
@@ -73,16 +83,18 @@ describe('v3 research workspace structure', () => {
     assert.match(authRoute, /createFileRoute\('\/_authenticated'\)/);
     assert.match(authRoute, /getCurrentSession/);
     assert.match(authRoute, /throw redirect/);
-    assert.match(workspaceRoute, /validateSearch: validateWorkspaceSearch/);
+    // Search validation moved to the workspace LAYOUT route; the per-tab routes
+    // inherit it, so the contract is asserted where it now lives.
+    assert.match(workspaceLayout, /validateSearch: validateWorkspaceSearch/);
     assert.match(workspaceRoute, /onUrlStateChange/);
     assert.match(page, /researchFeed\(\{ lane, cursor, limit: 20 \}\)/);
     assert.match(page, /timeZone:\s*'Asia\/Seoul'/);
-    assert.match(workspaceRoute, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
+    assert.match(todayRoute, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
     assert.doesNotMatch(workspaceRoute, /pendingComponent:\s*WorkspaceRoutePending/);
-    assert.match(workspaceRoute, /errorComponent:\s*WorkspaceRouteError/);
-    assert.match(workspaceRoute, /workspace-route-error/);
+    assert.match(workspaceLayout, /errorComponent:\s*WorkspaceRouteError/);
+    assert.match(workspaceLayout, /workspace-route-error/);
     assert.match(page, /workspace-view-load-error/);
-    assert.match(workspaceRoute, /window\.location\.reload\(\)/);
+    assert.match(workspaceLayout, /window\.location\.reload\(\)/);
   });
 
   it('maps every machine-facing value to stable Korean workspace copy', () => {

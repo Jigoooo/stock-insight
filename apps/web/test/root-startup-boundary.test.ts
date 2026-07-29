@@ -11,7 +11,15 @@ const fieldHaloUrl = new URL('../src/shared/ui/primitives/field-motion-halo.tsx'
 const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
 const loginPageUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
 const signupPageUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
-const workspaceRouteUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
+// Path updated by the workspace route split: the shared route body moved from
+// routes/_authenticated/workspace.tsx (one route, ?view= param) to
+// pages/research-workspace/ui/workspace-view-route.tsx, which every per-tab
+// route now renders. The assertions below are unchanged.
+const workspaceRouteUrl = new URL(
+  '../src/pages/research-workspace/ui/workspace-view-route.tsx',
+  import.meta.url,
+);
+const workspaceLayoutUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
 const deferredHostUrl = new URL('../src/shared/ui/toast/deferred-toast-host.tsx', import.meta.url);
 const notifyUrl = new URL('../src/shared/ui/toast/notify.ts', import.meta.url);
 const motionToastUrl = new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url);
@@ -65,13 +73,21 @@ describe('public root startup boundary', () => {
   });
 
   it('keeps workspace initial and local error fallbacks free of the side-effectful primitive barrel', async () => {
-    const workspaceRoute = await read(workspaceRouteUrl);
+    // After the tab split the error fallback lives in the workspace LAYOUT route
+    // and the view body in workspace-view-route; the barrel-import ban applies to
+    // both, while the direct button import belongs to the fallback.
+    const [workspaceLayout, workspaceRoute] = await Promise.all([
+      read(workspaceLayoutUrl),
+      read(workspaceRouteUrl),
+    ]);
 
-    assert.doesNotMatch(workspaceRoute, /from ['"]@\/shared\/ui\/primitives['"]/);
-    assert.doesNotMatch(workspaceRoute, /ErrorState|Skeleton(?:Lines)?/);
-    assert.match(workspaceRoute, /primitives\/button/);
+    for (const source of [workspaceLayout, workspaceRoute]) {
+      assert.doesNotMatch(source, /from ['"]@\/shared\/ui\/primitives['"]/);
+      assert.doesNotMatch(source, /ErrorState|Skeleton(?:Lines)?/);
+      assert.doesNotMatch(source, /WorkspaceRoutePending/);
+    }
+    assert.match(workspaceLayout, /primitives\/button/);
     assert.match(workspaceRoute, /viewLoadError/);
-    assert.doesNotMatch(workspaceRoute, /WorkspaceRoutePending/);
   });
 
   it('ships only dedicated control CSS to the public auth route', async () => {

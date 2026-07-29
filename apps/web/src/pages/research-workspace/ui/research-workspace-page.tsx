@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import {
   Activity,
   AlertCircle,
@@ -651,8 +652,12 @@ export function ResearchWorkspacePage({
       setLocalSection(next);
       return;
     }
+    // The <Link> performs the navigation itself, so this only records the
+    // pending intent (which tab is loading) and settles it once the router has
+    // committed. Calling requestNavigation here would navigate a second time.
     if (next === section && navigationIntent.pendingSection === null) return;
-    requestNavigation('section', next, { view: next });
+    const sequence = ++navigationSequenceRef.current;
+    dispatchNavigationIntent({ kind: 'section', sequence, type: 'request', value: next });
   };
 
   const selectLane = (next: ResearchFeedLaneId) => {
@@ -854,15 +859,17 @@ export function ResearchWorkspacePage({
             style={{ transform: `translate3d(0, ${activeSectionIndex * 48}px, 0)` }}
           />
           {sections.map(({ id, label, icon: Icon }) => (
-            <Button
+            /* A real anchor, not a click handler: each tab is its own route now,
+               so the browser gets a href it can middle-click, open in a new tab
+               and prefetch, while TanStack intercepts the click for a
+               client-side transition. */
+            <Link
               key={id}
-              type="button"
-              motion="quiet"
+              to={`/workspace/${id}`}
               data-testid={`workspace-nav-${id}`}
               data-pending={navigationIntent.pendingSection === id || undefined}
               aria-busy={navigationIntent.pendingSection === id || undefined}
               aria-current={section === id ? 'page' : undefined}
-              disabled={!hydrated}
               onFocus={() => onPrefetchSection?.(id)}
               onPointerEnter={() => onPrefetchSection?.(id)}
               onClick={() => selectSection(id)}
@@ -871,7 +878,7 @@ export function ResearchWorkspacePage({
               <span>{label}</span>
               {id === 'radar' && <small>{formatNumber(data.shell.radarScopeTotal)}</small>}
               {id === 'research' && <small>{data.shell.watchlistCount}</small>}
-            </Button>
+            </Link>
           ))}
         </nav>
         <div className={styles.sidebarFoot}>
