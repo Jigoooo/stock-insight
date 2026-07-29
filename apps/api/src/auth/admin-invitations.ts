@@ -107,7 +107,15 @@ export async function loadAdminCapabilities(
   const rows = await executor<{ role: unknown; can_manage_invitations: unknown }>(
     'SELECT role, can_manage_invitations FROM public.get_app_capabilities()',
   );
-  if (rows.length !== 1) throw invalidState();
+  // Zero rows is a NORMAL state, not corruption: current_app_account_role()
+  // returns an empty set for any authenticated user who simply has no row in
+  // app_account_roles. Treating it as an error made every request from such a
+  // user throw, filling the brain's logs with stack traces while the BFF's
+  // fail-closed wrapper silently downgraded them to 'member' anyway. Answer the
+  // least-privileged role directly and keep the failure signal for states that
+  // really are impossible (multiple rows, unknown role, inconsistent flag).
+  if (rows.length === 0) return { role: 'member', canManageInvitations: false };
+  if (rows.length > 1) throw invalidState();
   const role = rows[0]?.role;
   const canManageInvitations = rows[0]?.can_manage_invitations;
   if (
