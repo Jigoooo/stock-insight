@@ -26,13 +26,9 @@ export function WorkspaceViewRoute({ loaderData }: { loaderData: WorkspaceRouteL
         return true;
       }}
       onPrefetchSection={(view) => {
-        const lane = search.lane ?? 'must_know';
         void workspaceViewCache.prefetch(
-          workspaceCacheKey(session.user.id, view, lane),
-          () =>
-            loadResearchWorkspaceView({
-              data: { ...(view === 'today' ? { lane } : {}), view },
-            }),
+          workspaceCacheKey(session.user.id, view),
+          () => loadResearchWorkspaceView({ data: { view } }),
           { priority: 'intent' },
         );
       }}

@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Check, Copy, ShieldCheck, UserPlus, XCircle } from 'lucide-react';
 import { useRef, useState, useTransition, type FormEvent } from 'react';
 
@@ -103,9 +104,11 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <a className={styles.backLink} href="/workspace">
+        {/* A raw <a> here forced a full document reload on every trip back to
+            the workspace; <Link> keeps it a client-side transition. */}
+        <Link className={styles.backLink} to="/workspace/today">
           <ArrowLeft aria-hidden="true" /> 워크스페이스
-        </a>
+        </Link>
         <div className={styles.headingRow}>
           <div>
             <span className={styles.eyebrow}>Access control</span>

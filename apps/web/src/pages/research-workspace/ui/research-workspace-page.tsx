@@ -459,10 +459,13 @@ export function ResearchWorkspacePage({
   const navigationScrimRef = useRef<HTMLButtonElement>(null);
   const api = useMemo(() => createApiClient(), []);
   const section = onUrlStateChange ? data.view : localSection;
+  // The URL is authoritative for the selected lane, not the payload. The today
+  // payload carries all three lanes and its `lane` field only echoes whatever
+  // the loader was last called with — now that lane is no longer a loader dep,
+  // reading it from `data` would pin the UI to the lane at load time and leave
+  // the tab highlight stuck while the URL moved on.
   const lane = onUrlStateChange
-    ? data.view === 'today'
-      ? data.lane
-      : (urlState.lane ?? 'must_know')
+    ? (urlState.lane ?? (data.view === 'today' ? data.lane : 'must_know'))
     : localLane;
   const mobileNavHidden = isMobileViewport && !mobileNavOpen;
   const mobileNavModalOpen = isMobileViewport && mobileNavOpen;

@@ -5,8 +5,6 @@ import type {
   ResearchWorkspaceViewPayload,
 } from './workspace-view-payload';
 
-import type { ResearchFeedLaneId } from '@stock-insight/contracts/research-workspace';
-
 // Each tab is its own route, so each route loads only its own view. Previously a
 // single loader keyed on `search.view` served all eight tabs, which meant the
 // router re-ran the whole thing on every tab change and no route could be code
@@ -25,14 +23,14 @@ export type WorkspaceRouteLoaderResult = {
 export function workspaceCacheKey(
   scopeVersion: string,
   view: ResearchWorkspaceViewId,
-  lane: WorkspaceViewCacheKey['lane'],
   cursor?: string,
 ): WorkspaceViewCacheKey {
   return {
     cursor: cursor ?? null,
-    // Only the today feed is lane-scoped; keying other views by lane would
-    // fragment their cache entries for no reason.
-    lane: view === 'today' ? lane : null,
+    // Never lane-scoped. The today payload contains all three lanes, so keying
+    // by lane would store three identical copies and make a lane switch look
+    // like a cache miss — the exact round-trip this split removed.
+    lane: null,
     scopeVersion,
     view,
   };
@@ -45,21 +43,18 @@ export async function loadWorkspaceView(
     cache: WorkspaceViewCache<ResearchWorkspaceViewPayload>;
     userId: string;
     cursor?: string;
-    lane?: ResearchFeedLaneId;
   },
 ): Promise<WorkspaceRouteLoaderResult> {
   const { cache, signal, userId } = options;
-  const lane = options.lane ?? 'must_know';
   const activeLoadToken = cache.beginActiveLoad();
   try {
     const data = await cache.load(
-      workspaceCacheKey(userId, view, lane, options.cursor),
+      workspaceCacheKey(userId, view, options.cursor),
       ({ signal: loadSignal }) => {
         if (loadSignal.aborted) return Promise.reject(loadSignal.reason);
         return loadResearchWorkspaceView({
           data: {
             ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-            ...(view === 'today' ? { lane } : {}),
             view,
           },
         });

@@ -56,7 +56,7 @@ describe('workspace active-view route loader', () => {
     const source = await readFile(loaderUrl, 'utf8');
 
     assert.match(source, /cache\.load\(/);
-    assert.match(source, /workspaceCacheKey\(userId, view, lane, options\.cursor\)/);
+    assert.match(source, /workspaceCacheKey\(userId, view, options\.cursor\)/);
     assert.match(source, /signal/);
     assert.doesNotMatch(source, /loadResearchWorkspaceInitial/);
   });
@@ -65,11 +65,16 @@ describe('workspace active-view route loader', () => {
   // loader when a search param changes. If a non-today route grew loaderDeps it
   // would re-fetch on every lane/cursor change, which is the regression this
   // work removed.
-  it('scopes loaderDeps to the lane-scoped feed only', async () => {
+  // Only cursor may re-run a loader: it genuinely pages the feed server-side.
+  // `lane` must NOT appear — the today payload already carries all three lanes,
+  // so keying on it would restore the per-click round-trip that Phase 2 removed.
+  it('scopes loaderDeps to cursor only, and only on the paged feed', async () => {
     const today = await readFile(todayRouteUrl, 'utf8');
-    assert.match(today, /loaderDeps:\s*\(\{\s*search\s*\}\)\s*=>/);
-    assert.match(today, /lane:\s*search\.lane\s*\?\?\s*'must_know'/);
-    assert.match(today, /cursor:\s*search\.cursor/);
+    assert.match(
+      today,
+      /loaderDeps:\s*\(\{\s*search\s*\}\)\s*=>\s*\(\{\s*cursor:\s*search\.cursor\s*\}\)/,
+    );
+    assert.doesNotMatch(today, /lane:\s*search\.lane/);
 
     for (const view of VIEWS.filter((item) => item !== 'today')) {
       const source = await readFile(
