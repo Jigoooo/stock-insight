@@ -8,6 +8,7 @@ import { AppModule } from './app.module.ts';
 import { setInternalContextSecret } from './auth/internal-secret.ts';
 import { InternalContextExceptionFilter } from './common/internal-context-exception.filter.ts';
 import { NoStoreInterceptor } from './common/no-store.interceptor.ts';
+import { ZodExceptionFilter } from './common/zod-exception.filter.ts';
 import { parseApiServerEnv } from './config/env.ts';
 import { createInternalContextGuard } from './read/internal-context.guard.ts';
 
@@ -119,8 +120,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.useGlobalInterceptors(new NoStoreInterceptor());
   // Fail-closed scope refusals thrown from controllers must surface as 401, not
-  // as an opaque 500 from the default exception handler.
-  app.useGlobalFilters(new InternalContextExceptionFilter());
+  // as an opaque 500 from the default exception handler. Likewise a schema.parse()
+  // failure is a 400 client error, not a server fault.
+  app.useGlobalFilters(new InternalContextExceptionFilter(), new ZodExceptionFilter());
 
   // Internal-context enforcement: every data route requires a fresh HMAC-signed
   // per-request scope minted by the web/BFF. The api-server is never browser
