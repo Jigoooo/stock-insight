@@ -22,7 +22,8 @@ let pass = 0;
 let fail = 0;
 function check(name, actual, expected) {
   const ok = actual === expected;
-  ok ? pass++ : fail++;
+  if (ok) pass += 1;
+  else fail += 1;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}  got=${actual} want=${expected}`);
 }
 
@@ -38,52 +39,105 @@ const anonTok = (m, p, ttl = 60) =>
   signAnonymousInternalContext(KEY, { method: m, path: p, now: now(), ttlSeconds: ttl });
 
 console.log('=== A. cross-scope containment ===');
-check('anon token cannot read user data',
-  (await call('GET', '/v1/stocks', anonTok('GET', '/v1/stocks'))).statusCode, 401);
-check('user token cannot hit pre-auth login',
-  (await call('POST', '/v1/auth/authenticate', userTok('POST', '/v1/auth/authenticate'),
-    JSON.stringify({ username: 'a', password: 'b' }))).statusCode, 401);
-check('user token cannot hit pre-auth account lookup',
-  (await call('GET', '/v1/auth/account?userId=' + USER_A, userTok('GET', '/v1/auth/account'))).statusCode, 401);
-check('anon token cannot list invitations',
-  (await call('GET', '/v1/auth/invitations', anonTok('GET', '/v1/auth/invitations'))).statusCode, 401);
+check(
+  'anon token cannot read user data',
+  (await call('GET', '/v1/stocks', anonTok('GET', '/v1/stocks'))).statusCode,
+  401,
+);
+check(
+  'user token cannot hit pre-auth login',
+  (
+    await call(
+      'POST',
+      '/v1/auth/authenticate',
+      userTok('POST', '/v1/auth/authenticate'),
+      JSON.stringify({ username: 'a', password: 'b' }),
+    )
+  ).statusCode,
+  401,
+);
+check(
+  'user token cannot hit pre-auth account lookup',
+  (await call('GET', '/v1/auth/account?userId=' + USER_A, userTok('GET', '/v1/auth/account')))
+    .statusCode,
+  401,
+);
+check(
+  'anon token cannot list invitations',
+  (await call('GET', '/v1/auth/invitations', anonTok('GET', '/v1/auth/invitations'))).statusCode,
+  401,
+);
 
 console.log('\n=== B. MAC domain forgery ===');
 {
   const [, iat, exp, mac] = userTok('POST', '/v1/auth/authenticate').split('.');
-  check('user MAC replayed under anon subject',
-    (await call('POST', '/v1/auth/authenticate', `anon.${iat}.${exp}.${mac}`,
-      JSON.stringify({ username: 'a', password: 'b' }))).statusCode, 401);
+  check(
+    'user MAC replayed under anon subject',
+    (
+      await call(
+        'POST',
+        '/v1/auth/authenticate',
+        `anon.${iat}.${exp}.${mac}`,
+        JSON.stringify({ username: 'a', password: 'b' }),
+      )
+    ).statusCode,
+    401,
+  );
 }
 {
   const [, iat, exp, mac] = anonTok('GET', '/v1/stocks').split('.');
-  check('anon MAC replayed under uuid subject',
-    (await call('GET', '/v1/stocks', `${USER_A}.${iat}.${exp}.${mac}`)).statusCode, 401);
+  check(
+    'anon MAC replayed under uuid subject',
+    (await call('GET', '/v1/stocks', `${USER_A}.${iat}.${exp}.${mac}`)).statusCode,
+    401,
+  );
 }
 
 console.log('\n=== C. replay / binding ===');
-check('token bound to another path is rejected',
-  (await call('GET', '/v1/dashboard/today', userTok('GET', '/v1/stocks'))).statusCode, 401);
-check('token bound to another method is rejected',
-  (await call('GET', '/v1/stocks', userTok('POST', '/v1/stocks'))).statusCode, 401);
+check(
+  'token bound to another path is rejected',
+  (await call('GET', '/v1/dashboard/today', userTok('GET', '/v1/stocks'))).statusCode,
+  401,
+);
+check(
+  'token bound to another method is rejected',
+  (await call('GET', '/v1/stocks', userTok('POST', '/v1/stocks'))).statusCode,
+  401,
+);
 {
   const stale = signInternalUserContext(KEY, {
-    userId: USER_A, method: 'GET', path: '/v1/stocks', now: now() - 120, ttlSeconds: 60,
+    userId: USER_A,
+    method: 'GET',
+    path: '/v1/stocks',
+    now: now() - 120,
+    ttlSeconds: 60,
   });
   check('expired token is rejected', (await call('GET', '/v1/stocks', stale)).statusCode, 401);
 }
 {
   const foreign = signInternalUserContext(Buffer.alloc(48, 9), {
-    userId: USER_A, method: 'GET', path: '/v1/stocks', now: now(), ttlSeconds: 60,
+    userId: USER_A,
+    method: 'GET',
+    path: '/v1/stocks',
+    now: now(),
+    ttlSeconds: 60,
   });
-  check('foreign-secret token is rejected', (await call('GET', '/v1/stocks', foreign)).statusCode, 401);
+  check(
+    'foreign-secret token is rejected',
+    (await call('GET', '/v1/stocks', foreign)).statusCode,
+    401,
+  );
 }
 check('no token at all is rejected', (await call('GET', '/v1/stocks', undefined)).statusCode, 401);
 
 console.log('\n=== D. TTL ceiling (MAX_TTL_SECONDS) ===');
 try {
   signInternalUserContext(KEY, {
-    userId: USER_A, method: 'GET', path: '/v1/stocks', now: now(), ttlSeconds: 86_400,
+    userId: USER_A,
+    method: 'GET',
+    path: '/v1/stocks',
+    now: now(),
+    ttlSeconds: 86_400,
   });
   check('signing a 24h TTL must throw', 'no-throw', 'throw');
 } catch {
@@ -91,8 +145,11 @@ try {
 }
 
 console.log('\n=== E. query string is not part of the MAC ===');
-check('query string does not break path binding',
-  (await call('GET', '/v1/stocks?market=KR', userTok('GET', '/v1/stocks'))).statusCode, 200);
+check(
+  'query string does not break path binding',
+  (await call('GET', '/v1/stocks?market=KR', userTok('GET', '/v1/stocks'))).statusCode,
+  200,
+);
 
 console.log('\n=== F. scope isolation between two users ===');
 {
@@ -102,8 +159,12 @@ console.log('\n=== F. scope isolation between two users ===');
 
 console.log('\n=== G. auth responses never carry credential material ===');
 {
-  const r = await call('POST', '/v1/auth/authenticate', anonTok('POST', '/v1/auth/authenticate'),
-    JSON.stringify({ username: 'definitely-not-real', password: 'nope' }));
+  const r = await call(
+    'POST',
+    '/v1/auth/authenticate',
+    anonTok('POST', '/v1/auth/authenticate'),
+    JSON.stringify({ username: 'definitely-not-real', password: 'nope' }),
+  );
   check('login rejection is 200', r.statusCode, 200);
   check('no scrypt record in body', /scrypt\$|password_record/.test(r.body), false);
   check('no fingerprint leaked on rejection', /credentialFingerprint/.test(r.body), false);
