@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthController } from './auth/auth.controller.ts';
 import { parseApiServerEnv, type ApiServerEnv } from './config/env.ts';
 import { API_SERVER_DB, API_SERVER_ENV } from './config/tokens.ts';
 import { createDbService } from './db/db-service.ts';
@@ -8,10 +9,12 @@ import { MetaController } from './meta/meta.controller.ts';
 import { PersonalizationController } from './personalization/personalization.controller.ts';
 import { DashboardController } from './read/dashboard.controller.ts';
 import { DiscoverController } from './read/discover.controller.ts';
+import { GeoController } from './read/geo.controller.ts';
 import { MarketNewsController } from './read/market-news.controller.ts';
 import { MeController } from './read/me.controller.ts';
 import { PortfolioController } from './read/portfolio.controller.ts';
 import { ProductController } from './read/product.controller.ts';
+import { ResearchProductController } from './read/research-product.controller.ts';
 import { ResearchWorkspaceController } from './read/research-workspace.controller.ts';
 import { StocksController } from './read/stocks.controller.ts';
 import { ManualPortfolioController } from './write/manual-portfolio.controller.ts';
@@ -20,10 +23,13 @@ import { ManualPortfolioController } from './write/manual-portfolio.controller.t
   controllers: [
     HealthController,
     MetaController,
+    AuthController,
     DashboardController,
     MeController,
     PortfolioController,
     ProductController,
+    ResearchProductController,
+    GeoController,
     MarketNewsController,
     DiscoverController,
     ResearchWorkspaceController,

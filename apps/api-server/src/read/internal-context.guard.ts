@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, type CanActivate, type ExecutionContext } from '@nestjs/common';
 
-import { enterRequestUserScope } from './internal-context-store.ts';
-import { InternalContextError, verifyInternalUserContext } from './internal-user-context.ts';
+import { enterRequestScope } from './internal-context-store.ts';
+import { InternalContextError, verifyInternalContext } from './internal-user-context.ts';
 
 // Header the web/BFF sets when calling the internal api-server. Lowercase so it
 // matches Fastify's normalized header map.
@@ -33,13 +33,18 @@ function pathOf(url: string): string {
 }
 
 // WHY A GUARD AND NOT AN INTERCEPTOR:
-// Nest's InterceptorsConfumer builds its deferred handler with AsyncResource.bind
+// Nest's InterceptorsConsumer builds its deferred handler with AsyncResource.bind
 // BEFORE it invokes any interceptor. AsyncResource restores the async context
 // captured at BIND time, so an AsyncLocalStorage scope opened inside an
 // interceptor is invisible to the controller body — requireRequestUserScope()
 // then throws "No verified user scope is bound to this request" and every data
 // route answers 500. Guards run earlier in the same async chain, so binding the
 // scope here (via enterWith) is captured by that later AsyncResource.bind.
+//
+// The guard accepts BOTH scope kinds (user and anonymous). Distinguishing them
+// is the controller's job: data routes call requireRequestUserScope(), which
+// fails closed on an anonymous context, and pre-authentication auth routes
+// assert the anonymous kind explicitly.
 export function createInternalContextGuard(options: GuardOptions): CanActivate {
   const clock = options.clock ?? Date.now;
   const publicPaths = options.publicPaths ?? [];
@@ -57,14 +62,14 @@ export function createInternalContextGuard(options: GuardOptions): CanActivate {
         );
       }
       try {
-        const scope = verifyInternalUserContext(options.secret, token, {
+        const scope = verifyInternalContext(options.secret, token, {
           method: request.method,
           path,
           now: Math.floor(clock() / 1000),
         });
         // enterWith (not run()) so the scope survives for the remainder of this
         // request's async chain without needing to wrap a continuation.
-        enterRequestUserScope(scope);
+        enterRequestScope(scope);
         return true;
       } catch (error) {
         if (error instanceof InternalContextError) {

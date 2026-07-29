@@ -236,6 +236,39 @@ export {
   parseServerEnv,
   requireUserScope,
 } from './server';
+// Credential material (password records, invitation code digests) never leaves
+// the brain: these are imported by apps/api-server ONLY. apps/web talks to the
+// brain over HTTP and receives derived fingerprints instead.
+export {
+  createScryptPasswordRecordAsync,
+  parseScryptPasswordRecord,
+  verifyScryptPassword,
+  verifyScryptPasswordAsync,
+} from './auth/password-record';
+export type { ScryptPasswordRecord } from './auth/password-record';
+export { hashEnrollmentCode, verifyEnrollmentCode } from './auth/enrollment-code';
+export {
+  insertLocalAccount,
+  isEnrollmentConsumed,
+  loadLocalAccount,
+  loadLocalAccountById,
+  loadLocalAccountByUsername,
+} from './auth/local-account-repository';
+export type { LocalAccount, LocalAccountQueryExecutor } from './auth/local-account-repository';
+export {
+  generateInvitationCode,
+  issueAdminInvitation,
+  listAdminInvitations,
+  loadAdminCapabilities,
+  revokeAdminInvitation,
+} from './auth/admin-invitations';
+export type {
+  AccountRole,
+  AdminCapabilities,
+  AdminInvitation,
+  AdminQueryExecutor,
+  InvitationStatus,
+} from './auth/admin-invitations';
 export type {
   DashboardReadModel,
   DashboardRowQueryExecutor,

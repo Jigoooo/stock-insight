@@ -5,6 +5,8 @@ import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fa
 import { readFile } from 'node:fs/promises';
 
 import { AppModule } from './app.module.ts';
+import { setInternalContextSecret } from './auth/internal-secret.ts';
+import { InternalContextExceptionFilter } from './common/internal-context-exception.filter.ts';
 import { NoStoreInterceptor } from './common/no-store.interceptor.ts';
 import { parseApiServerEnv } from './config/env.ts';
 import { createInternalContextGuard } from './read/internal-context.guard.ts';
@@ -36,6 +38,41 @@ export {
   type PersonalizationMutationDeps,
   type PersonalizationMutationHttpResult,
 } from './personalization/personalization.service.ts';
+export {
+  credentialFingerprint,
+  toAccountIdentity,
+  type AccountIdentity,
+} from './auth/account-identity.ts';
+export {
+  authenticateCredentials,
+  enrollAccount,
+  resolveAccountIdentity,
+  type AuthenticateResult,
+  type EnrollDeps,
+  type EnrollResult,
+} from './auth/auth.service.ts';
+export {
+  getInternalContextSecret,
+  resetInternalContextSecret,
+  setInternalContextSecret,
+} from './auth/internal-secret.ts';
+export {
+  ANONYMOUS_SUBJECT,
+  InternalContextError,
+  signAnonymousInternalContext,
+  signInternalUserContext,
+  verifyInternalContext,
+  verifyInternalUserContext,
+  type InternalScope,
+  type InternalUserScope,
+} from './read/internal-user-context.ts';
+// Credential primitives are re-exported so the api-server bundle is the single
+// surface that owns password material. apps/web never imports these.
+export {
+  createScryptPasswordRecordAsync,
+  verifyScryptPasswordAsync,
+  type LocalAccount,
+} from '@stock-insight/api';
 
 export type CreateAppOptions = Readonly<{
   // Test/override hook: supply the internal-context signing secret directly
@@ -81,6 +118,9 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
   );
   app.setGlobalPrefix('v1', { exclude: ['health'] });
   app.useGlobalInterceptors(new NoStoreInterceptor());
+  // Fail-closed scope refusals thrown from controllers must surface as 401, not
+  // as an opaque 500 from the default exception handler.
+  app.useGlobalFilters(new InternalContextExceptionFilter());
 
   // Internal-context enforcement: every data route requires a fresh HMAC-signed
   // per-request scope minted by the web/BFF. The api-server is never browser
@@ -98,9 +138,14 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
   if (secret.length < 32) {
     throw new Error('Internal context secret must be at least 32 characters');
   }
+  const secretBytes = Buffer.from(secret, 'utf8');
+  // Publish the same secret to the auth surface, which derives credential
+  // fingerprints from it. Installed BEFORE the guard so no request can reach a
+  // controller while the holder is still empty.
+  setInternalContextSecret(secretBytes);
   app.useGlobalGuards(
     createInternalContextGuard({
-      secret: Buffer.from(secret, 'utf8'),
+      secret: secretBytes,
       // Liveness endpoints are unauthenticated: /health (no prefix) and /v1/meta.
       publicPaths: ['/health', '/v1/meta'],
     }),
