@@ -4,13 +4,13 @@ import {
   InternalContextError,
   type InternalScope,
   type InternalUserScope,
-} from './internal-user-context.ts';
+} from '@stock-insight/contracts/internal-context';
 
 export {
   InternalContextError,
   type InternalScope,
   type InternalUserScope,
-} from './internal-user-context.ts';
+} from '@stock-insight/contracts/internal-context';
 
 // Per-request verified scope, carried through the async call tree so read
 // contexts never fall back to an ambient/server-owned user id. Populated once

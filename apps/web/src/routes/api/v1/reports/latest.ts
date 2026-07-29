@@ -3,37 +3,21 @@ import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
-import { jsonResponse } from '@/server/http';
-import { loadLatestReports } from '@/server/product-api';
-import {
-  RequestScopeError,
-  resolveRequestUserId,
-  unauthorizedScopeResponse,
-} from '@/server/request-scope';
-import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
+import { brainProxyGet, firstParam } from '@/server/brain-proxy';
 
 const handlers = {
-  GET: async ({ request }: { request: Request }) => {
-    const url = new URL(request.url);
-    const reportType = normalizeProductTextParam(url.searchParams.getAll('type'));
-    const scopeKey = normalizeProductTextParam(url.searchParams.getAll('scope'));
-    const limit = normalizeProductLimitParam(url.searchParams.getAll('limit'));
-    try {
-      const userId = await resolveRequestUserId(request);
-      return jsonResponse(
-        await loadLatestReports(userId, {
-          ...(reportType !== undefined ? { reportType } : {}),
-          ...(scopeKey !== undefined ? { scopeKey } : {}),
-          ...(limit !== undefined ? { limit } : {}),
-        }),
-      );
-    } catch (error) {
-      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
-      throw error;
-    }
-  },
+  GET: brainProxyGet('/v1/reports/latest', {
+    query: (params) => ({
+      type: firstParam(params, 'type'),
+      scope: firstParam(params, 'scope'),
+      limit: firstParam(params, 'limit'),
+    }),
+  }),
 } satisfies Partial<Record<RouteMethod, ({ request }: { request: Request }) => Promise<Response>>>;
 
 export const Route = createFileRoute('/api/v1/reports/latest')({
-  server: { middleware: [authRequestMiddleware], handlers },
+  server: {
+    middleware: [authRequestMiddleware],
+    handlers,
+  },
 });

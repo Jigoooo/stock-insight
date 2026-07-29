@@ -49,7 +49,9 @@ describe('private authentication boundaries', () => {
 
   it('keeps login CSRF, rate limiting, and secure cookie issuance in the server function', async () => {
     const source = await readSource('pages/auth/model/auth-functions.ts');
-    const authSource = await readSource('server/auth/multi-user-auth.ts');
+    // P2 brain split: password verification moved to the brain, so the BFF's
+    // guarantee is now that it delegates instead of hashing locally.
+    const authSource = await readSource('server/auth/auth-runtime.ts');
     assert.match(source, /isSameOriginRequest/);
     assert.match(source, /globalLoginRateLimiter/);
     assert.match(source, /clientLoginRateLimiter/);
@@ -57,7 +59,8 @@ describe('private authentication boundaries', () => {
     assert.match(source, /loginPasswordGate\.tryAcquire/);
     assert.match(source, /normalizedClientKey/);
     assert.doesNotMatch(source, /x-real-ip|cf-connecting-ip|x-forwarded-for/i);
-    assert.match(authSource, /verifyScryptPasswordAsync/);
+    assert.match(authSource, /\/v1\/auth\/authenticate/);
+    assert.doesNotMatch(authSource, /verifyScryptPassword|scryptSync/);
     assert.match(source, /sessionCookieHeader/);
     assert.match(source, /setResponseHeader/);
   });
@@ -74,19 +77,21 @@ describe('private authentication boundaries', () => {
     assert.match(source, /clientEnrollmentRateLimiter/);
     assert.match(source, /loginPasswordGate\.tryAcquire/);
     assert.match(source, /sessionCookieHeader\(enrollment\.token/);
-    // Multi-user signup hashes the invite code and consumes it atomically in DB.
-    assert.match(runtimeSource, /hashEnrollmentCode/);
-    assert.match(runtimeSource, /createScryptPasswordRecordAsync/);
-    assert.match(runtimeSource, /consume_invitation_and_create_account/);
-    assert.match(runtimeSource, /issueSessionForAccount/);
-    // Login is username-first, not tied to a single server-owned id.
-    assert.match(runtimeSource, /loadLocalAccountByUsername/);
-    assert.match(runtimeSource, /loadLocalAccountById/);
+    // P2 brain split: invite-code hashing, password hashing and the atomic
+    // consume-and-create all moved to the brain. The BFF's contract is that it
+    // delegates over the internal channel and holds NO credential material.
+    assert.match(runtimeSource, /\/v1\/auth\/enroll/);
+    assert.doesNotMatch(runtimeSource, /hashEnrollmentCode|createScryptPasswordRecord/);
+    assert.doesNotMatch(runtimeSource, /consume_invitation_and_create_account/);
+    assert.doesNotMatch(runtimeSource, /SELECT|FROM public\./);
+    // Session resolution is still username/id based, with no server-owned id.
+    assert.match(runtimeSource, /\/v1\/auth\/account/);
     assert.doesNotMatch(runtimeSource, /requireUserScope|getConfiguredScope/);
-    assert.match(bindingSource, /if \(input\.localAccount\)/);
+    // Sessions stay credential-bound, but via the brain-issued fingerprint
+    // rather than a raw password record the BFF is no longer allowed to see.
     assert.match(bindingSource, /createHmac\('sha256'/);
-    assert.match(bindingSource, /\.update\(credential\.kind/);
-    assert.match(bindingSource, /\.update\(credential\.passwordRecord/);
+    assert.match(bindingSource, /credentialFingerprint/);
+    assert.doesNotMatch(bindingSource, /passwordRecord/);
   });
 
   it('enforces exact configured origin for every authenticated mutation request', async () => {

@@ -1,7 +1,10 @@
 import { HttpException, HttpStatus, type CanActivate, type ExecutionContext } from '@nestjs/common';
 
 import { enterRequestScope } from './internal-context-store.ts';
-import { InternalContextError, verifyInternalContext } from './internal-user-context.ts';
+import {
+  InternalContextError,
+  verifyInternalContext,
+} from '@stock-insight/contracts/internal-context';
 
 // Header the web/BFF sets when calling the internal api-server. Lowercase so it
 // matches Fastify's normalized header map.

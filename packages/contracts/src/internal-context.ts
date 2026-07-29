@@ -1,3 +1,12 @@
+// SERVER-ONLY MODULE. Reached via the '@stock-insight/contracts/internal-context'
+// subpath, never from the package root, so it cannot leak into a client bundle
+// (guarded by apps/web/test/server-only-imports.test.ts).
+//
+// It lives in contracts rather than in either app because BOTH sides depend on
+// byte-identical behaviour: the web/BFF signs the context and the api-server
+// verifies it. If the two implementations ever drifted, the MAC would silently
+// stop matching (fail-closed 401s) or — worse — a domain-separation bug would
+// only exist on one side.
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 // A short-TTL, HMAC-signed context that the web/BFF mints and the internal

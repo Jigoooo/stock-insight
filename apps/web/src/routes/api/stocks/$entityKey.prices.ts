@@ -3,15 +3,13 @@ import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
+import { BrainRequestError, brainRequest } from '@/server/brain-client';
 import { jsonResponse } from '@/server/http';
-
 import {
-  createPostgresPriceSeriesReadModel,
-  createReadOnlyDatabaseClient,
-  getPriceSeries,
-  type PriceSeriesDatabaseRow,
-  type PriceSeriesReadModel,
-} from '@stock-insight/api';
+  RequestScopeError,
+  resolveRequestUserId,
+  unauthorizedScopeResponse,
+} from '@/server/request-scope';
 
 type PriceSeriesRouteContext = {
   params: {
@@ -20,24 +18,31 @@ type PriceSeriesRouteContext = {
   request: Request;
 };
 
-function createRoutePriceSeriesReadModel(): PriceSeriesReadModel | undefined {
-  const db = createReadOnlyDatabaseClient();
-  if (db.kind === 'disabled') return undefined;
-
-  return createPostgresPriceSeriesReadModel((sql, params) =>
-    db.queryRows<PriceSeriesDatabaseRow & Record<string, unknown>>(sql, params),
-  );
-}
-
 const handlers = {
   GET: async ({ params, request }: PriceSeriesRouteContext) => {
     const range = new URL(request.url).searchParams.get('range') ?? undefined;
-    return jsonResponse(
-      await getPriceSeries(params.entityKey, {
-        ...(range === undefined ? {} : { range }),
-        readModel: createRoutePriceSeriesReadModel(),
-      }),
-    );
+    // Price series is shared market data, but the brain still requires a
+    // verified scope so any RLS-protected relation it touches stays consistent.
+    let userId: string;
+    try {
+      userId = await resolveRequestUserId(request);
+    } catch (error) {
+      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
+      throw error;
+    }
+    try {
+      return jsonResponse(
+        await brainRequest(`/v1/stocks/${encodeURIComponent(params.entityKey)}/prices`, {
+          scope: { kind: 'user', userId },
+          ...(range === undefined ? {} : { query: { range } }),
+        }),
+      );
+    } catch (error) {
+      if (error instanceof BrainRequestError && error.body !== undefined) {
+        return jsonResponse(error.body, { status: error.status });
+      }
+      throw error;
+    }
   },
 } satisfies Partial<Record<RouteMethod, (context: PriceSeriesRouteContext) => Promise<Response>>>;
 

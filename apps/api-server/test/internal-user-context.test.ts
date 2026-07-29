@@ -5,7 +5,7 @@ import {
   InternalContextError,
   signInternalUserContext,
   verifyInternalUserContext,
-} from '../src/read/internal-user-context.ts';
+} from '@stock-insight/contracts/internal-context';
 
 const SECRET = Buffer.alloc(32, 0x51);
 const USER_ID = '123e4567-e89b-42d3-a456-426614174000';

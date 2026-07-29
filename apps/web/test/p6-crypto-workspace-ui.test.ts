@@ -45,7 +45,7 @@ describe('P6-6 crypto read-only workspace vertical', () => {
       /\| \{ crypto: CryptoResearchWorkspace; shell: ResearchWorkspaceShellSummary; view: 'crypto' \}/,
     );
     const cryptoCase = loader.match(/case 'crypto':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
-    assert.match(cryptoCase, /getCryptoResearchWorkspace\(executor/);
+    assert.match(cryptoCase, /loadCryptoResearchWorkspace\(userId/);
     assert.match(cryptoCase, /activeSlice = \{ crypto, view: options\.view \}/);
   });
 

@@ -13,7 +13,7 @@ import {
   signInternalUserContext,
   verifyInternalContext,
   verifyInternalUserContext,
-} from '../src/read/internal-user-context.ts';
+} from '@stock-insight/contracts/internal-context';
 
 const SECRET = Buffer.alloc(32, 7);
 const USER_ID = '11111111-2222-4333-8444-555555555555';

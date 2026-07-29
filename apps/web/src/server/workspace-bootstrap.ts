@@ -1,20 +1,6 @@
 import '@tanstack/react-start/server-only';
 
-import {
-  createPostgresDashboardReadModel,
-  createPostgresMarketNewsReadModel,
-  createPostgresMeBootstrapReadModel,
-  createPostgresPortfolioDigestReadModel,
-  createPostgresStockReadModel,
-  createScopedReadOnlyDatabaseClient,
-  getDashboardBootstrap,
-  getMarketNews,
-  getMeBootstrap,
-  getPortfolioDigest,
-  getStockList,
-  parseServerEnv,
-  type StockDatabaseRow,
-} from '@stock-insight/api';
+import { brainRequest } from './brain-client.ts';
 import type {
   DashboardResponse,
   MarketNewsResponse,
@@ -31,33 +17,11 @@ export type WorkspaceBootstrap = {
   stockListResponse: StockListResponse;
 };
 
+// SSR bootstrap: five brain reads in parallel. The brain owns the
+// database-disabled fallback (each endpoint answers its own empty-state payload),
+// so the BFF no longer branches on connectivity.
 export async function loadWorkspaceBootstrapDirect(userId: string): Promise<WorkspaceBootstrap> {
-  const userScope = { userId };
-  const db = createScopedReadOnlyDatabaseClient(userId, parseServerEnv());
-
-  if (db.kind === 'disabled') {
-    const [
-      dashboardResponse,
-      marketNewsResponse,
-      meBootstrapResponse,
-      portfolioDigestResponse,
-      stockListResponse,
-    ] = await Promise.all([
-      getDashboardBootstrap(),
-      getMarketNews(),
-      getMeBootstrap(),
-      getPortfolioDigest(),
-      getStockList(),
-    ]);
-
-    return {
-      dashboardResponse,
-      marketNewsResponse,
-      meBootstrapResponse,
-      portfolioDigestResponse,
-      stockListResponse,
-    };
-  }
+  const scope = { kind: 'user' as const, userId };
 
   const [
     dashboardResponse,
@@ -66,33 +30,11 @@ export async function loadWorkspaceBootstrapDirect(userId: string): Promise<Work
     portfolioDigestResponse,
     stockListResponse,
   ] = await Promise.all([
-    getDashboardBootstrap({
-      readModel: createPostgresDashboardReadModel(
-        (sql, params) => db.queryRows(sql, params),
-        userScope,
-      ),
-    }),
-    getMarketNews({
-      readModel: createPostgresMarketNewsReadModel((sql, params) => db.queryRows(sql, params)),
-    }),
-    getMeBootstrap({
-      readModel: createPostgresMeBootstrapReadModel(
-        (sql, params) => db.queryRows(sql, params),
-        userScope,
-      ),
-    }),
-    getPortfolioDigest({
-      readModel: createPostgresPortfolioDigestReadModel(
-        (sql, params) => db.queryRows(sql, params),
-        userScope,
-      ),
-    }),
-    getStockList({
-      readModel: createPostgresStockReadModel(
-        (sql, params) => db.queryRows<StockDatabaseRow>(sql, params),
-        userScope,
-      ),
-    }),
+    brainRequest<DashboardResponse>('/v1/dashboard/today', { scope }),
+    brainRequest<MarketNewsResponse>('/v1/market-news', { scope }),
+    brainRequest<MeBootstrapResponse>('/v1/me/bootstrap', { scope }),
+    brainRequest<PortfolioDigestResponse>('/v1/portfolio/digest', { scope }),
+    brainRequest<StockListResponse>('/v1/stocks', { scope }),
   ]);
 
   return {

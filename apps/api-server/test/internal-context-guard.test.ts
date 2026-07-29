@@ -21,7 +21,7 @@ import {
   runWithRequestUserScope,
 } from '../src/read/internal-context-store.ts';
 import { createInternalContextGuard } from '../src/read/internal-context.guard.ts';
-import { signInternalUserContext } from '../src/read/internal-user-context.ts';
+import { signInternalUserContext } from '@stock-insight/contracts/internal-context';
 
 const SECRET = Buffer.alloc(32, 5);
 const USER_ID = '11111111-2222-4333-8444-555555555555';

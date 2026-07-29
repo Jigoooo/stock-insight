@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const read = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8');
 const controller = read('../../api-server/src/read/product.controller.ts');
+const researchProductController = read('../../api-server/src/read/research-product.controller.ts');
 const textRoutes = [
   '../src/routes/api/v1/features.ts',
   '../src/routes/api/v1/impact.ts',
@@ -11,21 +12,30 @@ const textRoutes = [
   '../src/routes/api/v1/personal/feed.ts',
   '../src/routes/api/v1/reports/latest.ts',
 ].map(read);
-const limitRoutes = [textRoutes[0], textRoutes[1], textRoutes[2], textRoutes[4]];
 
-test('Nest and Web product adapters share deterministic query normalization', () => {
+// Before the P2 brain split both sides normalized query params, and this test
+// pinned the two implementations together so they could not drift. The split
+// removes the duplication entirely: normalization now exists ONLY in the brain
+// and the web routes are pure proxies. The invariant therefore inverts — the web
+// side must NOT re-implement normalization, because a second implementation is
+// exactly the drift this test was protecting against.
+test('query normalization lives solely in the brain controllers', () => {
   assert.match(controller, /normalizeProductTextParam/);
   assert.match(controller, /normalizeProductLimitParam/);
-  assert.doesNotMatch(controller, /optionalLimit|firstParam/);
+  assert.doesNotMatch(controller, /optionalLimit/);
+  // personal/feed moved to the research-product controller during the split.
   assert.doesNotMatch(controller, /@Get\('personal\/feed'\)/);
-  assert.match(textRoutes[3], /authRequestMiddleware/);
+  assert.match(researchProductController, /@Get\('personal\/feed'\)/);
+  assert.match(researchProductController, /normalizeProductTextParam/);
+});
 
+test('web product routes are authenticated proxies with no local normalization', () => {
   for (const route of textRoutes) {
-    assert.match(route, /normalizeProductTextParam/);
-    assert.match(route, /searchParams\.getAll\(/);
-  }
-  for (const route of limitRoutes) {
-    assert.match(route, /normalizeProductLimitParam/);
+    assert.match(route, /authRequestMiddleware/);
+    assert.match(route, /brainProxyGet/);
+    assert.doesNotMatch(route, /normalizeProduct(Text|Limit)Param/);
+    // No direct data access may survive in the BFF.
+    assert.doesNotMatch(route, /@stock-insight\/api'/);
     assert.doesNotMatch(route, /Number\(url\.searchParams/);
   }
 });

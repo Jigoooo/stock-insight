@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only';
 
+import { BrainRequestError, brainRequest } from './brain-client.ts';
 import { jsonResponse } from './http.ts';
 import {
   resolveManualPortfolioMutationPolicy,
@@ -9,24 +10,16 @@ import {
 import { RequestScopeError, resolveRequestUserId } from './request-scope.ts';
 
 import {
-  claimMutation,
-  completeMutation,
-  createScopedDatabaseClient,
-  createPostgresManualPortfolioWriteModel,
-  createPostgresMeBootstrapReadModel,
-  getManualPortfolioBootstrapAfterMutation,
-  parseServerEnv,
-  type ManualPortfolioWriteExecutor,
-  type ManualPortfolioWriteModel,
-  type MeBootstrapRowQueryExecutor,
-} from '@stock-insight/api';
-import {
   manualPositionInputSchema,
   manualWatchlistInputSchema,
   type ManualPositionInput,
   type ManualWatchlistInput,
   type MeBootstrapResponse,
 } from '@stock-insight/contracts';
+
+// Writes now go to the brain, which owns the transaction, the idempotency ledger
+// and the post-mutation bootstrap read. This module keeps the legacy HTTP
+// envelope so the client contract is unchanged.
 
 const emptyManualPortfolioResponse: MeBootstrapResponse = {
   data: {
@@ -48,34 +41,6 @@ const emptyManualPortfolioResponse: MeBootstrapResponse = {
 
 const idempotencyKeyPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-type RouteDatabase = {
-  database: Extract<ReturnType<typeof createScopedDatabaseClient>, { kind: 'configured' }>;
-  userScope: { userId: string };
-};
-
-function createRouteDatabase(userId: string): RouteDatabase | undefined {
-  const env = parseServerEnv();
-  const database = createScopedDatabaseClient(userId, env);
-  return database.kind === 'disabled' ? undefined : { database, userScope: { userId } };
-}
-
-function unavailableResponse() {
-  return jsonResponse(
-    {
-      ...emptyManualPortfolioResponse,
-      error: {
-        code: 'DATABASE_WRITE_URL_NOT_CONFIGURED',
-        message: '쓰기 전용 데이터베이스 연결이 설정되지 않았습니다.',
-      },
-      meta: {
-        source: 'fallback',
-        generatedAt: new Date().toISOString(),
-      },
-    },
-    { status: 503 },
-  );
-}
 
 function mutationDisabledResponse(
   policy: Extract<ManualPortfolioMutationPolicy, { enabled: false }>,
@@ -127,18 +92,6 @@ function unauthorizedResponse() {
   );
 }
 
-function idempotencyConflictResponse() {
-  return jsonResponse(
-    {
-      error: {
-        code: 'IDEMPOTENCY_CONFLICT',
-        message: '이미 처리 중이거나 다른 요청에 사용된 키입니다.',
-      },
-    },
-    { status: 409 },
-  );
-}
-
 function mutationFailedResponse() {
   return jsonResponse(emptyManualPortfolioResponse, { status: 500 });
 }
@@ -155,10 +108,7 @@ export async function handleWatchlistUpsert(request: Request): Promise<Response>
   const body = await parseJsonBody(request);
   const parsed = manualWatchlistInputSchema.safeParse(body);
   if (!parsed.success) return badRequestResponse();
-
-  return mutateManualPortfolio(request, 'watchlist.upsert', parsed.data, (writeModel) =>
-    writeModel.upsertWatchlist(parsed.data),
-  );
+  return forwardMutation(request, 'POST', '/v1/watchlist', parsed.data);
 }
 
 export async function handleWatchlistRemove(
@@ -166,9 +116,11 @@ export async function handleWatchlistRemove(
   entityKey: string,
 ): Promise<Response> {
   if (!entityKey.trim()) return badRequestResponse('entityKey가 필요합니다.');
-
-  return mutateManualPortfolio(request, 'watchlist.remove', { entityKey }, (writeModel) =>
-    writeModel.removeWatchlist(entityKey),
+  return forwardMutation(
+    request,
+    'DELETE',
+    `/v1/watchlist/${encodeURIComponent(entityKey)}`,
+    undefined,
   );
 }
 
@@ -176,30 +128,32 @@ export async function handlePositionUpsert(request: Request): Promise<Response> 
   const body = await parseJsonBody(request);
   const parsed = manualPositionInputSchema.safeParse(body);
   if (!parsed.success) return badRequestResponse();
-
-  return mutateManualPortfolio(request, 'position.upsert', parsed.data, (writeModel) =>
-    writeModel.upsertPosition(parsed.data),
-  );
+  return forwardMutation(request, 'POST', '/v1/positions', parsed.data);
 }
 
 export async function handlePositionClose(request: Request, entityKey: string): Promise<Response> {
   if (!entityKey.trim()) return badRequestResponse('entityKey가 필요합니다.');
-
-  return mutateManualPortfolio(request, 'position.close', { entityKey }, (writeModel) =>
-    writeModel.closePosition(entityKey),
+  return forwardMutation(
+    request,
+    'DELETE',
+    `/v1/positions/${encodeURIComponent(entityKey)}`,
+    undefined,
   );
 }
 
-async function mutateManualPortfolio(
+async function forwardMutation(
   request: Request,
-  operation: string,
-  payload: unknown,
-  mutation: (writeModel: ManualPortfolioWriteModel) => unknown | Promise<unknown>,
+  method: 'POST' | 'DELETE',
+  path: string,
+  body: unknown,
 ): Promise<Response> {
   const policy = resolveManualPortfolioMutationPolicy();
   return routeManualPortfolioMutation(policy, {
     disabled: mutationDisabledResponse,
     enabled: async () => {
+      // Idempotency is validated here as well as in the brain so a malformed key
+      // never consumes a network round-trip, matching the legacy ordering where
+      // 428/400 preceded any database work.
       const idempotencyKey = request.headers.get('idempotency-key')?.trim();
       if (!idempotencyKey) return idempotencyRequiredResponse();
       if (!idempotencyKeyPattern.test(idempotencyKey)) {
@@ -212,53 +166,24 @@ async function mutateManualPortfolio(
         if (error instanceof RequestScopeError) return unauthorizedResponse();
         throw error;
       }
-      const routeDatabase = createRouteDatabase(userId);
-      if (!routeDatabase) return unavailableResponse();
 
-      let result;
       try {
-        result = await routeDatabase.database.withTransaction(async (executor) => {
-          const writeExecutor: ManualPortfolioWriteExecutor = async (sql, params) =>
-            (await executor.queryRows(sql, params)) as Awaited<
-              ReturnType<ManualPortfolioWriteExecutor>
-            >;
-          const readExecutor: MeBootstrapRowQueryExecutor = async (sql, params) =>
-            (await executor.queryRows(sql, params)) as Awaited<
-              ReturnType<MeBootstrapRowQueryExecutor>
-            >;
-          const writeModel = createPostgresManualPortfolioWriteModel(
-            writeExecutor,
-            routeDatabase.userScope,
-          );
-          const readModel = createPostgresMeBootstrapReadModel(
-            readExecutor,
-            routeDatabase.userScope,
-          );
-          const claim = await claimMutation(executor, {
-            userScope: routeDatabase.userScope,
-            idempotencyKey,
-            operation,
-            payload,
-          });
-          if (claim.kind !== 'execute') return claim;
-
-          const response = await getManualPortfolioBootstrapAfterMutation({
-            mutation: () => mutation(writeModel),
-            readModel,
-            failureMode: 'throw',
-          });
-          await completeMutation(executor, claim, response);
-          return { kind: 'completed' as const, response };
+        const response = await brainRequest(path, {
+          scope: { kind: 'user', userId },
+          method,
+          headers: { 'idempotency-key': idempotencyKey },
+          ...(body === undefined ? {} : { body }),
         });
-      } catch {
+        return jsonResponse(response);
+      } catch (error) {
+        // The brain already speaks the legacy envelope for every expected
+        // failure (409 conflict, 503 unavailable, 400 validation); pass those
+        // through verbatim and only synthesize a 500 for genuine transport loss.
+        if (error instanceof BrainRequestError && error.body !== undefined) {
+          return jsonResponse(error.body, { status: error.status });
+        }
         return mutationFailedResponse();
       }
-
-      if (result.kind === 'replay') {
-        return jsonResponse(result.response, { headers: { 'Idempotency-Replayed': 'true' } });
-      }
-      if (result.kind === 'conflict') return idempotencyConflictResponse();
-      return jsonResponse(result.response);
     },
   });
 }

@@ -65,7 +65,7 @@ export {
   verifyInternalUserContext,
   type InternalScope,
   type InternalUserScope,
-} from './read/internal-user-context.ts';
+} from '@stock-insight/contracts/internal-context';
 // Credential primitives are re-exported so the api-server bundle is the single
 // surface that owns password material. apps/web never imports these.
 export {

@@ -1,222 +1,45 @@
 import '@tanstack/react-start/server-only';
 
+import { brainRequest, brainRequestBinary } from './brain-client.ts';
 import { selectInitialRelationRoot } from '@/pages/research-workspace/model/relation-root';
 import type {
   ResearchWorkspaceShellSummary,
   ResearchWorkspaceViewOptions,
   ResearchWorkspaceViewPayload,
 } from '@/pages/research-workspace/model/workspace-view-payload';
-import {
-  createPostgresStockReadModel,
-  createScopedReadOnlyDatabaseClient,
-  getCryptoResearchWorkspace,
-  getDecisionHistory,
-  getEntityRelationsWithV2Preference,
-  getGeoMvtTile,
-  getGeoSnapshot,
-  getMyResearchOverview,
-  getPersonalizationDecisionHistory,
-  getPersonalizationDecisionSupport,
-  getPersonalizationPortfolioImpact,
-  getPersonalizationPortfolioSnapshot,
-  getPersonalizationThesis,
-  getRadarSignals,
-  getResearchFeedPage,
-  getResearchRecordDetail,
-  getStockList,
-  getSystemStatus,
-  getThemeResearchList,
-  getWorkspaceToday,
-  parseServerEnv,
-  type StockDatabaseRow,
-} from '@stock-insight/api';
 import type {
   MyResearchOverview,
   RadarSignalPage,
 } from '@stock-insight/contracts/research-workspace';
 
+// Every read here used to open its own PostgreSQL connection. They now go over
+// HTTP to the brain, so this process holds no database credentials.
+
 type WithoutShell<Payload> = Payload extends unknown ? Omit<Payload, 'shell'> : never;
 
-// The scope is the verified session subject, bound per request. Every read runs
-// under this user's RLS context; there is no ambient/server-owned fallback id.
-function createResearchReadContext(userId: string) {
-  const env = parseServerEnv();
-  const database = createScopedReadOnlyDatabaseClient(userId, env);
-  if (database.kind === 'disabled') {
-    throw new Error('Research database is not configured');
-  }
-  return { database, userScope: { userId } };
+function scopeFor(userId: string) {
+  return { kind: 'user' as const, userId };
 }
 
-export async function loadResearchWorkspaceView(
-  userId: string,
-  options: ResearchWorkspaceViewOptions,
-): Promise<ResearchWorkspaceViewPayload> {
-  const { database, userScope } = createResearchReadContext(userId);
-  const requestNow = new Date();
-  return database.withReadSnapshot(async (executor) => {
-    let activeRadar: RadarSignalPage | undefined;
-    let activeResearch: MyResearchOverview | undefined;
-    let activeSlice: WithoutShell<ResearchWorkspaceViewPayload>;
-
-    switch (options.view) {
-      case 'today': {
-        const today = await getWorkspaceToday(executor, { userScope });
-        const recordKey = options.record ?? today.defaultRecordKey;
-        const defaultRecord = recordKey
-          ? await getResearchRecordDetail(executor, { userScope, recordKey })
-          : null;
-        activeSlice = {
-          defaultRecord,
-          lane: options.lane ?? 'must_know',
-          today,
-          view: options.view,
-        };
-        break;
-      }
-      case 'radar': {
-        activeRadar = await getRadarSignals(executor, {
-          userScope,
-          cursor: options.cursor,
-          limit: 30,
-        });
-        const geoSnapshot = await getGeoSnapshot(executor, {
-          knownAt: requestNow,
-          validAt: requestNow,
-          now: requestNow,
-        });
-        activeSlice = { geoSnapshot, radar: activeRadar, view: options.view };
-        break;
-      }
-      case 'stocks': {
-        const stocks = await getStockList({
-          readModel: createPostgresStockReadModel(
-            (sql, params) => executor.queryRows<StockDatabaseRow>(sql, params),
-            userScope,
-          ),
-        });
-        activeSlice = { stocks, view: options.view };
-        break;
-      }
-      case 'crypto': {
-        const crypto = await getCryptoResearchWorkspace(executor, {
-          knownAt: requestNow,
-          limit: 40,
-        });
-        activeSlice = { crypto, view: options.view };
-        break;
-      }
-      case 'themes': {
-        const themes = await getThemeResearchList(executor, { userScope });
-        const relationRoot = selectInitialRelationRoot([], themes.items);
-        const relation = relationRoot
-          ? (
-              await getEntityRelationsWithV2Preference(executor, {
-                entityKey: relationRoot,
-                depth: 1,
-                userId: userScope.userId,
-                now: new Date(),
-              })
-            ).graph
-          : null;
-        activeSlice = { relation, themes, view: options.view };
-        break;
-      }
-      case 'research': {
-        activeResearch = await getMyResearchOverview(executor, { userScope });
-        const portfolio = await getPersonalizationPortfolioSnapshot(executor, { userScope });
-        const selectedEntityKey =
-          activeResearch.decisionSupport.latestPacket?.entityKey ??
-          portfolio?.positions[0]?.entityKey ??
-          null;
-        const impact = portfolio
-          ? await getPersonalizationPortfolioImpact(executor, {
-              userScope,
-              eventId: null,
-              scenarioId: null,
-              horizon: null,
-              knownAt: requestNow,
-            })
-          : null;
-        const decision = selectedEntityKey
-          ? await getPersonalizationDecisionSupport(executor, {
-              userScope,
-              entityKey: selectedEntityKey,
-              now: requestNow,
-            })
-          : null;
-        const decisionHistory = selectedEntityKey
-          ? await getPersonalizationDecisionHistory(executor, {
-              userScope,
-              entityKey: selectedEntityKey,
-              now: requestNow,
-              limit: 20,
-            })
-          : null;
-        const thesis = selectedEntityKey
-          ? await getPersonalizationThesis(executor, {
-              userScope,
-              entityKey: selectedEntityKey,
-              now: requestNow,
-            })
-          : null;
-        activeSlice = {
-          myResearch: activeResearch,
-          personalization: {
-            decision,
-            decisionHistory,
-            impact,
-            portfolio,
-            selectedEntityKey,
-            thesis,
-          },
-          view: options.view,
-        };
-        break;
-      }
-      case 'history': {
-        const history = await getDecisionHistory(executor, {
-          userScope,
-          cursor: options.cursor,
-          limit: 30,
-        });
-        activeSlice = { history, view: options.view };
-        break;
-      }
-      case 'status': {
-        const status = await getSystemStatus(executor);
-        activeSlice = { status, view: options.view };
-        break;
-      }
-    }
-
-    const radarSummary = activeRadar ?? (await getRadarSignals(executor, { userScope, limit: 1 }));
-    const researchSummary =
-      activeResearch ?? (await getMyResearchOverview(executor, { userScope }));
-    const shell: ResearchWorkspaceShellSummary = {
-      radarScopeTotal: radarSummary.scopeTotal,
-      watchlistCount: researchSummary.watchlistCount,
-    };
-    return { ...activeSlice, shell, view: options.view } as ResearchWorkspaceViewPayload;
-  });
+function isoOrUndefined(value: Date | undefined): string | undefined {
+  return value ? value.toISOString() : undefined;
 }
 
 export async function loadResearchWorkspace(userId: string) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
+  return brainRequest('/v1/workspace', { scope: scopeFor(userId) });
 }
 
 export async function loadCryptoResearchWorkspace(
   userId: string,
   options: { knownAt?: Date; limit?: number } = {},
 ) {
-  const { database } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) =>
-    getCryptoResearchWorkspace(executor, {
-      knownAt: options.knownAt ?? new Date(),
-      limit: options.limit ?? 40,
-    }),
-  );
+  return brainRequest('/v1/crypto/workspace', {
+    scope: scopeFor(userId),
+    query: {
+      knownAt: isoOrUndefined(options.knownAt),
+      limit: options.limit,
+    },
+  });
 }
 
 export async function loadResearchFeedPage(
@@ -227,52 +50,48 @@ export async function loadResearchFeedPage(
     limit?: number;
   },
 ) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) =>
-    getResearchFeedPage(executor, { userScope, ...options }),
-  );
+  return brainRequest('/v1/feed', {
+    scope: scopeFor(userId),
+    query: { lane: options.lane, cursor: options.cursor, limit: options.limit },
+  });
 }
 
 export async function loadResearchRecord(userId: string, recordKey: string) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) =>
-    getResearchRecordDetail(executor, { userScope, recordKey }),
-  );
+  return brainRequest(`/v1/records/${encodeURIComponent(recordKey)}`, {
+    scope: scopeFor(userId),
+  });
 }
 
 export async function loadResearchStatus(userId: string) {
-  const { database } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) => getSystemStatus(executor));
+  return brainRequest('/v1/status', { scope: scopeFor(userId) });
 }
 
 export async function loadDecisionHistoryPage(
   userId: string,
   options: { cursor?: string; limit?: number },
 ) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) =>
-    getDecisionHistory(executor, { userScope, ...options }),
-  );
+  return brainRequest('/v1/history', {
+    scope: scopeFor(userId),
+    query: { cursor: options.cursor, limit: options.limit },
+  });
 }
 
 export async function loadMyResearchOverview(userId: string) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) => getMyResearchOverview(executor, { userScope }));
+  return brainRequest<MyResearchOverview>('/v1/my-research', { scope: scopeFor(userId) });
 }
 
 export async function loadRadarSignalPage(
   userId: string,
   options: { cursor?: string; limit?: number },
 ) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) =>
-    getRadarSignals(executor, { userScope, ...options }),
-  );
+  return brainRequest<RadarSignalPage>('/v1/radar', {
+    scope: scopeFor(userId),
+    query: { cursor: options.cursor, limit: options.limit },
+  });
 }
 
 export async function loadThemeResearch(userId: string) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) => getThemeResearchList(executor, { userScope }));
+  return brainRequest('/v1/themes', { scope: scopeFor(userId) });
 }
 
 export async function loadEntityRelationGraph(
@@ -281,15 +100,9 @@ export async function loadEntityRelationGraph(
   depth: number,
   options: { knownAt?: Date } = {},
 ) {
-  const { database, userScope } = createResearchReadContext(userId);
-  return database.withReadSnapshot(async (executor) => {
-    const result = await getEntityRelationsWithV2Preference(executor, {
-      entityKey,
-      depth,
-      userId: userScope.userId,
-      now: options.knownAt ?? new Date(),
-    });
-    return result.graph;
+  return brainRequest(`/v1/entities/${encodeURIComponent(entityKey)}/relations`, {
+    scope: scopeFor(userId),
+    query: { depth, knownAt: isoOrUndefined(options.knownAt) },
   });
 }
 
@@ -297,15 +110,13 @@ export async function loadGeoSnapshot(
   userId: string,
   options: { knownAt?: Date; validAt?: Date } = {},
 ) {
-  const { database } = createResearchReadContext(userId);
   const requestNow = new Date();
-  return database.withReadSnapshot((executor) =>
-    getGeoSnapshot(executor, {
-      knownAt: options.knownAt ?? requestNow,
-      validAt: options.validAt ?? options.knownAt ?? requestNow,
-      now: requestNow,
-    }),
-  );
+  const knownAt = options.knownAt ?? requestNow;
+  const validAt = options.validAt ?? options.knownAt ?? requestNow;
+  return brainRequest('/v1/geo/snapshot', {
+    scope: scopeFor(userId),
+    query: { knownAt: knownAt.toISOString(), validAt: validAt.toISOString() },
+  });
 }
 
 export async function loadGeoMvtTile(
@@ -318,7 +129,169 @@ export async function loadGeoMvtTile(
     validAt: Date;
     snapshotId: string;
   },
+): Promise<Uint8Array> {
+  return brainRequestBinary(`/v1/geo/tiles/${options.z}/${options.x}/${options.y}`, {
+    scope: scopeFor(userId),
+    query: {
+      snapshot: options.snapshotId,
+      knownAt: options.knownAt.toISOString(),
+      validAt: options.validAt.toISOString(),
+    },
+  });
+}
+
+export async function loadPersonalizationPortfolioSnapshot(userId: string) {
+  return brainRequest('/v1/personalization/portfolio-snapshot', { scope: scopeFor(userId) });
+}
+
+export async function loadPersonalizationPortfolioImpact(userId: string, knownAt?: Date) {
+  return brainRequest('/v1/personalization/portfolio-impact', {
+    scope: scopeFor(userId),
+    query: { knownAt: isoOrUndefined(knownAt) },
+  });
+}
+
+export async function loadPersonalizationDecisionSupport(userId: string, entityKey: string) {
+  return brainRequest(`/v1/personalization/decision-support/${encodeURIComponent(entityKey)}`, {
+    scope: scopeFor(userId),
+  });
+}
+
+export async function loadPersonalizationDecisionHistory(
+  userId: string,
+  entityKey: string,
+  limit = 20,
 ) {
-  const { database } = createResearchReadContext(userId);
-  return database.withReadSnapshot((executor) => getGeoMvtTile(executor, options));
+  return brainRequest(`/v1/personalization/decision-history/${encodeURIComponent(entityKey)}`, {
+    scope: scopeFor(userId),
+    query: { limit },
+  });
+}
+
+export async function loadPersonalizationThesis(userId: string, entityKey: string) {
+  return brainRequest(`/v1/personalization/thesis/${encodeURIComponent(entityKey)}`, {
+    scope: scopeFor(userId),
+  });
+}
+
+export async function loadStockList(userId: string) {
+  return brainRequest('/v1/stocks', { scope: scopeFor(userId) });
+}
+
+// Composite view. Previously one PostgreSQL read-snapshot spanned every query in
+// a view; that transactional boundary now lives inside the brain per endpoint,
+// so a view assembled from several endpoints is no longer a single point-in-time
+// snapshot. Each slice is still internally consistent.
+export async function loadResearchWorkspaceView(
+  userId: string,
+  options: ResearchWorkspaceViewOptions,
+): Promise<ResearchWorkspaceViewPayload> {
+  let activeRadar: RadarSignalPage | undefined;
+  let activeResearch: MyResearchOverview | undefined;
+  let activeSlice: WithoutShell<ResearchWorkspaceViewPayload>;
+
+  switch (options.view) {
+    case 'today': {
+      const today = (await loadResearchWorkspace(userId)) as {
+        defaultRecordKey?: string;
+      } & Record<string, unknown>;
+      const recordKey = options.record ?? today.defaultRecordKey;
+      const defaultRecord = recordKey ? await loadResearchRecord(userId, recordKey) : null;
+      activeSlice = {
+        defaultRecord,
+        lane: options.lane ?? 'must_know',
+        today,
+        view: options.view,
+      } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'radar': {
+      activeRadar = await loadRadarSignalPage(userId, {
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+        limit: 30,
+      });
+      const geoSnapshot = await loadGeoSnapshot(userId);
+      activeSlice = {
+        geoSnapshot,
+        radar: activeRadar,
+        view: options.view,
+      } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'stocks': {
+      const stocks = await loadStockList(userId);
+      activeSlice = { stocks, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'crypto': {
+      const crypto = await loadCryptoResearchWorkspace(userId, { limit: 40 });
+      activeSlice = { crypto, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'themes': {
+      const themes = (await loadThemeResearch(userId)) as { items: { entityKey?: string }[] };
+      const relationRoot = selectInitialRelationRoot([], themes.items as never);
+      const relation = relationRoot ? await loadEntityRelationGraph(userId, relationRoot, 1) : null;
+      activeSlice = {
+        relation,
+        themes,
+        view: options.view,
+      } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'research': {
+      activeResearch = await loadMyResearchOverview(userId);
+      const portfolio = (await loadPersonalizationPortfolioSnapshot(userId)) as {
+        positions?: { entityKey: string }[];
+      } | null;
+      const selectedEntityKey =
+        activeResearch.decisionSupport.latestPacket?.entityKey ??
+        portfolio?.positions?.[0]?.entityKey ??
+        null;
+      const impact = portfolio ? await loadPersonalizationPortfolioImpact(userId) : null;
+      const decision = selectedEntityKey
+        ? await loadPersonalizationDecisionSupport(userId, selectedEntityKey)
+        : null;
+      const decisionHistory = selectedEntityKey
+        ? await loadPersonalizationDecisionHistory(userId, selectedEntityKey, 20)
+        : null;
+      const thesis = selectedEntityKey
+        ? await loadPersonalizationThesis(userId, selectedEntityKey)
+        : null;
+      activeSlice = {
+        myResearch: activeResearch,
+        personalization: {
+          decision,
+          decisionHistory,
+          impact,
+          portfolio,
+          selectedEntityKey,
+          thesis,
+        },
+        view: options.view,
+      } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'history': {
+      const history = await loadDecisionHistoryPage(userId, {
+        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+        limit: 30,
+      });
+      activeSlice = { history, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'status': {
+      const status = await loadResearchStatus(userId);
+      activeSlice = { status, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+  }
+
+  const radarSummary = activeRadar ?? (await loadRadarSignalPage(userId, { limit: 1 }));
+  const researchSummary = activeResearch ?? (await loadMyResearchOverview(userId));
+  const shell: ResearchWorkspaceShellSummary = {
+    radarScopeTotal: radarSummary.scopeTotal,
+    watchlistCount: researchSummary.watchlistCount,
+  };
+  return { ...activeSlice, shell, view: options.view } as ResearchWorkspaceViewPayload;
 }

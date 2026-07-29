@@ -73,18 +73,22 @@ describe('workspace active-view server loader', () => {
     const source = await readFile(serverUrl, 'utf8');
     const themesCase = source.match(/case 'themes':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
 
-    assert.match(themesCase, /getEntityRelationsWithV2Preference\(executor/);
-    assert.match(themesCase, /depth:\s*1/);
-    assert.match(themesCase, /userId:\s*userScope\.userId/);
+    // Depth 1 and the caller's scope are now positional arguments to the
+    // brain-backed loader: loadEntityRelationGraph(userId, entityKey, depth).
+    assert.match(themesCase, /loadEntityRelationGraph\(userId,\s*relationRoot,\s*1\)/);
     // P0-5: the V1 fallback is removed — the adapter is V2-only.
     assert.doesNotMatch(themesCase, /loadV1/);
     assert.doesNotMatch(source, /getEntityRelations[^W]/);
 
     const relationLoader =
       source.match(/export async function loadEntityRelationGraph[\s\S]*?\n\}/)?.[0] ?? '';
-    assert.match(relationLoader, /getEntityRelationsWithV2Preference\(executor/);
-    assert.match(relationLoader, /\n\s*depth,/);
-    assert.match(relationLoader, /userId:\s*userScope\.userId/);
+    // The loader is now a brain call: it must hit the relations endpoint, pass
+    // the requested depth through, and bind the caller's verified scope.
+    assert.match(relationLoader, /\/v1\/entities\/.*\/relations/);
+    assert.match(relationLoader, /query:\s*\{\s*depth,/);
+    assert.match(relationLoader, /scope:\s*scopeFor\(userId\)/);
     assert.doesNotMatch(relationLoader, /loadV1/);
+    // No SQL may survive in the BFF loader.
+    assert.doesNotMatch(relationLoader, /executor|queryRows|withReadSnapshot/);
   });
 });

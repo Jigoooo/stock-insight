@@ -1,18 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
-import type { LocalAccount } from './local-account-repository.ts';
-import type { SessionClaims } from './session-core.ts';
-
-export type AuthenticationCredential = Readonly<{
-  kind: 'local' | 'static';
+// The BFF no longer holds password records. The brain returns an opaque
+// AccountIdentity whose credentialFingerprint stands in for the credential when
+// deriving a session signing key.
+export type AccountIdentity = Readonly<{
   userId: string;
   username: string;
-  passwordRecord: string;
-}>;
-
-type StaticCredential = Readonly<{
-  username: string;
-  passwordRecord: string;
+  credentialFingerprint: string;
 }>;
 
 function constantTimeTextEqual(left: string, right: string): boolean {
@@ -21,57 +15,32 @@ function constantTimeTextEqual(left: string, right: string): boolean {
   return timingSafeEqual(leftHash, rightHash);
 }
 
-export function selectAuthenticationCredential(input: {
-  userId: string;
-  localAccount?: LocalAccount;
-  staticCredential?: StaticCredential;
-}): AuthenticationCredential | undefined {
-  if (input.localAccount) {
-    if (input.localAccount.userId !== input.userId) {
-      throw new Error('Invalid local account state');
-    }
-    return {
-      kind: 'local',
-      userId: input.userId,
-      username: input.localAccount.username,
-      passwordRecord: input.localAccount.passwordRecord,
-    };
-  }
-  if (!input.staticCredential) return undefined;
-  return {
-    kind: 'static',
-    userId: input.userId,
-    username: input.staticCredential.username,
-    passwordRecord: input.staticCredential.passwordRecord,
-  };
-}
-
-export function credentialSessionSecret(
+// Session key derivation, credential-bound via the brain-issued fingerprint.
+// Preserves the v2 property that a password rotation invalidates every issued
+// session: the fingerprint changes, so the derived key — and therefore every
+// outstanding token signature — stops verifying.
+//
+// The MAC domain is deliberately distinct from the retired v2 label so a token
+// minted under the old password-record-derived scheme can never verify here.
+export function fingerprintSessionSecret(
   baseSecret: Buffer | Uint8Array,
-  credential: AuthenticationCredential,
+  identity: AccountIdentity,
 ): Buffer {
   return createHmac('sha256', baseSecret)
-    .update('stock-insight:credential-session:v2\0', 'utf8')
-    .update(credential.kind, 'utf8')
+    .update('stock-insight:credential-session:v3\0', 'utf8')
+    .update(identity.userId, 'utf8')
     .update('\0', 'utf8')
-    .update(credential.userId, 'utf8')
+    .update(identity.username, 'utf8')
     .update('\0', 'utf8')
-    .update(credential.username, 'utf8')
-    .update('\0', 'utf8')
-    .update(credential.passwordRecord, 'utf8')
+    .update(identity.credentialFingerprint, 'utf8')
     .digest();
 }
 
-export function isSessionBoundToCredential(
-  claims: SessionClaims,
-  credential: AuthenticationCredential,
+export function isSessionBoundToIdentity(
+  claims: Readonly<{ sub: string; username: string }>,
+  identity: AccountIdentity,
 ): boolean {
-  return claims.sub === credential.userId && isUsernameForCredential(claims.username, credential);
-}
-
-export function isUsernameForCredential(
-  username: string,
-  credential: AuthenticationCredential,
-): boolean {
-  return constantTimeTextEqual(username, credential.username);
+  return (
+    claims.sub === identity.userId && constantTimeTextEqual(claims.username, identity.username)
+  );
 }
