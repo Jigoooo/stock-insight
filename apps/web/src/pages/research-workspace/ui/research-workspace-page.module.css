@@ -132,7 +132,7 @@
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
-.nav button {
+.nav :is(button, a) {
   width: 100%;
   min-height: 44px;
   position: relative;
@@ -149,19 +149,19 @@
   z-index: 1;
 }
 
-.nav button[aria-current='page'] {
+.nav :is(button, a)[aria-current='page'] {
   color: var(--color-on-chrome);
 }
 
-.nav button[data-pending='true'] {
+.nav :is(button, a)[data-pending='true'] {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent) inset;
 }
 
-.nav button[aria-current='page'] svg {
+.nav :is(button, a)[aria-current='page'] svg {
   color: var(--color-accent);
 }
 
-.nav button[aria-current='page']::before {
+.nav :is(button, a)[aria-current='page']::before {
   content: '';
   width: 4px;
   height: 4px;
@@ -1611,7 +1611,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .nav button:hover {
+  .nav :is(button, a):hover {
     color: var(--color-on-chrome);
     background: color-mix(in srgb, var(--color-chrome-raised) 78%, transparent);
   }

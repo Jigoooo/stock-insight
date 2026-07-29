@@ -6,7 +6,14 @@ const pageUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.tsx',
   import.meta.url,
 );
-const routeUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
+// Path updated by the workspace route split: the shared route body moved from
+// routes/_authenticated/workspace.tsx (one route, ?view= param) to
+// pages/research-workspace/ui/workspace-view-route.tsx, which every per-tab
+// route now renders. The assertions below are unchanged.
+const routeUrl = new URL(
+  '../src/pages/research-workspace/ui/workspace-view-route.tsx',
+  import.meta.url,
+);
 const todayUrl = new URL(
   '../src/pages/research-workspace/ui/views/today-view.tsx',
   import.meta.url,
@@ -28,8 +35,10 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /startNavigationTransition\(\(\) =>/);
     assert.match(page, /if \(!onUrlStateChange\) \{[\s\S]*?setLocalSection\(next\)/);
     assert.match(page, /if \(!onUrlStateChange\) \{[\s\S]*?setLocalLane\(next\)/);
+    // The handler awaits the router promise instead of firing and forgetting it,
+    // so the caller's transition still settles on the real navigation.
     assert.doesNotMatch(route, /onUrlStateChange=\{\(next\) =>\s*void navigate/);
-    assert.match(route, /onUrlStateChange=\{\(next\) =>\s*navigate/);
+    assert.match(route, /onUrlStateChange=\{async \(next\) => \{[\s\S]*?await navigate\(/);
   });
 
   it('keeps authoritative ARIA on committed values and marks only the latest target pending', async () => {

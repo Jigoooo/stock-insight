@@ -37,7 +37,7 @@ describe('admin invitation console UI contract', () => {
 
   it('shows the workspace entry point only for invite managers', async () => {
     const source = await read('pages/research-workspace/ui/research-workspace-page.tsx');
-    const route = await read('routes/_authenticated/workspace.tsx');
+    const route = await read('pages/research-workspace/ui/workspace-view-route.tsx');
     assert.match(source, /canManageInvitations/);
     assert.match(source, /\/admin\/invitations/);
     assert.match(route, /session\.capabilities\.canManageInvitations/);

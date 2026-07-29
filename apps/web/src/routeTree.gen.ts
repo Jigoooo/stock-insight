@@ -26,6 +26,7 @@ import { Route as ApiHistoryRouteImport } from './routes/api/history'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiFeedRouteImport } from './routes/api/feed'
 import { Route as AuthenticatedWorkspaceRouteImport } from './routes/_authenticated/workspace'
+import { Route as AuthenticatedWorkspaceIndexRouteImport } from './routes/_authenticated/workspace/index'
 import { Route as ApiWatchlistEntityKeyRouteImport } from './routes/api/watchlist/$entityKey'
 import { Route as ApiV1ImpactRouteImport } from './routes/api/v1/impact'
 import { Route as ApiV1FeaturesRouteImport } from './routes/api/v1/features'
@@ -38,6 +39,14 @@ import { Route as ApiMeBootstrapRouteImport } from './routes/api/me/bootstrap'
 import { Route as ApiGeoSnapshotRouteImport } from './routes/api/geo/snapshot'
 import { Route as ApiDiscoverStocksRouteImport } from './routes/api/discover/stocks'
 import { Route as ApiDashboardTodayRouteImport } from './routes/api/dashboard/today'
+import { Route as AuthenticatedWorkspaceTodayRouteImport } from './routes/_authenticated/workspace/today'
+import { Route as AuthenticatedWorkspaceThemesRouteImport } from './routes/_authenticated/workspace/themes'
+import { Route as AuthenticatedWorkspaceStocksRouteImport } from './routes/_authenticated/workspace/stocks'
+import { Route as AuthenticatedWorkspaceStatusRouteImport } from './routes/_authenticated/workspace/status'
+import { Route as AuthenticatedWorkspaceResearchRouteImport } from './routes/_authenticated/workspace/research'
+import { Route as AuthenticatedWorkspaceRadarRouteImport } from './routes/_authenticated/workspace/radar'
+import { Route as AuthenticatedWorkspaceHistoryRouteImport } from './routes/_authenticated/workspace/history'
+import { Route as AuthenticatedWorkspaceCryptoRouteImport } from './routes/_authenticated/workspace/crypto'
 import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated/admin/invitations'
 import { Route as ApiV1ReportsLatestRouteImport } from './routes/api/v1/reports/latest'
 import { Route as ApiV1PersonalFeedRouteImport } from './routes/api/v1/personal/feed'
@@ -131,6 +140,12 @@ const AuthenticatedWorkspaceRoute = AuthenticatedWorkspaceRouteImport.update({
   path: '/workspace',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedWorkspaceIndexRoute =
+  AuthenticatedWorkspaceIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
 const ApiWatchlistEntityKeyRoute = ApiWatchlistEntityKeyRouteImport.update({
   id: '/$entityKey',
   path: '/$entityKey',
@@ -191,6 +206,54 @@ const ApiDashboardTodayRoute = ApiDashboardTodayRouteImport.update({
   path: '/api/dashboard/today',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWorkspaceTodayRoute =
+  AuthenticatedWorkspaceTodayRouteImport.update({
+    id: '/today',
+    path: '/today',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceThemesRoute =
+  AuthenticatedWorkspaceThemesRouteImport.update({
+    id: '/themes',
+    path: '/themes',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceStocksRoute =
+  AuthenticatedWorkspaceStocksRouteImport.update({
+    id: '/stocks',
+    path: '/stocks',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceStatusRoute =
+  AuthenticatedWorkspaceStatusRouteImport.update({
+    id: '/status',
+    path: '/status',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceResearchRoute =
+  AuthenticatedWorkspaceResearchRouteImport.update({
+    id: '/research',
+    path: '/research',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceRadarRoute =
+  AuthenticatedWorkspaceRadarRouteImport.update({
+    id: '/radar',
+    path: '/radar',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceHistoryRoute =
+  AuthenticatedWorkspaceHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceCryptoRoute =
+  AuthenticatedWorkspaceCryptoRouteImport.update({
+    id: '/crypto',
+    path: '/crypto',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
 const AuthenticatedAdminInvitationsRoute =
   AuthenticatedAdminInvitationsRouteImport.update({
     id: '/admin/invitations',
@@ -240,7 +303,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/workspace': typeof AuthenticatedWorkspaceRoute
+  '/workspace': typeof AuthenticatedWorkspaceRouteWithChildren
   '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
   '/api/history': typeof ApiHistoryRoute
@@ -254,6 +317,14 @@ export interface FileRoutesByFullPath {
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
+  '/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
+  '/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
+  '/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
+  '/workspace/stocks': typeof AuthenticatedWorkspaceStocksRoute
+  '/workspace/themes': typeof AuthenticatedWorkspaceThemesRoute
+  '/workspace/today': typeof AuthenticatedWorkspaceTodayRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -266,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/features': typeof ApiV1FeaturesRoute
   '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/workspace/': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
@@ -278,7 +350,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/workspace': typeof AuthenticatedWorkspaceRoute
   '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
   '/api/history': typeof ApiHistoryRoute
@@ -292,6 +363,14 @@ export interface FileRoutesByTo {
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
+  '/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
+  '/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
+  '/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
+  '/workspace/stocks': typeof AuthenticatedWorkspaceStocksRoute
+  '/workspace/themes': typeof AuthenticatedWorkspaceThemesRoute
+  '/workspace/today': typeof AuthenticatedWorkspaceTodayRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -304,6 +383,7 @@ export interface FileRoutesByTo {
   '/api/v1/features': typeof ApiV1FeaturesRoute
   '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/workspace': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
@@ -318,7 +398,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
-  '/_authenticated/workspace': typeof AuthenticatedWorkspaceRoute
+  '/_authenticated/workspace': typeof AuthenticatedWorkspaceRouteWithChildren
   '/api/feed': typeof ApiFeedRoute
   '/api/health': typeof ApiHealthRoute
   '/api/history': typeof ApiHistoryRoute
@@ -332,6 +412,14 @@ export interface FileRoutesById {
   '/api/watchlist': typeof ApiWatchlistRouteWithChildren
   '/api/workspace': typeof ApiWorkspaceRoute
   '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
+  '/_authenticated/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
+  '/_authenticated/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/_authenticated/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
+  '/_authenticated/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
+  '/_authenticated/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
+  '/_authenticated/workspace/stocks': typeof AuthenticatedWorkspaceStocksRoute
+  '/_authenticated/workspace/themes': typeof AuthenticatedWorkspaceThemesRoute
+  '/_authenticated/workspace/today': typeof AuthenticatedWorkspaceTodayRoute
   '/api/dashboard/today': typeof ApiDashboardTodayRoute
   '/api/discover/stocks': typeof ApiDiscoverStocksRoute
   '/api/geo/snapshot': typeof ApiGeoSnapshotRoute
@@ -344,6 +432,7 @@ export interface FileRoutesById {
   '/api/v1/features': typeof ApiV1FeaturesRoute
   '/api/v1/impact': typeof ApiV1ImpactRoute
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
+  '/_authenticated/workspace/': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
@@ -372,6 +461,14 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/api/workspace'
     | '/admin/invitations'
+    | '/workspace/crypto'
+    | '/workspace/history'
+    | '/workspace/radar'
+    | '/workspace/research'
+    | '/workspace/status'
+    | '/workspace/stocks'
+    | '/workspace/themes'
+    | '/workspace/today'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -384,6 +481,7 @@ export interface FileRouteTypes {
     | '/api/v1/features'
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
+    | '/workspace/'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
@@ -396,7 +494,6 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
-    | '/workspace'
     | '/api/feed'
     | '/api/health'
     | '/api/history'
@@ -410,6 +507,14 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/api/workspace'
     | '/admin/invitations'
+    | '/workspace/crypto'
+    | '/workspace/history'
+    | '/workspace/radar'
+    | '/workspace/research'
+    | '/workspace/status'
+    | '/workspace/stocks'
+    | '/workspace/themes'
+    | '/workspace/today'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -422,6 +527,7 @@ export interface FileRouteTypes {
     | '/api/v1/features'
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
+    | '/workspace'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
@@ -449,6 +555,14 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/api/workspace'
     | '/_authenticated/admin/invitations'
+    | '/_authenticated/workspace/crypto'
+    | '/_authenticated/workspace/history'
+    | '/_authenticated/workspace/radar'
+    | '/_authenticated/workspace/research'
+    | '/_authenticated/workspace/status'
+    | '/_authenticated/workspace/stocks'
+    | '/_authenticated/workspace/themes'
+    | '/_authenticated/workspace/today'
     | '/api/dashboard/today'
     | '/api/discover/stocks'
     | '/api/geo/snapshot'
@@ -461,6 +575,7 @@ export interface FileRouteTypes {
     | '/api/v1/features'
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
+    | '/_authenticated/workspace/'
     | '/api/entities/$entityKey/relations'
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
@@ -625,6 +740,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkspaceRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/workspace/': {
+      id: '/_authenticated/workspace/'
+      path: '/'
+      fullPath: '/workspace/'
+      preLoaderRoute: typeof AuthenticatedWorkspaceIndexRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
     '/api/watchlist/$entityKey': {
       id: '/api/watchlist/$entityKey'
       path: '/$entityKey'
@@ -709,6 +831,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardTodayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/workspace/today': {
+      id: '/_authenticated/workspace/today'
+      path: '/today'
+      fullPath: '/workspace/today'
+      preLoaderRoute: typeof AuthenticatedWorkspaceTodayRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/themes': {
+      id: '/_authenticated/workspace/themes'
+      path: '/themes'
+      fullPath: '/workspace/themes'
+      preLoaderRoute: typeof AuthenticatedWorkspaceThemesRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/stocks': {
+      id: '/_authenticated/workspace/stocks'
+      path: '/stocks'
+      fullPath: '/workspace/stocks'
+      preLoaderRoute: typeof AuthenticatedWorkspaceStocksRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/status': {
+      id: '/_authenticated/workspace/status'
+      path: '/status'
+      fullPath: '/workspace/status'
+      preLoaderRoute: typeof AuthenticatedWorkspaceStatusRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/research': {
+      id: '/_authenticated/workspace/research'
+      path: '/research'
+      fullPath: '/workspace/research'
+      preLoaderRoute: typeof AuthenticatedWorkspaceResearchRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/radar': {
+      id: '/_authenticated/workspace/radar'
+      path: '/radar'
+      fullPath: '/workspace/radar'
+      preLoaderRoute: typeof AuthenticatedWorkspaceRadarRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/history': {
+      id: '/_authenticated/workspace/history'
+      path: '/history'
+      fullPath: '/workspace/history'
+      preLoaderRoute: typeof AuthenticatedWorkspaceHistoryRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/crypto': {
+      id: '/_authenticated/workspace/crypto'
+      path: '/crypto'
+      fullPath: '/workspace/crypto'
+      preLoaderRoute: typeof AuthenticatedWorkspaceCryptoRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
     '/_authenticated/admin/invitations': {
       id: '/_authenticated/admin/invitations'
       path: '/admin/invitations'
@@ -768,13 +946,43 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedWorkspaceRouteChildren {
+  AuthenticatedWorkspaceCryptoRoute: typeof AuthenticatedWorkspaceCryptoRoute
+  AuthenticatedWorkspaceHistoryRoute: typeof AuthenticatedWorkspaceHistoryRoute
+  AuthenticatedWorkspaceRadarRoute: typeof AuthenticatedWorkspaceRadarRoute
+  AuthenticatedWorkspaceResearchRoute: typeof AuthenticatedWorkspaceResearchRoute
+  AuthenticatedWorkspaceStatusRoute: typeof AuthenticatedWorkspaceStatusRoute
+  AuthenticatedWorkspaceStocksRoute: typeof AuthenticatedWorkspaceStocksRoute
+  AuthenticatedWorkspaceThemesRoute: typeof AuthenticatedWorkspaceThemesRoute
+  AuthenticatedWorkspaceTodayRoute: typeof AuthenticatedWorkspaceTodayRoute
+  AuthenticatedWorkspaceIndexRoute: typeof AuthenticatedWorkspaceIndexRoute
+}
+
+const AuthenticatedWorkspaceRouteChildren: AuthenticatedWorkspaceRouteChildren =
+  {
+    AuthenticatedWorkspaceCryptoRoute: AuthenticatedWorkspaceCryptoRoute,
+    AuthenticatedWorkspaceHistoryRoute: AuthenticatedWorkspaceHistoryRoute,
+    AuthenticatedWorkspaceRadarRoute: AuthenticatedWorkspaceRadarRoute,
+    AuthenticatedWorkspaceResearchRoute: AuthenticatedWorkspaceResearchRoute,
+    AuthenticatedWorkspaceStatusRoute: AuthenticatedWorkspaceStatusRoute,
+    AuthenticatedWorkspaceStocksRoute: AuthenticatedWorkspaceStocksRoute,
+    AuthenticatedWorkspaceThemesRoute: AuthenticatedWorkspaceThemesRoute,
+    AuthenticatedWorkspaceTodayRoute: AuthenticatedWorkspaceTodayRoute,
+    AuthenticatedWorkspaceIndexRoute: AuthenticatedWorkspaceIndexRoute,
+  }
+
+const AuthenticatedWorkspaceRouteWithChildren =
+  AuthenticatedWorkspaceRoute._addFileChildren(
+    AuthenticatedWorkspaceRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
-  AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRoute
+  AuthenticatedWorkspaceRoute: typeof AuthenticatedWorkspaceRouteWithChildren
   AuthenticatedAdminInvitationsRoute: typeof AuthenticatedAdminInvitationsRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRoute,
+  AuthenticatedWorkspaceRoute: AuthenticatedWorkspaceRouteWithChildren,
   AuthenticatedAdminInvitationsRoute: AuthenticatedAdminInvitationsRoute,
 }
 
