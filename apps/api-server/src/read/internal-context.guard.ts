@@ -1,13 +1,6 @@
-import {
-  HttpException,
-  HttpStatus,
-  type CallHandler,
-  type ExecutionContext,
-  type NestInterceptor,
-} from '@nestjs/common';
-import type { Observable } from 'rxjs';
+import { HttpException, HttpStatus, type CanActivate, type ExecutionContext } from '@nestjs/common';
 
-import { runWithRequestUserScope } from './internal-context-store.ts';
+import { enterRequestUserScope } from './internal-context-store.ts';
 import { InternalContextError, verifyInternalUserContext } from './internal-user-context.ts';
 
 // Header the web/BFF sets when calling the internal api-server. Lowercase so it
@@ -22,10 +15,10 @@ type RequestLike = {
 
 type Secret = Buffer | Uint8Array;
 
-type InterceptorOptions = Readonly<{
+type GuardOptions = Readonly<{
   secret: Secret;
   clock?: () => number;
-  // Path prefixes that bypass context enforcement (health/meta liveness).
+  // Paths that bypass context enforcement (health/meta liveness).
   publicPaths?: readonly string[];
 }>;
 
@@ -39,16 +32,23 @@ function pathOf(url: string): string {
   return queryIndex === -1 ? url : url.slice(0, queryIndex);
 }
 
-export function createInternalContextInterceptor(options: InterceptorOptions): NestInterceptor {
+// WHY A GUARD AND NOT AN INTERCEPTOR:
+// Nest's InterceptorsConfumer builds its deferred handler with AsyncResource.bind
+// BEFORE it invokes any interceptor. AsyncResource restores the async context
+// captured at BIND time, so an AsyncLocalStorage scope opened inside an
+// interceptor is invisible to the controller body — requireRequestUserScope()
+// then throws "No verified user scope is bound to this request" and every data
+// route answers 500. Guards run earlier in the same async chain, so binding the
+// scope here (via enterWith) is captured by that later AsyncResource.bind.
+export function createInternalContextGuard(options: GuardOptions): CanActivate {
   const clock = options.clock ?? Date.now;
   const publicPaths = options.publicPaths ?? [];
   return {
-    intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    canActivate(context: ExecutionContext): boolean {
       const request = context.switchToHttp().getRequest<RequestLike>();
       const path = pathOf(request.url);
-      if (publicPaths.some((p) => path === p)) {
-        return next.handle();
-      }
+      if (publicPaths.some((p) => path === p)) return true;
+
       const token = firstHeader(request.headers[INTERNAL_CONTEXT_HEADER]);
       if (!token) {
         throw new HttpException(
@@ -56,13 +56,16 @@ export function createInternalContextInterceptor(options: InterceptorOptions): N
           HttpStatus.UNAUTHORIZED,
         );
       }
-      let scope;
       try {
-        scope = verifyInternalUserContext(options.secret, token, {
+        const scope = verifyInternalUserContext(options.secret, token, {
           method: request.method,
-          path: pathOf(request.url),
+          path,
           now: Math.floor(clock() / 1000),
         });
+        // enterWith (not run()) so the scope survives for the remainder of this
+        // request's async chain without needing to wrap a continuation.
+        enterRequestUserScope(scope);
+        return true;
       } catch (error) {
         if (error instanceof InternalContextError) {
           throw new HttpException(
@@ -72,18 +75,6 @@ export function createInternalContextInterceptor(options: InterceptorOptions): N
         }
         throw error;
       }
-      // Keep the verified scope active for the ENTIRE downstream pipeline,
-      // including the deferred subscription that actually runs the controller.
-      // Wrapping subscribe (not just handle()) ensures AsyncLocalStorage.getStore
-      // resolves inside the handler body, which executes lazily on subscribe.
-      const source = next.handle();
-      return {
-        subscribe(observer: unknown) {
-          return runWithRequestUserScope(scope, () =>
-            (source as { subscribe: (o: unknown) => unknown }).subscribe(observer),
-          );
-        },
-      } as Observable<unknown>;
     },
   };
 }

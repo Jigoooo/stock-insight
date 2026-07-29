@@ -1,6 +1,6 @@
 // Shared per-request read-context construction.
 // Multi-user: the scope is the verified session subject carried by the internal
-// context store (populated by the internal-context interceptor after the signed
+// context store (populated by the internal-context guard after the signed
 // header is verified). There is NO ambient/server-owned fallback user id.
 //  - row-model routes: each query in its own BEGIN READ ONLY txn (db.queryRows)
 //  - research routes: single withReadSnapshot per request
