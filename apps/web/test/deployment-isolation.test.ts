@@ -120,11 +120,47 @@ describe('release deployment isolation', () => {
     assert.doesNotMatch(productionVerifier, /sha256:[a-f0-9]{64}/);
   });
 
-  it('provides a post-enrollment DB-only runtime with no bootstrap credential mounts', () => {
+  it('provides a post-enrollment runtime with no bootstrap credential mounts', () => {
     assert.doesNotMatch(productionDbOnly, /AUTH_USERNAME|AUTH_PASSWORD|ENROLLMENT_TOKEN/);
     assert.match(productionDbOnly, /STOCK_INSIGHT_SESSION_SECRET_FILE/);
     assert.match(productionDbOnly, /stock-insight-session-secret/);
-    assert.match(productionDbOnly, /DATABASE_READ_URL/);
-    assert.match(productionDbOnly, /DATABASE_WRITE_URL/);
+  });
+
+  // P2/P3 brain split: the app container is a BFF with no database access at
+  // all. Only the api (brain) container may carry a DSN or join the research
+  // network; the app reaches the brain over the edge alias instead.
+  it('keeps database credentials and the research network on the brain only', () => {
+    const apiBlock = serviceBlock(productionDbOnly, 'api');
+    const appBlock = serviceBlock(productionDbOnly, 'app');
+
+    assert.match(apiBlock, /DATABASE_READ_URL/);
+    assert.match(apiBlock, /research:/);
+
+    assert.doesNotMatch(appBlock, /DATABASE_READ_URL|DATABASE_WRITE_URL/);
+    assert.doesNotMatch(appBlock, /research:/);
+    assert.match(appBlock, /STOCK_INSIGHT_BRAIN_URL/);
+    // The app signs its own internal contexts, so it needs that secret — and
+    // ONLY that secret plus the session key.
+    assert.match(appBlock, /STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE/);
+    assert.match(appBlock, /stock-insight-internal-context/);
+  });
+
+  // nginx is the only way in from the tunnel, so the brain hostname must be
+  // routed there and confined to /v1/.
+  it('routes the brain hostname through the edge with a narrowed surface', () => {
+    const edgeConfig = read('../../../deploy/stock-edge/nginx.conf');
+    assert.match(edgeConfig, /server_name insight-api\.jigooo\.com;/);
+    assert.match(edgeConfig, /set \$stock_insight_brain stock-insight-api:6200;/);
+    assert.match(edgeConfig, /location \/v1\/ \{/);
+    // Anything outside /v1/ is refused, which keeps the api-server's
+    // unauthenticated /health and /v1/meta off the public hostname.
+    assert.match(edgeConfig, /location \/ \{\s*\n\s*return 404;/);
+    // Edge-terminated Access credentials must not be forwarded to the brain.
+    assert.match(edgeConfig, /proxy_set_header CF-Access-Client-Id "";/);
+    assert.match(edgeConfig, /proxy_set_header CF-Access-Client-Secret "";/);
+
+    // The brain must be reachable on the edge network under that alias.
+    const apiBlock = serviceBlock(productionDbOnly, 'api');
+    assert.match(apiBlock, /aliases:\s*\n\s*- stock-insight-api/);
   });
 });
