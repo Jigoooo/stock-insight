@@ -1,4 +1,8 @@
-import { parseScryptPasswordRecord } from './session-core.ts';
+import { parseScryptPasswordRecord } from './password-record.ts';
+
+// Account credential storage. These queries return password records, so they may
+// ONLY run inside the brain (api-server / api). The web/BFF receives a derived
+// fingerprint instead — see apps/api-server/src/auth/account-identity.ts.
 
 export type LocalAccountQueryExecutor = <
   TRow extends Record<string, unknown> = Record<string, unknown>,
@@ -15,6 +19,7 @@ export type LocalAccount = Readonly<{
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const USERNAME_PATTERN = /^[A-Za-z0-9._-]{3,64}$/;
+const USERNAME_LOGIN_PATTERN = /^[A-Za-z0-9._-]{3,64}$/;
 
 function invalidState(): Error {
   return new Error('Invalid local account state');
@@ -38,6 +43,12 @@ function parseRow(row: Record<string, unknown>, expectedUserId: string): LocalAc
   return { userId, username, passwordRecord };
 }
 
+function parseAnyRow(row: Record<string, unknown>): LocalAccount {
+  const userId = row.user_id;
+  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) throw invalidState();
+  return parseRow(row, userId);
+}
+
 function requireUserId(userId: string): void {
   if (!UUID_PATTERN.test(userId)) throw invalidState();
 }
@@ -57,14 +68,6 @@ export async function loadLocalAccount(
   if (rows.length === 0) return undefined;
   if (rows.length !== 1) throw invalidState();
   return parseRow(rows[0]!, userId);
-}
-
-const USERNAME_LOGIN_PATTERN = /^[A-Za-z0-9._-]{3,64}$/;
-
-function parseAnyRow(row: Record<string, unknown>): LocalAccount {
-  const userId = row.user_id;
-  if (typeof userId !== 'string' || !UUID_PATTERN.test(userId)) throw invalidState();
-  return parseRow(row, userId);
 }
 
 // Multi-user login: resolve an account by canonical username without knowing the

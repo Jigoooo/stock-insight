@@ -1,58 +1,54 @@
 import '@tanstack/react-start/server-only';
 
-import {
-  createScopedReadOnlyDatabaseClient,
-  getCalibrationScorecard,
-  getFeatureSnapshots,
-  getImpactSummaries,
-  getLatestReports,
-  getMarketConfirmations,
-  getPersonalizedFeed,
-  parseServerEnv,
-} from '@stock-insight/api';
+import { brainRequest } from './brain-client.ts';
 
-function context(userId: string) {
-  const env = parseServerEnv();
-  const userScope = { userId };
-  const database = createScopedReadOnlyDatabaseClient(userId, env);
-  if (database.kind === 'disabled') throw new Error('Research database is not configured');
-  return { database, userScope };
+// Product surfaces (features / impact / confirmation / calibration / reports /
+// personalized feed). These used to open a scoped read-only PostgreSQL client
+// per call; they now go over HTTP to the brain.
+
+function scopeFor(userId: string) {
+  return { kind: 'user' as const, userId };
 }
 
 export async function loadFeatureSnapshots(
   userId: string,
   options: { entityKey?: string; limit?: number },
 ) {
-  const { database } = context(userId);
-  return database.withReadSnapshot((executor) => getFeatureSnapshots(executor, options));
+  return brainRequest('/v1/features', {
+    scope: scopeFor(userId),
+    query: { entityKey: options.entityKey, limit: options.limit },
+  });
 }
 
 export async function loadImpactSummaries(
   userId: string,
   options: { entityKey?: string; limit?: number },
 ) {
-  const { database } = context(userId);
-  return database.withReadSnapshot((executor) => getImpactSummaries(executor, options));
+  return brainRequest('/v1/impact', {
+    scope: scopeFor(userId),
+    query: { entityKey: options.entityKey, limit: options.limit },
+  });
 }
 
 export async function loadMarketConfirmations(
   userId: string,
   options: { entityKey?: string; limit?: number },
 ) {
-  const { database } = context(userId);
-  return database.withReadSnapshot((executor) => getMarketConfirmations(executor, options));
+  return brainRequest('/v1/confirmation', {
+    scope: scopeFor(userId),
+    query: { entityKey: options.entityKey, limit: options.limit },
+  });
 }
 
 export async function loadPersonalizedFeed(userId: string, feedDate?: string) {
-  const { database, userScope } = context(userId);
-  return database.withReadSnapshot((executor) =>
-    getPersonalizedFeed(executor, { userScope, ...(feedDate ? { feedDate } : {}) }),
-  );
+  return brainRequest('/v1/personal/feed', {
+    scope: scopeFor(userId),
+    query: { date: feedDate },
+  });
 }
 
 export async function loadCalibrationScorecard(userId: string) {
-  const { database } = context(userId);
-  return database.withReadSnapshot((executor) => getCalibrationScorecard(executor));
+  return brainRequest('/v1/calibration/scorecard', { scope: scopeFor(userId) });
 }
 
 export async function loadLatestReports(
@@ -63,6 +59,8 @@ export async function loadLatestReports(
     limit?: number;
   },
 ) {
-  const { database } = context(userId);
-  return database.withReadSnapshot((executor) => getLatestReports(executor, options));
+  return brainRequest('/v1/reports/latest', {
+    scope: scopeFor(userId),
+    query: { type: options.reportType, scope: options.scopeKey, limit: options.limit },
+  });
 }

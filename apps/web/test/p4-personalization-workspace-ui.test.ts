@@ -26,13 +26,13 @@ describe('P4-C personalization workspace UI', () => {
     }
     const researchCase = loader.match(/case 'research':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
     for (const symbol of [
-      'getPersonalizationPortfolioSnapshot',
-      'getPersonalizationPortfolioImpact',
-      'getPersonalizationDecisionSupport',
-      'getPersonalizationDecisionHistory',
-      'getPersonalizationThesis',
+      'loadPersonalizationPortfolioSnapshot',
+      'loadPersonalizationPortfolioImpact',
+      'loadPersonalizationDecisionSupport',
+      'loadPersonalizationDecisionHistory',
+      'loadPersonalizationThesis',
     ]) {
-      assert.match(researchCase, new RegExp(`${symbol}\\(executor`));
+      assert.match(researchCase, new RegExp(`${symbol}\\(userId`));
     }
     assert.doesNotMatch(researchCase, /fetch\(|Promise\.all/);
   });

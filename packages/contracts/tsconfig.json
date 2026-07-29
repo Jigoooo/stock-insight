@@ -9,7 +9,8 @@
     "rootDir": "src",
     "tsBuildInfoFile": "../../node_modules/.tmp/contracts.tsbuildinfo",
     "moduleDetection": "force",
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
   },
   "include": ["src"]
 }

@@ -139,7 +139,11 @@ export async function handleThesisAppend(
       return { status: 200, body: response, headers: { 'Idempotency-Replayed': 'true' } };
     }
     return { status: 201, body: outcome.response };
-  } catch {
+  } catch (error) {
+    // Same rationale as manual-portfolio: the caller keeps an opaque envelope,
+    // but the operator must be able to see why a write failed without attaching
+    // a debugger to a running container.
+    console.error('[personalization] thesis write failed', { error });
     return errorResult(500, 'PERSONALIZATION_WRITE_FAILED', '논지 revision 저장에 실패했습니다.');
   }
 }

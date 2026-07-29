@@ -9,7 +9,17 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: '6200'
+      # The mutation kill-switch is enforced HERE now: P2 moved the manual
+      # portfolio and personalization write paths into the brain, and
+      # resolveManualPortfolioMutationPolicy() reads this from the brain's own
+      # env. Leaving it unset makes every mutation fail closed with 503 while
+      # reads keep succeeding.
+      STOCK_INSIGHT_MUTATIONS_ENABLED: ${STOCK_INSIGHT_MUTATIONS_ENABLED:-true}
       DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
+      # The brain owns every write path too (manual portfolio, signup, invitation
+      # issue/revoke) since the P2 split moved them off the BFF. Without this the
+      # reads still succeed while every mutation fails closed with 503.
+      DATABASE_WRITE_URL: ${STOCK_INSIGHT_DATABASE_WRITE_URL:?set in .env.docker}
       # Multi-user: no fixed server-owned id. The api-server verifies a signed
       # per-request internal context and refuses to boot without the secret.
       STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: /run/secrets/stock-insight-internal-context
@@ -18,7 +28,12 @@ services:
     ports:
       - '127.0.0.1:8093:6200'
     networks:
-      - research
+      # Joins the edge network so nginx can route insight-api.jigooo.com here.
+      # The alias is what deploy/stock-edge/nginx.conf resolves.
+      edge:
+        aliases:
+          - stock-insight-api
+      research:
     init: true
     read_only: true
     tmpfs:
@@ -47,8 +62,12 @@ services:
       HOST: 0.0.0.0
       PORT: '3000'
       STOCK_INSIGHT_MUTATIONS_ENABLED: 'true'
-      DATABASE_READ_URL: ${STOCK_INSIGHT_DATABASE_READ_URL:?set in .env.docker}
-      DATABASE_WRITE_URL: ${STOCK_INSIGHT_DATABASE_WRITE_URL:?set in .env.docker}
+      # The BFF holds NO database credentials. It reaches the brain in-network
+      # over the edge alias, so this hop never leaves the Docker bridge and does
+      # not traverse Cloudflare Access (that guards the public hostname, which is
+      # for external developer clients).
+      STOCK_INSIGHT_BRAIN_URL: ${STOCK_INSIGHT_BRAIN_URL:-http://stock-insight-api:6200}
+      STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: /run/secrets/stock-insight-internal-context
       # Multi-user: signup mints users via invitation codes; no fixed user id.
       STOCK_INSIGHT_SIGNUP_ENABLED: ${STOCK_INSIGHT_SIGNUP_ENABLED:-true}
       STOCK_INSIGHT_SESSION_SECRET_FILE: /run/secrets/stock-insight-session-secret
@@ -56,13 +75,13 @@ services:
       STOCK_INSIGHT_SESSION_TTL_SECONDS: ${STOCK_INSIGHT_SESSION_TTL_SECONDS:-28800}
     secrets:
       - stock-insight-session-secret
+      - stock-insight-internal-context
     ports:
       - '127.0.0.1:8091:3000'
     networks:
       edge:
         aliases:
           - stock-insight-app
-      research:
     init: true
     read_only: true
     tmpfs:

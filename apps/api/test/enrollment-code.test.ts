@@ -1,7 +1,9 @@
+// Moved from apps/web/test/ by the P2 brain split: the module under test now
+// lives in the brain (apps/api/src/auth). Assertions are unchanged.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { hashEnrollmentCode, verifyEnrollmentCode } from '../src/server/auth/enrollment-code.ts';
+import { hashEnrollmentCode, verifyEnrollmentCode } from '../src/auth/enrollment-code.ts';
 
 describe('enrollment code verification', () => {
   it('hashes and verifies a high-entropy enrollment code without storing plaintext', () => {

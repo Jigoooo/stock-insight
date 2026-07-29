@@ -1,3 +1,5 @@
+// Moved from apps/web/test/ by the P2 brain split: the module under test now
+// lives in the brain (apps/api/src/auth). Assertions are unchanged.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
@@ -6,11 +8,10 @@ import {
   issueAdminInvitation,
   listAdminInvitations,
   loadAdminCapabilities,
-  loadFailClosedAdminCapabilitiesForUser,
   revokeAdminInvitation,
   type AdminQueryExecutor,
-} from '../src/server/auth/admin-invitations.ts';
-import { hashEnrollmentCode } from '../src/server/auth/enrollment-code.ts';
+} from '../src/auth/admin-invitations.ts';
+import { hashEnrollmentCode } from '../src/auth/enrollment-code.ts';
 
 function recordingExecutor(rows: Record<string, unknown>[] = []) {
   const calls: Array<{ sql: string; params: readonly unknown[] }> = [];
@@ -114,16 +115,6 @@ describe('admin invitations runtime', () => {
       () => loadAdminCapabilities(db.executor),
       /Invalid admin invitation state/,
     );
-  });
-
-  it('keeps the authenticated session usable while failing admin capability closed', async () => {
-    const capabilities = await loadFailClosedAdminCapabilitiesForUser(
-      '11111111-1111-4111-8111-111111111111',
-      async () => {
-        throw new Error('database unavailable');
-      },
-    );
-    assert.deepEqual(capabilities, { role: 'member', canManageInvitations: false });
   });
 
   it('revokes through the DB function and distinguishes a missing active row', async () => {

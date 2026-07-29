@@ -49,6 +49,12 @@ describe('Stock Insight edge isolation', () => {
     assert.match(nginx, /limit_req_zone \$binary_remote_addr zone=stock_connector/);
     assert.match(nginx, /limit_req_zone \$stock_client_ip zone=stock_client/);
     assert.match(nginx, /limit_req zone=stock_connector/);
+    // Brain gateway lives in the same edge config, on its own hostname and
+    // rate-limit budget, with only /v1/ routed through.
+    assert.match(nginx, /server_name insight-api\.jigooo\.com;/);
+    assert.match(nginx, /set \$stock_insight_brain stock-insight-api:6200;/);
+    assert.match(nginx, /limit_req_zone \$binary_remote_addr zone=brain_connector/);
+    assert.match(nginx, /location \/v1\/ \{/);
     assert.match(nginx, /limit_req zone=stock_client/);
     assert.match(nginx, /X-Real-IP \$stock_client_ip/);
     assert.match(nginx, /X-Stock-Client-IP \$stock_client_ip/);
@@ -70,10 +76,13 @@ describe('Stock Insight edge isolation', () => {
     assert.match(productionAlias, /include:\s*\n\s+- path: docker-compose\.prod-db-auth\.yml/);
     assert.doesNotMatch(productionAlias, /^services:/m);
     const app = serviceBlock(production, 'app');
-    assert.match(
-      app,
-      /networks:\s*\n\s+edge:\s*\n\s+aliases:\s*\n\s+- stock-insight-app\s*\n\s+research:/,
-    );
+    // P3 brain split: the app is edge-only now. It reaches data through the
+    // brain over the edge alias, so joining the research network would be a
+    // regression (it would restore a route to PostgreSQL from the BFF).
+    assert.match(app, /networks:\s*\n\s+edge:\s*\n\s+aliases:\s*\n\s+- stock-insight-app/);
+    assert.doesNotMatch(app, /research:/);
+    const api = serviceBlock(production, 'api');
+    assert.match(api, /research:/);
     assert.match(production, /^    name: stock-insight-edge$/m);
     assert.doesNotMatch(productionAlias + production, /consulting-web_default/);
   });

@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "@gsap/react": "2.1.2",
-    "@stock-insight/api": "workspace:*",
     "@stock-insight/api-client": "workspace:*",
     "@stock-insight/contracts": "workspace:*",
     "@tanstack/react-router": "1.170.15",

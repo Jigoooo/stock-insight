@@ -4,12 +4,12 @@ import { isAbsolute } from 'node:path';
 type EnvSource = Record<string, string | undefined>;
 type SecretReader = (path: string) => Promise<string>;
 
+// Runtime configuration for the BFF's session layer. Credential material
+// (password records, enrollment-code digests) is NOT part of this any more: the
+// brain owns it, so the only secret this process loads is the session signing
+// key. STOCK_INSIGHT_AUTH_USERNAME / _PASSWORD_RECORD_FILE /
+// _ENROLLMENT_TOKEN_HASH_FILE are intentionally no longer read.
 export type AuthRuntimeConfig = {
-  staticCredential?: {
-    username: string;
-    passwordRecord: string;
-  };
-  enrollmentTokenHash?: string;
   sessionSecret: string;
   appOrigin: string;
   sessionTtlSeconds: number;
@@ -24,20 +24,10 @@ function requireValue(value: string | undefined): string {
   return normalized;
 }
 
-function parseUsername(value: string | undefined): string {
-  const username = requireValue(value);
-  if (username.length > 64 || !/^[A-Za-z0-9._-]+$/.test(username)) throw invalidConfig();
-  return username;
-}
-
 function parseSecretPath(value: string | undefined): string {
   const path = requireValue(value);
   if (!isAbsolute(path)) throw invalidConfig();
   return path;
-}
-
-function parseOptionalSecretPath(value: string | undefined): string | undefined {
-  return value === undefined || value.trim() === '' ? undefined : parseSecretPath(value);
 }
 
 function parseOrigin(value: string | undefined): string {
@@ -72,41 +62,18 @@ export async function loadAuthRuntimeConfig(
   readSecret: SecretReader = defaultSecretReader,
 ): Promise<AuthRuntimeConfig> {
   try {
-    const usernameSource = source.STOCK_INSIGHT_AUTH_USERNAME;
-    const passwordRecordPath = parseOptionalSecretPath(
-      source.STOCK_INSIGHT_AUTH_PASSWORD_RECORD_FILE,
-    );
-    const hasUsername = usernameSource !== undefined && usernameSource.trim() !== '';
-    if (hasUsername !== Boolean(passwordRecordPath)) throw invalidConfig();
-    const username = hasUsername ? parseUsername(usernameSource) : undefined;
-    const enrollmentTokenHashPath = parseOptionalSecretPath(
-      source.STOCK_INSIGHT_AUTH_ENROLLMENT_TOKEN_HASH_FILE,
-    );
     const sessionSecretPath = parseSecretPath(source.STOCK_INSIGHT_SESSION_SECRET_FILE);
     const appOrigin = parseOrigin(source.STOCK_INSIGHT_APP_ORIGIN);
     const sessionTtlSeconds = parseSessionTtl(source.STOCK_INSIGHT_SESSION_TTL_SECONDS);
-    const [passwordRecordRaw, enrollmentTokenHashRaw, sessionSecretRaw] = await Promise.all([
-      passwordRecordPath ? readSecret(passwordRecordPath) : Promise.resolve(undefined),
-      enrollmentTokenHashPath ? readSecret(enrollmentTokenHashPath) : Promise.resolve(undefined),
-      readSecret(sessionSecretPath),
-    ]);
-    const passwordRecord = passwordRecordRaw?.trim();
-    const enrollmentTokenHash = enrollmentTokenHashRaw?.trim().toLowerCase();
-    const sessionSecret = sessionSecretRaw.trim();
-    if ((username && !passwordRecord) || sessionSecret.length < 32) throw invalidConfig();
-    if (enrollmentTokenHash && !/^[0-9a-f]{64}$/.test(enrollmentTokenHash)) {
-      throw invalidConfig();
-    }
+    const sessionSecret = (await readSecret(sessionSecretPath)).trim();
+    if (sessionSecret.length < 32) throw invalidConfig();
 
-    const config: AuthRuntimeConfig = {
+    return {
       sessionSecret,
       appOrigin,
       sessionTtlSeconds,
       signupEnabled: source.STOCK_INSIGHT_SIGNUP_ENABLED === 'true',
     };
-    if (username && passwordRecord) config.staticCredential = { username, passwordRecord };
-    if (enrollmentTokenHash) config.enrollmentTokenHash = enrollmentTokenHash;
-    return config;
   } catch {
     throw invalidConfig();
   }

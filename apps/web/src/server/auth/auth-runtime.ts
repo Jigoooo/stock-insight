@@ -1,21 +1,10 @@
 import '@tanstack/react-start/server-only';
 
+import { brainRequest } from '../brain-client.ts';
 import { loadAuthRuntimeConfig, type AuthRuntimeConfig } from './auth-runtime-config.ts';
-import { hashEnrollmentCode } from './enrollment-code.ts';
-import {
-  loadLocalAccountById,
-  loadLocalAccountByUsername,
-  type LocalAccount,
-} from './local-account-repository.ts';
-import {
-  authenticateAccount,
-  issueSessionForAccount,
-  resolveSessionFromAccount,
-} from './multi-user-auth.ts';
+import { fingerprintSessionSecret, type AccountIdentity } from './credential-binding.ts';
 import { readSessionCookie } from './session-cookie.ts';
-import { createScryptPasswordRecordAsync, type SessionClaims } from './session-core.ts';
-
-import { createReadOnlyDatabaseClient, createSignupDatabaseClient } from '@stock-insight/api';
+import { createSessionToken, verifySessionToken, type SessionClaims } from './session-core.ts';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -30,32 +19,53 @@ function baseSessionSecret(config: AuthRuntimeConfig): Buffer {
   return Buffer.from(config.sessionSecret, 'utf8');
 }
 
-function requireReadDatabase() {
-  const database = createReadOnlyDatabaseClient();
-  if (database.kind !== 'configured') throw new Error('Authentication database is unavailable');
-  return database;
+const anonymous = { kind: 'anonymous' as const };
+
+// Session keys are still credential-bound, but the binding material is now the
+// brain-issued credentialFingerprint rather than the raw password record — which
+// never leaves the brain. Rotating a password changes the fingerprint, so every
+// previously issued session stops verifying, exactly as before.
+function sessionSecretFor(config: AuthRuntimeConfig, identity: AccountIdentity): Buffer {
+  return fingerprintSessionSecret(baseSessionSecret(config), identity);
 }
 
-// Login: resolve the account by canonical username (no fixed server-owned id),
-// then verify username + password and issue a credential-bound session.
+function issueSession(
+  config: AuthRuntimeConfig,
+  identity: AccountIdentity,
+): { token: string; maxAgeSeconds: number; session: SessionClaims } {
+  const secret = sessionSecretFor(config, identity);
+  const token = createSessionToken(
+    { sub: identity.userId, username: identity.username },
+    { secret, ttlSeconds: config.sessionTtlSeconds },
+  );
+  const session = verifySessionToken(token, { secret });
+  if (!session || session.sub !== identity.userId || session.username !== identity.username) {
+    throw new Error('Failed to issue a bound authentication session');
+  }
+  return { token, maxAgeSeconds: config.sessionTtlSeconds, session };
+}
+
+// Login: the brain verifies username + password (it owns the scrypt records) and
+// returns only an opaque identity. The plaintext password is forwarded over the
+// internal channel and never stored here.
 export async function authenticateConfiguredCredentials(input: {
   username: string;
   password: string;
 }): Promise<{ token: string; maxAgeSeconds: number; session: SessionClaims } | undefined> {
   const config = await getAuthConfig();
-  const database = requireReadDatabase();
-  const account = await loadLocalAccountByUsername(database.queryRows, input.username);
-  return authenticateAccount(
-    baseSessionSecret(config),
-    config.sessionTtlSeconds,
-    account,
-    input.username,
-    input.password,
-  );
+  const result = await brainRequest<
+    { status: 'authenticated'; identity: AccountIdentity } | { status: 'rejected' }
+  >('/v1/auth/authenticate', {
+    scope: anonymous,
+    method: 'POST',
+    body: { username: input.username, password: input.password },
+  });
+  if (result.status !== 'authenticated') return undefined;
+  return issueSession(config, result.identity);
 }
 
 // Session refresh: the token carries a verified UUID subject; rebuild the
-// credential from that id and re-validate the signature against it.
+// credential fingerprint from that id and re-validate the signature against it.
 export async function readBoundSession(
   cookieHeader: string | null | undefined,
 ): Promise<SessionClaims | undefined> {
@@ -64,14 +74,24 @@ export async function readBoundSession(
   const subject = peekSessionSubject(token);
   if (!subject) return undefined;
   const config = await getAuthConfig();
-  const database = requireReadDatabase();
-  const account = await loadLocalAccountById(database.queryRows, subject);
-  return resolveSessionFromAccount(baseSessionSecret(config), token, account);
+
+  const result = await brainRequest<
+    { status: 'found'; identity: AccountIdentity } | { status: 'not_found' }
+  >('/v1/auth/account', { scope: anonymous, query: { userId: subject } });
+  if (result.status !== 'found') return undefined;
+
+  const session = verifySessionToken(token, { secret: sessionSecretFor(config, result.identity) });
+  if (!session) return undefined;
+  // Bind the claims to the resolved account so a token cannot be replayed under
+  // a different identity even if its signature somehow validated.
+  return session.sub === result.identity.userId && session.username === result.identity.username
+    ? session
+    : undefined;
 }
 
-// The token subject is only trusted after the signature check inside
-// resolveSessionFromAccount; here we merely peek at the claimed id to know which
-// account row to load. Malformed tokens resolve to undefined and fail closed.
+// The token subject is only trusted after the signature check above; here we
+// merely peek at the claimed id to know which account to resolve. Malformed
+// tokens resolve to undefined and fail closed.
 function peekSessionSubject(token: string): string | undefined {
   const segments = token.split('.');
   if (segments.length !== 2) return undefined;
@@ -85,14 +105,13 @@ function peekSessionSubject(token: string): string | undefined {
   }
 }
 
-// Signup is invitation-gated. The invite code itself is the credential: it is
-// hashed to a digest and validated against the durable invitation ledger inside
-// the atomic consume function, so signup is available whenever the feature is on.
 export async function getEnrollmentAvailability(): Promise<boolean> {
   const config = await getAuthConfig();
   return config.signupEnabled;
 }
 
+// Signup is invitation-gated. The brain hashes the code, mints the user inside
+// the atomic SECURITY DEFINER consume function, and returns the identity.
 export async function enrollLocalAccountCredentials(input: {
   username: string;
   password: string;
@@ -109,42 +128,22 @@ export async function enrollLocalAccountCredentials(input: {
   const config = await getAuthConfig();
   if (!config.signupEnabled) return { status: 'unavailable' };
 
-  const passwordRecord = await createScryptPasswordRecordAsync(input.password);
-  const codeDigest = hashEnrollmentCode(input.enrollmentCode);
-  // Signup mints the user, so there is no pre-existing scope; the SECURITY
-  // DEFINER consume function sets its own scope internally.
-  const writeDatabase = createSignupDatabaseClient();
-  if (writeDatabase.kind !== 'configured') {
-    throw new Error('Authentication database is unavailable');
-  }
-
-  const result = await writeDatabase.withTransaction(async (executor) => {
-    const rows = await executor.queryRows<{ status: string; user_id: string | null }>(
-      `SELECT status, user_id::text AS user_id
-         FROM public.consume_invitation_and_create_account($1, $2, $3)`,
-      [codeDigest, input.username, passwordRecord],
-    );
-    return rows[0];
+  const result = await brainRequest<
+    | { status: 'created'; identity: AccountIdentity }
+    | { status: 'invalid_code' }
+    | { status: 'unavailable' }
+  >('/v1/auth/enroll', {
+    scope: anonymous,
+    method: 'POST',
+    body: {
+      username: input.username,
+      password: input.password,
+      enrollmentCode: input.enrollmentCode,
+    },
   });
 
-  if (!result) return { status: 'unavailable' };
-  if (result.status === 'created' && result.user_id && UUID_PATTERN.test(result.user_id)) {
-    const localAccount: LocalAccount = {
-      userId: result.user_id,
-      username: input.username,
-      passwordRecord,
-    };
-    return {
-      status: 'created',
-      ...issueSessionForAccount(baseSessionSecret(config), config.sessionTtlSeconds, localAccount),
-    };
-  }
-  // username_taken / exhausted / expired / revoked are all conflict-like states
-  // where the operator or user must act; everything else is an invalid code.
-  if (['username_taken', 'exhausted', 'expired', 'revoked'].includes(result.status)) {
-    return { status: 'unavailable' };
-  }
-  return { status: 'invalid_code' };
+  if (result.status !== 'created') return { status: result.status };
+  return { status: 'created', ...issueSession(config, result.identity) };
 }
 
 export async function getAuthenticationOrigin(): Promise<string> {

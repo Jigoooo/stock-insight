@@ -3,35 +3,20 @@ import type { RouteMethod } from '@tanstack/react-start';
 import '@tanstack/react-start/server-only';
 
 import { authRequestMiddleware } from '@/server/auth/auth-middleware';
-import { jsonResponse } from '@/server/http';
-import { loadMarketConfirmations } from '@/server/product-api';
-import {
-  RequestScopeError,
-  resolveRequestUserId,
-  unauthorizedScopeResponse,
-} from '@/server/request-scope';
-import { normalizeProductLimitParam, normalizeProductTextParam } from '@stock-insight/api';
+import { brainProxyGet, firstParam } from '@/server/brain-proxy';
 
 const handlers = {
-  GET: async ({ request }: { request: Request }) => {
-    const url = new URL(request.url);
-    const entityKey = normalizeProductTextParam(url.searchParams.getAll('entityKey'));
-    const limit = normalizeProductLimitParam(url.searchParams.getAll('limit'));
-    try {
-      const userId = await resolveRequestUserId(request);
-      return jsonResponse(
-        await loadMarketConfirmations(userId, {
-          ...(entityKey !== undefined ? { entityKey } : {}),
-          ...(limit !== undefined ? { limit } : {}),
-        }),
-      );
-    } catch (error) {
-      if (error instanceof RequestScopeError) return unauthorizedScopeResponse();
-      throw error;
-    }
-  },
+  GET: brainProxyGet('/v1/confirmation', {
+    query: (params) => ({
+      entityKey: firstParam(params, 'entityKey'),
+      limit: firstParam(params, 'limit'),
+    }),
+  }),
 } satisfies Partial<Record<RouteMethod, ({ request }: { request: Request }) => Promise<Response>>>;
 
 export const Route = createFileRoute('/api/v1/confirmation')({
-  server: { middleware: [authRequestMiddleware], handlers },
+  server: {
+    middleware: [authRequestMiddleware],
+    handlers,
+  },
 });

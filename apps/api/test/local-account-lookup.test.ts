@@ -1,10 +1,12 @@
+// Moved from apps/web/test/ by the P2 brain split: the module under test now
+// lives in the brain (apps/api/src/auth). Assertions are unchanged.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
   loadLocalAccountByUsername,
   loadLocalAccountById,
-} from '../src/server/auth/local-account-repository.ts';
+} from '../src/auth/local-account-repository.ts';
 
 const USER_ID = '123e4567-e89b-42d3-a456-426614174000';
 const RECORD =

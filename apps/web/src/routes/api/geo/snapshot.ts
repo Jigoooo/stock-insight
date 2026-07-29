@@ -10,6 +10,7 @@ import {
   unauthorizedScopeResponse,
 } from '@/server/request-scope';
 import { loadGeoSnapshot } from '@/server/research-workspace';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import { parseTemporalQuery, resolveTemporalQuery } from '@stock-insight/contracts/temporal';
 
 type GeoSnapshotRouteContext = { request: Request };
@@ -24,10 +25,10 @@ const handlers = {
     }
     try {
       const userId = await resolveRequestUserId(request);
-      const snapshot = await loadGeoSnapshot(userId, {
+      const snapshot = (await loadGeoSnapshot(userId, {
         knownAt: new Date(temporal.knownAt),
         validAt: new Date(temporal.validAt),
-      });
+      })) as GeoSnapshot;
       return jsonResponse(snapshot, {
         headers: {
           'cache-control': 'private, no-store',
