@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { AppModule } from './app.module.ts';
 import { NoStoreInterceptor } from './common/no-store.interceptor.ts';
 import { parseApiServerEnv } from './config/env.ts';
-import { createInternalContextInterceptor } from './read/internal-context.interceptor.ts';
+import { createInternalContextGuard } from './read/internal-context.guard.ts';
 
 export { AppModule } from './app.module.ts';
 export { parseApiServerEnv, type ApiServerEnv } from './config/env.ts';
@@ -98,8 +98,8 @@ export async function createApp(options: CreateAppOptions = {}): Promise<NestFas
   if (secret.length < 32) {
     throw new Error('Internal context secret must be at least 32 characters');
   }
-  app.useGlobalInterceptors(
-    createInternalContextInterceptor({
+  app.useGlobalGuards(
+    createInternalContextGuard({
       secret: Buffer.from(secret, 'utf8'),
       // Liveness endpoints are unauthenticated: /health (no prefix) and /v1/meta.
       publicPaths: ['/health', '/v1/meta'],
