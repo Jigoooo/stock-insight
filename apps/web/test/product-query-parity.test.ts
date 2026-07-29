@@ -22,7 +22,10 @@ const textRoutes = [
 test('query normalization lives solely in the brain controllers', () => {
   assert.match(controller, /normalizeProductTextParam/);
   assert.match(controller, /normalizeProductLimitParam/);
-  assert.doesNotMatch(controller, /optionalLimit/);
+  // The product controller normalizes through the shared helpers only: neither a
+  // local optionalLimit nor a raw firstParam shortcut may creep back in, since
+  // either would reintroduce a second normalization implementation.
+  assert.doesNotMatch(controller, /optionalLimit|firstParam/);
   // personal/feed moved to the research-product controller during the split.
   assert.doesNotMatch(controller, /@Get\('personal\/feed'\)/);
   assert.match(researchProductController, /@Get\('personal\/feed'\)/);
