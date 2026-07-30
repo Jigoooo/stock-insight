@@ -1,0 +1,153 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+
+const read = async (path: string) =>
+  readFile(new URL(`../src/${path}`, import.meta.url), 'utf8').catch(() => '');
+
+const options = [
+  { value: 'one', label: 'One' },
+  { value: 'two', label: 'Two', disabled: true },
+  { value: 'three', label: 'Three', description: 'Third option' },
+] as const;
+
+describe('select option behavior', () => {
+  it('moves with arrows, Home, and End while wrapping past disabled options', async () => {
+    const controller =
+      await import('../src/shared/ui/primitives/select-controls-controller.ts').catch(() => null);
+    assert.ok(controller, 'select controls controller must exist');
+
+    assert.equal(
+      controller.getNextEnabledOptionIndex({
+        currentIndex: 0,
+        key: 'ArrowDown',
+        options,
+      }),
+      2,
+    );
+    assert.equal(
+      controller.getNextEnabledOptionIndex({
+        currentIndex: 2,
+        key: 'ArrowDown',
+        options,
+      }),
+      0,
+    );
+    assert.equal(
+      controller.getNextEnabledOptionIndex({
+        currentIndex: 0,
+        key: 'ArrowUp',
+        options,
+      }),
+      2,
+    );
+    assert.equal(
+      controller.getNextEnabledOptionIndex({
+        currentIndex: 2,
+        key: 'Home',
+        options,
+      }),
+      0,
+    );
+    assert.equal(
+      controller.getNextEnabledOptionIndex({
+        currentIndex: 0,
+        key: 'End',
+        options,
+      }),
+      2,
+    );
+  });
+
+  it('filters labels locally by default and accepts a custom filter', async () => {
+    const controller =
+      await import('../src/shared/ui/primitives/select-controls-controller.ts').catch(() => null);
+    assert.ok(controller, 'select controls controller must exist');
+
+    assert.deepEqual(
+      controller.filterSelectOptions(options, 'thr').map((option) => option.value),
+      ['three'],
+    );
+    assert.deepEqual(
+      controller
+        .filterSelectOptions(options, 'third', (option, query) =>
+          option.description?.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+        )
+        .map((option) => option.value),
+      ['three'],
+    );
+    assert.deepEqual(controller.filterSelectOptions(options, 'missing'), []);
+  });
+
+  it('selects enabled options and preserves the current value for disabled options', async () => {
+    const controller =
+      await import('../src/shared/ui/primitives/select-controls-controller.ts').catch(() => null);
+    assert.ok(controller, 'select controls controller must exist');
+
+    assert.equal(controller.resolveSelectableValue(options[2], 'one'), 'three');
+    assert.equal(controller.resolveSelectableValue(options[1], 'one'), 'one');
+  });
+});
+
+describe('SelectBox and Combobox structure', () => {
+  it('connects combobox triggers to listboxes and submits values through hidden inputs', async () => {
+    const [selectBox, combobox, primitiveIndex] = await Promise.all([
+      read('shared/ui/primitives/select-box.tsx'),
+      read('shared/ui/primitives/combobox.tsx'),
+      read('shared/ui/primitives/index.ts'),
+    ]);
+
+    for (const source of [selectBox, combobox]) {
+      assert.match(source, /role="combobox"/);
+      assert.match(source, /aria-controls=\{listboxId\}/);
+      assert.match(source, /aria-expanded=\{open\}/);
+      assert.match(source, /aria-activedescendant=/);
+      assert.match(source, /role="listbox"/);
+      assert.match(source, /role="option"/);
+      assert.match(source, /aria-selected=/);
+      assert.match(source, /aria-disabled=/);
+      assert.match(source, /type="hidden"/);
+      assert.match(source, /name=\{name\}/);
+    }
+    assert.match(primitiveIndex, /export \{ SelectBox/);
+    assert.match(primitiveIndex, /export \{ Combobox/);
+    assert.match(primitiveIndex, /type SelectOption/);
+  });
+
+  it('dismisses with Escape, Tab, and outside pointer interaction', async () => {
+    const [selectBox, combobox] = await Promise.all([
+      read('shared/ui/primitives/select-box.tsx'),
+      read('shared/ui/primitives/combobox.tsx'),
+    ]);
+
+    for (const source of [selectBox, combobox]) {
+      assert.match(source, /case 'Escape'/);
+      assert.match(source, /case 'Tab'/);
+      assert.match(source, /pointerdown/);
+      assert.match(source, /setOpen\(false\)/);
+    }
+  });
+
+  it('provides an explicit empty state and clear control for filtered combobox results', async () => {
+    const source = await read('shared/ui/primitives/combobox.tsx');
+
+    assert.match(source, /emptyMessage/);
+    assert.match(source, /filteredOptions\.length === 0/);
+    assert.match(source, /clearLabel/);
+    assert.match(source, /setQueryValue\(''\)/);
+    assert.match(source, /setSelectedValue\(''\)/);
+  });
+
+  it('keeps invitation field names, submitted values, and form reset defaults', async () => {
+    const source = await read('pages/admin-invitations/ui/admin-invitation-page.tsx');
+
+    assert.doesNotMatch(source, /<select/);
+    assert.match(source, /name="maxUses"/);
+    assert.match(source, /defaultValue="1"/);
+    assert.match(source, /value: '10', label: '10회'/);
+    assert.match(source, /name="expiresInHours"/);
+    assert.match(source, /defaultValue="24"/);
+    assert.match(source, /value: '168', label: '7일'/);
+    assert.match(source, /form\.reset\(\)/);
+  });
+});

@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const username = process.env.STOCK_INSIGHT_E2E_USERNAME;
@@ -28,10 +29,14 @@ test.describe('administrator invitation console', () => {
     }
     await expect(page.getByRole('heading', { name: '가입 코드 관리' })).toBeVisible();
     await expect(page.getByText('Owner', { exact: true })).toBeVisible();
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    expect(accessibility.violations).toEqual([]);
 
     await page.getByLabel('메모').fill(label);
-    await page.getByLabel('사용 가능 횟수').selectOption('2');
-    await page.getByLabel('유효 기간').selectOption('24');
+    await page.getByRole('combobox', { name: '사용 가능 횟수' }).click();
+    await page.getByRole('option', { name: '2회' }).click();
+    await page.getByRole('combobox', { name: '유효 기간' }).click();
+    await page.getByRole('option', { name: '24시간' }).click();
     await page.getByRole('button', { name: '코드 발급', exact: true }).click();
 
     await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toBeVisible();
