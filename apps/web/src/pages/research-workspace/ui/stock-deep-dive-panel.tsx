@@ -1,4 +1,5 @@
-import { AlertCircle, ChevronDown, CircleDot, LoaderCircle, Network } from 'lucide-react';
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
+import { AlertCircle, ChevronDown, CircleDot, Network } from 'lucide-react';
 
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import styles from './stock-deep-dive-panel.module.css';
@@ -30,14 +31,14 @@ function PanelState({
   onRetry?: () => void;
   title: string;
 }) {
-  const Icon = kind === 'loading' ? LoaderCircle : kind === 'error' ? AlertCircle : CircleDot;
-  const State = kind === 'error' ? ErrorState : EmptyState;
-  return (
-    <State className={styles.state} data-kind={kind}>
+  const content = (
+    <>
       {kind === 'loading' ? (
         <Skeleton className={styles.stateIconSkeleton} height={22} width={22} />
+      ) : kind === 'error' ? (
+        <AlertCircle aria-hidden="true" />
       ) : (
-        <Icon aria-hidden="true" />
+        <CircleDot aria-hidden="true" />
       )}
       <div>
         <strong>{title}</strong>
@@ -48,7 +49,21 @@ function PanelState({
           </Button>
         )}
       </div>
-    </State>
+    </>
+  );
+
+  if (kind === 'error') {
+    return (
+      <ErrorState className={styles.state} data-kind={kind} aria-atomic="true">
+        {content}
+      </ErrorState>
+    );
+  }
+
+  return (
+    <EmptyState className={styles.state} data-kind={kind} role="status" aria-atomic="true">
+      {content}
+    </EmptyState>
   );
 }
 

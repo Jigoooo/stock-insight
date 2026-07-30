@@ -22,6 +22,37 @@ const adoptionUrls = [
   new URL('../src/pages/admin-invitations/ui/admin-invitation-page.tsx', import.meta.url),
 ];
 
+const feedbackSurfaceInventory = [
+  {
+    className: 'stateSurface',
+    url: new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
+  },
+  {
+    className: 'viewLoadError',
+    url: new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
+  },
+  {
+    className: 'stateSurface',
+    url: new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
+  },
+  {
+    className: 'graphRuntimeError',
+    url: new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
+  },
+  {
+    className: 'state',
+    url: new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+  },
+  {
+    className: 'tableEmpty',
+    url: new URL('../src/pages/admin-invitations/ui/admin-invitation-page.tsx', import.meta.url),
+  },
+] as const;
+
+function matchCount(source: string, pattern: RegExp) {
+  return [...source.matchAll(pattern)].length;
+}
+
 describe('Task 4 shared feedback and surface contract', () => {
   it('exposes explicit SaaS-style anatomy on every feedback and surface primitive', async () => {
     const [surface, feedback, toast] = await Promise.all([
@@ -98,11 +129,36 @@ describe('Task 4 shared feedback and surface contract', () => {
         (match) => `${adoptionUrls[index]?.pathname}:${match[1]}`,
       ),
     );
-    const combined = sources.join('\n');
-
     assert.deepEqual(rawControls, []);
-    assert.match(combined, /<ErrorState\b/);
-    assert.match(combined, /<EmptyState\b/);
-    assert.match(combined, /<Skeleton\b/);
+  });
+
+  it('accounts for every page-local feedback surface with a shared primitive owner', async () => {
+    for (const { className, url } of feedbackSurfaceInventory) {
+      const source = await readFile(url, 'utf8');
+      const references = matchCount(
+        source,
+        new RegExp(`className=\\{styles\\.${className}\\}`, 'g'),
+      );
+      const sharedOwners = matchCount(
+        source,
+        new RegExp(
+          `<(?:EmptyState|ErrorState)[\\s\\S]{0,220}?className=\\{styles\\.${className}\\}`,
+          'g',
+        ),
+      );
+
+      assert.ok(references > 0, `${url.pathname}:${className} must remain inventoried`);
+      assert.equal(
+        sharedOwners,
+        references,
+        `${url.pathname}:${className} must be owned by EmptyState or ErrorState`,
+      );
+    }
+
+    const deepDive = await readFile(
+      new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+      'utf8',
+    );
+    assert.match(deepDive, /<Skeleton\b/);
   });
 });

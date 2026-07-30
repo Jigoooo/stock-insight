@@ -1,3 +1,4 @@
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
 import { Link } from '@tanstack/react-router';
 import {
   Activity,
@@ -54,7 +55,7 @@ import { filterWorkspaceStocks } from '../model/workspace-search-filter';
 import { isLatestWorkspaceIntent } from '../model/workspace-transition-policy';
 import type { ResearchWorkspaceViewPayload } from '../model/workspace-view-payload';
 
-import { Button, ErrorState, IconButton } from '@/shared/ui/primitives';
+import { Button, EmptyState, ErrorState, IconButton, Skeleton } from '@/shared/ui/primitives';
 import { createApiClient } from '@stock-insight/api-client';
 import type {
   DecisionHistoryPage,
@@ -1107,19 +1108,34 @@ export function WorkspaceState({
   title: string;
   description: string;
 }) {
-  const Icon = kind === 'loading' ? LoaderCircle : kind === 'error' ? AlertCircle : CircleDot;
-  return (
-    <div
-      className={styles.stateSurface}
-      data-kind={kind}
-      role={kind === 'error' ? 'alert' : 'status'}
-    >
-      <Icon aria-hidden="true" data-motion-loop={kind === 'loading' ? 'spinner' : undefined} />
+  const content = (
+    <>
+      {kind === 'loading' ? (
+        <Skeleton className={styles.stateIconSkeleton} height={20} width={20} />
+      ) : kind === 'error' ? (
+        <AlertCircle aria-hidden="true" />
+      ) : (
+        <CircleDot aria-hidden="true" />
+      )}
       <div>
         <strong>{title}</strong>
         <p>{description}</p>
       </div>
-    </div>
+    </>
+  );
+
+  if (kind === 'error') {
+    return (
+      <ErrorState className={styles.stateSurface} data-kind={kind} aria-atomic="true">
+        {content}
+      </ErrorState>
+    );
+  }
+
+  return (
+    <EmptyState className={styles.stateSurface} data-kind={kind} role="status" aria-atomic="true">
+      {content}
+    </EmptyState>
   );
 }
 

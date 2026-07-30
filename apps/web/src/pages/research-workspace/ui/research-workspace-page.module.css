@@ -972,6 +972,10 @@
   box-shadow: 0 0 0 1px var(--color-border) inset;
 }
 
+.graphRuntimeError [data-slot='feedback-content'] {
+  text-align: left;
+}
+
 .graphRuntimeError button {
   pointer-events: auto;
 }
@@ -1361,13 +1365,11 @@
 
 .stateSurface {
   min-height: 112px;
-  display: flex;
-  align-items: center;
-  gap: 13px;
   padding: 20px;
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-surface-subtle) 62%, transparent);
   border-block: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  text-align: left;
 }
 
 .content > .stateSurface {
@@ -1376,7 +1378,18 @@
   border-radius: var(--radius-md);
 }
 
-.stateSurface > svg {
+.stateSurface [data-slot='feedback-visual'] {
+  width: 100%;
+}
+
+.stateSurface [data-slot='feedback-content'] {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.stateSurface [data-slot='feedback-content'] > svg,
+.stateIconSkeleton {
   width: 20px;
   height: 20px;
   flex: none;
@@ -1400,15 +1413,11 @@
   white-space: normal;
 }
 
-.stateSurface[data-kind='loading'] > svg {
-  color: var(--color-accent);
-}
-
 .stateSurface[data-kind='error'] {
   background: color-mix(in srgb, var(--color-risk-soft) 72%, transparent);
 }
 
-.stateSurface[data-kind='error'] > svg {
+.stateSurface[data-kind='error'] [data-slot='feedback-content'] > svg {
   color: var(--color-risk);
 }
 
@@ -1417,7 +1426,7 @@
   border-color: color-mix(in srgb, var(--color-signal) 24%, var(--color-border));
 }
 
-.stateSurface[data-kind='stale'] > svg {
+.stateSurface[data-kind='stale'] [data-slot='feedback-content'] > svg {
   color: var(--color-signal);
 }
 

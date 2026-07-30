@@ -142,7 +142,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /kind="loading"/);
     assert.match(page, /kind="error"/);
     assert.match(page, /kind="stale"/);
-    assert.match(page, /role=\{kind === 'error' \? 'alert' : 'status'\}/);
+    assert.match(page, /<ErrorState[\s\S]*?className=\{styles\.stateSurface\}/);
+    assert.match(page, /<EmptyState[\s\S]*?className=\{styles\.stateSurface\}/);
+    assert.match(page, /role="status"/);
+    assert.match(page, /aria-atomic="true"/);
     assert.match(css, /\.stateSurface\s*\{/);
     assert.match(css, /\.stateSurface\[data-kind='stale'\]/);
   });
