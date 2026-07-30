@@ -10,7 +10,6 @@ import {
   type StatusTextOptions,
 } from './status';
 import { Effect, PresenceRegion } from '../motion';
-import type { EffectProps } from '../motion/effect';
 
 export type StatusBadgeProps = StatusTextOptions & {
   className?: string;
@@ -39,18 +38,20 @@ function classNames(...values: (string | false | null | undefined)[]) {
 
 export function StatusBadge({ availability, className, label, source, testId }: StatusBadgeProps) {
   return (
-    <Effect
-      as="span"
+    <span
       className={classNames(styles.statusBadge, className)}
       data-availability={availability}
       data-slot="status-badge-root"
       data-source={source}
       data-testid={testId}
       data-tone={getAvailabilityTone(availability)}
-      fade
     >
-      <span data-slot="status-badge-label">{buildStatusText({ availability, label, source })}</span>
-    </Effect>
+      <Effect as="span" className={styles.feedbackInlineVisual} data-slot="feedback-visual" fade>
+        <span data-slot="status-badge-label">
+          {buildStatusText({ availability, label, source })}
+        </span>
+      </Effect>
+    </span>
   );
 }
 
@@ -121,37 +122,39 @@ export function DataQualityPopover({
 
 export function EmptyState({ children, className, testId, ...props }: FeedbackStateProps) {
   return (
-    <Effect
-      {...(props as EffectProps)}
+    <div
+      {...props}
       className={classNames(styles.emptyState, className)}
       data-slot="feedback-root"
       data-testid={testId}
       data-tone="empty"
       aria-live="polite"
-      fade
     >
-      <div className={styles.feedbackContent} data-slot="feedback-content">
-        {children}
-      </div>
-    </Effect>
+      <Effect className={styles.feedbackVisual} data-slot="feedback-visual" fade>
+        <div className={styles.feedbackContent} data-slot="feedback-content">
+          {children}
+        </div>
+      </Effect>
+    </div>
   );
 }
 
 export function ErrorState({ children, className, testId, ...props }: FeedbackStateProps) {
   return (
-    <Effect
-      {...(props as EffectProps)}
+    <div
+      {...props}
       className={classNames(styles.errorState, className)}
       data-slot="feedback-root"
       data-testid={testId}
       data-tone="error"
-      fade
       role="alert"
     >
-      <div className={styles.feedbackContent} data-slot="feedback-content">
-        {children}
-      </div>
-    </Effect>
+      <Effect className={styles.feedbackVisual} data-slot="feedback-visual" fade>
+        <div className={styles.feedbackContent} data-slot="feedback-content">
+          {children}
+        </div>
+      </Effect>
+    </div>
   );
 }
 
@@ -163,14 +166,15 @@ export function Skeleton({
   ...props
 }: SkeletonProps) {
   return (
-    <Effect
-      className={classNames(styles.skeleton, className)}
-      {...(props as EffectProps)}
+    <div
+      {...props}
       aria-hidden="true"
+      className={classNames(styles.skeleton, className)}
       data-slot="skeleton-root"
-      fade
       style={{ width, height, ...style }}
-    />
+    >
+      <Effect className={styles.skeletonVisual} data-slot="skeleton-visual" fade />
+    </div>
   );
 }
 

@@ -61,6 +61,22 @@ describe('Task 4 shared feedback and surface contract', () => {
     assert.doesNotMatch(surface + feedback, /MotionRegion/);
   });
 
+  it('keeps native root event semantics outside the non-interactive Motion visual layer', async () => {
+    const [surface, feedback] = await Promise.all([
+      readFile(surfaceUrl, 'utf8'),
+      readFile(feedbackUrl, 'utf8'),
+    ]);
+
+    assert.match(surface, /const Component = as/);
+    assert.match(surface, /<Component[\s\S]*\{\.\.\.props\}[\s\S]*data-slot="card-root"/);
+    assert.match(surface, /<Effect[\s\S]*data-slot="card-visual"/);
+    assert.match(feedback, /<span[\s\S]*data-slot="status-badge-root"/);
+    assert.match(feedback, /<div[\s\S]*\{\.\.\.props\}[\s\S]*data-slot="feedback-root"/);
+    assert.match(feedback, /data-slot="feedback-visual"/);
+    assert.match(feedback, /data-slot="skeleton-visual"/);
+    assert.doesNotMatch(surface + feedback, /props as EffectProps/);
+  });
+
   it('keeps surface depth restrained and feedback styling semantic', async () => {
     const [primitivesCss, toastCss] = await Promise.all([
       readFile(primitivesCssUrl, 'utf8'),

@@ -124,6 +124,13 @@
   white-space: nowrap;
 }
 
+.feedbackInlineVisual {
+  display: inherit;
+  min-width: 0;
+  align-items: inherit;
+  gap: inherit;
+}
+
 .statusBadge[data-tone='success'] {
   border-color: color-mix(in srgb, var(--color-positive) 26%, var(--color-border));
   color: var(--color-positive);
@@ -356,6 +363,10 @@
   box-shadow: 0 12px 34px color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
+.cardVisual {
+  min-width: 0;
+}
+
 :where(.emptyState, .errorState) {
   display: grid;
   min-height: 96px;
@@ -380,14 +391,30 @@
   min-width: 0;
 }
 
+.feedbackVisual {
+  display: inherit;
+  min-width: 0;
+  grid-template-columns: inherit;
+  align-items: inherit;
+  justify-items: inherit;
+  place-content: inherit;
+  gap: inherit;
+}
+
 :where(.skeleton) {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-control);
+}
+
+.skeletonVisual {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface));
 }
 
-.skeleton::after {
+.skeletonVisual::after {
   position: absolute;
   inset: 0;
   background: linear-gradient(
