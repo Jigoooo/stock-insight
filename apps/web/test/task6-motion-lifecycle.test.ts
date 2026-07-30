@@ -194,5 +194,8 @@ describe('Task 6 React ownership contract', () => {
     assert.match(source, /mouseenter/);
     assert.match(source, /app-toast-dismiss/);
     assert.match(source, /swipeDirections=\{\['right', 'top'\]\}/);
+    assert.match(source, /pendingDismissRef/);
+    assert.match(source, /finishDismiss/);
+    assert.match(source, /if \(pendingDismissRef\.current\) finishDismiss\(\)/);
   });
 });

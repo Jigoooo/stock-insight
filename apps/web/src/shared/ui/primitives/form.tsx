@@ -1,5 +1,6 @@
 import {
   cloneElement,
+  forwardRef,
   Fragment,
   isValidElement,
   useId,
@@ -182,16 +183,20 @@ export function Field({ children, description, error, hint, label }: FieldProps)
   );
 }
 
-export function TextInput({ className, variant = 'chrome', ...props }: TextInputProps) {
+export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput(
+  { className, variant = 'chrome', ...props },
+  ref,
+) {
   return (
     <input
+      ref={ref}
       className={classNames(styles.textInput, className)}
       data-slot="text-input-control"
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
     />
   );
-}
+});
 
 export function Textarea({ className, variant = 'chrome', ...props }: TextareaProps) {
   return (

@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
 
 const visualDirectory = process.env.AUTH_VISUAL_DIR;
@@ -17,9 +17,27 @@ const availableServerFnResponse = {
   t: 10,
 };
 
-test.describe('authentication visual review captures', () => {
-  test.skip(!visualDirectory, 'AUTH_VISUAL_DIR is required for explicit visual capture');
+async function waitForSettledAuthOpacity(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const card = document.querySelector<HTMLElement>('[data-auth-card]');
+        const heading = card?.querySelector<HTMLElement>('h1');
+        if (!card || !heading) return false;
 
+        let current: HTMLElement | null = heading;
+        while (current) {
+          if (Number.parseFloat(getComputedStyle(current).opacity) < 1) return false;
+          if (current === card) return true;
+          current = current.parentElement;
+        }
+        return false;
+      }),
+    )
+    .toBe(true);
+}
+
+test.describe('authentication visual review captures', () => {
   for (const colorScheme of ['light', 'dark'] as const) {
     for (const route of ['login', 'signup'] as const) {
       test(`${route} ${colorScheme} reduced-motion capture`, async ({ page }, testInfo) => {
@@ -41,18 +59,21 @@ test.describe('authentication visual review captures', () => {
           ).toBeVisible();
         }
 
+        await waitForSettledAuthOpacity(page);
         const cardTransform = await card.evaluate((element) => getComputedStyle(element).transform);
         expect(cardTransform).toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-        await page.screenshot({
-          animations: 'disabled',
-          fullPage: true,
-          path: resolve(
-            visualDirectory!,
-            `${route}-${testInfo.project.name}-${colorScheme}-reduced.png`,
-          ),
-        });
+        if (visualDirectory) {
+          await page.screenshot({
+            animations: 'disabled',
+            fullPage: true,
+            path: resolve(
+              visualDirectory,
+              `${route}-${testInfo.project.name}-${colorScheme}-reduced.png`,
+            ),
+          });
+        }
       });
     }
   }
@@ -81,15 +102,18 @@ test.describe('authentication visual review captures', () => {
     await expect(page.getByLabel('비밀번호', { exact: true })).toBeVisible();
     await expect(page.getByLabel('비밀번호 확인')).toBeVisible();
     await expect(page.getByLabel('가입 코드')).toBeVisible();
+    await waitForSettledAuthOpacity(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-    await page.screenshot({
-      animations: 'disabled',
-      fullPage: true,
-      path: resolve(
-        visualDirectory!,
-        `signup-available-${testInfo.project.name}-${colorScheme}-reduced.png`,
-      ),
-    });
+    if (visualDirectory) {
+      await page.screenshot({
+        animations: 'disabled',
+        fullPage: true,
+        path: resolve(
+          visualDirectory,
+          `signup-available-${testInfo.project.name}-${colorScheme}-reduced.png`,
+        ),
+      });
+    }
   });
 });

@@ -13,6 +13,7 @@ const linkCssUrl = new URL('../src/shared/ui/primitives/link.module.css', import
 const segmentedTabsUrl = new URL('../src/shared/ui/primitives/segmented-tabs.tsx', import.meta.url);
 const selectBoxUrl = new URL('../src/shared/ui/primitives/select-box.tsx', import.meta.url);
 const comboboxUrl = new URL('../src/shared/ui/primitives/combobox.tsx', import.meta.url);
+const authInputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const rootPackageUrl = new URL('../../../package.json', import.meta.url);
 const targetUrls = [
@@ -21,6 +22,7 @@ const targetUrls = [
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   new URL('../src/pages/auth/signup-page.tsx', import.meta.url),
   new URL('../src/pages/auth/login-page.tsx', import.meta.url),
+  authInputFieldUrl,
   new URL('../src/entities/stock/ui/stock-detail.tsx', import.meta.url),
 ];
 
@@ -166,11 +168,20 @@ describe('shared primitive adoption contract', () => {
   it('removes raw buttons and anchors from the bounded product-control inventory', async () => {
     const sources: string[] = await Promise.all(targetUrls.map((url) => readFile(url, 'utf8')));
     const rawControls = sources.flatMap((source, index) => {
-      const matches = [...source.matchAll(/<(button|a)\b/g)];
+      const matches = [...source.matchAll(/<(button|a|input|select|textarea)\b/g)];
       return matches.map((match) => `${targetUrls[index]?.pathname}:${match[1]}`);
     });
 
     assert.deepEqual(rawControls, []);
+  });
+
+  it('composes the authentication field from the shared TextInput boundary', async () => {
+    const source = await readFile(authInputFieldUrl, 'utf8');
+
+    assert.match(source, /import \{ TextInput \} from '@\/shared\/ui\/primitives'/);
+    assert.match(source, /<TextInput\b/);
+    assert.match(source, /variant="bare"/);
+    assert.doesNotMatch(source, /<input\b/);
   });
 
   it('requires an explicit recipe at every migrated primitive call site', async () => {

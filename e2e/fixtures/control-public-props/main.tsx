@@ -1,6 +1,6 @@
-import type { AnimationEventHandler, DragEventHandler } from 'react';
+import { createRef, type AnimationEventHandler, type DragEventHandler } from 'react';
 
-import { Button, IconButton, Switch, TextLink, Toggle } from '@/shared/ui/primitives';
+import { Button, IconButton, Switch, TextInput, TextLink, Toggle } from '@/shared/ui/primitives';
 
 const buttonDrag: DragEventHandler<HTMLButtonElement> = () => undefined;
 const buttonAnimationStart: AnimationEventHandler<HTMLButtonElement> = () => undefined;
@@ -9,6 +9,13 @@ const anchorAnimationStart: AnimationEventHandler<HTMLAnchorElement> = () => und
 
 export const nativeControlPropsFixture = (
   <>
+    <TextInput
+      ref={createRef<HTMLInputElement>()}
+      autoComplete="username"
+      id="fixture-input"
+      name="username"
+      type="text"
+    />
     <Button draggable onAnimationStart={buttonAnimationStart} onDrag={buttonDrag}>
       Button
     </Button>

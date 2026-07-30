@@ -38,17 +38,28 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
   const startedAtRef = useRef(0);
   const remainingRef = useRef(duration);
   const closingRef = useRef(false);
+  const pendingDismissRef = useRef(false);
   const runExitRef = useRef<(onComplete: () => void) => void>((onComplete) => onComplete());
   const adapter = useMemo(() => createMotionDomAdapter(), []);
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
 
+  const finishDismiss = useCallback(() => {
+    if (!pendingDismissRef.current) return;
+    pendingDismissRef.current = false;
+    toast.dismiss(id);
+  }, [id]);
+
   const close = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    runExitRef.current(() => toast.dismiss(id));
-  }, [id]);
+    pendingDismissRef.current = true;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    runExitRef.current(finishDismiss);
+  }, [finishDismiss]);
 
   const resumeTimer = useCallback(() => {
     if (!Number.isFinite(remainingRef.current) || closingRef.current) return;
@@ -112,8 +123,9 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
     return () => {
       runExitRef.current = (onComplete) => onComplete();
       adapter.killTweensOf(element);
+      if (pendingDismissRef.current) finishDismiss();
     };
-  }, [adapter, normalizeMotion]);
+  }, [adapter, finishDismiss, normalizeMotion]);
 
   useEffect(() => {
     const element = elementRef.current;

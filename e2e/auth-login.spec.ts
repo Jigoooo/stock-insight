@@ -364,6 +364,40 @@ test.describe('private workspace authentication', () => {
     await expect(toast).toBeHidden();
   });
 
+  test('finishes a toast exit when reduced-motion changes during close', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/login');
+    const usernameField = page.getByLabel('사용자 이름');
+    const passwordField = page.getByRole('textbox', { name: '비밀번호', exact: true });
+    const submit = page.getByRole('button', { name: '로그인', exact: true });
+
+    await usernameField.fill('invalid-user');
+    await passwordField.fill('not-a-real-password');
+    await submit.click();
+
+    const firstToast = page
+      .locator('[data-toast-id]')
+      .filter({ hasText: '로그인하지 못했습니다.' });
+    await expect(firstToast).toBeVisible();
+    const firstToastId = await firstToast.getAttribute('data-toast-id');
+    await firstToast.getByRole('button', { name: '알림 닫기' }).click();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(firstToast).toBeHidden();
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await submit.click();
+    const secondToast = page
+      .locator('[data-toast-id]')
+      .filter({ hasText: '로그인하지 못했습니다.' });
+    await expect(secondToast).toBeVisible();
+    await expect(secondToast).not.toHaveAttribute('data-toast-id', firstToastId ?? '');
+    await page.waitForTimeout(500);
+    await expect(secondToast).toBeVisible();
+    await expect(
+      page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' }),
+    ).toHaveCount(1);
+  });
+
   test('keeps dark-mode authentication accessible with visible focus', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/login');
