@@ -29,7 +29,7 @@ async function read(url: URL) {
 }
 
 describe('public root startup boundary', () => {
-  it('keeps GSAP interaction ownership behind the authenticated route', async () => {
+  it('keeps delegated Motion interaction ownership behind the authenticated route', async () => {
     const [root, authenticated] = await Promise.all([read(rootUrl), read(authenticatedUrl)]);
 
     assert.doesNotMatch(root, /InteractionMotionProvider|interaction-motion/);
@@ -37,7 +37,7 @@ describe('public root startup boundary', () => {
     assert.match(authenticated, /<InteractionMotionProvider>[\s\S]*?<Outlet \/>/);
   });
 
-  it('loads Sonner and toast GSAP only after a notification activates the host', async () => {
+  it('loads Sonner and toast Motion only after a notification activates the host', async () => {
     const [root, deferredHost, notify, motionToast] = await Promise.all([
       read(rootUrl),
       read(deferredHostUrl),
@@ -53,7 +53,7 @@ describe('public root startup boundary', () => {
     assert.match(notify, /app-toast-activate/);
     assert.match(notify, /await waitForToastHost\(\)/);
     assert.match(motionToast, /app-toast-ready/);
-    assert.doesNotMatch(notify, /from ['"](?:sonner|gsap|@gsap\/react)['"]/);
+    assert.doesNotMatch(notify, /from ['"](?:sonner|motion\/react|gsap|@gsap\/react)['"]/);
   });
 
   it('keeps public auth controls and halo free of the side-effectful primitive barrel', async () => {

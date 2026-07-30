@@ -36,13 +36,14 @@ describe('field-shell motion contract', () => {
     assert.match(authField, /FieldMotionHalo/);
   });
 
-  it('owns focusin and focusout opacity with interruptible scoped GSAP only', async () => {
+  it('owns focusin and focusout opacity with interruptible scoped Motion only', async () => {
     const { form } = await sources();
 
-    assert.match(form, /useGSAP/);
+    assert.match(form, /createMotionDomAdapter/);
+    assert.doesNotMatch(form, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
     assert.match(form, /addEventListener\('focusin'/);
     assert.match(form, /addEventListener\('focusout'/);
-    assert.match(form, /gsap\.killTweensOf\(halo\)/);
+    assert.match(form, /adapter\.killTweensOf\(halo\)/);
     assert.match(form, /opacity:\s*(?:focused \? )?1/);
     assert.match(form, /overwrite:\s*'auto'/);
     assert.match(form, /clearProps:\s*'opacity'/);

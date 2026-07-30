@@ -1,14 +1,11 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import { useCallback, useRef, type HTMLAttributes, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
 
+import { createMotionDomAdapter } from './dom-motion-adapter';
 import {
   createMotionTransitionController,
   useMotionPreferences,
   type MotionTransitionRecipe,
 } from './use-motion-preferences';
-
-gsap.registerPlugin(useGSAP);
 
 type MotionRegionElement = 'article' | 'div' | 'section' | 'span';
 
@@ -39,57 +36,46 @@ export function MotionRegion({
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
 
-  useGSAP(
-    () => {
-      const element = elementRef.current;
-      if (!element) return;
-      const controller = createMotionTransitionController({
-        fromTo: (target, from, to) => {
-          gsap.fromTo(target, from, to);
-        },
-        killTweensOf: (target) => gsap.killTweensOf(target),
-        set: (target, to) => {
-          gsap.set(target, to);
-        },
-        to: (target, to) => {
-          gsap.to(target, to);
-        },
-      });
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    const domMotion = createMotionDomAdapter();
+    const controller = createMotionTransitionController({
+      fromTo: (target, from, to) => domMotion.fromTo(target as HTMLElement, from, to),
+      killTweensOf: (target) => domMotion.killTweensOf(target as HTMLElement),
+      set: (target, to) => domMotion.set(target as HTMLElement, to),
+      to: (target, to) => domMotion.to(target as HTMLElement, to),
+    });
 
-      if (recipe === 'skeleton' || recipe === 'spinner') {
-        controller.loop({ element, recipe, reducedMotion: normalizeMotion });
-      } else if (present) {
-        controller.enter({
-          element,
-          onComplete: onEnterComplete,
-          recipe,
-          reducedMotion: normalizeMotion,
-        });
-      } else {
-        controller.exit({
-          element,
-          onComplete: onExitComplete,
-          recipe,
-          reducedMotion: normalizeMotion,
-        });
-      }
-
-      return () => controller.cleanup(element);
-    },
-    {
-      dependencies: [
-        forcedColors,
-        onEnterComplete,
-        onExitComplete,
-        present,
+    if (recipe === 'skeleton' || recipe === 'spinner') {
+      controller.loop({ element, recipe, reducedMotion: normalizeMotion });
+    } else if (present) {
+      controller.enter({
+        element,
+        onComplete: onEnterComplete,
         recipe,
-        reducedMotion,
-        stateKey,
-      ],
-      revertOnUpdate: true,
-      scope: elementRef,
-    },
-  );
+        reducedMotion: normalizeMotion,
+      });
+    } else {
+      controller.exit({
+        element,
+        onComplete: onExitComplete,
+        recipe,
+        reducedMotion: normalizeMotion,
+      });
+    }
+
+    return () => controller.cleanup(element);
+  }, [
+    forcedColors,
+    normalizeMotion,
+    onEnterComplete,
+    onExitComplete,
+    present,
+    recipe,
+    reducedMotion,
+    stateKey,
+  ]);
 
   const regionProps = {
     ...props,

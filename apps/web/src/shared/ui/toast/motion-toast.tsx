@@ -1,11 +1,10 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 
 import styles from './motion-toast.module.css';
 import type { NotifyOptions } from './notify';
 
+import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import {
   readProfileMotionNumber,
   readProfileMotionSeconds,
@@ -13,8 +12,6 @@ import {
 } from '@/shared/ui/motion/profile-motion';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/primitives/button';
-
-gsap.registerPlugin(useGSAP);
 
 type ToastTone = 'default' | 'success' | 'info' | 'warning' | 'error' | 'loading';
 
@@ -42,6 +39,7 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
   const remainingRef = useRef(duration);
   const closingRef = useRef(false);
   const runExitRef = useRef<(onComplete: () => void) => void>((onComplete) => onComplete());
+  const adapter = useMemo(() => createMotionDomAdapter(), []);
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
 
@@ -68,57 +66,54 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
     );
   }, []);
 
-  useGSAP(
-    (_context, contextSafe) => {
-      const element = elementRef.current;
-      if (!element || !contextSafe) return;
-      const runExit = contextSafe((onComplete: () => void) => {
-        gsap.killTweensOf(element);
-        if (normalizeMotion) {
-          onComplete();
-          return;
-        }
-        gsap.to(element, {
-          opacity: 0,
-          y: readProfileMotionNumber('--motion-toast-exit-y'),
-          scale: readProfileMotionNumber('--motion-toast-exit-scale'),
-          duration: readProfileMotionSeconds('--motion-toast-exit-duration'),
-          ease: readProfileMotionValue('--motion-toast-exit-ease'),
-          overwrite: 'auto',
-          onComplete,
-        });
-      });
-      runExitRef.current = runExit;
-
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    const runExit = (onComplete: () => void) => {
+      adapter.killTweensOf(element);
       if (normalizeMotion) {
-        gsap.set(element, { clearProps: 'opacity,transform' });
-      } else {
-        gsap.fromTo(
-          element,
-          {
-            opacity: 0,
-            y: readProfileMotionNumber('--motion-toast-enter-y'),
-            scale: readProfileMotionNumber('--motion-toast-enter-scale'),
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: readProfileMotionSeconds('--motion-toast-enter-duration'),
-            ease: readProfileMotionValue('--motion-toast-enter-ease'),
-            clearProps: 'transform,opacity',
-            overwrite: 'auto',
-          },
-        );
+        onComplete();
+        return;
       }
+      adapter.to(element, {
+        opacity: 0,
+        y: readProfileMotionNumber('--motion-toast-exit-y'),
+        scale: readProfileMotionNumber('--motion-toast-exit-scale'),
+        duration: readProfileMotionSeconds('--motion-toast-exit-duration'),
+        ease: readProfileMotionValue('--motion-toast-exit-ease'),
+        overwrite: 'auto',
+        onComplete,
+      });
+    };
+    runExitRef.current = runExit;
 
-      return () => {
-        runExitRef.current = (onComplete) => onComplete();
-        gsap.killTweensOf(element);
-      };
-    },
-    { dependencies: [normalizeMotion], revertOnUpdate: true, scope: elementRef },
-  );
+    if (normalizeMotion) {
+      adapter.set(element, { clearProps: 'opacity,transform' });
+    } else {
+      adapter.fromTo(
+        element,
+        {
+          opacity: 0,
+          y: readProfileMotionNumber('--motion-toast-enter-y'),
+          scale: readProfileMotionNumber('--motion-toast-enter-scale'),
+        },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: readProfileMotionSeconds('--motion-toast-enter-duration'),
+          ease: readProfileMotionValue('--motion-toast-enter-ease'),
+          clearProps: 'transform,opacity',
+          overwrite: 'auto',
+        },
+      );
+    }
+
+    return () => {
+      runExitRef.current = (onComplete) => onComplete();
+      adapter.killTweensOf(element);
+    };
+  }, [adapter, normalizeMotion]);
 
   useEffect(() => {
     const element = elementRef.current;
@@ -141,9 +136,9 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
       window.removeEventListener('app-toast-dismiss', onDismiss);
       element?.removeEventListener('mouseenter', pauseTimer);
       element?.removeEventListener('mouseleave', resumeTimer);
-      if (element) gsap.killTweensOf(element);
+      if (element) adapter.killTweensOf(element);
     };
-  }, [close, id, pauseTimer, resumeTimer, tone]);
+  }, [adapter, close, id, pauseTimer, resumeTimer, tone]);
 
   return (
     <article

@@ -1,5 +1,3 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
 import {
   useEffect,
   useRef,
@@ -15,10 +13,9 @@ import {
   type ControlMotionKind,
 } from './control-motion-controller';
 import styles from './primitives.module.css';
+import { createMotionDomAdapter } from '../motion/dom-motion-adapter';
 import { MotionButton } from '../motion/motion-button';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
-
-gsap.registerPlugin(useGSAP);
 
 function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
@@ -30,22 +27,18 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
   const previousActiveRef = useRef(active);
   const runMotionRef = useRef<(nextActive: boolean) => void>(() => undefined);
 
-  useGSAP((_context, contextSafe) => {
-    if (!contextSafe) return;
+  useEffect(() => {
     const target = targetRef.current;
     if (!target) return;
 
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const domMotion = createMotionDomAdapter();
     const adapter = {
-      killTweensOf: (target: object) => gsap.killTweensOf(target),
-      set: (target: object, vars: object) => {
-        gsap.set(target, vars);
-      },
-      to: (target: object, vars: object) => {
-        gsap.to(target, vars);
-      },
+      killTweensOf: (motionTarget: object) => domMotion.killTweensOf(motionTarget as HTMLElement),
+      set: (motionTarget: object, vars: object) => domMotion.set(motionTarget as HTMLElement, vars),
+      to: (motionTarget: object, vars: object) => domMotion.to(motionTarget as HTMLElement, vars),
     };
-    const runMotion = contextSafe((nextActive: boolean, reduced = motionPreference.matches) => {
+    const runMotion = (nextActive: boolean, reduced = motionPreference.matches) => {
       applyControlStateMotion({
         active: nextActive,
         adapter,
@@ -55,10 +48,10 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
         reducedMotion: reduced,
         target,
       });
-    });
-    const onMotionPreferenceChange = contextSafe(() => {
+    };
+    const onMotionPreferenceChange = () => {
       if (motionPreference.matches) runMotion(activeRef.current, true);
-    });
+    };
 
     runMotionRef.current = runMotion;
     runMotion(activeRef.current, true);
@@ -69,7 +62,7 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
       runMotionRef.current = () => undefined;
       clearControlStateMotion({ adapter, kind, target });
     };
-  }, []);
+  }, [kind]);
 
   useEffect(() => {
     activeRef.current = active;

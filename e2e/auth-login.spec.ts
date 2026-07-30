@@ -358,7 +358,10 @@ test.describe('private workspace authentication', () => {
     await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
     const toast = page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' });
     await expect(toast).toBeVisible();
-    await expect(toast.getByRole('button', { name: '알림 닫기' })).toBeVisible();
+    const closeToast = toast.getByRole('button', { name: '알림 닫기' });
+    await expect(closeToast).toBeVisible();
+    await closeToast.click();
+    await expect(toast).toBeHidden();
   });
 
   test('keeps dark-mode authentication accessible with visible focus', async ({ page }) => {

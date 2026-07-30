@@ -140,15 +140,14 @@ describe('control callback guard', () => {
 });
 
 describe('Switch and Toggle integration contract', () => {
-  it('uses a context-safe GSAP owner for the thumb and decorative rail only', async () => {
+  it('uses an interruptible Motion owner for the thumb and decorative rail only', async () => {
     const [source, css] = await Promise.all([
       readFile(controlsUrl, 'utf8'),
       readFile(primitiveCssUrl, 'utf8'),
     ]);
 
-    assert.match(source, /useGSAP/);
-    assert.match(source, /contextSafe/);
-    assert.match(source, /gsap\.killTweensOf\(target\)/);
+    assert.match(source, /createMotionDomAdapter/);
+    assert.doesNotMatch(source, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
     assert.match(source, /data-switch-motion-thumb/);
     assert.match(source, /data-toggle-motion-rail/);
     assert.match(source, /applyControlStateMotion/);

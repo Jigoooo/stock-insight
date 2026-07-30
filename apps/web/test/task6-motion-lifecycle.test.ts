@@ -13,6 +13,7 @@ import {
 } from '../src/shared/ui/motion/use-motion-preferences.ts';
 
 const motionRegionUrl = new URL('../src/shared/ui/motion/motion-region.tsx', import.meta.url);
+const motionAdapterUrl = new URL('../src/shared/ui/motion/dom-motion-adapter.ts', import.meta.url);
 const surfaceUrl = new URL('../src/shared/ui/primitives/surface.tsx', import.meta.url);
 const feedbackUrl = new URL('../src/shared/ui/primitives/feedback.tsx', import.meta.url);
 const toastUrl = new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url);
@@ -149,16 +150,17 @@ describe('Task 6 transition lifecycle', () => {
 });
 
 describe('Task 6 React ownership contract', () => {
-  it('keeps surfaces and feedback on the local Motion foundation before legacy cleanup', async () => {
-    const [motionRegion, surface, feedback] = await Promise.all([
+  it('keeps surfaces and feedback on the local Motion foundation with no shared GSAP owner', async () => {
+    const [motionRegion, motionAdapter, surface, feedback] = await Promise.all([
       readFile(motionRegionUrl, 'utf8'),
+      readFile(motionAdapterUrl, 'utf8'),
       readFile(surfaceUrl, 'utf8'),
       readFile(feedbackUrl, 'utf8'),
     ]);
 
-    assert.match(motionRegion, /useGSAP/);
-    assert.match(motionRegion, /scope:\s*elementRef/);
-    assert.match(motionRegion, /revertOnUpdate:\s*true/);
+    assert.match(motionAdapter, /from ['"]motion\/react['"]/);
+    assert.match(motionRegion, /createMotionDomAdapter/);
+    assert.doesNotMatch(motionRegion, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
     assert.match(motionRegion, /onEnterComplete/);
     assert.match(motionRegion, /onExitComplete/);
     assert.match(surface, /import \{ Effect \}/);
@@ -170,11 +172,11 @@ describe('Task 6 React ownership contract', () => {
     assert.doesNotMatch(surface + feedback, /data-motion-(?:enter|loop)/);
   });
 
-  it('uses context-safe toast motion with finite outer lifetime and preserved pause/dismiss/swipe paths', async () => {
+  it('uses interruptible Motion toast animation with finite outer lifetime and preserved pause/dismiss/swipe paths', async () => {
     const source = await readFile(toastUrl, 'utf8');
 
-    assert.match(source, /useGSAP/);
-    assert.match(source, /contextSafe/);
+    assert.match(source, /createMotionDomAdapter/);
+    assert.doesNotMatch(source, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
     assert.doesNotMatch(source, /useLayoutEffect/);
     assert.match(source, /const sonnerOuterDuration = 7 \* 24 \* 60 \* 60 \* 1000/);
     assert.match(source, /visibilitychange/);

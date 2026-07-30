@@ -1,13 +1,11 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
+import { createMotionDomAdapter } from './dom-motion-adapter';
 import {
   installDelegatedInteractionMotion,
-  type DelegatedMotionElement,
+  type InteractionMotionAdapter,
   type MotionMediaQuery,
   type MotionRoot,
-  type MotionTweenVars,
 } from './interaction-motion-controller';
 import { isMotionTargetUnavailable, resolveDelegatedMotionTarget } from './motion-contract';
 import {
@@ -17,28 +15,21 @@ import {
 } from './profile-motion';
 import './motion-system.css';
 
-gsap.registerPlugin(useGSAP);
-
 export function InteractionMotionProvider({ children }: Readonly<{ children: ReactNode }>) {
-  useGSAP((_context, contextSafe) => {
-    if (!contextSafe) return;
-
+  useEffect(() => {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
-    const runTween = contextSafe((element: DelegatedMotionElement, vars: MotionTweenVars) => {
-      gsap.to(element, vars);
-    });
+    const domMotion = createMotionDomAdapter();
+    const adapter: InteractionMotionAdapter = {
+      killTweensOf: (element) => domMotion.killTweensOf(element as HTMLElement),
+      set: (element, vars) => domMotion.set(element as HTMLElement, vars),
+      to: (element, vars) => domMotion.to(element as HTMLElement, vars),
+    };
 
     return installDelegatedInteractionMotion({
       finePointer: finePointer as MotionMediaQuery,
       isUnavailable: (element) => isMotionTargetUnavailable(element as HTMLElement),
-      motion: {
-        killTweensOf: (element) => gsap.killTweensOf(element),
-        set: (element, vars) => {
-          gsap.set(element, vars);
-        },
-        to: runTween,
-      },
+      motion: adapter,
       motionPreference: motionPreference as MotionMediaQuery,
       readNumber: readProfileMotionNumber,
       readSeconds: readProfileMotionSeconds,

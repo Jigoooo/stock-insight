@@ -1,10 +1,9 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
 import {
   cloneElement,
   Fragment,
   isValidElement,
   useId,
+  useEffect,
   useRef,
   type InputHTMLAttributes,
   type ReactElement,
@@ -14,11 +13,10 @@ import {
 
 import { FieldMotionHalo } from './field-motion-halo';
 import styles from './primitives.module.css';
+import { createMotionDomAdapter } from '../motion/dom-motion-adapter';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
 
 export { FieldMotionHalo } from './field-motion-halo';
-
-gsap.registerPlugin(useGSAP);
 
 type FieldProps = {
   children: ReactNode;
@@ -93,36 +91,36 @@ function isDirectFieldControl(children: ReactNode): children is ReactElement<Fie
 export function useFieldShellMotion<ElementType extends HTMLElement>() {
   const shellRef = useRef<ElementType>(null);
 
-  useGSAP((_context, contextSafe) => {
-    if (!contextSafe) return;
+  useEffect(() => {
     const shell = shellRef.current;
     const halo = shell?.querySelector<HTMLElement>('[data-field-motion-halo]');
     if (!shell || !halo) return;
 
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const adapter = createMotionDomAdapter();
     const normalizeHalo = () => {
-      gsap.killTweensOf(halo);
-      gsap.set(halo, { opacity: shell.matches(':focus-within') ? 1 : 0 });
+      adapter.killTweensOf(halo);
+      adapter.set(halo, { opacity: shell.matches(':focus-within') ? 1 : 0 });
     };
     const setFocused = (focused: boolean) => {
-      gsap.killTweensOf(halo);
+      adapter.killTweensOf(halo);
       if (motionPreference.matches) {
-        gsap.set(halo, { opacity: focused ? 1 : 0 });
+        adapter.set(halo, { opacity: focused ? 1 : 0 });
         return;
       }
-      gsap.to(halo, {
+      adapter.to(halo, {
         opacity: focused ? 1 : 0,
         duration: readProfileMotionSeconds('--duration-press'),
         ease: readProfileMotionValue('--motion-ease-out'),
         overwrite: 'auto',
       });
     };
-    const onFocusIn = contextSafe(() => setFocused(true));
-    const onFocusOut = contextSafe((event: FocusEvent) => {
+    const onFocusIn = () => setFocused(true);
+    const onFocusOut = (event: FocusEvent) => {
       if (event.relatedTarget instanceof Node && shell.contains(event.relatedTarget)) return;
       setFocused(false);
-    });
-    const onMotionPreferenceChange = contextSafe(normalizeHalo);
+    };
+    const onMotionPreferenceChange = normalizeHalo;
 
     shell.addEventListener('focusin', onFocusIn);
     shell.addEventListener('focusout', onFocusOut);
@@ -133,8 +131,8 @@ export function useFieldShellMotion<ElementType extends HTMLElement>() {
       shell.removeEventListener('focusin', onFocusIn);
       shell.removeEventListener('focusout', onFocusOut);
       motionPreference.removeEventListener('change', onMotionPreferenceChange);
-      gsap.killTweensOf(halo);
-      gsap.set(halo, { clearProps: 'opacity' });
+      adapter.killTweensOf(halo);
+      adapter.set(halo, { clearProps: 'opacity' });
     };
   }, []);
 
