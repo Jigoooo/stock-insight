@@ -11,16 +11,16 @@
 
 - `ui-00`: candidate tombstone 초기화·가입 폼 복구
 - `ui-01`: 실화면/코드 감사 및 Apple·Emil 기반 디자인 계약
-- `ui-02`: 전역 token·surface·input/button·GSAP interaction·custom toast
+- `ui-02`: 전역 token·surface·input/button·Motion interaction·custom toast
 - `ui-03`: 로그인·가입·상태·오류 화면 통합
-- `ui-04`: app shell/sidebar/navigation/header 및 모바일 GSAP drawer
+- `ui-04`: app shell/sidebar/navigation/header 및 모바일 Motion drawer
 - `ui-05`: feed/detail/inspector/relation graph/empty/loading/error/stale 화면 재설계
 - `ui-06`: light/dark, 390px, keyboard, reduced-motion/transparency, WCAG target 하드닝
 
 ## 2. ui-06 최종 변경의 핵심
 
 - workspace 사용자 문구를 최소 12px로 상향하고 주요 조작 target을 44px로 정리했다.
-- 전역 및 auth에 남은 CSS `transition`/`:active` press를 제거해 GSAP interaction과 중복되지 않게 했다.
+- 전역 및 auth에 남은 CSS `transition`/`:active` press를 제거해 Motion interaction과 중복되지 않게 했다.
 - 고정 dark sidebar에 `--color-on-chrome*` semantic token을 도입해 OS dark mode에서도 텍스트가 어두워지지 않게 했다.
 - 로그인 비밀번호 `보기` control의 dark contrast를 수정했다.
 - 검색 input 자체 hit box를 42px로 확장했다.

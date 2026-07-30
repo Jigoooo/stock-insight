@@ -23,14 +23,14 @@ describe('workspace relation crossfade', () => {
   it('crossfades one scoped container with opacity only', async () => {
     const source = await readFile(hookUrl, 'utf8');
 
-    assert.match(source, /useGSAP/);
-    assert.match(source, /scope:\s*scopeRef/);
-    assert.match(source, /dependencies:\s*\[normalizeMotion, stateKey\]/);
-    assert.match(source, /opacity:\s*0/);
-    assert.match(source, /opacity:\s*1/);
+    assert.match(source, /from 'motion\/react'/);
+    assert.match(source, /\banimate\(/);
+    assert.match(source, /opacity:\s*\[0,\s*1\]/);
     assert.match(source, /duration:\s*0\.16/);
-    assert.match(source, /clearProps:\s*'opacity'/);
+    assert.match(source, /removeProperty\('opacity'\)/);
     assert.match(source, /reducedMotion \|\| forcedColors/);
+    assert.match(source, /\[normalizeMotion, scopeRef, stateKey\]/);
+    assert.doesNotMatch(source, /@gsap\/react|from ['"]gsap['"]|useGSAP/);
     assert.doesNotMatch(source, /querySelector|stagger|\by:|\bx:|scale|width:|height:/);
   });
 

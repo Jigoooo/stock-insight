@@ -63,14 +63,14 @@ function invokeForwardRef(
 }
 
 describe('OpenHuman Motion foundation structure', () => {
-  it('installs Motion without removing the existing GSAP migration dependency', async () => {
+  it('installs Motion without retaining the completed GSAP migration dependencies', async () => {
     const packageJson = JSON.parse(await readFile(packageUrl, 'utf8')) as {
       dependencies?: Record<string, string>;
     };
 
     assert.equal(typeof packageJson.dependencies?.motion, 'string');
-    assert.equal(typeof packageJson.dependencies?.gsap, 'string');
-    assert.equal(typeof packageJson.dependencies?.['@gsap/react'], 'string');
+    assert.equal(packageJson.dependencies?.gsap, undefined);
+    assert.equal(packageJson.dependencies?.['@gsap/react'], undefined);
   });
 
   it('configures user reduced-motion preference at the public-safe application root', async () => {

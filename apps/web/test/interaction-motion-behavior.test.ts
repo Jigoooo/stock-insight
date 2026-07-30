@@ -424,11 +424,13 @@ describe('delegated interaction motion behavior', () => {
 });
 
 describe('motion dependency and CSS ownership gates', () => {
-  it('pins the approved @gsap/react version exactly', async () => {
+  it('uses Motion as the only JavaScript animation dependency', async () => {
     const packageJson = JSON.parse(await readFile(packageUrl, 'utf8')) as {
       dependencies?: Record<string, string>;
     };
-    assert.equal(packageJson.dependencies?.['@gsap/react'], '2.1.2');
+    assert.equal(typeof packageJson.dependencies?.motion, 'string');
+    assert.equal(packageJson.dependencies?.gsap, undefined);
+    assert.equal(packageJson.dependencies?.['@gsap/react'], undefined);
   });
 
   it('fails closed on every transition and will-change declaration in motion-owned CSS', async () => {

@@ -1077,6 +1077,30 @@ test.describe('v3 research workspace candidate', () => {
     expect(['BUTTON', 'INPUT', 'A']).toContain(focused);
   });
 
+  test('settles the mobile overlay without residual focus or inert state under reduced motion', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'mobile-only reduced-motion contract');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/workspace');
+
+    const sidebar = page.getByTestId('workspace-sidebar');
+    const content = page.getByTestId('workspace-content');
+    const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
+
+    await menuButton.click();
+    await expect(sidebar).not.toHaveAttribute('inert');
+    await expect(content).toHaveAttribute('inert', '');
+    await expect(page.getByTestId('workspace-nav-today')).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
+    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(content).not.toHaveAttribute('inert');
+    await expect(menuButton).toBeFocused();
+    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(-300);
+  });
+
   test('keeps the data as-of time visible on mobile', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile-only freshness contract');
     await page.goto('/workspace?view=status');

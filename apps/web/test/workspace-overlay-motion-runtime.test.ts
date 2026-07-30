@@ -6,29 +6,32 @@ import { runWorkspaceOverlayMotion } from '../src/pages/research-workspace/ui/wo
 
 function createHarness() {
   const log: string[] = [];
-  let timelineComplete: (() => void) | null = null;
+  const resolvers: Array<() => void> = [];
   const panel = { id: 'panel' };
   const scrim = { id: 'scrim' };
-  const timeline = {
-    kill: () => log.push('timeline:kill'),
-    to: (target: object, vars: object, at: number) => {
-      log.push(`to:${target === panel ? 'panel' : 'scrim'}:${JSON.stringify(vars)}:${at}`);
-      return timeline;
-    },
-  };
   const adapter = {
-    createTimeline: ({ duration, onComplete }: { duration: number; onComplete: () => void }) => {
-      log.push(`timeline:create:${duration}`);
-      timelineComplete = onComplete;
-      return timeline;
+    animate: (target: object, vars: object, options: object) => {
+      log.push(
+        `animate:${target === panel ? 'panel' : 'scrim'}:${JSON.stringify(vars)}:${JSON.stringify(options)}`,
+      );
+      let resolve!: () => void;
+      const finished = new Promise<void>((done) => {
+        resolve = done;
+      });
+      resolvers.push(resolve);
+      return {
+        finished,
+        stop: () => log.push(`stop:${target === panel ? 'panel' : 'scrim'}`),
+      };
     },
-    killTweensOf: (target: object) => log.push(`kill:${target === panel ? 'panel' : 'scrim'}`),
     set: (target: object, vars: object) =>
       log.push(`set:${target === panel ? 'panel' : 'scrim'}:${JSON.stringify(vars)}`),
   };
   return {
     adapter,
-    complete: () => timelineComplete?.(),
+    complete: () => {
+      for (const resolve of resolvers) resolve();
+    },
     log,
     panel,
     scrim,
@@ -36,7 +39,7 @@ function createHarness() {
 }
 
 describe('workspace overlay motion runtime', () => {
-  it('runs every normal step on one timeline and completes once', () => {
+  it('runs every normal step as one Motion group and completes once', async () => {
     const harness = createHarness();
     let completions = 0;
     const dispose = runWorkspaceOverlayMotion({
@@ -53,21 +56,19 @@ describe('workspace overlay motion runtime', () => {
     });
 
     assert.deepEqual(harness.log, [
-      'kill:panel',
-      'kill:scrim',
       'set:scrim:{"opacity":0}',
       'set:panel:{"opacity":0.96,"y":12}',
-      'timeline:create:0.22',
-      'to:scrim:{"opacity":1,"duration":0.22,"ease":"power2.out","overwrite":"auto"}:0',
-      'to:panel:{"opacity":1,"y":0,"duration":0.22,"ease":"power2.out","overwrite":"auto"}:0',
+      'animate:scrim:{"opacity":1}:{"duration":0.22,"ease":"easeOut"}',
+      'animate:panel:{"opacity":1,"y":0}:{"duration":0.22,"ease":"easeOut"}',
     ]);
 
     harness.complete();
-    harness.complete();
+    await Promise.resolve();
+    await Promise.resolve();
     assert.equal(completions, 1);
 
     dispose();
-    assert.deepEqual(harness.log.slice(-3), ['timeline:kill', 'kill:panel', 'kill:scrim']);
+    assert.deepEqual(harness.log.slice(-2), ['stop:scrim', 'stop:panel']);
   });
 
   it('normalizes reduced motion without creating a timeline', () => {
@@ -88,7 +89,7 @@ describe('workspace overlay motion runtime', () => {
 
     assert.equal(completions, 1);
     assert.equal(
-      harness.log.some((entry) => entry.startsWith('timeline:')),
+      harness.log.some((entry) => entry.startsWith('animate:')),
       false,
     );
     assert.deepEqual(harness.log.slice(-2), [
@@ -115,7 +116,7 @@ describe('workspace overlay motion runtime', () => {
       false,
     );
     assert.equal(
-      harness.log.some((entry) => entry.startsWith('to:panel:')),
+      harness.log.some((entry) => entry.startsWith('animate:panel:')),
       true,
     );
   });

@@ -33,7 +33,7 @@ profile은 다음을 자유롭게 정할 수 있다.
 - auth/shell/workspace의 layout과 composition
 - card·row·editorial·terminal 문법
 - icon과 illustration 사용 방식
-- animation 유무, easing, duration, CSS/WAAPI/GSAP 구현
+- animation 유무, easing, duration, CSS/Motion 구현
 - sticky·grid·breakpoint 구현
 
 어떤 profile도 이 Constitution의 접근성·진실성·보안 경계를 덮어쓸 수 없다.

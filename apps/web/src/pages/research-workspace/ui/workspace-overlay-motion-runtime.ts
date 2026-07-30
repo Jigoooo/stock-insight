@@ -1,16 +1,16 @@
 import type { WorkspaceOverlayMotionPlan } from './workspace-overlay-motion-controller';
 
-type WorkspaceOverlayMotionTimeline = {
-  kill: () => void;
-  to: (target: object, vars: object, at: number) => WorkspaceOverlayMotionTimeline;
+type WorkspaceOverlayMotionControls = {
+  finished: Promise<unknown>;
+  stop: () => void;
 };
 
 export type WorkspaceOverlayMotionAdapter = {
-  createTimeline: (options: {
-    duration: number;
-    onComplete: () => void;
-  }) => WorkspaceOverlayMotionTimeline;
-  killTweensOf: (target: object) => void;
+  animate: (
+    target: object,
+    vars: object,
+    options: { duration: number; ease: 'easeOut' },
+  ) => WorkspaceOverlayMotionControls;
   set: (target: object, vars: object) => void;
 };
 
@@ -25,11 +25,6 @@ export function runWorkspaceOverlayMotion({
   plan: WorkspaceOverlayMotionPlan;
   targets: { panel: object; scrim: object | null };
 }) {
-  const availableTargets = [targets.panel, targets.scrim].filter(
-    (target): target is object => target !== null,
-  );
-  for (const target of availableTargets) adapter.killTweensOf(target);
-
   const resolveTarget = (target: 'panel' | 'scrim') =>
     target === 'panel' ? targets.panel : targets.scrim;
   for (const step of plan.sets) {
@@ -50,31 +45,26 @@ export function runWorkspaceOverlayMotion({
     return () => {
       if (disposed) return;
       disposed = true;
-      for (const target of availableTargets) adapter.killTweensOf(target);
     };
   }
 
-  const timeline = adapter.createTimeline({ duration: plan.duration, onComplete: finish });
+  const controls: WorkspaceOverlayMotionControls[] = [];
   for (const step of plan.tweens) {
     const target = resolveTarget(step.target);
     if (!target) continue;
-    timeline.to(
-      target,
-      {
-        ...step.vars,
+    controls.push(
+      adapter.animate(target, step.vars, {
         duration: plan.duration,
-        ease: 'power2.out',
-        overwrite: 'auto',
-      },
-      step.at ?? 0,
+        ease: 'easeOut',
+      }),
     );
   }
+  void Promise.all(controls.map((control) => control.finished)).then(finish, () => undefined);
 
   let disposed = false;
   return () => {
     if (disposed) return;
     disposed = true;
-    timeline.kill();
-    for (const target of availableTargets) adapter.killTweensOf(target);
+    for (const control of controls) control.stop();
   };
 }
