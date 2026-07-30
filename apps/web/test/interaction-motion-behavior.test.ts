@@ -61,7 +61,7 @@ type MotionCall = {
 };
 
 type TestMotionElement = MotionAvailabilityElement & {
-  dataset: { motion?: string };
+  dataset: { motion?: string; motionOwner?: string };
   id: string;
 };
 
@@ -77,17 +77,19 @@ function createMotionElement(
     ariaDisabled = false,
     disabled = false,
     inert = false,
+    motionOwner,
     recipe = 'pressable',
   }: {
     ariaDisabled?: boolean;
     disabled?: boolean;
     inert?: boolean;
+    motionOwner?: string;
     recipe?: string;
   } = {},
 ): TestMotionElement {
   return {
     id,
-    dataset: { motion: recipe },
+    dataset: { motion: recipe, motionOwner },
     closest: (selector) => (selector === '[inert]' && inert ? { inert: true } : null),
     getAttribute: (name) => (name === 'aria-disabled' && ariaDisabled ? 'true' : null),
     matches: (selector) => selector === ':disabled' && disabled,
@@ -292,6 +294,18 @@ describe('delegated interaction motion behavior', () => {
       assert.equal(resolved?.element ?? null, delegatedRecipe ? element : null, recipe);
       assert.equal(resolved?.recipe ?? null, delegatedRecipe, recipe);
     }
+  });
+
+  it('leaves Motion-owned controls out of the legacy delegated GSAP path', () => {
+    const element = createMotionElement('motion-button', {
+      motionOwner: 'motion',
+      recipe: 'pressable',
+    });
+    const target = {
+      closest: (selector: string) => (selector === MOTION_SELECTOR ? element : null),
+    } as unknown as EventTarget;
+
+    assert.equal(resolveDelegatedMotionTarget(target), null);
   });
 
   it('normalizes active feedback when reduced motion turns on', () => {

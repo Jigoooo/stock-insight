@@ -18,7 +18,7 @@ import {
 } from './select-controls-controller';
 import styles from './select-controls.module.css';
 
-import { PresenceRegion } from '@/shared/ui/motion';
+import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
 
 export type SelectBoxProps = {
   'aria-label'?: string;
@@ -189,7 +189,7 @@ export function SelectBox({
   };
 
   return (
-    <div ref={rootRef} className={classNames(styles.control, className)}>
+    <div ref={rootRef} className={classNames(styles.control, className)} data-slot="select-root">
       {name ? (
         <input
           ref={hiddenInputRef}
@@ -199,7 +199,7 @@ export function SelectBox({
           value={selectedValue}
         />
       ) : null}
-      <button
+      <MotionButton
         id={triggerId}
         aria-activedescendant={activeDescendant}
         aria-controls={listboxId}
@@ -208,21 +208,27 @@ export function SelectBox({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledby}
         className={styles.trigger}
+        data-motion-owner="motion"
+        data-slot="select-control"
         disabled={disabled}
         role="combobox"
         type="button"
         onClick={() => (open ? setOpen(false) : openListbox())}
         onKeyDown={handleKeyDown}
       >
-        <span className={classNames(styles.triggerText, !selectedOption && styles.placeholder)}>
+        <span
+          className={classNames(styles.triggerText, !selectedOption && styles.placeholder)}
+          data-slot="select-label"
+        >
           {selectedOption?.label ?? placeholder}
         </span>
-        <ChevronDown aria-hidden="true" />
-      </button>
+        <ChevronDown data-slot="select-indicator" aria-hidden="true" />
+      </MotionButton>
       <PresenceRegion
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledby}
         className={styles.listbox}
+        data-slot="select-listbox"
         exit={{ opacity: 0, scale: 0.98, y: -4 }}
         id={listboxId}
         initial={{ opacity: 0, scale: 0.98, y: -4 }}
@@ -234,7 +240,7 @@ export function SelectBox({
         {options.map((option, index) => {
           const selected = open ? index === activeIndex : option.value === selectedValue;
           return (
-            <button
+            <MotionButton
               ref={(element) => {
                 optionRefs.current[index] = element;
               }}
@@ -244,6 +250,9 @@ export function SelectBox({
               aria-selected={selected}
               className={styles.option}
               data-active={index === activeIndex}
+              data-motion-owner="motion"
+              data-slot="select-option"
+              hoverScale={1}
               role="option"
               tabIndex={-1}
               type="button"
@@ -254,13 +263,23 @@ export function SelectBox({
               onPointerDown={keepTriggerFocus}
             >
               <span className={styles.optionCopy}>
-                <span className={styles.optionLabel}>{option.label}</span>
+                <span className={styles.optionLabel} data-slot="select-label">
+                  {option.label}
+                </span>
                 {option.description ? (
-                  <span className={styles.optionDescription}>{option.description}</span>
+                  <span className={styles.optionDescription} data-slot="select-description">
+                    {option.description}
+                  </span>
                 ) : null}
               </span>
-              {selected ? <Check className={styles.optionCheck} aria-hidden="true" /> : null}
-            </button>
+              {selected ? (
+                <Check
+                  className={styles.optionCheck}
+                  data-slot="select-indicator"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </MotionButton>
           );
         })}
       </PresenceRegion>

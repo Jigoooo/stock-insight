@@ -22,7 +22,7 @@ import {
 } from './select-controls-controller';
 import styles from './select-controls.module.css';
 
-import { PresenceRegion } from '@/shared/ui/motion';
+import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
 
 export type ComboboxProps = {
   'aria-label'?: string;
@@ -205,7 +205,7 @@ export function Combobox({
   };
 
   return (
-    <div ref={rootRef} className={classNames(styles.control, className)}>
+    <div ref={rootRef} className={classNames(styles.control, className)} data-slot="select-root">
       {name ? (
         <input
           ref={hiddenInputRef}
@@ -215,7 +215,7 @@ export function Combobox({
           value={selectedValue}
         />
       ) : null}
-      <div className={styles.inputShell} data-disabled={disabled}>
+      <div className={styles.inputShell} data-disabled={disabled} data-slot="select-input-shell">
         <input
           ref={inputRef}
           id={inputId}
@@ -228,6 +228,7 @@ export function Combobox({
           aria-labelledby={ariaLabelledby}
           autoComplete="off"
           className={styles.input}
+          data-slot="select-control"
           disabled={disabled}
           placeholder={placeholder}
           role="combobox"
@@ -237,21 +238,25 @@ export function Combobox({
           onKeyDown={handleKeyDown}
         />
         {queryValue || selectedValue ? (
-          <button
+          <MotionButton
             aria-label={clearLabel}
             className={styles.clearButton}
+            data-motion-owner="motion"
+            data-slot="select-clear-control"
             disabled={disabled}
+            hoverScale={1}
             type="button"
             onClick={clear}
           >
             <X aria-hidden="true" />
-          </button>
+          </MotionButton>
         ) : null}
       </div>
       <PresenceRegion
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledby}
         className={styles.listbox}
+        data-slot="select-listbox"
         exit={{ opacity: 0, scale: 0.98, y: -4 }}
         id={listboxId}
         initial={{ opacity: 0, scale: 0.98, y: -4 }}
@@ -265,6 +270,7 @@ export function Combobox({
             aria-disabled="true"
             aria-selected="false"
             className={styles.empty}
+            data-slot="select-option"
             role="option"
             tabIndex={-1}
           >
@@ -274,7 +280,7 @@ export function Combobox({
           filteredOptions.map((option, index) => {
             const selected = open ? index === activeIndex : option.value === selectedValue;
             return (
-              <button
+              <MotionButton
                 ref={(element) => {
                   optionRefs.current[index] = element;
                 }}
@@ -284,6 +290,9 @@ export function Combobox({
                 aria-selected={selected}
                 className={styles.option}
                 data-active={index === activeIndex}
+                data-motion-owner="motion"
+                data-slot="select-option"
+                hoverScale={1}
                 role="option"
                 tabIndex={-1}
                 type="button"
@@ -294,13 +303,23 @@ export function Combobox({
                 onPointerDown={keepInputFocus}
               >
                 <span className={styles.optionCopy}>
-                  <span className={styles.optionLabel}>{option.label}</span>
+                  <span className={styles.optionLabel} data-slot="select-label">
+                    {option.label}
+                  </span>
                   {option.description ? (
-                    <span className={styles.optionDescription}>{option.description}</span>
+                    <span className={styles.optionDescription} data-slot="select-description">
+                      {option.description}
+                    </span>
                   ) : null}
                 </span>
-                {selected ? <Check className={styles.optionCheck} aria-hidden="true" /> : null}
-              </button>
+                {selected ? (
+                  <Check
+                    className={styles.optionCheck}
+                    data-slot="select-indicator"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </MotionButton>
             );
           })
         )}

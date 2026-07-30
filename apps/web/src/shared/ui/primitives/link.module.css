@@ -3,7 +3,7 @@
   min-height: 32px;
   align-items: center;
   border-radius: var(--radius-xs);
-  color: var(--color-ink-soft);
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 700;
   text-decoration: underline;
@@ -13,9 +13,15 @@
 }
 
 :where(.textLink[data-tone='accent']) {
-  color: var(--color-primary-strong);
+  color: var(--color-accent-strong);
 }
 
 :where(.textLink[data-tone='muted']) {
-  color: var(--color-muted);
+  color: var(--color-text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.textLink) {
+    transform: none !important;
+  }
 }

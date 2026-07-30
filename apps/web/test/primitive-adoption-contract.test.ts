@@ -4,11 +4,14 @@ import { describe, it } from 'node:test';
 import ts from 'typescript';
 
 const buttonUrl = new URL('../src/shared/ui/primitives/button.tsx', import.meta.url);
+const buttonCssUrl = new URL('../src/shared/ui/primitives/button.module.css', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
-const primitivesCssUrl = new URL(
-  '../src/shared/ui/primitives/primitives.module.css',
-  import.meta.url,
-);
+const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
+const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
+const linkCssUrl = new URL('../src/shared/ui/primitives/link.module.css', import.meta.url);
+const segmentedTabsUrl = new URL('../src/shared/ui/primitives/segmented-tabs.tsx', import.meta.url);
+const selectBoxUrl = new URL('../src/shared/ui/primitives/select-box.tsx', import.meta.url);
+const comboboxUrl = new URL('../src/shared/ui/primitives/combobox.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const targetUrls = [
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
@@ -56,6 +59,70 @@ function missingMotionRecipes(source: string, fileName: string) {
 }
 
 describe('shared primitive adoption contract', () => {
+  it('adopts the local Motion foundation at each interactive control boundary', async () => {
+    const [button, controls, link, segmentedTabs, selectBox, combobox] = await Promise.all([
+      readFile(buttonUrl, 'utf8'),
+      readFile(controlsUrl, 'utf8'),
+      readFile(linkUrl, 'utf8'),
+      readFile(segmentedTabsUrl, 'utf8'),
+      readFile(selectBoxUrl, 'utf8'),
+      readFile(comboboxUrl, 'utf8'),
+    ]);
+
+    assert.match(button, /import \{ MotionButton/);
+    assert.doesNotMatch(button, /<button\b/);
+    assert.match(button, /data-motion-owner="motion"/);
+    assert.match(controls, /import \{ MotionButton/);
+    assert.doesNotMatch(controls, /<button\b/);
+    assert.match(link, /import \{ motion/);
+    assert.match(link, /<motion\.a\b/);
+    assert.match(segmentedTabs, /PresenceRegion/);
+    for (const source of [selectBox, combobox]) {
+      assert.match(source, /import \{ MotionButton, PresenceRegion \}/);
+      assert.doesNotMatch(source, /<button\b/);
+    }
+  });
+
+  it('exposes explicit control anatomy without changing native roles', async () => {
+    const [button, controls, form, link, segmentedTabs, selectBox, combobox] = await Promise.all([
+      readFile(buttonUrl, 'utf8'),
+      readFile(controlsUrl, 'utf8'),
+      readFile(formUrl, 'utf8'),
+      readFile(linkUrl, 'utf8'),
+      readFile(segmentedTabsUrl, 'utf8'),
+      readFile(selectBoxUrl, 'utf8'),
+      readFile(comboboxUrl, 'utf8'),
+    ]);
+
+    assert.match(button, /data-slot="button-control"/);
+    assert.match(button, /data-slot="button-label"/);
+    assert.match(button, /data-slot="icon-button-control"/);
+    assert.match(controls, /data-slot="switch-control"/);
+    assert.match(controls, /data-slot="switch-indicator"/);
+    assert.match(controls, /data-slot="toggle-control"/);
+    assert.match(controls, /data-slot="control-label"/);
+    assert.match(form, /data-slot="field-root"/);
+    assert.match(form, /data-slot="field-label"/);
+    assert.match(form, /data-slot="field-description"/);
+    assert.match(form, /data-slot="field-error"/);
+    assert.match(form, /data-slot="text-input-control"/);
+    assert.match(form, /data-slot="textarea-control"/);
+    assert.match(form, /data-slot="search-field-root"/);
+    assert.match(form, /data-slot="search-field-indicator"/);
+    assert.match(link, /data-slot="text-link-control"/);
+    assert.match(segmentedTabs, /data-slot="segmented-tabs-root"/);
+    assert.match(segmentedTabs, /data-slot="segmented-tab-control"/);
+    assert.match(segmentedTabs, /data-slot="segmented-tab-indicator"/);
+    for (const source of [selectBox, combobox]) {
+      assert.match(source, /data-slot="select-root"/);
+      assert.match(source, /data-slot="select-control"/);
+      assert.match(source, /data-slot="select-option"/);
+      assert.match(source, /data-slot="select-label"/);
+      assert.match(source, /data-slot="select-description"/);
+      assert.match(source, /data-slot="select-indicator"/);
+    }
+  });
+
   it('exposes typed delegated recipes and closed component-owned control recipes', async () => {
     const [button, controls] = await Promise.all([
       readFile(buttonUrl, 'utf8'),
@@ -96,11 +163,11 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('keeps transform and quiet opacity ownership out of primitive CSS transitions', async () => {
-    const [primitiveSource, authSource] = await Promise.all([
-      readFile(primitivesCssUrl, 'utf8'),
+    const [buttonSource, authSource] = await Promise.all([
+      readFile(buttonCssUrl, 'utf8'),
       readFile(authCssUrl, 'utf8'),
     ]);
-    const css = primitiveSource.replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = buttonSource.replace(/\/\*[\s\S]*?\*\//g, '');
     const buttonBlock = css.match(/:where\(\.button,\s*\.iconButton\)\s*\{([\s\S]*?)\}/)?.[1] ?? '';
     const authActionBlock =
       authSource.match(
@@ -118,7 +185,11 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('keeps shared control visuals lower-specificity than page-owned custom classes', async () => {
-    const css = (await readFile(primitivesCssUrl, 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
+    const css =
+      `${await readFile(buttonCssUrl, 'utf8')}\n${await readFile(linkCssUrl, 'utf8')}`.replace(
+        /\/\*[\s\S]*?\*\//g,
+        '',
+      );
 
     assert.match(css, /:where\(\.button,\s*\.iconButton\)\s*\{/);
     assert.match(css, /:where\(\.button\[data-variant='secondary'\],\s*\.iconButton\)/);

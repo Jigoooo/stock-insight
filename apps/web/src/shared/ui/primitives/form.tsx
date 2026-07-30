@@ -17,8 +17,10 @@ gsap.registerPlugin(useGSAP);
 
 type FieldProps = {
   children: ReactNode;
-  label?: string;
-  hint?: string;
+  description?: ReactNode;
+  error?: ReactNode;
+  hint?: ReactNode;
+  label?: ReactNode;
 };
 
 type InputVariant = 'chrome' | 'bare';
@@ -95,12 +97,31 @@ export function useFieldShellMotion<ElementType extends HTMLElement>() {
   return shellRef;
 }
 
-export function Field({ children, hint, label }: FieldProps) {
+export function Field({ children, description, error, hint, label }: FieldProps) {
+  const supportingDescription = description ?? hint;
+
   return (
-    <label className={styles.field}>
-      {label ? <span className={styles.fieldLabel}>{label}</span> : null}
+    <label
+      className={styles.field}
+      data-invalid={Boolean(error) || undefined}
+      data-slot="field-root"
+    >
+      {label ? (
+        <span className={styles.fieldLabel} data-slot="field-label">
+          {label}
+        </span>
+      ) : null}
       {children}
-      {hint ? <span className={styles.fieldHint}>{hint}</span> : null}
+      {supportingDescription ? (
+        <span className={styles.fieldHint} data-slot="field-description">
+          {supportingDescription}
+        </span>
+      ) : null}
+      {error ? (
+        <span className={styles.fieldError} data-slot="field-error" role="alert">
+          {error}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -109,6 +130,7 @@ export function TextInput({ className, variant = 'chrome', ...props }: TextInput
   return (
     <input
       className={classNames(styles.textInput, className)}
+      data-slot="text-input-control"
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
     />
@@ -119,6 +141,7 @@ export function Textarea({ className, variant = 'chrome', ...props }: TextareaPr
   return (
     <textarea
       className={classNames(styles.textarea, className)}
+      data-slot="textarea-control"
       data-variant={variant === 'bare' ? 'bare' : 'chrome'}
       {...props}
     />
@@ -133,9 +156,12 @@ export function SearchField({ className, icon, inputProps }: SearchFieldProps) {
       ref={shellRef}
       className={classNames(styles.searchField, className)}
       data-motion="field-shell"
+      data-slot="search-field-root"
     >
       <FieldMotionHalo />
-      {icon}
+      <span className={styles.searchFieldIndicator} data-slot="search-field-indicator">
+        {icon}
+      </span>
       <TextInput variant="bare" {...inputProps} />
     </label>
   );

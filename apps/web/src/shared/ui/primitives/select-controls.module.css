@@ -177,3 +177,9 @@
     outline: 1px solid Highlight;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.trigger, .clearButton, .option) {
+    transform: none !important;
+  }
+}

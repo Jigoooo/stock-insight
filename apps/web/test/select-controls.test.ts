@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 
 const read = async (path: string) =>
   readFile(new URL(`../src/${path}`, import.meta.url), 'utf8').catch(() => '');
+const rootPackageUrl = new URL('../../../package.json', import.meta.url);
 
 const options = [
   { value: 'one', label: 'One' },
@@ -90,6 +91,17 @@ describe('select option behavior', () => {
 });
 
 describe('SelectBox and Combobox structure', () => {
+  it('keeps the real-rendered browser and accessibility gate on a named package script', async () => {
+    const packageJson = JSON.parse(await readFile(rootPackageUrl, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+
+    assert.equal(
+      packageJson.scripts?.['test:select-controls:browser'],
+      'node scripts/run-select-controls-browser-gate.mjs',
+    );
+  });
+
   it('connects combobox triggers to listboxes and submits values through hidden inputs', async () => {
     const [selectBox, combobox, primitiveIndex] = await Promise.all([
       read('shared/ui/primitives/select-box.tsx'),

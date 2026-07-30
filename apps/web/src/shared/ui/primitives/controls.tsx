@@ -1,12 +1,6 @@
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
-import {
-  useEffect,
-  useRef,
-  type ButtonHTMLAttributes,
-  type MouseEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
 
 import {
   applyControlStateMotion,
@@ -15,6 +9,7 @@ import {
   type ControlMotionKind,
 } from './control-motion-controller';
 import styles from './primitives.module.css';
+import { MotionButton, type MotionButtonProps } from '../motion/motion-button';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
 
 gsap.registerPlugin(useGSAP);
@@ -80,7 +75,7 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
   return targetRef;
 }
 
-type SwitchProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'onChange'> & {
+type SwitchProps = Omit<MotionButtonProps, 'children' | 'onChange'> & {
   checked: boolean;
   label: ReactNode;
   onCheckedChange: (checked: boolean) => void;
@@ -109,10 +104,12 @@ export function Switch({
   };
 
   return (
-    <button
+    <MotionButton
       aria-busy={pending || undefined}
       aria-checked={checked}
       className={classNames(styles.switchControl, className)}
+      data-motion-owner="motion"
+      data-slot="switch-control"
       data-state={checked ? 'checked' : 'unchecked'}
       disabled={disabled || pending}
       role="switch"
@@ -121,15 +118,17 @@ export function Switch({
       data-motion="switch"
       onClick={handleClick}
     >
-      <span className={styles.switchTrack} aria-hidden="true">
+      <span className={styles.switchTrack} data-slot="switch-indicator" aria-hidden="true">
         <span ref={thumbRef} className={styles.switchThumb} data-switch-motion-thumb />
       </span>
-      <span className={styles.controlLabel}>{label}</span>
-    </button>
+      <span className={styles.controlLabel} data-slot="control-label">
+        {label}
+      </span>
+    </MotionButton>
   );
 }
 
-type ToggleProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-pressed'> & {
+type ToggleProps = Omit<MotionButtonProps, 'aria-pressed' | 'children'> & {
   children: ReactNode;
   pressed: boolean;
   onPressedChange: (pressed: boolean) => void;
@@ -158,10 +157,12 @@ export function Toggle({
   };
 
   return (
-    <button
+    <MotionButton
       aria-busy={pending || undefined}
       aria-pressed={pressed}
       className={classNames(styles.toggleControl, className)}
+      data-motion-owner="motion"
+      data-slot="toggle-control"
       data-state={pressed ? 'on' : 'off'}
       disabled={disabled || pending}
       type={type}
@@ -175,7 +176,9 @@ export function Toggle({
         data-toggle-motion-rail
         aria-hidden="true"
       />
-      <span className={styles.controlLabel}>{children}</span>
-    </button>
+      <span className={styles.controlLabel} data-slot="control-label">
+        {children}
+      </span>
+    </MotionButton>
   );
 }

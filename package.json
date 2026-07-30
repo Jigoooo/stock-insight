@@ -25,6 +25,7 @@
     "test:p6:db": "pnpm --filter @stock-insight/api test:p6-db-rehearsal",
     "test:xg:db": "pnpm --filter @stock-insight/api test:xg-reader-privileges",
     "test:p6:browser": "node scripts/run-p6-crypto-ui-browser-gate.mjs",
+    "test:select-controls:browser": "node scripts/run-select-controls-browser-gate.mjs",
     "test:p6:browser:production": "node scripts/run-p6-crypto-production-e2e.mjs",
     "audit:design": "pnpm --filter @stock-insight/web audit:design",
     "verify:release": "pnpm lint && pnpm typecheck && pnpm typecheck:p6:fixture && pnpm test && pnpm test:design:hard && pnpm test:p6:db && pnpm test:xg:db && pnpm build && pnpm test:p6:browser && pnpm test:p6:browser:production && pnpm test:design:browser:production && pnpm test:p3d:browser:production && pnpm test:sigma:browser:production",
