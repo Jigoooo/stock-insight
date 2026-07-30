@@ -1,19 +1,55 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
+import { createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import { createServer } from 'vite';
+
+type ForwardRefComponent = {
+  render: (props: Record<string, unknown>, ref: null) => ReactElement<Record<string, unknown>>;
+};
+type MotionBoundary = {
+  Effect: ForwardRefComponent;
+  Effects: (props: Record<string, unknown>) => ReactNode;
+  MotionButton: ForwardRefComponent;
+  PresenceRegion: (props: Record<string, unknown>) => ReactElement<Record<string, unknown>>;
+};
+
+const webRoot = fileURLToPath(new URL('..', import.meta.url));
 const packageUrl = new URL('../package.json', import.meta.url);
 const rootUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
-const motionButtonUrl = new URL('../src/shared/ui/motion/motion-button.tsx', import.meta.url);
-const effectUrl = new URL('../src/shared/ui/motion/effect.tsx', import.meta.url);
-const presenceRegionUrl = new URL('../src/shared/ui/motion/presence-region.tsx', import.meta.url);
-const motionValuesUrl = new URL('../src/shared/ui/motion/motion-values.ts', import.meta.url);
-const motionBoundaryUrl = new URL('../src/shared/ui/motion/index.ts', import.meta.url);
 
-function requireFile(url: URL) {
-  assert.equal(existsSync(fileURLToPath(url)), true, `Missing ${fileURLToPath(url)}`);
+let motionBoundaryPromise: Promise<MotionBoundary> | undefined;
+
+function loadMotionBoundary() {
+  motionBoundaryPromise ??= (async () => {
+    const server = await createServer({
+      appType: 'custom',
+      configFile: false,
+      root: webRoot,
+      server: { hmr: false, middlewareMode: true, watch: null, ws: false },
+    });
+
+    try {
+      return (await server.ssrLoadModule(
+        '/src/shared/ui/motion/index.ts',
+      )) as unknown as MotionBoundary;
+    } finally {
+      await server.close();
+    }
+  })();
+
+  return motionBoundaryPromise;
+}
+
+function invokeForwardRef(
+  component: ForwardRefComponent,
+  props: Record<string, unknown>,
+): ReactElement<Record<string, unknown>> {
+  const element = component.render(props, null);
+  assert.equal(isValidElement(element), true);
+  return element;
 }
 
 describe('OpenHuman Motion foundation structure', () => {
@@ -36,85 +72,158 @@ describe('OpenHuman Motion foundation structure', () => {
   });
 
   it('exports the local Motion primitives from one shared boundary', async () => {
-    requireFile(motionBoundaryUrl);
-    const boundary = await readFile(motionBoundaryUrl, 'utf8');
+    const boundary = await loadMotionBoundary();
 
-    assert.match(boundary, /MotionButton/);
-    assert.match(boundary, /Effect/);
-    assert.match(boundary, /Effects/);
-    assert.match(boundary, /PresenceRegion/);
-  });
-
-  it('keeps presence ownership in AnimatePresence around keyed conditional content', async () => {
-    requireFile(presenceRegionUrl);
-    const source = await readFile(presenceRegionUrl, 'utf8');
-
-    assert.match(source, /AnimatePresence/);
-    assert.match(source, /key=\{presenceKey\}/);
-    assert.match(source, /present \?/);
+    assert.equal(typeof boundary.MotionButton.render, 'function');
+    assert.equal(typeof boundary.Effect.render, 'function');
+    assert.equal(typeof boundary.Effects, 'function');
+    assert.equal(typeof boundary.PresenceRegion, 'function');
   });
 });
 
 describe('OpenHuman Motion foundation behavior', () => {
-  it('uses the required restrained button scales and allows per-button overrides', async () => {
-    requireFile(motionButtonUrl);
-    requireFile(motionValuesUrl);
-    const { resolveMotionButtonAnimation } = await import(motionValuesUrl.href);
+  it('forwards MotionButton defaults, scale overrides, and explicit Motion props', async () => {
+    const { MotionButton } = await loadMotionBoundary();
+    const defaultButton = invokeForwardRef(MotionButton, {
+      children: '기본 버튼',
+      type: 'button',
+    });
+    const scaleOverride = invokeForwardRef(MotionButton, {
+      hoverScale: 1.02,
+      tapScale: 0.96,
+      type: 'submit',
+    });
+    const motionOverride = invokeForwardRef(MotionButton, {
+      transition: { duration: 0.4 },
+      whileHover: { opacity: 0.8 },
+      whileTap: 'pressed',
+    });
 
-    assert.deepEqual(resolveMotionButtonAnimation({}), {
-      transition: { damping: 30, mass: 0.6, stiffness: 420, type: 'spring' },
-      whileHover: { scale: 1.012 },
-      whileTap: { scale: 0.978 },
+    assert.deepEqual(defaultButton.props.whileHover, { scale: 1.012 });
+    assert.deepEqual(defaultButton.props.whileTap, { scale: 0.978 });
+    assert.deepEqual(defaultButton.props.transition, {
+      damping: 30,
+      mass: 0.6,
+      stiffness: 420,
+      type: 'spring',
     });
-    assert.deepEqual(resolveMotionButtonAnimation({ hoverScale: 1.02, tapScale: 0.96 }), {
-      transition: { damping: 30, mass: 0.6, stiffness: 420, type: 'spring' },
-      whileHover: { scale: 1.02 },
-      whileTap: { scale: 0.96 },
-    });
+    assert.equal(defaultButton.props.type, 'button');
+    assert.equal(defaultButton.props.children, '기본 버튼');
+    assert.deepEqual(scaleOverride.props.whileHover, { scale: 1.02 });
+    assert.deepEqual(scaleOverride.props.whileTap, { scale: 0.96 });
+    assert.equal(scaleOverride.props.type, 'submit');
+    assert.equal('hoverScale' in scaleOverride.props, false);
+    assert.equal('tapScale' in scaleOverride.props, false);
+    assert.deepEqual(motionOverride.props.whileHover, { opacity: 0.8 });
+    assert.equal(motionOverride.props.whileTap, 'pressed');
+    assert.deepEqual(motionOverride.props.transition, { duration: 0.4 });
   });
 
-  it('composes fade, slide, zoom, blur, delay, and in-view behavior', async () => {
-    requireFile(effectUrl);
-    requireFile(motionValuesUrl);
-    const { resolveEffectAnimation } = await import(motionValuesUrl.href);
+  it('resolves Effect options onto the rendered Motion element', async () => {
+    const { Effect } = await loadMotionBoundary();
+    const effect = invokeForwardRef(Effect, {
+      blur: '8px',
+      children: '효과 본문',
+      delay: 0.12,
+      fade: true,
+      id: 'effect-probe',
+      inView: true,
+      inViewMargin: '-48px',
+      inViewOnce: false,
+      slide: { direction: 'left', offset: 24 },
+      transition: { duration: 0.3 },
+      zoom: { initialScale: 0.96 },
+    });
 
-    assert.deepEqual(
-      resolveEffectAnimation({
-        blur: '8px',
-        delay: 0.12,
-        fade: true,
-        inView: true,
-        inViewMargin: '-48px',
-        inViewOnce: false,
-        slide: { direction: 'left', offset: 24 },
-        zoom: { initialScale: 0.96 },
-      }),
-      {
-        animate: undefined,
-        initial: {
-          filter: 'blur(8px)',
-          opacity: 0,
-          scale: 0.96,
-          x: -24,
-        },
-        transition: { delay: 0.12, duration: 0.24, ease: 'easeOut' },
-        viewport: { amount: 'some', margin: '-48px', once: false },
-        whileInView: {
-          filter: 'blur(0px)',
-          opacity: 1,
-          scale: 1,
-          x: 0,
-        },
-      },
+    assert.deepEqual(effect.props.initial, {
+      filter: 'blur(8px)',
+      opacity: 0,
+      scale: 0.96,
+      x: -24,
+    });
+    assert.equal(effect.props.animate, undefined);
+    assert.deepEqual(effect.props.whileInView, {
+      filter: 'blur(0px)',
+      opacity: 1,
+      scale: 1,
+      x: 0,
+    });
+    assert.deepEqual(effect.props.viewport, {
+      amount: 'some',
+      margin: '-48px',
+      once: false,
+    });
+    assert.deepEqual(effect.props.transition, {
+      delay: 0.12,
+      duration: 0.3,
+      ease: 'easeOut',
+    });
+    assert.equal(effect.props.id, 'effect-probe');
+    assert.equal(effect.props.children, '효과 본문');
+    assert.equal('fade' in effect.props, false);
+    assert.equal('inView' in effect.props, false);
+  });
+
+  it('wraps and stagger-delays each direct React-element child through Effect', async () => {
+    const { Effect, Effects } = await loadMotionBoundary();
+    const children = [
+      createElement('span', { key: 'first' }, '첫 번째'),
+      createElement('span', { key: 'second' }, '두 번째'),
+    ];
+    const result = Effects({
+      children,
+      delay: 0.08,
+      fade: true,
+      holdDelay: 0.12,
+    });
+
+    assert.equal(Array.isArray(result), true);
+    const wrappers = result as ReactElement<Record<string, unknown>>[];
+    assert.equal(wrappers.length, 2);
+    assert.equal(
+      wrappers.every((wrapper) => isValidElement(wrapper)),
+      true,
     );
+    assert.equal(wrappers[0]?.type, Effect);
+    assert.equal(wrappers[1]?.type, Effect);
+    assert.equal(wrappers[0]?.props.delay, 0.12);
+    assert.equal(wrappers[1]?.props.delay, 0.2);
+    assert.equal(wrappers[0]?.props.fade, true);
+    assert.equal(wrappers[1]?.props.fade, true);
+    assert.equal(wrappers[0]?.props.children, children[0]);
+    assert.equal(wrappers[1]?.props.children, children[1]);
   });
 
-  it('stagger-delays direct React-element children after the hold delay', async () => {
-    requireFile(effectUrl);
-    requireFile(motionValuesUrl);
-    const { resolveEffectChildDelay } = await import(motionValuesUrl.href);
+  it('keeps keyed conditional content and exit completion on PresenceRegion', async () => {
+    const { PresenceRegion } = await loadMotionBoundary();
+    let exitCompletions = 0;
+    const onExitComplete = () => {
+      exitCompletions += 1;
+    };
+    const presentRegion = PresenceRegion({
+      children: createElement('p', null, '저장됨'),
+      exit: { opacity: 0 },
+      mode: 'wait',
+      onExitComplete,
+      presenceKey: 'saved-notice',
+      present: true,
+    });
+    const absentRegion = PresenceRegion({
+      children: createElement('p', null, '숨김'),
+      presenceKey: 'hidden-notice',
+      present: false,
+    });
 
-    assert.equal(resolveEffectChildDelay({ delay: 0.08, holdDelay: 0.12, index: 0 }), 0.12);
-    assert.equal(resolveEffectChildDelay({ delay: 0.08, holdDelay: 0.12, index: 2 }), 0.28);
+    assert.equal(presentRegion.props.mode, 'wait');
+    assert.equal(presentRegion.props.onExitComplete, onExitComplete);
+    const keyedChild = presentRegion.props.children as ReactElement<Record<string, unknown>>;
+    assert.equal(isValidElement(keyedChild), true);
+    assert.equal(keyedChild.key, 'saved-notice');
+    assert.deepEqual(keyedChild.props.exit, { opacity: 0 });
+    assert.equal(isValidElement(keyedChild.props.children), true);
+    assert.equal(absentRegion.props.children, null);
+
+    (presentRegion.props.onExitComplete as () => void)();
+    assert.equal(exitCompletions, 1);
   });
 });
