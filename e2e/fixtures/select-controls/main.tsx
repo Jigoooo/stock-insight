@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import './style.css';
 
+import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import {
   Button,
   Combobox,
@@ -18,11 +19,133 @@ import {
 
 declare global {
   interface Window {
+    __runMotionAdapterRuntimeCases: () => Promise<{
+      animatedReducedNormal: {
+        normal: MotionProbeSnapshot;
+        reduced: MotionProbeSnapshot;
+      };
+      interrupted: {
+        callbacks: string[];
+        final: MotionProbeSnapshot;
+      };
+      repeatedFromTo: {
+        firstFinal: MotionProbeSnapshot;
+        secondFinal: MotionProbeSnapshot;
+        secondStart: MotionProbeSnapshot;
+      };
+      staleCompletion: {
+        callbacks: string[];
+        final: MotionProbeSnapshot;
+        whileNewerActive: MotionProbeSnapshot;
+      };
+    }>;
     __nativeEventLog: Record<string, Array<{ eventPhase: number; handler: string }>>;
   }
 }
 
+type MotionProbeSnapshot = {
+  opacity: number;
+  transform: string;
+};
+
 window.__nativeEventLog = {};
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function nextFrame() {
+  return new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+function readMotionProbe(element: HTMLElement): MotionProbeSnapshot {
+  const style = getComputedStyle(element);
+  return { opacity: Number(style.opacity), transform: style.transform };
+}
+
+window.__runMotionAdapterRuntimeCases = async () => {
+  const probe = document.createElement('div');
+  probe.style.width = '10px';
+  probe.style.height = '10px';
+  document.body.append(probe);
+  const adapter = createMotionDomAdapter();
+
+  adapter.fromTo(
+    probe,
+    { opacity: 0, y: 6 },
+    { clearProps: 'opacity,transform', duration: 0.04, opacity: 1, y: 0 },
+  );
+  await wait(100);
+  const firstFinal = readMotionProbe(probe);
+  adapter.fromTo(
+    probe,
+    { opacity: 0, y: 6 },
+    { clearProps: 'opacity,transform', duration: 0.04, opacity: 1, y: 0 },
+  );
+  await nextFrame();
+  const secondStart = readMotionProbe(probe);
+  await wait(100);
+  const secondFinal = readMotionProbe(probe);
+
+  adapter.to(probe, { duration: 0.2, opacity: 0.2, y: 8 });
+  await wait(20);
+  adapter.killTweensOf(probe);
+  adapter.set(probe, { opacity: 1, y: 0 });
+  const reduced = readMotionProbe(probe);
+  adapter.to(probe, { duration: 0.04, opacity: 0.65, y: 2 });
+  await wait(100);
+  const normal = readMotionProbe(probe);
+
+  const interruptedCallbacks: string[] = [];
+  adapter.to(probe, {
+    duration: 0.2,
+    onComplete: () => interruptedCallbacks.push('old'),
+    opacity: 0.1,
+    y: 10,
+  });
+  await wait(20);
+  adapter.to(probe, {
+    duration: 0.04,
+    onComplete: () => interruptedCallbacks.push('new'),
+    opacity: 0.75,
+    y: 3,
+  });
+  await wait(100);
+  const interruptedFinal = readMotionProbe(probe);
+
+  const staleCallbacks: string[] = [];
+  adapter.to(probe, {
+    clearProps: 'opacity',
+    duration: 0.04,
+    onComplete: () => staleCallbacks.push('old'),
+    opacity: 0,
+  });
+  await wait(10);
+  adapter.to(probe, {
+    duration: 0.1,
+    onComplete: () => staleCallbacks.push('new'),
+    opacity: 0.6,
+  });
+  await wait(60);
+  const whileNewerActive = readMotionProbe(probe);
+  await wait(100);
+  const staleFinal = readMotionProbe(probe);
+
+  adapter.killTweensOf(probe);
+  adapter.set(probe, { clearProps: 'opacity,transform' });
+  probe.remove();
+
+  return {
+    animatedReducedNormal: { normal, reduced },
+    interrupted: { callbacks: interruptedCallbacks, final: interruptedFinal },
+    repeatedFromTo: { firstFinal, secondFinal, secondStart },
+    staleCompletion: {
+      callbacks: staleCallbacks,
+      final: staleFinal,
+      whileNewerActive,
+    },
+  };
+};
 
 const shortOptions: readonly SelectOption[] = [
   { value: 'alpha', label: 'Alpha' },

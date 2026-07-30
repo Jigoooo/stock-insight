@@ -150,6 +150,17 @@ describe('Task 6 transition lifecycle', () => {
 });
 
 describe('Task 6 React ownership contract', () => {
+  it('keeps DOM animation state in MotionValues without a cached element animator', async () => {
+    const motionAdapter = await readFile(motionAdapterUrl, 'utf8');
+
+    assert.match(motionAdapter, /motionValue\(/);
+    assert.match(motionAdapter, /animate\(state\.values\[property\]!/);
+    assert.match(motionAdapter, /state\.active !== active/);
+    assert.match(motionAdapter, /state\.generation !== generation/);
+    assert.doesNotMatch(motionAdapter, /animate\(target,/);
+    assert.doesNotMatch(motionAdapter, /styleEffect\(/);
+  });
+
   it('keeps surfaces and feedback on the local Motion foundation with no shared GSAP owner', async () => {
     const [motionRegion, motionAdapter, surface, feedback] = await Promise.all([
       readFile(motionRegionUrl, 'utf8'),

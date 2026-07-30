@@ -20,6 +20,27 @@ try {
   page.setDefaultTimeout(5_000);
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
 
+  const motionRuntime = await page.evaluate(() => window.__runMotionAdapterRuntimeCases());
+  assert.equal(motionRuntime.repeatedFromTo.firstFinal.opacity, 1);
+  assert.equal(motionRuntime.repeatedFromTo.firstFinal.transform, 'none');
+  assert(motionRuntime.repeatedFromTo.secondStart.opacity < 1);
+  assert.notEqual(motionRuntime.repeatedFromTo.secondStart.transform, 'none');
+  assert.equal(motionRuntime.repeatedFromTo.secondFinal.opacity, 1);
+  assert.equal(motionRuntime.repeatedFromTo.secondFinal.transform, 'none');
+  assert.equal(motionRuntime.animatedReducedNormal.reduced.opacity, 1);
+  assert.match(
+    motionRuntime.animatedReducedNormal.reduced.transform,
+    /^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/,
+  );
+  assert.equal(motionRuntime.animatedReducedNormal.normal.opacity, 0.65);
+  assert.match(motionRuntime.animatedReducedNormal.normal.transform, /,\s*2\)$/);
+  assert.deepEqual(motionRuntime.interrupted.callbacks, ['new']);
+  assert.equal(motionRuntime.interrupted.final.opacity, 0.75);
+  assert.match(motionRuntime.interrupted.final.transform, /,\s*3\)$/);
+  assert.deepEqual(motionRuntime.staleCompletion.callbacks, ['new']);
+  assert(motionRuntime.staleCompletion.whileNewerActive.opacity > 0);
+  assert.equal(motionRuntime.staleCompletion.final.opacity, 0.6);
+
   const expectedNativeEventOrder = [
     { eventPhase: 1, handler: 'root-capture' },
     { eventPhase: 1, handler: 'child-capture' },

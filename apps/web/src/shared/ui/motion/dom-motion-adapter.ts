@@ -1,4 +1,9 @@
-import { animate, type AnimationPlaybackControls, type DOMKeyframesDefinition } from 'motion/react';
+import {
+  animate,
+  motionValue,
+  type AnimationPlaybackControls,
+  type MotionValue,
+} from 'motion/react';
 
 export type DomMotionTarget = HTMLElement;
 
@@ -24,16 +29,21 @@ export type DomMotionAdapter = {
   to: (target: DomMotionTarget, vars: DomMotionVars) => void;
 };
 
-type TransformState = {
-  rotation: number;
-  scale: number;
-  x: number;
-  y: number;
+type MotionProperty = 'opacity' | 'rotation' | 'scale' | 'x' | 'y';
+
+type ActiveAnimation = {
+  controls: AnimationPlaybackControls[];
+  generation: number;
+};
+
+type ElementMotionState = {
+  active?: ActiveAnimation;
+  generation: number;
+  stopEffect?: () => void;
+  values: Partial<Record<MotionProperty, MotionValue<number>>>;
 };
 
 type MotionEase = 'easeIn' | 'easeInOut' | 'easeOut' | 'linear' | [number, number, number, number];
-
-const defaultTransformState = (): TransformState => ({ rotation: 0, scale: 1, x: 0, y: 0 });
 
 function resolveEase(ease: string | undefined): MotionEase {
   if (!ease || ease === 'none' || ease === 'linear') return 'linear';
@@ -48,84 +58,151 @@ function resolveEase(ease: string | undefined): MotionEase {
   return [Number(bezier[1]), Number(bezier[2]), Number(bezier[3]), Number(bezier[4])];
 }
 
-function keyframesFrom(vars: DomMotionVars): DOMKeyframesDefinition {
-  const keyframes: DOMKeyframesDefinition = {};
-  if (vars.opacity !== undefined) keyframes.opacity = vars.opacity;
-  if (vars.x !== undefined) keyframes.x = vars.x;
-  if (vars.y !== undefined) keyframes.y = vars.y;
-  if (vars.scale !== undefined) keyframes.scale = vars.scale;
-  if (vars.rotation !== undefined) keyframes.rotate = vars.rotation;
-  return keyframes;
+function motionEntries(vars: DomMotionVars): Array<[MotionProperty, number]> {
+  const entries: Array<[MotionProperty, number]> = [];
+  if (vars.opacity !== undefined) entries.push(['opacity', vars.opacity]);
+  if (vars.x !== undefined) entries.push(['x', vars.x]);
+  if (vars.y !== undefined) entries.push(['y', vars.y]);
+  if (vars.scale !== undefined) entries.push(['scale', vars.scale]);
+  if (vars.rotation !== undefined) entries.push(['rotation', vars.rotation]);
+  return entries;
 }
 
-function hasTransform(vars: DomMotionVars) {
-  return (
-    vars.x !== undefined ||
-    vars.y !== undefined ||
-    vars.scale !== undefined ||
-    vars.rotation !== undefined
-  );
+function readTransform(target: DomMotionTarget) {
+  const transform = getComputedStyle(target).transform;
+  if (transform === 'none') return { rotation: 0, scale: 1, x: 0, y: 0 };
+  const matrix = new DOMMatrixReadOnly(transform);
+  return {
+    rotation: (Math.atan2(matrix.b, matrix.a) * 180) / Math.PI,
+    scale: Math.hypot(matrix.a, matrix.b),
+    x: matrix.m41,
+    y: matrix.m42,
+  };
+}
+
+function readCurrentValue(target: DomMotionTarget, property: MotionProperty) {
+  if (property === 'opacity') return Number(getComputedStyle(target).opacity);
+  return readTransform(target)[property];
 }
 
 export function createMotionDomAdapter(): DomMotionAdapter {
-  const activeAnimations = new WeakMap<DomMotionTarget, AnimationPlaybackControls>();
-  const transformStates = new WeakMap<DomMotionTarget, TransformState>();
+  const states = new WeakMap<DomMotionTarget, ElementMotionState>();
+
+  const bindState = (target: DomMotionTarget, state: ElementMotionState) => {
+    state.stopEffect?.();
+    const render = () => {
+      const opacity = state.values.opacity?.get();
+      if (opacity !== undefined) target.style.opacity = String(opacity);
+
+      const hasTransform = Boolean(
+        state.values.rotation || state.values.scale || state.values.x || state.values.y,
+      );
+      if (!hasTransform) return;
+      const rotation = state.values.rotation?.get() ?? 0;
+      const scale = state.values.scale?.get() ?? 1;
+      const x = state.values.x?.get() ?? 0;
+      const y = state.values.y?.get() ?? 0;
+      target.style.transform = `translateX(${x}px) translateY(${y}px) scale(${scale}) rotate(${rotation}deg)`;
+    };
+    const subscriptions = Object.values(state.values).map((value) => value!.on('change', render));
+    render();
+    state.stopEffect = () => {
+      for (const unsubscribe of subscriptions) unsubscribe();
+    };
+  };
+
+  const ensureState = (target: DomMotionTarget, vars: DomMotionVars) => {
+    const state = states.get(target) ?? { generation: 0, values: {} };
+    let addedValue = false;
+    for (const [property] of motionEntries(vars)) {
+      if (state.values[property]) continue;
+      state.values[property] = motionValue(readCurrentValue(target, property));
+      addedValue = true;
+    }
+    if (!states.has(target)) states.set(target, state);
+    if (addedValue) bindState(target, state);
+    return state;
+  };
 
   const killTweensOf = (target: DomMotionTarget) => {
-    activeAnimations.get(target)?.stop();
-    activeAnimations.delete(target);
+    const state = states.get(target);
+    if (!state) return;
+    state.generation += 1;
+    for (const controls of state.active?.controls ?? []) controls.stop();
+    state.active = undefined;
   };
 
   const clearProperties = (target: DomMotionTarget, clearProps: string) => {
+    const state = states.get(target);
+    if (state) {
+      killTweensOf(target);
+      state.stopEffect?.();
+      state.stopEffect = undefined;
+    }
+
     for (const property of clearProps.split(',').map((value) => value.trim())) {
-      if (property === 'opacity') target.style.removeProperty('opacity');
+      if (property === 'opacity') {
+        state?.values.opacity?.destroy();
+        if (state) delete state.values.opacity;
+        target.style.removeProperty('opacity');
+      }
       if (property === 'transform') {
+        for (const transformProperty of ['rotation', 'scale', 'x', 'y'] as const) {
+          state?.values[transformProperty]?.destroy();
+          if (state) delete state.values[transformProperty];
+        }
         target.style.removeProperty('transform');
-        transformStates.delete(target);
       }
     }
+
+    if (!state) return;
+    if (Object.keys(state.values).length === 0) {
+      states.delete(target);
+      return;
+    }
+    bindState(target, state);
   };
 
   const set = (target: DomMotionTarget, vars: DomMotionVars) => {
     if (vars.clearProps) clearProperties(target, vars.clearProps);
-    if (vars.opacity !== undefined) target.style.opacity = String(vars.opacity);
-    if (!hasTransform(vars)) return;
-
-    const next = { ...(transformStates.get(target) ?? defaultTransformState()) };
-    if (vars.x !== undefined) next.x = vars.x;
-    if (vars.y !== undefined) next.y = vars.y;
-    if (vars.scale !== undefined) next.scale = vars.scale;
-    if (vars.rotation !== undefined) next.rotation = vars.rotation;
-    transformStates.set(target, next);
-    target.style.transform = `translateX(${next.x}px) translateY(${next.y}px) scale(${next.scale}) rotate(${next.rotation}deg)`;
+    const entries = motionEntries(vars);
+    if (entries.length === 0) return;
+    killTweensOf(target);
+    const state = ensureState(target, vars);
+    for (const [property, value] of entries) state.values[property]?.set(value);
   };
 
   const to = (target: DomMotionTarget, vars: DomMotionVars) => {
     killTweensOf(target);
-    if (hasTransform(vars)) {
-      const next = { ...(transformStates.get(target) ?? defaultTransformState()) };
-      if (vars.x !== undefined) next.x = vars.x;
-      if (vars.y !== undefined) next.y = vars.y;
-      if (vars.scale !== undefined) next.scale = vars.scale;
-      if (vars.rotation !== undefined) next.rotation = vars.rotation;
-      transformStates.set(target, next);
+    const entries = motionEntries(vars);
+    const state = ensureState(target, vars);
+    const generation = state.generation + 1;
+    state.generation = generation;
+    const controls = entries.map(([property, value]) =>
+      animate(state.values[property]!, value, {
+        duration: vars.duration ?? 0,
+        ease: resolveEase(vars.ease),
+        repeat: vars.repeat === -1 ? Infinity : vars.repeat,
+        repeatType: vars.yoyo ? 'reverse' : 'loop',
+      }),
+    );
+    const active = { controls, generation };
+    state.active = active;
+
+    const complete = () => {
+      if (state.active !== active || state.generation !== generation) return;
+      state.active = undefined;
+      if (vars.clearProps) clearProperties(target, vars.clearProps);
+      vars.onComplete?.();
+    };
+    if (controls.length === 0) {
+      queueMicrotask(complete);
+      return;
     }
-    const keyframes = keyframesFrom(vars);
-    const controls = animate(target, keyframes, {
-      duration: vars.duration ?? 0,
-      ease: resolveEase(vars.ease),
-      onComplete: () => {
-        queueMicrotask(() => {
-          if (activeAnimations.get(target) !== controls) return;
-          activeAnimations.delete(target);
-          if (vars.clearProps) clearProperties(target, vars.clearProps);
-          vars.onComplete?.();
-        });
-      },
-      repeat: vars.repeat === -1 ? Infinity : vars.repeat,
-      repeatType: vars.yoyo ? 'reverse' : 'loop',
-    });
-    activeAnimations.set(target, controls);
+    void Promise.all(controls.map((animation) => animation.finished)).then(
+      complete,
+      () => undefined,
+    );
   };
 
   const fromTo = (target: DomMotionTarget, from: DomMotionVars, toVars: DomMotionVars) => {
