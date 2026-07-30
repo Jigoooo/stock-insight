@@ -88,6 +88,49 @@ try {
     pointerType: 'mouse',
   });
 
+  const geometryCombo = page.getByRole('combobox', { name: 'Search choices', exact: true });
+  await geometryCombo.fill('ga');
+  const geometryClearButton = geometryCombo
+    .locator('..')
+    .getByRole('button', { name: '선택 지우기' });
+  const clearGeometry = await geometryClearButton.evaluate((button) => {
+    const icon = button.querySelector('svg');
+    if (!(icon instanceof SVGElement)) throw new Error('clear icon is missing');
+    const buttonBox = button.getBoundingClientRect();
+    const iconBox = icon.getBoundingClientRect();
+    return {
+      xDelta: iconBox.left + iconBox.width / 2 - (buttonBox.left + buttonBox.width / 2),
+      yDelta: iconBox.top + iconBox.height / 2 - (buttonBox.top + buttonBox.height / 2),
+    };
+  });
+  assert(Math.abs(clearGeometry.xDelta) <= 0.75);
+  assert(Math.abs(clearGeometry.yDelta) <= 0.75);
+  await geometryClearButton.click();
+  assert.equal(await geometryCombo.inputValue(), '');
+
+  const focusNeutralVisuals = [
+    animatedVisual,
+    page
+      .locator('a', { has: page.locator('[data-event-target="text-link-normal"]') })
+      .locator('[data-slot="motion-visual"]'),
+    page
+      .getByRole('button', { name: 'Disabled button', exact: true })
+      .locator('[data-slot="motion-visual"]'),
+    page
+      .getByRole('link', { name: 'ARIA disabled link', exact: true })
+      .locator('[data-slot="motion-visual"]'),
+  ];
+  for (const visual of focusNeutralVisuals) {
+    const focusState = await visual.evaluate((element) => {
+      element.focus();
+      return {
+        active: document.activeElement === element,
+        hasTabIndex: element.hasAttribute('tabindex'),
+      };
+    });
+    assert.deepEqual(focusState, { active: false, hasTabIndex: false });
+  }
+
   const unavailableControls = [
     page.getByRole('button', { name: 'Disabled button', exact: true }),
     page.getByRole('button', { name: 'Pending button', exact: true }),

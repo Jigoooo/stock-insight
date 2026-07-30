@@ -3,10 +3,18 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
+import {
+  createElement,
+  isValidElement,
+  type ElementType,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
 import { resolveDelegatedMotionTarget } from '../src/shared/ui/motion/motion-contract.ts';
+import { resolveMotionButtonAnimation } from '../src/shared/ui/motion/motion-values.ts';
 
 type ForwardRefComponent = {
   render: (props: Record<string, unknown>, ref: null) => ReactElement<Record<string, unknown>>;
@@ -14,7 +22,7 @@ type ForwardRefComponent = {
 type MotionBoundary = {
   Effect: ForwardRefComponent;
   Effects: (props: Record<string, unknown>) => ReactNode;
-  MotionButton: ForwardRefComponent;
+  MotionButton: ElementType<Record<string, unknown>> & ForwardRefComponent;
   PresenceRegion: (props: Record<string, unknown>) => ReactElement<Record<string, unknown>>;
 };
 
@@ -54,16 +62,6 @@ function invokeForwardRef(
   return element;
 }
 
-function getMotionVisual(button: ReactElement<Record<string, unknown>>) {
-  const visual = button.props.children;
-  assert.equal(isValidElement(visual), true);
-  assert.equal(
-    (visual as ReactElement<Record<string, unknown>>).props['data-slot'],
-    'motion-visual',
-  );
-  return visual as ReactElement<Record<string, unknown>>;
-}
-
 describe('OpenHuman Motion foundation structure', () => {
   it('installs Motion without removing the existing GSAP migration dependency', async () => {
     const packageJson = JSON.parse(await readFile(packageUrl, 'utf8')) as {
@@ -94,80 +92,52 @@ describe('OpenHuman Motion foundation structure', () => {
 });
 
 describe('OpenHuman Motion foundation behavior', () => {
-  it('forwards MotionButton defaults, scale overrides, and explicit Motion props', async () => {
+  it('resolves MotionButton defaults and renders a native non-focusable visual layer', async () => {
     const { MotionButton } = await loadMotionBoundary();
-    const defaultButton = invokeForwardRef(MotionButton, {
-      children: '기본 버튼',
-      type: 'button',
-    });
-    const scaleOverride = invokeForwardRef(MotionButton, {
-      hoverScale: 1.02,
-      tapScale: 0.96,
-      type: 'submit',
-    });
-    const motionOverride = invokeForwardRef(MotionButton, {
-      transition: { duration: 0.4 },
-      whileHover: { opacity: 0.8 },
-      whileTap: 'pressed',
-    });
+    const defaults = resolveMotionButtonAnimation({});
+    const overrides = resolveMotionButtonAnimation({ hoverScale: 1.02, tapScale: 0.96 });
+    const html = renderToStaticMarkup(createElement(MotionButton, { type: 'submit' }, '기본 버튼'));
 
-    const defaultVisual = getMotionVisual(defaultButton);
-    const scaleOverrideVisual = getMotionVisual(scaleOverride);
-    const motionOverrideVisual = getMotionVisual(motionOverride);
-
-    assert.deepEqual(defaultVisual.props.whileHover, { scale: 1.012 });
-    assert.deepEqual(defaultVisual.props.whileTap, { scale: 0.978 });
-    assert.deepEqual(defaultVisual.props.transition, {
+    assert.deepEqual(defaults.whileHover, { scale: 1.012 });
+    assert.deepEqual(defaults.whileTap, { scale: 0.978 });
+    assert.deepEqual(defaults.transition, {
       damping: 30,
       mass: 0.6,
       stiffness: 420,
       type: 'spring',
     });
-    assert.equal(defaultButton.props.type, 'button');
-    assert.equal(defaultVisual.props.children, '기본 버튼');
-    assert.deepEqual(scaleOverrideVisual.props.whileHover, { scale: 1.02 });
-    assert.deepEqual(scaleOverrideVisual.props.whileTap, { scale: 0.96 });
-    assert.equal(scaleOverride.props.type, 'submit');
-    assert.equal('hoverScale' in scaleOverride.props, false);
-    assert.equal('tapScale' in scaleOverride.props, false);
-    assert.deepEqual(motionOverrideVisual.props.whileHover, { opacity: 0.8 });
-    assert.equal(motionOverrideVisual.props.whileTap, 'pressed');
-    assert.deepEqual(motionOverrideVisual.props.transition, { duration: 0.4 });
+    assert.deepEqual(overrides.whileHover, { scale: 1.02 });
+    assert.deepEqual(overrides.whileTap, { scale: 0.96 });
+    assert.match(html, /^<button[^>]*type="submit"[^>]*data-motion-owner="motion"[^>]*>/);
+    assert.match(html, /<span[^>]*data-slot="motion-visual"[^>]*>기본 버튼<\/span>/);
+    assert.doesNotMatch(html, /tabindex=/);
   });
 
   it('neutralizes unavailable gestures and keeps Motion ownership internal', async () => {
     const { MotionButton } = await loadMotionBoundary();
-    const unavailableButtons = [
-      invokeForwardRef(MotionButton, {
-        'data-motion-owner': 'legacy',
-        disabled: true,
-        whileHover: { scale: 1.2 },
-        whileTap: { opacity: 0.2, scale: 0.8 },
-      }),
-      invokeForwardRef(MotionButton, {
-        'aria-disabled': 'true',
-        whileHover: { scale: 1.2 },
-        whileTap: { opacity: 0.2, scale: 0.8 },
-      }),
-      invokeForwardRef(MotionButton, {
-        inert: true,
-        whileHover: { scale: 1.2 },
-        whileTap: { opacity: 0.2, scale: 0.8 },
-      }),
-    ];
+    const html = renderToStaticMarkup(
+      createElement(
+        MotionButton,
+        {
+          'aria-disabled': 'true',
+          'data-motion-owner': 'legacy',
+          disabled: true,
+          inert: true,
+          whileHover: { scale: 1.2 },
+          whileTap: { opacity: 0.2, scale: 0.8 },
+        },
+        'Unavailable',
+      ),
+    );
+    assert.match(html, /^<button[^>]*data-motion-owner="motion"[^>]*>/);
+    assert.match(html, /disabled=""|disabled/);
+    assert.match(html, /inert=""/);
+    assert.doesNotMatch(html, /data-motion-owner="legacy"|tabindex=/);
 
-    for (const button of unavailableButtons) {
-      const visual = getMotionVisual(button);
-      assert.equal(button.props['data-motion-owner'], 'motion');
-      assert.equal(visual.props.whileHover, undefined);
-      assert.equal(visual.props.whileTap, undefined);
-    }
-
-    const consumerOverride = unavailableButtons[0];
     const motionElement = {
       dataset: {
         motion: 'pressable',
-        motionOwner: consumerOverride?.props['data-motion-owner'] as string,
+        motionOwner: 'motion',
       },
     };
     const target = {

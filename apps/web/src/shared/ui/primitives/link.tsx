@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { AnchorHTMLAttributes, ReactNode } from 'react';
+import { useState, type AnchorHTMLAttributes, type ReactNode } from 'react';
 
 import styles from './link.module.css';
 import type { MotionRecipe } from '../motion/motion-contract';
@@ -22,7 +22,16 @@ export function TextLink({
   tone = 'default',
   ...props
 }: TextLinkProps) {
+  const [pressed, setPressed] = useState(false);
   const unavailable = ariaDisabled === true || ariaDisabled === 'true' || props.inert;
+  const hoverTarget = !unavailable && motionRecipe === 'pressable' ? { scale: 1.012 } : undefined;
+  const tapTarget = unavailable
+    ? undefined
+    : motionRecipe === 'pressable'
+      ? { scale: 0.978 }
+      : motionRecipe === 'quiet'
+        ? { opacity: 0.76 }
+        : undefined;
 
   return (
     <a
@@ -35,19 +44,16 @@ export function TextLink({
       data-motion={motionRecipe}
     >
       <motion.span
+        animate={pressed ? tapTarget : undefined}
         className={styles.motionVisual}
         data-slot="motion-visual"
-        tabIndex={-1}
-        whileHover={!unavailable && motionRecipe === 'pressable' ? { scale: 1.012 } : undefined}
-        whileTap={
-          unavailable
-            ? undefined
-            : motionRecipe === 'pressable'
-              ? { scale: 0.978 }
-              : motionRecipe === 'quiet'
-                ? { opacity: 0.76 }
-                : undefined
-        }
+        onPointerCancel={() => setPressed(false)}
+        onPointerDown={(event) => {
+          if (event.button === 0 && tapTarget) setPressed(true);
+        }}
+        onPointerLeave={() => setPressed(false)}
+        onPointerUp={() => setPressed(false)}
+        whileHover={pressed ? undefined : hoverTarget}
       >
         {children}
       </motion.span>
