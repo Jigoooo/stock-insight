@@ -57,6 +57,12 @@ pnpm dev
 
 기본 주소는 <http://localhost:6100>이며 `VITE_PORT`로 바꿀 수 있습니다. 기본 presentation mode는 외부 API 키가 필요하지 않습니다.
 
+`pnpm dev`는 turbo로 **두뇌(`apps/api-server`, 기본 6200)와 BFF(`apps/web`, 기본 6100)를 함께** 띄웁니다. 한쪽만 필요하면 `pnpm dev:web` / `pnpm dev:api`를 쓰세요.
+
+두뇌 포트는 `STOCK_INSIGHT_API_PORT`로 바꿉니다. **`PORT`는 쓰지 마세요** — 두 앱이 같은 변수를 읽어 서로 포트를 다투고, 늦게 뜬 쪽이 `EADDRINUSE`로 죽습니다.
+
+BFF가 두뇌를 바라보게 하려면 `STOCK_INSIGHT_BRAIN_URL=http://127.0.0.1:6200`을 지정합니다. 두뇌는 DB DSN(`DATABASE_READ_URL`)과 내부 컨텍스트 시크릿(`STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE`)이 필요하고, BFF는 DB 자격증명을 갖지 않습니다.
+
 주요 검증 명령:
 
 ```bash

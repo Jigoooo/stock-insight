@@ -8,7 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run build && node --test test/*.test.ts",
     "start": "node dist/main.js",
-    "dev": "tsup --watch --onSuccess \"node dist/main.js\"",
+    "dev": "PORT=\"${STOCK_INSIGHT_API_PORT:-6200}\" tsup --watch --onSuccess \"node dist/main.js\"",
     "lint": "oxlint src test",
     "format": "oxfmt src test package.json tsconfig.json tsup.config.ts",
     "format:check": "oxfmt --check src test package.json tsconfig.json tsup.config.ts"
