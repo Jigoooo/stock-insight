@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const pageUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
+const shellUrl = new URL('../src/pages/auth/auth-shell.tsx', import.meta.url);
 const inputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const screenUrl = new URL('../src/pages/auth/signup-screen.tsx', import.meta.url);
 const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
@@ -13,6 +14,24 @@ const loginStylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', imp
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 
 describe('one-time signup source contract', () => {
+  it('shares the centered auth shell and keeps every availability state inside one presence region', async () => {
+    assert.equal(existsSync(shellUrl), true, 'the shared auth shell must exist');
+    const [page, shell, stylesheet] = await Promise.all([
+      readFile(pageUrl, 'utf8'),
+      readFile(shellUrl, 'utf8'),
+      readFile(stylesheetUrl, 'utf8'),
+    ]);
+
+    assert.match(page, /<AuthShell/);
+    assert.match(page, /<PresenceRegion[\s\S]*?presenceKey=\{availability\}/);
+    assert.match(page, /initial=\{\{\s*opacity:\s*0\s*\}\}/);
+    assert.match(page, /exit=\{\{\s*opacity:\s*0\s*\}\}/);
+    assert.doesNotMatch(page, /initial=\{\{[\s\S]*?\by:/);
+    assert.doesNotMatch(page, /One-time workspace setup|setupNotes|brandPanel|formEyebrow/);
+    assert.match(shell, /data-auth-card/);
+    assert.match(stylesheet, /@media\s*\(max-width:\s*520px\)[\s\S]*?\.authCard/);
+  });
+
   it('wires enrollment availability and account creation to the auth server functions', async () => {
     assert.equal(existsSync(screenUrl), true, 'signup screen must exist');
     const screen = await readFile(screenUrl, 'utf8');

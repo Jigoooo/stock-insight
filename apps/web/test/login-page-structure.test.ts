@@ -4,23 +4,51 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const componentUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
+const shellUrl = new URL('../src/pages/auth/auth-shell.tsx', import.meta.url);
 const inputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const fontStylesheetUrl = new URL('../public/styles/font.css', import.meta.url);
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 
 describe('login page structure', () => {
+  it('uses the shared OpenHuman-style auth shell without legacy marketing chrome', async () => {
+    assert.equal(existsSync(shellUrl), true, 'the shared auth shell must exist');
+    const [component, shell, stylesheet] = await Promise.all([
+      readFile(componentUrl, 'utf8'),
+      readFile(shellUrl, 'utf8'),
+      readFile(stylesheetUrl, 'utf8'),
+    ]);
+
+    assert.match(component, /<AuthShell[\s\S]*?title="로그인"/);
+    assert.match(shell, />Futur Insight</);
+    assert.match(shell, /data-auth-shell/);
+    assert.match(shell, /data-auth-card/);
+    assert.match(shell, /<Effect/);
+    assert.doesNotMatch(shell, /slide=/);
+    assert.doesNotMatch(shell, /theme|테마 전환|brand-logo|>F</i);
+    assert.doesNotMatch(
+      component,
+      /Research workspace|시장의 흐름을 읽고|판단의 근거를 남깁니다|loginVisualPanel/,
+    );
+    assert.match(stylesheet, /\.authCard\s*\{[\s\S]*?max-width:\s*420px/);
+    assert.match(stylesheet, /\.authCard\s*\{[\s\S]*?border-radius:\s*16px/);
+    assert.match(stylesheet, /\.authGrid/);
+    assert.match(stylesheet, /\.authGlow/);
+  });
+
   it('renders an identified login workflow with adaptive safety hooks', async () => {
     assert.equal(existsSync(componentUrl), true, 'the full-screen login page must exist');
     assert.equal(existsSync(stylesheetUrl), true, 'the login page stylesheet must exist');
 
-    const [component, stylesheet] = await Promise.all([
+    const [component, shell, stylesheet] = await Promise.all([
       readFile(componentUrl, 'utf8'),
+      readFile(shellUrl, 'utf8'),
       readFile(stylesheetUrl, 'utf8'),
     ]);
 
-    assert.match(component, /<main[\s\S]*?data-panel="sign-in"[\s\S]*?aria-labelledby=/);
-    assert.match(component, /<h2 id="login-form-heading">로그인<\/h2>/);
+    assert.match(shell, /<main[\s\S]*?aria-labelledby=\{headingId\}/);
+    assert.match(component, /headingId="login-form-heading"/);
+    assert.match(component, /title="로그인"/);
     assert.match(stylesheet, /min-height:\s*100svh/);
     assert.match(stylesheet, /:focus-visible/);
     assert.match(stylesheet, /prefers-reduced-motion:\s*reduce/);

@@ -102,19 +102,17 @@ describe('public root startup boundary', () => {
     assert.doesNotMatch(publicPrimitives, /primitives\.module\.css/);
     assert.match(
       await read(authCssUrl),
-      /@media \(forced-colors: active\)[\s\S]*?\.inputShell \.authInput:focus-visible[\s\S]*?outline:\s*2px solid Highlight !important/,
+      /@media \(forced-colors: active\)[\s\S]*?\.authInput:focus-visible[\s\S]*?outline:\s*2px solid Highlight !important/,
     );
     assert.match(button, /button\.module\.css/);
     assert.match(fieldHalo, /field-motion-halo\.module\.css/);
     assert.match(link, /link\.module\.css/);
   });
 
-  it('contains desktop login panel style and paint work', async () => {
+  it('contains the shared public auth card style and paint work', async () => {
     const authCss = await read(authCssUrl);
 
-    assert.match(
-      authCss,
-      /\.loginVisualPanel,\s*\.loginFormPanel\s*\{[^}]*contain:\s*layout paint style/s,
-    );
+    assert.match(authCss, /\.authCard\s*\{[^}]*contain:\s*layout paint style/s);
+    assert.doesNotMatch(authCss, /loginVisualPanel|loginFormPanel/);
   });
 });

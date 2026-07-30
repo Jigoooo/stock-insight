@@ -15,6 +15,30 @@ async function privateStatus(page: Page): Promise<number> {
 }
 
 test.describe('one-time enrollment presentation', () => {
+  test('uses the same centered auth shell at desktop and mobile widths', async ({ page }) => {
+    await page.goto('/signup');
+
+    const card = page.locator('[data-auth-card]');
+    await expect(page.locator('[data-auth-shell]')).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(page.getByText('Futur Insight', { exact: true })).toBeVisible();
+    await expect(page.getByText('One-time workspace setup', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /테마/ })).toHaveCount(0);
+
+    const geometry = await card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        leftGap: rect.left,
+        rightGap: innerWidth - rect.right,
+        width: rect.width,
+      };
+    });
+    expect(geometry.width).toBeLessThanOrEqual(420);
+    expect(geometry.width).toBeGreaterThanOrEqual(340);
+    expect(Math.abs(geometry.leftGap - geometry.rightGap)).toBeLessThanOrEqual(2);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  });
+
   test('renders an accessible terminal state or the shared account form', async ({ page }) => {
     await page.goto('/signup');
     const availableHeading = page.getByRole('heading', { name: '계정을 설정하세요.' });

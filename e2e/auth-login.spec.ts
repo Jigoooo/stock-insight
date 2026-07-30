@@ -12,6 +12,17 @@ const expressiveProfileUrl = new URL(
 type Rgb = Readonly<{ red: number; green: number; blue: number; alpha: number }>;
 
 function parseComputedRgb(value: string): Rgb {
+  const srgbMatch = value.match(
+    /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/,
+  );
+  if (srgbMatch) {
+    return {
+      red: Number(srgbMatch[1]) * 255,
+      green: Number(srgbMatch[2]) * 255,
+      blue: Number(srgbMatch[3]) * 255,
+      alpha: srgbMatch[4] === undefined ? 1 : Number(srgbMatch[4]),
+    };
+  }
   const match = value.match(
     /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)/,
   );
@@ -49,10 +60,10 @@ async function focusedShellAppearance(field: Locator) {
   await field.page().waitForTimeout(220);
   return field.evaluate((input: HTMLInputElement) => {
     const shell = input.closest<HTMLElement>('[data-motion="field-shell"]');
-    const adjacent = shell?.closest<HTMLElement>('main');
+    const adjacent = shell?.closest<HTMLElement>('[data-auth-card]');
     if (!shell || !adjacent) throw new Error('auth focus surfaces are missing');
     const style = getComputedStyle(shell);
-    const shadowColor = style.boxShadow.match(/rgba?\([^)]*\)/)?.[0];
+    const shadowColor = style.boxShadow.match(/(?:rgba?\([^)]*\)|color\(srgb[^)]*\))/)?.[0];
     if (!shadowColor) throw new Error(`focus shadow color is missing: ${style.boxShadow}`);
     return {
       shadowColor,
@@ -67,7 +78,7 @@ async function authStateAppearance(page: Page) {
     const error = document.querySelector<HTMLElement>('#login-username-error');
     const password = document.querySelector<HTMLInputElement>('#login-password');
     const shell = password?.closest<HTMLElement>('[data-motion="field-shell"]');
-    const adjacent = shell?.closest<HTMLElement>('main');
+    const adjacent = shell?.closest<HTMLElement>('[data-auth-card]');
     if (!error || !password || !shell || !adjacent)
       throw new Error('auth state surfaces are missing');
     return {
@@ -80,6 +91,37 @@ async function authStateAppearance(page: Page) {
 }
 
 test.describe('private workspace authentication', () => {
+  test('uses one restrained centered auth card without decorative marketing chrome', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+
+    const shell = page.locator('[data-auth-shell]');
+    const card = page.locator('[data-auth-card]');
+    await expect(shell).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(page.getByText('Futur Insight', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '로그인', exact: true })).toBeVisible();
+    await expect(page.getByText('Research workspace', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('시장의 흐름을 읽고')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /테마/ })).toHaveCount(0);
+
+    const geometry = await card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        leftGap: rect.left,
+        rightGap: innerWidth - rect.right,
+        width: rect.width,
+        radius: style.borderRadius,
+      };
+    });
+    expect(geometry.width).toBeLessThanOrEqual(420);
+    expect(geometry.width).toBeGreaterThanOrEqual(340);
+    expect(Math.abs(geometry.leftGap - geometry.rightGap)).toBeLessThanOrEqual(2);
+    expect(geometry.radius).toBe('16px');
+  });
+
   test('loads the active profile behind responsive and motion safety invariants', async ({
     page,
   }) => {
