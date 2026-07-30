@@ -5,6 +5,7 @@ import ts from 'typescript';
 
 const buttonUrl = new URL('../src/shared/ui/primitives/button.tsx', import.meta.url);
 const buttonCssUrl = new URL('../src/shared/ui/primitives/button.module.css', import.meta.url);
+const motionButtonUrl = new URL('../src/shared/ui/motion/motion-button.tsx', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
 const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
 const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
@@ -13,6 +14,7 @@ const segmentedTabsUrl = new URL('../src/shared/ui/primitives/segmented-tabs.tsx
 const selectBoxUrl = new URL('../src/shared/ui/primitives/select-box.tsx', import.meta.url);
 const comboboxUrl = new URL('../src/shared/ui/primitives/combobox.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
+const rootPackageUrl = new URL('../../../package.json', import.meta.url);
 const targetUrls = [
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
   new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url),
@@ -59,19 +61,33 @@ function missingMotionRecipes(source: string, fileName: string) {
 }
 
 describe('shared primitive adoption contract', () => {
+  it('keeps native public control prop signatures on a compile-time fixture gate', async () => {
+    const packageJson = JSON.parse(await readFile(rootPackageUrl, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+
+    assert.equal(
+      packageJson.scripts?.['typecheck:controls:fixture'],
+      'tsc -p e2e/fixtures/control-public-props/tsconfig.json --noEmit',
+    );
+  });
+
   it('adopts the local Motion foundation at each interactive control boundary', async () => {
-    const [button, controls, link, segmentedTabs, selectBox, combobox] = await Promise.all([
-      readFile(buttonUrl, 'utf8'),
-      readFile(controlsUrl, 'utf8'),
-      readFile(linkUrl, 'utf8'),
-      readFile(segmentedTabsUrl, 'utf8'),
-      readFile(selectBoxUrl, 'utf8'),
-      readFile(comboboxUrl, 'utf8'),
-    ]);
+    const [button, motionButton, controls, link, segmentedTabs, selectBox, combobox] =
+      await Promise.all([
+        readFile(buttonUrl, 'utf8'),
+        readFile(motionButtonUrl, 'utf8'),
+        readFile(controlsUrl, 'utf8'),
+        readFile(linkUrl, 'utf8'),
+        readFile(segmentedTabsUrl, 'utf8'),
+        readFile(selectBoxUrl, 'utf8'),
+        readFile(comboboxUrl, 'utf8'),
+      ]);
 
     assert.match(button, /import \{ MotionButton/);
     assert.doesNotMatch(button, /<button\b/);
-    assert.match(button, /data-motion-owner="motion"/);
+    assert.match(motionButton, /data-motion-owner="motion"/);
+    assert.match(motionButton, /\{\.\.\.props\}[\s\S]*data-motion-owner="motion"/);
     assert.match(controls, /import \{ MotionButton/);
     assert.doesNotMatch(controls, /<button\b/);
     assert.match(link, /import \{ motion/);

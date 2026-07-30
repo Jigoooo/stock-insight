@@ -1,6 +1,12 @@
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
-import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  type ButtonHTMLAttributes,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
 
 import {
   applyControlStateMotion,
@@ -8,8 +14,9 @@ import {
   shouldCommitControlChange,
   type ControlMotionKind,
 } from './control-motion-controller';
+import { bridgeNativeMotionEvents } from './native-motion-events';
 import styles from './primitives.module.css';
-import { MotionButton, type MotionButtonProps } from '../motion/motion-button';
+import { MotionButton } from '../motion/motion-button';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
 
 gsap.registerPlugin(useGSAP);
@@ -75,7 +82,7 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
   return targetRef;
 }
 
-type SwitchProps = Omit<MotionButtonProps, 'children' | 'onChange'> & {
+type SwitchProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'onChange'> & {
   checked: boolean;
   label: ReactNode;
   onCheckedChange: (checked: boolean) => void;
@@ -94,6 +101,7 @@ export function Switch({
   ...props
 }: SwitchProps) {
   const thumbRef = useControlStateMotion(checked, 'switch');
+  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     onClick?.(event);
     if (
@@ -105,17 +113,17 @@ export function Switch({
 
   return (
     <MotionButton
+      {...motionSafeProps}
+      {...nativeCaptureProps}
       aria-busy={pending || undefined}
       aria-checked={checked}
       className={classNames(styles.switchControl, className)}
-      data-motion-owner="motion"
+      data-motion="switch"
       data-slot="switch-control"
       data-state={checked ? 'checked' : 'unchecked'}
       disabled={disabled || pending}
       role="switch"
       type={type}
-      {...props}
-      data-motion="switch"
       onClick={handleClick}
     >
       <span className={styles.switchTrack} data-slot="switch-indicator" aria-hidden="true">
@@ -128,7 +136,7 @@ export function Switch({
   );
 }
 
-type ToggleProps = Omit<MotionButtonProps, 'aria-pressed' | 'children'> & {
+type ToggleProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-pressed' | 'children'> & {
   children: ReactNode;
   pressed: boolean;
   onPressedChange: (pressed: boolean) => void;
@@ -147,6 +155,7 @@ export function Toggle({
   ...props
 }: ToggleProps) {
   const railRef = useControlStateMotion(pressed, 'toggle');
+  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     onClick?.(event);
     if (
@@ -158,16 +167,16 @@ export function Toggle({
 
   return (
     <MotionButton
+      {...motionSafeProps}
+      {...nativeCaptureProps}
       aria-busy={pending || undefined}
       aria-pressed={pressed}
       className={classNames(styles.toggleControl, className)}
-      data-motion-owner="motion"
+      data-motion="toggle"
       data-slot="toggle-control"
       data-state={pressed ? 'on' : 'off'}
       disabled={disabled || pending}
       type={type}
-      {...props}
-      data-motion="toggle"
       onClick={handleClick}
     >
       <span

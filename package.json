@@ -22,6 +22,7 @@
     "test:p3d:browser:production": "node scripts/run-p3d-production-e2e.mjs",
     "test:sigma:browser:production": "node scripts/run-sigma-production-e2e.mjs",
     "typecheck:p6:fixture": "tsc -p e2e/fixtures/p6-crypto-ui/tsconfig.json --noEmit",
+    "typecheck:controls:fixture": "tsc -p e2e/fixtures/control-public-props/tsconfig.json --noEmit",
     "test:p6:db": "pnpm --filter @stock-insight/api test:p6-db-rehearsal",
     "test:xg:db": "pnpm --filter @stock-insight/api test:xg-reader-privileges",
     "test:p6:browser": "node scripts/run-p6-crypto-ui-browser-gate.mjs",

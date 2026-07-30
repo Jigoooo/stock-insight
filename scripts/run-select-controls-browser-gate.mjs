@@ -20,6 +20,57 @@ try {
   page.setDefaultTimeout(5_000);
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
 
+  const unavailableControls = [
+    page.getByRole('button', { name: 'Disabled button', exact: true }),
+    page.getByRole('button', { name: 'Pending button', exact: true }),
+    page.getByRole('button', { name: 'ARIA disabled button', exact: true }),
+    page.getByRole('button', { name: 'Inert button', exact: true }),
+    page.getByRole('button', { name: 'Disabled icon button', exact: true }),
+    page.getByRole('button', { name: 'Pending icon button', exact: true }),
+    page.getByRole('switch', { name: 'Disabled switch', exact: true }),
+    page.getByRole('switch', { name: 'Pending switch', exact: true }),
+    page.getByRole('button', { name: 'Disabled toggle', exact: true }),
+    page.getByRole('button', { name: 'Pending toggle', exact: true }),
+    page.getByRole('combobox', { name: 'Disabled select', exact: true }),
+    page.getByRole('combobox', { name: 'Disabled search choices', exact: true }),
+  ];
+  for (const control of unavailableControls) {
+    const before = await control.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { opacity: style.opacity, transform: style.transform };
+    });
+    await control.hover({ force: true });
+    await control.dispatchEvent('pointerdown', { button: 0, pointerId: 91, pointerType: 'mouse' });
+    await page.waitForTimeout(120);
+    const after = await control.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { opacity: style.opacity, transform: style.transform };
+    });
+    assert.deepEqual(after, before);
+    await control.dispatchEvent('pointerup', { button: 0, pointerId: 91, pointerType: 'mouse' });
+  }
+  for (const label of [
+    'Pending button',
+    'Pending icon button',
+    'Pending switch',
+    'Pending toggle',
+  ]) {
+    const control = page.getByRole(label.includes('switch') ? 'switch' : 'button', {
+      name: label,
+      exact: true,
+    });
+    assert.equal(await control.isDisabled(), true);
+    assert.equal(await control.getAttribute('aria-busy'), 'true');
+  }
+  assert.equal(
+    await page.getByRole('combobox', { name: 'Disabled select', exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(
+    await page.getByRole('combobox', { name: 'Disabled search choices', exact: true }).isDisabled(),
+    true,
+  );
+
   const select = page.getByRole('combobox', { name: 'Uncontrolled select', exact: true });
   const selectListboxId = await select.getAttribute('aria-controls');
   const selectListbox = page.locator(`[id="${selectListboxId}"]`);

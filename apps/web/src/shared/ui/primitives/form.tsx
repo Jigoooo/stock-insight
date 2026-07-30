@@ -1,6 +1,10 @@
 import { useGSAP } from '@gsap/react';
 import { gsap } from 'gsap';
 import {
+  cloneElement,
+  Fragment,
+  isValidElement,
+  useId,
   useRef,
   type InputHTMLAttributes,
   type ReactNode,
@@ -21,6 +25,13 @@ type FieldProps = {
   error?: ReactNode;
   hint?: ReactNode;
   label?: ReactNode;
+};
+
+type FieldControlProps = {
+  'aria-describedby'?: string;
+  'aria-errormessage'?: string;
+  'aria-invalid'?: boolean | 'false' | 'true';
+  id?: string;
 };
 
 type InputVariant = 'chrome' | 'bare';
@@ -44,6 +55,11 @@ type SearchFieldProps = {
 
 function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
+}
+
+function joinIdRefs(...values: Array<string | undefined>) {
+  const ids = values.flatMap((value) => value?.split(/\s+/).filter(Boolean) ?? []);
+  return [...new Set(ids)].join(' ') || undefined;
 }
 
 export function useFieldShellMotion<ElementType extends HTMLElement>() {
@@ -98,27 +114,42 @@ export function useFieldShellMotion<ElementType extends HTMLElement>() {
 }
 
 export function Field({ children, description, error, hint, label }: FieldProps) {
+  const generatedId = useId();
   const supportingDescription = description ?? hint;
+  const control =
+    isValidElement<FieldControlProps>(children) && children.type !== Fragment ? children : null;
+  const controlId = control?.props.id ?? `${generatedId}-control`;
+  const descriptionId = supportingDescription ? `${controlId}-description` : undefined;
+  const errorId = error ? `${controlId}-error` : undefined;
+  const connectedChildren = control
+    ? cloneElement(control, {
+        'aria-describedby': joinIdRefs(control.props['aria-describedby'], descriptionId),
+        'aria-errormessage': joinIdRefs(control.props['aria-errormessage'], errorId),
+        'aria-invalid': error ? true : control.props['aria-invalid'],
+        id: controlId,
+      })
+    : children;
 
   return (
     <label
       className={styles.field}
       data-invalid={Boolean(error) || undefined}
       data-slot="field-root"
+      htmlFor={control ? controlId : undefined}
     >
       {label ? (
         <span className={styles.fieldLabel} data-slot="field-label">
           {label}
         </span>
       ) : null}
-      {children}
+      {connectedChildren}
       {supportingDescription ? (
-        <span className={styles.fieldHint} data-slot="field-description">
+        <span id={descriptionId} className={styles.fieldHint} data-slot="field-description">
           {supportingDescription}
         </span>
       ) : null}
       {error ? (
-        <span className={styles.fieldError} data-slot="field-error" role="alert">
+        <span id={errorId} className={styles.fieldError} data-slot="field-error" role="alert">
           {error}
         </span>
       ) : null}

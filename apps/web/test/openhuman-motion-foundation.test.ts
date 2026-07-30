@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { createElement, isValidElement, type ReactElement, type ReactNode } from 'react';
 import { createServer } from 'vite';
 
+import { resolveDelegatedMotionTarget } from '../src/shared/ui/motion/motion-contract.ts';
+
 type ForwardRefComponent = {
   render: (props: Record<string, unknown>, ref: null) => ReactElement<Record<string, unknown>>;
 };
@@ -117,6 +119,46 @@ describe('OpenHuman Motion foundation behavior', () => {
     assert.deepEqual(motionOverride.props.whileHover, { opacity: 0.8 });
     assert.equal(motionOverride.props.whileTap, 'pressed');
     assert.deepEqual(motionOverride.props.transition, { duration: 0.4 });
+  });
+
+  it('neutralizes unavailable gestures and keeps Motion ownership internal', async () => {
+    const { MotionButton } = await loadMotionBoundary();
+    const unavailableButtons = [
+      invokeForwardRef(MotionButton, {
+        'data-motion-owner': 'legacy',
+        disabled: true,
+        whileHover: { scale: 1.2 },
+        whileTap: { opacity: 0.2, scale: 0.8 },
+      }),
+      invokeForwardRef(MotionButton, {
+        'aria-disabled': 'true',
+        whileHover: { scale: 1.2 },
+        whileTap: { opacity: 0.2, scale: 0.8 },
+      }),
+      invokeForwardRef(MotionButton, {
+        inert: true,
+        whileHover: { scale: 1.2 },
+        whileTap: { opacity: 0.2, scale: 0.8 },
+      }),
+    ];
+
+    for (const button of unavailableButtons) {
+      assert.equal(button.props['data-motion-owner'], 'motion');
+      assert.equal(button.props.whileHover, undefined);
+      assert.equal(button.props.whileTap, undefined);
+    }
+
+    const consumerOverride = unavailableButtons[0];
+    const motionElement = {
+      dataset: {
+        motion: 'pressable',
+        motionOwner: consumerOverride?.props['data-motion-owner'] as string,
+      },
+    };
+    const target = {
+      closest: () => motionElement,
+    } as unknown as EventTarget;
+    assert.equal(resolveDelegatedMotionTarget(target), null);
   });
 
   it('resolves Effect options onto the rendered Motion element', async () => {

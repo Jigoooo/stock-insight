@@ -3,7 +3,15 @@ import { createRoot } from 'react-dom/client';
 
 import './style.css';
 
-import { Combobox, SelectBox, type SelectOption } from '@/shared/ui/primitives';
+import {
+  Button,
+  Combobox,
+  IconButton,
+  SelectBox,
+  Switch,
+  Toggle,
+  type SelectOption,
+} from '@/shared/ui/primitives';
 
 const shortOptions: readonly SelectOption[] = [
   { value: 'alpha', label: 'Alpha' },
@@ -32,6 +40,37 @@ function Fixture() {
     <main>
       <h1>Select controls browser fixture</h1>
       <form onSubmit={submit}>
+        <section aria-label="Unavailable shared controls">
+          <Button disabled>Disabled button</Button>
+          <Button pending>Pending button</Button>
+          <Button aria-disabled="true">ARIA disabled button</Button>
+          <Button inert>Inert button</Button>
+          <IconButton aria-label="Disabled icon button" disabled>
+            D
+          </IconButton>
+          <IconButton aria-label="Pending icon button" pending>
+            P
+          </IconButton>
+          <Switch
+            checked={false}
+            disabled
+            label="Disabled switch"
+            onCheckedChange={() => undefined}
+          />
+          <Switch
+            checked={false}
+            label="Pending switch"
+            onCheckedChange={() => undefined}
+            pending
+          />
+          <Toggle disabled onPressedChange={() => undefined} pressed={false}>
+            Disabled toggle
+          </Toggle>
+          <Toggle onPressedChange={() => undefined} pending pressed={false}>
+            Pending toggle
+          </Toggle>
+        </section>
+
         <label id="uncontrolled-select-label" htmlFor="uncontrolled-select">
           Uncontrolled select
         </label>
