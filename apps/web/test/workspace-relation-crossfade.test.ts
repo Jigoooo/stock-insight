@@ -24,13 +24,21 @@ describe('workspace relation crossfade', () => {
     const source = await readFile(hookUrl, 'utf8');
 
     assert.match(source, /from 'motion\/react'/);
+    assert.match(source, /useLayoutEffect/);
+    assert.match(
+      source,
+      /const useBeforePaintEffect = typeof window === 'undefined' \? useEffect : useLayoutEffect/,
+    );
+    assert.match(source, /useBeforePaintEffect\(\(\) =>/);
     assert.match(source, /\banimate\(/);
-    assert.match(source, /opacity:\s*\[0,\s*1\]/);
+    assert.match(source, /container\.style\.opacity = '0'/);
+    assert.match(source, /opacity:\s*1/);
     assert.match(source, /duration:\s*0\.16/);
     assert.match(source, /removeProperty\('opacity'\)/);
     assert.match(source, /reducedMotion \|\| forcedColors/);
     assert.match(source, /\[normalizeMotion, scopeRef, stateKey\]/);
     assert.doesNotMatch(source, /@gsap\/react|from ['"]gsap['"]|useGSAP/);
+    assert.doesNotMatch(source, /\buseEffect\(\(\) =>/);
     assert.doesNotMatch(source, /querySelector|stagger|\by:|\bx:|scale|width:|height:/);
   });
 

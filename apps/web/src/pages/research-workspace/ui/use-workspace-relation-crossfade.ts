@@ -1,7 +1,9 @@
 import { animate } from 'motion/react';
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, type RefObject } from 'react';
 
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+
+const useBeforePaintEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function useWorkspaceRelationCrossfade({
   scopeRef,
@@ -13,7 +15,7 @@ export function useWorkspaceRelationCrossfade({
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
 
-  useEffect(() => {
+  useBeforePaintEffect(() => {
     const container = scopeRef.current;
     if (!container) return;
 
@@ -23,7 +25,8 @@ export function useWorkspaceRelationCrossfade({
       return;
     }
 
-    const controls = animate(container, { opacity: [0, 1] }, { duration: 0.16, ease: 'easeOut' });
+    container.style.opacity = '0';
+    const controls = animate(container, { opacity: 1 }, { duration: 0.16, ease: 'easeOut' });
     void controls.finished.then(clearMotionStyle, () => undefined);
 
     return () => {

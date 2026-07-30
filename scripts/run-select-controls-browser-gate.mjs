@@ -20,6 +20,12 @@ try {
   page.setDefaultTimeout(5_000);
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
 
+  const workspaceFirstPaint = await page.evaluate(() => window.__runWorkspaceFirstPaintCases());
+  assert(workspaceFirstPaint.append.opacity < 1);
+  assert.notEqual(workspaceFirstPaint.append.transform, 'none');
+  assert(workspaceFirstPaint.relation.opacity < 1);
+  assert.equal(workspaceFirstPaint.relation.transform, 'none');
+
   const motionRuntime = await page.evaluate(() => window.__runMotionAdapterRuntimeCases());
   assert.equal(motionRuntime.repeatedFromTo.firstFinal.opacity, 1);
   assert.equal(motionRuntime.repeatedFromTo.firstFinal.transform, 'none');

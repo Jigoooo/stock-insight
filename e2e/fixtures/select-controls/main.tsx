@@ -1,8 +1,17 @@
-import { StrictMode, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react';
+import {
+  StrictMode,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 import { createRoot } from 'react-dom/client';
 
 import './style.css';
 
+import { useWorkspaceAppendReveal } from '@/pages/research-workspace/ui/use-workspace-append-reveal';
+import { useWorkspaceRelationCrossfade } from '@/pages/research-workspace/ui/use-workspace-relation-crossfade';
 import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import {
   Button,
@@ -40,6 +49,10 @@ declare global {
       };
     }>;
     __nativeEventLog: Record<string, Array<{ eventPhase: number; handler: string }>>;
+    __runWorkspaceFirstPaintCases: () => Promise<{
+      append: MotionProbeSnapshot;
+      relation: MotionProbeSnapshot;
+    }>;
   }
 }
 
@@ -232,6 +245,36 @@ function NativeEventProbe({
   return children(<EventTargets probe={probe} />);
 }
 
+function WorkspaceFirstPaintProbe() {
+  const [appendKeys, setAppendKeys] = useState(['initial']);
+  const [relationKey, setRelationKey] = useState('initial');
+  const appendRef = useRef<HTMLElement>(null);
+  const relationRef = useRef<HTMLElement>(null);
+  useWorkspaceAppendReveal({ keys: appendKeys, scopeRef: appendRef });
+  useWorkspaceRelationCrossfade({ scopeRef: relationRef, stateKey: relationKey });
+
+  return (
+    <section aria-label="Workspace first-paint motion">
+      <button type="button" onClick={() => setAppendKeys(['initial', 'appended'])}>
+        Append workspace row
+      </button>
+      <div ref={appendRef}>
+        {appendKeys.map((key) => (
+          <span data-append-key={key} key={key}>
+            {key}
+          </span>
+        ))}
+      </div>
+      <button type="button" onClick={() => setRelationKey('next')}>
+        Change relation state
+      </button>
+      <article data-relation-state={relationKey} ref={relationRef}>
+        Relation state
+      </article>
+    </section>
+  );
+}
+
 function Fixture() {
   const [controlledSelect, setControlledSelect] = useState('alpha');
   const [controlledCombo, setControlledCombo] = useState('');
@@ -246,6 +289,7 @@ function Fixture() {
   return (
     <main>
       <h1>Select controls browser fixture</h1>
+      <WorkspaceFirstPaintProbe />
       <form onSubmit={submit}>
         <section aria-label="Native event semantics">
           <NativeEventProbe probe="button">
@@ -464,3 +508,52 @@ createRoot(document.getElementById('root')!).render(
     <Fixture />
   </StrictMode>,
 );
+
+function captureMutationBeforePaint({
+  selector,
+  triggerLabel,
+}: {
+  selector: string;
+  triggerLabel: string;
+}) {
+  return new Promise<MotionProbeSnapshot>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(`Timed out waiting for ${selector}`));
+    }, 1_000);
+    const observer = new MutationObserver(() => {
+      const target = document.querySelector<HTMLElement>(selector);
+      if (!target) return;
+      window.clearTimeout(timeout);
+      observer.disconnect();
+      resolve(readMotionProbe(target));
+    });
+    observer.observe(document.body, {
+      attributeFilter: ['data-relation-state'],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    const trigger = [...document.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === triggerLabel,
+    );
+    if (!(trigger instanceof HTMLButtonElement)) {
+      window.clearTimeout(timeout);
+      observer.disconnect();
+      reject(new Error(`Missing trigger ${triggerLabel}`));
+      return;
+    }
+    trigger.click();
+  });
+}
+
+window.__runWorkspaceFirstPaintCases = async () => ({
+  append: await captureMutationBeforePaint({
+    selector: '[data-append-key="appended"]',
+    triggerLabel: 'Append workspace row',
+  }),
+  relation: await captureMutationBeforePaint({
+    selector: '[data-relation-state="next"]',
+    triggerLabel: 'Change relation state',
+  }),
+});

@@ -1,5 +1,5 @@
 import { animate, stagger } from 'motion/react';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 import { selectWorkspaceAppendedKeys } from '../model/workspace-append-reveal';
 
@@ -9,6 +9,8 @@ type AppendRevealBaseline = {
   keys: readonly string[];
   resetKey: string;
 };
+
+const useBeforePaintEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function useWorkspaceAppendReveal({
   keys,
@@ -24,7 +26,7 @@ export function useWorkspaceAppendReveal({
   const normalizeMotion = reducedMotion || forcedColors;
   const keysSignature = JSON.stringify(keys);
 
-  useEffect(() => {
+  useBeforePaintEffect(() => {
     const currentKeys = JSON.parse(keysSignature) as string[];
     const previous = previousRef.current;
     previousRef.current = { keys: currentKeys, resetKey };
@@ -48,9 +50,13 @@ export function useWorkspaceAppendReveal({
       return;
     }
 
+    for (const element of appended) {
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(6px)';
+    }
     const controls = animate(
       appended,
-      { opacity: [0, 1], y: [6, 0] },
+      { opacity: 1, y: 0 },
       {
         delay: stagger(0.025),
         duration: 0.18,

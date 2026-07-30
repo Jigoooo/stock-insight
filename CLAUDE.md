@@ -17,7 +17,7 @@ Futur Insight is a TanStack Start SPA-first mock for a read-only personal invest
 
 ## Tooling
 - Runtime validation uses Zod through `shared/schema`.
-- Motion uses CSS and GSAP only.
+- Motion uses CSS and the repository-local `motion` component boundary only.
 - Lint/format follow Oxlint/Oxfmt, modeled after `hidden-spot`.
 - Playwright covers desktop, mobile, reduced-motion, and interaction smoke tests.
 

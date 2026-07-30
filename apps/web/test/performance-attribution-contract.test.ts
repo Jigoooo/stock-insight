@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const performanceSpecUrl = new URL('../../../e2e/motion-performance.spec.ts', import.meta.url);
+const rootPackageUrl = new URL('../../../package.json', import.meta.url);
 
 describe('startup performance attribution contract', () => {
   it('retains resource identity and reports the largest startup transfers', async () => {
@@ -32,5 +33,37 @@ describe('startup performance attribution contract', () => {
     assert.match(source, /baseline\.performance\.longTasks\.maxMs/);
     assert.match(source, /baseline\.transfer\.totalTransferBytes/);
     assert.match(source, /baseline\.performance\.layoutShifts\.cumulativeScore/);
+  });
+
+  it('enforces the transfer budget against the production artifact in the release gate', async () => {
+    const [source, rootPackageSource] = await Promise.all([
+      readFile(performanceSpecUrl, 'utf8'),
+      readFile(rootPackageUrl, 'utf8'),
+    ]);
+    const rootPackage = JSON.parse(rootPackageSource) as {
+      scripts: Record<string, string>;
+    };
+
+    assert.match(
+      source,
+      /const useProductionBuild = process\.env\.PLAYWRIGHT_USE_PRODUCTION_BUILD/,
+    );
+    assert.match(
+      source,
+      /if \(useProductionBuild\) \{\s*expect\(baseline\.transfer\.totalTransferBytes\)/,
+    );
+    assert.match(
+      rootPackage.scripts['test:motion:browser:production'] ?? '',
+      /PLAYWRIGHT_USE_PRODUCTION_BUILD=1/,
+    );
+    assert.match(
+      rootPackage.scripts['test:motion:browser:production'] ?? '',
+      /motion-performance\.spec\.ts/,
+    );
+    assert.match(
+      rootPackage.scripts['test:motion:browser:production'] ?? '',
+      /records the credential-free/,
+    );
+    assert.match(rootPackage.scripts['verify:release'] ?? '', /test:motion:browser:production/);
   });
 });
