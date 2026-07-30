@@ -20,11 +20,80 @@ try {
   page.setDefaultTimeout(5_000);
   await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
 
+  const expectedNativeEventOrder = [
+    { eventPhase: 1, handler: 'root-capture' },
+    { eventPhase: 1, handler: 'child-capture' },
+    { eventPhase: 3, handler: 'child-bubble' },
+    { eventPhase: 3, handler: 'root-bubble' },
+  ];
+  const expectedStoppedNativeEventOrder = expectedNativeEventOrder.slice(0, 3);
+  for (const probe of ['button', 'icon-button', 'switch', 'toggle', 'text-link']) {
+    await page.locator(`[data-event-target="${probe}-normal"]`).dispatchEvent('drag');
+    await page.locator(`[data-event-target="${probe}-stopped"]`).dispatchEvent('drag');
+    await page
+      .locator(`[data-event-target="${probe}-animation-normal"]`)
+      .dispatchEvent('animationstart');
+    await page
+      .locator(`[data-event-target="${probe}-animation-stopped"]`)
+      .dispatchEvent('animationstart');
+  }
+  const nativeEventLog = await page.evaluate(() => window.__nativeEventLog);
+  for (const probe of ['button', 'icon-button', 'switch', 'toggle', 'text-link']) {
+    assert.deepEqual(nativeEventLog[`${probe}-normal`], expectedNativeEventOrder);
+    assert.deepEqual(nativeEventLog[`${probe}-stopped`], expectedStoppedNativeEventOrder);
+    assert.deepEqual(nativeEventLog[`${probe}-animation-normal`], expectedNativeEventOrder);
+    assert.deepEqual(nativeEventLog[`${probe}-animation-stopped`], expectedStoppedNativeEventOrder);
+  }
+
+  const wrappedFieldLabel = page.locator('label').filter({ hasText: 'Wrapped field' });
+  assert.equal(
+    await wrappedFieldLabel.evaluate((label) =>
+      label instanceof HTMLLabelElement ? label.control?.id : null,
+    ),
+    'wrapped-field-control',
+  );
+  const directFieldControl = page.locator('#direct-field-control');
+  assert.equal(
+    await directFieldControl.getAttribute('aria-describedby'),
+    'direct-field-control-description',
+  );
+  assert.equal(
+    await directFieldControl.getAttribute('aria-errormessage'),
+    'direct-field-control-error',
+  );
+  assert.equal(await directFieldControl.getAttribute('aria-invalid'), 'true');
+
+  const animatedTarget = page.locator('[data-event-target="button-normal"]');
+  const animatedButton = page.locator('button', { has: animatedTarget });
+  const animatedVisual = animatedButton.locator('[data-slot="motion-visual"]');
+  await animatedButton.hover();
+  await page.waitForTimeout(120);
+  const hoverTransform = await animatedVisual.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+  assert.notEqual(hoverTransform, 'none');
+  await animatedButton.dispatchEvent('pointerdown', {
+    button: 0,
+    pointerId: 73,
+    pointerType: 'mouse',
+  });
+  await page.waitForTimeout(120);
+  const tapTransform = await animatedVisual.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+  assert.notEqual(tapTransform, hoverTransform);
+  await animatedButton.dispatchEvent('pointerup', {
+    button: 0,
+    pointerId: 73,
+    pointerType: 'mouse',
+  });
+
   const unavailableControls = [
     page.getByRole('button', { name: 'Disabled button', exact: true }),
     page.getByRole('button', { name: 'Pending button', exact: true }),
     page.getByRole('button', { name: 'ARIA disabled button', exact: true }),
     page.getByRole('button', { name: 'Inert button', exact: true }),
+    page.getByRole('link', { name: 'ARIA disabled link', exact: true }),
     page.getByRole('button', { name: 'Disabled icon button', exact: true }),
     page.getByRole('button', { name: 'Pending icon button', exact: true }),
     page.getByRole('switch', { name: 'Disabled switch', exact: true }),
@@ -39,6 +108,14 @@ try {
       const style = getComputedStyle(element);
       return { opacity: style.opacity, transform: style.transform };
     });
+    const motionVisual = control.locator('[data-slot="motion-visual"]');
+    const visualBefore =
+      (await motionVisual.count()) === 1
+        ? await motionVisual.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return { opacity: style.opacity, transform: style.transform };
+          })
+        : null;
     await control.hover({ force: true });
     await control.dispatchEvent('pointerdown', { button: 0, pointerId: 91, pointerType: 'mouse' });
     await page.waitForTimeout(120);
@@ -47,6 +124,13 @@ try {
       return { opacity: style.opacity, transform: style.transform };
     });
     assert.deepEqual(after, before);
+    if (visualBefore) {
+      const visualAfter = await motionVisual.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { opacity: style.opacity, transform: style.transform };
+      });
+      assert.deepEqual(visualAfter, visualBefore);
+    }
     await control.dispatchEvent('pointerup', { button: 0, pointerId: 91, pointerType: 'mouse' });
   }
   for (const label of [

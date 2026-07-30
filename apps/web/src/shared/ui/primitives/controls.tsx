@@ -14,7 +14,6 @@ import {
   shouldCommitControlChange,
   type ControlMotionKind,
 } from './control-motion-controller';
-import { bridgeNativeMotionEvents } from './native-motion-events';
 import styles from './primitives.module.css';
 import { MotionButton } from '../motion/motion-button';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
@@ -101,7 +100,6 @@ export function Switch({
   ...props
 }: SwitchProps) {
   const thumbRef = useControlStateMotion(checked, 'switch');
-  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     onClick?.(event);
     if (
@@ -113,8 +111,7 @@ export function Switch({
 
   return (
     <MotionButton
-      {...motionSafeProps}
-      {...nativeCaptureProps}
+      {...props}
       aria-busy={pending || undefined}
       aria-checked={checked}
       className={classNames(styles.switchControl, className)}
@@ -155,7 +152,6 @@ export function Toggle({
   ...props
 }: ToggleProps) {
   const railRef = useControlStateMotion(pressed, 'toggle');
-  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     onClick?.(event);
     if (
@@ -167,8 +163,7 @@ export function Toggle({
 
   return (
     <MotionButton
-      {...motionSafeProps}
-      {...nativeCaptureProps}
+      {...props}
       aria-busy={pending || undefined}
       aria-pressed={pressed}
       className={classNames(styles.toggleControl, className)}

@@ -12,6 +12,12 @@
   text-underline-offset: 4px;
 }
 
+.motionVisual {
+  display: inline-flex;
+  min-width: 0;
+  align-items: inherit;
+}
+
 :where(.textLink[data-tone='accent']) {
   color: var(--color-accent-strong);
 }
@@ -21,7 +27,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :where(.textLink) {
+  :where(.textLink, .motionVisual) {
+    opacity: 1 !important;
     transform: none !important;
   }
 }

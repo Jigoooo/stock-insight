@@ -93,11 +93,15 @@ test.describe('private workspace authentication', () => {
       `/styles/profiles/${profileId}.css`,
     );
     const motionProbe = page.getByRole('button', { name: '로그인', exact: true });
+    const motionVisual = motionProbe.locator('[data-slot="motion-visual"]');
     await expect(motionProbe).toHaveAttribute('data-motion', 'pressable');
     await expect(motionProbe).toBeEnabled();
     await motionProbe.hover();
     await expect
       .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+      .toBe('none');
+    await expect
+      .poll(() => motionVisual.evaluate((element) => getComputedStyle(element).transform))
       .toBe('matrix(1.012, 0, 0, 1.012, 0, 0)');
     const motionBox = await motionProbe.boundingBox();
     if (!motionBox) throw new Error('login motion probe does not have a bounding box');
@@ -105,11 +109,11 @@ test.describe('private workspace authentication', () => {
     await page.mouse.down();
     try {
       await expect
-        .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+        .poll(() => motionVisual.evaluate((element) => getComputedStyle(element).transform))
         .toBe('matrix(0.978, 0, 0, 0.978, 0, 0)');
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await expect
-        .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+        .poll(() => motionVisual.evaluate((element) => getComputedStyle(element).transform))
         .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
     } finally {
       await page.mouse.up();

@@ -54,6 +54,16 @@ function invokeForwardRef(
   return element;
 }
 
+function getMotionVisual(button: ReactElement<Record<string, unknown>>) {
+  const visual = button.props.children;
+  assert.equal(isValidElement(visual), true);
+  assert.equal(
+    (visual as ReactElement<Record<string, unknown>>).props['data-slot'],
+    'motion-visual',
+  );
+  return visual as ReactElement<Record<string, unknown>>;
+}
+
 describe('OpenHuman Motion foundation structure', () => {
   it('installs Motion without removing the existing GSAP migration dependency', async () => {
     const packageJson = JSON.parse(await readFile(packageUrl, 'utf8')) as {
@@ -101,24 +111,28 @@ describe('OpenHuman Motion foundation behavior', () => {
       whileTap: 'pressed',
     });
 
-    assert.deepEqual(defaultButton.props.whileHover, { scale: 1.012 });
-    assert.deepEqual(defaultButton.props.whileTap, { scale: 0.978 });
-    assert.deepEqual(defaultButton.props.transition, {
+    const defaultVisual = getMotionVisual(defaultButton);
+    const scaleOverrideVisual = getMotionVisual(scaleOverride);
+    const motionOverrideVisual = getMotionVisual(motionOverride);
+
+    assert.deepEqual(defaultVisual.props.whileHover, { scale: 1.012 });
+    assert.deepEqual(defaultVisual.props.whileTap, { scale: 0.978 });
+    assert.deepEqual(defaultVisual.props.transition, {
       damping: 30,
       mass: 0.6,
       stiffness: 420,
       type: 'spring',
     });
     assert.equal(defaultButton.props.type, 'button');
-    assert.equal(defaultButton.props.children, '기본 버튼');
-    assert.deepEqual(scaleOverride.props.whileHover, { scale: 1.02 });
-    assert.deepEqual(scaleOverride.props.whileTap, { scale: 0.96 });
+    assert.equal(defaultVisual.props.children, '기본 버튼');
+    assert.deepEqual(scaleOverrideVisual.props.whileHover, { scale: 1.02 });
+    assert.deepEqual(scaleOverrideVisual.props.whileTap, { scale: 0.96 });
     assert.equal(scaleOverride.props.type, 'submit');
     assert.equal('hoverScale' in scaleOverride.props, false);
     assert.equal('tapScale' in scaleOverride.props, false);
-    assert.deepEqual(motionOverride.props.whileHover, { opacity: 0.8 });
-    assert.equal(motionOverride.props.whileTap, 'pressed');
-    assert.deepEqual(motionOverride.props.transition, { duration: 0.4 });
+    assert.deepEqual(motionOverrideVisual.props.whileHover, { opacity: 0.8 });
+    assert.equal(motionOverrideVisual.props.whileTap, 'pressed');
+    assert.deepEqual(motionOverrideVisual.props.transition, { duration: 0.4 });
   });
 
   it('neutralizes unavailable gestures and keeps Motion ownership internal', async () => {
@@ -143,9 +157,10 @@ describe('OpenHuman Motion foundation behavior', () => {
     ];
 
     for (const button of unavailableButtons) {
+      const visual = getMotionVisual(button);
       assert.equal(button.props['data-motion-owner'], 'motion');
-      assert.equal(button.props.whileHover, undefined);
-      assert.equal(button.props.whileTap, undefined);
+      assert.equal(visual.props.whileHover, undefined);
+      assert.equal(visual.props.whileTap, undefined);
     }
 
     const consumerOverride = unavailableButtons[0];

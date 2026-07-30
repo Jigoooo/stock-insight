@@ -7,6 +7,7 @@ import {
   useId,
   useRef,
   type InputHTMLAttributes,
+  type ReactElement,
   type ReactNode,
   type TextareaHTMLAttributes,
 } from 'react';
@@ -32,6 +33,22 @@ type FieldControlProps = {
   'aria-errormessage'?: string;
   'aria-invalid'?: boolean | 'false' | 'true';
   id?: string;
+  type?: string;
+};
+
+const fieldControlMarker = Symbol('field-control');
+const intrinsicFieldControls = new Set([
+  'button',
+  'input',
+  'meter',
+  'output',
+  'progress',
+  'select',
+  'textarea',
+]);
+
+type ExplicitFieldControl = {
+  [fieldControlMarker]?: true;
 };
 
 type InputVariant = 'chrome' | 'bare';
@@ -60,6 +77,17 @@ function classNames(...values: (string | false | null | undefined)[]) {
 function joinIdRefs(...values: Array<string | undefined>) {
   const ids = values.flatMap((value) => value?.split(/\s+/).filter(Boolean) ?? []);
   return [...new Set(ids)].join(' ') || undefined;
+}
+
+function isDirectFieldControl(children: ReactNode): children is ReactElement<FieldControlProps> {
+  if (!isValidElement<FieldControlProps>(children) || children.type === Fragment) return false;
+  if (typeof children.type === 'string') {
+    return (
+      intrinsicFieldControls.has(children.type) &&
+      !(children.type === 'input' && children.props.type === 'hidden')
+    );
+  }
+  return (children.type as ExplicitFieldControl)[fieldControlMarker] === true;
 }
 
 export function useFieldShellMotion<ElementType extends HTMLElement>() {
@@ -116,8 +144,7 @@ export function useFieldShellMotion<ElementType extends HTMLElement>() {
 export function Field({ children, description, error, hint, label }: FieldProps) {
   const generatedId = useId();
   const supportingDescription = description ?? hint;
-  const control =
-    isValidElement<FieldControlProps>(children) && children.type !== Fragment ? children : null;
+  const control = isDirectFieldControl(children) ? children : null;
   const controlId = control?.props.id ?? `${generatedId}-control`;
   const descriptionId = supportingDescription ? `${controlId}-description` : undefined;
   const errorId = error ? `${controlId}-error` : undefined;
@@ -178,6 +205,9 @@ export function Textarea({ className, variant = 'chrome', ...props }: TextareaPr
     />
   );
 }
+
+(TextInput as typeof TextInput & ExplicitFieldControl)[fieldControlMarker] = true;
+(Textarea as typeof Textarea & ExplicitFieldControl)[fieldControlMarker] = true;
 
 export function SearchField({ className, icon, inputProps }: SearchFieldProps) {
   const shellRef = useFieldShellMotion<HTMLLabelElement>();

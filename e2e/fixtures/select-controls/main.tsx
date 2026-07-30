@@ -1,4 +1,4 @@
-import { StrictMode, useState, type FormEvent } from 'react';
+import { StrictMode, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import './style.css';
@@ -6,12 +6,23 @@ import './style.css';
 import {
   Button,
   Combobox,
+  Field,
   IconButton,
   SelectBox,
   Switch,
+  TextInput,
+  TextLink,
   Toggle,
   type SelectOption,
 } from '@/shared/ui/primitives';
+
+declare global {
+  interface Window {
+    __nativeEventLog: Record<string, Array<{ eventPhase: number; handler: string }>>;
+  }
+}
+
+window.__nativeEventLog = {};
 
 const shortOptions: readonly SelectOption[] = [
   { value: 'alpha', label: 'Alpha' },
@@ -24,6 +35,79 @@ const longOptions: readonly SelectOption[] = Array.from({ length: 30 }, (_, inde
   value: `item-${index + 1}`,
   label: `Item ${String(index + 1).padStart(2, '0')}`,
 }));
+
+function recordNativeEvent<ElementType extends HTMLElement>(probe: string, handler: string) {
+  return (event: SyntheticEvent<ElementType>) => {
+    window.__nativeEventLog[probe] ??= [];
+    window.__nativeEventLog[probe]?.push({ eventPhase: event.eventPhase, handler });
+  };
+}
+
+function recordNativeRootEvent<ElementType extends HTMLElement>(handler: string) {
+  return (event: SyntheticEvent<ElementType>) => {
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-event-target]')
+        : null;
+    const probe = target?.dataset.eventTarget;
+    if (!probe) return;
+    window.__nativeEventLog[probe] ??= [];
+    window.__nativeEventLog[probe]?.push({ eventPhase: event.eventPhase, handler });
+  };
+}
+
+function EventTargets({ probe }: { probe: string }) {
+  return (
+    <>
+      <span
+        data-event-target={`${probe}-normal`}
+        draggable
+        onDrag={recordNativeEvent(`${probe}-normal`, 'child-bubble')}
+        onDragCapture={recordNativeEvent(`${probe}-normal`, 'child-capture')}
+      >
+        normal
+      </span>
+      <span
+        data-event-target={`${probe}-stopped`}
+        draggable
+        onDrag={(event) => {
+          recordNativeEvent(`${probe}-stopped`, 'child-bubble')(event);
+          event.stopPropagation();
+        }}
+        onDragCapture={recordNativeEvent(`${probe}-stopped`, 'child-capture')}
+      >
+        stopped
+      </span>
+      <span
+        data-event-target={`${probe}-animation-normal`}
+        onAnimationStart={recordNativeEvent(`${probe}-animation-normal`, 'child-bubble')}
+        onAnimationStartCapture={recordNativeEvent(`${probe}-animation-normal`, 'child-capture')}
+      >
+        animation normal
+      </span>
+      <span
+        data-event-target={`${probe}-animation-stopped`}
+        onAnimationStart={(event) => {
+          recordNativeEvent(`${probe}-animation-stopped`, 'child-bubble')(event);
+          event.stopPropagation();
+        }}
+        onAnimationStartCapture={recordNativeEvent(`${probe}-animation-stopped`, 'child-capture')}
+      >
+        animation stopped
+      </span>
+    </>
+  );
+}
+
+function NativeEventProbe({
+  children,
+  probe,
+}: {
+  children: (targets: ReactNode) => ReactNode;
+  probe: string;
+}) {
+  return children(<EventTargets probe={probe} />);
+}
 
 function Fixture() {
   const [controlledSelect, setControlledSelect] = useState('alpha');
@@ -40,11 +124,94 @@ function Fixture() {
     <main>
       <h1>Select controls browser fixture</h1>
       <form onSubmit={submit}>
+        <section aria-label="Native event semantics">
+          <NativeEventProbe probe="button">
+            {(targets) => (
+              <Button
+                onAnimationStart={recordNativeRootEvent('root-bubble')}
+                onAnimationStartCapture={recordNativeRootEvent('root-capture')}
+                onDrag={recordNativeRootEvent('root-bubble')}
+                onDragCapture={recordNativeRootEvent('root-capture')}
+              >
+                {targets}
+              </Button>
+            )}
+          </NativeEventProbe>
+          <NativeEventProbe probe="icon-button">
+            {(targets) => (
+              <IconButton
+                aria-label="Icon event probe"
+                onAnimationStart={recordNativeRootEvent('root-bubble')}
+                onAnimationStartCapture={recordNativeRootEvent('root-capture')}
+                onDrag={recordNativeRootEvent('root-bubble')}
+                onDragCapture={recordNativeRootEvent('root-capture')}
+              >
+                {targets}
+              </IconButton>
+            )}
+          </NativeEventProbe>
+          <NativeEventProbe probe="switch">
+            {(targets) => (
+              <Switch
+                checked={false}
+                label={targets}
+                onCheckedChange={() => undefined}
+                onAnimationStart={recordNativeRootEvent('root-bubble')}
+                onAnimationStartCapture={recordNativeRootEvent('root-capture')}
+                onDrag={recordNativeRootEvent('root-bubble')}
+                onDragCapture={recordNativeRootEvent('root-capture')}
+              />
+            )}
+          </NativeEventProbe>
+          <NativeEventProbe probe="toggle">
+            {(targets) => (
+              <Toggle
+                onAnimationStart={recordNativeRootEvent('root-bubble')}
+                onAnimationStartCapture={recordNativeRootEvent('root-capture')}
+                onDrag={recordNativeRootEvent('root-bubble')}
+                onDragCapture={recordNativeRootEvent('root-capture')}
+                onPressedChange={() => undefined}
+                pressed={false}
+              >
+                {targets}
+              </Toggle>
+            )}
+          </NativeEventProbe>
+          <NativeEventProbe probe="text-link">
+            {(targets) => (
+              <TextLink
+                href="#event-probe"
+                motion="pressable"
+                onAnimationStart={recordNativeRootEvent('root-bubble')}
+                onAnimationStartCapture={recordNativeRootEvent('root-capture')}
+                onDrag={recordNativeRootEvent('root-bubble')}
+                onDragCapture={recordNativeRootEvent('root-capture')}
+              >
+                {targets}
+              </TextLink>
+            )}
+          </NativeEventProbe>
+        </section>
+
+        <section aria-label="Field anatomy">
+          <Field description="Wrapped description" label="Wrapped field">
+            <div>
+              <input id="wrapped-field-control" name="wrappedField" />
+            </div>
+          </Field>
+          <Field description="Direct description" error="Direct error" label="Direct field">
+            <TextInput id="direct-field-control" name="directField" />
+          </Field>
+        </section>
+
         <section aria-label="Unavailable shared controls">
           <Button disabled>Disabled button</Button>
           <Button pending>Pending button</Button>
           <Button aria-disabled="true">ARIA disabled button</Button>
           <Button inert>Inert button</Button>
+          <TextLink aria-disabled="true" href="#disabled-link" motion="pressable">
+            ARIA disabled link
+          </TextLink>
           <IconButton aria-label="Disabled icon button" disabled>
             D
           </IconButton>

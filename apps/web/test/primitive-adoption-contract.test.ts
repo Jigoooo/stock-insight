@@ -86,12 +86,16 @@ describe('shared primitive adoption contract', () => {
 
     assert.match(button, /import \{ MotionButton/);
     assert.doesNotMatch(button, /<button\b/);
+    assert.match(motionButton, /<button\b/);
+    assert.match(motionButton, /<motion\.span\b/);
     assert.match(motionButton, /data-motion-owner="motion"/);
     assert.match(motionButton, /\{\.\.\.props\}[\s\S]*data-motion-owner="motion"/);
     assert.match(controls, /import \{ MotionButton/);
     assert.doesNotMatch(controls, /<button\b/);
     assert.match(link, /import \{ motion/);
-    assert.match(link, /<motion\.a\b/);
+    assert.match(link, /<a\b/);
+    assert.match(link, /<motion\.span\b/);
+    assert.match(link, /\{\.\.\.props\}[\s\S]*data-motion-owner="motion"/);
     assert.match(segmentedTabs, /PresenceRegion/);
     for (const source of [selectBox, combobox]) {
       assert.match(source, /import \{ MotionButton, PresenceRegion \}/);

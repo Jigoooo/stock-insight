@@ -1,7 +1,6 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 
 import styles from './button.module.css';
-import { bridgeNativeMotionEvents } from './native-motion-events';
 import { MotionButton } from '../motion/motion-button';
 import type { MotionRecipe } from '../motion/motion-contract';
 
@@ -42,13 +41,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const unavailable = disabled || pending;
-  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
 
   return (
     <MotionButton
       ref={ref}
-      {...motionSafeProps}
-      {...nativeCaptureProps}
+      {...props}
       aria-busy={pending || props['aria-busy']}
       aria-disabled={pending || props['aria-disabled']}
       className={classNames(styles.button, className)}
@@ -82,13 +79,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   ref,
 ) {
   const unavailable = disabled || pending;
-  const { motionSafeProps, nativeCaptureProps } = bridgeNativeMotionEvents(props);
 
   return (
     <MotionButton
       ref={ref}
-      {...motionSafeProps}
-      {...nativeCaptureProps}
+      {...props}
       aria-busy={pending || props['aria-busy']}
       aria-disabled={pending || props['aria-disabled']}
       className={classNames(styles.iconButton, className)}
