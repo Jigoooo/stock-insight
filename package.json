@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @stock-insight/web dev",
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter @stock-insight/web dev",
+    "dev:api": "pnpm --filter @stock-insight/api-server dev",
     "preview": "pnpm --filter @stock-insight/web preview",
     "start": "pnpm --filter @stock-insight/web start",
     "build": "turbo run build",

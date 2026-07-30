@@ -16,7 +16,28 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "HOST",
+        "PORT",
+        "STOCK_INSIGHT_API_PORT",
+        "VITE_PORT",
+        "NODE_ENV",
+        "DATABASE_URL",
+        "DATABASE_READ_URL",
+        "DATABASE_WRITE_URL",
+        "STOCK_INSIGHT_USER_ID",
+        "STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET",
+        "STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE",
+        "STOCK_INSIGHT_BRAIN_URL",
+        "STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_ID",
+        "STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET",
+        "STOCK_INSIGHT_SESSION_SECRET_FILE",
+        "STOCK_INSIGHT_SESSION_TTL_SECONDS",
+        "STOCK_INSIGHT_APP_ORIGIN",
+        "STOCK_INSIGHT_SIGNUP_ENABLED",
+        "STOCK_INSIGHT_MUTATIONS_ENABLED"
+      ]
     }
   }
 }
