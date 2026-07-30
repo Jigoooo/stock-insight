@@ -53,8 +53,8 @@ describe('shared interaction and feedback boundaries', () => {
     assert.doesNotMatch(primitives, /\.(?:button|iconButton):active[^{}]*\{[^}]*transform\s*:/);
     assert.match(controller, /addEventListener\('change', onMotionPreferenceChange\)/);
     assert.match(controller, /killTweensOf/);
-    assert.match(feedback, /MotionRegion/);
-    assert.match(feedback, /recipe="skeleton"/);
+    assert.match(feedback, /import \{ Effect, PresenceRegion \}/);
+    assert.match(feedback, /data-slot="skeleton-root"/);
     assert.doesNotMatch(feedback, /data-motion-loop=/);
     assert.doesNotMatch(primitives, /@keyframes|animation:/);
   });

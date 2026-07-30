@@ -108,44 +108,44 @@
   border-color: color-mix(in srgb, var(--color-risk) 62%, var(--color-border-strong));
 }
 
-.statusBadge {
+:where(.statusBadge) {
   display: inline-flex;
   min-height: 24px;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-xs);
-  padding: 3px 7px;
-  color: var(--color-muted);
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   font-size: 11px;
-  font-weight: 720;
+  font-weight: 680;
   line-height: 1.2;
   white-space: nowrap;
 }
 
 .statusBadge[data-tone='success'] {
-  border-color: color-mix(in srgb, var(--color-positive) 30%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-positive) 26%, var(--color-border));
   color: var(--color-positive);
-  background: color-mix(in srgb, var(--color-positive-soft) 38%, transparent);
+  background: color-mix(in srgb, var(--color-positive-soft) 34%, var(--color-surface));
 }
 
 .statusBadge[data-tone='info'] {
-  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-line));
-  color: var(--color-primary-strong);
-  background: color-mix(in srgb, var(--color-primary-soft) 44%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  color: var(--color-accent-strong);
+  background: color-mix(in srgb, var(--color-accent-soft) 36%, var(--color-surface));
 }
 
 .statusBadge[data-tone='warning'] {
-  border-color: color-mix(in srgb, var(--color-signal) 34%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-signal) 28%, var(--color-border));
   color: var(--color-signal);
-  background: color-mix(in srgb, var(--color-signal-soft) 44%, transparent);
+  background: color-mix(in srgb, var(--color-signal-soft) 36%, var(--color-surface));
 }
 
 .statusBadge[data-tone='danger'] {
-  border-color: color-mix(in srgb, var(--color-risk) 34%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
   color: var(--color-risk);
-  background: color-mix(in srgb, var(--color-risk-soft) 42%, transparent);
+  background: color-mix(in srgb, var(--color-risk-soft) 34%, var(--color-surface));
 }
 
 .statusBadge[data-tone='muted'],
@@ -156,35 +156,36 @@
 .dataQualityPopover {
   position: relative;
   min-width: min(280px, 100%);
-  color: var(--color-muted-foreground);
+  color: var(--color-text-secondary);
   font-size: 11.5px;
   line-height: 1.5;
 }
 
 .dataQualityPopover summary {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  padding: 7px 9px;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
   cursor: pointer;
-  color: var(--color-ink-soft);
-  background: color-mix(in srgb, var(--color-card-subtle) 72%, transparent);
-  font-weight: 760;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-weight: 680;
 }
 
-.dataQualityPopover > div {
+.dataQualityContent {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
   z-index: 30;
   width: min(320px, calc(100vw - 48px));
-  border: 1px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-line));
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  background: var(--color-card);
-  box-shadow: var(--shadow-panel);
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-text-primary) 9%, transparent);
 }
 
-.dataQualityPopover[data-placement='above'] > div {
+.dataQualityPopover[data-placement='above'] .dataQualityContent {
   top: auto;
   bottom: calc(100% + 6px);
 }
@@ -348,38 +349,42 @@
   opacity: 0.5;
 }
 
-.card {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-  box-shadow: var(--shadow-panel);
+:where(.card) {
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
-.emptyState,
-.errorState {
+:where(.emptyState, .errorState) {
   display: grid;
   min-height: 96px;
   place-content: center;
-  border: 1px dashed var(--color-line);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  color: var(--color-muted);
-  background: color-mix(in srgb, var(--color-card-subtle) 54%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 18px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas));
   font-size: 12px;
   line-height: 1.55;
   text-align: center;
 }
 
 .errorState {
-  border-color: color-mix(in srgb, var(--color-risk) 35%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
   color: var(--color-risk);
+  background: color-mix(in srgb, var(--color-risk-soft) 28%, var(--color-surface));
 }
 
-.skeleton {
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-foreground) 8%, transparent);
+.feedbackContent {
+  min-width: 0;
+}
+
+:where(.skeleton) {
   position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface));
 }
 
 .skeleton::after {
@@ -388,7 +393,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--color-foreground) 8%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 7%, transparent),
     transparent
   );
   content: '';

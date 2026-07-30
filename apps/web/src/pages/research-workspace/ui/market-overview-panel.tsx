@@ -17,6 +17,7 @@ import {
   type MarketModeId,
 } from '../model/market-overview';
 
+import { Button } from '@/shared/ui/primitives/button';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
@@ -224,12 +225,15 @@ export function MarketOverviewPanel({
     <section className={styles.marketModePanel} aria-label="시장 시각화">
       <div className={styles.marketModeNav} role="tablist" aria-label="시장 화면 선택">
         {overview.modes.map((item, index) => (
-          <button
+          <Button
             key={item.id}
             id={`market-tab-${item.id}`}
             type="button"
             role="tab"
             className={styles.marketModeTab}
+            motion="quiet"
+            size="sm"
+            variant="ghost"
             aria-selected={item.id === activeMode}
             aria-controls={panelId}
             tabIndex={item.id === activeMode ? 0 : -1}
@@ -240,7 +244,7 @@ export function MarketOverviewPanel({
           >
             <span>{item.shortTitle}</span>
             <small>{availabilityLabel[item.availability]}</small>
-          </button>
+          </Button>
         ))}
       </div>
 

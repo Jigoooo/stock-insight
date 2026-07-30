@@ -1,4 +1,4 @@
-import type { CSSProperties, HTMLAttributes, ReactNode } from 'react';
+import { useId, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 
 import styles from './primitives.module.css';
 import {
@@ -9,7 +9,8 @@ import {
   type DataQualitySummaryOptions,
   type StatusTextOptions,
 } from './status';
-import { MotionRegion } from '../motion/motion-region';
+import { Effect, PresenceRegion } from '../motion';
+import type { EffectProps } from '../motion/effect';
 
 export type StatusBadgeProps = StatusTextOptions & {
   className?: string;
@@ -22,9 +23,8 @@ export type DataQualityPopoverProps = DataQualitySummaryOptions & {
   testId?: string;
 };
 
-export type FeedbackStateProps = {
+export type FeedbackStateProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode;
-  className?: string;
   testId?: string;
 };
 
@@ -39,17 +39,18 @@ function classNames(...values: (string | false | null | undefined)[]) {
 
 export function StatusBadge({ availability, className, label, source, testId }: StatusBadgeProps) {
   return (
-    <MotionRegion
+    <Effect
       as="span"
       className={classNames(styles.statusBadge, className)}
       data-availability={availability}
+      data-slot="status-badge-root"
       data-source={source}
       data-testid={testId}
       data-tone={getAvailabilityTone(availability)}
-      recipe="status"
+      fade
     >
-      {buildStatusText({ availability, label, source })}
-    </MotionRegion>
+      <span data-slot="status-badge-label">{buildStatusText({ availability, label, source })}</span>
+    </Effect>
   );
 }
 
@@ -62,6 +63,8 @@ export function DataQualityPopover({
   testId,
   updatedAt,
 }: DataQualityPopoverProps) {
+  const [open, setOpen] = useState(false);
+  const contentId = useId();
   const summary = buildDataQualitySummary({
     availability,
     label,
@@ -74,15 +77,30 @@ export function DataQualityPopover({
       className={classNames(styles.dataQualityPopover, className)}
       data-availability={availability}
       data-placement={placement}
+      data-slot="data-quality-root"
       data-source={source}
       data-testid={testId}
       data-tone={summary.tone}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary>데이터 품질</summary>
-      <div>
-        <b>{summary.title}</b>
-        <p>{summary.summary}</p>
-        <dl>
+      <summary aria-controls={contentId} data-slot="data-quality-trigger">
+        데이터 품질
+      </summary>
+      <PresenceRegion
+        animate={{ opacity: 1, y: 0 }}
+        className={styles.dataQualityContent}
+        exit={{ opacity: 0, y: -3 }}
+        id={contentId}
+        initial={{ opacity: 0, y: -3 }}
+        presenceKey="data-quality-content"
+        present={open}
+        transition={{ duration: 0.16 }}
+        data-slot="data-quality-content"
+      >
+        <b data-slot="data-quality-title">{summary.title}</b>
+        <p data-slot="data-quality-description">{summary.summary}</p>
+        <dl data-slot="data-quality-metadata">
           <div>
             <dt>원천</dt>
             <dd>{summary.sourceLabel}</dd>
@@ -96,32 +114,44 @@ export function DataQualityPopover({
             <dd>{summary.nextAction}</dd>
           </div>
         </dl>
-      </div>
+      </PresenceRegion>
     </details>
   );
 }
 
-export function EmptyState({ children, className, testId }: FeedbackStateProps) {
+export function EmptyState({ children, className, testId, ...props }: FeedbackStateProps) {
   return (
-    <MotionRegion
+    <Effect
+      {...(props as EffectProps)}
       className={classNames(styles.emptyState, className)}
+      data-slot="feedback-root"
       data-testid={testId}
-      recipe="feedback"
+      data-tone="empty"
+      aria-live="polite"
+      fade
     >
-      {children}
-    </MotionRegion>
+      <div className={styles.feedbackContent} data-slot="feedback-content">
+        {children}
+      </div>
+    </Effect>
   );
 }
 
-export function ErrorState({ children, className, testId }: FeedbackStateProps) {
+export function ErrorState({ children, className, testId, ...props }: FeedbackStateProps) {
   return (
-    <MotionRegion
+    <Effect
+      {...(props as EffectProps)}
       className={classNames(styles.errorState, className)}
+      data-slot="feedback-root"
       data-testid={testId}
-      recipe="feedback"
+      data-tone="error"
+      fade
+      role="alert"
     >
-      {children}
-    </MotionRegion>
+      <div className={styles.feedbackContent} data-slot="feedback-content">
+        {children}
+      </div>
+    </Effect>
   );
 }
 
@@ -133,12 +163,13 @@ export function Skeleton({
   ...props
 }: SkeletonProps) {
   return (
-    <MotionRegion
-      aria-hidden="true"
+    <Effect
       className={classNames(styles.skeleton, className)}
-      recipe="skeleton"
+      {...(props as EffectProps)}
+      aria-hidden="true"
+      data-slot="skeleton-root"
+      fade
       style={{ width, height, ...style }}
-      {...props}
     />
   );
 }

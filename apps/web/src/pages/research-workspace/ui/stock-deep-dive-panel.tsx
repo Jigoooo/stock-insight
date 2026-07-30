@@ -8,7 +8,7 @@ import {
   type StockDeepDiveAvailability,
 } from '../model/stock-deep-dive';
 
-import { Button } from '@/shared/ui/primitives';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/shared/ui/primitives';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export type StockDeepDivePanelState = 'idle' | 'loading' | 'error' | 'ready';
@@ -31,9 +31,14 @@ function PanelState({
   title: string;
 }) {
   const Icon = kind === 'loading' ? LoaderCircle : kind === 'error' ? AlertCircle : CircleDot;
+  const State = kind === 'error' ? ErrorState : EmptyState;
   return (
-    <div className={styles.state} data-kind={kind} role={kind === 'error' ? 'alert' : 'status'}>
-      <Icon aria-hidden="true" data-motion-loop={kind === 'loading' ? 'spinner' : undefined} />
+    <State className={styles.state} data-kind={kind}>
+      {kind === 'loading' ? (
+        <Skeleton className={styles.stateIconSkeleton} height={22} width={22} />
+      ) : (
+        <Icon aria-hidden="true" />
+      )}
       <div>
         <strong>{title}</strong>
         <p>{description}</p>
@@ -43,7 +48,7 @@ function PanelState({
           </Button>
         )}
       </div>
-    </div>
+    </State>
   );
 }
 

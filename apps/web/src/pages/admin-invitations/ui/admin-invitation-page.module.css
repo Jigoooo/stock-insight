@@ -233,6 +233,13 @@ td {
   padding-block: 48px;
   text-align: center;
 }
+.tableEmpty {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .visuallyHidden {
   position: absolute;
   width: 1px;

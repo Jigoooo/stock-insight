@@ -1,5 +1,12 @@
 import { motion, type HTMLMotionProps } from 'motion/react';
-import { Children, forwardRef, isValidElement, type ReactNode, type ReactElement } from 'react';
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+} from 'react';
 
 import {
   resolveEffectAnimation,
@@ -7,13 +14,24 @@ import {
   type EffectAnimationOptions,
 } from './motion-values';
 
+type EffectElement = 'article' | 'div' | 'section' | 'span';
+
 export type EffectProps = Omit<HTMLMotionProps<'div'>, 'children'> &
   EffectAnimationOptions & {
+    as?: EffectElement;
     children?: ReactNode;
   };
 
-export const Effect = forwardRef<HTMLDivElement, EffectProps>(function Effect(
+const effectElements = {
+  article: motion.article,
+  div: motion.div,
+  section: motion.section,
+  span: motion.span,
+} as const;
+
+export const Effect = forwardRef<HTMLElement, EffectProps>(function Effect(
   {
+    as = 'div',
     blur,
     children,
     delay,
@@ -38,10 +56,11 @@ export const Effect = forwardRef<HTMLDivElement, EffectProps>(function Effect(
     slide,
     zoom,
   });
+  const Component = effectElements[as] as typeof motion.div;
 
   return (
-    <motion.div
-      ref={ref}
+    <Component
+      ref={ref as Ref<HTMLDivElement>}
       initial={animation.initial}
       animate={animation.animate}
       transition={{ ...animation.transition, ...transition }}
@@ -50,7 +69,7 @@ export const Effect = forwardRef<HTMLDivElement, EffectProps>(function Effect(
       {...props}
     >
       {children}
-    </motion.div>
+    </Component>
   );
 });
 

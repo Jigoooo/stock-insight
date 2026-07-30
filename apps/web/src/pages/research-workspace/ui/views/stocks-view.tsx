@@ -18,6 +18,7 @@ import {
 import styles from '../research-workspace-page.module.css';
 import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
 
+import { Button } from '@/shared/ui/primitives/button';
 import { createApiClient } from '@stock-insight/api-client';
 import type { StockListResponse } from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
@@ -233,15 +234,17 @@ export function StocksView({
                     data-selected={selectedEntityKey === stock.entityKey || undefined}
                   >
                     <td aria-label={`${stock.displayName} ${stock.ticker}`}>
-                      <button
+                      <Button
                         type="button"
                         className={styles.stockSelectButton}
+                        motion="quiet"
+                        variant="ghost"
                         aria-pressed={selectedEntityKey === stock.entityKey}
                         onClick={() => void loadDeepDive(stock.entityKey)}
                       >
                         <strong>{stock.displayName}</strong>
                         <small>{stock.ticker}</small>
-                      </button>
+                      </Button>
                     </td>
                     <td>{marketLabel(stock.market)}</td>
                     <td>

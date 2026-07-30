@@ -17,7 +17,7 @@ import {
   transitionRelationDrag,
 } from '@/pages/research-workspace/model/relation-sigma-runtime';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
-import { Button, IconButton } from '@/shared/ui/primitives';
+import { Button, IconButton, TextInput } from '@/shared/ui/primitives';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 type RelationRenderer = Sigma<
@@ -422,11 +422,12 @@ export function RelationSigmaGraph({
     >
       <div className={styles.graphSearch} data-testid="relation-graph-search">
         <Search aria-hidden="true" />
-        <input
+        <TextInput
           aria-label="관계 노드 검색"
           autoComplete="off"
           list={suggestionId}
           placeholder="종목 검색"
+          variant="bare"
           value={query}
           onBlur={() => {
             if (!query) refreshSelection();

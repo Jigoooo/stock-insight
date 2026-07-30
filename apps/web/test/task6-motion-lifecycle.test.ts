@@ -149,7 +149,7 @@ describe('Task 6 transition lifecycle', () => {
 });
 
 describe('Task 6 React ownership contract', () => {
-  it('uses explicit MotionRegion owners for surfaces, status, feedback, and skeleton loops', async () => {
+  it('keeps surfaces and feedback on the local Motion foundation before legacy cleanup', async () => {
     const [motionRegion, surface, feedback] = await Promise.all([
       readFile(motionRegionUrl, 'utf8'),
       readFile(surfaceUrl, 'utf8'),
@@ -161,11 +161,12 @@ describe('Task 6 React ownership contract', () => {
     assert.match(motionRegion, /revertOnUpdate:\s*true/);
     assert.match(motionRegion, /onEnterComplete/);
     assert.match(motionRegion, /onExitComplete/);
-    assert.match(surface, /MotionRegion/);
-    assert.match(surface, /recipe="surface"/);
-    assert.match(feedback, /recipe="status"/);
-    assert.match(feedback, /recipe="feedback"/);
-    assert.match(feedback, /recipe="skeleton"/);
+    assert.match(surface, /import \{ Effect \}/);
+    assert.match(surface, /data-slot="card-root"/);
+    assert.match(feedback, /import \{ Effect, PresenceRegion \}/);
+    assert.match(feedback, /data-slot="status-badge-root"/);
+    assert.match(feedback, /data-slot="feedback-root"/);
+    assert.match(feedback, /data-slot="skeleton-root"/);
     assert.doesNotMatch(surface + feedback, /data-motion-(?:enter|loop)/);
   });
 

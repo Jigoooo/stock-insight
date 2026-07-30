@@ -149,18 +149,28 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
     <article
       ref={elementRef}
       className={styles.motionToast}
+      data-slot="toast-root"
       data-tone={tone}
       data-toast-id={String(id)}
       aria-label={toneLabels[tone]}
     >
-      <span className={styles.toneRail} aria-hidden="true" />
-      <div className={styles.toastBody}>
-        <span className={styles.toastEyebrow}>{toneLabels[tone]}</span>
-        <strong className={styles.toastTitle}>{title}</strong>
-        {description ? <p className={styles.toastDescription}>{description}</p> : null}
+      <span className={styles.toneRail} data-slot="toast-indicator" aria-hidden="true" />
+      <div className={styles.toastBody} data-slot="toast-content">
+        <span className={styles.toastEyebrow} data-slot="toast-status">
+          {toneLabels[tone]}
+        </span>
+        <strong className={styles.toastTitle} data-slot="toast-title">
+          {title}
+        </strong>
+        {description ? (
+          <p className={styles.toastDescription} data-slot="toast-description">
+            {description}
+          </p>
+        ) : null}
         {action ? (
           <Button
             className={styles.toastAction}
+            data-slot="toast-action"
             motion="pressable"
             type="button"
             onClick={() => {
@@ -174,6 +184,7 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
       </div>
       <Button
         className={styles.toastClose}
+        data-slot="toast-close"
         motion="quiet"
         type="button"
         onClick={close}

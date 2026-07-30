@@ -3,6 +3,7 @@ import { Outlet, createFileRoute } from '@tanstack/react-router';
 import { validateWorkspaceSearch } from '@/pages/research-workspace/model/workspace-search';
 import boundaryStyles from '@/pages/research-workspace/ui/workspace-route-boundary.module.css';
 import { Button } from '@/shared/ui/primitives/button';
+import { ErrorState } from '@/shared/ui/primitives/feedback';
 
 // Layout route for the workspace. Each tab is a child route under
 // routes/_authenticated/workspace/, so the tab is now part of the PATH
@@ -46,13 +47,13 @@ function WorkspaceLayout() {
 function WorkspaceRouteError() {
   return (
     <main className={boundaryStyles.boundary}>
-      <section className={boundaryStyles.surface} data-testid="workspace-route-error">
+      <ErrorState className={boundaryStyles.surface} testId="workspace-route-error">
         <h1>워크스페이스를 불러오지 못했습니다</h1>
         <p>데이터 연결을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.</p>
         <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
           다시 시도
         </Button>
-      </section>
+      </ErrorState>
     </main>
   );
 }

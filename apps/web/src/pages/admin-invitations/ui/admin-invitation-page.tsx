@@ -6,7 +6,13 @@ import styles from './admin-invitation-page.module.css';
 import { issueInvitation, revokeInvitation } from '../model/admin-invitation-functions';
 
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
-import { Button, SelectBox, type SelectOption } from '@/shared/ui/primitives';
+import {
+  Button,
+  EmptyState,
+  SelectBox,
+  TextInput,
+  type SelectOption,
+} from '@/shared/ui/primitives';
 
 type AdminInvitationPageProps = {
   initialInvitations: AdminInvitation[];
@@ -140,9 +146,10 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
           <h2 id="issue-heading">새 가입 코드 발급</h2>
         </div>
         <form className={styles.form} onSubmit={handleIssue}>
-          <label>
+          <label htmlFor="invitation-label">
             <span>메모</span>
-            <input
+            <TextInput
+              id="invitation-label"
               name="label"
               minLength={1}
               maxLength={120}
@@ -232,7 +239,9 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
               {invitations.length === 0 ? (
                 <tr>
                   <td colSpan={6} className={styles.empty}>
-                    아직 발급한 코드가 없습니다.
+                    <EmptyState className={styles.tableEmpty}>
+                      아직 발급한 코드가 없습니다.
+                    </EmptyState>
                   </td>
                 </tr>
               ) : (

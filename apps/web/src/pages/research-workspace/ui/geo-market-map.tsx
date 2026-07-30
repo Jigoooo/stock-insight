@@ -11,6 +11,7 @@ import {
   unwrapPositionsForMinimumLongitudeSpan,
 } from '../model/geo-map-geometry';
 
+import { IconButton } from '@/shared/ui/primitives/button';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 
 const EMPTY_MAP_STYLE = {
@@ -297,18 +298,20 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
         />
         {currentRenderState !== 'fallback' ? (
           <div className={styles.geoMapControls} aria-label="지도 조작">
-            <button
+            <IconButton
               type="button"
               className={styles.geoMapControl}
+              motion="quiet"
               aria-label="지도 확대"
               disabled={currentRenderState !== 'ready'}
               onClick={() => mapRef.current?.zoomIn({ duration: reducedMotion === true ? 0 : 200 })}
             >
               <Plus aria-hidden="true" />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               type="button"
               className={styles.geoMapControl}
+              motion="quiet"
               aria-label="지도 축소"
               disabled={currentRenderState !== 'ready'}
               onClick={() =>
@@ -316,16 +319,17 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
               }
             >
               <Minus aria-hidden="true" />
-            </button>
-            <button
+            </IconButton>
+            <IconButton
               type="button"
               className={styles.geoMapControl}
+              motion="quiet"
               aria-label="지도 범위 초기화"
               disabled={currentRenderState !== 'ready'}
               onClick={resetBounds}
             >
               <RotateCcw aria-hidden="true" />
-            </button>
+            </IconButton>
           </div>
         ) : null}
         <output className={styles.geoMapStatus} aria-live="polite">

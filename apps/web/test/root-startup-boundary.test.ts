@@ -83,10 +83,11 @@ describe('public root startup boundary', () => {
 
     for (const source of [workspaceLayout, workspaceRoute]) {
       assert.doesNotMatch(source, /from ['"]@\/shared\/ui\/primitives['"]/);
-      assert.doesNotMatch(source, /ErrorState|Skeleton(?:Lines)?/);
       assert.doesNotMatch(source, /WorkspaceRoutePending/);
     }
     assert.match(workspaceLayout, /primitives\/button/);
+    assert.match(workspaceLayout, /primitives\/feedback/);
+    assert.match(workspaceLayout, /<ErrorState\b/);
     assert.match(workspaceRoute, /viewLoadError/);
   });
 

@@ -54,7 +54,7 @@ import { filterWorkspaceStocks } from '../model/workspace-search-filter';
 import { isLatestWorkspaceIntent } from '../model/workspace-transition-policy';
 import type { ResearchWorkspaceViewPayload } from '../model/workspace-view-payload';
 
-import { Button, IconButton } from '@/shared/ui/primitives';
+import { Button, ErrorState, IconButton } from '@/shared/ui/primitives';
 import { createApiClient } from '@stock-insight/api-client';
 import type {
   DecisionHistoryPage,
@@ -960,11 +960,7 @@ export function ResearchWorkspacePage({
           viewKey={section}
         >
           {viewLoadError && (
-            <section
-              className={styles.viewLoadError}
-              data-testid="workspace-view-load-error"
-              role="alert"
-            >
+            <ErrorState className={styles.viewLoadError} testId="workspace-view-load-error">
               <AlertCircle aria-hidden="true" />
               <div>
                 <strong>
@@ -976,7 +972,7 @@ export function ResearchWorkspacePage({
               <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
                 다시 시도
               </Button>
-            </section>
+            </ErrorState>
           )}
           {section === 'today' && data.view === 'today' && (
             <TodayView

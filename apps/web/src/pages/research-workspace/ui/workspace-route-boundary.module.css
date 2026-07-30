@@ -8,14 +8,17 @@
 }
 
 .surface {
-  display: grid;
   width: min(100%, 460px);
-  gap: 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
   padding: 28px;
   background: var(--color-surface);
   box-shadow: var(--shadow-panel);
+}
+
+.surface [data-slot='feedback-content'] {
+  display: grid;
+  gap: 16px;
 }
 
 .surface h1 {
