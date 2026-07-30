@@ -83,6 +83,7 @@ export function SignupPage({
     <AuthShell headingId="signup-form-heading">
       <PresenceRegion
         className={styles.availabilityRegion}
+        mode="wait"
         presenceKey={availability}
         present
         initial={{ opacity: 0 }}

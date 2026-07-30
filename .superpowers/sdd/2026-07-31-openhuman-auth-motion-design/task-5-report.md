@@ -44,11 +44,24 @@ The first browser visual gate also failed 8/8 because reduced motion could retai
 initial `translateY(12px)`. The shell and signup state transition were narrowed to opacity-only
 motion; the same gate then passed 8/8.
 
+### Review fix — unique signup heading reference
+
+The first implementation used the default synchronous presence transition. During the 180ms
+crossfade, the exiting and entering views both exposed `id="signup-form-heading"`, so the
+`main[aria-labelledby]` reference temporarily resolved to two elements.
+
+A browser mutation probe was added before the production fix for each
+`checking` → `available`/`unavailable`/`error` path. It observed RED at 0/3 passed, including the
+duplicate reference. `PresenceRegion` now uses `mode="wait"`, retaining the exiting heading until
+it is removed and only then mounting the next heading. The same probe passes 6/6 across desktop
+and mobile, and verifies every recorded `aria-labelledby` resolution has a count of exactly one.
+
 ### GREEN
 
 - Focused auth/root structure suite: 19 passed, 0 failed.
 - Full web unit suite: 462 passed, 0 failed.
-- Login/signup desktop and mobile E2E: 20 passed, 0 failed, 4 credential-gated tests skipped.
+- Login/signup desktop and mobile E2E: 26 passed, 0 failed, 4 credential-gated tests skipped,
+  including six unique-heading transition probes.
 - Auth visual/Axe gate: 8 passed, 0 failed across desktop/mobile, light/dark, and reduced motion.
 - Available-signup visual fixture: 2 passed, 0 failed.
 

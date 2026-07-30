@@ -10,11 +10,102 @@ const lifecycleConfigured = Boolean(
   oldUsername && oldPassword && newUsername && newPassword && enrollmentCode,
 );
 
+const enrollmentStatusResponse = (available: boolean) => ({
+  i: 0,
+  o: 0,
+  p: {
+    k: ['result', 'error', 'context'],
+    v: [
+      { i: 1, o: 0, p: { k: ['available'], v: [{ s: available ? 2 : 0, t: 2 }] }, t: 10 },
+      { s: 1, t: 2 },
+      { i: 2, o: 0, p: { k: [], v: [] }, t: 10 },
+    ],
+  },
+  t: 10,
+});
+
 async function privateStatus(page: Page): Promise<number> {
   return page.evaluate(async () => (await fetch('/api/status')).status);
 }
 
+async function installHeadingReferenceProbe(page: Page) {
+  await page.addInitScript(() => {
+    const samples: Array<{ count: number; id: string }> = [];
+    const capture = () => {
+      const main = document.querySelector('main[aria-labelledby]');
+      const id = main?.getAttribute('aria-labelledby');
+      if (!id) return;
+      samples.push({
+        count: document.querySelectorAll(`#${CSS.escape(id)}`).length,
+        id,
+      });
+    };
+
+    new MutationObserver(capture).observe(document, {
+      attributes: true,
+      attributeFilter: ['aria-labelledby'],
+      childList: true,
+      subtree: true,
+    });
+    window.addEventListener('DOMContentLoaded', capture);
+    Object.assign(window, { __authHeadingReferenceSamples: samples });
+  });
+}
+
+async function expectUniqueHeadingReference(page: Page) {
+  const samples = await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __authHeadingReferenceSamples?: Array<{ count: number; id: string }>;
+        }
+      ).__authHeadingReferenceSamples ?? [],
+  );
+
+  expect(samples.length).toBeGreaterThan(0);
+  expect(samples.every(({ count }) => count === 1)).toBe(true);
+  const main = page.locator('main[aria-labelledby]');
+  const headingId = await main.getAttribute('aria-labelledby');
+  expect(headingId).not.toBeNull();
+  await expect(page.locator(`#${headingId}`)).toHaveCount(1);
+}
+
 test.describe('one-time enrollment presentation', () => {
+  for (const target of ['available', 'unavailable', 'error'] as const) {
+    test(`keeps the checking to ${target} heading reference unique`, async ({ page }) => {
+      await installHeadingReferenceProbe(page);
+      await page.route('**/_serverFn/**', async (route) => {
+        if (route.request().method() !== 'GET') {
+          await route.continue();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        if (target === 'error') {
+          await route.fulfill({ body: 'status unavailable', status: 503 });
+          return;
+        }
+        await route.fulfill({
+          body: JSON.stringify(enrollmentStatusResponse(target === 'available')),
+          headers: {
+            'content-type': 'application/json',
+            'x-tss-serialized': 'true',
+          },
+          status: 200,
+        });
+      });
+
+      await page.goto('/signup');
+      const targetHeading =
+        target === 'available'
+          ? '계정을 설정하세요.'
+          : target === 'unavailable'
+            ? '가입 완료'
+            : '가입 상태를 확인하지 못했습니다.';
+      await expect(page.getByRole('heading', { name: targetHeading, exact: true })).toBeVisible();
+      await expectUniqueHeadingReference(page);
+    });
+  }
+
   test('uses the same centered auth shell at desktop and mobile widths', async ({ page }) => {
     await page.goto('/signup');
 
