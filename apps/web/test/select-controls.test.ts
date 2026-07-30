@@ -12,7 +12,7 @@ const options = [
 ] as const;
 
 describe('select option behavior', () => {
-  it('moves with arrows, Home, and End while wrapping past disabled options', async () => {
+  it('moves with arrows, Home, and End without wrapping past boundaries', async () => {
     const controller =
       await import('../src/shared/ui/primitives/select-controls-controller.ts').catch(() => null);
     assert.ok(controller, 'select controls controller must exist');
@@ -31,7 +31,7 @@ describe('select option behavior', () => {
         key: 'ArrowDown',
         options,
       }),
-      0,
+      2,
     );
     assert.equal(
       controller.getNextEnabledOptionIndex({
@@ -39,7 +39,7 @@ describe('select option behavior', () => {
         key: 'ArrowUp',
         options,
       }),
-      2,
+      0,
     );
     assert.equal(
       controller.getNextEnabledOptionIndex({

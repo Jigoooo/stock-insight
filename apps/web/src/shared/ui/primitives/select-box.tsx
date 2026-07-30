@@ -56,6 +56,7 @@ export function SelectBox({
   const listboxId = `${generatedId}-listbox`;
   const rootRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -71,16 +72,16 @@ export function SelectBox({
     onValueChange?.(nextValue);
   };
 
-  const openListbox = () => {
+  const openListbox = (placement: 'selected' | 'first' | 'last' = 'selected') => {
     const selectedIndex = options.findIndex(
       (option) => option.value === selectedValue && !option.disabled,
     );
-    const firstIndex = getNextEnabledOptionIndex({
+    const boundaryIndex = getNextEnabledOptionIndex({
       currentIndex: -1,
-      key: 'ArrowDown',
+      key: placement === 'last' ? 'End' : 'Home',
       options,
     });
-    setActiveIndex(selectedIndex >= 0 ? selectedIndex : firstIndex);
+    setActiveIndex(placement === 'selected' && selectedIndex >= 0 ? selectedIndex : boundaryIndex);
     setOpen(true);
   };
 
@@ -124,6 +125,11 @@ export function SelectBox({
     [],
   );
 
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
+
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     switch (event.key) {
       case 'ArrowDown':
@@ -133,7 +139,7 @@ export function SelectBox({
         event.preventDefault();
         const key = event.key as NavigationKey;
         if (!open) {
-          openListbox();
+          openListbox(key === 'Home' ? 'first' : key === 'End' ? 'last' : 'selected');
           return;
         }
         setActiveIndex((currentIndex) => getNextEnabledOptionIndex({ currentIndex, key, options }));
@@ -154,7 +160,8 @@ export function SelectBox({
         setOpen(false);
         return;
       case 'Tab':
-        setOpen(false);
+        if (open && activeIndex >= 0) selectIndex(activeIndex);
+        else setOpen(false);
         return;
       default:
         break;
@@ -183,7 +190,15 @@ export function SelectBox({
 
   return (
     <div ref={rootRef} className={classNames(styles.control, className)}>
-      {name ? <input ref={hiddenInputRef} type="hidden" name={name} value={selectedValue} /> : null}
+      {name ? (
+        <input
+          ref={hiddenInputRef}
+          disabled={disabled}
+          type="hidden"
+          name={name}
+          value={selectedValue}
+        />
+      ) : null}
       <button
         id={triggerId}
         aria-activedescendant={activeDescendant}
@@ -217,9 +232,12 @@ export function SelectBox({
         role="listbox"
       >
         {options.map((option, index) => {
-          const selected = option.value === selectedValue;
+          const selected = open ? index === activeIndex : option.value === selectedValue;
           return (
             <button
+              ref={(element) => {
+                optionRefs.current[index] = element;
+              }}
               key={option.value}
               id={`${listboxId}-option-${index}`}
               aria-disabled={option.disabled || undefined}

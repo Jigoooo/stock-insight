@@ -75,6 +75,7 @@ export function Combobox({
   const rootRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [internalQuery, setInternalQuery] = useState(initialQuery);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
@@ -86,7 +87,9 @@ export function Combobox({
     [filter, options, queryValue],
   );
   const activeDescendant =
-    open && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
+    open && activeIndex >= 0 && filteredOptions[activeIndex]
+      ? `${listboxId}-option-${activeIndex}`
+      : undefined;
 
   const setSelectedValue = (nextValue: string) => {
     if (value === undefined) setInternalValue(nextValue);
@@ -134,6 +137,11 @@ export function Combobox({
     return () => form.removeEventListener('reset', reset);
   }, [defaultValue, initialQuery, onQueryChange, onValueChange, query, value]);
 
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
+
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextQuery = event.currentTarget.value;
     setQueryValue(nextQuery);
@@ -176,7 +184,8 @@ export function Combobox({
         setOpen(false);
         return;
       case 'Tab':
-        setOpen(false);
+        if (open && activeIndex >= 0) selectIndex(activeIndex);
+        else setOpen(false);
         return;
       default:
         return;
@@ -197,7 +206,15 @@ export function Combobox({
 
   return (
     <div ref={rootRef} className={classNames(styles.control, className)}>
-      {name ? <input ref={hiddenInputRef} type="hidden" name={name} value={selectedValue} /> : null}
+      {name ? (
+        <input
+          ref={hiddenInputRef}
+          disabled={disabled}
+          type="hidden"
+          name={name}
+          value={selectedValue}
+        />
+      ) : null}
       <div className={styles.inputShell} data-disabled={disabled}>
         <input
           ref={inputRef}
@@ -255,9 +272,12 @@ export function Combobox({
           </div>
         ) : (
           filteredOptions.map((option, index) => {
-            const selected = option.value === selectedValue;
+            const selected = open ? index === activeIndex : option.value === selectedValue;
             return (
               <button
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
                 key={option.value}
                 id={`${listboxId}-option-${index}`}
                 aria-disabled={option.disabled || undefined}

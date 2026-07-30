@@ -35,11 +35,13 @@ export function getNextEnabledOptionIndex({ currentIndex, key, options }: Naviga
   if (key === 'End') return findEnabledIndex(options, true);
 
   const direction = key === 'ArrowDown' ? 1 : -1;
-  const fallback = direction === 1 ? -1 : 0;
-  const startIndex = currentIndex >= 0 ? currentIndex : fallback;
+  if (currentIndex < 0) return findEnabledIndex(options, direction === -1);
 
-  for (let offset = 1; offset <= options.length; offset += 1) {
-    const index = (startIndex + direction * offset + options.length) % options.length;
+  for (
+    let index = currentIndex + direction;
+    index >= 0 && index < options.length;
+    index += direction
+  ) {
     if (!options[index]?.disabled) return index;
   }
 
