@@ -8,11 +8,13 @@ const env = loadEnv('dev', webRoot, '');
 const serverPort = resolveDevServerPort(process.env.PLAYWRIGHT_PORT ?? env.VITE_PORT);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${serverPort}`;
 const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
+const excludeMotionPerformance = process.env.PLAYWRIGHT_EXCLUDE_MOTION_PERFORMANCE === '1';
 const configuredWorkers = Number.parseInt(process.env.PLAYWRIGHT_WORKERS ?? '', 10);
 const workers = Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 4;
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: excludeMotionPerformance ? /motion-performance\.spec\.ts$/ : undefined,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

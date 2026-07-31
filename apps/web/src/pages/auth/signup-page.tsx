@@ -126,7 +126,7 @@ export function SignupPage({
             title="가입 완료"
             description="가입 가능한 계정이 이미 설정되어 있습니다. 기존 계정으로 로그인해 주세요."
             action={
-              <TextLink className={styles.primaryLink} motion="pressable" href="/login">
+              <TextLink className={styles.primaryLink} motion="quiet" href="/login">
                 로그인
               </TextLink>
             }

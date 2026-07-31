@@ -85,6 +85,23 @@ describe('one-time signup source contract', () => {
     assert.match(page, /가입 가능한 계정이 이미 설정되어 있습니다/);
   });
 
+  it('keeps auth navigation links free of scaling motion', async () => {
+    const [signupPage, loginPage] = await Promise.all([
+      readFile(pageUrl, 'utf8'),
+      readFile(loginPageUrl, 'utf8'),
+    ]);
+
+    for (const [source, href] of [
+      [signupPage, '/login'],
+      [loginPage, '/signup'],
+    ] as const) {
+      const link = source.match(new RegExp(`<TextLink[^>]*href="${href}"[^>]*>`));
+      assert.ok(link, `auth navigation link to ${href} must exist`);
+      assert.match(link[0], /motion="(?:quiet|none)"/);
+      assert.doesNotMatch(link[0], /motion="pressable"/);
+    }
+  });
+
   it('keeps responsive and accessible preference fallbacks without locking one aesthetic', async () => {
     assert.equal(existsSync(stylesheetUrl), true, 'signup stylesheet must exist');
     const [stylesheet, rootRoute, rootComponent] = await Promise.all([

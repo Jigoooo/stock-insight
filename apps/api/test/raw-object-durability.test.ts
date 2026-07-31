@@ -21,11 +21,22 @@ test('P0 raw-object durability is fail-closed and verifies the physical replica 
   assert.doesNotMatch(source, /done\s*<\s*<\(/);
 
   const root = await mkdtemp(join(tmpdir(), 'p0-raw-durability-'));
+  const bin = join(root, 'bin');
   const primary = join(root, 'primary');
   const replica = join(root, 'replica');
   const fakePsql = join(root, 'fake-psql');
+  await mkdir(bin);
   await mkdir(primary);
   await mkdir(replica);
+  const fakeRealpath = join(bin, 'realpath');
+  const fakeSha256sum = join(bin, 'sha256sum');
+  await writeFile(
+    fakeRealpath,
+    '#!/usr/bin/env bash\nfor arg in "$@"; do case "$arg" in -m|--) ;; *) path="$arg" ;; esac; done\nexec /bin/realpath "$path"\n',
+  );
+  await writeFile(fakeSha256sum, '#!/usr/bin/env bash\nexec /usr/bin/shasum -a 256 "$@"\n');
+  await chmod(fakeRealpath, 0o700);
+  await chmod(fakeSha256sum, 0o700);
   await writeFile(
     fakePsql,
     '#!/usr/bin/env bash\nif [[ "${FAKE_PSQL_MODE:-ok}" == fail ]]; then exit 41; fi\nprintf "%s\\n" "$FIXTURE_URI"\n',
@@ -33,6 +44,7 @@ test('P0 raw-object durability is fail-closed and verifies the physical replica 
   await chmod(fakePsql, 0o700);
   const baseEnv = {
     ...process.env,
+    PATH: `${bin}:${process.env.PATH ?? ''}`,
     PRIMARY_ROOT: primary,
     REPLICA_ROOT: replica,
     PSQL_BIN: fakePsql,

@@ -38,6 +38,8 @@ function runWrapper(gateResult: '0' | '1', runnerOutput?: string) {
         }),
     );
     executable(join(bin, 'curl'), '#!/usr/bin/env bash\nexit 0\n');
+    executable(join(bin, 'flock'), '#!/usr/bin/env bash\nexit 0\n');
+    executable(join(bin, 'stat'), '#!/usr/bin/env bash\n/usr/bin/id -u\n');
     executable(
       join(bin, 'psql'),
       `#!/usr/bin/env bash\nset -eu\nprintf '%s\\n' "$*" >>${JSON.stringify(log)}\ncount=0\n[[ ! -f ${JSON.stringify(countFile)} ]] || count=$(cat ${JSON.stringify(countFile)})\ncount=$((count + 1))\nprintf '%s' "$count" >${JSON.stringify(countFile)}\nif [[ "$count" == 1 ]]; then printf '1\\n'; else printf '%s\\n' "\${PSQL_GATE_RESULT}"; fi\n`,
