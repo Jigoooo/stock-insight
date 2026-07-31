@@ -1,5 +1,9 @@
 'use client';
 
+// Upstream: https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/accordion/index.tsx
+// Registry item: @animate-ui/primitives-radix-accordion
+// Revision: efeb96ffd7a3b7a4868667e4ac3c346620fb3044
+
 import * as React from 'react';
 import { Accordion as AccordionPrimitive } from 'radix-ui';
 import { motion, AnimatePresence, type HTMLMotionProps } from 'motion/react';

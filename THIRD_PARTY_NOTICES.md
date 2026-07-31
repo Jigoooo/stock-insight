@@ -20,6 +20,17 @@ Workspace registry imports:
 | `@animate-ui/components-radix-tooltip` | https://animate-ui.com/docs/components/radix/tooltip | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
 | `@animate-ui/components-radix-accordion` | https://animate-ui.com/docs/components/radix/accordion | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
 | `@animate-ui/components-radix-popover` | https://animate-ui.com/docs/components/radix/popover | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-effects-auto-height` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/effects/auto-height/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-effects-highlight` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/effects/highlight/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-accordion` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/accordion/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-checkbox` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/checkbox/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-popover` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/popover/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-sheet` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/sheet/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-tabs` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/tabs/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/primitives-radix-tooltip` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/primitives/radix/tooltip/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/lib-get-strict-context` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/lib/get-strict-context/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/hooks-use-auto-height` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/hooks/use-auto-height/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/hooks-use-controlled-state` | https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/hooks/use-controlled-state/index.tsx | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
 
 MIT + Commons Clause License Condition
 
@@ -52,6 +63,12 @@ DEALINGS IN THE SOFTWARE.
 ## shadcn/ui
 
 Source: https://github.com/shadcn-ui/ui
+
+Workspace registry imports:
+
+| Registry item | Upstream | Revision | License |
+| --- | --- | --- | --- |
+| `use-mobile` | https://github.com/shadcn-ui/ui/blob/cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4/apps/v4/registry/new-york-v4/hooks/use-mobile.ts | `cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4` | MIT License |
 
 MIT License
 

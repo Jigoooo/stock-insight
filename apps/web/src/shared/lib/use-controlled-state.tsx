@@ -1,5 +1,9 @@
 /* oxlint-disable react-hooks-js/set-state-in-effect -- Official Animate UI controlled-state hook mirrors controlled prop changes. */
 
+// Upstream: https://github.com/imskyleen/animate-ui/blob/efeb96ffd7a3b7a4868667e4ac3c346620fb3044/apps/www/registry/hooks/use-controlled-state/index.tsx
+// Registry item: @animate-ui/hooks-use-controlled-state
+// Revision: efeb96ffd7a3b7a4868667e4ac3c346620fb3044
+
 import * as React from 'react';
 
 interface CommonControlledStateProps<T> {
