@@ -19,6 +19,7 @@ export const Route = createFileRoute('/_authenticated/workspace/today')({
       signal: abortController.signal,
       userId: context.session.user.id,
     }),
+  head: () => ({ meta: [{ title: '오늘 | Stock Insight' }] }),
   pendingMs: Number.POSITIVE_INFINITY,
   component: WorkspaceView,
 });

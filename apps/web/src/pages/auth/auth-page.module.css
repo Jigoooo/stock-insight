@@ -161,13 +161,24 @@
 }
 
 .feedbackSlot {
+  position: relative;
   display: grid;
-  min-height: 20px;
+  min-height: 36px;
+  height: 36px;
   margin-top: 1px;
 }
 
-.errorMessage,
-.pendingMessage {
+.feedbackAnnouncement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.feedbackVisual {
   grid-area: 1 / 1;
   margin: 0;
   font-size: 11px;
@@ -175,11 +186,11 @@
   overflow-wrap: anywhere;
 }
 
-.errorMessage {
+.feedbackError {
   color: var(--color-risk);
 }
 
-.pendingMessage {
+.feedbackPending {
   color: var(--color-text-tertiary);
 }
 

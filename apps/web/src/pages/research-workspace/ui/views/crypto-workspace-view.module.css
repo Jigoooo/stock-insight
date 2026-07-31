@@ -26,36 +26,6 @@
   line-height: 1.5;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0;
-}
-
-.stats > div {
-  min-width: 0;
-  padding: 18px;
-  border-radius: 16px;
-  background: var(--color-surface-subtle);
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-text-primary) 6%, transparent);
-}
-
-.stats dt {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.stats dd {
-  margin: 8px 0 0;
-  color: var(--color-text-primary);
-  font-size: clamp(24px, 2.4vw, 34px);
-  font-weight: 680;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
 .contentGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -66,14 +36,9 @@
 .assetPanel,
 .companyPanel,
 .eventPanel,
-.riskPanel {
+.riskPanel,
+.limitationsPanel {
   min-width: 0;
-  padding: 20px;
-  border-radius: 18px;
-  background: var(--color-surface);
-  box-shadow:
-    0 12px 30px color-mix(in srgb, var(--color-text-primary) 5%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
 }
 
 .assetPanel,
@@ -86,7 +51,7 @@
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
   padding: 0;
-  margin: 0;
+  margin: 0 20px 20px;
   list-style: none;
 }
 
@@ -157,7 +122,7 @@
 
 .tableWrap {
   min-width: 0;
-  overflow-x: auto;
+  margin: 0 20px 20px;
   border-radius: 12px;
   background: var(--color-surface-subtle);
 }
@@ -233,7 +198,7 @@
   display: grid;
   gap: 10px;
   padding: 0;
-  margin: 0;
+  margin: 0 20px 20px;
   list-style: none;
 }
 
@@ -345,7 +310,7 @@
 }
 
 .emptyCopy {
-  margin: 0;
+  margin: 0 20px 20px;
   padding: 24px;
   border-radius: 14px;
   color: var(--color-text-secondary);
@@ -355,12 +320,31 @@
   text-align: center;
 }
 
+.limitations {
+  margin: 0 20px 20px;
+}
+
+.availabilityStates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 20px 20px;
+}
+
+.availabilityStates > div {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .availabilityStates {
     grid-template-columns: 1fr;
   }
 
@@ -375,18 +359,6 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;
-  }
-
-  .stats {
-    gap: 8px;
-  }
-
-  .stats > div,
-  .assetPanel,
-  .companyPanel,
-  .eventPanel,
-  .riskPanel {
-    padding: 15px;
   }
 
   .sectionHeader {

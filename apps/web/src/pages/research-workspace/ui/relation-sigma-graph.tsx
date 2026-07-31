@@ -3,7 +3,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type Sigma from 'sigma';
 import type { EdgeDisplayData, NodeDisplayData } from 'sigma/types';
 
-import styles from './research-workspace-page.module.css';
+import styles from './relation-detail.module.css';
 
 import {
   buildRelationGraph,
@@ -482,12 +482,12 @@ export function RelationSigmaGraph({
         aria-label={`${relationRootLabel(source)} 관계 지도`}
         aria-describedby={descriptionId}
       />
-      <p id={descriptionId} className={styles.srOnly}>
+      <p id={descriptionId} className={styles.relationSrOnly}>
         기준 시각까지 사람이 확인한 관계 {source.edges.length}개. 검색이나 아래 노드 목록으로 키보드
         탐색할 수 있습니다.
       </p>
       <output
-        className={styles.srOnly}
+        className={styles.relationSrOnly}
         aria-live="polite"
         data-testid="relation-interaction-status"
       >

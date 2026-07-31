@@ -20,7 +20,7 @@ const statusUrl = new URL(
 );
 
 describe('workspace relation crossfade', () => {
-  it('crossfades one scoped container with opacity only', async () => {
+  it('crossfades one scoped container with opacity and exactly 2px of offset', async () => {
     const source = await readFile(hookUrl, 'utf8');
 
     assert.match(source, /from 'motion\/react'/);
@@ -32,14 +32,20 @@ describe('workspace relation crossfade', () => {
     assert.match(source, /useBeforePaintEffect\(\(\) =>/);
     assert.match(source, /\banimate\(/);
     assert.match(source, /container\.style\.opacity = '0'/);
+    assert.match(source, /container\.style\.transform = 'translateY\(2px\)'/);
     assert.match(source, /opacity:\s*1/);
+    assert.match(source, /transform:\s*'translateY\(0px\)'/);
     assert.match(source, /duration:\s*0\.16/);
     assert.match(source, /removeProperty\('opacity'\)/);
+    assert.match(source, /removeProperty\('transform'\)/);
     assert.match(source, /reducedMotion \|\| forcedColors/);
     assert.match(source, /\[normalizeMotion, scopeRef, stateKey\]/);
     assert.doesNotMatch(source, /@gsap\/react|from ['"]gsap['"]|useGSAP/);
     assert.doesNotMatch(source, /\buseEffect\(\(\) =>/);
-    assert.doesNotMatch(source, /querySelector|stagger|\by:|\bx:|scale|width:|height:/);
+    assert.doesNotMatch(
+      source,
+      /translateY\((?![02]px\))|querySelector|stagger|\by:|\bx:|scale|width:|height:/,
+    );
   });
 
   it('keys the relation content by state and root without touching individual nodes', async () => {

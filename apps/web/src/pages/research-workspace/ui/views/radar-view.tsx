@@ -1,20 +1,19 @@
 import { useRef } from 'react';
 
 import { marketConnectionLabel } from '../../model/market-overview';
+import styles from '../feed-ledger.module.css';
 import { MarketOverviewPanel } from '../market-overview-panel';
 import {
-  PageHeader,
-  WorkspaceState,
   type DetailState,
   formatDate,
   marketLabel,
   signalTypeLabel,
 } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/primitives';
+import { PageHeader, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
@@ -48,7 +47,7 @@ export function RadarView({
         data={data}
         geoSnapshot={geoSnapshot}
         eventContent={
-          <div ref={ledgerRef} className={styles.ledger}>
+          <div ref={ledgerRef}>
             {data.items.length === 0 ? (
               <WorkspaceState
                 kind="empty"
@@ -56,38 +55,40 @@ export function RadarView({
                 description="시장 데이터가 들어오면 강도와 관심 연결을 함께 보여드립니다."
               />
             ) : (
-              data.items.map((item) => (
-                <article
-                  key={item.signalKey}
-                  className={styles.ledgerRow}
-                  data-append-key={item.signalKey}
-                  data-testid="radar-row"
-                >
-                  <span className={styles.market}>{marketLabel(item.market)}</span>
-                  <div>
-                    <strong>
-                      {item.name} <small>{item.symbol}</small>
-                    </strong>
-                    <p>{presentResearchSummary(item.summary)}</p>
-                  </div>
-                  <div className={styles.strength}>
-                    <span
-                      style={
-                        {
-                          '--strength': `${Math.round(item.strength * 100)}%`,
-                        } as React.CSSProperties
-                      }
-                    />
-                    <strong>{Math.round(item.strength * 100)}</strong>
-                  </div>
-                  <div className={styles.rowMeta}>
-                    <span>
-                      {marketConnectionLabel(item)} · {signalTypeLabel(item.signalType)}
-                    </span>
-                    <time>{formatDate(item.occurredAt, true)}</time>
-                  </div>
-                </article>
-              ))
+              <StructuredList className={styles.ledger} aria-label="시장 신호 목록">
+                {data.items.map((item) => (
+                  <li
+                    key={item.signalKey}
+                    className={styles.ledgerRow}
+                    data-append-key={item.signalKey}
+                    data-testid="radar-row"
+                  >
+                    <span className={styles.market}>{marketLabel(item.market)}</span>
+                    <div>
+                      <strong>
+                        {item.name} <small>{item.symbol}</small>
+                      </strong>
+                      <p>{presentResearchSummary(item.summary)}</p>
+                    </div>
+                    <div className={styles.strength}>
+                      <span
+                        style={
+                          {
+                            '--strength': `${Math.round(item.strength * 100)}%`,
+                          } as React.CSSProperties
+                        }
+                      />
+                      <strong>{Math.round(item.strength * 100)}</strong>
+                    </div>
+                    <div className={styles.rowMeta}>
+                      <span>
+                        {marketConnectionLabel(item)} · {signalTypeLabel(item.signalType)}
+                      </span>
+                      <time>{formatDate(item.occurredAt, true)}</time>
+                    </div>
+                  </li>
+                ))}
+              </StructuredList>
             )}
           </div>
         }

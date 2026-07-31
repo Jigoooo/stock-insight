@@ -9,6 +9,7 @@ const viewFiles = [
   ['TodayView', 'views/today-view.tsx'],
   ['RadarView', 'views/radar-view.tsx'],
   ['StocksView', 'views/stocks-view.tsx'],
+  ['CryptoWorkspaceView', 'views/crypto-workspace-view.tsx'],
   ['ThemesView', 'views/themes-view.tsx'],
   ['MyResearchView', 'views/my-research-view.tsx'],
   ['HistoryView', 'views/history-view.tsx'],
@@ -24,7 +25,7 @@ describe('workspace shell and keyed view-region contract', () => {
 
     for (const [index, [component, path]] of viewFiles.entries()) {
       assert.match(views[index], new RegExp(`export function ${component}`), path);
-      assert.match(page, new RegExp(`from './${path.replace(/\.tsx$/, '')}'`), path);
+      assert.match(page, new RegExp(`import\\('./${path.replace(/\.tsx$/, '')}'\\)`), path);
       assert.doesNotMatch(page, new RegExp(`function ${component}\\(`), path);
     }
   });
@@ -32,10 +33,10 @@ describe('workspace shell and keyed view-region contract', () => {
   it('keeps shell chrome outside the keyed view subtree', async () => {
     const [page, shell] = await Promise.all([
       read('research-workspace-page.tsx'),
-      read('research-workspace-shell.tsx'),
+      read('../../../widgets/workspace-shell/ui/workspace-shell.tsx'),
     ]);
 
-    assert.match(page, /ResearchWorkspaceShell/);
+    assert.match(page, /WorkspaceShell/);
     assert.match(page, /WorkspaceViewRegion/);
     assert.match(shell, /data-workspace-shell/);
     assert.match(shell, /children/);
@@ -54,41 +55,52 @@ describe('workspace shell and keyed view-region contract', () => {
     assert.match(region, /navigationFocusOwnerRef/);
     assert.match(region, /closest\('\[data-testid\^="workspace-nav-"\]'/);
     assert.match(region, /currentRef\.current\?\.contains\(activeFocus\)/);
-    assert.match(region, /document\.activeElement === navigationFocusOwnerRef\.current/);
+    assert.match(region, /resolvedViewKey/);
+    assert.match(region, /resolveWorkspaceViewFocus/);
+    assert.match(region, /isWorkspaceFocusStillOwned/);
   });
 
   it('uses APG manual activation: arrows move roving focus without committing a lane', async () => {
-    const today = await read('views/today-view.tsx');
+    const [today, tabs, e2e] = await Promise.all([
+      read('views/today-view.tsx'),
+      read('../../../shared/ui/animate-ui/primitives/radix/tabs.tsx'),
+      readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
+    ]);
 
     assert.doesNotMatch(today, /requestAnimationFrame/);
-    assert.match(today, /const \[rovingIntent, setRovingIntent\]/);
-    assert.match(today, /rovingIntent\.baseLane === lane \? rovingIntent\.targetLane : lane/);
-    assert.match(today, /setRovingIntent\(\{ baseLane: lane, targetLane: nextLane \}\)/);
-    assert.match(today, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
-    const focusHandler = today.slice(
-      today.indexOf('const moveLaneFocus'),
-      today.indexOf('return ('),
+    assert.match(today, /activationMode="manual"/);
+    assert.match(tabs, /type TabsProps = React\.ComponentProps<typeof TabsPrimitive\.Root>/);
+    assert.match(tabs, /<TabsPrimitive\.Root[\s\S]*?\{\.\.\.props\}/);
+    assert.doesNotMatch(today, /rovingIntent|rovingLane|onKeyDown|tabIndex|aria-selected/);
+    assert.match(e2e, /supports APG keyboard navigation across feed lanes/);
+    assert.match(e2e, /await expect\(tabs\.nth\(2\)\)\.toBeFocused\(\)/);
+    assert.match(
+      e2e,
+      /await expect\(tabs\.first\(\)\)\.toHaveAttribute\('aria-selected', 'true'\)/,
     );
-    assert.match(focusHandler, /setRovingLane\(nextLane\)/);
-    assert.doesNotMatch(focusHandler, /onLaneChange\(nextLane\)/);
+    assert.match(e2e, /await expect\(page\)\.not\.toHaveURL\(\/lane=explore\/\)/);
+    assert.match(e2e, /await page\.keyboard\.press\('Enter'\)/);
   });
 
   it('exposes navigation progress in persistent chrome while keeping committed content authoritative', async () => {
-    const page = await read('research-workspace-page.tsx');
+    const [page, topbar] = await Promise.all([
+      read('research-workspace-page.tsx'),
+      read('../../../widgets/workspace-shell/ui/workspace-topbar.tsx'),
+    ]);
 
     assert.match(page, /const viewNavigationPending =/);
-    assert.match(page, /<output/);
-    assert.match(page, /aria-live="polite"/);
-    assert.match(page, /data-testid="workspace-navigation-status"/);
-    assert.match(page, /여는 중/);
+    assert.match(topbar, /<output/);
+    assert.match(topbar, /aria-live="polite"/);
+    assert.match(topbar, /data-testid="workspace-navigation-status"/);
+    assert.match(topbar, /여는 중/);
     assert.match(page, /pending=\{viewNavigationPending\}/);
   });
 
   it('does not let mobile-menu cleanup steal focus from the committed view heading', async () => {
-    const page = await read('research-workspace-page.tsx');
+    const region = await read('workspace-view-region.tsx');
 
-    assert.match(page, /const activeFocus = document\.activeElement/);
-    assert.match(page, /container\.contains\(activeFocus\)/);
-    assert.match(page, /activeFocus === document\.body/);
+    assert.match(region, /const activeFocus = document\.activeElement/);
+    assert.match(region, /current\.contains\(activeFocus\)/);
+    assert.match(region, /activeFocus === document\.body/);
   });
 });

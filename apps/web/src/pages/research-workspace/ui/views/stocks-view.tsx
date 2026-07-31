@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   createLatestRequestGate,
@@ -6,9 +6,6 @@ import {
   type StockDeepDive,
 } from '../../model/stock-deep-dive';
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   analysisStatusLabel,
   availabilityLabels,
   formatDate,
@@ -17,47 +14,22 @@ import {
 } from '../research-workspace-page';
 import styles from '../research-workspace-page.module.css';
 import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
+import stockStyles from '../stock-deep-dive-panel.module.css';
 
 import { Button } from '@/shared/ui/primitives/button';
+import {
+  AvailabilityNotice,
+  DataTable,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 import { createApiClient } from '@stock-insight/api-client';
 import type { StockListResponse } from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 const compactWorkspaceQuery = '(max-width: 1240px)';
-const deepDiveFocusableSelector =
-  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
-
-function useCompactWorkspaceLayout(onBeforeChange: () => void, onAfterChange: () => void) {
-  const subscribe = useMemo(
-    () => (listener: () => void) => {
-      const media = window.matchMedia(compactWorkspaceQuery);
-      let firstFrame = 0;
-      let secondFrame = 0;
-      const handleChange = () => {
-        onBeforeChange();
-        listener();
-        cancelAnimationFrame(firstFrame);
-        cancelAnimationFrame(secondFrame);
-        firstFrame = requestAnimationFrame(() => {
-          secondFrame = requestAnimationFrame(onAfterChange);
-        });
-      };
-      media.addEventListener('change', handleChange);
-      return () => {
-        media.removeEventListener('change', handleChange);
-        cancelAnimationFrame(firstFrame);
-        cancelAnimationFrame(secondFrame);
-      };
-    },
-    [onAfterChange, onBeforeChange],
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(compactWorkspaceQuery).matches,
-    () => false,
-  );
-}
-
 export function StocksView({
   data,
   pending,
@@ -70,46 +42,7 @@ export function StocksView({
   const api = useMemo(() => createApiClient(), []);
   const requestGateRef = useRef(createLatestRequestGate());
   const deepDiveRegionRef = useRef<HTMLDivElement>(null);
-  const pendingFocusRestoreRef = useRef<'region' | number | null>(null);
-  const captureDeepDiveFocus = useCallback(() => {
-    const region = deepDiveRegionRef.current;
-    const active = document.activeElement;
-    if (!region || !(active instanceof HTMLElement) || !region.contains(active)) {
-      if (active === document.body && pendingFocusRestoreRef.current !== null) return;
-      pendingFocusRestoreRef.current = null;
-      return;
-    }
-    if (active === region) {
-      pendingFocusRestoreRef.current = 'region';
-      return;
-    }
-    const focusables = Array.from(region.querySelectorAll<HTMLElement>(deepDiveFocusableSelector));
-    const activeIndex = focusables.indexOf(active);
-    pendingFocusRestoreRef.current = activeIndex >= 0 ? activeIndex : 'region';
-  }, []);
-  const restoreDeepDiveFocus = useCallback(() => {
-    const pendingFocus = pendingFocusRestoreRef.current;
-    if (pendingFocus === null) return;
-    const region = deepDiveRegionRef.current;
-    if (!region) {
-      pendingFocusRestoreRef.current = null;
-      return;
-    }
-    const active = document.activeElement;
-    if (active instanceof HTMLElement && active !== document.body && !region.contains(active)) {
-      pendingFocusRestoreRef.current = null;
-      return;
-    }
-    pendingFocusRestoreRef.current = null;
-    if (pendingFocus === 'region') {
-      region.focus({ preventScroll: true });
-      return;
-    }
-    const focusables = region.querySelectorAll<HTMLElement>(deepDiveFocusableSelector);
-    focusables.item(pendingFocus)?.focus({ preventScroll: true });
-  }, []);
-  const compactLayout = useCompactWorkspaceLayout(captureDeepDiveFocus, restoreDeepDiveFocus);
-  const [selectedEntityKey, setSelectedEntityKey] = useState<string>();
+  const [selectedStockKey, setSelectedStockKey] = useState<string>();
   const [deepDive, setDeepDive] = useState<StockDeepDive | null>(null);
   const [relation, setRelation] = useState<EntityRelationGraph | null>(null);
   const [detailState, setDetailState] = useState<StockDeepDivePanelState>('idle');
@@ -124,7 +57,7 @@ export function StocksView({
 
   async function loadDeepDive(entityKey: string) {
     const sequence = requestGateRef.current.next();
-    setSelectedEntityKey(entityKey);
+    setSelectedStockKey(entityKey);
     setDetailState('loading');
     setDetailError(undefined);
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -133,7 +66,7 @@ export function StocksView({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         deepDiveRegionRef.current?.focus({ preventScroll: true });
-        if (compactLayout) {
+        if (window.matchMedia(compactWorkspaceQuery).matches) {
           deepDiveRegionRef.current?.scrollIntoView({ behavior, block: 'start' });
         }
       });
@@ -159,7 +92,7 @@ export function StocksView({
   const detailRegion = (
     <div
       ref={deepDiveRegionRef}
-      className={styles.deepDiveRegion}
+      className={stockStyles.deepDiveRegion}
       data-state={detailState}
       data-testid="stock-deep-dive-region"
       tabIndex={-1}
@@ -169,7 +102,7 @@ export function StocksView({
         errorMessage={detailError}
         relation={relation}
         state={detailState}
-        onRetry={() => selectedEntityKey && void loadDeepDive(selectedEntityKey)}
+        onRetry={() => selectedStockKey && void loadDeepDive(selectedStockKey)}
         onSelectEntity={(entityKey) => void loadDeepDive(entityKey)}
       />
     </div>
@@ -184,35 +117,38 @@ export function StocksView({
         asOf={data.meta.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />
-      <div className={styles.stocksWorkspace}>
-        {compactLayout ? detailRegion : null}
-
-        <section
-          className={styles.panel}
-          data-pending={pending || undefined}
-          aria-busy={pending || undefined}
-        >
-          <header className={styles.panelHeader}>
-            <div>
-              <h2>종목 커버리지</h2>
-              <p aria-live="polite">
-                {pending
-                  ? '검색 결과를 갱신하고 있습니다'
-                  : `${stocks.length}개 표시 · ${availabilityLabels[data.availability]}`}
-              </p>
-            </div>
-          </header>
-          <div className={styles.tableWrap}>
-            <table className={styles.stockTable}>
-              <caption className={styles.srOnly}>종목 커버리지</caption>
+      <div className={stockStyles.stocksWorkspace}>
+        <Panel data-pending={pending || undefined} aria-busy={pending || undefined}>
+          <PanelHeader>
+            <h2>종목 커버리지</h2>
+            <p aria-live="polite">
+              {pending
+                ? '검색 결과를 갱신하고 있습니다'
+                : `${stocks.length}개 표시 · ${availabilityLabels[data.availability]}`}
+            </p>
+          </PanelHeader>
+          <p id="stock-table-scroll-hint" className={stockStyles.tableScrollHint}>
+            좌우로 밀어 시장, 상태, 가격, 변화율과 분석 시각 확인
+          </p>
+          <div className={stockStyles.tableWrap}>
+            <DataTable
+              caption="종목 커버리지"
+              captionClassName={styles.srOnly}
+              className={stockStyles.stockTable}
+              containerProps={{
+                'aria-describedby': 'stock-table-scroll-hint',
+                'aria-label': '종목 커버리지 표 가로 스크롤 영역',
+                tabIndex: 0,
+              }}
+            >
               <thead>
                 <tr>
-                  <th>종목</th>
-                  <th>시장</th>
-                  <th>현재 상태</th>
-                  <th>최근 가격</th>
-                  <th>변화율</th>
-                  <th>분석 시각</th>
+                  <th scope="col">종목</th>
+                  <th scope="col">시장</th>
+                  <th scope="col">현재 상태</th>
+                  <th scope="col">최근 가격</th>
+                  <th scope="col">변화율</th>
+                  <th scope="col">분석 시각</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,16 +166,16 @@ export function StocksView({
                 {stocks.map((stock) => (
                   <tr
                     key={stock.entityKey}
-                    className={stocks.length > 100 ? styles.deferredTableRow : undefined}
-                    data-selected={selectedEntityKey === stock.entityKey || undefined}
+                    className={stocks.length > 100 ? stockStyles.deferredTableRow : undefined}
+                    data-selected={selectedStockKey === stock.entityKey || undefined}
                   >
                     <td aria-label={`${stock.displayName} ${stock.ticker}`}>
                       <Button
                         type="button"
-                        className={styles.stockSelectButton}
+                        className={stockStyles.stockSelectButton}
                         motion="quiet"
                         variant="ghost"
-                        aria-pressed={selectedEntityKey === stock.entityKey}
+                        aria-pressed={selectedStockKey === stock.entityKey}
                         onClick={() => void loadDeepDive(stock.entityKey)}
                       >
                         <strong>{stock.displayName}</strong>
@@ -261,17 +197,21 @@ export function StocksView({
                             stock.currency === 'KRW' ? '원' : stock.currency === 'USD' ? '달러' : ''
                           }`}
                     </td>
-                    <td className={(stock.changePct ?? 0) < 0 ? styles.negative : styles.positive}>
+                    <td
+                      className={
+                        (stock.changePct ?? 0) < 0 ? stockStyles.negative : stockStyles.positive
+                      }
+                    >
                       {stock.changePct === undefined ? '—' : `${stock.changePct.toFixed(2)}%`}
                     </td>
                     <td>{formatDate(stock.lastAnalyzedAt, true)}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </div>
-        </section>
-        {!compactLayout ? detailRegion : null}
+        </Panel>
+        {detailRegion}
       </div>
     </>
   );

@@ -10,6 +10,7 @@ export const Route = createFileRoute('/_authenticated/workspace/stocks')({
       signal: abortController.signal,
       userId: context.session.user.id,
     }),
+  head: () => ({ meta: [{ title: '종목 | Stock Insight' }] }),
   pendingMs: Number.POSITIVE_INFINITY,
   component: WorkspaceView,
 });

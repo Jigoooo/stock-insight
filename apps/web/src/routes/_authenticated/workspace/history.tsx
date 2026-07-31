@@ -10,6 +10,7 @@ export const Route = createFileRoute('/_authenticated/workspace/history')({
       signal: abortController.signal,
       userId: context.session.user.id,
     }),
+  head: () => ({ meta: [{ title: '판단 이력 | Stock Insight' }] }),
   pendingMs: Number.POSITIVE_INFINITY,
   component: WorkspaceView,
 });

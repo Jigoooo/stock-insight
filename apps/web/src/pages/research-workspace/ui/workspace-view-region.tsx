@@ -2,11 +2,17 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 import styles from './workspace-view-region.module.css';
 
+import {
+  isWorkspaceFocusStillOwned,
+  resolveWorkspaceViewFocus,
+} from '../model/workspace-lazy-recovery';
+
 type WorkspaceViewRegionProps = {
   children: ReactNode;
   className?: string;
   navigationSequence: number;
   pending: boolean;
+  resolvedViewKey: string | null;
   viewKey: string;
 };
 
@@ -19,6 +25,7 @@ export function WorkspaceViewRegion({
   className,
   navigationSequence,
   pending,
+  resolvedViewKey,
   viewKey,
 }: Readonly<WorkspaceViewRegionProps>) {
   const currentRef = useRef<HTMLDivElement>(null);
@@ -35,21 +42,29 @@ export function WorkspaceViewRegion({
   }, [navigationSequence, pending]);
 
   useLayoutEffect(() => {
-    if (previousViewKeyRef.current === viewKey) return;
-    previousViewKeyRef.current = viewKey;
+    const resolution = resolveWorkspaceViewFocus(
+      previousViewKeyRef.current,
+      viewKey,
+      resolvedViewKey,
+    );
+    if (!resolution.shouldFocus) return;
+    previousViewKeyRef.current = resolution.focusedViewKey;
     const current = currentRef.current;
     if (!current) return;
     const owner = navigationFocusOwnerRef.current;
     const activeFocus = document.activeElement;
-    const focusStillOwned =
-      document.activeElement === navigationFocusOwnerRef.current ||
-      (owner === null && (activeFocus === document.body || current.contains(activeFocus))) ||
-      (activeFocus === document.body && owner !== null && !owner.isConnected);
+    const focusStillOwned = isWorkspaceFocusStillOwned({
+      activeFocus,
+      currentContainsActiveFocus: current.contains(activeFocus),
+      focusOwner: owner,
+      focusOwnerConnected: owner?.isConnected ?? false,
+      isBodyFocused: activeFocus === document.body,
+    });
     navigationFocusOwnerRef.current = null;
     if (!focusStillOwned) return;
     const focusTarget = current.querySelector<HTMLElement>('[data-workspace-view-heading]');
     (focusTarget ?? current).focus({ preventScroll: true });
-  }, [viewKey]);
+  }, [resolvedViewKey, viewKey]);
 
   return (
     <div

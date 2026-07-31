@@ -11,7 +11,7 @@ const panelSource = readFileSync(
   'utf8',
 );
 const css = readFileSync(
-  new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
   'utf8',
 );
 
@@ -39,7 +39,8 @@ describe('P3-WD geo map UI contract', () => {
   it('keeps a semantic evidence fallback when WebGL or motion is unavailable', () => {
     assert.match(mapSource, /data-testid="geo-map-canvas"/);
     assert.match(mapSource, /data-testid="geo-fallback-row"/);
-    assert.match(mapSource, /<table/);
+    assert.match(mapSource, /<DataTable/);
+    assert.match(mapSource, /caption="지도 표시 위치의 도형, 정밀도와 원천 revision"/);
     assert.match(mapSource, /evidenceLocator\.sourceRevisionId/);
     assert.match(mapSource, /evidenceLocator\.geoEntityRevisionId/);
     assert.match(mapSource, /summarizeGeometryForEvidence\(feature\.geometry\)/);
@@ -58,6 +59,7 @@ describe('P3-WD geo map UI contract', () => {
   it('renders snapshot lineage and dedicated accessible map controls', () => {
     assert.match(mapSource, /snapshot\.snapshotId/);
     assert.match(mapSource, /snapshot\.sourceAsOf/);
+    assert.match(mapSource, /<PropertyList/);
     assert.match(mapSource, /aria-label="지도 확대"/);
     assert.match(mapSource, /aria-label="지도 축소"/);
     assert.match(mapSource, /aria-label="지도 범위 초기화"/);

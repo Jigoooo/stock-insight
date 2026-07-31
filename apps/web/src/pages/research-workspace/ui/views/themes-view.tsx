@@ -1,23 +1,36 @@
 import { ChevronRight, GitBranch, MoveHorizontal } from 'lucide-react';
 import { useRef } from 'react';
 
+import styles from '../relation-detail.module.css';
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   type DetailState,
   availabilityLabels,
   confidenceLabel,
   relationNodeLabel,
   relationTypeLabel,
 } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 import { useWorkspaceRelationCrossfade } from '../use-workspace-relation-crossfade';
 
 import { themeTitleLabel } from '@/pages/research-workspace/model/presentation';
 import { isVerifiedRelationEdge } from '@/pages/research-workspace/model/relation-graphology';
 import { RelationSigmaGraph } from '@/pages/research-workspace/ui/relation-sigma-graph';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/ui/animate-ui/components/radix/accordion';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/primitives';
+import {
+  AvailabilityNotice,
+  Panel,
+  PanelHeader,
+  PageHeader,
+  PropertyList,
+  StructuredList,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 import type {
   EntityRelationGraph,
   ThemeResearchList,
@@ -49,27 +62,31 @@ export function ThemesView({
       />
       <AvailabilityNotice availability={data.availability} />
       <div className={styles.split}>
-        <section className={styles.panel}>
-          <header className={styles.panelHeader}>
-            <div>
-              <h2>테마 묶음</h2>
-              <p>
-                {data.items.length}개 · {availabilityLabels[data.availability]}
-              </p>
-            </div>
-          </header>
-          <div className={`${styles.ledger} ${styles.themeLedger}`} data-testid="theme-ledger">
+        <Panel>
+          <PanelHeader>
+            <h2>테마 묶음</h2>
+            <p>
+              {data.items.length}개 · {availabilityLabels[data.availability]}
+            </p>
+          </PanelHeader>
+          <StructuredList
+            className={styles.themeLedger}
+            data-testid="theme-ledger"
+            aria-label="테마 묶음"
+          >
             {data.items.length === 0 ? (
-              <WorkspaceState
-                kind="empty"
-                title="아직 구성된 테마가 없습니다"
-                description="종목 관계가 확인되면 비교할 테마 묶음을 이곳에 보여드립니다."
-              />
+              <li className={styles.themeEmpty}>
+                <WorkspaceState
+                  kind="empty"
+                  title="아직 구성된 테마가 없습니다"
+                  description="종목 관계가 확인되면 비교할 테마 묶음을 이곳에 보여드립니다."
+                />
+              </li>
             ) : (
               data.items.map((theme) => {
                 const isActive = activeTheme?.themeKey === theme.themeKey;
                 return (
-                  <article
+                  <li
                     key={theme.themeKey}
                     className={styles.themeRow}
                     data-selected={isActive || undefined}
@@ -77,7 +94,7 @@ export function ThemesView({
                     <Button
                       className={styles.themeSelect}
                       type="button"
-                      motion="quiet"
+                      motion="none"
                       data-testid="theme-select"
                       aria-label={`${themeTitleLabel(theme.title)} 관계 보기`}
                       aria-pressed={isActive}
@@ -101,26 +118,19 @@ export function ThemesView({
                             : '대표 종목 없음'}
                       </small>
                     </Button>
-                    <dl>
-                      <div>
-                        <dt>구성</dt>
-                        <dd>{theme.memberCount}</dd>
-                      </div>
-                      <div>
-                        <dt>관심</dt>
-                        <dd>{theme.watchedCount}</dd>
-                      </div>
-                      <div>
-                        <dt>신호</dt>
-                        <dd>{theme.recentSignalCount}</dd>
-                      </div>
-                    </dl>
-                  </article>
+                    <PropertyList
+                      items={[
+                        { label: '구성', value: theme.memberCount },
+                        { label: '관심', value: theme.watchedCount },
+                        { label: '신호', value: theme.recentSignalCount },
+                      ]}
+                    />
+                  </li>
                 );
               })
             )}
-          </div>
-        </section>
+          </StructuredList>
+        </Panel>
         <RelationLedger
           graph={relation}
           contextTitle={activeTheme ? themeTitleLabel(activeTheme.title) : undefined}
@@ -146,27 +156,29 @@ function RelationLedger({
   const rootLabel = graph ? relationNodeLabel(graph, graph.rootEntityKey) : undefined;
   const hasOnlyVerifiedEdges = graph?.edges.every(isVerifiedRelationEdge) ?? true;
   const relationRef = useRef<HTMLElement>(null);
+  const { forcedColors, reducedMotion } = useMotionPreferences();
+  const disclosureTransition = {
+    duration: forcedColors || reducedMotion ? 0 : 0.18,
+    ease: 'easeOut',
+  } as const;
   useWorkspaceRelationCrossfade({
     scopeRef: relationRef,
     stateKey: `${state}:${graph?.rootEntityKey ?? 'none'}`,
   });
   return (
-    <section
+    <Panel
       ref={relationRef}
-      className={`${styles.panel} ${styles.relationPanel}`}
+      className={styles.relationPanel}
       data-relation-motion="container"
       data-testid="relation-ledger"
     >
-      <header className={styles.panelHeader}>
-        <div>
-          <h2>{rootLabel ? `${rootLabel} 관계` : '관계 경로'}</h2>
-          <p>
-            {contextTitle ? `${contextTitle} 대표 종목에서 시작` : '선택한 종목에서 시작'} · 사람이
-            확인한 관계
-          </p>
-        </div>
-        <GitBranch aria-hidden="true" />
-      </header>
+      <PanelHeader meta={<GitBranch aria-hidden="true" />}>
+        <h2>{rootLabel ? `${rootLabel} 관계` : '관계 경로'}</h2>
+        <p>
+          {contextTitle ? `${contextTitle} 대표 종목에서 시작` : '선택한 종목에서 시작'} · 사람이
+          확인한 관계
+        </p>
+      </PanelHeader>
       {state === 'loading' && !graph ? (
         <WorkspaceState
           kind="loading"
@@ -201,39 +213,52 @@ function RelationLedger({
           <div aria-busy={state === 'loading'}>
             <RelationSigmaGraph graph={graph} onSelectEntity={onSelectEntity} />
           </div>
-          <details open className={styles.relationFallback}>
-            <summary>관계를 텍스트로 보기</summary>
-            <section className={styles.edgeList} aria-label="관계 근거 목록">
-              {graph.edges.map((edge) => (
-                <div key={edge.edgeId} data-direction={edge.direction}>
-                  <span data-endpoint="from">{relationNodeLabel(graph, edge.from)}</span>
-                  <span
-                    className={styles.edgeDirection}
-                    aria-label={
-                      edge.direction === 'directed' ? '에서 대상으로' : '와 방향 없는 관계'
-                    }
-                  >
-                    {edge.direction === 'directed' ? (
-                      <ChevronRight aria-hidden="true" />
-                    ) : (
-                      <MoveHorizontal aria-hidden="true" />
-                    )}
-                  </span>
-                  <span data-endpoint="to">{relationNodeLabel(graph, edge.to)}</span>
-                  <small>
-                    {relationTypeLabel(edge.relationType)} · {edge.evidenceCount}개 근거 ·{' '}
-                    {confidenceLabel(edge.evidenceQuality)}
-                  </small>
-                </div>
-              ))}
-            </section>
-          </details>
+          <Accordion type="single" defaultValue="relations">
+            <AccordionItem value="relations" className={styles.relationFallback}>
+              <AccordionTrigger className={styles.relationFallbackTrigger} showArrow={false}>
+                관계를 텍스트로 보기
+              </AccordionTrigger>
+              <AccordionContent
+                className={styles.relationFallbackContent}
+                initial={{ height: 0 }}
+                animate={{ height: 'auto' }}
+                exit={{ height: 0 }}
+                transition={disclosureTransition}
+                style={{ overflow: 'hidden' }}
+              >
+                <StructuredList className={styles.edgeList} aria-label="관계 근거 목록">
+                  {graph.edges.map((edge) => (
+                    <li key={edge.edgeId} data-direction={edge.direction}>
+                      <span data-endpoint="from">{relationNodeLabel(graph, edge.from)}</span>
+                      <span
+                        className={styles.edgeDirection}
+                        aria-label={
+                          edge.direction === 'directed' ? '에서 대상으로' : '와 방향 없는 관계'
+                        }
+                      >
+                        {edge.direction === 'directed' ? (
+                          <ChevronRight aria-hidden="true" />
+                        ) : (
+                          <MoveHorizontal aria-hidden="true" />
+                        )}
+                      </span>
+                      <span data-endpoint="to">{relationNodeLabel(graph, edge.to)}</span>
+                      <small>
+                        {relationTypeLabel(edge.relationType)} · {edge.evidenceCount}개 근거 ·{' '}
+                        {confidenceLabel(edge.evidenceQuality)}
+                      </small>
+                    </li>
+                  ))}
+                </StructuredList>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           <p className={styles.disclosure}>
             사람이 확인한 관계만 표시하며 새로운 연결을 임의로 추정하지 않습니다.{' '}
             {graph.evidenceSummary.limitation}
           </p>
         </>
       )}
-    </section>
+    </Panel>
   );
 }

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 
 import { SignupPage, type SignupAvailability, type SignupCredentials } from './signup-page';
 import { enrollAccount, getEnrollmentStatus } from '@/pages/auth/model/auth-functions';
-import { notify } from '@/shared/ui/toast';
 
 const fallbackEnrollmentError =
   '계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.';
@@ -22,7 +21,6 @@ export function SignupScreen() {
       .catch(() => {
         if (active) {
           setAvailability('error');
-          notify.error('가입 상태를 확인하지 못했습니다.');
         }
       });
 
@@ -39,7 +37,6 @@ export function SignupScreen() {
       setAvailability(status.available ? 'available' : 'unavailable');
     } catch {
       setAvailability('error');
-      notify.error('가입 상태를 확인하지 못했습니다.');
     }
   }
 
@@ -53,13 +50,11 @@ export function SignupScreen() {
       if (!result.ok) {
         const message = result.error || fallbackEnrollmentError;
         setError(message);
-        notify.error('계정을 설정하지 못했습니다.', { description: message });
         return;
       }
       window.location.assign('/workspace');
     } catch {
       setError(fallbackEnrollmentError);
-      notify.error('계정을 설정하지 못했습니다.', { description: fallbackEnrollmentError });
     } finally {
       setPending(false);
     }

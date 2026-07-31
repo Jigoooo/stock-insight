@@ -27,8 +27,12 @@ test.describe('administrator invitation console', () => {
       await routeError.click();
       throw new Error(`Admin route failed: ${await page.locator('body').innerText()}`);
     }
+    await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
+    await expect(page.getByText('Stock Insight', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: '가입 코드 관리' })).toBeVisible();
     await expect(page.getByText('Owner', { exact: true })).toBeVisible();
+    const outputRegion = page.getByTestId('admin-invitation-status');
+    await expect(outputRegion).toBeAttached();
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations).toEqual([]);
 
@@ -39,9 +43,9 @@ test.describe('administrator invitation console', () => {
     await page.getByRole('option', { name: '24시간' }).click();
     await page.getByRole('button', { name: '코드 발급', exact: true }).click();
 
-    await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toBeVisible();
-    await expect(page.locator('output code')).toHaveText(/^[A-Za-z0-9_-]{40,}$/);
-    const issuedCode = (await page.locator('output code').textContent())?.trim();
+    await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(1);
+    await expect(outputRegion.locator('code')).toHaveText(/^[A-Za-z0-9_-]{40,}$/);
+    const issuedCode = (await outputRegion.locator('code').textContent())?.trim();
     expect(issuedCode).toBeTruthy();
 
     const issuedRow = page.getByRole('row').filter({ hasText: label });
@@ -69,6 +73,7 @@ test.describe('administrator invitation console', () => {
     }
 
     await page.reload();
+    await expect(page.getByTestId('admin-invitation-status')).toBeAttached();
     await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(0);
     const plaintextLeaks = await page.evaluate((code) => {
       const controls = Array.from(
@@ -86,7 +91,7 @@ test.describe('administrator invitation console', () => {
     const reloadedRow = page.getByRole('row').filter({ hasText: label });
     await reloadedRow.getByRole('button', { name: `${label} 코드 폐기` }).click();
     await expect(reloadedRow).toContainText('폐기됨');
-    await expect(page.getByRole('status')).toHaveText(`${label} 코드를 폐기했습니다.`);
+    await expect(outputRegion).toHaveText(`${label} 코드를 폐기했습니다.`);
     await expect(page.getByRole('heading', { name: '발급 이력' })).toBeFocused();
 
     await page.reload();

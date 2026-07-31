@@ -7,12 +7,25 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
 type DeepDivePanelProps = {
-  deepDive: null;
+  deepDive: null | {
+    entityKey: string;
+    displayName: string;
+    availability: 'partial';
+    generatedAt: string;
+    sections: Array<{
+      id: string;
+      title: string;
+      summary: string;
+      availability: 'available';
+      items: string[];
+      itemCount: number;
+    }>;
+  };
   errorMessage?: string;
   onRetry: () => void;
   onSelectEntity: (entityKey: string) => void;
   relation: null;
-  state: 'error' | 'idle' | 'loading';
+  state: 'error' | 'idle' | 'loading' | 'ready';
 };
 
 const webRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -62,5 +75,51 @@ describe('Deep Dive rendered feedback accessibility', () => {
       assert.match(html, /aria-atomic="true"/);
       assert.doesNotMatch(html, /role="alert"/);
     }
+  });
+
+  it('renders the ready Deep Dive with accessible official accordion anatomy', async () => {
+    const Panel = await loadPanel();
+    const sectionIds = [
+      'identity',
+      'performance',
+      'direct_relations',
+      'secondary_exposure',
+      'factor_exposure',
+      'active_events',
+      'historical_analog',
+      'scenario',
+      'counter_evidence',
+      'derivation',
+      'holding_judgment',
+      'invalidation',
+    ];
+    const html = renderToStaticMarkup(
+      createElement(Panel, {
+        deepDive: {
+          entityKey: 'US:NVDA',
+          displayName: 'NVIDIA',
+          availability: 'partial',
+          generatedAt: '2026-07-31T00:00:00.000Z',
+          sections: sectionIds.map((id) => ({
+            id,
+            title: id,
+            summary: `${id} summary`,
+            availability: 'available' as const,
+            items: [],
+            itemCount: 0,
+          })),
+        },
+        onRetry: () => undefined,
+        onSelectEntity: () => undefined,
+        relation: null,
+        state: 'ready',
+      }),
+    );
+
+    assert.match(html, /data-slot="accordion"/);
+    assert.equal((html.match(/data-slot="accordion-trigger"/g) ?? []).length, 12);
+    assert.doesNotMatch(html, /<svg/);
+    assert.match(html, /aria-expanded="true"/);
+    assert.match(html, /Deep Dive 속성/);
   });
 });

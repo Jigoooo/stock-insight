@@ -30,11 +30,11 @@ export const Route = createRootRouteWithContext<StockInsightRouterContext>()({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-      { title: 'Futur Insight - Research Feed' },
+      { title: 'Stock Insight - Research Feed' },
       {
         name: 'description',
         content:
-          'Futur Insight는 보유종목과 시장 이슈를 연결해 설명하는 조회 전용 개인화 투자 리서치 피드 목업입니다.',
+          'Stock Insight는 보유종목과 시장 이슈를 연결해 설명하는 조회 전용 개인화 투자 리서치 피드 목업입니다.',
       },
       {
         name: 'theme-color',
@@ -47,7 +47,7 @@ export const Route = createRootRouteWithContext<StockInsightRouterContext>()({
         media: '(prefers-color-scheme: dark)',
       },
       { name: 'color-scheme', content: 'light dark' },
-      { property: 'og:title', content: 'Futur Insight - Research Feed' },
+      { property: 'og:title', content: 'Stock Insight - Research Feed' },
       {
         property: 'og:description',
         content: '매수·매도 지시 없이 종목, 뉴스, 테마, 포트폴리오 맥락을 연결합니다.',

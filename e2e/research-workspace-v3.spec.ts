@@ -426,6 +426,101 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
   });
 
+  test('keeps path and URL-authored workspace state authoritative', async ({ page }) => {
+    await page.goto('/workspace/today?view=today&lane=explore');
+    const currentUrl = () => {
+      const url = new URL(page.url());
+      return {
+        cursor: url.searchParams.get('cursor'),
+        lane: url.searchParams.get('lane'),
+        pathname: url.pathname,
+        record: url.searchParams.get('record'),
+        view: url.searchParams.get('view'),
+      };
+    };
+
+    await expect.poll(currentUrl).toEqual({
+      cursor: null,
+      lane: 'explore',
+      pathname: '/workspace/today',
+      record: null,
+      view: 'today',
+    });
+
+    const loadMore = page.getByRole('button', { name: '다음 변화 더 보기' });
+    await expect(loadMore).toBeEnabled();
+    await loadMore.click();
+    await expect.poll(() => currentUrl().cursor).not.toBeNull();
+
+    await page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab').first().click();
+    await expect.poll(currentUrl).toEqual({
+      cursor: null,
+      lane: 'must_know',
+      pathname: '/workspace/today',
+      record: null,
+      view: 'today',
+    });
+
+    const record = page.getByTestId('research-feed-record').first();
+    await expect(record).toBeVisible();
+    const recordKey = await record.getAttribute('data-append-key');
+    expect(recordKey).toBeTruthy();
+    await record.click();
+    await expect.poll(() => currentUrl().record).toBe(recordKey);
+    await page.getByRole('button', { name: '인스펙터 닫기' }).click();
+    await expect.poll(currentUrl).toEqual({
+      cursor: null,
+      lane: 'must_know',
+      pathname: '/workspace/today',
+      record: null,
+      view: 'today',
+    });
+  });
+
+  test('supports expanded, compact, and mobile navigation with one route-link tree', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 900, width: 1240 });
+    await page.goto('/workspace/today');
+
+    const sidebar = page.getByTestId('workspace-sidebar');
+    const todayLink = page.getByTestId('workspace-nav-today');
+    await expect(sidebar).toHaveAttribute('data-navigation-mode', 'expanded');
+    await expect(sidebar).toHaveCSS('width', '210px');
+    await expect(sidebar.getByText('Stock Insight', { exact: true })).toBeVisible();
+    await expect(sidebar).not.toContainText('Futur Insight');
+    await expect(todayLink).toHaveCount(1);
+    await expect(page.getByRole('button', { name: '사이드바 축소' })).toBeVisible();
+
+    await page.setViewportSize({ height: 900, width: 768 });
+    await expect(sidebar).toHaveAttribute('data-navigation-mode', 'compact');
+    await expect(sidebar).toHaveCSS('width', '68px');
+    await expect(todayLink).toHaveCount(1);
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+
+    await page.setViewportSize({ height: 900, width: 767 });
+    const trigger = page.getByRole('button', { name: '메뉴 열기' });
+    const content = page.getByTestId('workspace-content');
+    await expect(page.getByTestId('workspace-sidebar')).toHaveCount(0);
+    await expect(todayLink).toHaveCount(0);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await trigger.click();
+    const mobileSidebar = page.getByRole('dialog', { name: '리서치 탐색 메뉴' });
+    await expect(mobileSidebar).toBeVisible();
+    await expect(mobileSidebar).toHaveAttribute('data-navigation-mode', 'mobile');
+    await expect(todayLink).toHaveCount(1);
+    await expect(page.getByTestId('workspace-mobile-actions')).toBeVisible();
+    await expect(mobileSidebar.getByRole('button', { name: '로그아웃' })).toBeVisible();
+    await expect(content).toHaveAttribute('inert', '');
+    await expect(todayLink).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(mobileSidebar).toBeHidden();
+    await expect(content).not.toHaveAttribute('inert');
+    await expect(trigger).toBeFocused();
+  });
+
   test('clears the session on logout and protects the workspace again', async ({
     context,
     page,
@@ -474,6 +569,24 @@ test.describe('v3 research workspace candidate', () => {
       await page.getByTestId(`workspace-nav-${id}`).click();
       await expect(page).toHaveURL(new RegExp(`view=${id}`));
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+      if (id === 'stocks') {
+        const stockScrollOwner = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
+        await expect(stockScrollOwner).toHaveAttribute('data-slot', 'table-container');
+        await expect(stockScrollOwner.getByRole('table', { name: '종목 커버리지' })).toBeVisible();
+        const firstStock = stockScrollOwner.getByRole('button').first();
+        await firstStock.click();
+        await expect(firstStock).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
+        expect(
+          await page.evaluate(() => {
+            const table = document.querySelector(
+              '[aria-label="종목 커버리지 표 가로 스크롤 영역"]',
+            );
+            const detail = document.querySelector('[data-testid="stock-deep-dive-region"]');
+            return Boolean(table && detail && table.compareDocumentPosition(detail) & 4);
+          }),
+        ).toBe(true);
+      }
     }
 
     if (testInfo.project.name === 'mobile') {
@@ -481,11 +594,14 @@ test.describe('v3 research workspace candidate', () => {
     }
     await page.getByTestId('workspace-nav-themes').click();
     await expect(page.getByTestId('relation-graph')).toBeVisible();
-    await expect(page.getByText('관계를 텍스트로 보기')).toBeVisible();
+    const relationFallback = page.getByRole('button', { name: '관계를 텍스트로 보기' });
+    await expect(relationFallback).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('list', { name: '관계 근거 목록' })).toBeVisible();
     for (const rawTheme of ['ai_semi', 'megacap_ai', 'electronic_components']) {
       await expect(page.getByTestId('research-workspace-v3')).not.toContainText(rawTheme);
     }
-    await expect(page.getByTestId('theme-ledger')).toBeVisible();
+    await expect(page.getByTestId('theme-ledger')).toHaveJSProperty('tagName', 'UL');
+    await expect(page.getByTestId('theme-ledger').locator(':scope > li').first()).toBeVisible();
     const selectableThemes = page.locator('[data-testid="theme-select"]:not([disabled])');
     const targetTheme = selectableThemes.nth(1);
     const targetThemeName = (await targetTheme.getAttribute('aria-label'))?.replace(
@@ -537,11 +653,13 @@ test.describe('v3 research workspace candidate', () => {
       await expect(inspector).not.toContainText(rawToken);
     }
     await expect(inspector.getByRole('heading', { level: 2 })).toHaveText(recordTitle!);
+    await expect(inspector.getByRole('list', { name: '검증 근거 목록' })).toBeVisible();
+    await expect(inspector.getByRole('list', { name: '출처 목록' })).toBeVisible();
 
     if (testInfo.project.name === 'mobile') {
       await expect(closeInspector).toBeFocused();
       await expect(page.getByTestId('workspace-content')).toHaveAttribute('inert', '');
-      await expect(page.getByTestId('workspace-sidebar')).toHaveAttribute('inert', '');
+      await expect(page.getByTestId('workspace-sidebar')).toHaveCount(0);
       const box = await inspector.boundingBox();
       expect(box).not.toBeNull();
       expect(box?.width ?? Infinity).toBeLessThanOrEqual(390);
@@ -579,7 +697,15 @@ test.describe('v3 research workspace candidate', () => {
 
   test('supports APG keyboard navigation across feed lanes', async ({ page }) => {
     await page.goto('/workspace');
-    const tabs = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab');
+    const tablist = page.getByRole('tablist', { name: '인사이트 분류' });
+    const tabs = tablist.getByRole('tab');
+    await expect(tablist).toHaveAttribute('data-slot', 'tabs-list');
+    await expect(tabs.first()).toHaveAttribute('data-slot', 'tabs-trigger');
+    await expect(page.getByTestId('research-feed').locator('ul')).toHaveCount(1);
+    await expect(page.getByTestId('research-feed-record').first()).toHaveAttribute(
+      'data-slot',
+      'button-control',
+    );
     await expect(tabs.first()).toBeEnabled();
     await tabs.first().focus();
     await page.evaluate(() => {
@@ -689,6 +815,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
     const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
     await expect(tabs).toHaveCount(8);
+    await expect(tabs.first()).toHaveAttribute('data-slot', 'tabs-trigger');
     const danglingControls = await tabs.evaluateAll((elements) =>
       elements
         .map((element) => element.getAttribute('aria-controls'))
@@ -697,6 +824,7 @@ test.describe('v3 research workspace candidate', () => {
     expect(danglingControls).toEqual([]);
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('radar-row')).toHaveCount(2);
+    await expect(page.getByTestId('radar-row').first()).toHaveJSProperty('tagName', 'LI');
     await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
     const componentWatermark = page.getByTestId('market-component-watermark');
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
@@ -723,18 +851,23 @@ test.describe('v3 research workspace candidate', () => {
     const themePanel = page.getByTestId('market-mode-theme_community');
     await expect(themePanel).toContainText('테마 구성원 원천이 연결되지 않았습니다');
     await expect(themePanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(themePanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-    await expect(themePanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(themePanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+    await expect(themePanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.nth(4).click();
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
     await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
     await expect(page.getByTestId('market-heatmap-row').first()).toBeVisible();
+    await expect(page.getByTestId('market-mode-heatmap_matrix').locator('table')).toHaveAttribute(
+      'data-slot',
+      'table',
+    );
 
     await tabs.nth(5).click();
     await expect(page.getByTestId('market-timeline-row')).toHaveCount(2);
     await expect(page.getByTestId('market-timeline-row').first()).toBeVisible();
+    await expect(page.getByTestId('market-mode-timeline').locator('ul')).toHaveCount(1);
 
     await tabs.nth(6).click();
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
@@ -744,6 +877,8 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
     await expect(mapPanel).toContainText(positiveGeoSnapshotFixture().snapshotId);
     await expect(mapPanel).toContainText('H3 파생 셀 2개');
+    await expect(mapPanel.locator('dl')).toHaveCount(1);
+    await expect(mapPanel.locator('table')).toHaveAttribute('data-slot', 'table');
     await expect(page.getByRole('button', { name: '지도 확대' })).toBeEnabled();
     await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
     await expect(mapPanel.locator('[data-map-generation]')).toHaveAttribute(
@@ -791,8 +926,10 @@ test.describe('v3 research workspace candidate', () => {
       '현재 레이더 응답에는 승인된 공급망 관계가 없습니다',
     );
     await expect(valueChainPanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(valueChainPanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-    await expect(valueChainPanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(valueChainPanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+    await expect(valueChainPanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(
+      0,
+    );
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.last().focus();
@@ -897,7 +1034,7 @@ test.describe('v3 research workspace candidate', () => {
     ).toBe(true);
   });
 
-  test('renders controlled empty and unsupported market modes as distinct runtime states', async ({
+  test('renders controlled empty Radar truth and unsupported market modes as distinct runtime states', async ({
     page,
   }) => {
     await page.goto('/workspace?view=today');
@@ -938,8 +1075,8 @@ test.describe('v3 research workspace candidate', () => {
       const panel = page.getByRole('tabpanel');
       await expect(panel).toContainText(`${title} 데이터 준비 중`);
       await expect(panel).toHaveAttribute('data-display-state', 'missing');
-      await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-      await expect(panel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+      await expect(panel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+      await expect(panel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
       await expect(tabs.nth(index)).toContainText('원천 준비 중');
       await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
     }
@@ -1044,12 +1181,10 @@ test.describe('v3 research workspace candidate', () => {
     await page.goto('/workspace');
     const sidebar = page.getByTestId('workspace-sidebar');
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     await menuButton.click();
-    await expect(sidebar).not.toHaveAttribute('aria-hidden');
-    await expect(sidebar).not.toHaveAttribute('inert');
+    await expect(sidebar).toBeVisible();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     await expect
       .poll(async () => (await sidebar.boundingBox())?.x ?? -999)
@@ -1061,16 +1196,14 @@ test.describe('v3 research workspace candidate', () => {
       true,
     );
     await page.keyboard.press('Escape');
-    await expect(sidebar).toHaveAttribute('inert', '');
-    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(-300);
+    await expect(sidebar).toHaveCount(0);
     await expect(menuButton).toBeFocused();
     await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('inert');
 
     await menuButton.click();
     await expect(page.getByTestId('workspace-nav-status')).toBeVisible();
     await page.getByTestId('workspace-nav-status').click();
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(page.getByRole('heading', { name: '데이터 상태' })).toBeVisible();
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => document.activeElement?.tagName ?? '');
@@ -1089,16 +1222,14 @@ test.describe('v3 research workspace candidate', () => {
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
 
     await menuButton.click();
-    await expect(sidebar).not.toHaveAttribute('inert');
+    await expect(sidebar).toBeVisible();
     await expect(content).toHaveAttribute('inert', '');
     await expect(page.getByTestId('workspace-nav-today')).toBeFocused();
 
     await page.keyboard.press('Escape');
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(content).not.toHaveAttribute('inert');
     await expect(menuButton).toBeFocused();
-    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(-300);
   });
 
   test('keeps the data as-of time visible on mobile', async ({ page }, testInfo) => {

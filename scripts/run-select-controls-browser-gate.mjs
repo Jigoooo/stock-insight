@@ -24,7 +24,7 @@ try {
   assert(workspaceFirstPaint.append.opacity < 1);
   assert.notEqual(workspaceFirstPaint.append.transform, 'none');
   assert(workspaceFirstPaint.relation.opacity < 1);
-  assert.equal(workspaceFirstPaint.relation.transform, 'none');
+  assert.notEqual(workspaceFirstPaint.relation.transform, 'none');
 
   const motionRuntime = await page.evaluate(() => window.__runMotionAdapterRuntimeCases());
   assert.equal(motionRuntime.repeatedFromTo.firstFinal.opacity, 1);

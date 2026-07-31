@@ -14,14 +14,19 @@ describe('admin invitation console UI contract', () => {
 
   it('uses semantic issuance, one-time disclosure, and revocation controls', async () => {
     const source = await read('pages/admin-invitations/ui/admin-invitation-page.tsx');
-    assert.match(source, /<main/);
-    assert.match(source, /<h1/);
+    assert.match(source, /<WorkspaceShell/);
+    assert.match(source, /<PageHeader/);
+    assert.match(source, /<Panel/);
+    assert.match(source, /<DataTable/);
+    assert.match(source, /<WorkspaceState/);
+    assert.match(source, /<WorkspaceState[\s\S]*?announcement="inherit"[\s\S]*?kind="error"/);
+    assert.match(source, /<DetailSurface/);
     assert.match(source, /<form/);
-    assert.match(source, /<label/);
+    assert.match(source, /<Field/);
     assert.match(source, /<output[^>]*aria-live="polite"/);
+    assert.equal((source.match(/aria-live="polite"/g) ?? []).length, 1);
     assert.match(source, /이 코드는 지금 한 번만 표시됩니다/);
-    assert.match(source, /<table/);
-    assert.match(source, /<caption/);
+    assert.match(source, /caption="가입 코드 발급 및 사용 상태"/);
     assert.match(source, /navigator\.clipboard[\s\S]*\.writeText/);
     const revokeHandlerStart = source.indexOf('const handleRevoke');
     const revokeHandlerEnd = source.indexOf('\n  return (', revokeHandlerStart);
@@ -31,8 +36,16 @@ describe('admin invitation console UI contract', () => {
     assert.match(revokeHandler, /catch \{/);
     assert.match(source, /<th scope="row"[^>]*>/);
     assert.match(source, /aria-label=\{`\$\{invitation\.label\} 코드 폐기`\}/);
-    assert.match(source, /statusMessage \? <span>/);
+    assert.match(source, /statusMessage \? <span/);
     assert.match(source, /listHeadingRef\.current\?\.focus\(\)/);
+  });
+
+  it('uses Stock Insight document branding without weakening the route gate', async () => {
+    const source = await read('routes/_authenticated/admin/invitations.tsx');
+    assert.match(source, /가입 코드 관리 \| Stock Insight/);
+    assert.doesNotMatch(source, /Futur Insight/);
+    assert.match(source, /관리자 전용 가입 코드 발급 및 폐기 화면/);
+    assert.match(source, /if \(!data\.authorized\)/);
   });
 
   it('shows the workspace entry point only for invite managers', async () => {

@@ -5,14 +5,21 @@ import { useRef, useState, useTransition, type FormEvent } from 'react';
 import styles from './admin-invitation-page.module.css';
 import { issueInvitation, revokeInvitation } from '../model/admin-invitation-functions';
 
+import { workspaceSections } from '@/features/workspace-navigation';
+import { logout } from '@/pages/auth/model/auth-functions';
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
+import { Field, FieldLabel } from '@/shared/ui/field';
+import { Input } from '@/shared/ui/input';
+import { Button, SelectBox, type SelectOption } from '@/shared/ui/primitives';
 import {
-  Button,
-  EmptyState,
-  SelectBox,
-  TextInput,
-  type SelectOption,
-} from '@/shared/ui/primitives';
+  DataTable,
+  DetailSurface,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
+import { WorkspaceShell } from '@/widgets/workspace-shell';
 
 type AdminInvitationPageProps = {
   initialInvitations: AdminInvitation[];
@@ -55,6 +62,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string>();
   const [statusMessage, setStatusMessage] = useState<string>();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [pending, startTransition] = useTransition();
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -120,132 +128,177 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
     });
   };
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const result = await logout();
+      if (result.ok) window.location.assign('/login');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
-        {/* A raw <a> here forced a full document reload on every trip back to
-            the workspace; <Link> keeps it a client-side transition. */}
-        <Link className={styles.backLink} to="/workspace/today">
+    <WorkspaceShell
+      activeSection="admin-invitations"
+      contextualActions={
+        <Link className={styles.workspaceLink} to="/workspace/today">
           <ArrowLeft aria-hidden="true" /> 워크스페이스
         </Link>
-        <div className={styles.headingRow}>
-          <div>
-            <span className={styles.eyebrow}>Access control</span>
-            <h1>가입 코드 관리</h1>
-            <p>가입할 사람에게 전달할 제한된 코드를 발급하고 즉시 폐기할 수 있습니다.</p>
-          </div>
-          <span className={styles.roleBadge}>
-            <ShieldCheck aria-hidden="true" /> {role === 'owner' ? 'Owner' : 'Admin'}
-          </span>
-        </div>
-      </header>
+      }
+      navigationItems={workspaceSections}
+      navigationPending={null}
+      onLogout={() => void handleLogout()}
+    >
+      <div className={styles.page}>
+        <PageHeader
+          eyebrow="Access control"
+          title="가입 코드 관리"
+          description="가입할 사람에게 전달할 제한된 코드를 발급하고 즉시 폐기할 수 있습니다."
+        />
 
-      <section className={styles.issuePanel} aria-labelledby="issue-heading">
-        <div>
-          <span className={styles.sectionIndex}>01</span>
-          <h2 id="issue-heading">새 가입 코드 발급</h2>
-        </div>
-        <form className={styles.form} onSubmit={handleIssue}>
-          <label htmlFor="invitation-label">
-            <span>메모</span>
-            <TextInput
-              id="invitation-label"
-              name="label"
-              minLength={1}
-              maxLength={120}
-              required
-              placeholder="예: 김지구 초대"
-            />
-          </label>
-          <div className={styles.formField}>
-            <span id="max-uses-label">사용 가능 횟수</span>
-            <SelectBox
-              aria-labelledby="max-uses-label"
-              defaultValue="1"
-              name="maxUses"
-              options={maxUsesOptions}
-            />
-          </div>
-          <div className={styles.formField}>
-            <span id="expiration-label">유효 기간</span>
-            <SelectBox
-              aria-labelledby="expiration-label"
-              defaultValue="24"
-              name="expiresInHours"
-              options={expirationOptions}
-            />
-          </div>
-          <Button className={styles.issueButton} disabled={pending} type="submit" variant="primary">
-            <UserPlus aria-hidden="true" /> {pending ? '처리 중' : '코드 발급'}
-          </Button>
-        </form>
+        <Panel className={styles.issuePanel} aria-labelledby="issue-heading">
+          <PanelHeader
+            className={styles.panelHeader}
+            meta={
+              <span className={styles.roleBadge}>
+                <ShieldCheck aria-hidden="true" /> {role === 'owner' ? 'Owner' : 'Admin'}
+              </span>
+            }
+          >
+            <span>Invitation policy</span>
+            <h2 id="issue-heading">새 가입 코드 발급</h2>
+          </PanelHeader>
 
-        <output className={styles.status} aria-live="polite">
-          {error ? <span role="alert">{error}</span> : null}
-          {statusMessage ? <span>{statusMessage}</span> : null}
-          {revealedCode ? (
-            <div className={styles.secretPanel}>
-              <div>
-                <strong>이 코드는 지금 한 번만 표시됩니다.</strong>
-                <p>안전한 채널로 전달한 뒤 이 화면에 보관하지 마세요.</p>
-              </div>
-              <code>{revealedCode}</code>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(revealedCode)
-                    .then(() => setCopied(true))
-                    .catch(() =>
-                      setError('클립보드에 복사하지 못했습니다. 코드를 직접 선택해 주세요.'),
-                    );
-                }}
+          <form className={styles.form} onSubmit={handleIssue}>
+            <Field className={styles.formField}>
+              <FieldLabel htmlFor="invitation-label">메모</FieldLabel>
+              <Input
+                id="invitation-label"
+                name="label"
+                minLength={1}
+                maxLength={120}
+                required
+                placeholder="예: 김지구 초대"
+              />
+            </Field>
+            <Field className={styles.formField}>
+              <FieldLabel id="max-uses-label">사용 가능 횟수</FieldLabel>
+              <SelectBox
+                aria-labelledby="max-uses-label"
+                defaultValue="1"
+                name="maxUses"
+                options={maxUsesOptions}
+              />
+            </Field>
+            <Field className={styles.formField}>
+              <FieldLabel id="expiration-label">유효 기간</FieldLabel>
+              <SelectBox
+                aria-labelledby="expiration-label"
+                defaultValue="24"
+                name="expiresInHours"
+                options={expirationOptions}
+              />
+            </Field>
+            <Button
+              className={styles.issueButton}
+              disabled={pending}
+              type="submit"
+              variant="primary"
+            >
+              <UserPlus aria-hidden="true" /> {pending ? '처리 중' : '코드 발급'}
+            </Button>
+          </form>
+
+          <output
+            className={styles.status}
+            data-testid="admin-invitation-status"
+            aria-live="polite"
+          >
+            {pending ? (
+              <span className={styles.pendingMessage}>요청을 처리하고 있습니다.</span>
+            ) : null}
+            {error ? (
+              <WorkspaceState
+                announcement="inherit"
+                className={styles.outputState}
+                kind="error"
+                title="요청을 완료하지 못했습니다"
+                description={error}
+              />
+            ) : null}
+            {statusMessage ? <span className={styles.successMessage}>{statusMessage}</span> : null}
+            {revealedCode ? (
+              <DetailSurface
+                className={styles.secretSurface}
+                aria-label="한 번만 표시되는 가입 코드"
               >
-                {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                {copied ? '복사됨' : '복사'}
-              </Button>
-            </div>
-          ) : null}
-        </output>
-      </section>
+                <div className={styles.secretPanel}>
+                  <div>
+                    <strong>이 코드는 지금 한 번만 표시됩니다.</strong>
+                    <p>안전한 채널로 전달한 뒤 이 화면에 보관하지 마세요.</p>
+                  </div>
+                  <code>{revealedCode}</code>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(revealedCode)
+                        .then(() => setCopied(true))
+                        .catch(() =>
+                          setError('클립보드에 복사하지 못했습니다. 코드를 직접 선택해 주세요.'),
+                        );
+                    }}
+                  >
+                    {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                    {copied ? '복사됨' : '복사'}
+                  </Button>
+                </div>
+              </DetailSurface>
+            ) : null}
+          </output>
+        </Panel>
 
-      <section className={styles.listPanel} aria-labelledby="list-heading">
-        <div className={styles.listHeading}>
-          <div>
-            <span className={styles.sectionIndex}>02</span>
+        <Panel className={styles.listPanel} aria-labelledby="list-heading">
+          <PanelHeader className={styles.panelHeader} meta={`${invitations.length}개`}>
+            <span>Invitation history</span>
             <h2 id="list-heading" ref={listHeadingRef} tabIndex={-1}>
               발급 이력
             </h2>
-          </div>
-          <span>{invitations.length}개</span>
-        </div>
-        <div className={styles.tableViewport}>
-          <table>
-            <caption>가입 코드 발급 및 사용 상태</caption>
-            <thead>
-              <tr>
-                <th scope="col">메모</th>
-                <th scope="col">상태</th>
-                <th scope="col">사용</th>
-                <th scope="col">만료</th>
-                <th scope="col">발급자</th>
-                <th scope="col">
-                  <span className={styles.visuallyHidden}>관리</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {invitations.length === 0 ? (
+          </PanelHeader>
+          {invitations.length === 0 ? (
+            <WorkspaceState
+              className={styles.emptyState}
+              kind="empty"
+              title="아직 발급한 코드가 없습니다"
+              description="새 가입 코드를 발급하면 사용 상태와 만료 시각을 여기에서 확인할 수 있습니다."
+            />
+          ) : (
+            <DataTable
+              caption="가입 코드 발급 및 사용 상태"
+              captionClassName={styles.visuallyHidden}
+              className={styles.table}
+              containerProps={{
+                'aria-label': '가입 코드 발급 이력 가로 스크롤 영역',
+                tabIndex: 0,
+              }}
+            >
+              <thead>
                 <tr>
-                  <td colSpan={6} className={styles.empty}>
-                    <EmptyState className={styles.tableEmpty}>
-                      아직 발급한 코드가 없습니다.
-                    </EmptyState>
-                  </td>
+                  <th scope="col">메모</th>
+                  <th scope="col">상태</th>
+                  <th scope="col">사용</th>
+                  <th scope="col">만료</th>
+                  <th scope="col">발급자</th>
+                  <th scope="col">
+                    <span className={styles.visuallyHidden}>관리</span>
+                  </th>
                 </tr>
-              ) : (
-                invitations.map((invitation) => (
+              </thead>
+              <tbody>
+                {invitations.map((invitation) => (
                   <tr key={invitation.invitationId}>
                     <th scope="row" className={styles.rowHeader}>
                       <strong>{invitation.label}</strong>
@@ -277,12 +330,12 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                       ) : null}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+                ))}
+              </tbody>
+            </DataTable>
+          )}
+        </Panel>
+      </div>
+    </WorkspaceShell>
   );
 }

@@ -1,22 +1,15 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
-import { AlertCircle, CircleDot, FileText, X } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 import { useEffect, useRef, type RefObject } from 'react';
 
-import styles from './research-workspace-page.module.css';
+import styles from './relation-detail.module.css';
 import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
 
 import {
   presentResearchSummary,
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
-import {
-  Button,
-  EmptyState,
-  ErrorState,
-  IconButton,
-  Skeleton,
-  TextLink,
-} from '@/shared/ui/primitives';
+import { Button, IconButton, TextLink } from '@/shared/ui/primitives';
+import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
   EntityRelationGraph,
   ResearchRecordDetail,
@@ -160,46 +153,6 @@ function sourceBindingLabel(value: string) {
   return labels[value] ?? '연결 상태 확인 중';
 }
 
-function InspectorState({
-  kind,
-  title,
-  description,
-}: {
-  kind: 'empty' | 'error' | 'loading';
-  title: string;
-  description: string;
-}) {
-  const content = (
-    <>
-      {kind === 'loading' ? (
-        <Skeleton className={styles.stateIconSkeleton} height={20} width={20} />
-      ) : kind === 'error' ? (
-        <AlertCircle aria-hidden="true" />
-      ) : (
-        <CircleDot aria-hidden="true" />
-      )}
-      <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
-      </div>
-    </>
-  );
-
-  if (kind === 'error') {
-    return (
-      <ErrorState className={styles.stateSurface} data-kind={kind} aria-atomic="true">
-        {content}
-      </ErrorState>
-    );
-  }
-
-  return (
-    <EmptyState className={styles.stateSurface} data-kind={kind} role="status" aria-atomic="true">
-      {content}
-    </EmptyState>
-  );
-}
-
 export function EvidenceInspector({
   detail,
   modal,
@@ -284,7 +237,7 @@ export function EvidenceInspector({
         </header>
         {state === 'loading' && (
           <div className={styles.inspectorState}>
-            <InspectorState
+            <WorkspaceState
               kind="loading"
               title="근거와 출처를 불러오고 있습니다"
               description="선택한 변화에 묶인 기준 시점의 자료를 확인하는 중입니다."
@@ -293,7 +246,7 @@ export function EvidenceInspector({
         )}
         {state === 'error' && (
           <div className={styles.inspectorState}>
-            <InspectorState
+            <WorkspaceState
               kind="error"
               title="상세 근거를 불러오지 못했습니다"
               description="목록으로 돌아가 잠시 후 같은 변화를 다시 선택해 주세요."
@@ -302,103 +255,93 @@ export function EvidenceInspector({
         )}
         {state === 'ready' && detail && (
           <div className={styles.inspectorBody}>
-            <span className={styles.market}>
+            <span className={styles.evidenceMarket}>
               {marketLabel(detail.market)} · {categoryLabel(detail.category)}
             </span>
             <h2>{detail.title}</h2>
             <p className={styles.bodyText}>{presentResearchSummary(detail.body)}</p>
-            <dl className={styles.evidenceMeta}>
-              <div>
-                <dt>근거 수준</dt>
-                <dd>{confidenceLabel(detail.confidence)}</dd>
-              </div>
-              <div>
-                <dt>연결 출처</dt>
-                <dd>
-                  {detail.sourceCoverage.linked}/{detail.sourceCoverage.total}
-                </dd>
-              </div>
-              <div>
-                <dt>관계 경로</dt>
-                <dd>{relation?.edges.length ?? 0}</dd>
-              </div>
-              <div>
-                <dt>분석 기준</dt>
-                <dd>{formatDate(detail.meta.contentSnapshot.analysisCutoffAt, true)}</dd>
-              </div>
-              <div>
-                <dt>시장 데이터</dt>
-                <dd>
-                  {detail.meta.marketSnapshot.marketDataAsOf
+            <PropertyList
+              className={styles.evidenceMeta}
+              items={[
+                { label: '근거 수준', value: confidenceLabel(detail.confidence) },
+                {
+                  label: '연결 출처',
+                  value: `${detail.sourceCoverage.linked}/${detail.sourceCoverage.total}`,
+                },
+                { label: '관계 경로', value: relation?.edges.length ?? 0 },
+                {
+                  label: '분석 기준',
+                  value: formatDate(detail.meta.contentSnapshot.analysisCutoffAt, true),
+                },
+                {
+                  label: '시장 데이터',
+                  value: detail.meta.marketSnapshot.marketDataAsOf
                     ? formatDate(detail.meta.marketSnapshot.marketDataAsOf, true)
-                    : '시각 미확인'}
-                </dd>
-              </div>
-              <div>
-                <dt>분석 버전</dt>
-                <dd>{detail.meta.contentSnapshot.analysisRevision}</dd>
-              </div>
-            </dl>
+                    : '시각 미확인',
+                },
+                { label: '분석 버전', value: detail.meta.contentSnapshot.analysisRevision },
+              ]}
+            />
             <section>
               <h3>검증 근거</h3>
               {detail.evidence.length === 0 ? (
-                <InspectorState
+                <WorkspaceState
                   kind="empty"
                   title="연결된 근거가 없습니다"
                   description="이 기록에 묶인 근거가 확인되면 이곳에 표시됩니다."
                 />
               ) : (
-                detail.evidence.map((item) => (
-                  <article key={item.evidenceId} className={styles.evidenceItem}>
-                    <strong>{presentResearchSummary(item.claim)}</strong>
-                    <span>
-                      {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
-                    </span>
-                  </article>
-                ))
+                <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
+                  {detail.evidence.map((item) => (
+                    <li key={item.evidenceId} className={styles.evidenceItem}>
+                      <strong>{presentResearchSummary(item.claim)}</strong>
+                      <span>
+                        {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
+                      </span>
+                    </li>
+                  ))}
+                </StructuredList>
               )}
             </section>
             <section>
               <h3>출처</h3>
               {detail.sources.length === 0 ? (
-                <InspectorState
+                <WorkspaceState
                   kind="empty"
                   title="연결된 출처가 없습니다"
                   description="원문 출처가 확인되면 이름과 기준 시점 상태를 보여드립니다."
                 />
               ) : (
-                detail.sources.map((source) =>
-                  source.url ? (
-                    <TextLink
-                      key={source.sourceKey}
-                      href={source.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      motion="quiet"
-                    >
-                      <span>{sourceAttributionLabel(source.attributionText)}</span>
-                      <small>
-                        {sourceBindingLabel(source.bindingState)} ·{' '}
-                        {source.publishedAt ? formatDate(source.publishedAt) : '발행일 미확인'}
-                      </small>
-                    </TextLink>
-                  ) : (
-                    <div key={source.sourceKey} className={styles.sourceMissing}>
-                      <span>{sourceAttributionLabel(source.attributionText)}</span>
-                      <small>링크 없음</small>
-                    </div>
-                  ),
-                )
+                <StructuredList className={styles.sourceList} aria-label="출처 목록">
+                  {detail.sources.map((source) => (
+                    <li key={source.sourceKey}>
+                      {source.url ? (
+                        <TextLink href={source.url} target="_blank" rel="noreferrer" motion="quiet">
+                          <span>{sourceAttributionLabel(source.attributionText)}</span>
+                          <small>
+                            {sourceBindingLabel(source.bindingState)} ·{' '}
+                            {source.publishedAt ? formatDate(source.publishedAt) : '발행일 미확인'}
+                          </small>
+                        </TextLink>
+                      ) : (
+                        <div className={styles.sourceMissing}>
+                          <span>{sourceAttributionLabel(source.attributionText)}</span>
+                          <small>링크 없음</small>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </StructuredList>
               )}
             </section>
             {detail.limitations.length > 0 && (
               <section>
                 <h3>한계</h3>
-                <ul>
+                <StructuredList>
                   {detail.limitations.map((item) => (
                     <li key={item}>{presentResearchSummary(item)}</li>
                   ))}
-                </ul>
+                </StructuredList>
               </section>
             )}
           </div>
