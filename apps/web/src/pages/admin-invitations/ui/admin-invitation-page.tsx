@@ -221,6 +221,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             ) : null}
             {error ? (
               <WorkspaceState
+                announcement="inherit"
                 className={styles.outputState}
                 kind="error"
                 title="요청을 완료하지 못했습니다"

@@ -15,6 +15,8 @@ export type WorkspaceStateKind =
   | 'partial'
   | 'unavailable';
 
+export type WorkspaceStateAnnouncement = 'inherit' | 'self';
+
 const liveMode: Record<WorkspaceStateKind, 'off' | 'polite' | 'assertive'> = {
   loading: 'polite',
   empty: 'off',
@@ -35,6 +37,7 @@ const visual = {
 
 export function WorkspaceState({
   action,
+  announcement = 'self',
   className,
   delayMs = 300,
   description,
@@ -42,6 +45,7 @@ export function WorkspaceState({
   title,
 }: Readonly<{
   action?: ReactNode;
+  announcement?: WorkspaceStateAnnouncement;
   className?: string;
   delayMs?: number;
   description: string;
@@ -52,6 +56,7 @@ export function WorkspaceState({
     return (
       <DelayedLoadingState
         action={action}
+        announcement={announcement}
         className={className}
         delayMs={delayMs}
         description={description}
@@ -63,6 +68,7 @@ export function WorkspaceState({
   return (
     <WorkspaceStateSurface
       action={action}
+      announcement={announcement}
       className={className}
       description={description}
       kind={kind}
@@ -73,12 +79,14 @@ export function WorkspaceState({
 
 function DelayedLoadingState({
   action,
+  announcement,
   className,
   delayMs,
   description,
   title,
 }: Readonly<{
   action?: ReactNode;
+  announcement: WorkspaceStateAnnouncement;
   className?: string;
   delayMs: number;
   description: string;
@@ -92,6 +100,7 @@ function DelayedLoadingState({
   return visible ? (
     <WorkspaceStateSurface
       action={action}
+      announcement={announcement}
       className={className}
       description={description}
       kind="loading"
@@ -102,26 +111,29 @@ function DelayedLoadingState({
 
 function WorkspaceStateSurface({
   action,
+  announcement,
   className,
   description,
   kind,
   title,
 }: Readonly<{
   action?: ReactNode;
+  announcement: WorkspaceStateAnnouncement;
   className?: string;
   description: string;
   kind: WorkspaceStateKind;
   title: string;
 }>) {
   const Visual = visual[kind];
+  const ownsAnnouncement = announcement === 'self';
   return (
     <ScrollArea className={styles.stateScrollArea}>
       <div
         className={cn(styles.stateSurface, className)}
         data-kind={kind}
-        role={kind === 'error' ? 'alert' : 'status'}
-        aria-atomic="true"
-        aria-live={liveMode[kind]}
+        role={ownsAnnouncement ? (kind === 'error' ? 'alert' : 'status') : undefined}
+        aria-atomic={ownsAnnouncement ? 'true' : undefined}
+        aria-live={ownsAnnouncement ? liveMode[kind] : undefined}
       >
         <div className={styles.stateVisual} aria-hidden="true">
           {kind === 'loading' ? <Skeleton className={styles.stateIconSkeleton} /> : <Visual />}

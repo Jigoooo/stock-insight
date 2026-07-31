@@ -91,7 +91,7 @@ test.describe('administrator invitation console', () => {
     const reloadedRow = page.getByRole('row').filter({ hasText: label });
     await reloadedRow.getByRole('button', { name: `${label} 코드 폐기` }).click();
     await expect(reloadedRow).toContainText('폐기됨');
-    await expect(page.getByRole('status')).toHaveText(`${label} 코드를 폐기했습니다.`);
+    await expect(outputRegion).toHaveText(`${label} 코드를 폐기했습니다.`);
     await expect(page.getByRole('heading', { name: '발급 이력' })).toBeFocused();
 
     await page.reload();

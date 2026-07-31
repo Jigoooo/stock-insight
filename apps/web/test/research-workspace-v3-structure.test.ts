@@ -277,9 +277,13 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /kind="error"/);
     assert.match(availabilityNotice, /kind="stale"/);
     assert.match(workspaceState, /empty[\s\S]*error[\s\S]*stale[\s\S]*partial[\s\S]*unavailable/);
-    assert.match(workspaceState, /role=\{kind === 'error' \? 'alert' : 'status'\}/);
-    assert.match(workspaceState, /aria-atomic="true"/);
-    assert.match(workspaceState, /aria-live=\{liveMode\[kind\]\}/);
+    assert.match(workspaceState, /const ownsAnnouncement = announcement === 'self'/);
+    assert.match(
+      workspaceState,
+      /role=\{ownsAnnouncement \? \(kind === 'error' \? 'alert' : 'status'\) : undefined\}/,
+    );
+    assert.match(workspaceState, /aria-atomic=\{ownsAnnouncement \? 'true' : undefined\}/);
+    assert.match(workspaceState, /aria-live=\{ownsAnnouncement \? liveMode\[kind\] : undefined\}/);
     assert.match(workspaceCss, /\.stateSurface\s*\{/);
     assert.match(workspaceCss, /\.stateSurface\[data-kind='stale'\]/);
     assert.doesNotMatch(css, /\.stateSurface\s*\{/);
