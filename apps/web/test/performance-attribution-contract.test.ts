@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const performanceSpecUrl = new URL('../../../e2e/motion-performance.spec.ts', import.meta.url);
+const playwrightConfigUrl = new URL('../../../playwright.config.ts', import.meta.url);
 const rootPackageUrl = new URL('../../../package.json', import.meta.url);
 
 describe('startup performance attribution contract', () => {
@@ -65,5 +66,24 @@ describe('startup performance attribution contract', () => {
       /records the credential-free/,
     );
     assert.match(rootPackage.scripts['verify:release'] ?? '', /test:motion:browser:production/);
+  });
+
+  it('isolates the CPU-throttled baseline from the parallel browser suite', async () => {
+    const [playwrightConfig, rootPackageSource] = await Promise.all([
+      readFile(playwrightConfigUrl, 'utf8'),
+      readFile(rootPackageUrl, 'utf8'),
+    ]);
+    const rootPackage = JSON.parse(rootPackageSource) as {
+      scripts: Record<string, string>;
+    };
+    const e2eCommand = rootPackage.scripts['test:e2e'] ?? '';
+
+    assert.match(playwrightConfig, /PLAYWRIGHT_EXCLUDE_MOTION_PERFORMANCE/);
+    assert.match(playwrightConfig, /testIgnore:[\s\S]*?motion-performance\\\.spec\\\.ts/);
+    assert.match(e2eCommand, /PLAYWRIGHT_EXCLUDE_MOTION_PERFORMANCE=1 playwright test\s*&&/);
+    assert.match(
+      e2eCommand,
+      /PLAYWRIGHT_WORKERS=1 playwright test e2e\/motion-performance\.spec\.ts/,
+    );
   });
 });
