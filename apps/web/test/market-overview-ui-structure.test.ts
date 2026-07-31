@@ -127,6 +127,10 @@ describe('P3-WC market overview UI structure', () => {
     const tab = extractCssBlock(css, '.marketModeTab {');
     assert.match(tab, /min-height:\s*44px/);
     assert.match(tab, /user-select:\s*none/);
+    assert.match(css, /\.marketModeTab > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
+    assert.match(css, /\.marketModeTab > small\s*\{[\s\S]*?white-space:\s*nowrap/);
+    assert.match(css, /\.marketModeTab\[aria-selected='true'\] > small/);
+    assert.doesNotMatch(css, /\[data-slot='button-label'\]/);
     assert.match(extractCssBlock(css, '.marketModePanel'), /min-width:\s*0/);
     const emptyBody = extractCssBlock(css, ".marketModeBody[data-display-state='empty']");
     assert.match(emptyBody, /align-content:\s*center/);

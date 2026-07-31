@@ -1,4 +1,4 @@
-export { AvailabilityNotice } from './availability-notice';
+export { AvailabilityNotice, type WorkspaceAvailability } from './availability-notice';
 export { DataTable } from './data-table';
 export { MetricStrip, type MetricItem } from './metric-strip';
 export { PageHeader } from './page-header';

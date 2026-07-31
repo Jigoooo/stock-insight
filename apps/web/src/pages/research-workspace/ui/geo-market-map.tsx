@@ -17,7 +17,7 @@ import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 
 const EMPTY_MAP_STYLE = {
   version: 8,
-  name: 'Futur Insight local geo plane',
+  name: 'Stock Insight local geo plane',
   sources: {},
   layers: [
     {
