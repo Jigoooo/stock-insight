@@ -28,9 +28,7 @@ test.describe('credential-free workspace lazy focus runtime', () => {
     await page.goto(fixtureUrl);
   });
 
-  test('focuses the deferred view heading once after the real lazy child resolves', async ({
-    page,
-  }) => {
+  test('ignores duplicate readiness after the real lazy child resolves', async ({ page }) => {
     await page.getByTestId('workspace-nav-deferred').click();
     await expect(page.getByTestId('workspace-lazy-loading')).toBeVisible();
     await expect(page.getByTestId('workspace-deferred-heading')).toHaveCount(0);
@@ -45,12 +43,18 @@ test.describe('credential-free workspace lazy focus runtime', () => {
     await expect(heading).toBeVisible();
     await expect(heading).toBeFocused();
     await expect(page.getByTestId('workspace-heading-focus-count')).toHaveText('1');
+    await expect(page.getByTestId('workspace-deferred-ready-count')).toHaveText('1');
+
+    const externalTarget = page.getByTestId('workspace-external-focus');
+    await externalTarget.focus();
+    await expect(externalTarget).toBeFocused();
 
     await page.getByTestId('workspace-rerender-control').evaluate((button) => {
       if (!(button instanceof HTMLButtonElement)) throw new Error('rerender control is missing');
       button.click();
     });
-    await expect(heading).toBeFocused();
+    await expect(page.getByTestId('workspace-deferred-ready-count')).toHaveText('2');
+    await expect(externalTarget).toBeFocused();
     await expect(page.getByTestId('workspace-heading-focus-count')).toHaveText('1');
   });
 

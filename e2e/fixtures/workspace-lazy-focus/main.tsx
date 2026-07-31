@@ -20,17 +20,15 @@ function createDeferred() {
 
 const lazyViewGate = createDeferred();
 
-function DeferredWorkspaceView() {
-  const [focusCount, setFocusCount] = useState(0);
+function DeferredWorkspaceView({ onHeadingFocus }: Readonly<{ onHeadingFocus: () => void }>) {
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     const heading = headingRef.current;
     if (!heading) return;
-    const countFocus = () => setFocusCount((current) => current + 1);
-    heading.addEventListener('focus', countFocus);
-    return () => heading.removeEventListener('focus', countFocus);
-  }, []);
+    heading.addEventListener('focus', onHeadingFocus);
+    return () => heading.removeEventListener('focus', onHeadingFocus);
+  }, [onHeadingFocus]);
 
   return (
     <section>
@@ -42,7 +40,6 @@ function DeferredWorkspaceView() {
       >
         지연 로드 화면
       </h1>
-      <output data-testid="workspace-heading-focus-count">{focusCount}</output>
     </section>
   );
 }
@@ -64,9 +61,17 @@ function WorkspaceLazyFocusHarness() {
   const [resolvedViewKey, setResolvedViewKey] = useState<string | null>(null);
   const [navigationSequence, setNavigationSequence] = useState(0);
   const [pending, setPending] = useState(false);
-  const [, setRenderVersion] = useState(0);
+  const [readyMountVersion, setReadyMountVersion] = useState(0);
+  const [deferredReadyCount, setDeferredReadyCount] = useState(0);
+  const [headingFocusCount, setHeadingFocusCount] = useState(0);
   const markViewReady = useCallback((readyViewKey: string) => {
+    if (readyViewKey === 'deferred') {
+      setDeferredReadyCount((current) => current + 1);
+    }
     setResolvedViewKey(readyViewKey);
+  }, []);
+  const countHeadingFocus = useCallback(() => {
+    setHeadingFocusCount((current) => current + 1);
   }, []);
 
   const navigateToDeferredView = () => {
@@ -91,11 +96,13 @@ function WorkspaceLazyFocusHarness() {
       <button
         data-testid="workspace-rerender-control"
         hidden
-        onClick={() => setRenderVersion((current) => current + 1)}
+        onClick={() => setReadyMountVersion((current) => current + 1)}
         type="button"
       >
-        하네스 다시 렌더링
+        준비 신호 컴포넌트 다시 마운트
       </button>
+      <output data-testid="workspace-deferred-ready-count">{deferredReadyCount}</output>
+      <output data-testid="workspace-heading-focus-count">{headingFocusCount}</output>
       <WorkspaceViewRegion
         navigationSequence={navigationSequence}
         pending={pending}
@@ -103,8 +110,12 @@ function WorkspaceLazyFocusHarness() {
         viewKey={viewKey}
       >
         <Suspense fallback={<p data-testid="workspace-lazy-loading">화면 로딩 중</p>}>
-          <WorkspaceViewReady onReady={markViewReady} viewKey={viewKey}>
-            {viewKey === 'deferred' ? <LazyWorkspaceView /> : <InitialWorkspaceView />}
+          <WorkspaceViewReady key={readyMountVersion} onReady={markViewReady} viewKey={viewKey}>
+            {viewKey === 'deferred' ? (
+              <LazyWorkspaceView onHeadingFocus={countHeadingFocus} />
+            ) : (
+              <InitialWorkspaceView />
+            )}
           </WorkspaceViewReady>
         </Suspense>
       </WorkspaceViewRegion>
