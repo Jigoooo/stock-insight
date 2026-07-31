@@ -487,6 +487,8 @@ test.describe('v3 research workspace candidate', () => {
     const todayLink = page.getByTestId('workspace-nav-today');
     await expect(sidebar).toHaveAttribute('data-navigation-mode', 'expanded');
     await expect(sidebar).toHaveCSS('width', '210px');
+    await expect(sidebar.getByText('Stock Insight', { exact: true })).toBeVisible();
+    await expect(sidebar).not.toContainText('Futur Insight');
     await expect(todayLink).toHaveCount(1);
     await expect(page.getByRole('button', { name: '사이드바 축소' })).toBeVisible();
 
@@ -508,6 +510,8 @@ test.describe('v3 research workspace candidate', () => {
     await expect(mobileSidebar).toBeVisible();
     await expect(mobileSidebar).toHaveAttribute('data-navigation-mode', 'mobile');
     await expect(todayLink).toHaveCount(1);
+    await expect(page.getByTestId('workspace-mobile-actions')).toBeVisible();
+    await expect(mobileSidebar.getByRole('button', { name: '로그아웃' })).toBeVisible();
     await expect(content).toHaveAttribute('inert', '');
     await expect(todayLink).toBeFocused();
 

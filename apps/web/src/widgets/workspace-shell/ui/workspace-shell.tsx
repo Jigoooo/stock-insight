@@ -3,7 +3,7 @@ import { Children, useEffect, useReducer, useSyncExternalStore, type ReactNode }
 
 import { WorkspaceNavigation } from './workspace-navigation';
 import styles from './workspace-shell.module.css';
-import { WorkspaceTopbar } from './workspace-topbar';
+import { WorkspaceLogoutAction, WorkspaceTopbar } from './workspace-topbar';
 import {
   createWorkspaceShellState,
   reduceWorkspaceShellState,
@@ -14,6 +14,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetTitle,
 } from '@/shared/ui/animate-ui/components/radix/sheet';
 
@@ -102,17 +103,14 @@ export function WorkspaceShell({
   );
 
   return (
-    <main
-      className={styles.shell}
-      data-navigation-mode={state.mode}
-      data-testid="research-workspace-v3"
-      data-workspace-shell
-    >
-      {state.mode === 'mobile' ? (
-        <Sheet
-          open={mobileOpen}
-          onOpenChange={(open) => dispatch({ type: 'set-mobile-open', open })}
-        >
+    <Sheet open={mobileOpen} onOpenChange={(open) => dispatch({ type: 'set-mobile-open', open })}>
+      <main
+        className={styles.shell}
+        data-navigation-mode={state.mode}
+        data-testid="research-workspace-v3"
+        data-workspace-shell
+      >
+        {state.mode === 'mobile' ? (
           <SheetContent
             id="workspace-navigation"
             className={styles.mobileSheet}
@@ -128,55 +126,60 @@ export function WorkspaceShell({
             </SheetDescription>
             <WorkspaceBrand mode="mobile" />
             {navigation}
+            <SheetFooter className={styles.mobileActions} data-testid="workspace-mobile-actions">
+              {contextualActions}
+              {onLogout ? (
+                <WorkspaceLogoutAction className={styles.mobileLogout} onLogout={onLogout} />
+              ) : null}
+            </SheetFooter>
           </SheetContent>
-        </Sheet>
-      ) : (
-        <motion.aside
-          id="workspace-navigation"
-          className={styles.sidebar}
-          data-testid="workspace-sidebar"
-          data-navigation-mode={state.mode}
-          animate={{ width: state.mode === 'expanded' ? 210 : 68 }}
-          initial={false}
-          transition={reducedMotion ? { duration: 0 } : shellTransition}
+        ) : (
+          <motion.aside
+            id="workspace-navigation"
+            className={styles.sidebar}
+            data-testid="workspace-sidebar"
+            data-navigation-mode={state.mode}
+            animate={{ width: state.mode === 'expanded' ? 210 : 68 }}
+            initial={false}
+            transition={reducedMotion ? { duration: 0 } : shellTransition}
+          >
+            <WorkspaceBrand mode={state.mode} />
+            {navigation}
+          </motion.aside>
+        )}
+
+        <section
+          className={styles.workspace}
+          data-testid="workspace-content"
+          aria-hidden={mobileOpen || mobileModalInert || undefined}
+          inert={mobileOpen || mobileModalInert || undefined}
         >
-          <WorkspaceBrand mode={state.mode} />
-          {navigation}
-        </motion.aside>
-      )}
+          <WorkspaceTopbar
+            activeSection={activeSection}
+            contextualActions={contextualActions}
+            mode={state.mode}
+            mobileOpen={mobileOpen}
+            navigationItems={navigationItems}
+            navigationPending={navigationPending}
+            onLogout={onLogout}
+            onToggleDesktop={() => dispatch({ type: 'toggle-desktop-mode' })}
+            search={search}
+          />
+          {currentView}
+        </section>
 
-      <section
-        className={styles.workspace}
-        data-testid="workspace-content"
-        aria-hidden={mobileOpen || mobileModalInert || undefined}
-        inert={mobileOpen || mobileModalInert || undefined}
-      >
-        <WorkspaceTopbar
-          activeSection={activeSection}
-          contextualActions={contextualActions}
-          mode={state.mode}
-          mobileOpen={mobileOpen}
-          navigationItems={navigationItems}
-          navigationPending={navigationPending}
-          onLogout={onLogout}
-          onOpenMobile={() => dispatch({ type: 'set-mobile-open', open: true })}
-          onToggleDesktop={() => dispatch({ type: 'toggle-desktop-mode' })}
-          search={search}
-        />
-        {currentView}
-      </section>
-
-      {overlays}
-    </main>
+        {overlays}
+      </main>
+    </Sheet>
   );
 }
 
 function WorkspaceBrand({ mode }: { mode: 'expanded' | 'compact' | 'mobile' }) {
   return (
     <div className={styles.brand} data-compact={mode === 'compact' || undefined}>
-      <span className={styles.brandMark}>FI</span>
+      <span className={styles.brandMark}>SI</span>
       <div>
-        <strong>Futur Insight</strong>
+        <strong>Stock Insight</strong>
         <span>Research workspace</span>
       </div>
     </div>

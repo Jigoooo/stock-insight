@@ -290,6 +290,29 @@
   height: 15px;
 }
 
+.mobileActions {
+  margin-top: auto;
+  display: grid;
+  gap: 8px;
+  padding: 16px 4px 0;
+  border-top: 1px solid color-mix(in srgb, var(--color-on-chrome) 11%, transparent);
+}
+
+.mobileActions button {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  color: var(--color-on-chrome-secondary);
+}
+
+.mobileActions button:hover {
+  color: var(--color-on-chrome);
+}
+
+.mobileLogout {
+  padding-inline: 12px;
+}
+
 .visuallyHidden {
   width: 1px;
   height: 1px;
@@ -318,7 +341,7 @@
 @media (max-width: 1040px) {
   .crumbs span,
   .crumbs svg,
-  .actionLabel {
+  .contextualActions .actionLabel {
     display: none;
   }
 }
@@ -332,10 +355,6 @@
   .topbar {
     min-height: 60px;
     padding-inline: 10px;
-  }
-
-  .contextualActions {
-    display: none;
   }
 }
 
