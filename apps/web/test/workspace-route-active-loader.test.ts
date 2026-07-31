@@ -23,6 +23,10 @@ const pageUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.tsx',
   import.meta.url,
 );
+const navigationUrl = new URL(
+  '../src/widgets/workspace-shell/ui/workspace-navigation.tsx',
+  import.meta.url,
+);
 
 const VIEWS = [
   'today',
@@ -112,17 +116,18 @@ describe('workspace active-view route loader', () => {
   });
 
   it('prefetches only explicit nav hover or focus intent through the bounded cache', async () => {
-    const [viewRoute, page] = await Promise.all([
+    const [viewRoute, page, navigation] = await Promise.all([
       readFile(viewRouteUrl, 'utf8'),
       readFile(pageUrl, 'utf8'),
+      readFile(navigationUrl, 'utf8'),
     ]);
 
     assert.match(viewRoute, /workspaceViewCache\.prefetch\(/);
     assert.match(viewRoute, /priority:\s*'intent'/);
     assert.doesNotMatch(viewRoute, /sections\.(?:map|forEach)[\s\S]{0,300}prefetch/);
     assert.match(page, /onPrefetchSection\?: \(section: SectionId\) => void/);
-    assert.match(page, /onPointerEnter=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
-    assert.match(page, /onFocus=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
+    assert.match(navigation, /onPointerEnter=\{\(\) => onPrefetch\?\.\(item\.id\)\}/);
+    assert.match(navigation, /onFocus=\{\(\) => onPrefetch\?\.\(item\.id\)\}/);
   });
 
   it('keeps the persistent shell on active-slice transition failure', async () => {

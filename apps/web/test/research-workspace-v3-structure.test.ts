@@ -160,6 +160,39 @@ describe('v3 research workspace structure', () => {
     assert.doesNotMatch(page, /const sections:\s*Array/);
   });
 
+  it('loads route-specific workspace views behind one semantic suspense boundary', () => {
+    assert.match(pageSource, /import \{[^}]*lazy[^}]*Suspense[^}]*\} from 'react'/s);
+    for (const view of [
+      'crypto-workspace-view',
+      'history-view',
+      'my-research-view',
+      'radar-view',
+      'status-view',
+      'stocks-view',
+      'themes-view',
+      'today-view',
+    ]) {
+      assert.match(pageSource, new RegExp(`import\\('\\./views/${view}'\\)`));
+    }
+    assert.doesNotMatch(
+      pageSource,
+      /import \{ (?:Today|Radar|Stocks|Themes|History|Status)View \} from/,
+    );
+    assert.match(pageSource, /<Suspense fallback=\{<WorkspaceViewLoading \/>\}>/);
+    assert.match(pageSource, /function WorkspaceViewLoading\(\)[\s\S]*kind="loading"/);
+    assert.match(pageSource, /delayMs=\{0\}/);
+  });
+
+  it('loads the workspace API client only when an interaction needs it', () => {
+    assert.doesNotMatch(
+      pageSource,
+      /import \{ createApiClient \} from '@stock-insight\/api-client'/,
+    );
+    assert.match(pageSource, /import\('@stock-insight\/api-client'\)/);
+    assert.match(pageSource, /workspaceApiClientPromise \?\?=/);
+    assert.match(pageSource, /await getWorkspaceApiClient\(\)/);
+  });
+
   it('maps every machine-facing value to stable Korean workspace copy', () => {
     assert.match(page, /presentResearchSummary\(item\.(?:summary|thesis)\)/);
     assert.match(page, /placeholder:\s*'종목명·티커 검색'/);

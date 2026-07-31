@@ -19,7 +19,7 @@ const todayUrl = new URL(
   import.meta.url,
 );
 const cssUrl = new URL(
-  '../src/pages/research-workspace/ui/research-workspace-page.module.css',
+  '../src/pages/research-workspace/ui/feed-ledger.module.css',
   import.meta.url,
 );
 const navigationUrl = new URL(

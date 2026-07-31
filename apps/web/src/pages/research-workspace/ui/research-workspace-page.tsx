@@ -1,5 +1,7 @@
 import { AlertCircle, UserPlus } from 'lucide-react';
 import {
+  lazy,
+  Suspense,
   useEffect,
   useMemo,
   useReducer,
@@ -11,14 +13,6 @@ import {
 
 import { EvidenceInspector } from './evidence-inspector';
 import styles from './research-workspace-page.module.css';
-import { CryptoWorkspaceView } from './views/crypto-workspace-view';
-import { HistoryView } from './views/history-view';
-import { MyResearchView } from './views/my-research-view';
-import { RadarView } from './views/radar-view';
-import { StatusView } from './views/status-view';
-import { StocksView } from './views/stocks-view';
-import { ThemesView } from './views/themes-view';
-import { TodayView } from './views/today-view';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewRegion } from './workspace-view-region';
 import {
@@ -39,8 +33,8 @@ import {
   type WorkspaceSectionId,
 } from '@/features/workspace-navigation';
 import { Button, ErrorState } from '@/shared/ui/primitives';
+import { WorkspaceState } from '@/shared/ui/workspace';
 import { WorkspaceShell } from '@/widgets/workspace-shell';
-import { createApiClient } from '@stock-insight/api-client';
 import type {
   DecisionHistoryPage,
   EntityRelationGraph,
@@ -54,7 +48,45 @@ import type {
 export type SectionId = WorkspaceSectionId;
 export type DetailState = 'ready' | 'loading' | 'error';
 
-export { AvailabilityNotice, PageHeader, WorkspaceState } from '@/shared/ui/workspace';
+export { AvailabilityNotice, PageHeader } from '@/shared/ui/workspace';
+export { WorkspaceState };
+
+const CryptoWorkspaceView = lazy(() =>
+  import('./views/crypto-workspace-view').then(({ CryptoWorkspaceView }) => ({
+    default: CryptoWorkspaceView,
+  })),
+);
+const HistoryView = lazy(() =>
+  import('./views/history-view').then(({ HistoryView }) => ({ default: HistoryView })),
+);
+const MyResearchView = lazy(() =>
+  import('./views/my-research-view').then(({ MyResearchView }) => ({ default: MyResearchView })),
+);
+const RadarView = lazy(() =>
+  import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
+);
+const StatusView = lazy(() =>
+  import('./views/status-view').then(({ StatusView }) => ({ default: StatusView })),
+);
+const StocksView = lazy(() =>
+  import('./views/stocks-view').then(({ StocksView }) => ({ default: StocksView })),
+);
+const ThemesView = lazy(() =>
+  import('./views/themes-view').then(({ ThemesView }) => ({ default: ThemesView })),
+);
+const TodayView = lazy(() =>
+  import('./views/today-view').then(({ TodayView }) => ({ default: TodayView })),
+);
+
+function createWorkspaceApiClient() {
+  return import('@stock-insight/api-client').then(({ createApiClient }) => createApiClient());
+}
+
+let workspaceApiClientPromise: ReturnType<typeof createWorkspaceApiClient> | undefined;
+
+function getWorkspaceApiClient() {
+  return (workspaceApiClientPromise ??= createWorkspaceApiClient());
+}
 
 export type ResearchWorkspaceUrlState = {
   view?: SectionId;
@@ -83,6 +115,17 @@ type CursorPaginationValue<Page> = {
   page: Page;
   state: DetailState;
 };
+
+function WorkspaceViewLoading() {
+  return (
+    <WorkspaceState
+      delayMs={0}
+      kind="loading"
+      title="워크스페이스 화면을 준비하고 있습니다"
+      description="선택한 리서치 화면을 불러오는 동안 잠시만 기다려 주세요."
+    />
+  );
+}
 
 function createFeedPaginationValue(today: WorkspaceToday): FeedPaginationValue {
   return {
@@ -343,7 +386,6 @@ export function ResearchWorkspacePage({
       ? { base: data.history, value: { page: data.history, state: 'ready' } }
       : null,
   );
-  const api = useMemo(() => createApiClient(), []);
   const section = onUrlStateChange ? data.view : localSection;
   // The URL is authoritative for the selected lane, not the payload. The today
   // payload carries all three lanes and its `lane` field only echoes whatever
@@ -377,9 +419,9 @@ export function ResearchWorkspacePage({
     const recordKey = urlState.record;
     if (!recordKey || recordKey === detail?.recordKey) return;
     let active = true;
-    void api
-      .researchRecord(recordKey)
-      .then(async (nextDetail) => {
+    void getWorkspaceApiClient()
+      .then(async (api) => {
+        const nextDetail = await api.researchRecord(recordKey);
         const entityKey = nextDetail.affectedEntityKeys[0];
         const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
         if (!active) return;
@@ -396,7 +438,7 @@ export function ResearchWorkspacePage({
     return () => {
       active = false;
     };
-  }, [api, detail?.recordKey, urlState.record]);
+  }, [detail?.recordKey, urlState.record]);
 
   const feedPaginationValue =
     data.view === 'today'
@@ -417,8 +459,8 @@ export function ResearchWorkspacePage({
       return;
     const authoritativeToday = data.today;
     let active = true;
-    void api
-      .researchFeed({ lane, cursor, limit: 20 })
+    void getWorkspaceApiClient()
+      .then((api) => api.researchFeed({ lane, cursor, limit: 20 }))
       .then((page) => {
         if (!active) return;
         setFeedPagination((current) => {
@@ -463,7 +505,7 @@ export function ResearchWorkspacePage({
     return () => {
       active = false;
     };
-  }, [api, data, failedCursor, lane, loadedCursor, urlState.cursor, viewLoadError]);
+  }, [data, failedCursor, lane, loadedCursor, urlState.cursor, viewLoadError]);
 
   const currentLane =
     feedPaginationValue?.lanes[lane] ??
@@ -560,6 +602,7 @@ export function ResearchWorkspacePage({
     setDetailState('loading');
     setRelationState('loading');
     try {
+      const api = await getWorkspaceApiClient();
       const nextDetail = await api.researchRecord(item.recordKey);
       setDetail(nextDetail);
       const entityKey = nextDetail.affectedEntityKeys[0];
@@ -576,6 +619,7 @@ export function ResearchWorkspacePage({
     const sequence = ++themeRelationSequenceRef.current;
     setThemeRelationState('loading');
     try {
+      const api = await getWorkspaceApiClient();
       const nextRelation = await api.entityRelations(entityKey, 1);
       if (!isLatestWorkspaceIntent(themeRelationSequenceRef.current, sequence)) return;
       setThemeRelation(nextRelation);
@@ -597,6 +641,7 @@ export function ResearchWorkspacePage({
       value: { page: visibleRadarPage, state: 'loading' },
     });
     try {
+      const api = await getWorkspaceApiClient();
       const nextPage = await api.radarSignals({ cursor, limit: 30 });
       setRadarPagination((current) => {
         const value = resolveWorkspaceAuthoritativeOverride(authoritativeRadar, current);
@@ -634,6 +679,7 @@ export function ResearchWorkspacePage({
       value: { page: visibleHistoryPage, state: 'loading' },
     });
     try {
+      const api = await getWorkspaceApiClient();
       const nextPage = await api.decisionHistory({ cursor, limit: 30 });
       setHistoryPagination((current) => {
         const value = resolveWorkspaceAuthoritativeOverride(authoritativeHistory, current);
@@ -822,7 +868,7 @@ export function ResearchWorkspacePage({
         pending={viewNavigationPending}
         viewKey={section}
       >
-        {workspaceViewContent}
+        <Suspense fallback={<WorkspaceViewLoading />}>{workspaceViewContent}</Suspense>
       </WorkspaceViewRegion>
       <EvidenceInspector
         detail={visibleDetail}
