@@ -543,12 +543,26 @@ test.describe('private workspace authentication', () => {
     await page.locator('[data-auth-feedback-announcement]').evaluate((announcement) => {
       const slot = announcement.parentElement;
       if (!slot) throw new Error('feedback slot is missing');
-      const samples: Array<{ phase: string; text: string; transform: string }> = [];
+      const samples: Array<{
+        phase: string;
+        text: string;
+        transform: string;
+        visualTexts: string[];
+      }> = [];
       const capture = (phase: string) => {
-        for (const visual of slot.querySelectorAll<HTMLElement>('[data-auth-feedback-visual]')) {
+        const visuals = Array.from(
+          slot.querySelectorAll<HTMLElement>('[data-auth-feedback-visual]'),
+        );
+        const visualTexts = visuals.map((visual) => visual.textContent?.trim() ?? '');
+        for (const visual of visuals) {
           const text = visual.textContent?.trim() ?? '';
           if (text) {
-            samples.push({ phase, text, transform: getComputedStyle(visual).transform });
+            samples.push({
+              phase,
+              text,
+              transform: getComputedStyle(visual).transform,
+              visualTexts,
+            });
           }
         }
       };
@@ -579,15 +593,29 @@ test.describe('private workspace authentication', () => {
               phase: string;
               text: string;
               transform: string;
+              visualTexts: string[];
             }>;
           }
         ).__reducedFeedbackTransformSamples ?? [],
     );
-    const errorSamples = samples.filter(({ text }) => text.includes('아이디 또는 비밀번호'));
-    expect(errorSamples.some(({ phase }) => phase === 'transition-start')).toBe(true);
-    expect(errorSamples.some(({ phase }) => phase === 'next-frame')).toBe(true);
+    const pendingMessage = '계정 정보를 확인하고 있습니다.';
+    const errorMessage = '아이디 또는 비밀번호를 확인해 주세요.';
+    const transitionSamples = samples.filter(
+      ({ text, visualTexts }) =>
+        visualTexts.includes(errorMessage) && (text === pendingMessage || text === errorMessage),
+    );
+    for (const message of [pendingMessage, errorMessage]) {
+      expect(
+        transitionSamples.some(
+          ({ phase, text }) => phase === 'transition-start' && text === message,
+        ),
+      ).toBe(true);
+      expect(
+        transitionSamples.some(({ phase, text }) => phase === 'next-frame' && text === message),
+      ).toBe(true);
+    }
     expect(
-      errorSamples.every(({ transform }) =>
+      transitionSamples.every(({ transform }) =>
         /^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(transform),
       ),
     ).toBe(true);
