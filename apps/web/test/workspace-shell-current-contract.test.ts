@@ -2,9 +2,26 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
+import { validateWorkspaceSearch } from '../src/pages/research-workspace/model/workspace-search.ts';
+
 const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
 describe('current workspace shell behavior', () => {
+  it('round-trips every supported URL field without inventing invalid state', () => {
+    const current = {
+      cursor: 'cursor:current',
+      lane: 'explore',
+      record: 'record:current',
+      view: 'themes',
+    } as const;
+
+    assert.deepEqual(validateWorkspaceSearch(current), current);
+    assert.deepEqual(
+      validateWorkspaceSearch({ cursor: '', lane: 'invalid', record: ' ', view: 'invalid' }),
+      {},
+    );
+  });
+
   it('keeps URL authority and real navigation links', async () => {
     const page = await read('pages/research-workspace/ui/research-workspace-page.tsx');
     assert.match(page, /to=\{`\/workspace\/\$\{id\}`\}/);
