@@ -1,0 +1,62 @@
+:root {
+  --color-accent: #2457d6;
+  --color-accent-soft: #e8efff;
+  --color-accent-strong: #1d46b5;
+  --color-border: #d9deea;
+  --color-border-strong: #aeb7ca;
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f6f7fb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #6b7280;
+  --shadow-panel: 0 16px 36px rgb(15 23 42 / 0.16);
+  --switch-thumb-shadow: 0 1px 3px rgb(15 23 42 / 0.2);
+  --switch-track-shadow: inset 0 0 0 1px rgb(15 23 42 / 0.08);
+  --toggle-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  --duration-fast: 0.16s;
+  --motion-ease-out: power2.out;
+  --radius-control: 10px;
+  color: var(--color-text-primary);
+  background: #f3f5f8;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  width: min(680px, calc(100% - 32px));
+  margin: 32px auto;
+}
+
+form {
+  display: grid;
+  gap: 10px;
+  padding: 24px;
+  border-radius: 20px;
+  background: #fff;
+}
+
+section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+label {
+  margin-top: 12px;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+output {
+  min-height: 24px;
+  overflow-wrap: anywhere;
+}

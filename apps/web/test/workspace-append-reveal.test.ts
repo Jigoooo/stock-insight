@@ -22,15 +22,26 @@ describe('workspace append reveal', () => {
   it('uses one scoped bounded reveal without scale or layout animation', async () => {
     const source = await readFile(hookUrl, 'utf8');
 
-    assert.match(source, /useGSAP/);
-    assert.match(source, /scope:\s*scopeRef/);
+    assert.match(source, /from 'motion\/react'/);
+    assert.match(source, /useLayoutEffect/);
+    assert.match(
+      source,
+      /const useBeforePaintEffect = typeof window === 'undefined' \? useEffect : useLayoutEffect/,
+    );
+    assert.match(source, /useBeforePaintEffect\(\(\) =>/);
+    assert.match(source, /\banimate\(/);
+    assert.match(source, /\bstagger\(0\.025\)/);
     assert.match(source, /selectWorkspaceAppendedKeys\([^)]*,[^)]*,\s*5\)/);
-    assert.match(source, /opacity:\s*0/);
-    assert.match(source, /y:\s*6/);
+    assert.match(source, /element\.style\.opacity = '0'/);
+    assert.match(source, /element\.style\.transform = 'translateY\(6px\)'/);
+    assert.match(source, /opacity:\s*1/);
+    assert.match(source, /y:\s*0/);
     assert.match(source, /duration:\s*0\.18/);
-    assert.match(source, /stagger:\s*0\.025/);
-    assert.match(source, /clearProps:\s*'opacity,transform'/);
+    assert.match(source, /removeProperty\('opacity'\)/);
+    assert.match(source, /removeProperty\('transform'\)/);
     assert.match(source, /reducedMotion \|\| forcedColors/);
+    assert.doesNotMatch(source, /@gsap\/react|from ['"]gsap['"]|useGSAP/);
+    assert.doesNotMatch(source, /\buseEffect\(\(\) =>/);
     assert.doesNotMatch(source, /scale|width:|height:|left:|top:/);
   });
 
@@ -38,7 +49,7 @@ describe('workspace append reveal', () => {
     const source = await readFile(hookUrl, 'utf8');
 
     assert.match(source, /previous\.resetKey !== resetKey/);
-    assert.match(source, /previousRef\.current = \{ keys, resetKey \}/);
+    assert.match(source, /previousRef\.current = \{ keys: currentKeys, resetKey \}/);
   });
 
   it('integrates only with appendable Today, Radar, and History row owners', async () => {

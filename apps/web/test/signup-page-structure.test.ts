@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const pageUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
+const shellUrl = new URL('../src/pages/auth/auth-shell.tsx', import.meta.url);
 const inputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const screenUrl = new URL('../src/pages/auth/signup-screen.tsx', import.meta.url);
 const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
@@ -11,8 +12,27 @@ const routeUrl = new URL('../src/routes/signup.tsx', import.meta.url);
 const loginPageUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
 const loginStylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
+const rootComponentUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
 
 describe('one-time signup source contract', () => {
+  it('shares the centered auth shell and keeps every availability state inside one presence region', async () => {
+    assert.equal(existsSync(shellUrl), true, 'the shared auth shell must exist');
+    const [page, shell, stylesheet] = await Promise.all([
+      readFile(pageUrl, 'utf8'),
+      readFile(shellUrl, 'utf8'),
+      readFile(stylesheetUrl, 'utf8'),
+    ]);
+
+    assert.match(page, /<AuthShell/);
+    assert.match(page, /<PresenceRegion[\s\S]*?presenceKey=\{availability\}/);
+    assert.match(page, /initial=\{\{\s*opacity:\s*0\s*\}\}/);
+    assert.match(page, /exit=\{\{\s*opacity:\s*0\s*\}\}/);
+    assert.doesNotMatch(page, /initial=\{\{[\s\S]*?\by:/);
+    assert.doesNotMatch(page, /One-time workspace setup|setupNotes|brandPanel|formEyebrow/);
+    assert.match(shell, /data-auth-card/);
+    assert.match(stylesheet, /@media\s*\(max-width:\s*520px\)[\s\S]*?\.authCard/);
+  });
+
   it('wires enrollment availability and account creation to the auth server functions', async () => {
     assert.equal(existsSync(screenUrl), true, 'signup screen must exist');
     const screen = await readFile(screenUrl, 'utf8');
@@ -45,9 +65,9 @@ describe('one-time signup source contract', () => {
       assert.match(page, new RegExp(`id="signup-${field}"`));
       assert.match(page, new RegExp(`errorId="signup-${field}-error"`));
     }
-    assert.match(inputField, /<label htmlFor=\{id\}>\{label\}<\/label>/);
-    assert.match(inputField, /aria-describedby=\{descriptionIds \|\| undefined\}/);
-    assert.match(inputField, /<p id=\{errorId\}[\s\S]*?aria-live="polite"/);
+    assert.match(inputField, /<FieldLabel htmlFor=\{id\}>\{label\}<\/FieldLabel>/);
+    assert.match(inputField, /'aria-describedby': descriptionIds \|\| undefined/);
+    assert.match(inputField, /<FieldError id=\{errorId\}[\s\S]*?aria-live="polite"/);
     assert.match(page, /autoComplete="new-password"/);
     assert.match(page, /aria-invalid=/);
     assert.doesNotMatch(page, /\srequired(?:=|\s|>)/);
@@ -67,14 +87,15 @@ describe('one-time signup source contract', () => {
 
   it('keeps responsive and accessible preference fallbacks without locking one aesthetic', async () => {
     assert.equal(existsSync(stylesheetUrl), true, 'signup stylesheet must exist');
-    const [stylesheet, rootRoute] = await Promise.all([
+    const [stylesheet, rootRoute, rootComponent] = await Promise.all([
       readFile(stylesheetUrl, 'utf8'),
       readFile(rootRouteUrl, 'utf8'),
+      readFile(rootComponentUrl, 'utf8'),
     ]);
 
-    assert.match(stylesheet, /\.fieldError\s*\{[\s\S]*?min-height:/);
+    assert.match(stylesheet, /\.fieldFeedback\s*\{[\s\S]*?min-height:/);
     assert.match(stylesheet, /:focus-visible/);
-    assert.match(stylesheet, /prefers-reduced-motion:\s*reduce/);
+    assert.match(rootComponent, /<MotionConfig reducedMotion="user">/);
     assert.match(stylesheet, /prefers-reduced-transparency:\s*reduce/);
     assert.match(stylesheet, /prefers-contrast:\s*more/);
     assert.match(stylesheet, /@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/);

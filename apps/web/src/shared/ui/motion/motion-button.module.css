@@ -1,0 +1,19 @@
+.visual {
+  display: inherit;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: inherit;
+  grid-template-columns: inherit;
+  align-items: inherit;
+  justify-items: inherit;
+  justify-content: inherit;
+  gap: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visual {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

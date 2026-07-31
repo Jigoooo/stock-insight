@@ -293,7 +293,7 @@ GET /api/reports/latest       주식·코인 최신 리포트 pointer
 | 그래프 모델 | Graphology | Sigma 표준 페어링, 알고리즘 생태계 |
 | 물리 배치 | ForceAtlas2 (Web Worker) | "쫀득한" 탄성 재배치를 메인 스레드 차단 없이 |
 | React 결합 | @react-sigma/core | 기존 TanStack Router/Start 구조에 자연 편입 |
-| 모션 | 기존 GSAP | 패널 전환·경로 pulse. `prefers-reduced-motion` 시 즉시 배치 |
+| 모션 | 로컬 Motion 프리미티브 | 패널 전환·경로 pulse. `prefers-reduced-motion` 시 즉시 배치 |
 | 아이콘 | 기존 Lucide SVG | 이모지 금지 원칙 유지 |
 
 **화면 구조 (데스크톱)**

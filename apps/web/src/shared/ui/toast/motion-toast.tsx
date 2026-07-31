@@ -1,11 +1,10 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 
 import styles from './motion-toast.module.css';
 import type { NotifyOptions } from './notify';
 
+import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import {
   readProfileMotionNumber,
   readProfileMotionSeconds,
@@ -13,8 +12,6 @@ import {
 } from '@/shared/ui/motion/profile-motion';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/primitives/button';
-
-gsap.registerPlugin(useGSAP);
 
 type ToastTone = 'default' | 'success' | 'info' | 'warning' | 'error' | 'loading';
 
@@ -41,16 +38,28 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
   const startedAtRef = useRef(0);
   const remainingRef = useRef(duration);
   const closingRef = useRef(false);
+  const pendingDismissRef = useRef(false);
   const runExitRef = useRef<(onComplete: () => void) => void>((onComplete) => onComplete());
+  const adapter = useMemo(() => createMotionDomAdapter(), []);
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
+
+  const finishDismiss = useCallback(() => {
+    if (!pendingDismissRef.current) return;
+    pendingDismissRef.current = false;
+    toast.dismiss(id);
+  }, [id]);
 
   const close = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    runExitRef.current(() => toast.dismiss(id));
-  }, [id]);
+    pendingDismissRef.current = true;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    runExitRef.current(finishDismiss);
+  }, [finishDismiss]);
 
   const resumeTimer = useCallback(() => {
     if (!Number.isFinite(remainingRef.current) || closingRef.current) return;
@@ -68,57 +77,55 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
     );
   }, []);
 
-  useGSAP(
-    (_context, contextSafe) => {
-      const element = elementRef.current;
-      if (!element || !contextSafe) return;
-      const runExit = contextSafe((onComplete: () => void) => {
-        gsap.killTweensOf(element);
-        if (normalizeMotion) {
-          onComplete();
-          return;
-        }
-        gsap.to(element, {
-          opacity: 0,
-          y: readProfileMotionNumber('--motion-toast-exit-y'),
-          scale: readProfileMotionNumber('--motion-toast-exit-scale'),
-          duration: readProfileMotionSeconds('--motion-toast-exit-duration'),
-          ease: readProfileMotionValue('--motion-toast-exit-ease'),
-          overwrite: 'auto',
-          onComplete,
-        });
-      });
-      runExitRef.current = runExit;
-
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    const runExit = (onComplete: () => void) => {
+      adapter.killTweensOf(element);
       if (normalizeMotion) {
-        gsap.set(element, { clearProps: 'opacity,transform' });
-      } else {
-        gsap.fromTo(
-          element,
-          {
-            opacity: 0,
-            y: readProfileMotionNumber('--motion-toast-enter-y'),
-            scale: readProfileMotionNumber('--motion-toast-enter-scale'),
-          },
-          {
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            duration: readProfileMotionSeconds('--motion-toast-enter-duration'),
-            ease: readProfileMotionValue('--motion-toast-enter-ease'),
-            clearProps: 'transform,opacity',
-            overwrite: 'auto',
-          },
-        );
+        onComplete();
+        return;
       }
+      adapter.to(element, {
+        opacity: 0,
+        y: readProfileMotionNumber('--motion-toast-exit-y'),
+        scale: readProfileMotionNumber('--motion-toast-exit-scale'),
+        duration: readProfileMotionSeconds('--motion-toast-exit-duration'),
+        ease: readProfileMotionValue('--motion-toast-exit-ease'),
+        overwrite: 'auto',
+        onComplete,
+      });
+    };
+    runExitRef.current = runExit;
 
-      return () => {
-        runExitRef.current = (onComplete) => onComplete();
-        gsap.killTweensOf(element);
-      };
-    },
-    { dependencies: [normalizeMotion], revertOnUpdate: true, scope: elementRef },
-  );
+    if (normalizeMotion) {
+      adapter.set(element, { clearProps: 'opacity,transform' });
+    } else {
+      adapter.fromTo(
+        element,
+        {
+          opacity: 0,
+          y: readProfileMotionNumber('--motion-toast-enter-y'),
+          scale: readProfileMotionNumber('--motion-toast-enter-scale'),
+        },
+        {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: readProfileMotionSeconds('--motion-toast-enter-duration'),
+          ease: readProfileMotionValue('--motion-toast-enter-ease'),
+          clearProps: 'transform,opacity',
+          overwrite: 'auto',
+        },
+      );
+    }
+
+    return () => {
+      runExitRef.current = (onComplete) => onComplete();
+      adapter.killTweensOf(element);
+      if (pendingDismissRef.current) finishDismiss();
+    };
+  }, [adapter, finishDismiss, normalizeMotion]);
 
   useEffect(() => {
     const element = elementRef.current;
@@ -141,26 +148,36 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
       window.removeEventListener('app-toast-dismiss', onDismiss);
       element?.removeEventListener('mouseenter', pauseTimer);
       element?.removeEventListener('mouseleave', resumeTimer);
-      if (element) gsap.killTweensOf(element);
+      if (element) adapter.killTweensOf(element);
     };
-  }, [close, id, pauseTimer, resumeTimer, tone]);
+  }, [adapter, close, id, pauseTimer, resumeTimer, tone]);
 
   return (
     <article
       ref={elementRef}
       className={styles.motionToast}
+      data-slot="toast-root"
       data-tone={tone}
       data-toast-id={String(id)}
       aria-label={toneLabels[tone]}
     >
-      <span className={styles.toneRail} aria-hidden="true" />
-      <div className={styles.toastBody}>
-        <span className={styles.toastEyebrow}>{toneLabels[tone]}</span>
-        <strong className={styles.toastTitle}>{title}</strong>
-        {description ? <p className={styles.toastDescription}>{description}</p> : null}
+      <span className={styles.toneRail} data-slot="toast-indicator" aria-hidden="true" />
+      <div className={styles.toastBody} data-slot="toast-content">
+        <span className={styles.toastEyebrow} data-slot="toast-status">
+          {toneLabels[tone]}
+        </span>
+        <strong className={styles.toastTitle} data-slot="toast-title">
+          {title}
+        </strong>
+        {description ? (
+          <p className={styles.toastDescription} data-slot="toast-description">
+            {description}
+          </p>
+        ) : null}
         {action ? (
           <Button
             className={styles.toastAction}
+            data-slot="toast-action"
             motion="pressable"
             type="button"
             onClick={() => {
@@ -174,6 +191,7 @@ function MotionToast({ action, description, duration = 4600, id, title, tone }: 
       </div>
       <Button
         className={styles.toastClose}
+        data-slot="toast-close"
         motion="quiet"
         type="button"
         onClick={close}

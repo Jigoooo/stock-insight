@@ -38,6 +38,12 @@
   outline-offset: 3px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :where([data-motion-owner='motion']) {
+    transform: none !important;
+  }
+}
+
 @media (forced-colors: active) {
   :where(
     button,

@@ -61,7 +61,7 @@ type MotionCall = {
 };
 
 type TestMotionElement = MotionAvailabilityElement & {
-  dataset: { motion?: string };
+  dataset: { motion?: string; motionOwner?: string };
   id: string;
 };
 
@@ -77,17 +77,19 @@ function createMotionElement(
     ariaDisabled = false,
     disabled = false,
     inert = false,
+    motionOwner,
     recipe = 'pressable',
   }: {
     ariaDisabled?: boolean;
     disabled?: boolean;
     inert?: boolean;
+    motionOwner?: string;
     recipe?: string;
   } = {},
 ): TestMotionElement {
   return {
     id,
-    dataset: { motion: recipe },
+    dataset: { motion: recipe, motionOwner },
     closest: (selector) => (selector === '[inert]' && inert ? { inert: true } : null),
     getAttribute: (name) => (name === 'aria-disabled' && ariaDisabled ? 'true' : null),
     matches: (selector) => selector === ':disabled' && disabled,
@@ -294,6 +296,18 @@ describe('delegated interaction motion behavior', () => {
     }
   });
 
+  it('leaves Motion-owned controls out of the legacy delegated GSAP path', () => {
+    const element = createMotionElement('motion-button', {
+      motionOwner: 'motion',
+      recipe: 'pressable',
+    });
+    const target = {
+      closest: (selector: string) => (selector === MOTION_SELECTOR ? element : null),
+    } as unknown as EventTarget;
+
+    assert.equal(resolveDelegatedMotionTarget(target), null);
+  });
+
   it('normalizes active feedback when reduced motion turns on', () => {
     const harness = createHarness();
     harness.root.dispatchEvent(pointerEvent('pointerdown'));
@@ -410,11 +424,13 @@ describe('delegated interaction motion behavior', () => {
 });
 
 describe('motion dependency and CSS ownership gates', () => {
-  it('pins the approved @gsap/react version exactly', async () => {
+  it('uses Motion as the only JavaScript animation dependency', async () => {
     const packageJson = JSON.parse(await readFile(packageUrl, 'utf8')) as {
       dependencies?: Record<string, string>;
     };
-    assert.equal(packageJson.dependencies?.['@gsap/react'], '2.1.2');
+    assert.equal(typeof packageJson.dependencies?.motion, 'string');
+    assert.equal(packageJson.dependencies?.gsap, undefined);
+    assert.equal(packageJson.dependencies?.['@gsap/react'], undefined);
   });
 
   it('fails closed on every transition and will-change declaration in motion-owned CSS', async () => {

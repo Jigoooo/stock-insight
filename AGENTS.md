@@ -30,7 +30,7 @@
 ## UI Rules
 - Preserve the HTML mockup's information architecture, not its duplicated desktop/mobile implementation.
 - Use responsive grid/flex/container query behavior before viewport breakpoint branching.
-- Motion must use CSS and GSAP only. Do not add animation/UI libraries for motion.
+- Motion must use CSS and the local `motion` boundary only. Do not add provider-based UI or animation runtimes.
 - Always support `prefers-reduced-motion`.
 - Keep text contained with wrapping, stable dimensions, and explicit scroll areas.
 

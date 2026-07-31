@@ -12,6 +12,38 @@ const expressiveProfileUrl = new URL(
 type Rgb = Readonly<{ red: number; green: number; blue: number; alpha: number }>;
 
 function parseComputedRgb(value: string): Rgb {
+  const oklabMatch = value.match(
+    /oklab\(\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/,
+  );
+  if (oklabMatch) {
+    const lightness = Number(oklabMatch[1]);
+    const a = Number(oklabMatch[2]);
+    const b = Number(oklabMatch[3]);
+    const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+    const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+    const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
+    const encode = (channel: number) => {
+      const encoded = channel <= 0.0031308 ? 12.92 * channel : 1.055 * channel ** (1 / 2.4) - 0.055;
+      return Math.min(1, Math.max(0, encoded)) * 255;
+    };
+    return {
+      red: encode(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
+      green: encode(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
+      blue: encode(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s),
+      alpha: oklabMatch[4] === undefined ? 1 : Number(oklabMatch[4]),
+    };
+  }
+  const srgbMatch = value.match(
+    /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/,
+  );
+  if (srgbMatch) {
+    return {
+      red: Number(srgbMatch[1]) * 255,
+      green: Number(srgbMatch[2]) * 255,
+      blue: Number(srgbMatch[3]) * 255,
+      alpha: srgbMatch[4] === undefined ? 1 : Number(srgbMatch[4]),
+    };
+  }
   const match = value.match(
     /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)/,
   );
@@ -44,20 +76,41 @@ function contrastRatio(foreground: Rgb, background: Rgb) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-async function focusedShellAppearance(field: Locator) {
+function compositeColor(foreground: Rgb, background: Rgb): Rgb {
+  return {
+    red: foreground.red * foreground.alpha + background.red * (1 - foreground.alpha),
+    green: foreground.green * foreground.alpha + background.green * (1 - foreground.alpha),
+    blue: foreground.blue * foreground.alpha + background.blue * (1 - foreground.alpha),
+    alpha: 1,
+  };
+}
+
+function strongestFocusContrast(focusColors: string[], background: string) {
+  return Math.max(
+    ...focusColors.map((color) =>
+      contrastRatio(parseComputedRgb(color), parseComputedRgb(background)),
+    ),
+  );
+}
+
+async function focusedControlAppearance(field: Locator) {
   await field.focus();
   await field.page().waitForTimeout(220);
   return field.evaluate((input: HTMLInputElement) => {
-    const shell = input.closest<HTMLElement>('[data-motion="field-shell"]');
-    const adjacent = shell?.closest<HTMLElement>('main');
-    if (!shell || !adjacent) throw new Error('auth focus surfaces are missing');
-    const style = getComputedStyle(shell);
-    const shadowColor = style.boxShadow.match(/rgba?\([^)]*\)/)?.[0];
-    if (!shadowColor) throw new Error(`focus shadow color is missing: ${style.boxShadow}`);
+    const control =
+      input.closest<HTMLElement>('[data-slot="input-group"]') ??
+      input.closest<HTMLElement>('[data-slot="input"]');
+    const adjacent = control?.closest<HTMLElement>('[data-auth-card]');
+    if (!control || !adjacent) throw new Error('auth focus surfaces are missing');
+    const style = getComputedStyle(control);
+    const shadowColors = style.boxShadow.match(/(?:rgba?\([^)]*\)|color\(srgb[^)]*\))/g) ?? [];
+    if (shadowColors.length === 0)
+      throw new Error(`focus shadow color is missing: ${style.boxShadow}`);
     return {
-      shadowColor,
+      focusColors: [style.borderColor, ...shadowColors],
       adjacentBackground: getComputedStyle(adjacent).backgroundColor,
-      inlineBoxShadow: shell.style.boxShadow,
+      inlineBoxShadow: control.style.boxShadow,
+      outlineStyle: getComputedStyle(input).outlineStyle,
     };
   });
 }
@@ -66,20 +119,108 @@ async function authStateAppearance(page: Page) {
   return page.evaluate(() => {
     const error = document.querySelector<HTMLElement>('#login-username-error');
     const password = document.querySelector<HTMLInputElement>('#login-password');
-    const shell = password?.closest<HTMLElement>('[data-motion="field-shell"]');
-    const adjacent = shell?.closest<HTMLElement>('main');
-    if (!error || !password || !shell || !adjacent)
+    const control = password?.closest<HTMLElement>('[data-slot="input-group"]');
+    const adjacent = control?.closest<HTMLElement>('[data-auth-card]');
+    if (!error || !password || !control || !adjacent)
       throw new Error('auth state surfaces are missing');
     return {
       errorColor: getComputedStyle(error).color,
       errorBackground: getComputedStyle(adjacent).backgroundColor,
       placeholderColor: getComputedStyle(password, '::placeholder').color,
-      placeholderBackground: getComputedStyle(shell).backgroundColor,
+      placeholderControlBackground: getComputedStyle(control).backgroundColor,
+      placeholderAdjacentBackground: getComputedStyle(adjacent).backgroundColor,
     };
   });
 }
 
 test.describe('private workspace authentication', () => {
+  test('uses one restrained centered auth card without decorative marketing chrome', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+
+    const shell = page.locator('[data-auth-shell]');
+    const card = page.locator('[data-auth-card]');
+    await expect(shell).toBeVisible();
+    await expect(card).toBeVisible();
+    await expect(page.getByText('Stock Insight', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '로그인', exact: true })).toBeVisible();
+    await expect(page.getByText('Research workspace', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('시장의 흐름을 읽고')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /테마/ })).toHaveCount(0);
+
+    const geometry = await card.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      const input = element.querySelector<HTMLInputElement>('#login-username');
+      const submit = element.querySelector<HTMLButtonElement>('button[type="submit"]');
+      const title = element.querySelector<HTMLHeadingElement>('#login-form-heading');
+      const wordmark = element.querySelector<HTMLElement>('[class*="wordmark"]');
+      if (!input || !submit || !title || !wordmark) throw new Error('auth surfaces are missing');
+      return {
+        inputHeight: input.getBoundingClientRect().height,
+        inputFontSize: getComputedStyle(input).fontSize,
+        placeholderFontSize: getComputedStyle(input, '::placeholder').fontSize,
+        leftGap: rect.left,
+        rightGap: innerWidth - rect.right,
+        submitHeight: submit.getBoundingClientRect().height,
+        titleFontSize: getComputedStyle(title).fontSize,
+        width: rect.width,
+        wordmarkFontSize: getComputedStyle(wordmark).fontSize,
+        radius: style.borderRadius,
+      };
+    });
+    expect(geometry.width).toBeLessThanOrEqual(400);
+    expect(geometry.width).toBeGreaterThanOrEqual(340);
+    expect(Math.abs(geometry.leftGap - geometry.rightGap)).toBeLessThanOrEqual(2);
+    expect(geometry.radius).toBe('16px');
+    expect(geometry.inputHeight).toBe(42);
+    expect(geometry.submitHeight).toBe(geometry.inputHeight);
+    expect(geometry.inputFontSize).toBe('14px');
+    expect(geometry.placeholderFontSize).toBe(geometry.inputFontSize);
+    expect(geometry.titleFontSize).toBe('20px');
+    expect(geometry.wordmarkFontSize).toBe('20px');
+  });
+
+  test('keeps native label focusing without replaying a focus transition', async ({ page }) => {
+    await page.goto('/login');
+
+    const username = page.getByLabel('사용자 이름');
+    const label = page.locator('label[for="login-username"]');
+    await expect(username).toBeEnabled();
+    await username.focus();
+    await expect(username).toBeFocused();
+
+    const transitionState = await username.evaluate((element) => {
+      const group = element.closest<HTMLElement>('[data-slot="input-group"]');
+      return {
+        inputDuration: getComputedStyle(element).transitionDuration,
+        groupDuration: group ? getComputedStyle(group).transitionDuration : null,
+      };
+    });
+    expect(transitionState.inputDuration).toBe('0s');
+    expect(transitionState.groupDuration).toBeNull();
+
+    await username.evaluate((element) => {
+      element.dataset.focusMotionEvents = '0';
+      const countMotionEvent = () => {
+        element.dataset.focusMotionEvents = String(
+          Number(element.dataset.focusMotionEvents ?? '0') + 1,
+        );
+      };
+      element.addEventListener('transitionrun', countMotionEvent);
+      element.addEventListener('animationstart', countMotionEvent);
+    });
+    await label.click();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+
+    await expect(username).toBeFocused();
+    await expect(username).toHaveAttribute('data-focus-motion-events', '0');
+  });
+
   test('loads the active profile behind responsive and motion safety invariants', async ({
     page,
   }) => {
@@ -93,11 +234,25 @@ test.describe('private workspace authentication', () => {
       `/styles/profiles/${profileId}.css`,
     );
     const motionProbe = page.getByRole('button', { name: '로그인', exact: true });
-    await expect(motionProbe).toHaveAttribute('data-motion', 'pressable');
+    await expect(motionProbe).toBeEnabled();
+    const buttonAppearance = await motionProbe.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        color: style.color,
+      };
+    });
+    expect(buttonAppearance.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(
+      contrastRatio(
+        parseComputedRgb(buttonAppearance.color),
+        parseComputedRgb(buttonAppearance.backgroundColor),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
     await motionProbe.hover();
     await expect
       .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
-      .toBe('none');
+      .toBe('matrix(1.01, 0, 0, 1.01, 0, 0)');
     const motionBox = await motionProbe.boundingBox();
     if (!motionBox) throw new Error('login motion probe does not have a bounding box');
     await page.mouse.move(motionBox.x + motionBox.width / 2, motionBox.y + motionBox.height / 2);
@@ -105,14 +260,17 @@ test.describe('private workspace authentication', () => {
     try {
       await expect
         .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
-        .toBe('none');
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-      await expect
-        .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
-        .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+        .toBe('matrix(0.985, 0, 0, 0.985, 0, 0)');
     } finally {
       await page.mouse.up();
     }
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(motionProbe).toBeEnabled();
+    await motionProbe.hover();
+    await expect
+      .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
 
     const safety = await page.evaluate(() => {
       const rootStyle = getComputedStyle(document.documentElement);
@@ -170,11 +328,19 @@ test.describe('private workspace authentication', () => {
     await expect(page.locator('#login-password')).toHaveAttribute('type', 'password');
     await expect(page.getByRole('button', { name: '로그인' })).toBeVisible();
 
+    const visibilityButton = page.getByRole('button', { name: '비밀번호 표시하기' });
+    await visibilityButton.click();
+    await expect(page.locator('#login-password')).toHaveAttribute('type', 'text');
+    const hidePasswordButton = page.getByRole('button', { name: '비밀번호 숨기기' });
+    await expect(hidePasswordButton).toHaveAttribute('aria-pressed', 'true');
+    await hidePasswordButton.click();
+    await expect(page.locator('#login-password')).toHaveAttribute('type', 'password');
+
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
 
-  test('preserves a native focus indicator while forced colors hide the decorative halo', async ({
+  test('preserves a native focus indicator in forced colors without a decorative halo', async ({
     page,
   }) => {
     await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
@@ -184,20 +350,19 @@ test.describe('private workspace authentication', () => {
     await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
     await usernameField.focus();
     const forcedColorState = await usernameField.evaluate((input) => {
-      const shell = input.closest<HTMLElement>('[data-motion="field-shell"]');
-      const halo = shell?.querySelector<HTMLElement>('[data-field-motion-halo]');
       const inputStyle = getComputedStyle(input);
-      if (!shell || !halo) throw new Error('forced-colors field-shell surfaces are missing');
       return {
         active: document.activeElement === input,
-        haloDisplay: getComputedStyle(halo).display,
+        haloCount: input
+          .closest<HTMLElement>('[data-slot="field"]')
+          ?.querySelectorAll('[data-field-motion-halo]').length,
         outlineStyle: inputStyle.outlineStyle,
         outlineWidth: Number.parseFloat(inputStyle.outlineWidth),
       };
     });
 
     expect(forcedColorState.active).toBe(true);
-    expect(forcedColorState.haloDisplay).toBe('none');
+    expect(forcedColorState.haloCount).toBe(0);
     expect(forcedColorState.outlineStyle).not.toBe('none');
     expect(forcedColorState.outlineWidth).toBeGreaterThanOrEqual(2);
   });
@@ -224,13 +389,10 @@ test.describe('private workspace authentication', () => {
     expect(state.canvas).toBe('#fff4fb');
     expect(state.radius).toBe('32px');
     expect(state.overflow).toBeLessThanOrEqual(1);
-    const lightFocus = await focusedShellAppearance(page.getByLabel('사용자 이름'));
+    const lightFocus = await focusedControlAppearance(page.getByLabel('사용자 이름'));
     expect(lightFocus.inlineBoxShadow).toBe('');
     expect(
-      contrastRatio(
-        parseComputedRgb(lightFocus.shadowColor),
-        parseComputedRgb(lightFocus.adjacentBackground),
-      ),
+      strongestFocusContrast(lightFocus.focusColors, lightFocus.adjacentBackground),
     ).toBeGreaterThanOrEqual(3);
     const lightStates = await authStateAppearance(page);
     expect(
@@ -242,7 +404,10 @@ test.describe('private workspace authentication', () => {
     expect(
       contrastRatio(
         parseComputedRgb(lightStates.placeholderColor),
-        parseComputedRgb(lightStates.placeholderBackground),
+        compositeColor(
+          parseComputedRgb(lightStates.placeholderControlBackground),
+          parseComputedRgb(lightStates.placeholderAdjacentBackground),
+        ),
       ),
     ).toBeGreaterThanOrEqual(4.5);
     const lightResults = await new AxeBuilder({ page }).analyze();
@@ -261,13 +426,10 @@ test.describe('private workspace authentication', () => {
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       ),
     ).toBeLessThanOrEqual(1);
-    const darkFocus = await focusedShellAppearance(page.getByLabel('사용자 이름'));
+    const darkFocus = await focusedControlAppearance(page.getByLabel('사용자 이름'));
     expect(darkFocus.inlineBoxShadow).toBe('');
     expect(
-      contrastRatio(
-        parseComputedRgb(darkFocus.shadowColor),
-        parseComputedRgb(darkFocus.adjacentBackground),
-      ),
+      strongestFocusContrast(darkFocus.focusColors, darkFocus.adjacentBackground),
     ).toBeGreaterThanOrEqual(3);
     const darkStates = await authStateAppearance(page);
     expect(
@@ -279,7 +441,10 @@ test.describe('private workspace authentication', () => {
     expect(
       contrastRatio(
         parseComputedRgb(darkStates.placeholderColor),
-        parseComputedRgb(darkStates.placeholderBackground),
+        compositeColor(
+          parseComputedRgb(darkStates.placeholderControlBackground),
+          parseComputedRgb(darkStates.placeholderAdjacentBackground),
+        ),
       ),
     ).toBeGreaterThanOrEqual(4.5);
     const darkResults = await new AxeBuilder({ page }).analyze();
@@ -291,13 +456,11 @@ test.describe('private workspace authentication', () => {
     const usernameField = page.getByLabel('사용자 이름');
     await expect(usernameField).toBeEnabled();
 
-    const focusAppearance = await focusedShellAppearance(usernameField);
+    const focusAppearance = await focusedControlAppearance(usernameField);
     expect(focusAppearance.inlineBoxShadow).toBe('');
+    expect(focusAppearance.outlineStyle).toBe('none');
     expect(
-      contrastRatio(
-        parseComputedRgb(focusAppearance.shadowColor),
-        parseComputedRgb(focusAppearance.adjacentBackground),
-      ),
+      strongestFocusContrast(focusAppearance.focusColors, focusAppearance.adjacentBackground),
     ).toBeGreaterThanOrEqual(3);
   });
 
@@ -311,7 +474,44 @@ test.describe('private workspace authentication', () => {
     await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
     const toast = page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' });
     await expect(toast).toBeVisible();
-    await expect(toast.getByRole('button', { name: '알림 닫기' })).toBeVisible();
+    const closeToast = toast.getByRole('button', { name: '알림 닫기' });
+    await expect(closeToast).toBeVisible();
+    await closeToast.click();
+    await expect(toast).toBeHidden();
+  });
+
+  test('finishes a toast exit when reduced-motion changes during close', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/login');
+    const usernameField = page.getByLabel('사용자 이름');
+    const passwordField = page.getByRole('textbox', { name: '비밀번호', exact: true });
+    const submit = page.getByRole('button', { name: '로그인', exact: true });
+
+    await usernameField.fill('invalid-user');
+    await passwordField.fill('not-a-real-password');
+    await submit.click();
+
+    const firstToast = page
+      .locator('[data-toast-id]')
+      .filter({ hasText: '로그인하지 못했습니다.' });
+    await expect(firstToast).toBeVisible();
+    const firstToastId = await firstToast.getAttribute('data-toast-id');
+    await firstToast.getByRole('button', { name: '알림 닫기' }).click();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(firstToast).toBeHidden();
+
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await submit.click();
+    const secondToast = page
+      .locator('[data-toast-id]')
+      .filter({ hasText: '로그인하지 못했습니다.' });
+    await expect(secondToast).toBeVisible();
+    await expect(secondToast).not.toHaveAttribute('data-toast-id', firstToastId ?? '');
+    await page.waitForTimeout(500);
+    await expect(secondToast).toBeVisible();
+    await expect(
+      page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' }),
+    ).toHaveCount(1);
   });
 
   test('keeps dark-mode authentication accessible with visible focus', async ({ page }) => {
@@ -319,13 +519,11 @@ test.describe('private workspace authentication', () => {
     await page.goto('/login');
     const usernameField = page.getByLabel('사용자 이름');
     await usernameField.fill('contrast-user');
-    const focusAppearance = await focusedShellAppearance(usernameField);
+    const focusAppearance = await focusedControlAppearance(usernameField);
     expect(focusAppearance.inlineBoxShadow).toBe('');
+    expect(focusAppearance.outlineStyle).toBe('none');
     expect(
-      contrastRatio(
-        parseComputedRgb(focusAppearance.shadowColor),
-        parseComputedRgb(focusAppearance.adjacentBackground),
-      ),
+      strongestFocusContrast(focusAppearance.focusColors, focusAppearance.adjacentBackground),
     ).toBeGreaterThanOrEqual(3);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);

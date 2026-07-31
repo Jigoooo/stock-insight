@@ -94,7 +94,7 @@ describe('workspace active-view route loader', () => {
     const source = await readFile(layoutUrl, 'utf8');
     assert.match(source, /<Outlet \/>/);
     assert.match(source, /validateSearch:\s*validateWorkspaceSearch/);
-    assert.match(source, /data-testid="workspace-route-error"/);
+    assert.match(source, /(?:data-testid|testId)="workspace-route-error"/);
   });
 
   it('renders the payload that committed with the route loader', async () => {
@@ -140,7 +140,7 @@ describe('workspace active-view route loader', () => {
     assert.match(today, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
     assert.doesNotMatch(today, /pendingComponent:\s*WorkspaceRoutePending/);
     assert.match(page, /viewLoadError\?:\s*SectionId/);
-    assert.match(page, /data-testid="workspace-view-load-error"/);
+    assert.match(page, /(?:data-testid|testId)="workspace-view-load-error"/);
   });
 
   // A redirect thrown inside a loader is control flow. If it were caught by the

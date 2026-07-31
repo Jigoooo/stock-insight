@@ -17,7 +17,7 @@ export type MotionAvailabilityElement = {
 };
 
 export type MotionRecipeElement = {
-  dataset: { motion?: string };
+  dataset: { motion?: string; motionOwner?: string };
 };
 
 export const MOTION_SELECTOR = '[data-motion]';
@@ -55,7 +55,7 @@ export function resolveDelegatedMotionTarget(target: EventTarget | null) {
   const element = (
     target as EventTarget & { closest: (selector: string) => MotionRecipeElement | null }
   ).closest(MOTION_SELECTOR);
-  if (!element) return null;
+  if (!element || element.dataset.motionOwner === 'motion') return null;
 
   const recipe = readMotionRecipe(element);
   if (!isDelegatedMotionRecipe(recipe)) return null;

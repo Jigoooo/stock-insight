@@ -127,7 +127,7 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(source, /runtimeState/);
     assert.match(source, /setRuntimeState\('error'\)/);
     assert.match(source, /data-runtime-state=\{runtimeState\}/);
-    assert.match(source, /role="alert"/);
+    assert.match(source, /<ErrorState className=\{styles\.graphRuntimeError\} aria-atomic="true">/);
     assert.match(source, /관계 지도 다시 시도/);
     assert.match(source, /setRuntimeRevision/);
     assert.match(source, /const sourceNode = source\.nodes\.find/);

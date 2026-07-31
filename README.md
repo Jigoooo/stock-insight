@@ -38,7 +38,7 @@ flowchart LR
 | 영역 | 기술 |
 |---|---|
 | Web | React 19, TanStack Start/Router, Vite, Nitro |
-| Visualization | ECharts, Recharts, GSAP |
+| Visualization | ECharts, Recharts, Motion |
 | Contract | TypeScript, Zod, typed API client |
 | Workspace | pnpm workspaces, Turborepo |
 | Quality | Node test runner, Playwright, Axe, Oxlint, Oxfmt |

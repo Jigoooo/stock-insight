@@ -1,4 +1,5 @@
-import { AlertCircle, ChevronDown, CircleDot, LoaderCircle, Network } from 'lucide-react';
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
+import { AlertCircle, ChevronDown, CircleDot, Network } from 'lucide-react';
 
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import styles from './stock-deep-dive-panel.module.css';
@@ -8,7 +9,7 @@ import {
   type StockDeepDiveAvailability,
 } from '../model/stock-deep-dive';
 
-import { Button } from '@/shared/ui/primitives';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/shared/ui/primitives';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export type StockDeepDivePanelState = 'idle' | 'loading' | 'error' | 'ready';
@@ -30,10 +31,15 @@ function PanelState({
   onRetry?: () => void;
   title: string;
 }) {
-  const Icon = kind === 'loading' ? LoaderCircle : kind === 'error' ? AlertCircle : CircleDot;
-  return (
-    <div className={styles.state} data-kind={kind} role={kind === 'error' ? 'alert' : 'status'}>
-      <Icon aria-hidden="true" data-motion-loop={kind === 'loading' ? 'spinner' : undefined} />
+  const content = (
+    <>
+      {kind === 'loading' ? (
+        <Skeleton className={styles.stateIconSkeleton} height={22} width={22} />
+      ) : kind === 'error' ? (
+        <AlertCircle aria-hidden="true" />
+      ) : (
+        <CircleDot aria-hidden="true" />
+      )}
       <div>
         <strong>{title}</strong>
         <p>{description}</p>
@@ -43,7 +49,21 @@ function PanelState({
           </Button>
         )}
       </div>
-    </div>
+    </>
+  );
+
+  if (kind === 'error') {
+    return (
+      <ErrorState className={styles.state} data-kind={kind} aria-atomic="true">
+        {content}
+      </ErrorState>
+    );
+  }
+
+  return (
+    <EmptyState className={styles.state} data-kind={kind} role="status" aria-atomic="true">
+      {content}
+    </EmptyState>
   );
 }
 

@@ -90,15 +90,15 @@
   align-items: end;
   margin-top: 24px;
 }
-.form label {
+.form label,
+.formField {
   display: grid;
   gap: 8px;
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 700;
 }
-.form input,
-.form select {
+.form input {
   width: 100%;
   height: 46px;
   padding: 0 14px;
@@ -109,8 +109,7 @@
   font: inherit;
   outline: none;
 }
-.form input:focus-visible,
-.form select:focus-visible {
+.form input:focus-visible {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
@@ -233,6 +232,13 @@ td {
 .empty {
   padding-block: 48px;
   text-align: center;
+}
+.tableEmpty {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .visuallyHidden {
   position: absolute;

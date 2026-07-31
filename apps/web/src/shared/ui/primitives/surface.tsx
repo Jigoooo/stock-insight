@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
 import styles from './primitives.module.css';
-import { MotionRegion } from '../motion/motion-region';
+import { Effect } from '../motion';
 
 type CardProps = HTMLAttributes<HTMLElement> & {
   as?: 'article' | 'section' | 'div';
@@ -13,14 +13,18 @@ function classNames(...values: (string | false | null | undefined)[]) {
 }
 
 export function Card({ as = 'div', children, className, ...props }: CardProps) {
+  const Component = as;
+
   return (
-    <MotionRegion
-      as={as}
-      className={classNames(styles.card, className)}
-      recipe="surface"
-      {...props}
-    >
-      {children}
-    </MotionRegion>
+    <Component {...props} className={classNames(styles.card, className)} data-slot="card-root">
+      <Effect
+        className={styles.cardVisual}
+        data-slot="card-visual"
+        fade
+        slide={{ direction: 'down', offset: 4 }}
+      >
+        {children}
+      </Effect>
+    </Component>
   );
 }

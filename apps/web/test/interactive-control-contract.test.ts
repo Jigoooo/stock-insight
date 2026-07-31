@@ -49,11 +49,6 @@ function objectProperty(
   );
 }
 
-function requireCallExpression(expression: ts.Expression | undefined, message: string) {
-  if (!expression || !ts.isCallExpression(expression)) throw new Error(message);
-  return expression;
-}
-
 function requireObjectLiteral(expression: ts.Expression | undefined, message: string) {
   if (!expression || !ts.isObjectLiteralExpression(expression)) throw new Error(message);
   return expression;
@@ -122,7 +117,7 @@ describe('explicit interactive-control motion contract', () => {
     );
   });
 
-  it('keeps transform ownership in GSAP without permanent CSS animation hints', async () => {
+  it('keeps transform ownership in Motion without permanent CSS animation hints', async () => {
     const css = await readFile(motionCssUrl, 'utf8');
 
     assert.doesNotMatch(css, /will-change/);
@@ -176,40 +171,15 @@ describe('explicit interactive-control motion contract', () => {
     );
   });
 
-  it('wires the provider adapter through contextSafe while the controller alone owns listeners', async () => {
+  it('wires one interruptible Motion adapter while the controller alone owns listeners', async () => {
     const { controller, provider } = await readMotionSources();
     const providerAst = parseSource(provider, 'interaction-motion.tsx');
     const controllerAst = parseSource(controller, 'interaction-motion-controller.ts');
     const providerCalls = collectNodes(providerAst, ts.isCallExpression);
     const controllerCalls = collectNodes(controllerAst, ts.isCallExpression);
 
-    const gsapToCalls = providerCalls.filter(
-      (call) =>
-        ts.isPropertyAccessExpression(call.expression) &&
-        call.expression.expression.getText(providerAst) === 'gsap' &&
-        call.expression.name.text === 'to',
-    );
-    assert.equal(gsapToCalls.length, 1);
-
-    const runTween = collectNodes(providerAst, ts.isVariableDeclaration).find(
-      (declaration) => declaration.name.getText(providerAst) === 'runTween',
-    );
-    const runTweenInitializer = requireCallExpression(
-      runTween?.initializer,
-      'runTween must be initialized by contextSafe',
-    );
-    assert.equal(runTweenInitializer.expression.getText(providerAst), 'contextSafe');
-    const contextSafeCallback = runTweenInitializer.arguments[0];
-    assert.ok(
-      contextSafeCallback &&
-        (ts.isArrowFunction(contextSafeCallback) || ts.isFunctionExpression(contextSafeCallback)),
-      'contextSafe must receive a function callback',
-    );
-    assert.equal(
-      nearestFunction(gsapToCalls[0]),
-      contextSafeCallback,
-      'the only gsap.to call must be directly owned by the contextSafe callback',
-    );
+    assert.match(provider, /createMotionDomAdapter/);
+    assert.doesNotMatch(provider, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
 
     const installCall = providerCalls.find(
       (call) => call.expression.getText(providerAst) === 'installDelegatedInteractionMotion',
@@ -236,14 +206,9 @@ describe('explicit interactive-control motion contract', () => {
           'isMotionTargetUnavailable',
       'isUnavailable must directly return isMotionTargetUnavailable',
     );
-    const motionAdapter = objectProperty(providerAst, installOptions, 'motion');
-    const motionAdapterInitializer = requireObjectLiteral(
-      motionAdapter?.initializer,
-      'provider motion adapter must be an object literal',
-    );
     assert.equal(
-      objectProperty(providerAst, motionAdapterInitializer, 'to')?.initializer.getText(providerAst),
-      'runTween',
+      objectProperty(providerAst, installOptions, 'motion')?.initializer.getText(providerAst),
+      'adapter',
     );
     assert.equal(
       providerCalls.some(
@@ -299,12 +264,12 @@ describe('explicit interactive-control motion contract', () => {
     }
   });
 
-  it('uses overwrite and clears inline transform state on completion, preference change, and unmount', async () => {
+  it('stops prior Motion work and clears inline transform state on completion, preference change, and unmount', async () => {
     const { motion } = await readMotionSources();
 
-    assert.match(motion, /useGSAP/);
-    assert.match(motion, /contextSafe/);
-    assert.match(motion, /gsap\.killTweensOf\(element\)/);
+    assert.match(motion, /createMotionDomAdapter/);
+    assert.doesNotMatch(motion, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
+    assert.match(motion, /motion\.killTweensOf\(element\)/);
     assert.match(motion, /overwrite:\s*'auto'/);
     assert.match(motion, /clearProps:\s*recipe === 'quiet' \? 'opacity' : 'transform'/);
     assert.match(motion, /onComplete:[\s\S]*?clearMotionProps\(element, recipe\)/);

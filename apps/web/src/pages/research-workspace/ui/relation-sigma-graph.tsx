@@ -17,7 +17,7 @@ import {
   transitionRelationDrag,
 } from '@/pages/research-workspace/model/relation-sigma-runtime';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
-import { Button, IconButton } from '@/shared/ui/primitives';
+import { Button, ErrorState, IconButton, TextInput } from '@/shared/ui/primitives';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 type RelationRenderer = Sigma<
@@ -422,11 +422,12 @@ export function RelationSigmaGraph({
     >
       <div className={styles.graphSearch} data-testid="relation-graph-search">
         <Search aria-hidden="true" />
-        <input
+        <TextInput
           aria-label="관계 노드 검색"
           autoComplete="off"
           list={suggestionId}
           placeholder="종목 검색"
+          variant="bare"
           value={query}
           onBlur={() => {
             if (!query) refreshSelection();
@@ -458,7 +459,7 @@ export function RelationSigmaGraph({
       </div>
 
       {runtimeState === 'error' && (
-        <div className={styles.graphRuntimeError} role="alert">
+        <ErrorState className={styles.graphRuntimeError} aria-atomic="true">
           <strong>관계 지도를 표시하지 못했습니다</strong>
           <p>텍스트 노드 목록은 계속 사용할 수 있습니다.</p>
           <Button
@@ -468,7 +469,7 @@ export function RelationSigmaGraph({
           >
             관계 지도 다시 시도
           </Button>
-        </div>
+        </ErrorState>
       )}
 
       <section

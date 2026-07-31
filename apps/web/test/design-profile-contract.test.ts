@@ -11,6 +11,7 @@ import {
 const profileUrl = new URL(`../public${activeDesignProfile.cssHref}`, import.meta.url);
 const expressiveProfileUrl = new URL('./fixtures/expressive-design-profile.css', import.meta.url);
 const foundationUrl = new URL('../public/styles/index.css', import.meta.url);
+const tailwindFoundationUrl = new URL('../src/shared/ui/tailwind.css', import.meta.url);
 const documentUrl = new URL('../src/pages/root/ui/root-document.tsx', import.meta.url);
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 const legacyTokensUrl = new URL('../src/shared/theme/tokens.ts', import.meta.url);
@@ -25,6 +26,27 @@ async function readDesignSourceTree(directory: URL): Promise<string[]> {
       sources.push(await readFile(child, 'utf8'));
   }
   return sources;
+}
+
+function findUnresolvedTokens(definitionSources: string[], usageSources: string[]): string[] {
+  const definitions = new Set<string>(
+    definitionSources.join('\n').match(/--[\w-]+(?=\s*:)/g) ?? [],
+  );
+  const componentUses = new Set<string>();
+
+  for (const source of usageSources) {
+    for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
+      if (match[1]) componentUses.add(match[1]);
+    }
+    if (source.includes('readProfileMotion')) {
+      for (const match of source.matchAll(/['"](--[\w-]+)['"]/g)) componentUses.add(match[1]);
+    }
+  }
+
+  const runtimeLocalTokens = new Set(['--strength']);
+  return [...componentUses]
+    .filter((token) => !definitions.has(token) && !runtimeLocalTokens.has(token))
+    .sort();
 }
 
 describe('design profile contract', () => {
@@ -51,6 +73,9 @@ describe('design profile contract', () => {
       darkProfile,
       new RegExp(`--color-canvas:\\s*${activeDesignProfile.themeColors.dark}`),
     );
+    assert.match(profile, /--color-accent-strong:\s*#20211f/);
+    assert.match(darkProfile, /--color-accent-strong:\s*#f2f2ed/);
+    assert.doesNotMatch(profile, /#(?:f3f6fa|070c14|356faf|245d9d|7fb0eb|98c3f3|173453)\b/i);
     assert.doesNotMatch(foundation, /@import\s/);
     assert.doesNotMatch(foundation, /--color-canvas:\s*#/);
     assert.match(document, /data-design-profile=\{activeDesignProfile\.id\}/);
@@ -80,29 +105,26 @@ describe('design profile contract', () => {
   });
 
   it('lets a complete alternative profile resolve every component token', async () => {
-    const [foundation, expressiveProfile, componentSources] = await Promise.all([
-      readFile(foundationUrl, 'utf8'),
-      readFile(expressiveProfileUrl, 'utf8'),
-      readDesignSourceTree(componentStylesUrl),
-    ]);
-    const definitions = new Set<string>(
-      `${foundation}\n${expressiveProfile}`.match(/--[\w-]+(?=\s*:)/g) ?? [],
+    const [foundation, expressiveProfile, tailwindFoundation, componentSources] = await Promise.all(
+      [
+        readFile(foundationUrl, 'utf8'),
+        readFile(expressiveProfileUrl, 'utf8'),
+        readFile(tailwindFoundationUrl, 'utf8'),
+        readDesignSourceTree(componentStylesUrl),
+      ],
     );
-    const componentUses = new Set<string>();
-    for (const source of [foundation, ...componentSources]) {
-      for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
-        if (match[1]) componentUses.add(match[1]);
-      }
-      if (source.includes('readProfileMotion')) {
-        for (const match of source.matchAll(/['"](--[\w-]+)['"]/g)) componentUses.add(match[1]);
-      }
-    }
-    const runtimeLocalTokens = new Set(['--strength']);
-    const unresolved = [...componentUses]
-      .filter((token) => !definitions.has(token) && !runtimeLocalTokens.has(token))
-      .sort();
+    const definitionSources = [foundation, expressiveProfile, tailwindFoundation];
+    const usageSources = [foundation, ...componentSources];
+    const unresolved = findUnresolvedTokens(definitionSources, usageSources);
 
     assert.deepEqual(unresolved, []);
+    assert.deepEqual(
+      findUnresolvedTokens(definitionSources, [
+        ...usageSources,
+        '.contract-probe { color: var(--truly-undefined-token); }',
+      ]),
+      ['--truly-undefined-token'],
+    );
   });
 
   it('keeps browser metadata colors owned by the active profile', async () => {

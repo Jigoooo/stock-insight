@@ -1,72 +1,5 @@
-:where(
-  .button,
-  .iconButton,
-  .searchField,
-  .statusBadge,
-  .card,
-  .emptyState,
-  .errorState,
-  .skeleton
-) {
+:where(.searchField, .statusBadge, .card, .emptyState, .errorState, .skeleton) {
   min-width: 0;
-}
-
-:where(.button, .iconButton) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  font-weight: 680;
-  line-height: 1;
-  text-decoration: none;
-  transition:
-    color var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-  user-select: none;
-}
-
-:where(.button[data-size='sm']) {
-  min-height: 36px;
-  gap: 7px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-:where(.button[data-size='md']) {
-  min-height: 40px;
-  gap: 8px;
-  padding: 0 12px;
-  font-size: 12.5px;
-}
-
-:where(.iconButton) {
-  width: 40px;
-  height: 40px;
-}
-
-:where(.button[data-variant='primary']) {
-  color: var(--color-background-strong);
-  background: var(--color-primary-strong);
-}
-
-:where(.button[data-variant='secondary'], .iconButton) {
-  border-color: var(--color-line);
-  color: var(--color-ink-soft);
-  background: var(--color-card);
-}
-
-:where(.button[data-variant='ghost']) {
-  color: var(--color-muted);
-  background: transparent;
-}
-
-:where(.button:disabled, .iconButton:disabled) {
-  cursor: not-allowed;
-  opacity: 0.52;
-  transform: none;
 }
 
 :where(.searchField) {
@@ -76,11 +9,11 @@
   min-height: 40px;
   align-items: center;
   gap: 9px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   padding: 0 11px;
-  color: var(--color-muted-foreground);
-  background: var(--color-card);
+  color: var(--color-text-tertiary);
+  background: var(--color-surface);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
@@ -89,20 +22,26 @@
 .fieldMotionHalo {
   position: absolute;
   inset: -3px;
-  border: 2px solid var(--field-motion-halo-color, var(--color-primary));
+  border: 2px solid var(--field-motion-halo-color, var(--color-focus));
   border-radius: inherit;
   opacity: 0;
   pointer-events: none;
   box-shadow: 0 0 0 2px
-    color-mix(in srgb, var(--field-motion-halo-color, var(--color-primary)) 18%, transparent);
+    color-mix(in srgb, var(--field-motion-halo-color, var(--color-focus)) 18%, transparent);
 }
 
 :where(.searchField:focus-within) {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-focus) 14%, transparent);
 }
 
-:where(.searchField svg) {
+.searchFieldIndicator {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+:where(.searchFieldIndicator svg) {
   width: 16px;
   height: 16px;
 }
@@ -111,10 +50,10 @@
 .textarea {
   width: 100%;
   min-width: 0;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
-  color: var(--color-foreground);
-  background: var(--color-card);
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
   font: inherit;
 }
 
@@ -139,7 +78,7 @@
 
 .textInput::placeholder,
 .textarea::placeholder {
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
 }
 
 .field {
@@ -148,55 +87,72 @@
 }
 
 .fieldLabel {
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 720;
 }
 
 .fieldHint {
-  color: var(--color-muted-foreground);
+  color: var(--color-text-tertiary);
   font-size: 11px;
   line-height: 1.45;
 }
 
-.statusBadge {
+.fieldError {
+  color: var(--color-risk);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.field[data-invalid='true'] :where(.textInput, .textarea) {
+  border-color: color-mix(in srgb, var(--color-risk) 62%, var(--color-border-strong));
+}
+
+:where(.statusBadge) {
   display: inline-flex;
   min-height: 24px;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-xs);
-  padding: 3px 7px;
-  color: var(--color-muted);
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   font-size: 11px;
-  font-weight: 720;
+  font-weight: 680;
   line-height: 1.2;
   white-space: nowrap;
 }
 
+.feedbackInlineVisual {
+  display: inherit;
+  min-width: 0;
+  align-items: inherit;
+  gap: inherit;
+}
+
 .statusBadge[data-tone='success'] {
-  border-color: color-mix(in srgb, var(--color-positive) 30%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-positive) 26%, var(--color-border));
   color: var(--color-positive);
-  background: color-mix(in srgb, var(--color-positive-soft) 38%, transparent);
+  background: color-mix(in srgb, var(--color-positive-soft) 34%, var(--color-surface));
 }
 
 .statusBadge[data-tone='info'] {
-  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--color-line));
-  color: var(--color-primary-strong);
-  background: color-mix(in srgb, var(--color-primary-soft) 44%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  color: var(--color-accent-strong);
+  background: color-mix(in srgb, var(--color-accent-soft) 36%, var(--color-surface));
 }
 
 .statusBadge[data-tone='warning'] {
-  border-color: color-mix(in srgb, var(--color-signal) 34%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-signal) 28%, var(--color-border));
   color: var(--color-signal);
-  background: color-mix(in srgb, var(--color-signal-soft) 44%, transparent);
+  background: color-mix(in srgb, var(--color-signal-soft) 36%, var(--color-surface));
 }
 
 .statusBadge[data-tone='danger'] {
-  border-color: color-mix(in srgb, var(--color-risk) 34%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
   color: var(--color-risk);
-  background: color-mix(in srgb, var(--color-risk-soft) 42%, transparent);
+  background: color-mix(in srgb, var(--color-risk-soft) 34%, var(--color-surface));
 }
 
 .statusBadge[data-tone='muted'],
@@ -207,35 +163,36 @@
 .dataQualityPopover {
   position: relative;
   min-width: min(280px, 100%);
-  color: var(--color-muted-foreground);
+  color: var(--color-text-secondary);
   font-size: 11.5px;
   line-height: 1.5;
 }
 
 .dataQualityPopover summary {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  padding: 7px 9px;
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
   cursor: pointer;
-  color: var(--color-ink-soft);
-  background: color-mix(in srgb, var(--color-card-subtle) 72%, transparent);
-  font-weight: 760;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-weight: 680;
 }
 
-.dataQualityPopover > div {
+.dataQualityContent {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
   z-index: 30;
   width: min(320px, calc(100vw - 48px));
-  border: 1px solid color-mix(in srgb, var(--color-primary) 26%, var(--color-line));
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  background: var(--color-card);
-  box-shadow: var(--shadow-panel);
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-text-primary) 9%, transparent);
 }
 
-.dataQualityPopover[data-placement='above'] > div {
+.dataQualityPopover[data-placement='above'] .dataQualityContent {
   top: auto;
   bottom: calc(100% + 6px);
 }
@@ -270,35 +227,13 @@
   margin: 0;
 }
 
-:where(.textLink) {
-  display: inline-flex;
-  min-height: 32px;
-  align-items: center;
-  border-radius: var(--radius-xs);
-  color: var(--color-ink-soft);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, currentcolor 35%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-}
-
-:where(.textLink[data-tone='accent']) {
-  color: var(--color-primary-strong);
-}
-
-:where(.textLink[data-tone='muted']) {
-  color: var(--color-muted);
-}
-
 .switchControl,
 .toggleControl {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   border-radius: var(--radius-control);
-  color: var(--color-ink-soft);
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -318,7 +253,7 @@
   align-items: center;
   border-radius: 999px;
   padding: 3px;
-  background: var(--color-line-strong);
+  background: var(--color-border-strong);
   box-shadow: var(--switch-track-shadow);
 }
 
@@ -326,20 +261,20 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--color-card);
+  background: var(--color-surface);
   box-shadow: var(--switch-thumb-shadow);
 }
 
 .switchControl[data-state='checked'] .switchTrack {
-  background: var(--color-primary-strong);
+  background: var(--color-accent-strong);
 }
 
 .toggleControl {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   padding: 0 13px;
-  background: var(--color-card);
+  background: var(--color-surface);
   box-shadow: var(--toggle-shadow);
   isolation: isolate;
 }
@@ -349,8 +284,8 @@
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background: var(--color-primary-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
   opacity: 0;
   pointer-events: none;
 }
@@ -361,8 +296,8 @@
 }
 
 .toggleControl[data-state='on'] {
-  border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-line));
-  color: var(--color-primary-strong);
+  border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+  color: var(--color-accent-strong);
 }
 
 .toggleControl[data-state='on'] .toggleRail {
@@ -373,29 +308,46 @@
   display: inline-flex;
   min-width: 0;
   gap: 3px;
-  border: 1px solid var(--color-line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   padding: 3px;
-  background: var(--color-card-subtle);
+  background: var(--color-surface-subtle);
 }
 
 :where(.segmentedTab) {
+  position: relative;
+  overflow: hidden;
   min-height: 36px;
   border-color: transparent;
-  color: var(--color-muted);
+  color: var(--color-text-tertiary);
   background: transparent;
   box-shadow: none;
 }
 
 :where(.segmentedTab[aria-selected='true']) {
-  color: var(--color-foreground);
-  background: var(--color-card);
-  box-shadow: var(--toggle-shadow);
+  color: var(--color-text-primary);
+  background: transparent;
+  box-shadow: none;
 }
 
 :where(.segmentedTab[data-pending='true']) {
-  outline: 1px dashed var(--color-primary);
+  outline: 1px dashed var(--color-accent);
   outline-offset: -3px;
+}
+
+.segmentedTabIndicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: calc(var(--radius-control) - 3px);
+  background: var(--color-surface);
+  box-shadow: var(--toggle-shadow);
+  pointer-events: none;
+}
+
+.segmentedTabLabel {
+  position: relative;
+  z-index: 1;
 }
 
 .switchControl:disabled,
@@ -404,85 +356,103 @@
   opacity: 0.5;
 }
 
-.card {
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: var(--color-card);
-  box-shadow: var(--shadow-panel);
+:where(.card) {
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--color-text-primary) 7%, transparent);
 }
 
-.emptyState,
-.errorState {
+.cardVisual {
+  min-width: 0;
+}
+
+:where(.emptyState, .errorState) {
   display: grid;
   min-height: 96px;
   place-content: center;
-  border: 1px dashed var(--color-line);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  color: var(--color-muted);
-  background: color-mix(in srgb, var(--color-card-subtle) 54%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 18px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas));
   font-size: 12px;
   line-height: 1.55;
   text-align: center;
 }
 
 .errorState {
-  border-color: color-mix(in srgb, var(--color-risk) 35%, var(--color-line));
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
   color: var(--color-risk);
+  background: color-mix(in srgb, var(--color-risk-soft) 28%, var(--color-surface));
 }
 
-.skeleton {
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-foreground) 8%, transparent);
+.feedbackContent {
+  min-width: 0;
+}
+
+.feedbackVisual {
+  display: inherit;
+  min-width: 0;
+  grid-template-columns: inherit;
+  align-items: inherit;
+  justify-items: inherit;
+  place-content: inherit;
+  gap: inherit;
+}
+
+:where(.skeleton) {
   position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-control);
 }
 
-.skeleton::after {
+.skeletonVisual {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface));
+}
+
+.skeletonVisual::after {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--color-foreground) 8%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 7%, transparent),
     transparent
   );
   content: '';
   opacity: 0.45;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  :where(.button[data-variant='primary']:hover) {
-    background: var(--color-primary);
-    box-shadow: var(--shadow-hover);
-  }
-
-  :where(.button[data-variant='secondary']:hover, .iconButton:hover) {
-    border-color: var(--color-line-strong);
-    background: var(--color-card-subtle);
-  }
-
-  :where(.button[data-variant='ghost']:hover) {
-    color: var(--color-foreground);
-    background: var(--color-card-subtle);
-  }
-}
-
 @media (max-width: 560px) {
-  :where(.button[data-size='sm'], .button[data-size='md'], .iconButton),
   :where(.searchField),
   .textInput {
     min-height: 44px;
-  }
-
-  :where(.iconButton) {
-    width: 44px;
-    height: 44px;
   }
 }
 
 @media (forced-colors: active) {
   .fieldMotionHalo {
     display: none;
+  }
+
+  .switchTrack,
+  .toggleControl,
+  .segmentedTabs {
+    border: 1px solid ButtonText;
+  }
+
+  .switchControl[data-state='checked'] .switchTrack,
+  .segmentedTabIndicator {
+    background: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.switchControl, .toggleControl) {
+    transform: none !important;
   }
 }

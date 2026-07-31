@@ -10,6 +10,9 @@ export {
   StatusBadge,
 } from './feedback';
 export { Field, SearchField, Textarea, TextInput } from './form';
+export { Combobox, type ComboboxProps } from './combobox';
+export { SelectBox, type SelectBoxProps } from './select-box';
+export { type SelectOption, type SelectOptionFilter } from './select-controls-controller';
 export { SegmentedTabs } from './segmented-tabs';
 export { Card } from './surface';
 export {

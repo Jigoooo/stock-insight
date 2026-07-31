@@ -1,0 +1,94 @@
+@layer theme;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css';
+
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-accent-strong);
+  --primary-foreground: var(--color-on-accent);
+  --secondary: var(--color-surface-subtle);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-surface-muted);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-accent-strong);
+  --accent-foreground: var(--color-on-accent);
+  --destructive: var(--color-risk);
+  --border: var(--color-border);
+  --input: var(--color-border-strong);
+  --ring: var(--color-focus);
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-positive);
+  --chart-3: var(--color-signal);
+  --chart-4: var(--color-copper);
+  --chart-5: var(--color-risk);
+  --radius: var(--radius-md);
+  --sidebar: var(--color-chrome);
+  --sidebar-foreground: var(--color-on-chrome);
+  --sidebar-primary: var(--color-accent);
+  --sidebar-primary-foreground: var(--color-on-accent);
+  --sidebar-accent: var(--color-chrome-raised);
+  --sidebar-accent-foreground: var(--color-on-chrome);
+  --sidebar-border: var(--color-border);
+  --sidebar-ring: var(--color-focus);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+[data-slot='input']::placeholder,
+[data-slot='input-group-control']::placeholder {
+  opacity: 1;
+}
+
+/*
+ * The legacy global stylesheet is intentionally unlayered, so its native
+ * focus outline otherwise wins over shadcn's layered `outline-none` utility.
+ * Reassert the generated utility at the integration boundary to keep one ring.
+ */
+.outline-none:focus-visible {
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  .outline-none:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

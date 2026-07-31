@@ -9,7 +9,7 @@ export const Route = createFileRoute('/login')({
   }),
   head: () => ({
     meta: [
-      { title: '로그인 | Futur Insight' },
+      { title: '로그인 | Stock Insight' },
       {
         name: 'description',
         content: '개인 투자 리서치 워크스페이스 로그인',

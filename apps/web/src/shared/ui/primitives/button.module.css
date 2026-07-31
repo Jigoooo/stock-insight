@@ -5,6 +5,8 @@
   justify-content: center;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
   font-weight: 680;
   line-height: 1;
   text-decoration: none;
@@ -14,6 +16,15 @@
     background var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
   user-select: none;
+}
+
+.buttonLabel {
+  display: contents;
+}
+
+.iconButtonLabel {
+  display: inline-grid;
+  place-items: center;
 }
 
 :where(.button[data-size='sm']) {
@@ -36,18 +47,18 @@
 }
 
 :where(.button[data-variant='primary']) {
-  color: var(--color-background-strong);
-  background: var(--color-primary-strong);
+  color: var(--color-on-accent);
+  background: var(--color-accent-strong);
 }
 
 :where(.button[data-variant='secondary'], .iconButton) {
-  border-color: var(--color-line);
-  color: var(--color-ink-soft);
-  background: var(--color-card);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
 }
 
 :where(.button[data-variant='ghost']) {
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
   background: transparent;
 }
 
@@ -59,18 +70,18 @@
 
 @media (hover: hover) and (pointer: fine) {
   :where(.button[data-variant='primary']:hover) {
-    background: var(--color-primary);
-    box-shadow: var(--shadow-hover);
+    background: var(--color-accent);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
 
   :where(.button[data-variant='secondary']:hover, .iconButton:hover) {
-    border-color: var(--color-line-strong);
-    background: var(--color-card-subtle);
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-subtle);
   }
 
   :where(.button[data-variant='ghost']:hover) {
-    color: var(--color-foreground);
-    background: var(--color-card-subtle);
+    color: var(--color-text-primary);
+    background: var(--color-surface-subtle);
   }
 }
 
@@ -82,5 +93,11 @@
   :where(.iconButton) {
     width: 44px;
     height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.button, .iconButton) {
+    transform: none !important;
   }
 }

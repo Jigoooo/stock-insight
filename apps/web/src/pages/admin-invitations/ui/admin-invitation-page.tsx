@@ -6,7 +6,13 @@ import styles from './admin-invitation-page.module.css';
 import { issueInvitation, revokeInvitation } from '../model/admin-invitation-functions';
 
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
-import { Button } from '@/shared/ui/primitives/button';
+import {
+  Button,
+  EmptyState,
+  SelectBox,
+  TextInput,
+  type SelectOption,
+} from '@/shared/ui/primitives';
 
 type AdminInvitationPageProps = {
   initialInvitations: AdminInvitation[];
@@ -21,6 +27,19 @@ const statusLabels: Record<AdminInvitation['status'], string> = {
 };
 
 const transportError = '요청을 완료하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.';
+
+const maxUsesOptions: readonly SelectOption[] = [
+  { value: '1', label: '1회' },
+  { value: '2', label: '2회' },
+  { value: '5', label: '5회' },
+  { value: '10', label: '10회' },
+];
+
+const expirationOptions: readonly SelectOption[] = [
+  { value: '24', label: '24시간' },
+  { value: '72', label: '3일' },
+  { value: '168', label: '7일' },
+];
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -127,9 +146,10 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
           <h2 id="issue-heading">새 가입 코드 발급</h2>
         </div>
         <form className={styles.form} onSubmit={handleIssue}>
-          <label>
+          <label htmlFor="invitation-label">
             <span>메모</span>
-            <input
+            <TextInput
+              id="invitation-label"
               name="label"
               minLength={1}
               maxLength={120}
@@ -137,23 +157,24 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
               placeholder="예: 김지구 초대"
             />
           </label>
-          <label>
-            <span>사용 가능 횟수</span>
-            <select name="maxUses" defaultValue="1">
-              <option value="1">1회</option>
-              <option value="2">2회</option>
-              <option value="5">5회</option>
-              <option value="10">10회</option>
-            </select>
-          </label>
-          <label>
-            <span>유효 기간</span>
-            <select name="expiresInHours" defaultValue="24">
-              <option value="24">24시간</option>
-              <option value="72">3일</option>
-              <option value="168">7일</option>
-            </select>
-          </label>
+          <div className={styles.formField}>
+            <span id="max-uses-label">사용 가능 횟수</span>
+            <SelectBox
+              aria-labelledby="max-uses-label"
+              defaultValue="1"
+              name="maxUses"
+              options={maxUsesOptions}
+            />
+          </div>
+          <div className={styles.formField}>
+            <span id="expiration-label">유효 기간</span>
+            <SelectBox
+              aria-labelledby="expiration-label"
+              defaultValue="24"
+              name="expiresInHours"
+              options={expirationOptions}
+            />
+          </div>
           <Button className={styles.issueButton} disabled={pending} type="submit" variant="primary">
             <UserPlus aria-hidden="true" /> {pending ? '처리 중' : '코드 발급'}
           </Button>
@@ -218,7 +239,9 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
               {invitations.length === 0 ? (
                 <tr>
                   <td colSpan={6} className={styles.empty}>
-                    아직 발급한 코드가 없습니다.
+                    <EmptyState className={styles.tableEmpty}>
+                      아직 발급한 코드가 없습니다.
+                    </EmptyState>
                   </td>
                 </tr>
               ) : (

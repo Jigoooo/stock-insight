@@ -6,21 +6,20 @@
   position: relative;
   display: grid;
   width: min(380px, calc(100vw - 32px));
-  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-columns: 3px minmax(0, 1fr) auto;
   align-items: start;
   overflow: hidden;
-  border: 1px solid var(--toast-border);
-  border-radius: var(--toast-radius);
-  color: var(--color-foreground);
-  background: var(--toast-background);
-  box-shadow: var(--toast-shadow);
-  backdrop-filter: var(--toast-backdrop-filter);
+  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  border-radius: var(--radius-panel);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: 0 14px 38px color-mix(in srgb, var(--color-text-primary) 10%, transparent);
   pointer-events: auto;
   transform-origin: top right;
 }
 
 .toneRail {
-  width: 4px;
+  width: 3px;
   height: 100%;
   min-height: 82px;
   background: var(--color-primary);
@@ -45,19 +44,18 @@
 .toastBody {
   display: grid;
   min-width: 0;
-  gap: 5px;
-  padding: 14px 8px 14px 14px;
+  gap: 4px;
+  padding: 13px 8px 13px 14px;
 }
 
 .toastEyebrow {
-  color: var(--color-muted);
+  color: var(--color-text-tertiary);
   font-size: 11px;
-  font-weight: 760;
-  letter-spacing: 0.07em;
+  font-weight: 680;
 }
 
 .toastTitle {
-  color: var(--color-foreground);
+  color: var(--color-text-primary);
   font-size: 14px;
   font-weight: 760;
   line-height: 1.35;
@@ -66,7 +64,7 @@
 
 .toastDescription {
   margin: 1px 0 0;
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -93,7 +91,7 @@
   min-width: 48px;
   margin: 9px 8px 0 0;
   padding: 0 8px;
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
   background: transparent;
 }
 
@@ -118,8 +116,7 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .motionToast {
-    background: var(--color-card);
-    backdrop-filter: none;
+    background: var(--color-surface);
   }
 }
 

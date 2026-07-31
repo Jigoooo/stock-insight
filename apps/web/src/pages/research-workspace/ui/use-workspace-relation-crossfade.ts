@@ -1,10 +1,9 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
-import type { RefObject } from 'react';
+import { animate } from 'motion/react';
+import { useEffect, useLayoutEffect, type RefObject } from 'react';
 
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 
-gsap.registerPlugin(useGSAP);
+const useBeforePaintEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export function useWorkspaceRelationCrossfade({
   scopeRef,
@@ -16,35 +15,23 @@ export function useWorkspaceRelationCrossfade({
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = reducedMotion || forcedColors;
 
-  useGSAP(
-    () => {
-      const container = scopeRef.current;
-      if (!container) return;
-      gsap.killTweensOf(container);
-      if (normalizeMotion) {
-        gsap.set(container, { clearProps: 'opacity' });
-        return;
-      }
-      gsap.fromTo(
-        container,
-        { opacity: 0 },
-        {
-          clearProps: 'opacity',
-          duration: 0.16,
-          ease: 'power1.out',
-          opacity: 1,
-          overwrite: 'auto',
-        },
-      );
-      return () => {
-        gsap.killTweensOf(container);
-        gsap.set(container, { clearProps: 'opacity' });
-      };
-    },
-    {
-      dependencies: [normalizeMotion, stateKey],
-      revertOnUpdate: true,
-      scope: scopeRef,
-    },
-  );
+  useBeforePaintEffect(() => {
+    const container = scopeRef.current;
+    if (!container) return;
+
+    const clearMotionStyle = () => container.style.removeProperty('opacity');
+    if (normalizeMotion) {
+      clearMotionStyle();
+      return;
+    }
+
+    container.style.opacity = '0';
+    const controls = animate(container, { opacity: 1 }, { duration: 0.16, ease: 'easeOut' });
+    void controls.finished.then(clearMotionStyle, () => undefined);
+
+    return () => {
+      controls.stop();
+      clearMotionStyle();
+    };
+  }, [normalizeMotion, scopeRef, stateKey]);
 }

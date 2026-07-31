@@ -1,0 +1,185 @@
+.control {
+  position: relative;
+  min-width: 0;
+}
+
+.trigger,
+.inputShell {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
+  font: inherit;
+  outline: none;
+}
+
+.trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 0 13px 0 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trigger:focus-visible,
+.inputShell:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.trigger:disabled,
+.inputShell[data-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.trigger svg,
+.clearButton svg {
+  width: 17px;
+  height: 17px;
+}
+
+.triggerText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.inputShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding-left: 14px;
+}
+
+.input {
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  outline: 0;
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.clearButton {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.listbox {
+  position: absolute;
+  z-index: 30;
+  inset: calc(100% + 7px) 0 auto;
+  max-height: min(320px, 45vh);
+  padding: 6px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  gap: 12px;
+  align-items: center;
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--color-text-primary);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.option[data-active='true'] {
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+
+.option[aria-selected='true'] {
+  color: var(--color-accent);
+}
+
+.option[aria-disabled='true'] {
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.optionCopy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.optionLabel,
+.optionDescription {
+  overflow-wrap: anywhere;
+}
+
+.optionLabel {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.optionDescription {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.optionCheck {
+  width: 16px;
+  height: 16px;
+}
+
+.empty {
+  padding: 18px 12px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (forced-colors: active) {
+  .trigger:focus-visible,
+  .inputShell:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .option[data-active='true'] {
+    outline: 1px solid Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.trigger, .clearButton, .option) {
+    transform: none !important;
+  }
+}

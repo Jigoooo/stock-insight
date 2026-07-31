@@ -189,27 +189,27 @@
 
 .state {
   min-height: 260px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
   padding: 28px;
   color: var(--color-text-secondary);
   text-align: left;
 }
 
-.state > svg {
+.state [data-slot='feedback-content'] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.state [data-slot='feedback-content'] > svg,
+.stateIconSkeleton {
   width: 22px;
   height: 22px;
   flex: none;
   color: var(--color-text-tertiary);
 }
 
-.state[data-kind='loading'] > svg {
-  color: var(--color-accent);
-}
-
-.state[data-kind='error'] > svg {
+.state[data-kind='error'] [data-slot='feedback-content'] > svg {
   color: var(--color-risk);
 }
 

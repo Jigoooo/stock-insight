@@ -1,5 +1,3 @@
-import { useGSAP } from '@gsap/react';
-import { gsap } from 'gsap';
 import {
   useEffect,
   useRef,
@@ -15,9 +13,9 @@ import {
   type ControlMotionKind,
 } from './control-motion-controller';
 import styles from './primitives.module.css';
+import { createMotionDomAdapter } from '../motion/dom-motion-adapter';
+import { MotionButton } from '../motion/motion-button';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
-
-gsap.registerPlugin(useGSAP);
 
 function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
@@ -29,22 +27,18 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
   const previousActiveRef = useRef(active);
   const runMotionRef = useRef<(nextActive: boolean) => void>(() => undefined);
 
-  useGSAP((_context, contextSafe) => {
-    if (!contextSafe) return;
+  useEffect(() => {
     const target = targetRef.current;
     if (!target) return;
 
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const domMotion = createMotionDomAdapter();
     const adapter = {
-      killTweensOf: (target: object) => gsap.killTweensOf(target),
-      set: (target: object, vars: object) => {
-        gsap.set(target, vars);
-      },
-      to: (target: object, vars: object) => {
-        gsap.to(target, vars);
-      },
+      killTweensOf: (motionTarget: object) => domMotion.killTweensOf(motionTarget as HTMLElement),
+      set: (motionTarget: object, vars: object) => domMotion.set(motionTarget as HTMLElement, vars),
+      to: (motionTarget: object, vars: object) => domMotion.to(motionTarget as HTMLElement, vars),
     };
-    const runMotion = contextSafe((nextActive: boolean, reduced = motionPreference.matches) => {
+    const runMotion = (nextActive: boolean, reduced = motionPreference.matches) => {
       applyControlStateMotion({
         active: nextActive,
         adapter,
@@ -54,10 +48,10 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
         reducedMotion: reduced,
         target,
       });
-    });
-    const onMotionPreferenceChange = contextSafe(() => {
+    };
+    const onMotionPreferenceChange = () => {
       if (motionPreference.matches) runMotion(activeRef.current, true);
-    });
+    };
 
     runMotionRef.current = runMotion;
     runMotion(activeRef.current, true);
@@ -68,7 +62,7 @@ function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
       runMotionRef.current = () => undefined;
       clearControlStateMotion({ adapter, kind, target });
     };
-  }, []);
+  }, [kind]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -109,27 +103,30 @@ export function Switch({
   };
 
   return (
-    <button
+    <MotionButton
+      {...props}
       aria-busy={pending || undefined}
       aria-checked={checked}
       className={classNames(styles.switchControl, className)}
+      data-motion="switch"
+      data-slot="switch-control"
       data-state={checked ? 'checked' : 'unchecked'}
       disabled={disabled || pending}
       role="switch"
       type={type}
-      {...props}
-      data-motion="switch"
       onClick={handleClick}
     >
-      <span className={styles.switchTrack} aria-hidden="true">
+      <span className={styles.switchTrack} data-slot="switch-indicator" aria-hidden="true">
         <span ref={thumbRef} className={styles.switchThumb} data-switch-motion-thumb />
       </span>
-      <span className={styles.controlLabel}>{label}</span>
-    </button>
+      <span className={styles.controlLabel} data-slot="control-label">
+        {label}
+      </span>
+    </MotionButton>
   );
 }
 
-type ToggleProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-pressed'> & {
+type ToggleProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-pressed' | 'children'> & {
   children: ReactNode;
   pressed: boolean;
   onPressedChange: (pressed: boolean) => void;
@@ -158,15 +155,16 @@ export function Toggle({
   };
 
   return (
-    <button
+    <MotionButton
+      {...props}
       aria-busy={pending || undefined}
       aria-pressed={pressed}
       className={classNames(styles.toggleControl, className)}
+      data-motion="toggle"
+      data-slot="toggle-control"
       data-state={pressed ? 'on' : 'off'}
       disabled={disabled || pending}
       type={type}
-      {...props}
-      data-motion="toggle"
       onClick={handleClick}
     >
       <span
@@ -175,7 +173,9 @@ export function Toggle({
         data-toggle-motion-rail
         aria-hidden="true"
       />
-      <span className={styles.controlLabel}>{children}</span>
-    </button>
+      <span className={styles.controlLabel} data-slot="control-label">
+        {children}
+      </span>
+    </MotionButton>
   );
 }

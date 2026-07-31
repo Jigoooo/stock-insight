@@ -3,6 +3,7 @@ import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { Button } from './button';
 import styles from './primitives.module.css';
 import { getNextEnabledTabIndex, isRovingTabKey } from './segmented-tabs-controller';
+import { PresenceRegion } from '../motion/presence-region';
 
 export type SegmentedTabItem = {
   controls?: string;
@@ -56,6 +57,7 @@ export function SegmentedTabs({
   return (
     <div
       className={classNames(styles.segmentedTabs, className)}
+      data-slot="segmented-tabs-root"
       role="tablist"
       aria-label={ariaLabel}
     >
@@ -73,6 +75,7 @@ export function SegmentedTabs({
             aria-controls={item.controls}
             aria-selected={selected}
             className={styles.segmentedTab}
+            data-slot="segmented-tab-control"
             data-pending={pending || undefined}
             disabled={disabledItems[index]}
             motion="quiet"
@@ -82,7 +85,19 @@ export function SegmentedTabs({
             onClick={() => onValueChange(item.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           >
-            {item.label}
+            <PresenceRegion
+              aria-hidden="true"
+              className={styles.segmentedTabIndicator}
+              data-slot="segmented-tab-indicator"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              presenceKey={`${item.value}-indicator`}
+              present={selected}
+            />
+            <span className={styles.segmentedTabLabel} data-slot="segmented-tab-label">
+              {item.label}
+            </span>
           </Button>
         );
       })}
