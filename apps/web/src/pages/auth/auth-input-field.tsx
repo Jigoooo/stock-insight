@@ -48,6 +48,10 @@ export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
       id,
       'aria-describedby': descriptionIds || undefined,
       ...inputProps,
+      style: {
+        ...inputProps.style,
+        transitionDuration: '0s',
+      },
     };
 
     return (

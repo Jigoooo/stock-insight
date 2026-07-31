@@ -10,9 +10,16 @@ const animateButtonPrimitiveUrl = new URL(
   '../src/shared/ui/animate-ui/primitives/buttons/button.tsx',
   import.meta.url,
 );
+const animateSlotUrl = new URL(
+  '../src/shared/ui/animate-ui/primitives/animate/slot.tsx',
+  import.meta.url,
+);
 const shadcnInputUrl = new URL('../src/shared/ui/input.tsx', import.meta.url);
 const shadcnFieldUrl = new URL('../src/shared/ui/field.tsx', import.meta.url);
 const shadcnInputGroupUrl = new URL('../src/shared/ui/input-group.tsx', import.meta.url);
+const shadcnButtonUrl = new URL('../src/shared/ui/button.tsx', import.meta.url);
+const shadcnLabelUrl = new URL('../src/shared/ui/label.tsx', import.meta.url);
+const shadcnSeparatorUrl = new URL('../src/shared/ui/separator.tsx', import.meta.url);
 const tailwindFoundationUrl = new URL('../src/shared/ui/tailwind.css', import.meta.url);
 const authInputUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const loginUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
@@ -56,6 +63,53 @@ describe('auth registry component adoption', () => {
     assert.match(inputGroup, /data-slot="input-group-control"/);
     assert.match(inputGroup, /ring-ring\/50/);
     assert.match(tailwindFoundation, /\[data-slot='input'\]::placeholder,[\s\S]*?opacity:\s*1/);
+  });
+
+  it('keeps the public auth startup path off the Radix root barrel', async () => {
+    const [button, label, separator] = await Promise.all([
+      readFile(shadcnButtonUrl, 'utf8'),
+      readFile(shadcnLabelUrl, 'utf8'),
+      readFile(shadcnSeparatorUrl, 'utf8'),
+    ]);
+
+    assert.match(button, /from 'radix-ui\/slot'/);
+    assert.match(label, /from 'radix-ui\/label'/);
+    assert.match(separator, /from 'radix-ui\/separator'/);
+
+    for (const source of [button, label, separator]) {
+      assert.doesNotMatch(source, /from 'radix-ui'/);
+    }
+  });
+
+  it('keeps the public auth registry path off the general tailwind merge runtime', async () => {
+    const registrySources = await Promise.all(
+      [
+        animateButtonUrl,
+        animateButtonPrimitiveUrl,
+        animateSlotUrl,
+        shadcnButtonUrl,
+        shadcnFieldUrl,
+        shadcnInputGroupUrl,
+        shadcnInputUrl,
+        shadcnLabelUrl,
+        shadcnSeparatorUrl,
+      ].map((url) => readFile(url, 'utf8')),
+    );
+
+    for (const source of registrySources) {
+      assert.doesNotMatch(source, /@\/shared\/lib\/utils/);
+    }
+  });
+
+  it('keeps unused registry branches out of the public auth startup graph', async () => {
+    const [field, inputGroup] = await Promise.all([
+      readFile(shadcnFieldUrl, 'utf8'),
+      readFile(shadcnInputGroupUrl, 'utf8'),
+    ]);
+
+    assert.doesNotMatch(field, /@\/shared\/ui\/separator/);
+    assert.doesNotMatch(inputGroup, /@\/shared\/ui\/button/);
+    assert.doesNotMatch(inputGroup, /@\/shared\/ui\/textarea/);
   });
 
   it('migrates only auth controls to the registry components', async () => {
