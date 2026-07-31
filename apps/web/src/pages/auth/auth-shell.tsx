@@ -24,7 +24,7 @@ export function AuthShell({ children, description, footer, headingId, title }: A
           data-auth-card
           fade={{ initialOpacity: 0.76 }}
         >
-          <div className={styles.wordmark}>Futur Insight</div>
+          <div className={styles.wordmark}>Stock Insight</div>
           {title ? (
             <header className={styles.formHeader}>
               <h1 id={headingId}>{title}</h1>

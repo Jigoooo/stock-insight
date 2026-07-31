@@ -8,12 +8,7 @@
   overflow-x: clip;
   padding: 32px 16px;
   color: var(--color-text-primary);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-canvas) 95%, var(--color-accent-soft)) 0%,
-    var(--color-canvas) 48%,
-    color-mix(in srgb, var(--color-canvas) 97%, var(--color-positive-soft)) 100%
-  );
+  background: var(--color-canvas);
   font-family:
     -apple-system, BlinkMacSystemFont, 'Wanted Sans Variable', 'Wanted Sans', Pretendard,
     'Noto Sans KR', 'Segoe UI', sans-serif;
@@ -32,23 +27,7 @@
 }
 
 .authGlow {
-  opacity: 0.54;
-  background:
-    radial-gradient(
-      circle at 12% 8%,
-      color-mix(in srgb, var(--color-accent) 13%, transparent) 0,
-      transparent 36%
-    ),
-    radial-gradient(
-      circle at 88% 14%,
-      color-mix(in srgb, var(--color-accent-soft) 38%, transparent) 0,
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 68% 92%,
-      color-mix(in srgb, var(--color-positive) 7%, transparent) 0,
-      transparent 38%
-    );
+  display: none;
 }
 
 .authGrid {
@@ -78,12 +57,12 @@
 
 .authCard {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   min-width: 0;
   contain: layout paint style;
   border: 1px solid var(--color-border);
   border-radius: 16px;
-  padding: 32px;
+  padding: 30px;
   background: color-mix(in srgb, var(--color-surface) 97%, transparent);
   box-shadow:
     0 2px 8px -2px color-mix(in srgb, var(--color-text-primary) 8%, transparent),
@@ -91,10 +70,10 @@
 }
 
 .wordmark {
-  margin: 1px auto 25px;
+  margin: 1px auto 20px;
   color: var(--color-text-primary);
   text-align: center;
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 720;
   letter-spacing: -0.045em;
   line-height: 1.2;
@@ -108,10 +87,10 @@
 .statusView h1 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 24px;
-  font-weight: 720;
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: -0.03em;
-  line-height: 1.25;
+  line-height: 1.3;
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
@@ -128,13 +107,13 @@
 .form {
   display: grid;
   gap: 0;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .field {
   display: grid;
   min-width: 0;
-  grid-template-rows: auto 46px minmax(17px, auto);
+  grid-template-rows: auto 42px minmax(17px, auto);
   gap: 6px;
 }
 
@@ -142,139 +121,43 @@
   margin-top: 5px;
 }
 
-.field label {
+.field > [data-slot='field-label'] {
   color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 680;
 }
 
-.field input {
-  width: 100%;
+.authCard .authControl {
+  height: 42px;
+  min-height: 42px;
   min-width: 0;
-  height: 46px;
-  border: 0;
-  border-radius: 10px;
-  padding: 0 13px;
-  outline: 0;
-  color: var(--color-text-primary);
-  caret-color: var(--color-accent-strong);
-  background: transparent;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.field input::placeholder {
-  color: var(--color-text-tertiary);
-  opacity: 1;
+.authControl [data-slot='input-group-control'] {
+  font-size: 14px;
 }
 
-.field input:disabled {
-  cursor: not-allowed;
-}
-
-.inputShell {
-  --field-motion-halo-color: var(--color-accent);
-
-  position: relative;
-  display: flex;
-  min-width: 0;
-  height: 46px;
-  align-items: center;
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
-  background: var(--color-surface);
-  box-shadow: inset 0 1px color-mix(in srgb, white 36%, transparent);
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-out);
-}
-
-.inputShell:focus-within {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 4px var(--color-focus);
-}
-
-.inputShell:focus-within [data-field-motion-halo] {
-  opacity: 1;
-}
-
-.inputShell[data-invalid='true'] {
-  --field-motion-halo-color: var(--color-risk);
-
-  border-color: var(--color-risk);
-}
-
-.inputShell[data-invalid='true']:focus-within {
-  box-shadow: 0 0 0 3px var(--color-risk);
-}
-
-.inputShell:has(.authInput:disabled) {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
-
-.inputShell .authInput {
-  height: 100%;
-  border: 0 !important;
-  border-radius: inherit;
-  background: transparent !important;
-  box-shadow: none !important;
-  opacity: 1;
-}
-
-.inputShell .authInput:focus-visible {
-  outline: 0;
-  box-shadow: none !important;
-}
-
-.inputShellWithAction .authInput {
-  padding-right: 70px;
+.fieldFeedback {
+  display: grid;
+  min-height: 17px;
+  gap: 2px;
 }
 
 .fieldHint,
 .fieldError {
   min-width: 0;
-  min-height: 17px;
   margin: 0;
   font-size: 11px;
   line-height: 17px;
   overflow-wrap: anywhere;
 }
 
-.fieldHint {
-  color: var(--color-text-tertiary);
-}
-
-.fieldError {
-  color: var(--color-risk);
-}
-
 .visibilityButton {
-  position: absolute;
-  top: 1px;
-  right: 4px;
-  display: grid;
-  width: 58px;
-  height: 44px;
-  place-items: center;
+  min-width: 52px;
   padding: 0 8px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  background: transparent;
   font-size: 11px;
   font-weight: 700;
-}
-
-.visibilityButton:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: -2px;
-}
-
-.visibilityButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
 }
 
 .feedbackSlot {
@@ -300,12 +183,10 @@
   color: var(--color-text-tertiary);
 }
 
-.submitButton,
-.primaryLink,
-.secondaryButton {
+.primaryLink {
   display: flex;
   width: 100%;
-  min-height: 46px;
+  min-height: 42px;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
@@ -316,23 +197,15 @@
 }
 
 .submitButton {
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
   margin-top: 4px;
-  border-color: var(--auth-login-cta-border);
-  color: var(--auth-cta-foreground);
-  background: var(--auth-login-cta-background);
-  box-shadow: 0 5px 14px -7px color-mix(in srgb, var(--color-accent) 54%, transparent);
 }
 
-.submitButton:focus-visible,
-.primaryLink:focus-visible,
-.secondaryButton:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 3px;
-}
-
-.submitButton:disabled {
-  cursor: wait;
-  opacity: 0.62;
+.primaryLink:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
 }
 
 .signupPrompt,
@@ -346,7 +219,7 @@
 
 .signupLink,
 .loginNote a {
-  color: var(--color-accent-strong);
+  color: var(--color-text-primary);
   font-weight: 700;
   text-underline-offset: 3px;
 }
@@ -354,7 +227,7 @@
 .signupLink:focus-visible,
 .loginNote a:focus-visible {
   border-radius: 3px;
-  outline: 3px solid var(--color-focus);
+  outline: 2px solid var(--color-text-primary);
   outline-offset: 2px;
 }
 
@@ -380,31 +253,15 @@
 }
 
 .secondaryButton {
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .inputShell:hover:not(:has(.authInput:disabled)) {
-    border-color: color-mix(in srgb, var(--color-accent) 52%, var(--color-border-strong));
-  }
-
-  .visibilityButton:hover:not(:disabled) {
-    color: var(--color-text-primary);
-    background: var(--color-surface-subtle);
-  }
-
-  .submitButton:hover:not(:disabled),
   .primaryLink:hover {
     background: var(--auth-login-cta-background);
-    box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--color-accent) 62%, transparent);
-  }
-
-  .secondaryButton:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-text-primary);
-    background: var(--color-surface-subtle);
+    box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--color-text-primary) 44%, transparent);
   }
 }
 
@@ -415,22 +272,19 @@
   }
 
   .authCard {
-    max-width: 420px;
+    max-width: 400px;
     border-radius: 16px;
-    padding: 28px 22px;
+    padding: 26px 20px;
   }
 
   .wordmark {
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
 
   .field,
-  .inputShell,
-  .field input,
-  .submitButton,
-  .primaryLink,
-  .secondaryButton {
-    min-height: 46px;
+  .authControl,
+  .primaryLink {
+    min-height: 42px;
   }
 }
 
@@ -445,8 +299,7 @@
 }
 
 @media (prefers-contrast: more) {
-  .authCard,
-  .inputShell {
+  .authCard {
     border-width: 2px;
   }
 
@@ -455,26 +308,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .inputShell {
-    transition: none;
-  }
-}
-
 @media (forced-colors: active) {
   .authGlow,
   .authGrid {
     display: none;
-  }
-
-  .inputShell:focus-within {
-    outline: 2px solid Highlight;
-    outline-offset: 2px;
-    box-shadow: none;
-  }
-
-  .authInput:focus-visible {
-    outline: 2px solid Highlight !important;
-    outline-offset: -4px;
   }
 }

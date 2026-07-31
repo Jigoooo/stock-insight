@@ -1,3 +1,4 @@
+import { useReducedMotion } from 'motion/react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { AuthInputField } from './auth-input-field';
@@ -8,8 +9,8 @@ import {
   type SignupFieldErrors,
   type SignupInput,
 } from './model/signup-validation';
+import { Button } from '@/shared/ui/animate-ui/components/buttons/button';
 import { PresenceRegion } from '@/shared/ui/motion';
-import { Button } from '@/shared/ui/primitives/button';
 import { TextLink } from '@/shared/ui/primitives/link';
 
 export type SignupCredentials = Pick<SignupInput, 'username' | 'password' | 'enrollmentCode'>;
@@ -29,6 +30,8 @@ const initialInput: SignupInput = {
   passwordConfirmation: '',
   enrollmentCode: '',
 };
+const authButtonHoverScale = 1.01;
+const authButtonTapScale = 0.985;
 
 export function SignupPage({
   availability,
@@ -40,6 +43,7 @@ export function SignupPage({
   const [input, setInput] = useState<SignupInput>(initialInput);
   const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [showPassword, setShowPassword] = useState(false);
+  const reducedMotion = useReducedMotion();
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmationRef = useRef<HTMLInputElement>(null);
@@ -105,8 +109,9 @@ export function SignupPage({
             action={
               <Button
                 className={styles.secondaryButton}
-                motion="pressable"
                 variant="secondary"
+                hoverScale={reducedMotion ? 1 : authButtonHoverScale}
+                tapScale={reducedMotion ? 1 : authButtonTapScale}
                 type="button"
                 onClick={onRetryAvailability}
               >
@@ -132,7 +137,6 @@ export function SignupPage({
           <>
             <header className={styles.formHeader}>
               <h1 id="signup-form-heading">계정을 설정하세요.</h1>
-              <p>사용할 이름과 긴 비밀번호, 전달받은 가입 코드를 입력해 주세요.</p>
             </header>
 
             <form className={styles.form} onSubmit={handleSubmit} aria-busy={pending} noValidate>
@@ -142,7 +146,7 @@ export function SignupPage({
                 name="username"
                 type="text"
                 label="사용자 이름"
-                hint="영문·숫자·마침표·밑줄·하이픈, 3–64자"
+                hint="영문·숫자·마침표·밑줄·하이픈, 3-64자"
                 hintId="signup-username-hint"
                 error={fieldErrors.username}
                 errorId="signup-username-error"
@@ -174,8 +178,9 @@ export function SignupPage({
                 endAction={
                   <Button
                     className={styles.visibilityButton}
-                    motion="quiet"
                     variant="ghost"
+                    hoverScale={1}
+                    tapScale={1}
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
                     aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -235,8 +240,9 @@ export function SignupPage({
 
               <Button
                 className={styles.submitButton}
-                motion="pressable"
-                variant="primary"
+                variant="accent"
+                hoverScale={pending || reducedMotion ? 1 : authButtonHoverScale}
+                tapScale={pending || reducedMotion ? 1 : authButtonTapScale}
                 type="submit"
                 disabled={pending}
               >

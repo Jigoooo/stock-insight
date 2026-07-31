@@ -6,8 +6,12 @@ const rootUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
 const authenticatedUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
 const authFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
-const buttonUrl = new URL('../src/shared/ui/primitives/button.tsx', import.meta.url);
-const fieldHaloUrl = new URL('../src/shared/ui/primitives/field-motion-halo.tsx', import.meta.url);
+const animateButtonUrl = new URL(
+  '../src/shared/ui/animate-ui/components/buttons/button.tsx',
+  import.meta.url,
+);
+const inputUrl = new URL('../src/shared/ui/input.tsx', import.meta.url);
+const inputGroupUrl = new URL('../src/shared/ui/input-group.tsx', import.meta.url);
 const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
 const loginPageUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
 const signupPageUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
@@ -56,19 +60,20 @@ describe('public root startup boundary', () => {
     assert.doesNotMatch(notify, /from ['"](?:sonner|motion\/react|gsap|@gsap\/react)['"]/);
   });
 
-  it('keeps public auth controls and halo free of the side-effectful primitive barrel', async () => {
+  it('keeps public auth on direct Animate UI and shadcn boundaries', async () => {
     const [authField, loginPage, signupPage] = await Promise.all([
       read(authFieldUrl),
       read(loginPageUrl),
       read(signupPageUrl),
     ]);
 
-    assert.doesNotMatch(authField, /useFieldShellMotion|primitives\/form/);
-    assert.match(authField, /field-motion-halo/);
+    assert.doesNotMatch(authField, /useFieldShellMotion|primitives\/form|field-motion-halo/);
+    assert.match(authField, /shared\/ui\/field/);
+    assert.match(authField, /shared\/ui\/input-group/);
     assert.doesNotMatch(loginPage + signupPage, /from ['"]@\/shared\/ui\/primitives['"]/);
-    assert.match(loginPage, /primitives\/button/);
+    assert.match(loginPage, /animate-ui\/components\/buttons\/button/);
     assert.match(loginPage, /primitives\/link/);
-    assert.match(signupPage, /primitives\/button/);
+    assert.match(signupPage, /animate-ui\/components\/buttons\/button/);
     assert.match(signupPage, /primitives\/link/);
   });
 
@@ -91,21 +96,20 @@ describe('public root startup boundary', () => {
     assert.match(workspaceRoute, /viewLoadError/);
   });
 
-  it('ships only dedicated control CSS to the public auth route', async () => {
-    const [button, fieldHalo, link] = await Promise.all([
-      read(buttonUrl),
-      read(fieldHaloUrl),
+  it('keeps public auth control states in registry utility recipes', async () => {
+    const [button, input, inputGroup, link, authCss] = await Promise.all([
+      read(animateButtonUrl),
+      read(inputUrl),
+      read(inputGroupUrl),
       read(linkUrl),
+      read(authCssUrl),
     ]);
-    const publicPrimitives = `${button}\n${fieldHalo}\n${link}`;
 
-    assert.doesNotMatch(publicPrimitives, /primitives\.module\.css/);
-    assert.match(
-      await read(authCssUrl),
-      /@media \(forced-colors: active\)[\s\S]*?\.authInput:focus-visible[\s\S]*?outline:\s*2px solid Highlight !important/,
-    );
-    assert.match(button, /button\.module\.css/);
-    assert.match(fieldHalo, /field-motion-halo\.module\.css/);
+    assert.match(button, /focus-visible:ring-\[3px\]/);
+    assert.match(input, /focus-visible:ring-\[3px\]/);
+    assert.match(inputGroup, /focus-visible\]:ring-\[3px\]/);
+    assert.doesNotMatch(authCss, /\.inputShell|\.authInput:focus-visible/);
+    assert.match(authCss, /@media \(forced-colors: active\)[\s\S]*?\.authGlow/);
     assert.match(link, /link\.module\.css/);
   });
 

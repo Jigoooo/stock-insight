@@ -66,8 +66,8 @@ export const activeDesignProfile = {
   cssHref: '/styles/profiles/calm-market.css',
   colorSchemes: ['light', 'dark'],
   themeColors: {
-    light: '#f3f6fa',
-    dark: '#070c14',
+    light: '#f3f3f1',
+    dark: '#111210',
   },
 } as const satisfies DesignProfileMetadata;
 

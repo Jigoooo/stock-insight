@@ -1,3 +1,4 @@
+import { useReducedMotion } from 'motion/react';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 
 import { AuthInputField } from './auth-input-field';
@@ -8,7 +9,7 @@ import {
   type LoginCredentialsInput,
   type LoginFieldErrors,
 } from './model/login-validation';
-import { Button } from '@/shared/ui/primitives/button';
+import { Button } from '@/shared/ui/animate-ui/components/buttons/button';
 import { TextLink } from '@/shared/ui/primitives/link';
 
 export type LoginCredentials = LoginCredentialsInput;
@@ -23,6 +24,8 @@ export type LoginPageProps = {
 const subscribeHydration = () => () => undefined;
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
+const authButtonHoverScale = 1.01;
+const authButtonTapScale = 0.985;
 
 export function LoginPage({
   error = null,
@@ -41,6 +44,8 @@ export function LoginPage({
   );
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const reducedMotion = useReducedMotion();
+  const disableButtonMotion = !hydrated || pending || reducedMotion;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,7 +70,6 @@ export function LoginPage({
     <AuthShell
       headingId="login-form-heading"
       title="로그인"
-      description="계정으로 로그인해 개인 리서치 워크스페이스를 확인하세요."
       footer={
         <p className={styles.signupPrompt}>
           처음 설정하시나요?{' '}
@@ -130,8 +134,9 @@ export function LoginPage({
           endAction={
             <Button
               className={styles.visibilityButton}
-              motion="quiet"
               variant="ghost"
+              hoverScale={1}
+              tapScale={1}
               type="button"
               onClick={() => setShowPassword((visible) => !visible)}
               aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -157,8 +162,9 @@ export function LoginPage({
 
         <Button
           className={styles.submitButton}
-          motion="pressable"
-          variant="primary"
+          variant="accent"
+          hoverScale={disableButtonMotion ? 1 : authButtonHoverScale}
+          tapScale={disableButtonMotion ? 1 : authButtonTapScale}
           type="submit"
           disabled={!hydrated || pending}
         >

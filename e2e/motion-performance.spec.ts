@@ -530,8 +530,10 @@ async function focusWithKeyboard(page: Page, target: Locator) {
 async function readVisibleFocusRing(field: Locator) {
   await field.page().waitForTimeout(220);
   return field.evaluate((input: HTMLInputElement) => {
-    const shell = input.closest<HTMLElement>('[data-motion="field-shell"]');
-    if (!shell) throw new Error('Username field shell is missing');
+    const shell =
+      input.closest<HTMLElement>('[data-slot="input-group"]') ??
+      input.closest<HTMLElement>('[data-slot="field"]');
+    if (!shell) throw new Error('Username field surface is missing');
     const inputStyle = getComputedStyle(input);
     const shellStyle = getComputedStyle(shell);
     const hasOutline = (style: CSSStyleDeclaration) =>

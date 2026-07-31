@@ -25,6 +25,9 @@ const targetUrls = [
   authInputFieldUrl,
   new URL('../src/entities/stock/ui/stock-detail.tsx', import.meta.url),
 ];
+const legacyMotionRecipeUrls = targetUrls.filter(
+  (url) => !url.pathname.includes('/src/pages/auth/'),
+);
 
 function missingMotionRecipes(source: string, fileName: string) {
   const sourceFile = ts.createSourceFile(
@@ -175,19 +178,27 @@ describe('shared primitive adoption contract', () => {
     assert.deepEqual(rawControls, []);
   });
 
-  it('composes the authentication field from the shared TextInput boundary', async () => {
+  it('composes authentication fields from the shadcn registry boundaries', async () => {
     const source = await readFile(authInputFieldUrl, 'utf8');
 
-    assert.match(source, /import \{ TextInput \} from '@\/shared\/ui\/primitives'/);
-    assert.match(source, /<TextInput\b/);
-    assert.match(source, /variant="bare"/);
+    assert.match(source, /from '@\/shared\/ui\/field'/);
+    assert.match(source, /from '@\/shared\/ui\/input'/);
+    assert.match(source, /from '@\/shared\/ui\/input-group'/);
+    assert.match(source, /<Field\b/);
+    assert.match(source, /<Input(?:Group|GroupInput)?\b/);
+    assert.doesNotMatch(source, /TextInput|FieldMotionHalo/);
     assert.doesNotMatch(source, /<input\b/);
   });
 
-  it('requires an explicit recipe at every migrated primitive call site', async () => {
-    const sources: string[] = await Promise.all(targetUrls.map((url) => readFile(url, 'utf8')));
+  it('requires an explicit recipe at every legacy primitive call site', async () => {
+    const sources: string[] = await Promise.all(
+      legacyMotionRecipeUrls.map((url) => readFile(url, 'utf8')),
+    );
     const missingRecipes = sources.flatMap((source, index) =>
-      missingMotionRecipes(source, targetUrls[index]?.pathname ?? `target-${index}.tsx`),
+      missingMotionRecipes(
+        source,
+        legacyMotionRecipeUrls[index]?.pathname ?? `target-${index}.tsx`,
+      ),
     );
 
     assert.deepEqual(missingRecipes, []);

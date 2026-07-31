@@ -3,6 +3,7 @@
 import { createRootRouteWithContext } from '@tanstack/react-router';
 import type { LinkHTMLAttributes } from 'react';
 
+import '@/shared/ui/tailwind.css';
 import '@/pages/auth/auth-page.module.css';
 import { RootComponent, RootDocument, RootNotFound } from '@/pages/root';
 import type { StockInsightRouterContext } from '@/router';

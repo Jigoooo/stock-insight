@@ -102,6 +102,21 @@ test.describe('one-time enrollment presentation', () => {
             ? '가입 완료'
             : '가입 상태를 확인하지 못했습니다.';
       await expect(page.getByRole('heading', { name: targetHeading, exact: true })).toBeVisible();
+      if (target === 'available') {
+        const visibilityButton = page.getByRole('button', { name: '비밀번호 표시하기' });
+        await expect(page.locator('#signup-password')).toHaveAttribute('type', 'password');
+        await expect(page.locator('#signup-password-confirmation')).toHaveAttribute(
+          'type',
+          'password',
+        );
+        await visibilityButton.click();
+        await expect(page.locator('#signup-password')).toHaveAttribute('type', 'text');
+        await expect(page.locator('#signup-password-confirmation')).toHaveAttribute('type', 'text');
+        await expect(page.getByRole('button', { name: '비밀번호 숨기기' })).toHaveAttribute(
+          'aria-pressed',
+          'true',
+        );
+      }
       await expectUniqueHeadingReference(page);
     });
   }
@@ -112,7 +127,7 @@ test.describe('one-time enrollment presentation', () => {
     const card = page.locator('[data-auth-card]');
     await expect(page.locator('[data-auth-shell]')).toBeVisible();
     await expect(card).toBeVisible();
-    await expect(page.getByText('Futur Insight', { exact: true })).toBeVisible();
+    await expect(page.getByText('Stock Insight', { exact: true })).toBeVisible();
     await expect(page.getByText('One-time workspace setup', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /테마/ })).toHaveCount(0);
 
@@ -124,7 +139,7 @@ test.describe('one-time enrollment presentation', () => {
         width: rect.width,
       };
     });
-    expect(geometry.width).toBeLessThanOrEqual(420);
+    expect(geometry.width).toBeLessThanOrEqual(400);
     expect(geometry.width).toBeGreaterThanOrEqual(340);
     expect(Math.abs(geometry.leftGap - geometry.rightGap)).toBeLessThanOrEqual(2);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
@@ -143,7 +158,7 @@ test.describe('one-time enrollment presentation', () => {
       const usernameField = page.getByLabel('사용자 이름');
       await expect(usernameField).toBeVisible();
       await expect(
-        page.locator('[data-motion="field-shell"]').filter({ has: usernameField }),
+        page.locator('[data-slot="field"]').filter({ has: usernameField }),
       ).toBeVisible();
       await page.getByRole('button', { name: '계정 만들기' }).click();
       await expect(usernameField).toBeFocused();
@@ -153,6 +168,8 @@ test.describe('one-time enrollment presentation', () => {
       await expect(page.getByRole('button', { name: '다시 확인' })).toBeVisible();
     }
 
+    // PresenceRegion uses a 180ms opacity transition between availability states.
+    await page.waitForTimeout(220);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 });

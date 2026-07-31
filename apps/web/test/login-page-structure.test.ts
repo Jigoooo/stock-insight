@@ -9,6 +9,7 @@ const inputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.m
 const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const fontStylesheetUrl = new URL('../public/styles/font.css', import.meta.url);
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
+const rootComponentUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
 
 describe('login page structure', () => {
   it('uses the shared OpenHuman-style auth shell without legacy marketing chrome', async () => {
@@ -20,7 +21,8 @@ describe('login page structure', () => {
     ]);
 
     assert.match(component, /<AuthShell[\s\S]*?title="로그인"/);
-    assert.match(shell, />Futur Insight</);
+    assert.doesNotMatch(component, /계정으로 로그인해 개인 리서치 워크스페이스를 확인하세요/);
+    assert.match(shell, />Stock Insight</);
     assert.match(shell, /data-auth-shell/);
     assert.match(shell, /data-auth-card/);
     assert.match(shell, /<Effect/);
@@ -30,7 +32,7 @@ describe('login page structure', () => {
       component,
       /Research workspace|시장의 흐름을 읽고|판단의 근거를 남깁니다|loginVisualPanel/,
     );
-    assert.match(stylesheet, /\.authCard\s*\{[\s\S]*?max-width:\s*420px/);
+    assert.match(stylesheet, /\.authCard\s*\{[\s\S]*?max-width:\s*400px/);
     assert.match(stylesheet, /\.authCard\s*\{[\s\S]*?border-radius:\s*16px/);
     assert.match(stylesheet, /\.authGrid/);
     assert.match(stylesheet, /\.authGlow/);
@@ -40,10 +42,11 @@ describe('login page structure', () => {
     assert.equal(existsSync(componentUrl), true, 'the full-screen login page must exist');
     assert.equal(existsSync(stylesheetUrl), true, 'the login page stylesheet must exist');
 
-    const [component, shell, stylesheet] = await Promise.all([
+    const [component, shell, stylesheet, rootComponent] = await Promise.all([
       readFile(componentUrl, 'utf8'),
       readFile(shellUrl, 'utf8'),
       readFile(stylesheetUrl, 'utf8'),
+      readFile(rootComponentUrl, 'utf8'),
     ]);
 
     assert.match(shell, /<main[\s\S]*?aria-labelledby=\{headingId\}/);
@@ -51,7 +54,7 @@ describe('login page structure', () => {
     assert.match(component, /title="로그인"/);
     assert.match(stylesheet, /min-height:\s*100svh/);
     assert.match(stylesheet, /:focus-visible/);
-    assert.match(stylesheet, /prefers-reduced-motion:\s*reduce/);
+    assert.match(rootComponent, /<MotionConfig reducedMotion="user">/);
     assert.match(stylesheet, /prefers-reduced-transparency:\s*reduce/);
     assert.match(stylesheet, /prefers-contrast:\s*more/);
     assert.match(stylesheet, /@media\s*\(hover:\s*hover\)\s*and\s*\(pointer:\s*fine\)/);
@@ -69,7 +72,7 @@ describe('login page structure', () => {
     assert.match(component, /autoComplete="username"/);
     assert.match(component, /id="login-password"[\s\S]*?label="비밀번호"/);
     assert.match(component, /autoComplete="current-password"/);
-    assert.match(inputField, /<label htmlFor=\{id\}>\{label\}<\/label>/);
+    assert.match(inputField, /<FieldLabel htmlFor=\{id\}>\{label\}<\/FieldLabel>/);
     assert.match(component, /aria-pressed=/);
     assert.match(component, /aria-live="(?:polite|assertive)"/);
     assert.match(component, /pending\??:\s*boolean/);
@@ -91,7 +94,7 @@ describe('login page structure', () => {
     assert.match(component, /requestAnimationFrame/);
     assert.match(component, /errorId="login-username-error"/);
     assert.match(component, /errorId="login-password-error"/);
-    assert.match(inputField, /<p id=\{errorId\}[\s\S]*?aria-live="polite"/);
+    assert.match(inputField, /<FieldError id=\{errorId\}[\s\S]*?aria-live="polite"/);
     assert.doesNotMatch(component, /\srequired(?:=|\s|>)/);
   });
 
@@ -105,7 +108,7 @@ describe('login page structure', () => {
     assert.doesNotMatch(rootRoute, /WantedSansVariable\.woff2/);
     assert.doesNotMatch(fontStylesheet, /@font-face|Wanted Sans/);
     assert.match(fontStylesheet, /Noto Sans KR/);
-    assert.match(stylesheet, /\.fieldError\s*\{[\s\S]*?min-height:/);
-    assert.match(stylesheet, /\.submitButton:focus-visible/);
+    assert.match(stylesheet, /\.fieldFeedback\s*\{[\s\S]*?min-height:/);
+    assert.doesNotMatch(stylesheet, /\.submitButton:focus-visible/);
   });
 });

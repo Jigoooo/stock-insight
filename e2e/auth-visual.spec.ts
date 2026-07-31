@@ -47,7 +47,7 @@ test.describe('authentication visual review captures', () => {
         const card = page.locator('[data-auth-card]');
         await expect(card).toBeVisible();
         await expect(page.locator('[data-auth-shell]')).toBeVisible();
-        await expect(page.getByText('Futur Insight', { exact: true })).toBeVisible();
+        await expect(page.getByText('Stock Insight', { exact: true })).toBeVisible();
         if (route === 'login') {
           await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeEnabled();
         } else {
