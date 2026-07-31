@@ -10,6 +10,17 @@ Registry items:
 - `@animate-ui/primitives-buttons-button`
 - `@animate-ui/primitives-animate-slot`
 
+Workspace registry imports:
+
+| Registry item | Upstream | Revision | License |
+| --- | --- | --- | --- |
+| `@animate-ui/components-radix-sidebar` | https://animate-ui.com/docs/components/radix/sidebar | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/components-radix-sheet` | https://animate-ui.com/docs/components/radix/sheet | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/components-radix-tabs` | https://animate-ui.com/docs/components/radix/tabs | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/components-radix-tooltip` | https://animate-ui.com/docs/components/radix/tooltip | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/components-radix-accordion` | https://animate-ui.com/docs/components/radix/accordion | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+| `@animate-ui/components-radix-popover` | https://animate-ui.com/docs/components/radix/popover | `efeb96ffd7a3b7a4868667e4ac3c346620fb3044` | MIT + Commons Clause License Condition |
+
 MIT + Commons Clause License Condition
 
 Copyright (c) 2025 Elliot Sutton
