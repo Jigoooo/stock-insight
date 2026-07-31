@@ -674,7 +674,15 @@ test.describe('v3 research workspace candidate', () => {
 
   test('supports APG keyboard navigation across feed lanes', async ({ page }) => {
     await page.goto('/workspace');
-    const tabs = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab');
+    const tablist = page.getByRole('tablist', { name: '인사이트 분류' });
+    const tabs = tablist.getByRole('tab');
+    await expect(tablist).toHaveAttribute('data-slot', 'tabs-list');
+    await expect(tabs.first()).toHaveAttribute('data-slot', 'tabs-trigger');
+    await expect(page.getByTestId('research-feed').locator('ul')).toHaveCount(1);
+    await expect(page.getByTestId('research-feed-record').first()).toHaveAttribute(
+      'data-slot',
+      'button-control',
+    );
     await expect(tabs.first()).toBeEnabled();
     await tabs.first().focus();
     await page.evaluate(() => {
@@ -784,6 +792,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
     const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
     await expect(tabs).toHaveCount(8);
+    await expect(tabs.first()).toHaveAttribute('data-slot', 'tabs-trigger');
     const danglingControls = await tabs.evaluateAll((elements) =>
       elements
         .map((element) => element.getAttribute('aria-controls'))
@@ -792,6 +801,7 @@ test.describe('v3 research workspace candidate', () => {
     expect(danglingControls).toEqual([]);
     await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByTestId('radar-row')).toHaveCount(2);
+    await expect(page.getByTestId('radar-row').first()).toHaveJSProperty('tagName', 'LI');
     await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
     const componentWatermark = page.getByTestId('market-component-watermark');
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
@@ -818,18 +828,23 @@ test.describe('v3 research workspace candidate', () => {
     const themePanel = page.getByTestId('market-mode-theme_community');
     await expect(themePanel).toContainText('테마 구성원 원천이 연결되지 않았습니다');
     await expect(themePanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(themePanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-    await expect(themePanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(themePanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+    await expect(themePanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.nth(4).click();
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
     await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
     await expect(page.getByTestId('market-heatmap-row').first()).toBeVisible();
+    await expect(page.getByTestId('market-mode-heatmap_matrix').locator('table')).toHaveAttribute(
+      'data-slot',
+      'table',
+    );
 
     await tabs.nth(5).click();
     await expect(page.getByTestId('market-timeline-row')).toHaveCount(2);
     await expect(page.getByTestId('market-timeline-row').first()).toBeVisible();
+    await expect(page.getByTestId('market-mode-timeline').locator('ul')).toHaveCount(1);
 
     await tabs.nth(6).click();
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
@@ -839,6 +854,8 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
     await expect(mapPanel).toContainText(positiveGeoSnapshotFixture().snapshotId);
     await expect(mapPanel).toContainText('H3 파생 셀 2개');
+    await expect(mapPanel.locator('dl')).toHaveCount(1);
+    await expect(mapPanel.locator('table')).toHaveAttribute('data-slot', 'table');
     await expect(page.getByRole('button', { name: '지도 확대' })).toBeEnabled();
     await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
     await expect(mapPanel.locator('[data-map-generation]')).toHaveAttribute(
@@ -886,8 +903,10 @@ test.describe('v3 research workspace candidate', () => {
       '현재 레이더 응답에는 승인된 공급망 관계가 없습니다',
     );
     await expect(valueChainPanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(valueChainPanel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-    await expect(valueChainPanel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+    await expect(valueChainPanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+    await expect(valueChainPanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(
+      0,
+    );
     await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
 
     await tabs.last().focus();
@@ -992,7 +1011,7 @@ test.describe('v3 research workspace candidate', () => {
     ).toBe(true);
   });
 
-  test('renders controlled empty and unsupported market modes as distinct runtime states', async ({
+  test('renders controlled empty Radar truth and unsupported market modes as distinct runtime states', async ({
     page,
   }) => {
     await page.goto('/workspace?view=today');
@@ -1033,8 +1052,8 @@ test.describe('v3 research workspace candidate', () => {
       const panel = page.getByRole('tabpanel');
       await expect(panel).toContainText(`${title} 데이터 준비 중`);
       await expect(panel).toHaveAttribute('data-display-state', 'missing');
-      await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-      await expect(panel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
+      await expect(panel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
+      await expect(panel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
       await expect(tabs.nth(index)).toContainText('원천 준비 중');
       await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
     }

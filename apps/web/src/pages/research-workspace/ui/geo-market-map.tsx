@@ -12,6 +12,7 @@ import {
 } from '../model/geo-map-geometry';
 
 import { IconButton } from '@/shared/ui/primitives/button';
+import { DataTable, PropertyList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 
 const EMPTY_MAP_STYLE = {
@@ -259,6 +260,44 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
     }
   };
 
+  const blockingState =
+    snapshot.availability === 'empty' ? (
+      <WorkspaceState
+        kind="empty"
+        title="지도에 표시할 위치가 없습니다"
+        description="위치 원천은 연결되어 있으며 현재 기준 시점에 검증된 위치가 없습니다."
+      />
+    ) : snapshot.availability === 'error' ? (
+      <WorkspaceState
+        kind="error"
+        title="지도 원천을 확인하지 못했습니다"
+        description="텍스트 근거는 유지되며 위치 원천 상태를 확인한 뒤 다시 살펴보세요."
+      />
+    ) : snapshot.availability === 'unavailable' ? (
+      <WorkspaceState
+        kind="unavailable"
+        title="지도 원천이 연결되지 않았습니다"
+        description="검증된 위치 원천이 준비되면 지도와 근거 표를 함께 표시합니다."
+      />
+    ) : null;
+
+  const availabilityState =
+    snapshot.availability === 'partial' ? (
+      <WorkspaceState
+        className={styles.geoAvailabilityState}
+        kind="partial"
+        title="검증된 위치만 표시합니다"
+        description={`원천 검증에서 제외된 위치 ${snapshot.rejected.count}건은 지도와 근거 표에 포함하지 않았습니다.`}
+      />
+    ) : snapshot.availability === 'stale' ? (
+      <WorkspaceState
+        className={styles.geoAvailabilityState}
+        kind="stale"
+        title="위치 스냅샷 갱신이 지연되었습니다"
+        description="원천 기준 시각을 확인하고 최신 시장 정보와 함께 해석하세요."
+      />
+    ) : null;
+
   return (
     <section className={styles.geoMapShell} aria-label="정본 위치 지도와 근거">
       <header className={styles.geoMapMeta}>
@@ -268,111 +307,120 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
             H3 파생 셀 {snapshot.h3.cells.length}개 · 거부 {snapshot.rejected.count}건
           </span>
         </div>
-        <dl>
-          <div>
-            <dt>스냅샷</dt>
-            <dd>{snapshot.snapshotId}</dd>
-          </div>
-          <div>
-            <dt>원천 기준</dt>
-            <dd>
-              <time dateTime={snapshot.sourceAsOf ?? undefined}>
-                {readableTime(snapshot.sourceAsOf)}
-              </time>
-            </dd>
-          </div>
-        </dl>
+        <PropertyList
+          className={styles.geoMapProperties}
+          items={[
+            { label: '스냅샷', value: snapshot.snapshotId },
+            {
+              label: '원천 기준',
+              value: (
+                <time dateTime={snapshot.sourceAsOf ?? undefined}>
+                  {readableTime(snapshot.sourceAsOf)}
+                </time>
+              ),
+            },
+          ]}
+        />
       </header>
 
-      <div
-        className={styles.geoMapStage}
-        data-map-state={currentRenderState}
-        data-map-generation={renderKey}
-        data-visible-feature-count={visibleFeatureCount}
-      >
-        <section
-          ref={containerRef}
-          className={styles.geoMapCanvas}
-          data-testid="geo-map-canvas"
-          aria-label="정본 GeoJSON 위치를 표시하는 대화형 지도"
-        />
-        {currentRenderState !== 'fallback' ? (
-          <div className={styles.geoMapControls} aria-label="지도 조작">
-            <IconButton
-              type="button"
-              className={styles.geoMapControl}
-              motion="quiet"
-              aria-label="지도 확대"
-              disabled={currentRenderState !== 'ready'}
-              onClick={() => mapRef.current?.zoomIn({ duration: reducedMotion === true ? 0 : 200 })}
-            >
-              <Plus aria-hidden="true" />
-            </IconButton>
-            <IconButton
-              type="button"
-              className={styles.geoMapControl}
-              motion="quiet"
-              aria-label="지도 축소"
-              disabled={currentRenderState !== 'ready'}
-              onClick={() =>
-                mapRef.current?.zoomOut({ duration: reducedMotion === true ? 0 : 200 })
-              }
-            >
-              <Minus aria-hidden="true" />
-            </IconButton>
-            <IconButton
-              type="button"
-              className={styles.geoMapControl}
-              motion="quiet"
-              aria-label="지도 범위 초기화"
-              disabled={currentRenderState !== 'ready'}
-              onClick={resetBounds}
-            >
-              <RotateCcw aria-hidden="true" />
-            </IconButton>
-          </div>
-        ) : null}
-        <output className={styles.geoMapStatus} aria-live="polite">
-          {currentRenderState === 'loading'
-            ? '지도 렌더링 준비 중'
-            : currentRenderState === 'fallback'
-              ? '지도 렌더링을 사용할 수 없어 근거 표를 유지합니다.'
-              : '지도 렌더링 준비됨'}
-        </output>
-      </div>
+      {blockingState ?? availabilityState}
 
-      <div className={styles.geoEvidenceTableWrap}>
-        <table className={styles.geoEvidenceTable}>
-          <caption>지도 표시 위치의 도형, 정밀도와 원천 revision</caption>
-          <thead>
-            <tr>
-              <th scope="col">위치</th>
-              <th scope="col">도형</th>
-              <th scope="col">정밀도</th>
-              <th scope="col">불확실성</th>
-              <th scope="col">근거</th>
-            </tr>
-          </thead>
-          <tbody>
-            {snapshot.geojson.features.map((feature) => (
-              <tr key={feature.properties.geoEntityKey} data-testid="geo-fallback-row">
-                <td data-label="위치">
-                  <strong>{feature.properties.label}</strong>
-                  <small>{feature.properties.geoEntityKey}</small>
-                </td>
-                <td data-label="도형">{summarizeGeometryForEvidence(feature.geometry)}</td>
-                <td data-label="정밀도">{precisionLabel(feature.properties.precisionClass)}</td>
-                <td data-label="불확실성">
-                  {feature.properties.uncertaintyRadiusKm === undefined
-                    ? '미제공'
-                    : `${feature.properties.uncertaintyRadiusKm} km`}
-                </td>
-                <td data-label="근거">{evidenceLabel(feature.properties)}</td>
+      {!blockingState ? (
+        <>
+          <div
+            className={styles.geoMapStage}
+            data-map-state={currentRenderState}
+            data-map-generation={renderKey}
+            data-visible-feature-count={visibleFeatureCount}
+          >
+            <section
+              ref={containerRef}
+              className={styles.geoMapCanvas}
+              data-testid="geo-map-canvas"
+              aria-label="정본 GeoJSON 위치를 표시하는 대화형 지도"
+            />
+            {currentRenderState !== 'fallback' ? (
+              <div className={styles.geoMapControls} aria-label="지도 조작">
+                <IconButton
+                  type="button"
+                  className={styles.geoMapControl}
+                  motion="quiet"
+                  aria-label="지도 확대"
+                  disabled={currentRenderState !== 'ready'}
+                  onClick={() =>
+                    mapRef.current?.zoomIn({ duration: reducedMotion === true ? 0 : 200 })
+                  }
+                >
+                  <Plus aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  type="button"
+                  className={styles.geoMapControl}
+                  motion="quiet"
+                  aria-label="지도 축소"
+                  disabled={currentRenderState !== 'ready'}
+                  onClick={() =>
+                    mapRef.current?.zoomOut({ duration: reducedMotion === true ? 0 : 200 })
+                  }
+                >
+                  <Minus aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  type="button"
+                  className={styles.geoMapControl}
+                  motion="quiet"
+                  aria-label="지도 범위 초기화"
+                  disabled={currentRenderState !== 'ready'}
+                  onClick={resetBounds}
+                >
+                  <RotateCcw aria-hidden="true" />
+                </IconButton>
+              </div>
+            ) : null}
+            <output className={styles.geoMapStatus} aria-live="polite">
+              {currentRenderState === 'loading'
+                ? '지도 렌더링 준비 중'
+                : currentRenderState === 'fallback'
+                  ? '지도 렌더링을 사용할 수 없어 근거 표를 유지합니다.'
+                  : '지도 렌더링 준비됨'}
+            </output>
+          </div>
+
+          <DataTable
+            caption="지도 표시 위치의 도형, 정밀도와 원천 revision"
+            className={styles.geoEvidenceTable}
+            containerProps={{ className: styles.geoEvidenceTableWrap }}
+          >
+            <thead>
+              <tr>
+                <th scope="col">위치</th>
+                <th scope="col">도형</th>
+                <th scope="col">정밀도</th>
+                <th scope="col">불확실성</th>
+                <th scope="col">근거</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {snapshot.geojson.features.map((feature) => (
+                <tr key={feature.properties.geoEntityKey} data-testid="geo-fallback-row">
+                  <td data-label="위치">
+                    <strong>{feature.properties.label}</strong>
+                    <small>{feature.properties.geoEntityKey}</small>
+                  </td>
+                  <td data-label="도형">{summarizeGeometryForEvidence(feature.geometry)}</td>
+                  <td data-label="정밀도">{precisionLabel(feature.properties.precisionClass)}</td>
+                  <td data-label="불확실성">
+                    {feature.properties.uncertaintyRadiusKm === undefined
+                      ? '미제공'
+                      : `${feature.properties.uncertaintyRadiusKm} km`}
+                  </td>
+                  <td data-label="근거">{evidenceLabel(feature.properties)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+        </>
+      ) : null}
       <ul className={styles.geoLimitations} aria-label="지도 한계">
         {snapshot.limitations.map((limitation) => (
           <li key={limitation}>{limitation}</li>

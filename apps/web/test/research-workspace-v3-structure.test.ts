@@ -88,6 +88,14 @@ const workspaceState = readFileSync(
   new URL('../src/shared/ui/workspace/workspace-state.tsx', import.meta.url),
   'utf8',
 );
+const marketOverviewSource = readFileSync(
+  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  'utf8',
+);
+const geoMarketMapSource = readFileSync(
+  new URL('../src/pages/research-workspace/ui/geo-market-map.tsx', import.meta.url),
+  'utf8',
+);
 const availabilityNotice = readFileSync(
   new URL('../src/shared/ui/workspace/availability-notice.tsx', import.meta.url),
   'utf8',
@@ -275,15 +283,30 @@ describe('v3 research workspace structure', () => {
   });
 
   it('implements APG keyboard navigation for the feed lane tabs', () => {
-    assert.match(page, /aria-selected=\{lane === item\.lane\}/);
-    assert.match(page, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
-    assert.match(page, /setRovingLane\(nextLane\)/);
-    assert.match(page, /event\.key === 'ArrowRight'/);
-    assert.match(page, /event\.key === 'ArrowLeft'/);
-    assert.match(page, /event\.key === 'Home'/);
-    assert.match(page, /event\.key === 'End'/);
+    assert.match(workspace, /<Tabs[^>]*value=\{lane\}/);
+    assert.match(workspace, /<MetricStrip/);
+    assert.match(workspace, /<StructuredList/);
+    assert.match(workspace, /<DataTable/);
+    assert.match(workspace, /useWorkspaceAppendReveal/);
+    assert.match(page, /activationMode="manual"/);
+    assert.match(page, /<TabsTrigger/);
+    assert.match(page, /id=\{`lane-tab-\$\{item\.lane\}`\}/);
+    assert.match(page, /aria-controls="research-feed-panel"/);
     assert.match(page, /role="tabpanel"/);
     assert.match(page, /aria-labelledby=\{`lane-tab-\$\{lane\}`\}/);
+  });
+
+  it('adopts shared semantic Radar surfaces without animating mode content', () => {
+    assert.match(marketOverviewSource, /<Tabs[^>]*value=\{activeMode\}/);
+    assert.match(marketOverviewSource, /<DataTable/);
+    assert.match(marketOverviewSource, /<StructuredList/);
+    assert.match(geoMarketMapSource, /<PropertyList/);
+    assert.match(geoMarketMapSource, /<DataTable/);
+    assert.match(marketOverviewSource, /kind="partial"/);
+    assert.match(marketOverviewSource, /kind="stale"/);
+    assert.match(marketOverviewSource, /kind="error"/);
+    assert.match(marketOverviewSource, /kind=\{displayState\.kind === 'missing'/);
+    assert.doesNotMatch(marketOverviewSource, /<TabsContent/);
   });
 
   it('consumes Radar and History cursors without presenting partial lists as complete', () => {

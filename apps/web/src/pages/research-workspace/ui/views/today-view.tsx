@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 
 import styles from '../feed-ledger.module.css';
 import {
@@ -12,6 +12,13 @@ import {
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
+import {
+  Tabs,
+  TabsHighlight,
+  TabsHighlightItem,
+  TabsList,
+  TabsTrigger,
+} from '@/shared/ui/animate-ui/primitives/radix/tabs';
 import { Button } from '@/shared/ui/primitives';
 import {
   AvailabilityNotice,
@@ -19,6 +26,7 @@ import {
   PageHeader,
   Panel,
   PanelHeader,
+  StructuredList,
   WorkspaceState,
 } from '@/shared/ui/workspace';
 import type {
@@ -26,6 +34,8 @@ import type {
   ResearchFeedLaneId,
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
+
+const tabsTransition = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
 
 export function TodayView({
   data,
@@ -37,7 +47,7 @@ export function TodayView({
   cursorLoading,
   cursorError,
   selectedRecordKey,
-  onLaneChange,
+  onLaneChange: onLaneChangeProp,
   onLoadMore,
   onSelectRecord,
 }: {
@@ -54,35 +64,17 @@ export function TodayView({
   onLoadMore: () => void;
   onSelectRecord: (item: ResearchFeedItem) => void;
 }) {
-  const laneTabRefs = useRef<Partial<Record<ResearchFeedLaneId, HTMLButtonElement | null>>>({});
-  const [rovingIntent, setRovingIntent] = useState({ baseLane: lane, targetLane: lane });
-  const rovingLane = rovingIntent.baseLane === lane ? rovingIntent.targetLane : lane;
-  const setRovingLane = (nextLane: ResearchFeedLaneId) =>
-    setRovingIntent({ baseLane: lane, targetLane: nextLane });
   const feedRef = useRef<HTMLDivElement>(null);
   useWorkspaceAppendReveal({
     keys: items.map((item) => item.recordKey),
     resetKey: lane,
     scopeRef: feedRef,
   });
-  const moveLaneFocus = (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
-    const lastIndex = data.lanes.length - 1;
-    let nextIndex: number | undefined;
-    if (event.key === 'ArrowRight') nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1;
-    if (event.key === 'ArrowLeft') nextIndex = currentIndex === 0 ? lastIndex : currentIndex - 1;
-    if (event.key === 'Home') nextIndex = 0;
-    if (event.key === 'End') nextIndex = lastIndex;
-    if (nextIndex === undefined) return;
-    event.preventDefault();
-    const nextLane = data.lanes[nextIndex]?.lane;
-    if (!nextLane) return;
-    setRovingLane(nextLane);
-    laneTabRefs.current[nextLane]?.focus({ preventScroll: true });
+  const onLaneChange = (nextLane: string) => {
+    if (data.lanes.some((item) => item.lane === nextLane)) {
+      onLaneChangeProp(nextLane as ResearchFeedLaneId);
+    }
   };
-  const activeLaneIndex = Math.max(
-    0,
-    data.lanes.findIndex((item) => item.lane === lane),
-  );
 
   return (
     <>
@@ -109,40 +101,28 @@ export function TodayView({
           <h2>시장 인텔리전스</h2>
           <p>각 레코드는 하나의 분류에만 노출됩니다.</p>
         </PanelHeader>
-        <div className={styles.laneTabs} role="tablist" aria-label="인사이트 분류">
-          <span
-            className={styles.laneIndicator}
-            aria-hidden="true"
-            style={{
-              transform: `translate3d(calc(${activeLaneIndex * 100}% + ${activeLaneIndex * 24}px), 0, 0)`,
-            }}
-          />
-          {data.lanes.map((item, index) => (
-            <Button
-              key={item.lane}
-              id={`lane-tab-${item.lane}`}
-              ref={(element) => {
-                laneTabRefs.current[item.lane] = element;
-              }}
-              type="button"
-              motion="quiet"
-              role="tab"
-              data-pending={pendingLane === item.lane || undefined}
-              aria-busy={pendingLane === item.lane || undefined}
-              aria-selected={lane === item.lane}
-              aria-controls="research-feed-panel"
-              tabIndex={rovingLane === item.lane ? 0 : -1}
-              disabled={!interactive}
-              onKeyDown={(event) => moveLaneFocus(event, index)}
-              onClick={() => {
-                setRovingLane(item.lane);
-                onLaneChange(item.lane);
-              }}
-            >
-              {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
-            </Button>
-          ))}
-        </div>
+        <Tabs value={lane} onValueChange={onLaneChange} activationMode="manual">
+          <TabsHighlight className={styles.laneIndicator} transition={tabsTransition} click={false}>
+            <TabsList className={styles.laneTabs} aria-label="인사이트 분류">
+              {data.lanes.map((item) => (
+                <TabsHighlightItem key={item.lane} value={item.lane} className={styles.laneTabItem}>
+                  <TabsTrigger
+                    id={`lane-tab-${item.lane}`}
+                    type="button"
+                    value={item.lane}
+                    className={styles.laneTab}
+                    data-pending={pendingLane === item.lane || undefined}
+                    aria-busy={pendingLane === item.lane || undefined}
+                    aria-controls="research-feed-panel"
+                    disabled={!interactive}
+                  >
+                    {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
+                  </TabsTrigger>
+                </TabsHighlightItem>
+              ))}
+            </TabsList>
+          </TabsHighlight>
+        </Tabs>
         <div
           ref={feedRef}
           id="research-feed-panel"
@@ -158,30 +138,33 @@ export function TodayView({
               description="다른 분류를 확인하거나 새 신호가 들어올 때 다시 살펴보세요."
             />
           ) : (
-            items.map((item) => (
-              <Button
-                key={item.recordKey}
-                type="button"
-                motion="quiet"
-                data-append-key={item.recordKey}
-                data-testid="research-feed-record"
-                className={styles.feedRow}
-                aria-current={selectedRecordKey === item.recordKey}
-                disabled={!interactive}
-                onClick={() => onSelectRecord(item)}
-              >
-                <span className={styles.market}>{marketLabel(item.market)}</span>
-                <div>
-                  <strong>{item.title}</strong>
-                  <p>{presentResearchSummary(item.summary)}</p>
-                  <small>{whySurfacedLabel(item)}</small>
-                </div>
-                <div className={styles.rowMeta}>
-                  <span>{confidenceLabel(item.confidence)}</span>
-                  <time>{formatDate(item.publishedAt, true)}</time>
-                </div>
-              </Button>
-            ))
+            <StructuredList className={styles.feedList} aria-label="오늘의 시장 변화">
+              {items.map((item) => (
+                <li key={item.recordKey}>
+                  <Button
+                    type="button"
+                    motion="quiet"
+                    data-append-key={item.recordKey}
+                    data-testid="research-feed-record"
+                    className={styles.feedRow}
+                    aria-current={selectedRecordKey === item.recordKey}
+                    disabled={!interactive}
+                    onClick={() => onSelectRecord(item)}
+                  >
+                    <span className={styles.market}>{marketLabel(item.market)}</span>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{presentResearchSummary(item.summary)}</p>
+                      <small>{whySurfacedLabel(item)}</small>
+                    </div>
+                    <div className={styles.rowMeta}>
+                      <span>{confidenceLabel(item.confidence)}</span>
+                      <time>{formatDate(item.publishedAt, true)}</time>
+                    </div>
+                  </Button>
+                </li>
+              ))}
+            </StructuredList>
           )}
         </div>
         {(nextCursor || cursorLoading || cursorError) && (

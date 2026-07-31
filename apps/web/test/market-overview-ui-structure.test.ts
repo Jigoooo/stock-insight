@@ -36,8 +36,10 @@ describe('P3-WC market overview UI structure', () => {
 
   it('uses a keyboard-addressable tablist and a single labelled tabpanel', async () => {
     const overview = await read('market-overview-panel.tsx');
-    assert.match(overview, /role="tablist"/);
-    assert.match(overview, /role="tab"/);
+    assert.match(overview, /<Tabs value=\{activeMode\} onValueChange=\{onModeChange\}/);
+    assert.match(overview, /<TabsList[^>]*aria-label="시장 화면 선택"/);
+    assert.match(overview, /<TabsTrigger/);
+    assert.match(overview, /value=\{item\.id\}/);
     assert.match(overview, /aria-selected=\{item\.id === activeMode\}/);
     assert.match(overview, /const panelId = 'market-mode-panel'/);
     assert.match(overview, /aria-controls=\{panelId\}/);
@@ -61,9 +63,10 @@ describe('P3-WC market overview UI structure', () => {
       read('views/radar-view.tsx'),
       read('market-overview-panel.tsx'),
     ]);
-    assert.match(overview, /<table className=\{styles\.marketHeatmap\}>/);
-    assert.match(overview, /<caption className=\{styles\.srOnly\}>/);
-    assert.match(overview, /<ol className=\{styles\.marketTimeline\}>/);
+    assert.match(overview, /<DataTable/);
+    assert.match(overview, /captionClassName=\{styles\.marketSrOnly\}/);
+    assert.match(overview, /<StructuredList className=\{styles\.marketTimeline\}/);
+    assert.match(radar, /<StructuredList className=\{styles\.ledger\}/);
     assert.match(radar, /data-testid="radar-row"/);
     assert.match(overview, /data-testid="market-heatmap-row"/);
     assert.match(overview, /data-testid="market-timeline-row"/);
@@ -119,9 +122,9 @@ describe('P3-WC market overview UI structure', () => {
   });
 
   it('provides 44px mode targets, stable overflow and non-border-led grouping', async () => {
-    const css = await read('research-workspace-page.module.css');
+    const css = await read('market-overview.module.css');
     assert.match(extractCssBlock(css, '.marketModeNav'), /overflow:\s*hidden/);
-    const tab = extractCssBlock(css, '.marketModeTab');
+    const tab = extractCssBlock(css, '.marketModeTab {');
     assert.match(tab, /min-height:\s*44px/);
     assert.match(tab, /user-select:\s*none/);
     assert.match(extractCssBlock(css, '.marketModePanel'), /min-width:\s*0/);
