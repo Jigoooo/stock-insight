@@ -1,5 +1,4 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
-import { AlertCircle, CircleDot, UserPlus } from 'lucide-react';
+import { AlertCircle, UserPlus } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -39,7 +38,7 @@ import {
   type WorkspaceNavigationItem,
   type WorkspaceSectionId,
 } from '@/features/workspace-navigation';
-import { Button, EmptyState, ErrorState, Skeleton } from '@/shared/ui/primitives';
+import { Button, ErrorState } from '@/shared/ui/primitives';
 import { WorkspaceShell } from '@/widgets/workspace-shell';
 import { createApiClient } from '@stock-insight/api-client';
 import type {
@@ -54,6 +53,8 @@ import type {
 
 export type SectionId = WorkspaceSectionId;
 export type DetailState = 'ready' | 'loading' | 'error';
+
+export { AvailabilityNotice, PageHeader, WorkspaceState } from '@/shared/ui/workspace';
 
 export type ResearchWorkspaceUrlState = {
   view?: SectionId;
@@ -832,116 +833,5 @@ export function ResearchWorkspacePage({
         open={inspectorVisible}
       />
     </WorkspaceShell>
-  );
-}
-
-export function PageHeader({
-  eyebrow,
-  title,
-  description,
-  asOf,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  asOf?: string | null;
-}) {
-  return (
-    <header className={styles.pageHeader}>
-      <div>
-        <span>{eyebrow}</span>
-        <h1 data-workspace-view-heading tabIndex={-1}>
-          {title}
-        </h1>
-        <p>{description}</p>
-      </div>
-      {asOf && (
-        <time dateTime={asOf}>
-          기준 시각<strong>{formatDate(asOf, true)}</strong>
-        </time>
-      )}
-    </header>
-  );
-}
-
-export function WorkspaceState({
-  kind,
-  title,
-  description,
-}: {
-  kind: 'empty' | 'loading' | 'error' | 'stale';
-  title: string;
-  description: string;
-}) {
-  const content = (
-    <>
-      {kind === 'loading' ? (
-        <Skeleton className={styles.stateIconSkeleton} height={20} width={20} />
-      ) : kind === 'error' ? (
-        <AlertCircle aria-hidden="true" />
-      ) : (
-        <CircleDot aria-hidden="true" />
-      )}
-      <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
-      </div>
-    </>
-  );
-
-  if (kind === 'error') {
-    return (
-      <ErrorState className={styles.stateSurface} data-kind={kind} aria-atomic="true">
-        {content}
-      </ErrorState>
-    );
-  }
-
-  return (
-    <EmptyState className={styles.stateSurface} data-kind={kind} role="status" aria-atomic="true">
-      {content}
-    </EmptyState>
-  );
-}
-
-export function AvailabilityNotice({ availability }: { availability: string }) {
-  if (availability === 'available') return null;
-  if (availability === 'collecting') {
-    return (
-      <WorkspaceState
-        kind="loading"
-        title="새 데이터를 정리하고 있습니다"
-        description="준비된 내용부터 보여드리며, 수집이 끝나면 자동으로 상태가 바뀝니다."
-      />
-    );
-  }
-  if (availability === 'stale' || availability === 'text_only') {
-    return (
-      <WorkspaceState
-        kind="stale"
-        title={
-          availability === 'stale'
-            ? '업데이트를 기다리는 데이터입니다'
-            : '원문 연결이 제한되어 있습니다'
-        }
-        description="표시된 기준 시각을 확인하고, 중요한 판단에는 최신 출처를 함께 확인해 주세요."
-      />
-    );
-  }
-  if (availability === 'error') {
-    return (
-      <WorkspaceState
-        kind="error"
-        title="데이터를 확인하지 못했습니다"
-        description="빈 결과로 처리하지 않았습니다. 잠시 후 다시 이 화면을 열어 주세요."
-      />
-    );
-  }
-  return (
-    <WorkspaceState
-      kind="empty"
-      title="아직 보여드릴 데이터가 없습니다"
-      description="수집 범위가 준비되면 이곳에 결과가 표시됩니다."
-    />
   );
 }

@@ -6,9 +6,6 @@ import {
   type StockDeepDive,
 } from '../../model/stock-deep-dive';
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   analysisStatusLabel,
   availabilityLabels,
   formatDate,
@@ -19,6 +16,14 @@ import styles from '../research-workspace-page.module.css';
 import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
 
 import { Button } from '@/shared/ui/primitives/button';
+import {
+  AvailabilityNotice,
+  DataTable,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 import { createApiClient } from '@stock-insight/api-client';
 import type { StockListResponse } from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
@@ -187,24 +192,21 @@ export function StocksView({
       <div className={styles.stocksWorkspace}>
         {compactLayout ? detailRegion : null}
 
-        <section
-          className={styles.panel}
-          data-pending={pending || undefined}
-          aria-busy={pending || undefined}
-        >
-          <header className={styles.panelHeader}>
-            <div>
-              <h2>종목 커버리지</h2>
-              <p aria-live="polite">
-                {pending
-                  ? '검색 결과를 갱신하고 있습니다'
-                  : `${stocks.length}개 표시 · ${availabilityLabels[data.availability]}`}
-              </p>
-            </div>
-          </header>
+        <Panel data-pending={pending || undefined} aria-busy={pending || undefined}>
+          <PanelHeader>
+            <h2>종목 커버리지</h2>
+            <p aria-live="polite">
+              {pending
+                ? '검색 결과를 갱신하고 있습니다'
+                : `${stocks.length}개 표시 · ${availabilityLabels[data.availability]}`}
+            </p>
+          </PanelHeader>
           <div className={styles.tableWrap}>
-            <table className={styles.stockTable}>
-              <caption className={styles.srOnly}>종목 커버리지</caption>
+            <DataTable
+              caption="종목 커버리지"
+              captionClassName={styles.srOnly}
+              className={styles.stockTable}
+            >
               <thead>
                 <tr>
                   <th>종목</th>
@@ -268,9 +270,9 @@ export function StocksView({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </div>
-        </section>
+        </Panel>
         {!compactLayout ? detailRegion : null}
       </div>
     </>

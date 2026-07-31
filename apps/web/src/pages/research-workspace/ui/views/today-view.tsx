@@ -1,9 +1,6 @@
 import { useRef, useState } from 'react';
 
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   confidenceLabel,
   formatDate,
   formatNumber,
@@ -16,6 +13,14 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/primitives';
+import {
+  AvailabilityNotice,
+  MetricStrip,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 import type {
   ResearchFeedItem,
   ResearchFeedLaneId,
@@ -88,34 +93,22 @@ export function TodayView({
         asOf={data.meta.contentSnapshot.analysisCutoffAt}
       />
       <AvailabilityNotice availability={data.meta.freshness} />
-      <section className={styles.metricStrip} aria-label="데이터 현황">
-        <div>
-          <span>오늘의 신호</span>
-          <strong>{data.summary.laneItemCount}</strong>
-        </div>
-        <div>
-          <span>관계 경로</span>
-          <strong>{formatNumber(data.summary.relationCount)}</strong>
-        </div>
-        <div>
-          <span>관심종목</span>
-          <strong>{data.summary.watchlistCount}</strong>
-        </div>
-        <div>
-          <span>연결 출처</span>
-          <strong>{data.summary.sourceCount}</strong>
-        </div>
-      </section>
-      <section className={styles.panel}>
-        <header className={styles.panelHeader}>
-          <div>
-            <h2>시장 인텔리전스</h2>
-            <p>각 레코드는 하나의 분류에만 노출됩니다.</p>
-          </div>
-          <span>
-            {data.meta.sourceCoverage.clickable}/{data.meta.sourceCoverage.total} 출처 연결
-          </span>
-        </header>
+      <MetricStrip
+        label="데이터 현황"
+        items={[
+          { label: '오늘의 신호', value: data.summary.laneItemCount },
+          { label: '관계 경로', value: formatNumber(data.summary.relationCount) },
+          { label: '관심종목', value: data.summary.watchlistCount },
+          { label: '연결 출처', value: data.summary.sourceCount },
+        ]}
+      />
+      <Panel>
+        <PanelHeader
+          meta={`${data.meta.sourceCoverage.clickable}/${data.meta.sourceCoverage.total} 출처 연결`}
+        >
+          <h2>시장 인텔리전스</h2>
+          <p>각 레코드는 하나의 분류에만 노출됩니다.</p>
+        </PanelHeader>
         <div className={styles.laneTabs} role="tablist" aria-label="인사이트 분류">
           <span
             className={styles.laneIndicator}
@@ -204,7 +197,7 @@ export function TodayView({
             </Button>
           </div>
         )}
-      </section>
+      </Panel>
     </>
   );
 }

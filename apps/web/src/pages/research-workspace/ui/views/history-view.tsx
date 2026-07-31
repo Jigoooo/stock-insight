@@ -2,9 +2,6 @@ import { Clock3 } from 'lucide-react';
 import { useRef } from 'react';
 
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   type DetailState,
   availabilityLabels,
   formatDate,
@@ -16,6 +13,14 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/primitives';
+import {
+  AvailabilityNotice,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  Timeline,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 import type { DecisionHistoryPage } from '@stock-insight/contracts/research-workspace';
 
 export function HistoryView({
@@ -38,16 +43,14 @@ export function HistoryView({
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />
-      <section className={styles.panel}>
-        <header className={styles.panelHeader}>
-          <div>
-            <h2>기록</h2>
-            <p>
-              {data.items.length}건 표시 · 전체 {data.scopeTotal}건 ·{' '}
-              {availabilityLabels[data.availability]}
-            </p>
-          </div>
-        </header>
+      <Panel>
+        <PanelHeader>
+          <h2>기록</h2>
+          <p>
+            {data.items.length}건 표시 · 전체 {data.scopeTotal}건 ·{' '}
+            {availabilityLabels[data.availability]}
+          </p>
+        </PanelHeader>
         <HistoryRows items={data.items} />
         {(data.nextCursor || pageState !== 'ready') && (
           <div className={styles.feedPager}>
@@ -69,19 +72,19 @@ export function HistoryView({
             </Button>
           </div>
         )}
-      </section>
+      </Panel>
     </>
   );
 }
 
 export function HistoryRows({ items }: { items: DecisionHistoryPage['items'] }) {
-  const ledgerRef = useRef<HTMLDivElement>(null);
+  const ledgerRef = useRef<HTMLOListElement>(null);
   useWorkspaceAppendReveal({
     keys: items.map((item) => item.historyId),
     scopeRef: ledgerRef,
   });
   return (
-    <div ref={ledgerRef} className={styles.ledger}>
+    <Timeline ref={ledgerRef} className={styles.ledger}>
       {items.length === 0 ? (
         <WorkspaceState
           kind="empty"
@@ -90,7 +93,7 @@ export function HistoryRows({ items }: { items: DecisionHistoryPage['items'] }) 
         />
       ) : (
         items.map((item) => (
-          <article
+          <li
             key={item.historyId}
             className={styles.historyRow}
             data-append-key={item.historyId}
@@ -111,9 +114,9 @@ export function HistoryRows({ items }: { items: DecisionHistoryPage['items'] }) 
                 {item.reviewDueAt ? `검토 ${formatDate(item.reviewDueAt)}` : '검토일 없음'}
               </span>
             </div>
-          </article>
+          </li>
         ))
       )}
-    </div>
+    </Timeline>
   );
 }

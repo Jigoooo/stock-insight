@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { marketConnectionLabel } from '../../model/market-overview';
 import { MarketOverviewPanel } from '../market-overview-panel';
 import {
-  PageHeader,
-  WorkspaceState,
   type DetailState,
   formatDate,
   marketLabel,
@@ -15,6 +13,7 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/primitives';
+import { PageHeader, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 

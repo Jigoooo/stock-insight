@@ -1,7 +1,19 @@
 /* oxlint-disable jsx-a11y/no-redundant-roles, jsx-a11y/no-noninteractive-tabindex -- Safari/VoiceOver list recovery and keyboard-focusable horizontal data region. */
 import { formatCryptoConfidence, formatCryptoMagnitude } from '../../model/crypto-display';
-import { PageHeader, WorkspaceState, formatDate } from '../research-workspace-page';
+import { formatDate } from '../research-workspace-page';
 import styles from './crypto-workspace-view.module.css';
+
+import {
+  DataTable,
+  MetricStrip,
+  PageHeader,
+  Panel,
+  PanelHeader,
+  PropertyList,
+  StructuredList,
+  Timeline,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 
 import type { CryptoResearchWorkspace } from '@stock-insight/contracts/crypto-research';
 
@@ -86,24 +98,15 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
         <span>주문·지갑 연결·실시간 계정 연결이 없습니다.</span>
       </output>
 
-      <dl className={styles.stats} aria-label="크립토 리서치 범위">
-        <div>
-          <dt>추적 자산</dt>
-          <dd>{data.stats.entities}</dd>
-        </div>
-        <div>
-          <dt>온체인 사건</dt>
-          <dd>{data.stats.events}</dd>
-        </div>
-        <div>
-          <dt>기업 연결</dt>
-          <dd>{data.stats.companyLinks}</dd>
-        </div>
-        <div>
-          <dt>리스크 경로</dt>
-          <dd>{data.stats.riskExposures}</dd>
-        </div>
-      </dl>
+      <MetricStrip
+        label="크립토 리서치 범위"
+        items={[
+          { label: '추적 자산', value: data.stats.entities },
+          { label: '온체인 사건', value: data.stats.events },
+          { label: '기업 연결', value: data.stats.companyLinks },
+          { label: '리스크 경로', value: data.stats.riskExposures },
+        ]}
+      />
 
       {data.availability === 'empty' ? (
         <WorkspaceState
@@ -113,17 +116,15 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
         />
       ) : (
         <div className={styles.contentGrid}>
-          <section className={styles.assetPanel} aria-labelledby="crypto-assets-title">
-            <header className={styles.sectionHeader}>
-              <div>
-                <span>Canonical identity</span>
-                <h2 id="crypto-assets-title">추적 자산</h2>
-              </div>
-            </header>
+          <Panel className={styles.assetPanel} aria-labelledby="crypto-assets-title">
+            <PanelHeader className={styles.sectionHeader}>
+              <span>Canonical identity</span>
+              <h2 id="crypto-assets-title">추적 자산</h2>
+            </PanelHeader>
             {data.entities.length === 0 ? (
               <p className={styles.emptyCopy}>표시할 자산 identity가 없습니다.</p>
             ) : (
-              <ul className={styles.assetList} aria-label="추적 자산 목록" role="list">
+              <StructuredList className={styles.assetList} aria-label="추적 자산 목록">
                 {data.entities.map((entity) => (
                   <li key={entity.entityKey}>
                     <div>
@@ -134,20 +135,18 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                     <small>출처 revision {entity.sourceRevisionId}</small>
                   </li>
                 ))}
-              </ul>
+              </StructuredList>
             )}
-          </section>
+          </Panel>
 
-          <section className={styles.companyPanel} aria-labelledby="crypto-company-links-title">
-            <header className={styles.sectionHeader}>
-              <div>
-                <span>Cross-domain graph</span>
-                <h2 id="crypto-company-links-title">기업 연결</h2>
-              </div>
-              <small>
-                검증 {verifiedLinkCount}개 · 검토 중 {proposedLinkCount}개
-              </small>
-            </header>
+          <Panel className={styles.companyPanel} aria-labelledby="crypto-company-links-title">
+            <PanelHeader
+              className={styles.sectionHeader}
+              meta={`검증 ${verifiedLinkCount}개 · 검토 중 ${proposedLinkCount}개`}
+            >
+              <span>Cross-domain graph</span>
+              <h2 id="crypto-company-links-title">기업 연결</h2>
+            </PanelHeader>
             {data.companyLinks.length === 0 ? (
               <p className={styles.emptyCopy}>검증된 기업 연결이 없습니다.</p>
             ) : (
@@ -160,8 +159,7 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                 <p id="crypto-company-scroll-hint" className={styles.tableScrollHint}>
                   좌우로 밀어 전체 근거 확인
                 </p>
-                <table>
-                  <caption>크립토 자산과 주식·기업 간 검증 관계</caption>
+                <DataTable caption="크립토 자산과 주식·기업 간 검증 관계">
                   <thead>
                     <tr>
                       <th scope="col">크립토</th>
@@ -211,22 +209,20 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </DataTable>
               </section>
             )}
-          </section>
+          </Panel>
 
-          <section className={styles.eventPanel} aria-labelledby="crypto-events-title">
-            <header className={styles.sectionHeader}>
-              <div>
-                <span>Truth ledger</span>
-                <h2 id="crypto-events-title">온체인 사건</h2>
-              </div>
-            </header>
+          <Panel className={styles.eventPanel} aria-labelledby="crypto-events-title">
+            <PanelHeader className={styles.sectionHeader}>
+              <span>Truth ledger</span>
+              <h2 id="crypto-events-title">온체인 사건</h2>
+            </PanelHeader>
             {data.events.length === 0 ? (
               <p className={styles.emptyCopy}>표시할 사건이 없습니다.</p>
             ) : (
-              <ol className={styles.eventList} aria-label="온체인 사건 목록" role="list">
+              <Timeline className={styles.eventList} aria-label="온체인 사건 목록">
                 {data.events.map((event) => (
                   <li key={event.eventKey}>
                     <div>
@@ -243,21 +239,19 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                     <small>출처 revision {event.sourceRevisionId}</small>
                   </li>
                 ))}
-              </ol>
+              </Timeline>
             )}
-          </section>
+          </Panel>
 
-          <section className={styles.riskPanel} aria-labelledby="crypto-risk-title">
-            <header className={styles.sectionHeader}>
-              <div>
-                <span>Impact chain</span>
-                <h2 id="crypto-risk-title">리스크 전파</h2>
-              </div>
-            </header>
+          <Panel className={styles.riskPanel} aria-labelledby="crypto-risk-title">
+            <PanelHeader className={styles.sectionHeader}>
+              <span>Impact chain</span>
+              <h2 id="crypto-risk-title">리스크 전파</h2>
+            </PanelHeader>
             {data.riskExposures.length === 0 ? (
               <p className={styles.emptyCopy}>표시할 리스크 경로가 없습니다.</p>
             ) : (
-              <ul className={styles.riskList} aria-label="리스크 전파 목록" role="list">
+              <StructuredList className={styles.riskList} aria-label="리스크 전파 목록">
                 {data.riskExposures.map((risk) => (
                   <li key={risk.exposureKey} data-exposure-key={risk.exposureKey}>
                     <div>
@@ -279,47 +273,50 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                       {shockLabels[risk.shockType] ?? risk.shockType} ·{' '}
                       {channelLabels[risk.channelKey] ?? risk.channelKey}
                     </p>
-                    <dl>
-                      <div>
-                        <dt>경제 크기</dt>
-                        <dd>
-                          {formatCryptoMagnitude(
-                            risk.economicMagnitude,
-                            risk.economicMagnitudeUnit,
-                          )}
-                          {risk.economicMagnitude !== null &&
-                          risk.economicMagnitudeUnit !== null ? (
-                            <small>
-                              원계수 {risk.economicMagnitude} {risk.economicMagnitudeUnit}
-                            </small>
-                          ) : null}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>근거 신뢰</dt>
-                        <dd>
-                          {formatCryptoConfidence(risk.epistemicConfidence)}
-                          {risk.epistemicConfidence !== null ? (
-                            <small>원계수 {risk.epistemicConfidence}</small>
-                          ) : null}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>출처 revision</dt>
-                        <dd>{risk.sourceRevisionId}</dd>
-                      </div>
-                      <div>
-                        <dt>기준 시각</dt>
-                        <dd>
-                          <time dateTime={risk.knownAt}>{formatDate(risk.knownAt, true)}</time>
-                        </dd>
-                      </div>
-                    </dl>
+                    <PropertyList
+                      items={[
+                        {
+                          label: '경제 크기',
+                          value: (
+                            <>
+                              {formatCryptoMagnitude(
+                                risk.economicMagnitude,
+                                risk.economicMagnitudeUnit,
+                              )}
+                              {risk.economicMagnitude !== null &&
+                              risk.economicMagnitudeUnit !== null ? (
+                                <small>
+                                  원계수 {risk.economicMagnitude} {risk.economicMagnitudeUnit}
+                                </small>
+                              ) : null}
+                            </>
+                          ),
+                        },
+                        {
+                          label: '근거 신뢰',
+                          value: (
+                            <>
+                              {formatCryptoConfidence(risk.epistemicConfidence)}
+                              {risk.epistemicConfidence !== null ? (
+                                <small>원계수 {risk.epistemicConfidence}</small>
+                              ) : null}
+                            </>
+                          ),
+                        },
+                        { label: '출처 revision', value: risk.sourceRevisionId },
+                        {
+                          label: '기준 시각',
+                          value: (
+                            <time dateTime={risk.knownAt}>{formatDate(risk.knownAt, true)}</time>
+                          ),
+                        },
+                      ]}
+                    />
                   </li>
                 ))}
-              </ul>
+              </StructuredList>
             )}
-          </section>
+          </Panel>
         </div>
       )}
     </div>

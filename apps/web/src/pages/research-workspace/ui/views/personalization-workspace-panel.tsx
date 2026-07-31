@@ -2,6 +2,8 @@ import type { PersonalizationResearchWorkspace } from '../../model/workspace-vie
 import { formatDate } from '../research-workspace-page';
 import styles from '../research-workspace-page.module.css';
 
+import { Panel, PanelHeader, PropertyList, StructuredList } from '@/shared/ui/workspace';
+
 function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -23,11 +25,11 @@ function money(value: string, currency: string): string {
 
 function ListOrEmpty({ items }: { items: readonly string[] }) {
   return items.length > 0 ? (
-    <ul>
+    <StructuredList>
       {items.map((item) => (
         <li key={item}>{item}</li>
       ))}
-    </ul>
+    </StructuredList>
   ) : (
     <p>기록된 항목이 없습니다.</p>
   );
@@ -42,39 +44,37 @@ export function PersonalizationWorkspacePanel({
   const portfolio = data.portfolio;
   const thesis = data.thesis?.revision ?? null;
   return (
-    <section
-      className={`${styles.panel} ${styles.personalizationPanel}`}
+    <Panel
+      className={styles.personalizationPanel}
       aria-labelledby="personalization-workspace-title"
       data-read-only="true"
     >
-      <header className={styles.panelHeader}>
-        <div>
-          <h2 id="personalization-workspace-title">개인화 분석</h2>
-          <p>개인 원장과 공통 근거를 결합한 조회 전용 화면이며 주문 기능은 없습니다.</p>
-        </div>
-        <span>{data.selectedEntityKey ?? '대상 없음'}</span>
-      </header>
+      <PanelHeader meta={data.selectedEntityKey ?? '대상 없음'}>
+        <h2 id="personalization-workspace-title">개인화 분석</h2>
+        <p>개인 원장과 공통 근거를 결합한 조회 전용 화면이며 주문 기능은 없습니다.</p>
+      </PanelHeader>
 
       <div className={styles.personalizationGrid}>
         <section aria-labelledby="portfolio-snapshot-title">
           <h3 id="portfolio-snapshot-title">포트폴리오 스냅샷</h3>
           {portfolio ? (
-            <dl>
-              <div>
-                <dt>평가액</dt>
-                <dd>{money(portfolio.totalMarketValue, portfolio.baseCurrency)}</dd>
-              </div>
-              <div>
-                <dt>보유 종목</dt>
-                <dd>{portfolio.positionCount}개</dd>
-              </div>
-              <div>
-                <dt>봉인 시각</dt>
-                <dd>
-                  <time dateTime={portfolio.sealedAt}>{formatDate(portfolio.sealedAt, true)}</time>
-                </dd>
-              </div>
-            </dl>
+            <PropertyList
+              items={[
+                {
+                  label: '평가액',
+                  value: money(portfolio.totalMarketValue, portfolio.baseCurrency),
+                },
+                { label: '보유 종목', value: `${portfolio.positionCount}개` },
+                {
+                  label: '봉인 시각',
+                  value: (
+                    <time dateTime={portfolio.sealedAt}>
+                      {formatDate(portfolio.sealedAt, true)}
+                    </time>
+                  ),
+                },
+              ]}
+            />
           ) : (
             <p>봉인된 스냅샷이 없습니다.</p>
           )}
@@ -183,6 +183,6 @@ export function PersonalizationWorkspacePanel({
           <p>법률 검토 전이거나 만료된 패킷의 상세 설명은 표시하지 않습니다.</p>
         )}
       </section>
-    </section>
+    </Panel>
   );
 }

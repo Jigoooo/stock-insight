@@ -55,6 +55,18 @@ const css = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
   'utf8',
 );
+const workspaceState = readFileSync(
+  new URL('../src/shared/ui/workspace/workspace-state.tsx', import.meta.url),
+  'utf8',
+);
+const availabilityNotice = readFileSync(
+  new URL('../src/shared/ui/workspace/availability-notice.tsx', import.meta.url),
+  'utf8',
+);
+const workspaceCss = readFileSync(
+  new URL('../src/shared/ui/workspace/workspace.module.css', import.meta.url),
+  'utf8',
+);
 const authRoute = readFileSync(
   new URL('../src/routes/_authenticated.tsx', import.meta.url),
   'utf8',
@@ -164,17 +176,18 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /unsupported:\s*'지원하지 않음'/);
     assert.match(page, /error:\s*'오류'/);
     assert.doesNotMatch(page, /unsupported:\s*'지원 준비 중'|error:\s*'확인 필요'/);
-    assert.match(page, /function WorkspaceState\(/);
+    assert.match(workspaceState, /function WorkspaceState\(/);
     assert.match(page, /kind="empty"/);
     assert.match(page, /kind="loading"/);
     assert.match(page, /kind="error"/);
-    assert.match(page, /kind="stale"/);
-    assert.match(page, /<ErrorState[\s\S]*?className=\{styles\.stateSurface\}/);
-    assert.match(page, /<EmptyState[\s\S]*?className=\{styles\.stateSurface\}/);
-    assert.match(page, /role="status"/);
-    assert.match(page, /aria-atomic="true"/);
-    assert.match(css, /\.stateSurface\s*\{/);
-    assert.match(css, /\.stateSurface\[data-kind='stale'\]/);
+    assert.match(availabilityNotice, /kind="stale"/);
+    assert.match(workspaceState, /empty[\s\S]*error[\s\S]*stale[\s\S]*partial[\s\S]*unavailable/);
+    assert.match(workspaceState, /role=\{kind === 'error' \? 'alert' : 'status'\}/);
+    assert.match(workspaceState, /aria-atomic="true"/);
+    assert.match(workspaceState, /aria-live=\{liveMode\[kind\]\}/);
+    assert.match(workspaceCss, /\.stateSurface\s*\{/);
+    assert.match(workspaceCss, /\.stateSurface\[data-kind='stale'\]/);
+    assert.doesNotMatch(css, /\.stateSurface\s*\{/);
   });
 
   it('blocks pre-hydration clicks and keeps the inspector modal only on mobile', () => {

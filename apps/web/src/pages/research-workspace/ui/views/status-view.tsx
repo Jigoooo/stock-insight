@@ -1,7 +1,4 @@
 import {
-  AvailabilityNotice,
-  PageHeader,
-  WorkspaceState,
   availabilityLabels,
   datasetLabel,
   domainLabels,
@@ -9,6 +6,15 @@ import {
   formatNumber,
 } from '../research-workspace-page';
 import styles from '../research-workspace-page.module.css';
+
+import {
+  AvailabilityNotice,
+  DataTable,
+  PageHeader,
+  Panel,
+  StatusSummary,
+  WorkspaceState,
+} from '@/shared/ui/workspace';
 
 import type { SystemStatus } from '@stock-insight/contracts/research-workspace';
 
@@ -22,29 +28,21 @@ export function StatusView({ data }: { data: SystemStatus }) {
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.overall} />
-      <section className={styles.metricStrip}>
-        <div>
-          <span>전체 상태</span>
-          <strong>{availabilityLabels[data.overall]}</strong>
-        </div>
-        <div>
-          <span>연결 출처</span>
-          <strong>
-            {data.sourceCoverage.linked}/{data.sourceCoverage.total}
-          </strong>
-        </div>
-        <div>
-          <span>클릭 가능</span>
-          <strong>{data.sourceCoverage.clickable}</strong>
-        </div>
-        <div>
-          <span>그래프 근거</span>
-          <strong>{data.graphSourceCoverage.linked}</strong>
-        </div>
-      </section>
-      <section className={styles.panel}>
+      <StatusSummary
+        aria-label="데이터 상태 요약"
+        items={[
+          { label: '전체 상태', value: availabilityLabels[data.overall] },
+          {
+            label: '연결 출처',
+            value: `${data.sourceCoverage.linked}/${data.sourceCoverage.total}`,
+          },
+          { label: '클릭 가능', value: data.sourceCoverage.clickable },
+          { label: '그래프 근거', value: data.graphSourceCoverage.linked },
+        ]}
+      />
+      <Panel>
         <div className={styles.tableWrap}>
-          <table className={styles.statusTable}>
+          <DataTable caption="데이터 영역별 상태" className={styles.statusTable}>
             <thead>
               <tr>
                 <th>데이터 영역</th>
@@ -77,9 +75,9 @@ export function StatusView({ data }: { data: SystemStatus }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
-      </section>
+      </Panel>
     </>
   );
 }

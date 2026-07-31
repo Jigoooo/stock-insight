@@ -24,24 +24,12 @@ const adoptionUrls = [
 
 const feedbackSurfaceInventory = [
   {
-    className: 'stateSurface',
-    url: new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
-  },
-  {
     className: 'viewLoadError',
     url: new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   },
   {
-    className: 'stateSurface',
-    url: new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
-  },
-  {
     className: 'graphRuntimeError',
     url: new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
-  },
-  {
-    className: 'state',
-    url: new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
   },
   {
     className: 'tableEmpty',
@@ -155,10 +143,19 @@ describe('Task 4 shared feedback and surface contract', () => {
       );
     }
 
-    const deepDive = await readFile(
-      new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
-      'utf8',
-    );
-    assert.match(deepDive, /<Skeleton\b/);
+    const [workspaceState, inspector, deepDive] = await Promise.all([
+      readFile(new URL('../src/shared/ui/workspace/workspace-state.tsx', import.meta.url), 'utf8'),
+      readFile(
+        new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
+        'utf8',
+      ),
+      readFile(
+        new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+        'utf8',
+      ),
+    ]);
+    assert.match(workspaceState, /<Skeleton\b/);
+    assert.match(inspector, /<WorkspaceState\b/);
+    assert.match(deepDive, /<WorkspaceState\b/);
   });
 });

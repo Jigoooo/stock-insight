@@ -1,0 +1,339 @@
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+  margin-bottom: 30px;
+}
+
+.pageHeader > div {
+  min-width: 0;
+}
+
+.pageHeader span {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(32px, 3.5vw, 48px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.pageHeader p {
+  max-width: 720px;
+  margin: 13px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.pageHeader time {
+  min-width: 118px;
+  flex: none;
+  display: grid;
+  gap: 5px;
+  padding-bottom: 3px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  text-align: right;
+}
+
+.pageHeader time strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricStrip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin: 0 0 24px;
+  border-block: 1px solid var(--color-border);
+}
+
+.metricStrip > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 16px clamp(14px, 2vw, 22px);
+  border-left: 1px solid var(--color-border);
+}
+
+.metricStrip > div:first-child {
+  border-left: 0;
+}
+
+.metricStrip dt,
+.metricStrip dd {
+  margin: 0;
+}
+
+.metricStrip dt,
+.metricStrip small {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 560;
+}
+
+.metricStrip dd {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 25px;
+  font-weight: 690;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel,
+.detailSurface {
+  min-width: 0;
+}
+
+.panelCard,
+.detailCard {
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border-color: var(--color-border);
+  border-radius: var(--radius-panel);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.panelHeader {
+  min-height: 74px;
+  display: flex;
+  grid-template: none;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.panelHeader > div {
+  min-width: 0;
+}
+
+.panelHeader h2,
+.panelHeader h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+.panelHeader p {
+  margin: 5px 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.panelHeaderMeta {
+  flex: none;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.panelHeaderMeta svg {
+  width: 18px;
+}
+
+.propertyList,
+.statusSummary {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  margin: 0;
+}
+
+.propertyList > div,
+.statusSummary > div {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.propertyList > div:last-child,
+.statusSummary > div:last-child {
+  border-bottom: 0;
+}
+
+.propertyList dt,
+.propertyList dd,
+.statusSummary dt,
+.statusSummary dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.propertyList dt,
+.statusSummary dt {
+  color: var(--color-text-tertiary);
+}
+
+.propertyList dd,
+.statusSummary dd {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-weight: 580;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.statusBadge {
+  max-width: 100%;
+  border-color: var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.structuredList,
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.structuredList > li,
+.timeline > li {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.structuredList > li:last-child,
+.timeline > li:last-child {
+  border-bottom: 0;
+}
+
+.table {
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table caption {
+  color: var(--color-text-tertiary);
+}
+
+.stateSurface {
+  min-height: 112px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 20px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface-subtle) 62%, transparent);
+  border-block: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  text-align: left;
+}
+
+.stateVisual,
+.stateIconSkeleton {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+
+.stateVisual svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stateContent {
+  min-width: 0;
+}
+
+.stateContent strong {
+  display: block;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 660;
+  letter-spacing: -0.01em;
+}
+
+.stateContent p {
+  max-width: 58ch;
+  margin: 5px 0 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+.stateAction {
+  margin-top: 12px;
+}
+
+.stateSurface[data-kind='error'] {
+  background: color-mix(in srgb, var(--color-risk-soft) 72%, transparent);
+}
+
+.stateSurface[data-kind='error'] .stateVisual {
+  color: var(--color-risk);
+}
+
+.stateSurface[data-kind='stale'],
+.stateSurface[data-kind='partial'] {
+  background: color-mix(in srgb, var(--color-signal-soft) 76%, transparent);
+  border-color: color-mix(in srgb, var(--color-signal) 24%, var(--color-border));
+}
+
+.stateSurface[data-kind='stale'] .stateVisual,
+.stateSurface[data-kind='partial'] .stateVisual {
+  color: var(--color-signal);
+}
+
+.stateScrollArea {
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .pageHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .pageHeader time {
+    text-align: left;
+  }
+
+  .metricStrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metricStrip > div:nth-child(odd) {
+    border-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stateIconSkeleton {
+    animation: none;
+  }
+}

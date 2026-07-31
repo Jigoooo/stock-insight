@@ -26,19 +26,23 @@ function extractCssBlock(source: string, selector: string): string {
 
 describe('P6-6 crypto read-only workspace vertical', () => {
   it('routes a first-class crypto view through URL, cache, loader, and workspace payload', async () => {
-    const [page, search, cache, loader, payload] = await Promise.all([
+    const [page, sections, search, cache, loader, payload] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.tsx'),
+      read('features/workspace-navigation/model/sections.ts'),
       read('pages/research-workspace/model/workspace-search.ts'),
       read('pages/research-workspace/model/workspace-view-cache.ts'),
       read('server/research-workspace.ts'),
       read('pages/research-workspace/model/workspace-view-payload.ts'),
     ]);
-    assert.match(page, /\{ id: 'crypto', label: '크립토', icon: Bitcoin \}/);
+    assert.match(
+      sections,
+      /\{ id: 'crypto', label: '크립토', icon: Bitcoin, href: '\/workspace\/crypto' \}/,
+    );
     assert.match(
       page,
-      /section === 'crypto' && data\.view === 'crypto' && \(\s*<CryptoWorkspaceView data=\{data\.crypto\} \/>/,
+      /section === 'crypto' && data\.view === 'crypto' && <CryptoWorkspaceView data=\{data\.crypto\} \/>/,
     );
-    assert.match(search, /const allowedViews = new Set<SectionId>\(\[[\s\S]*?'crypto'/);
+    assert.match(search, /const allowedViews = new Set<WorkspaceSectionId>\(\[[\s\S]*?'crypto'/);
     assert.match(cache, /export type WorkspaceViewId =[\s\S]*?\| 'crypto'/);
     assert.match(
       payload,
@@ -72,8 +76,7 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     ]) {
       assert.match(view, new RegExp(label));
     }
-    assert.match(view, /<table/);
-    assert.match(view, /<caption/);
+    assert.match(view, /<DataTable caption=/);
     assert.match(view, /data-read-only="true"/);
     assert.match(view, /data-order-executable="false"/);
     assert.doesNotMatch(
@@ -86,15 +89,12 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     assert.equal(formatCryptoConfidence(1), '신뢰도 100%');
     assert.match(
       view,
-      /<ul className=\{styles\.assetList\} aria-label="추적 자산 목록" role="list">/,
+      /<StructuredList className=\{styles\.assetList\} aria-label="추적 자산 목록">/,
     );
+    assert.match(view, /<Timeline className=\{styles\.eventList\} aria-label="온체인 사건 목록">/);
     assert.match(
       view,
-      /<ol className=\{styles\.eventList\} aria-label="온체인 사건 목록" role="list">/,
-    );
-    assert.match(
-      view,
-      /<ul className=\{styles\.riskList\} aria-label="리스크 전파 목록" role="list">/,
+      /<StructuredList className=\{styles\.riskList\} aria-label="리스크 전파 목록">/,
     );
     assert.match(
       view,
@@ -102,10 +102,14 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     );
   });
 
-  it('keeps table and mobile overflow rules bound to their own selectors', async () => {
-    const css = await read('pages/research-workspace/ui/views/crypto-workspace-view.module.css');
-    assert.match(extractCssBlock(css, '.tableWrap'), /overflow-x:\s*auto/);
+  it('keeps one shared table scroll owner and mobile layout rules', async () => {
+    const [css, table] = await Promise.all([
+      read('pages/research-workspace/ui/views/crypto-workspace-view.module.css'),
+      read('shared/ui/table.tsx'),
+    ]);
+    assert.doesNotMatch(extractCssBlock(css, '.tableWrap'), /overflow-x:/);
     assert.match(extractCssBlock(css, '.tableWrap'), /min-width:\s*0/);
+    assert.match(table, /data-slot="table-container"[\s\S]*overflow-x-auto/);
     assert.match(extractCssBlock(css, '@media (max-width: 520px)'), /grid-template-columns:\s*1fr/);
   });
 

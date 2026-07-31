@@ -1,5 +1,4 @@
-/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
-import { AlertCircle, ChevronDown, CircleDot, Network } from 'lucide-react';
+import { ChevronDown, Network } from 'lucide-react';
 
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import styles from './stock-deep-dive-panel.module.css';
@@ -9,7 +8,8 @@ import {
   type StockDeepDiveAvailability,
 } from '../model/stock-deep-dive';
 
-import { Button, EmptyState, ErrorState, Skeleton } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/primitives';
+import { DetailSurface, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export type StockDeepDivePanelState = 'idle' | 'loading' | 'error' | 'ready';
@@ -31,39 +31,21 @@ function PanelState({
   onRetry?: () => void;
   title: string;
 }) {
-  const content = (
-    <>
-      {kind === 'loading' ? (
-        <Skeleton className={styles.stateIconSkeleton} height={22} width={22} />
-      ) : kind === 'error' ? (
-        <AlertCircle aria-hidden="true" />
-      ) : (
-        <CircleDot aria-hidden="true" />
-      )}
-      <div>
-        <strong>{title}</strong>
-        <p>{description}</p>
-        {onRetry && (
+  return (
+    <WorkspaceState
+      className={styles.state}
+      kind={kind}
+      delayMs={0}
+      title={title}
+      description={description}
+      action={
+        onRetry ? (
           <Button className={styles.retryButton} size="sm" variant="secondary" onClick={onRetry}>
             다시 불러오기
           </Button>
-        )}
-      </div>
-    </>
-  );
-
-  if (kind === 'error') {
-    return (
-      <ErrorState className={styles.state} data-kind={kind} aria-atomic="true">
-        {content}
-      </ErrorState>
-    );
-  }
-
-  return (
-    <EmptyState className={styles.state} data-kind={kind} role="status" aria-atomic="true">
-      {content}
-    </EmptyState>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -84,44 +66,44 @@ export function StockDeepDivePanel({
 }) {
   if (state === 'idle') {
     return (
-      <aside className={styles.panel} aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-label="종목 Deep Dive">
         <PanelState
           kind="empty"
           title="분석할 종목을 선택하세요"
           description="표에서 종목을 선택하면 12개 분석 축과 관계 지도를 같은 화면에서 확인합니다."
         />
-      </aside>
+      </DetailSurface>
     );
   }
 
   if (state === 'loading') {
     return (
-      <aside className={styles.panel} aria-busy="true" aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-busy="true" aria-label="종목 Deep Dive">
         <PanelState
           kind="loading"
           title="Deep Dive를 구성하고 있습니다"
           description="종목 상세와 2단계 관계망을 같은 기준 시점으로 불러옵니다."
         />
-      </aside>
+      </DetailSurface>
     );
   }
 
   if (state === 'error' || !deepDive) {
     return (
-      <aside className={styles.panel} aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-label="종목 Deep Dive">
         <PanelState
           kind="error"
           title="Deep Dive를 불러오지 못했습니다"
           description={errorMessage ?? '잠시 후 다시 시도해 주세요.'}
           onRetry={onRetry}
         />
-      </aside>
+      </DetailSurface>
     );
   }
 
   return (
-    <aside
-      className={styles.panel}
+    <DetailSurface
+      className={styles.deepDivePanel}
       aria-busy={false}
       aria-label={`${deepDive.displayName} 종목 Deep Dive`}
       data-testid="stock-deep-dive"
@@ -163,11 +145,11 @@ export function StockDeepDivePanel({
               <div className={styles.sectionBody}>
                 <p>{section.summary}</p>
                 {section.items.length > 0 && (
-                  <ul>
+                  <StructuredList>
                     {section.items.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
-                  </ul>
+                  </StructuredList>
                 )}
                 {showGraph && (
                   <div className={styles.graphRegion}>
@@ -179,6 +161,6 @@ export function StockDeepDivePanel({
           );
         })}
       </div>
-    </aside>
+    </DetailSurface>
   );
 }
