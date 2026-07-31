@@ -26,6 +26,8 @@ describe('workspace overlay integration', () => {
     assert.match(inspector, /aria-hidden=\{!transition\.desiredOpen \|\| undefined\}/);
     assert.match(inspector, /inert=\{!transition\.desiredOpen \|\| undefined\}/);
     assert.match(inspector, /event\.key !== 'Escape'/);
+    assert.match(inspector, /previousFocus\?\.isConnected/);
+    assert.match(inspector, /previousFocus\.focus\(\)/);
     assert.match(inspector, /ref=\{scrimRef\}/);
     assert.match(inspector, /ref=\{inspectorRef\}/);
   });

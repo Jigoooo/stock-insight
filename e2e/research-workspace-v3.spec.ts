@@ -426,6 +426,21 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
   });
 
+  test('keeps one navigation target and restores mobile focus', async ({ page }, testInfo) => {
+    await page.goto('/workspace/today');
+    await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
+
+    if (testInfo.project.name !== 'mobile') return;
+    const trigger = page.getByRole('button', { name: '메뉴 열기' });
+    await trigger.focus();
+    await page.getByRole('button', { name: '메뉴 열기' }).click();
+    await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeVisible();
+    await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeHidden();
+    await expect(trigger).toBeFocused();
+  });
+
   test('clears the session on logout and protects the workspace again', async ({
     context,
     page,

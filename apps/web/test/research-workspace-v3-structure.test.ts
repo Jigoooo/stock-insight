@@ -97,6 +97,14 @@ describe('v3 research workspace structure', () => {
     assert.match(workspaceLayout, /window\.location\.reload\(\)/);
   });
 
+  it('keeps stable workspace navigation and view-region contracts', () => {
+    assert.match(page, /data-testid="workspace-content"/);
+    assert.match(page, /data-testid=\{`workspace-nav-\$\{id\}`\}/);
+    assert.match(page, /aria-current=\{section === id \? 'page' : undefined\}/);
+    assert.match(page, /navigationSequence=\{navigationIntent\.sequence\}/);
+    assert.match(page, /viewKey=\{section\}/);
+  });
+
   it('maps every machine-facing value to stable Korean workspace copy', () => {
     assert.match(page, /presentResearchSummary\(item\.(?:summary|thesis)\)/);
     assert.match(page, /placeholder:\s*'종목명·티커 검색'/);
