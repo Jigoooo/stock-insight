@@ -8,6 +8,8 @@ const authVisualRunnerUrl = new URL(
   '../../../scripts/run-auth-visual-production-e2e.mjs',
   import.meta.url,
 );
+const workspaceVisualUrl = new URL('../../../e2e/workspace-visual.spec.ts', import.meta.url);
+const playwrightConfigUrl = new URL('../../../playwright.config.ts', import.meta.url);
 
 describe('release UI browser gates', () => {
   it('keeps auth accessibility assertions mandatory and screenshots opt-in', async () => {
@@ -50,5 +52,80 @@ describe('release UI browser gates', () => {
     assert.match(source, /PLAYWRIGHT_USE_PRODUCTION_BUILD:\s*'1'/);
     assert.match(source, /STOCK_INSIGHT_E2E_SESSION_SECRET_PATH:\s*secretPath/);
     assert.match(source, /rmSync\(temporaryRoot, \{ force: true, recursive: true \}\)/);
+  });
+
+  it('defines the complete authenticated workspace visual matrix and focused captures', async () => {
+    const source = await readFile(workspaceVisualUrl, 'utf8');
+
+    for (const route of [
+      '/workspace/today',
+      '/workspace/radar',
+      '/workspace/stocks',
+      '/workspace/crypto',
+      '/workspace/themes',
+      '/workspace/research',
+      '/workspace/history',
+      '/workspace/status',
+      '/admin/invitations',
+    ]) {
+      assert.match(source, new RegExp(`['"]${route}['"]`));
+    }
+    for (const viewport of [
+      /expanded:\s*\{\s*width:\s*1440,\s*height:\s*960\s*\}/,
+      /compact:\s*\{\s*width:\s*1180,\s*height:\s*900\s*\}/,
+      /boundary:\s*\{\s*width:\s*768,\s*height:\s*900\s*\}/,
+      /mobile:\s*\{\s*width:\s*390,\s*height:\s*844\s*\}/,
+    ]) {
+      assert.match(source, viewport);
+    }
+
+    assert.match(source, /document\.fonts\.ready/);
+    assert.match(source, /scrollWidth[\s\S]*clientWidth\s*\+\s*1/);
+    assert.match(source, /new AxeBuilder\(\{ page \}\)[\s\S]*\.analyze\(\)/);
+    assert.match(source, /colorScheme[\s\S]*['"]light['"][\s\S]*['"]dark['"]/);
+    assert.match(source, /reducedMotion:\s*['"]reduce['"]/);
+    assert.match(source, /data-navigation-mode/);
+    assert.match(source, /page\.screenshot\(/);
+    assert.match(source, /PLAYWRIGHT_STORAGE_STATE/);
+    assert.match(source, /STOCK_INSIGHT_E2E_USERNAME/);
+    assert.match(source, /STOCK_INSIGHT_E2E_PASSWORD/);
+    assert.match(source, /\/login/);
+    assert.match(source, /requested route redirected to login/);
+
+    const publicCaptureIndex = source.indexOf('public login pending-to-error');
+    const authenticatedSkipIndex = source.indexOf('authorized storage state or credentials');
+    assert.notEqual(publicCaptureIndex, -1);
+    assert.notEqual(authenticatedSkipIndex, -1);
+    assert.ok(publicCaptureIndex < authenticatedSkipIndex);
+  });
+
+  it('keeps workspace-only projects narrow without changing desktop and mobile names', async () => {
+    const source = await readFile(playwrightConfigUrl, 'utf8');
+
+    assert.match(source, /name:\s*['"]desktop['"]/);
+    assert.match(source, /name:\s*['"]mobile['"]/);
+    assert.match(source, /name:\s*['"]workspace-compact['"][\s\S]*testMatch:\s*\/workspace-visual/);
+    assert.match(
+      source,
+      /name:\s*['"]workspace-boundary['"][\s\S]*testMatch:\s*\/workspace-visual/,
+    );
+  });
+
+  it('runs the workspace visual matrix against development and the built release artifact', async () => {
+    const packageJson = JSON.parse(await readFile(rootPackageUrl, 'utf8')) as {
+      scripts?: Record<string, string>;
+    };
+    const scripts = packageJson.scripts ?? {};
+
+    assert.equal(scripts['test:workspace:visual'], 'playwright test e2e/workspace-visual.spec.ts');
+    assert.equal(
+      scripts['test:workspace:visual:production'],
+      'PLAYWRIGHT_USE_PRODUCTION_BUILD=1 PLAYWRIGHT_PORT=18098 playwright test e2e/workspace-visual.spec.ts',
+    );
+    const release = scripts['verify:release'] ?? '';
+    assert.ok(release.indexOf('pnpm build') >= 0);
+    assert.ok(
+      release.indexOf('pnpm test:workspace:visual:production') > release.indexOf('pnpm build'),
+    );
   });
 });

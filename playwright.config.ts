@@ -42,6 +42,22 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
       },
     },
+    {
+      name: 'workspace-compact',
+      testMatch: /workspace-visual\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1180, height: 900 },
+      },
+    },
+    {
+      name: 'workspace-boundary',
+      testMatch: /workspace-visual\.spec\.ts$/,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 768, height: 900 },
+      },
+    },
   ],
   webServer:
     process.env.PLAYWRIGHT_SKIP_WEB_SERVER === '1'
