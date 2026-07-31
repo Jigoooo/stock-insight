@@ -6,6 +6,10 @@ const pageSource = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   'utf8',
 );
+const viewBoundarySource = readFileSync(
+  new URL('../src/pages/research-workspace/ui/workspace-view-boundary.tsx', import.meta.url),
+  'utf8',
+);
 const workspaceShell = [
   readFileSync(
     new URL('../src/widgets/workspace-shell/ui/workspace-navigation.tsx', import.meta.url),
@@ -31,6 +35,7 @@ const workspace = [
     new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
     'utf8',
   ),
+  viewBoundarySource,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
     'utf8',
@@ -189,8 +194,21 @@ describe('v3 research workspace structure', () => {
       /import \{ createApiClient \} from '@stock-insight\/api-client'/,
     );
     assert.match(pageSource, /import\('@stock-insight\/api-client'\)/);
-    assert.match(pageSource, /workspaceApiClientPromise \?\?=/);
+    assert.match(
+      pageSource,
+      /const getWorkspaceApiClient = createRetryablePromiseCache\(createWorkspaceApiClient\)/,
+    );
     assert.match(pageSource, /await getWorkspaceApiClient\(\)/);
+  });
+
+  it('keeps lazy load errors and retries inside the persistent view region', () => {
+    assert.match(pageSource, /WorkspaceViewErrorBoundary/);
+    assert.match(pageSource, /WorkspaceViewReady/);
+    assert.match(pageSource, /resolvedViewKey=\{resolvedViewKey\}/);
+    assert.match(pageSource, /key=\{`\$\{section\}:\$\{viewRetryKeys\[section\]\}`\}/);
+    assert.match(pageSource, /retryWorkspaceView/);
+    assert.match(viewBoundarySource, /화면 다시 불러오기/);
+    assert.match(viewBoundarySource, /kind="error"/);
   });
 
   it('maps every machine-facing value to stable Korean workspace copy', () => {

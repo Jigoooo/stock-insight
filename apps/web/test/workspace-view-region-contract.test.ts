@@ -55,7 +55,9 @@ describe('workspace shell and keyed view-region contract', () => {
     assert.match(region, /navigationFocusOwnerRef/);
     assert.match(region, /closest\('\[data-testid\^="workspace-nav-"\]'/);
     assert.match(region, /currentRef\.current\?\.contains\(activeFocus\)/);
-    assert.match(region, /document\.activeElement === navigationFocusOwnerRef\.current/);
+    assert.match(region, /resolvedViewKey/);
+    assert.match(region, /resolveWorkspaceViewFocus/);
+    assert.match(region, /isWorkspaceFocusStillOwned/);
   });
 
   it('uses APG manual activation: arrows move roving focus without committing a lane', async () => {

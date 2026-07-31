@@ -2,6 +2,7 @@ import { AlertCircle, UserPlus } from 'lucide-react';
 import {
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -14,11 +15,13 @@ import {
 import { EvidenceInspector } from './evidence-inspector';
 import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
+import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
 import {
   resolveWorkspaceAuthoritativeOverride,
   type WorkspaceAuthoritativeOverride,
 } from '../model/workspace-authoritative-override';
+import { createRetryablePromiseCache, retryWorkspaceView } from '../model/workspace-lazy-recovery';
 import {
   createWorkspaceNavigationIntentState,
   reduceWorkspaceNavigationIntent,
@@ -51,42 +54,44 @@ export type DetailState = 'ready' | 'loading' | 'error';
 export { AvailabilityNotice, PageHeader } from '@/shared/ui/workspace';
 export { WorkspaceState };
 
-const CryptoWorkspaceView = lazy(() =>
-  import('./views/crypto-workspace-view').then(({ CryptoWorkspaceView }) => ({
-    default: CryptoWorkspaceView,
-  })),
-);
-const HistoryView = lazy(() =>
-  import('./views/history-view').then(({ HistoryView }) => ({ default: HistoryView })),
-);
-const MyResearchView = lazy(() =>
-  import('./views/my-research-view').then(({ MyResearchView }) => ({ default: MyResearchView })),
-);
-const RadarView = lazy(() =>
-  import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
-);
-const StatusView = lazy(() =>
-  import('./views/status-view').then(({ StatusView }) => ({ default: StatusView })),
-);
-const StocksView = lazy(() =>
-  import('./views/stocks-view').then(({ StocksView }) => ({ default: StocksView })),
-);
-const ThemesView = lazy(() =>
-  import('./views/themes-view').then(({ ThemesView }) => ({ default: ThemesView })),
-);
-const TodayView = lazy(() =>
-  import('./views/today-view').then(({ TodayView }) => ({ default: TodayView })),
-);
+function createLazyWorkspaceViews() {
+  return {
+    crypto: lazy(() =>
+      import('./views/crypto-workspace-view').then(({ CryptoWorkspaceView }) => ({
+        default: CryptoWorkspaceView,
+      })),
+    ),
+    history: lazy(() =>
+      import('./views/history-view').then(({ HistoryView }) => ({ default: HistoryView })),
+    ),
+    radar: lazy(() =>
+      import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
+    ),
+    research: lazy(() =>
+      import('./views/my-research-view').then(({ MyResearchView }) => ({
+        default: MyResearchView,
+      })),
+    ),
+    status: lazy(() =>
+      import('./views/status-view').then(({ StatusView }) => ({ default: StatusView })),
+    ),
+    stocks: lazy(() =>
+      import('./views/stocks-view').then(({ StocksView }) => ({ default: StocksView })),
+    ),
+    themes: lazy(() =>
+      import('./views/themes-view').then(({ ThemesView }) => ({ default: ThemesView })),
+    ),
+    today: lazy(() =>
+      import('./views/today-view').then(({ TodayView }) => ({ default: TodayView })),
+    ),
+  };
+}
 
 function createWorkspaceApiClient() {
   return import('@stock-insight/api-client').then(({ createApiClient }) => createApiClient());
 }
 
-let workspaceApiClientPromise: ReturnType<typeof createWorkspaceApiClient> | undefined;
-
-function getWorkspaceApiClient() {
-  return (workspaceApiClientPromise ??= createWorkspaceApiClient());
-}
+const getWorkspaceApiClient = createRetryablePromiseCache(createWorkspaceApiClient);
 
 export type ResearchWorkspaceUrlState = {
   view?: SectionId;
@@ -357,6 +362,18 @@ export function ResearchWorkspacePage({
   );
   const [isMobileViewport, setIsMobileViewport] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [resolvedViewKey, setResolvedViewKey] = useState<SectionId | null>(null);
+  const [lazyViews, setLazyViews] = useState(createLazyWorkspaceViews);
+  const [viewRetryKeys, setViewRetryKeys] = useState<Record<SectionId, number>>({
+    crypto: 0,
+    history: 0,
+    radar: 0,
+    research: 0,
+    status: 0,
+    stocks: 0,
+    themes: 0,
+    today: 0,
+  });
   const hydrated = useSyncExternalStore(
     subscribeHydration,
     getClientHydrationSnapshot,
@@ -387,6 +404,27 @@ export function ResearchWorkspacePage({
       : null,
   );
   const section = onUrlStateChange ? data.view : localSection;
+  const markViewReady = useCallback((readyViewKey: string) => {
+    setResolvedViewKey(readyViewKey as SectionId);
+  }, []);
+  const retryCurrentView = useCallback(() => {
+    setResolvedViewKey((current) => (current === section ? null : current));
+    setLazyViews((current) => {
+      const retryView = createLazyWorkspaceViews()[section];
+      return { ...current, [section]: retryView };
+    });
+    setViewRetryKeys((current) => retryWorkspaceView(current, section));
+  }, [section]);
+  const {
+    crypto: CryptoWorkspaceView,
+    history: HistoryView,
+    radar: RadarView,
+    research: MyResearchView,
+    status: StatusView,
+    stocks: StocksView,
+    themes: ThemesView,
+    today: TodayView,
+  } = lazyViews;
   // The URL is authoritative for the selected lane, not the payload. The today
   // payload carries all three lanes and its `lane` field only echoes whatever
   // the loader was last called with — now that lane is no longer a loader dep,
@@ -866,9 +904,19 @@ export function ResearchWorkspacePage({
         className={styles.content}
         navigationSequence={navigationIntent.sequence}
         pending={viewNavigationPending}
+        resolvedViewKey={resolvedViewKey}
         viewKey={section}
       >
-        <Suspense fallback={<WorkspaceViewLoading />}>{workspaceViewContent}</Suspense>
+        <WorkspaceViewErrorBoundary
+          key={`${section}:${viewRetryKeys[section]}`}
+          onRetry={retryCurrentView}
+        >
+          <Suspense fallback={<WorkspaceViewLoading />}>
+            <WorkspaceViewReady onReady={markViewReady} viewKey={section}>
+              {workspaceViewContent}
+            </WorkspaceViewReady>
+          </Suspense>
+        </WorkspaceViewErrorBoundary>
       </WorkspaceViewRegion>
       <EvidenceInspector
         detail={visibleDetail}
