@@ -172,6 +172,73 @@ test.describe('one-time enrollment presentation', () => {
     await page.waitForTimeout(220);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
+
+  test('keeps signup feedback geometry and announcement ownership stable on failure', async ({
+    page,
+  }) => {
+    await page.route('**/_serverFn/**', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          body: JSON.stringify(enrollmentStatusResponse(true)),
+          headers: {
+            'content-type': 'application/json',
+            'x-tss-serialized': 'true',
+          },
+          status: 200,
+        });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      await route.fulfill({ body: 'enrollment unavailable', status: 503 });
+    });
+    await page.goto('/signup');
+
+    const submit = page.getByRole('button', { name: '계정 만들기', exact: true });
+    const announcement = page.locator('[data-auth-feedback-announcement]');
+    await page.waitForTimeout(300);
+    await announcement.evaluate((element) => {
+      const samples: string[] = [];
+      const capture = () =>
+        samples.push(`${element.getAttribute('role') ?? 'idle'}:${element.textContent ?? ''}`);
+      new MutationObserver(capture).observe(element, {
+        attributes: true,
+        attributeFilter: ['role'],
+        childList: true,
+        subtree: true,
+      });
+      capture();
+      Object.assign(window, { __signupFeedbackSamples: samples });
+    });
+    await page.getByLabel('사용자 이름').fill('new-user');
+    await page.getByLabel('비밀번호', { exact: true }).fill('a-valid-password');
+    await page.getByLabel('비밀번호 확인').fill('a-valid-password');
+    await page.getByLabel('가입 코드').fill('invalid-code');
+    const initialSubmitY = await submit.evaluate((element) => element.getBoundingClientRect().y);
+    await submit.click();
+
+    await expect(page.getByRole('alert')).toContainText('계정을 설정하지 못했습니다.');
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await expect
+      .poll(() => submit.evaluate((element) => getComputedStyle(element).transform))
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+    expect(await submit.evaluate((element) => element.getBoundingClientRect().y)).toBe(
+      initialSubmitY,
+    );
+    await expect(page.getByLabel('사용자 이름')).toHaveAttribute(
+      'aria-describedby',
+      /signup-error/,
+    );
+    const samples = await page.evaluate(
+      () =>
+        (window as typeof window & { __signupFeedbackSamples?: string[] })
+          .__signupFeedbackSamples ?? [],
+    );
+    expect(samples).toContain('status:계정을 안전하게 설정하고 있습니다.');
+    expect(samples).toContain(
+      'alert:계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.',
+    );
+  });
 });
 
 test.describe('one-time local account enrollment lifecycle', () => {

@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
+import { AuthFeedbackRegion, type AuthFeedbackState } from './auth-feedback-region';
 import { AuthInputField } from './auth-input-field';
 import styles from './auth-page.module.css';
 import { AuthShell } from './auth-shell';
@@ -48,6 +49,12 @@ export function SignupPage({
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmationRef = useRef<HTMLInputElement>(null);
   const enrollmentCodeRef = useRef<HTMLInputElement>(null);
+  const feedbackState: AuthFeedbackState = error
+    ? { key: 'error', id: 'signup-error', message: error }
+    : pending
+      ? { key: 'pending', message: '계정을 안전하게 설정하고 있습니다.' }
+      : { key: 'idle' };
+  const submitErrorDescription = error ? 'signup-error' : undefined;
 
   function updateField(field: keyof SignupInput, value: string) {
     setInput((current) => ({ ...current, [field]: value }));
@@ -156,6 +163,7 @@ export function SignupPage({
                 value={input.username}
                 onChange={(event) => updateField('username', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.username)}
+                aria-describedby={submitErrorDescription}
                 disabled={pending}
               />
 
@@ -174,6 +182,7 @@ export function SignupPage({
                 value={input.password}
                 onChange={(event) => updateField('password', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.password)}
+                aria-describedby={submitErrorDescription}
                 disabled={pending}
                 endAction={
                   <Button
@@ -206,6 +215,7 @@ export function SignupPage({
                 value={input.passwordConfirmation}
                 onChange={(event) => updateField('passwordConfirmation', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.passwordConfirmation)}
+                aria-describedby={submitErrorDescription}
                 disabled={pending}
               />
 
@@ -224,19 +234,11 @@ export function SignupPage({
                 value={input.enrollmentCode}
                 onChange={(event) => updateField('enrollmentCode', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.enrollmentCode)}
+                aria-describedby={submitErrorDescription}
                 disabled={pending}
               />
 
-              <div className={styles.feedbackSlot}>
-                {error ? (
-                  <p className={styles.errorMessage} role="alert" aria-live="assertive">
-                    {error}
-                  </p>
-                ) : null}
-                <output className={styles.pendingMessage} aria-live="polite" aria-atomic="true">
-                  {pending ? '계정을 안전하게 설정하고 있습니다.' : ''}
-                </output>
-              </div>
+              <AuthFeedbackRegion state={feedbackState} />
 
               <Button
                 className={styles.submitButton}

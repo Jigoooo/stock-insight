@@ -74,7 +74,8 @@ describe('login page structure', () => {
     assert.match(component, /autoComplete="current-password"/);
     assert.match(inputField, /<FieldLabel htmlFor=\{id\}>\{label\}<\/FieldLabel>/);
     assert.match(component, /aria-pressed=/);
-    assert.match(component, /aria-live="(?:polite|assertive)"/);
+    assert.match(component, /import \{ AuthFeedbackRegion, type AuthFeedbackState \}/);
+    assert.match(component, /<AuthFeedbackRegion state=\{feedbackState\} \/>/);
     assert.match(component, /pending\??:\s*boolean/);
     assert.match(component, /error\??:\s*string\s*\|\s*null/);
     assert.match(component, /useSyncExternalStore\(/);

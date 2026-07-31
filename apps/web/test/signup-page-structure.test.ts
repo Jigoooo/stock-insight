@@ -70,6 +70,8 @@ describe('one-time signup source contract', () => {
     assert.match(inputField, /<FieldError id=\{errorId\}[\s\S]*?aria-live="polite"/);
     assert.match(page, /autoComplete="new-password"/);
     assert.match(page, /aria-invalid=/);
+    assert.match(page, /import \{ AuthFeedbackRegion, type AuthFeedbackState \}/);
+    assert.match(page, /<AuthFeedbackRegion state=\{feedbackState\} \/>/);
     assert.doesNotMatch(page, /\srequired(?:=|\s|>)/);
   });
 

@@ -467,17 +467,65 @@ test.describe('private workspace authentication', () => {
   test('shows feedback for rejected credentials', async ({ page }) => {
     await page.goto('/login');
     const usernameField = page.getByLabel('사용자 이름');
+    const submit = page.getByRole('button', { name: '로그인', exact: true });
+    const announcement = page.locator('[data-auth-feedback-announcement]');
+    await page.waitForTimeout(300);
+    await announcement.evaluate((element) => {
+      const samples: string[] = [];
+      const capture = () =>
+        samples.push(`${element.getAttribute('role') ?? 'idle'}:${element.textContent ?? ''}`);
+      new MutationObserver(capture).observe(element, {
+        attributes: true,
+        attributeFilter: ['role'],
+        childList: true,
+        subtree: true,
+      });
+      capture();
+      Object.assign(window, { __authFeedbackSamples: samples });
+    });
     await usernameField.fill('invalid-user');
     await page.getByRole('textbox', { name: '비밀번호', exact: true }).fill('not-a-real-password');
-    await page.getByRole('button', { name: '로그인' }).click();
+    const initialSubmitY = await submit.evaluate((element) => element.getBoundingClientRect().y);
+    await submit.click();
 
     await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
+    await expect(page.getByRole('alert')).toHaveCount(1);
+    await expect(page.locator('[data-auth-feedback-visual]')).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await expect
+      .poll(() => submit.evaluate((element) => getComputedStyle(element).transform))
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+    expect(await submit.evaluate((element) => element.getBoundingClientRect().y)).toBe(
+      initialSubmitY,
+    );
+    const feedbackSamples = await page.evaluate(
+      () =>
+        (window as typeof window & { __authFeedbackSamples?: string[] }).__authFeedbackSamples ??
+        [],
+    );
+    expect(feedbackSamples).toContain('status:계정 정보를 확인하고 있습니다.');
+    expect(feedbackSamples).toContain('alert:아이디 또는 비밀번호를 확인해 주세요.');
     const toast = page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' });
     await expect(toast).toBeVisible();
     const closeToast = toast.getByRole('button', { name: '알림 닫기' });
     await expect(closeToast).toBeVisible();
     await closeToast.click();
     await expect(toast).toBeHidden();
+  });
+
+  test('removes feedback translation when reduced motion is requested', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/login');
+    await page.getByLabel('사용자 이름').fill('invalid-user');
+    await page.getByRole('textbox', { name: '비밀번호', exact: true }).fill('not-a-real-password');
+    await page.getByRole('button', { name: '로그인', exact: true }).click();
+
+    await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
+    const visualFeedback = page.locator('[data-auth-feedback-visual]');
+    await expect(visualFeedback).toHaveCount(1);
+    await expect
+      .poll(() => visualFeedback.evaluate((element) => getComputedStyle(element).transform))
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
   });
 
   test('finishes a toast exit when reduced-motion changes during close', async ({ page }) => {

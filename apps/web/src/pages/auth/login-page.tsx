@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 
+import { AuthFeedbackRegion, type AuthFeedbackState } from './auth-feedback-region';
 import { AuthInputField } from './auth-input-field';
 import styles from './auth-page.module.css';
 import { AuthShell } from './auth-shell';
@@ -65,6 +66,11 @@ export function LoginPage({
 
   const usernameDescribedBy = error ? 'login-error' : undefined;
   const passwordDescribedBy = error ? 'login-error' : undefined;
+  const feedbackState: AuthFeedbackState = error
+    ? { key: 'error', id: 'login-error', message: error }
+    : pending
+      ? { key: 'pending', message: '계정 정보를 확인하고 있습니다.' }
+      : { key: 'idle' };
 
   return (
     <AuthShell
@@ -149,16 +155,7 @@ export function LoginPage({
           }
         />
 
-        <div className={styles.feedbackSlot}>
-          {error ? (
-            <p id="login-error" className={styles.errorMessage} role="alert" aria-live="assertive">
-              {error}
-            </p>
-          ) : null}
-          <output className={styles.pendingMessage} aria-live="polite" aria-atomic="true">
-            {pending ? '계정 정보를 확인하고 있습니다.' : ''}
-          </output>
-        </div>
+        <AuthFeedbackRegion state={feedbackState} />
 
         <Button
           className={styles.submitButton}
