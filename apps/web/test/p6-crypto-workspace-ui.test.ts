@@ -76,7 +76,7 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     ]) {
       assert.match(view, new RegExp(label));
     }
-    assert.match(view, /<DataTable caption=/);
+    assert.match(view, /<DataTable[\s\S]*?caption=/);
     assert.match(view, /data-read-only="true"/);
     assert.match(view, /data-order-executable="false"/);
     assert.doesNotMatch(
@@ -98,8 +98,9 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     );
     assert.match(
       view,
-      /<section\s+className=\{styles\.tableWrap\}\s+aria-label="기업 연결 표 가로 스크롤 영역"\s+aria-describedby="crypto-company-scroll-hint"\s+tabIndex=\{0\}\s*>/,
+      /<DataTable[\s\S]*?containerProps=\{\{[\s\S]*?'aria-describedby': 'crypto-company-scroll-hint',[\s\S]*?'aria-label': '기업 연결 표 가로 스크롤 영역',[\s\S]*?tabIndex: 0,[\s\S]*?\}\}/,
     );
+    assert.doesNotMatch(view, /<section[\s\S]*?tabIndex=\{0\}/);
   });
 
   it('keeps one shared table scroll owner and mobile layout rules', async () => {

@@ -150,16 +150,18 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
             {data.companyLinks.length === 0 ? (
               <p className={styles.emptyCopy}>검증된 기업 연결이 없습니다.</p>
             ) : (
-              <section
-                className={styles.tableWrap}
-                aria-label="기업 연결 표 가로 스크롤 영역"
-                aria-describedby="crypto-company-scroll-hint"
-                tabIndex={0}
-              >
+              <div className={styles.tableWrap}>
                 <p id="crypto-company-scroll-hint" className={styles.tableScrollHint}>
                   좌우로 밀어 전체 근거 확인
                 </p>
-                <DataTable caption="크립토 자산과 주식·기업 간 검증 관계">
+                <DataTable
+                  caption="크립토 자산과 주식·기업 간 검증 관계"
+                  containerProps={{
+                    'aria-describedby': 'crypto-company-scroll-hint',
+                    'aria-label': '기업 연결 표 가로 스크롤 영역',
+                    tabIndex: 0,
+                  }}
+                >
                   <thead>
                     <tr>
                       <th scope="col">크립토</th>
@@ -210,7 +212,7 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                     ))}
                   </tbody>
                 </DataTable>
-              </section>
+              </div>
             )}
           </Panel>
 
