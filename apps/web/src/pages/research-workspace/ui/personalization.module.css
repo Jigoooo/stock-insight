@@ -6,6 +6,29 @@
   padding: 20px;
 }
 
+.researchInputGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 24px;
+  padding: 20px;
+}
+
+.researchLedger li {
+  display: grid;
+  gap: 5px;
+  padding: 11px 0;
+}
+
+.researchLedger strong {
+  font-size: 13px;
+}
+
+.researchLedger span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .decisionPrimary {
   min-width: 0;
   display: grid;
@@ -76,7 +99,8 @@
 }
 
 @media (max-width: 767px) {
-  .decisionSupportBody {
+  .decisionSupportBody,
+  .researchInputGrid {
     grid-template-columns: 1fr;
   }
 }

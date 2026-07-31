@@ -9,11 +9,12 @@ import type { PersonalizationResearchWorkspace } from '../../model/workspace-vie
 
 import {
   AvailabilityNotice,
-  MetricStrip,
+  DetailSurface,
   PageHeader,
   Panel,
   PanelHeader,
   PropertyList,
+  StructuredList,
 } from '@/shared/ui/workspace';
 import type { MyResearchOverview } from '@stock-insight/contracts/research-workspace';
 
@@ -21,7 +22,7 @@ function DecisionSupportPanel({ data }: { data: MyResearchOverview['decisionSupp
   const packet = data.latestPacket;
   const presentation = getDecisionSupportPresentation(data);
   return (
-    <Panel aria-labelledby="decision-support-title">
+    <DetailSurface aria-labelledby="decision-support-title">
       <PanelHeader meta={`${data.packetCount}개`}>
         <h2 id="decision-support-title">판단 지원</h2>
         <p>공통 근거와 개인 원장을 분리한 읽기 전용 분석 상태입니다.</p>
@@ -53,7 +54,7 @@ function DecisionSupportPanel({ data }: { data: MyResearchOverview['decisionSupp
           ]}
         />
       </div>
-    </Panel>
+    </DetailSurface>
   );
 }
 
@@ -64,6 +65,11 @@ export function MyResearchView({
   data: MyResearchOverview;
   personalization: PersonalizationResearchWorkspace;
 }) {
+  const recentEvidenceCount = data.recentHistory.reduce(
+    (total, item) => total + item.evidenceCount,
+    0,
+  );
+
   return (
     <>
       <PageHeader
@@ -73,15 +79,39 @@ export function MyResearchView({
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />
-      <MetricStrip
-        label="내 리서치 현황"
-        items={[
-          { label: '관심종목', value: data.watchlistCount },
-          { label: '보유종목', value: data.holdingCount },
-          { label: '열린 판단', value: data.openHistoryCount },
-          { label: '검토 필요', value: data.reviewDueCount },
-        ]}
-      />
+      <Panel aria-labelledby="my-research-inputs-title">
+        <PanelHeader>
+          <h2 id="my-research-inputs-title">개인 리서치 입력</h2>
+          <p>관심 목록과 개인 판단 기록의 범위만 요약하며 투자 행동을 제안하지 않습니다.</p>
+        </PanelHeader>
+        <div className={personalizationStyles.researchInputGrid}>
+          <PropertyList
+            aria-label="개인 리서치 입력"
+            items={[
+              { label: '관심종목', value: `${data.watchlistCount}개` },
+              { label: '보유종목', value: `${data.holdingCount}개` },
+              { label: '열린 판단', value: `${data.openHistoryCount}개` },
+              { label: '검토 필요', value: `${data.reviewDueCount}개` },
+            ]}
+          />
+          <StructuredList
+            className={personalizationStyles.researchLedger}
+            aria-label="관심종목과 판단 근거"
+          >
+            <li>
+              <strong>관심종목 원장</strong>
+              <span>{data.watchlistCount}개 항목이 개인화 입력에 반영됩니다.</span>
+            </li>
+            <li>
+              <strong>최근 판단 근거</strong>
+              <span>
+                최근 {data.recentHistory.length}개 기록에 근거 {recentEvidenceCount}개가
+                연결됐습니다.
+              </span>
+            </li>
+          </StructuredList>
+        </div>
+      </Panel>
       <PersonalizationWorkspacePanel data={personalization} />
       <div className={styles.researchSections}>
         <DecisionSupportPanel data={data.decisionSupport} />

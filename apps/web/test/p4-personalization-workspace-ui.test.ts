@@ -17,6 +17,10 @@ const view = readFileSync(
   ),
   'utf8',
 );
+const myResearchView = readFileSync(
+  new URL('../src/pages/research-workspace/ui/views/my-research-view.tsx', import.meta.url),
+  'utf8',
+);
 
 describe('P4-C personalization workspace UI', () => {
   it('binds portfolio, impact, decision, history, and thesis to one research snapshot payload', () => {
@@ -57,6 +61,11 @@ describe('P4-C personalization workspace UI', () => {
     }
     assert.match(view, /data-read-only="true"/);
     assert.match(view, /orderExecutable/);
+    assert.match(view, /<PropertyList[\s\S]*?aria-label="개인화 입력"/);
+    assert.match(view, /<StructuredList[^>]*aria-label="판단 근거 목록"/);
+    assert.match(myResearchView, /<PropertyList[\s\S]*?aria-label="개인 리서치 입력"/);
+    assert.match(myResearchView, /<StructuredList[\s\S]*?aria-label="관심종목과 판단 근거"/);
+    assert.match(myResearchView, /투자 행동을 제안하지 않습니다/);
     assert.doesNotMatch(view, /<button|<Button|<form|onClick=|매수하기|매도하기|주문 실행/i);
   });
 });

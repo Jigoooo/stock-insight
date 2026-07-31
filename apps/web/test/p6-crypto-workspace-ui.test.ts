@@ -77,20 +77,28 @@ describe('P6-6 crypto read-only workspace vertical', () => {
       assert.match(view, new RegExp(label));
     }
     assert.match(view, /<DataTable[\s\S]*?caption=/);
+    assert.equal((view.match(/<MetricStrip\b/g) ?? []).length, 1);
+    assert.match(view, /<Panel[\s\S]*?id="crypto-assets-title"/);
+    assert.match(view, /<Panel[\s\S]*?id="crypto-company-links-title"/);
+    assert.match(view, /<Panel[\s\S]*?id="crypto-events-title"/);
+    assert.match(view, /<Panel[\s\S]*?id="crypto-risk-title"/);
+    assert.match(view, /caption="크립토 자산과 주식·기업 간 검증 관계"/);
+    assert.match(view, /aria-label="크립토 리서치 제약"/);
+    assert.match(view, /label: '실시간 계정·지갑'/);
+    assert.match(view, /label: '주문 실행'/);
+    assert.match(view, /kind="unavailable"[\s\S]*?현재 사용할 수 없는/);
+    assert.match(view, /kind="unavailable"[\s\S]*?지원하지 않음/);
     assert.match(view, /data-read-only="true"/);
     assert.match(view, /data-order-executable="false"/);
     assert.doesNotMatch(
       view,
-      /<(?:button|form|a)\b|href=|onClick=|매수|매도|주문 실행|walletConnect/i,
+      /<(?:button|form|a)\b|href=|onClick=|매수하기|매도하기|walletConnect/i,
     );
     assert.equal(formatCryptoMagnitude('0.00001', 'ratio'), '<0.0001 ratio');
     assert.equal(formatCryptoMagnitude('-0.00001', 'ratio'), '>-0.0001 ratio');
     assert.equal(formatCryptoConfidence(0.999), '신뢰도 99.9%');
     assert.equal(formatCryptoConfidence(1), '신뢰도 100%');
-    assert.match(
-      view,
-      /<StructuredList className=\{styles\.assetList\} aria-label="추적 자산 목록">/,
-    );
+    assert.match(view, /<StructuredList className=\{styles\.assetList\}/);
     assert.match(view, /<Timeline className=\{styles\.eventList\} aria-label="온체인 사건 목록">/);
     assert.match(
       view,

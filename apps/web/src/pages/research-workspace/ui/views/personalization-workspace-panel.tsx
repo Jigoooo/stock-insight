@@ -25,7 +25,7 @@ function money(value: string, currency: string): string {
 
 function ListOrEmpty({ items }: { items: readonly string[] }) {
   return items.length > 0 ? (
-    <StructuredList>
+    <StructuredList aria-label="판단 근거 목록">
       {items.map((item) => (
         <li key={item}>{item}</li>
       ))}
@@ -59,6 +59,7 @@ export function PersonalizationWorkspacePanel({
           <h3 id="portfolio-snapshot-title">포트폴리오 스냅샷</h3>
           {portfolio ? (
             <PropertyList
+              aria-label="개인화 입력"
               items={[
                 {
                   label: '평가액',

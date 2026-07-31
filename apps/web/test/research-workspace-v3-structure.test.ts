@@ -100,6 +100,14 @@ const geoMarketMapSource = readFileSync(
   new URL('../src/pages/research-workspace/ui/geo-market-map.tsx', import.meta.url),
   'utf8',
 );
+const historySource = readFileSync(
+  new URL('../src/pages/research-workspace/ui/views/history-view.tsx', import.meta.url),
+  'utf8',
+);
+const statusSource = readFileSync(
+  new URL('../src/pages/research-workspace/ui/views/status-view.tsx', import.meta.url),
+  'utf8',
+);
 const availabilityNotice = readFileSync(
   new URL('../src/shared/ui/workspace/availability-notice.tsx', import.meta.url),
   'utf8',
@@ -319,6 +327,21 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /data-testid="radar-load-more"/);
     assert.match(page, /data-testid="history-load-more"/);
     assert.match(page, /data\.items\.length\}건 표시 · 전체/);
+    assert.match(historySource, /<Timeline ref=\{ledgerRef\}/);
+    assert.match(historySource, /<li[\s\S]*?data-append-key=\{item\.historyId\}/);
+    assert.doesNotMatch(historySource, /<Timeline[\s\S]*?<div\s+key=\{item\.historyId\}/);
+  });
+
+  it('keeps status counts separate from honest availability and limitation detail', () => {
+    assert.match(statusSource, /<StatusSummary/);
+    assert.match(statusSource, /label: '연결 출처'/);
+    assert.match(statusSource, /label: '클릭 가능 출처'/);
+    assert.match(statusSource, /<PropertyList[\s\S]*?aria-label="데이터 상태 세부 정보"/);
+    assert.match(statusSource, /label: '전체 가용성'/);
+    assert.match(statusSource, /label: '최신 확인 시각'/);
+    assert.match(statusSource, /label: '제약'/);
+    assert.match(statusSource, /<DataTable caption="데이터 영역별 상태"/);
+    assert.doesNotMatch(statusSource, /StatusSummary[\s\S]*?label: '전체 상태'/);
   });
 
   it('keeps the relation graph bounded, accessible, and text-readable', () => {

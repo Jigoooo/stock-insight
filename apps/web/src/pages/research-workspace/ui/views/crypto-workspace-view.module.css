@@ -36,7 +36,8 @@
 .assetPanel,
 .companyPanel,
 .eventPanel,
-.riskPanel {
+.riskPanel,
+.limitationsPanel {
   min-width: 0;
 }
 
@@ -319,12 +320,31 @@
   text-align: center;
 }
 
+.limitations {
+  margin: 0 20px 20px;
+}
+
+.availabilityStates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 20px 20px;
+}
+
+.availabilityStates > div {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .availabilityStates {
     grid-template-columns: 1fr;
   }
 

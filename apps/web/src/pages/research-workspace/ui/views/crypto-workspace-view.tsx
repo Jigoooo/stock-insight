@@ -321,6 +321,41 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
           </Panel>
         </div>
       )}
+
+      <Panel className={styles.limitationsPanel} aria-labelledby="crypto-limitations-title">
+        <PanelHeader className={styles.sectionHeader}>
+          <span>Read-only boundary</span>
+          <h2 id="crypto-limitations-title">제약과 가용성</h2>
+        </PanelHeader>
+        <PropertyList
+          className={styles.limitations}
+          aria-label="크립토 리서치 제약"
+          items={[
+            {
+              label: '조회 기준',
+              value: <time dateTime={data.knownAt}>{formatDate(data.knownAt, true)}</time>,
+            },
+            { label: '실시간 계정·지갑', value: '현재 사용할 수 없는 연결입니다.' },
+            { label: '주문 실행', value: '지원하지 않음 · 모든 정보는 조회 전용입니다.' },
+            {
+              label: '정량 근거',
+              value: '크기나 신뢰도가 확인되지 않은 항목은 대시(—)로 표시합니다.',
+            },
+          ]}
+        />
+        <div className={styles.availabilityStates}>
+          <WorkspaceState
+            kind="unavailable"
+            title="실시간 계정·지갑은 현재 사용할 수 없는 연결입니다"
+            description="이 화면은 봉인된 리서치 스냅샷만 표시하며 계정이나 지갑 잔액을 연결하지 않습니다."
+          />
+          <WorkspaceState
+            kind="unavailable"
+            title="주문 실행은 지원하지 않음"
+            description="표시된 관계와 리스크는 정보 확인용이며 주문이나 지갑 작업으로 이어지지 않습니다."
+          />
+        </div>
+      </Panel>
     </div>
   );
 }

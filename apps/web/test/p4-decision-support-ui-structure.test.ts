@@ -7,7 +7,7 @@ const view = readFileSync(
   'utf8',
 );
 const css = readFileSync(
-  new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/personalization.module.css', import.meta.url),
   'utf8',
 );
 const presenter = readFileSync(
@@ -66,30 +66,38 @@ describe('P4 decision-support read-only UI', () => {
     const componentTags = [
       ...new Set([...panelSource.matchAll(/<([A-Z][A-Za-z0-9]*)\b/g)].map((match) => match[1])),
     ];
-    assert.deepEqual(componentTags, ['DecisionSupportContent']);
+    assert.deepEqual(componentTags, [
+      'DetailSurface',
+      'PanelHeader',
+      'DecisionSupportContent',
+      'PropertyList',
+    ]);
     assert.doesNotMatch(panelSource, /packet\.(?:action|actionReason|abstentionReason)/);
     const viewComponentTags = [
       ...new Set([...view.matchAll(/<([A-Z][A-Za-z0-9]*)\b/g)].map((match) => match[1])),
     ];
     assert.deepEqual(viewComponentTags, [
+      'DetailSurface',
+      'PanelHeader',
       'DecisionSupportContent',
+      'PropertyList',
       'PageHeader',
       'AvailabilityNotice',
+      'Panel',
+      'StructuredList',
       'PersonalizationWorkspacePanel',
       'DecisionSupportPanel',
       'HistoryRows',
     ]);
   });
 
-  it('uses the existing panel spine and a bounded responsive decision body', () => {
-    assert.match(view, /styles\.panel/);
-    assert.match(view, /styles\.researchSections/);
-    assert.match(view, /styles\.decisionSupportBody/);
-    assert.match(css, /\.researchSections\s*\{[\s\S]*display:\s*grid[\s\S]*gap:\s*24px/);
+  it('uses exactly one detail surface and a bounded responsive decision body', () => {
+    assert.equal((view.match(/<DetailSurface\b/g) ?? []).length, 1);
+    assert.match(view, /personalizationStyles\.decisionSupportBody/);
     assert.match(css, /\.decisionSupportBody\s*\{[\s\S]*grid-template-columns:/);
     assert.match(
       css,
-      /@media[^}]*max-width:\s*860px[\s\S]*\.decisionSupportBody\s*\{[\s\S]*grid-template-columns:\s*1fr/,
+      /@media[^}]*max-width:\s*767px[\s\S]*\.decisionSupportBody,[\s\S]*\.researchInputGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/,
     );
   });
 });

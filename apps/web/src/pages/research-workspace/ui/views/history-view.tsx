@@ -95,7 +95,7 @@ export function HistoryRows({ items }: { items: DecisionHistoryPage['items'] }) 
   }
 
   return (
-    <Timeline ref={ledgerRef} className={styles.ledger}>
+    <Timeline ref={ledgerRef} className={styles.ledger} aria-label="판단 이력 타임라인">
       {items.map((item) => (
         <li
           key={item.historyId}
@@ -113,7 +113,9 @@ export function HistoryRows({ items }: { items: DecisionHistoryPage['items'] }) 
             </small>
           </div>
           <div className={styles.rowMeta}>
-            <time>{formatDate(item.occurredAt ?? item.createdAt, true)}</time>
+            <time dateTime={item.occurredAt ?? item.createdAt}>
+              {formatDate(item.occurredAt ?? item.createdAt, true)}
+            </time>
             <span>{item.reviewDueAt ? `검토 ${formatDate(item.reviewDueAt)}` : '검토일 없음'}</span>
           </div>
         </li>
