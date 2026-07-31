@@ -3,9 +3,16 @@ import { test } from 'node:test';
 
 import {
   areManualPortfolioMutationsEnabled,
+  areRemoteBrainMutationsDisabled,
   resolveManualPortfolioMutationPolicy,
   routeManualPortfolioMutation,
 } from '../src/server/mutation-policy.ts';
+
+test('remote brain mutations are disabled only by an explicit read-only flag', () => {
+  assert.equal(areRemoteBrainMutationsDisabled({}), false);
+  assert.equal(areRemoteBrainMutationsDisabled({ STOCK_INSIGHT_REMOTE_READ_ONLY: 'false' }), false);
+  assert.equal(areRemoteBrainMutationsDisabled({ STOCK_INSIGHT_REMOTE_READ_ONLY: 'true' }), true);
+});
 
 test('manual portfolio mutations are enabled only by an explicit true flag', () => {
   assert.equal(areManualPortfolioMutationsEnabled({}), false);

@@ -8,6 +8,10 @@ function getDefaultEnv(): EnvSource {
   return maybeGlobalProcess.process?.env ?? {};
 }
 
+export function areRemoteBrainMutationsDisabled(source: EnvSource = getDefaultEnv()): boolean {
+  return source.STOCK_INSIGHT_REMOTE_READ_ONLY === 'true';
+}
+
 export function areManualPortfolioMutationsEnabled(source: EnvSource = getDefaultEnv()): boolean {
   return source.STOCK_INSIGHT_MUTATIONS_ENABLED === 'true';
 }
