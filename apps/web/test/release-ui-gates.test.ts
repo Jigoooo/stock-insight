@@ -130,11 +130,42 @@ describe('release UI browser gates', () => {
     assert.match(config, /workspace-auth-setup/);
     assert.match(config, /dependencies:\s*workspaceAuthDependencies/);
     assert.match(config, /globalTeardown/);
-    assert.match(setup, /storageState\(\{\s*path:\s*storageStatePath\s*\}\)/);
+    assert.match(setup, /storageState\(\{\s*path:\s*generatedStorageStatePath\s*\}\)/);
     assert.match(setup, /\/login\?redirect=%2Fworkspace%2Ftoday/);
-    assert.match(teardown, /rmSync\(storageStatePath/);
+    assert.match(teardown, /rmSync\(generatedAuthDirectory/);
     assert.doesNotMatch(visual, /test\.beforeAll\([\s\S]*\/login/);
     assert.doesNotMatch(visual, /authenticatedCookies/);
+  });
+
+  it('locks generated auth state permissions and cleans only the exact generated directory', async () => {
+    const [config, setup, teardown] = await Promise.all([
+      readFile(playwrightConfigUrl, 'utf8'),
+      readFile(workspaceAuthSetupUrl, 'utf8'),
+      readFile(workspaceAuthTeardownUrl, 'utf8'),
+    ]);
+
+    assert.match(
+      config,
+      /shouldGenerateWorkspaceStorageState\s*=\s*!configuredWorkspaceStorageState\s*&&\s*workspaceCredentialsConfigured/,
+    );
+    assert.match(
+      config,
+      /if \(shouldGenerateWorkspaceStorageState\)[\s\S]*WORKSPACE_VISUAL_STORAGE_STATE/,
+    );
+    assert.match(setup, /workspace-visual-auth/);
+    assert.match(setup, /mkdir\(generatedAuthDirectory,\s*\{\s*recursive:\s*true,\s*mode:\s*0o700/);
+    assert.match(setup, /chmod\(generatedAuthDirectory,\s*0o700\)/);
+    assert.match(setup, /storageState\([\s\S]*chmod\(generatedStorageStatePath,\s*0o600\)/);
+    assert.match(setup, /resolve\(storageStatePath\)[\s\S]*generatedStorageStatePath/);
+    assert.match(teardown, /workspace-visual-auth/);
+    assert.match(teardown, /resolve\(storageStatePath\)[\s\S]*generatedStorageStatePath/);
+    assert.match(
+      teardown,
+      /rmSync\(generatedAuthDirectory,\s*\{\s*recursive:\s*true,\s*force:\s*true\s*\}\)/,
+    );
+    assert.doesNotMatch(setup, /PLAYWRIGHT_STORAGE_STATE/);
+    assert.doesNotMatch(teardown, /PLAYWRIGHT_STORAGE_STATE/);
+    assert.doesNotMatch(teardown, /rmSync\(storageStatePath/);
   });
 
   it('requires canonical absence evidence and fail-safe administrator cleanup', async () => {

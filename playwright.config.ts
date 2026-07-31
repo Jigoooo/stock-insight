@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
 
 import { resolveDevServerPort } from './apps/web/config/dev-server';
@@ -17,10 +18,9 @@ const workspaceCredentialsConfigured = Boolean(
 );
 const shouldGenerateWorkspaceStorageState =
   !configuredWorkspaceStorageState && workspaceCredentialsConfigured;
-const generatedWorkspaceStorageState = new URL(
-  './test-results/workspace-visual-auth/storage-state.json',
-  import.meta.url,
-).pathname;
+const generatedWorkspaceStorageState = fileURLToPath(
+  new URL('./test-results/workspace-visual-auth/storage-state.json', import.meta.url),
+);
 const workspaceStorageState =
   configuredWorkspaceStorageState ??
   (shouldGenerateWorkspaceStorageState ? generatedWorkspaceStorageState : undefined);
