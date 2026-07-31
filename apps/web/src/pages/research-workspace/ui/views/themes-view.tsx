@@ -215,7 +215,7 @@ function RelationLedger({
           </div>
           <Accordion type="single" defaultValue="relations">
             <AccordionItem value="relations" className={styles.relationFallback}>
-              <AccordionTrigger className={styles.relationFallbackTrigger}>
+              <AccordionTrigger className={styles.relationFallbackTrigger} showArrow={false}>
                 관계를 텍스트로 보기
               </AccordionTrigger>
               <AccordionContent

@@ -25,12 +25,13 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(source, /DEEP_DIVE_SECTION_IDS/);
     assert.match(source, /<Accordion[^>]*type="multiple"/);
     assert.match(source, /<AccordionItem/);
-    assert.match(source, /<AccordionTrigger/);
+    assert.match(source, /<AccordionTrigger[^>]*showArrow=\{false\}/);
     assert.match(source, /<AccordionContent/);
     assert.match(source, /initial=\{\{ height: 0 \}\}/);
     assert.match(source, /animate=\{\{ height: 'auto' \}\}/);
     assert.match(source, /exit=\{\{ height: 0 \}\}/);
     assert.doesNotMatch(source, /opacity:|\by:|scale:/);
+    assert.doesNotMatch(source, /transition-transform|rotate-180/);
     assert.match(source, /data-deep-dive-section=\{section\.id\}/);
     assert.doesNotMatch(source, /section\.id === 'performance'/);
   });

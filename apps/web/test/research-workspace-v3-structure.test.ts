@@ -338,11 +338,12 @@ describe('v3 research workspace structure', () => {
     assert.doesNotMatch(page, /approved=true · inferred=false/);
     assert.doesNotMatch(page, /분석 cutoff|비추론 관계/);
     assert.match(page, /<Accordion type="single" defaultValue="relations">/);
-    assert.match(page, /<AccordionTrigger[^>]*>\s*관계를 텍스트로 보기/);
+    assert.match(page, /<AccordionTrigger[^>]*showArrow=\{false\}[^>]*>\s*관계를 텍스트로 보기/);
     assert.match(page, /<AccordionContent/);
     assert.match(page, /initial=\{\{ height: 0 \}\}/);
     assert.match(page, /animate=\{\{ height: 'auto' \}\}/);
     assert.match(page, /exit=\{\{ height: 0 \}\}/);
+    assert.doesNotMatch(relationCss, /transition-transform|rotate-180/);
     assert.match(page, /graph\.evidenceSummary\.limitation/);
   });
 

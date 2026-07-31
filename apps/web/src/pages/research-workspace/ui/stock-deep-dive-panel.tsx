@@ -156,7 +156,7 @@ export function StockDeepDivePanel({
               data-availability={section.availability}
               data-deep-dive-section={section.id}
             >
-              <AccordionTrigger className={styles.sectionTrigger}>
+              <AccordionTrigger className={styles.sectionTrigger} showArrow={false}>
                 <span>{section.title}</span>
                 <small>{availabilityLabel[section.availability]}</small>
               </AccordionTrigger>
