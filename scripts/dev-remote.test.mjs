@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -93,6 +93,41 @@ test('prepares a loopback-only read-only BFF against the protected remote brain'
   assert.equal(options.detached, true);
   assert.equal(options.env, result.childEnv);
   assert.equal(options.stdio, 'inherit');
+});
+
+test('rejects group/world-readable reusable remote credentials', async (t) => {
+  const cases = [
+    {
+      insecureFile: 'insight-api-access.env',
+      expectedLabel: 'Cloudflare Access environment file',
+    },
+    {
+      insecureFile: 'stock-insight-internal-context.secret',
+      expectedLabel: 'Internal context secret',
+    },
+  ];
+
+  for (const { insecureFile, expectedLabel } of cases) {
+    const homeDir = await mkdtemp(join(tmpdir(), 'stock-insight-remote-dev-mode-'));
+    t.after(() => rm(homeDir, { recursive: true, force: true }));
+
+    const secretDir = join(homeDir, '.hermes', 'secrets');
+    const accessFile = join(secretDir, 'insight-api-access.env');
+    const internalSecretFile = join(secretDir, 'stock-insight-internal-context.secret');
+    await mkdir(secretDir, { recursive: true, mode: 0o700 });
+    await writeFile(
+      accessFile,
+      'API_DEV_CLIENT_ID=test-client-id\nAPI_DEV_CLIENT_SECRET=test-client-secret\n',
+      { mode: 0o600 },
+    );
+    await writeFile(internalSecretFile, 'i'.repeat(48), { mode: 0o600 });
+    await chmod(join(secretDir, insecureFile), 0o644);
+
+    await assert.rejects(
+      prepareRemoteDev({ homeDir, env: {}, platform: 'linux' }),
+      new RegExp(`${expectedLabel} must have mode 0600 or stricter`),
+    );
+  }
 });
 
 test('publishes remote development commands and secret locations', async () => {
