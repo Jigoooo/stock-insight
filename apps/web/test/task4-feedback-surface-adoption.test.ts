@@ -25,14 +25,18 @@ const adoptionUrls = [
 const feedbackSurfaceInventory = [
   {
     className: 'viewLoadError',
+    ownerPattern: '<ErrorState[\\s\\S]{0,220}?className=\\{styles\\.viewLoadError\\}',
     url: new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   },
   {
     className: 'graphRuntimeError',
+    ownerPattern: '<ErrorState[\\s\\S]{0,220}?className=\\{styles\\.graphRuntimeError\\}',
     url: new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
   },
   {
-    className: 'tableEmpty',
+    className: 'emptyState',
+    ownerPattern:
+      '<WorkspaceState[\\s\\S]{0,220}?className=\\{styles\\.emptyState\\}[\\s\\S]{0,120}?kind="empty"',
     url: new URL('../src/pages/admin-invitations/ui/admin-invitation-page.tsx', import.meta.url),
   },
 ] as const;
@@ -121,25 +125,19 @@ describe('Task 4 shared feedback and surface contract', () => {
   });
 
   it('accounts for every page-local feedback surface with a shared primitive owner', async () => {
-    for (const { className, url } of feedbackSurfaceInventory) {
+    for (const { className, ownerPattern, url } of feedbackSurfaceInventory) {
       const source = await readFile(url, 'utf8');
       const references = matchCount(
         source,
         new RegExp(`className=\\{styles\\.${className}\\}`, 'g'),
       );
-      const sharedOwners = matchCount(
-        source,
-        new RegExp(
-          `<(?:EmptyState|ErrorState)[\\s\\S]{0,220}?className=\\{styles\\.${className}\\}`,
-          'g',
-        ),
-      );
+      const sharedOwners = matchCount(source, new RegExp(ownerPattern, 'g'));
 
       assert.ok(references > 0, `${url.pathname}:${className} must remain inventoried`);
       assert.equal(
         sharedOwners,
         references,
-        `${url.pathname}:${className} must be owned by EmptyState or ErrorState`,
+        `${url.pathname}:${className} must be owned by its inventoried shared feedback primitive`,
       );
     }
 

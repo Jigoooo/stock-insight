@@ -11,7 +11,7 @@ export const Route = createFileRoute('/_authenticated/admin/invitations')({
   },
   head: () => ({
     meta: [
-      { title: '가입 코드 관리 | Futur Insight' },
+      { title: '가입 코드 관리 | Stock Insight' },
       { name: 'description', content: '관리자 전용 가입 코드 발급 및 폐기 화면' },
     ],
   }),
