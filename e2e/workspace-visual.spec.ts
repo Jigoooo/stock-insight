@@ -1,12 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Locator,
-  type Page,
-  type TestInfo,
-} from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 const routes = [
   '/workspace/today',
@@ -28,10 +21,10 @@ const workspaceViewports = {
 } as const;
 
 const projectModes = {
-  desktop: { viewport: 'expanded', shell: 'expanded' },
+  'workspace-expanded': { viewport: 'expanded', shell: 'expanded' },
   'workspace-compact': { viewport: 'compact', shell: 'compact' },
   'workspace-boundary': { viewport: 'boundary', shell: 'compact' },
-  mobile: { viewport: 'mobile', shell: 'mobile' },
+  'workspace-mobile': { viewport: 'mobile', shell: 'mobile' },
 } as const;
 
 const rejectedLoginResponse = {
@@ -78,6 +71,7 @@ async function capture(page: Page, testInfo: TestInfo, name: string, mask: Locat
 test('public login pending-to-error capture remains credential-free', async ({
   page,
 }, testInfo) => {
+  await page.context().clearCookies();
   let releaseLogin!: () => void;
   const loginCanFinish = new Promise<void>((resolve) => {
     releaseLogin = resolve;
@@ -109,8 +103,8 @@ test('public login pending-to-error capture remains credential-free', async ({
 const storageState = process.env.PLAYWRIGHT_STORAGE_STATE;
 const username = process.env.STOCK_INSIGHT_E2E_USERNAME;
 const password = process.env.STOCK_INSIGHT_E2E_PASSWORD;
-const hasAuthorizedAuth = Boolean(storageState || (username && password));
-let authenticatedCookies: Parameters<BrowserContext['addCookies']>[0] = [];
+const generatedStorageState = process.env.WORKSPACE_VISUAL_STORAGE_STATE;
+const hasAuthorizedAuth = Boolean(storageState || generatedStorageState || (username && password));
 
 function currentProjectMode(projectName: string) {
   const mode = projectModes[projectName as keyof typeof projectModes];
@@ -169,29 +163,49 @@ async function assertNoTransformAnimation(page: Page) {
   expect(forbiddenTransformAnimations).toBe(0);
 }
 
+async function observePendingLaneMarker(tab: Locator) {
+  return tab.evaluate(
+    (element) =>
+      new Promise<boolean>((resolve) => {
+        const finish = (observed: boolean) => {
+          observer.disconnect();
+          window.clearTimeout(timeout);
+          resolve(observed);
+        };
+        const observer = new MutationObserver(() => {
+          if (element.getAttribute('data-pending') === 'true') finish(true);
+        });
+        const timeout = window.setTimeout(() => finish(false), 2_000);
+        observer.observe(element, { attributes: true, attributeFilter: ['data-pending'] });
+        (element as HTMLElement).click();
+      }),
+  );
+}
+
+async function skipAfterCanonicalAbsence({
+  canonicalTitle,
+  reason,
+  region,
+  target,
+}: {
+  canonicalTitle: string;
+  reason: string;
+  region: Locator;
+  target: Locator;
+}) {
+  if ((await target.count()) > 0) return;
+  const canonicalState = region
+    .locator('[data-kind="empty"], [data-kind="unavailable"]')
+    .filter({ hasText: canonicalTitle });
+  await expect(canonicalState).toBeVisible();
+  test.skip(true, reason);
+}
+
 test.describe('authenticated workspace visual matrix', () => {
-  if (storageState) test.use({ storageState });
   test.skip(
     !hasAuthorizedAuth,
     'authenticated matrix skipped: authorized storage state or credentials are absent',
   );
-
-  test.beforeAll(async ({ browser }, testInfo) => {
-    if (storageState) return;
-    const context = await browser.newContext({ baseURL: String(testInfo.project.use.baseURL) });
-    const page = await context.newPage();
-    await page.goto('/login?redirect=%2Fworkspace%2Ftoday');
-    await page.getByLabel('사용자 이름').fill(username!);
-    await page.locator('#login-password').fill(password!);
-    await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page).toHaveURL(/\/workspace\/today$/);
-    authenticatedCookies = (await context.storageState()).cookies;
-    await context.close();
-  });
-
-  test.beforeEach(async ({ context }) => {
-    if (!storageState) await context.addCookies(authenticatedCookies);
-  });
 
   for (const route of routes) {
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -230,7 +244,7 @@ test.describe('authenticated workspace visual matrix', () => {
   }
 
   test('captures mobile navigation Sheet open', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'mobile', 'mobile interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-mobile', 'mobile interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/today');
     await page.getByRole('button', { name: '메뉴 열기' }).click();
     await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeVisible();
@@ -238,30 +252,41 @@ test.describe('authenticated workspace visual matrix', () => {
   });
 
   test('captures Today pending lane', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'single interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/today');
     const tab = page.getByRole('tablist', { name: '인사이트 분류' }).getByRole('tab').nth(1);
-    await tab.evaluate((element: HTMLElement) => element.click());
-    const pendingVisible = (await tab.getAttribute('data-pending')) === 'true';
-    test.skip(!pendingVisible, 'current route settled before the pending lane could be captured');
+    const pendingMarkerObserved = await observePendingLaneMarker(tab);
+    expect(pendingMarkerObserved).toBe(true);
+    await expect(tab).toHaveAttribute('data-pending', 'true');
     await capture(page, testInfo, 'workspace-today-pending-lane');
   });
 
   test('captures evidence inspector', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'single interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/today');
     const record = page.getByTestId('research-feed-record').first();
-    test.skip((await record.count()) === 0, 'current authorized data has no evidence record');
+    await skipAfterCanonicalAbsence({
+      canonicalTitle: '이 분류에는 아직 변화가 없습니다',
+      reason: 'canonical empty Today lane has no evidence record',
+      region: page.getByTestId('research-feed'),
+      target: record,
+    });
     await record.click();
     await expect(page.getByTestId('evidence-inspector')).toBeVisible();
     await capture(page, testInfo, 'workspace-evidence-inspector', [page.locator('time')]);
   });
 
   test('captures Stocks selected row and deep dive', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'single interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/stocks');
-    const stock = page.getByLabel('종목 커버리지 표 가로 스크롤 영역').getByRole('button').first();
-    test.skip((await stock.count()) === 0, 'current authorized data has no selectable stock');
+    const stockRegion = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
+    const stock = stockRegion.getByRole('button').first();
+    await skipAfterCanonicalAbsence({
+      canonicalTitle: '조건에 맞는 종목이 없습니다',
+      reason: 'canonical empty stock table has no selectable stock',
+      region: stockRegion,
+      target: stock,
+    });
     await stock.click();
     await expect(stock).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
@@ -271,12 +296,17 @@ test.describe('authenticated workspace visual matrix', () => {
   test('captures Themes relation graph and accessible text fallback', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'single interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/themes');
-    test.skip(
-      (await page.getByTestId('relation-graph').count()) === 0,
-      'current data has no relation graph',
-    );
+    const relationRegion = page.getByTestId('relation-ledger');
+    const relationGraph = page.getByTestId('relation-graph');
+    await skipAfterCanonicalAbsence({
+      canonicalTitle: '표시할 관계가 없습니다',
+      reason: 'canonical empty relation ledger has no relation graph',
+      region: relationRegion,
+      target: relationGraph,
+    });
+    await expect(relationGraph).toBeVisible();
     const fallback = page.getByRole('button', { name: '관계를 텍스트로 보기' });
     if ((await fallback.getAttribute('aria-expanded')) !== 'true') await fallback.click();
     await expect(page.getByRole('list', { name: '관계 근거 목록' })).toBeVisible();
@@ -286,18 +316,34 @@ test.describe('authenticated workspace visual matrix', () => {
   test('captures Radar map fallback when authorized data exposes it', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'single interaction capture');
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+        configurable: true,
+        value(this: HTMLCanvasElement, contextId: string, ...args: unknown[]) {
+          if (['webgl', 'webgl2', 'experimental-webgl'].includes(contextId)) return null;
+          return Reflect.apply(original, this, [contextId, ...args]);
+        },
+      });
+    });
     await gotoAuthenticatedRoute(page, '/workspace/radar');
     const mapTab = page.getByRole('tab', { name: /지도·글로브/ });
-    test.skip(
-      (await mapTab.count()) === 0 || (await mapTab.isDisabled()),
-      'current data has no map mode',
-    );
+    await expect(mapTab).toHaveCount(1);
     await mapTab.click();
+    const mapRegion = page.getByTestId('market-mode-map_globe');
     const fallback = page.getByTestId('geo-fallback-row');
-    test.skip(
-      (await fallback.count()) === 0,
-      'current data does not expose the Radar map fallback',
+    if ((await fallback.count()) === 0) {
+      const unavailable = mapRegion
+        .locator('[data-kind="empty"], [data-kind="unavailable"]')
+        .filter({
+          hasText: /지도 원천이 연결되지 않았습니다|지도에 표시할 위치가 없습니다/,
+        });
+      await expect(unavailable).toBeVisible();
+      test.skip(true, 'canonical empty or unavailable map data has no fallback rows');
+    }
+    await expect(mapRegion.getByRole('status')).toContainText(
+      '지도 렌더링을 사용할 수 없어 근거 표를 유지합니다',
     );
     await capture(page, testInfo, 'workspace-radar-map-fallback', [page.locator('time')]);
   });
@@ -305,43 +351,60 @@ test.describe('authenticated workspace visual matrix', () => {
   test('captures administrator one-time invitation disclosure without retaining plaintext', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'isolated administrator mutation capture');
+    test.skip(
+      testInfo.project.name !== 'workspace-expanded',
+      'isolated administrator mutation capture',
+    );
     await gotoAuthenticatedRoute(page, '/admin/invitations');
     const issueButton = page.getByRole('button', { name: '코드 발급', exact: true });
-    test.skip((await issueButton.count()) === 0, 'authorized account cannot manage invitations');
-    const label = `visual-matrix-${Date.now()}`;
-    await page.getByLabel('메모').fill(label);
-    await issueButton.click();
-    const status = page.getByTestId('admin-invitation-status');
-    const code = status.locator('code');
-    await expect(code).toHaveText(/^[A-Za-z0-9_-]{40,}$/);
-    const plaintext = (await code.textContent())!.trim();
-    await capture(page, testInfo, 'admin-invitation-one-time-disclosure', [code]);
-    await page.reload();
-    await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(0);
-    expect(
-      await page.evaluate((value) => {
-        const controls = Array.from(
-          document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-            'input, textarea, select',
-          ),
-        );
-        return {
-          controlValue: controls.some((control) => control.value.includes(value)),
-          html: document.documentElement.outerHTML.includes(value),
-          localStorage: Object.values(localStorage).some((entry) => entry.includes(value)),
-          sessionStorage: Object.values(sessionStorage).some((entry) => entry.includes(value)),
-        };
-      }, plaintext),
-    ).toEqual({
-      controlValue: false,
-      html: false,
-      localStorage: false,
-      sessionStorage: false,
-    });
-    await capture(page, testInfo, 'admin-invitation-after-disclosure');
-    const row = page.getByRole('row').filter({ hasText: label });
-    await row.getByRole('button', { name: `${label} 코드 폐기` }).click();
-    await expect(row).toContainText('폐기됨');
+    await expect(issueButton).toHaveCount(1);
+    const label = `visual-matrix-${crypto.randomUUID()}`;
+    const dynamicLabel = page.getByText(label, { exact: true });
+    let issueAttempted = false;
+    try {
+      await page.getByLabel('메모').fill(label);
+      await issueButton.click();
+      issueAttempted = true;
+      await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(1);
+      const status = page.getByTestId('admin-invitation-status');
+      const code = status.locator('code');
+      await expect(code).toHaveText(/^[A-Za-z0-9_-]{40,}$/);
+      const plaintext = (await code.textContent())!.trim();
+      await capture(page, testInfo, 'admin-invitation-one-time-disclosure', [code, dynamicLabel]);
+      await page.reload();
+      await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(0);
+      expect(
+        await page.evaluate((value) => {
+          const controls = Array.from(
+            document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+              'input, textarea, select',
+            ),
+          );
+          return {
+            controlValue: controls.some((control) => control.value.includes(value)),
+            html: document.documentElement.outerHTML.includes(value),
+            localStorage: Object.values(localStorage).some((entry) => entry.includes(value)),
+            sessionStorage: Object.values(sessionStorage).some((entry) => entry.includes(value)),
+          };
+        }, plaintext),
+      ).toEqual({
+        controlValue: false,
+        html: false,
+        localStorage: false,
+        sessionStorage: false,
+      });
+      await capture(page, testInfo, 'admin-invitation-after-disclosure', [dynamicLabel]);
+    } finally {
+      if (issueAttempted) {
+        await page.goto('/admin/invitations');
+        const row = page.getByRole('row').filter({
+          has: page.getByText(label, { exact: true }),
+        });
+        await expect(row).toHaveCount(1);
+        const revoke = row.getByRole('button', { name: `${label} 코드 폐기` });
+        if ((await revoke.count()) === 1) await revoke.click();
+        await expect(row).toContainText('폐기됨');
+      }
+    }
   });
 });
