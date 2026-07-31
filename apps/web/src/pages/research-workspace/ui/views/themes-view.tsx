@@ -1,6 +1,7 @@
 import { ChevronRight, GitBranch, MoveHorizontal } from 'lucide-react';
 import { useRef } from 'react';
 
+import styles from '../relation-detail.module.css';
 import {
   type DetailState,
   availabilityLabels,
@@ -8,7 +9,6 @@ import {
   relationNodeLabel,
   relationTypeLabel,
 } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 import { useWorkspaceRelationCrossfade } from '../use-workspace-relation-crossfade';
 
 import { themeTitleLabel } from '@/pages/research-workspace/model/presentation';
@@ -62,7 +62,7 @@ export function ThemesView({
               {data.items.length}개 · {availabilityLabels[data.availability]}
             </p>
           </PanelHeader>
-          <div className={`${styles.ledger} ${styles.themeLedger}`} data-testid="theme-ledger">
+          <div className={styles.themeLedger} data-testid="theme-ledger">
             {data.items.length === 0 ? (
               <WorkspaceState
                 kind="empty"

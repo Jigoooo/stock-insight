@@ -1,0 +1,173 @@
+.decisionSupportBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  align-items: stretch;
+  gap: 24px;
+  padding: 20px;
+}
+
+.decisionPrimary {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.decisionPrimary > span {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.decisionPrimary > strong {
+  color: var(--color-text-primary);
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+}
+
+.decisionPrimary > p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.decisionMeta {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  margin: 0;
+}
+
+.decisionMeta > div {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.decisionMeta > div:last-child {
+  border-bottom: 0;
+}
+
+.decisionMeta dt,
+.decisionMeta dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.decisionMeta dt {
+  color: var(--color-text-tertiary);
+}
+
+.decisionMeta dd {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-weight: 580;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .decisionSupportBody {
+    grid-template-columns: 1fr;
+  }
+}
+
+.personalizationPanel {
+  margin-top: 24px;
+}
+
+.personalizationPanel > [data-slot='card'] {
+  display: grid;
+  gap: 24px;
+}
+
+.personalizationGrid,
+.explanationGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.personalizationGrid > section,
+.explanationGrid > article {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-surface-subtle);
+}
+
+.personalizationGrid h3,
+.explanationPanel h3,
+.explanationGrid h4 {
+  margin: 0 0 8px;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.personalizationGrid p,
+.explanationPanel p,
+.explanationGrid li {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.personalizationGrid dl,
+.personalizationGrid ul,
+.explanationGrid ul {
+  margin: 0;
+  padding: 0;
+}
+
+.personalizationGrid dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.personalizationGrid dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.explanationPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.explanationPanel > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .personalizationGrid,
+  .explanationGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .personalizationGrid,
+  .explanationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .explanationPanel > header {
+    display: grid;
+  }
+}

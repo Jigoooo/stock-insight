@@ -1,7 +1,7 @@
 import { FileText, X } from 'lucide-react';
 import { useEffect, useRef, type RefObject } from 'react';
 
-import styles from './research-workspace-page.module.css';
+import styles from './relation-detail.module.css';
 import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
 
 import {
@@ -255,7 +255,7 @@ export function EvidenceInspector({
         )}
         {state === 'ready' && detail && (
           <div className={styles.inspectorBody}>
-            <span className={styles.market}>
+            <span className={styles.evidenceMarket}>
               {marketLabel(detail.market)} · {categoryLabel(detail.category)}
             </span>
             <h2>{detail.title}</h2>

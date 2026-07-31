@@ -1,3 +1,4 @@
+import personalizationStyles from '../personalization.module.css';
 import { formatDate } from '../research-workspace-page';
 import styles from '../research-workspace-page.module.css';
 import { DecisionSupportContent } from './decision-support-content';
@@ -25,10 +26,10 @@ function DecisionSupportPanel({ data }: { data: MyResearchOverview['decisionSupp
         <h2 id="decision-support-title">판단 지원</h2>
         <p>공통 근거와 개인 원장을 분리한 읽기 전용 분석 상태입니다.</p>
       </PanelHeader>
-      <div className={styles.decisionSupportBody}>
-        <DecisionSupportContent data={data} className={styles.decisionPrimary} />
+      <div className={personalizationStyles.decisionSupportBody}>
+        <DecisionSupportContent data={data} className={personalizationStyles.decisionPrimary} />
         <PropertyList
-          className={styles.decisionMeta}
+          className={personalizationStyles.decisionMeta}
           items={[
             {
               label: '공통 근거 기준',

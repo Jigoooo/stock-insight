@@ -1,6 +1,7 @@
 import { Clock3 } from 'lucide-react';
 import { useRef } from 'react';
 
+import styles from '../feed-ledger.module.css';
 import {
   type DetailState,
   availabilityLabels,
@@ -8,7 +9,6 @@ import {
   historyStatusLabel,
   marketLabel,
 } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';

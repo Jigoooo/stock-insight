@@ -1,6 +1,6 @@
 import type { PersonalizationResearchWorkspace } from '../../model/workspace-view-payload';
+import styles from '../personalization.module.css';
 import { formatDate } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 
 import { Panel, PanelHeader, PropertyList, StructuredList } from '@/shared/ui/workspace';
 

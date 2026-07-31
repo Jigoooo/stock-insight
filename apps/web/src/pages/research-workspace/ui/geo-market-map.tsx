@@ -3,7 +3,7 @@ import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef, useState } from 'react';
 
-import styles from './research-workspace-page.module.css';
+import styles from './market-overview.module.css';
 
 import {
   collectGeometryPositions,

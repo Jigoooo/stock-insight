@@ -1,0 +1,359 @@
+.laneTabs {
+  min-height: 48px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 24px;
+  padding: 0 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+  scrollbar-width: none;
+}
+
+.laneIndicator {
+  width: calc((100% - 88px) / 3);
+  height: 2px;
+  position: absolute;
+  bottom: -1px;
+  left: 20px;
+  z-index: 2;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-accent);
+  pointer-events: none;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.laneTabs::-webkit-scrollbar {
+  display: none;
+}
+
+.laneTabs button {
+  min-height: 48px;
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: 0;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 570;
+  z-index: 1;
+}
+
+.laneTabs button[aria-selected='true'] {
+  color: var(--color-text-primary);
+  font-weight: 680;
+}
+
+.laneTabs button[data-pending='true'] {
+  outline: 1px dashed var(--color-accent);
+  outline-offset: -3px;
+}
+
+.laneTabs small {
+  margin-left: 5px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.feed,
+.ledger {
+  display: grid;
+}
+
+.feedPager {
+  min-height: 58px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.feedPager span {
+  color: var(--color-risk);
+  font-size: 12px;
+}
+
+.feedPager button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.feedPager button:disabled {
+  opacity: 0.52;
+  cursor: wait;
+}
+
+.feedRow {
+  width: 100%;
+  min-height: 112px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) 120px;
+  gap: 18px;
+  align-items: start;
+  padding: 20px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.feedRow:last-child {
+  border-bottom: 0;
+}
+
+.feedRow[aria-current='true'] {
+  background: var(--color-accent-soft);
+  box-shadow: 3px 0 0 var(--color-accent) inset;
+}
+
+.market {
+  width: fit-content;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+  font-weight: 730;
+  letter-spacing: 0.05em;
+}
+
+.feedRow strong,
+.ledgerRow strong,
+.historyRow strong {
+  display: block;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 660;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+}
+
+.feedRow p,
+.ledgerRow p,
+.historyRow p {
+  display: -webkit-box;
+  margin: 7px 0 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.feedRow small,
+.ledgerRow small,
+.historyRow small {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rowMeta {
+  display: grid;
+  justify-items: end;
+  gap: 9px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rowMeta span {
+  color: var(--color-accent-strong);
+  font-weight: 620;
+}
+
+.rowMeta time {
+  font-variant-numeric: tabular-nums;
+}
+
+.ledgerRow {
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) 110px 112px;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ledgerRow:last-child {
+  border-bottom: 0;
+}
+
+.ledgerRow strong small {
+  display: inline;
+  margin: 0 0 0 6px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-weight: 540;
+}
+
+.strength {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.strength > span {
+  width: 68px;
+  height: 4px;
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+}
+
+.strength > span::after {
+  content: '';
+  width: var(--strength);
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--color-accent);
+}
+
+.strength strong {
+  width: 25px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.historyRow {
+  min-height: 104px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 128px;
+  gap: 14px;
+  align-items: start;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.historyRow:last-child {
+  border-bottom: 0;
+}
+
+.historyRow > svg {
+  width: 17px;
+  color: var(--color-text-tertiary);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .feedPager button:hover:not(:disabled) {
+    color: var(--color-accent-strong);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .feedRow:hover:not([aria-current='true']) {
+    background: var(--color-surface-subtle);
+  }
+}
+
+@media (max-width: 767px) {
+  .feedRow {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .feedRow .rowMeta {
+    grid-column: 2;
+    display: flex;
+    justify-content: space-between;
+    justify-items: stretch;
+    gap: 12px;
+  }
+
+  .ledgerRow {
+    grid-template-columns: 48px minmax(0, 1fr) 94px;
+  }
+
+  .ledgerRow .rowMeta {
+    grid-column: 2/-1;
+    display: flex;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 560px) {
+  .feedRow {
+    padding-inline: 15px;
+  }
+
+  .ledgerRow {
+    grid-template-columns: 42px minmax(0, 1fr);
+    padding-inline: 15px;
+  }
+
+  .ledgerRow .strength,
+  .ledgerRow .rowMeta {
+    grid-column: 2;
+  }
+
+  .historyRow {
+    grid-template-columns: 20px minmax(0, 1fr);
+    padding-inline: 15px;
+  }
+
+  .historyRow .rowMeta {
+    grid-column: 2;
+    justify-items: start;
+  }
+}
+
+@media (max-width: 420px) {
+  .laneTabs button {
+    min-height: 48px;
+  }
+
+  .feedRow {
+    min-height: 0;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+    padding: 17px 14px;
+  }
+
+  .feedRow strong,
+  .ledgerRow strong,
+  .historyRow strong {
+    font-size: 13px;
+  }
+
+  .feedRow p,
+  .ledgerRow p,
+  .historyRow p {
+    font-size: 12px;
+  }
+
+  .feedRow .rowMeta {
+    flex-wrap: wrap;
+  }
+
+  .feedPager {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 14px;
+  }
+
+  .feedPager button {
+    min-height: 44px;
+  }
+}

@@ -97,7 +97,7 @@ export function WorkspaceTopbar({
         {navigationPending ? `${pendingLabel ?? '선택한 화면'} 여는 중` : ''}
       </output>
 
-      <div className={styles.search}>{search}</div>
+      <div className={styles.searchSlot}>{search}</div>
       {mode !== 'mobile' ? (
         <div className={styles.contextualActions}>
           {contextualActions}

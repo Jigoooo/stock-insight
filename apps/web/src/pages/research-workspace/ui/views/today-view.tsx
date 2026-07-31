@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import styles from '../feed-ledger.module.css';
 import {
   confidenceLabel,
   formatDate,
@@ -8,7 +9,6 @@ import {
   marketLabel,
   whySurfacedLabel,
 } from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';

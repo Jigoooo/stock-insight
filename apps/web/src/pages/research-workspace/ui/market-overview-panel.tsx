@@ -1,13 +1,13 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 import { GeoMarketMap } from './geo-market-map';
+import styles from './market-overview.module.css';
 import {
   WorkspaceState,
   formatDate,
   marketLabel,
   signalTypeLabel,
 } from './research-workspace-page';
-import styles from './research-workspace-page.module.css';
 import {
   MARKET_MODE_IDS,
   buildMarketOverview,
@@ -160,7 +160,9 @@ export function MarketOverviewPanel({
       return (
         <div className={styles.marketTableWrap}>
           <table className={styles.marketHeatmap}>
-            <caption className={styles.srOnly}>종목별 시장 신호 강도와 관심·보유 연결 상태</caption>
+            <caption className={styles.marketSrOnly}>
+              종목별 시장 신호 강도와 관심·보유 연결 상태
+            </caption>
             <thead>
               <tr>
                 <th scope="col">종목</th>

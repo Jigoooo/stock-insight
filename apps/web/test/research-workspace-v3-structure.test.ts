@@ -55,6 +55,30 @@ const css = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
   'utf8',
 );
+const relationCss = readFileSync(
+  new URL('../src/pages/research-workspace/ui/relation-detail.module.css', import.meta.url),
+  'utf8',
+);
+const workspaceStyles = [
+  css,
+  relationCss,
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/feed-ledger.module.css', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/personalization.module.css', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/widgets/workspace-shell/ui/workspace-shell.module.css', import.meta.url),
+    'utf8',
+  ),
+].join('\n');
 const workspaceState = readFileSync(
   new URL('../src/shared/ui/workspace/workspace-state.tsx', import.meta.url),
   'utf8',
@@ -252,7 +276,7 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /themeTitleLabel\(theme\.title\)/);
     assert.match(page, /className=\{styles\.themeSelect\}/);
     assert.match(page, /onSelectEntity\(entityKey\)/);
-    const relationPanel = css.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
+    const relationPanel = relationCss.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
     assert.match(relationPanel, /overflow-y:\s*auto/);
     assert.match(relationPanel, /overscroll-behavior:\s*contain/);
     assert.match(relationPanel, /scrollbar-gutter:\s*stable/);
@@ -267,18 +291,18 @@ describe('v3 research workspace structure', () => {
       '--color-border',
       '--color-accent',
     ]) {
-      assert.ok(css.includes(`var(${token})`), `workspace CSS must consume ${token}`);
+      assert.ok(workspaceStyles.includes(`var(${token})`), `workspace CSS must consume ${token}`);
     }
-    assert.doesNotMatch(css, /--canvas:/);
+    assert.doesNotMatch(workspaceStyles, /--canvas:/);
   });
 
   it('keeps hover effects pointer-safe', () => {
-    assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)/);
+    assert.match(workspaceStyles, /@media \(hover: hover\) and \(pointer: fine\)/);
   });
 
   it('provides a reduced-motion safety fallback independent of layout recipe', () => {
-    assert.match(css, /prefers-reduced-motion:\s*reduce/);
-    assert.match(css, /animation-iteration-count: 1 !important/);
+    assert.match(workspaceStyles, /prefers-reduced-motion:\s*reduce/);
+    assert.match(workspaceStyles, /animation-iteration-count: 1 !important/);
   });
 
   it('applies clickjacking, MIME, referrer, permissions, and CSP headers globally', () => {

@@ -30,7 +30,8 @@ describe('workspace threshold-based rendering optimization', () => {
   it('preserves the semantic table and does not introduce JavaScript row virtualization', async () => {
     const view = await readFile(stocksViewUrl, 'utf8');
 
-    assert.match(view, /<table className=\{styles\.stockTable\}>/);
+    assert.match(view, /<DataTable/);
+    assert.match(view, /className=\{styles\.stockTable\}/);
     assert.match(view, /<thead>/);
     assert.match(view, /<tbody>/);
     assert.doesNotMatch(view, /react-window|react-virtual|translateY\(|position:\s*absolute/);

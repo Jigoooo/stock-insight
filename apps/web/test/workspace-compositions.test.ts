@@ -45,6 +45,19 @@ describe('workspace compositions', () => {
     assert.doesNotMatch(pageCss, /\.panel\s*\{|\.pageHeader\s*\{|\.stateSurface\s*\{/);
   });
 
+  it('keeps registry interaction states out of route-owned workspace CSS', async () => {
+    for (const path of [
+      'pages/research-workspace/ui/research-workspace-page.module.css',
+      'pages/research-workspace/ui/feed-ledger.module.css',
+      'pages/research-workspace/ui/relation-detail.module.css',
+      'pages/research-workspace/ui/market-overview.module.css',
+      'pages/research-workspace/ui/personalization.module.css',
+    ]) {
+      const css = await read(path);
+      assert.doesNotMatch(css, /focus-visible:ring-|data-\[state=|whileHover|whileTap/);
+    }
+  });
+
   it('renders empty decision history outside the ordered timeline and populated rows as li', async () => {
     const { HistoryRows } = await loadWorkspaceModule<{
       HistoryRows: ComponentType<{ items: Array<Record<string, unknown>> }>;
