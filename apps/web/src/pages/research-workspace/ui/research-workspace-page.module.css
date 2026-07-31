@@ -1695,7 +1695,7 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .canvas,
   .canvas:has(.inspector),
   .canvas:not(:has(.inspector)) {
@@ -2835,7 +2835,7 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 767px) {
   .marketModeNav {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }

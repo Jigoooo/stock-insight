@@ -10,6 +10,7 @@ export const Route = createFileRoute('/_authenticated/workspace/themes')({
       signal: abortController.signal,
       userId: context.session.user.id,
     }),
+  head: () => ({ meta: [{ title: '테마·관계 | Stock Insight' }] }),
   pendingMs: Number.POSITIVE_INFINITY,
   component: WorkspaceView,
 });

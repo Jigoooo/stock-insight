@@ -22,6 +22,14 @@ const cssUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.module.css',
   import.meta.url,
 );
+const navigationUrl = new URL(
+  '../src/widgets/workspace-shell/ui/workspace-navigation.tsx',
+  import.meta.url,
+);
+const shellCssUrl = new URL(
+  '../src/widgets/workspace-shell/ui/workspace-shell.module.css',
+  import.meta.url,
+);
 
 describe('workspace authoritative navigation transition', () => {
   it('returns the router navigation promise and schedules controlled work as a transition', async () => {
@@ -42,14 +50,15 @@ describe('workspace authoritative navigation transition', () => {
   });
 
   it('keeps authoritative ARIA on committed values and marks only the latest target pending', async () => {
-    const [page, today] = await Promise.all([
+    const [page, navigation, today] = await Promise.all([
       readFile(pageUrl, 'utf8'),
+      readFile(navigationUrl, 'utf8'),
       readFile(todayUrl, 'utf8'),
     ]);
 
     assert.match(page, /useReducer\(\s*reduceWorkspaceNavigationIntent/);
-    assert.match(page, /pendingSection === id/);
-    assert.match(page, /aria-current=\{section === id \? 'page' : undefined\}/);
+    assert.match(navigation, /pending === item\.id/);
+    assert.match(navigation, /aria-current=\{activeSection === item\.id \? 'page' : undefined\}/);
     assert.match(page, /pendingLane=\{navigationIntent\.pendingLane/);
     assert.match(today, /pendingLane\?: ResearchFeedLaneId \| null/);
     assert.match(today, /data-pending=\{pendingLane === item\.lane \|\| undefined\}/);
@@ -67,22 +76,20 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /\.catch\([\s\S]*?type: 'settle'/);
   });
 
-  it('moves authoritative section and lane indicators with transform only', async () => {
-    const [page, today, css] = await Promise.all([
-      readFile(pageUrl, 'utf8'),
+  it('keeps section state on links and moves only the lane indicator with transform', async () => {
+    const [navigation, today, css, shellCss] = await Promise.all([
+      readFile(navigationUrl, 'utf8'),
       readFile(todayUrl, 'utf8'),
       readFile(cssUrl, 'utf8'),
+      readFile(shellCssUrl, 'utf8'),
     ]);
 
-    assert.match(page, /className=\{styles\.navIndicator\}/);
-    assert.match(page, /activeSectionIndex \* 48/);
+    assert.match(navigation, /className=\{styles\.navigationLink\}/);
+    assert.match(shellCss, /\.navigationLink\[aria-current='page'\]/);
+    assert.doesNotMatch(navigation, /navIndicator|activeSectionIndex/);
     assert.match(today, /className=\{styles\.laneIndicator\}/);
     assert.match(today, /activeLaneIndex \* 100/);
-    assert.match(css, /\.navIndicator[\s\S]*?transition:\s*transform/);
     assert.match(css, /\.laneIndicator[\s\S]*?transition:\s*transform/);
-    assert.doesNotMatch(
-      css,
-      /(?:navIndicator|laneIndicator)[\s\S]{0,400}transition:[^;]*(?:left|top|width|height)/,
-    );
+    assert.doesNotMatch(css, /laneIndicator[\s\S]{0,400}transition:[^;]*(?:left|top|width|height)/);
   });
 });

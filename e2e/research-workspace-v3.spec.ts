@@ -477,56 +477,44 @@ test.describe('v3 research workspace candidate', () => {
     });
   });
 
-  test('locks current compact navigation at 767 and 768 with focus containment', async ({
+  test('supports expanded, compact, and mobile navigation with one route-link tree', async ({
     page,
   }) => {
-    for (const width of [767, 768]) {
-      await page.setViewportSize({ height: 900, width });
-      await page.goto('/workspace/today');
+    await page.setViewportSize({ height: 900, width: 1240 });
+    await page.goto('/workspace/today');
 
-      const sidebar = page.getByTestId('workspace-sidebar');
-      const content = page.getByTestId('workspace-content');
-      const trigger = page.getByRole('button', { name: '메뉴 열기' });
-      const backgroundInput = content.locator('input').first();
-
-      await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
-      await expect(trigger).toBeVisible();
-      await expect(sidebar).toHaveAttribute('role', 'dialog');
-      await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-      await expect(sidebar).toHaveAttribute('inert', '');
-      await expect(backgroundInput).toBeEnabled();
-      await backgroundInput.focus();
-      await expect(backgroundInput).toBeFocused();
-
-      await trigger.click();
-      await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeVisible();
-      await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
-      await expect(content).toHaveAttribute('inert', '');
-      await expect(page.getByTestId('workspace-nav-today')).toBeFocused();
-
-      await page.keyboard.press('Shift+Tab');
-      expect(await sidebar.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
-      await backgroundInput.evaluate((element) => element.focus());
-      await expect(backgroundInput).not.toBeFocused();
-      expect(await sidebar.evaluate((element) => element.contains(document.activeElement))).toBe(
-        true,
-      );
-
-      await page.keyboard.press('Escape');
-      await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeHidden();
-      await expect(sidebar).toHaveAttribute('inert', '');
-      await expect(content).not.toHaveAttribute('inert');
-      await expect(trigger).toBeFocused();
-    }
-
-    await page.setViewportSize({ height: 900, width: 861 });
     const sidebar = page.getByTestId('workspace-sidebar');
-    await expect(page.getByRole('button', { name: '메뉴 열기' })).toBeHidden();
-    await expect(sidebar).not.toHaveAttribute('role');
-    await expect(sidebar).not.toHaveAttribute('aria-hidden');
-    await expect(sidebar).not.toHaveAttribute('inert');
+    const todayLink = page.getByTestId('workspace-nav-today');
+    await expect(sidebar).toHaveAttribute('data-navigation-mode', 'expanded');
+    await expect(sidebar).toHaveCSS('width', '210px');
+    await expect(todayLink).toHaveCount(1);
+    await expect(page.getByRole('button', { name: '사이드바 축소' })).toBeVisible();
+
+    await page.setViewportSize({ height: 900, width: 768 });
+    await expect(sidebar).toHaveAttribute('data-navigation-mode', 'compact');
+    await expect(sidebar).toHaveCSS('width', '68px');
+    await expect(todayLink).toHaveCount(1);
+    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+
+    await page.setViewportSize({ height: 900, width: 767 });
+    const trigger = page.getByRole('button', { name: '메뉴 열기' });
+    const content = page.getByTestId('workspace-content');
+    await expect(page.getByTestId('workspace-sidebar')).toHaveCount(0);
+    await expect(todayLink).toHaveCount(0);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    await trigger.click();
+    const mobileSidebar = page.getByRole('dialog', { name: '리서치 탐색 메뉴' });
+    await expect(mobileSidebar).toBeVisible();
+    await expect(mobileSidebar).toHaveAttribute('data-navigation-mode', 'mobile');
+    await expect(todayLink).toHaveCount(1);
+    await expect(content).toHaveAttribute('inert', '');
+    await expect(todayLink).toBeFocused();
+
+    await page.keyboard.press('Escape');
+    await expect(mobileSidebar).toBeHidden();
+    await expect(content).not.toHaveAttribute('inert');
+    await expect(trigger).toBeFocused();
   });
 
   test('clears the session on logout and protects the workspace again', async ({
@@ -644,7 +632,7 @@ test.describe('v3 research workspace candidate', () => {
     if (testInfo.project.name === 'mobile') {
       await expect(closeInspector).toBeFocused();
       await expect(page.getByTestId('workspace-content')).toHaveAttribute('inert', '');
-      await expect(page.getByTestId('workspace-sidebar')).toHaveAttribute('inert', '');
+      await expect(page.getByTestId('workspace-sidebar')).toHaveCount(0);
       const box = await inspector.boundingBox();
       expect(box).not.toBeNull();
       expect(box?.width ?? Infinity).toBeLessThanOrEqual(390);
@@ -1147,12 +1135,10 @@ test.describe('v3 research workspace candidate', () => {
     await page.goto('/workspace');
     const sidebar = page.getByTestId('workspace-sidebar');
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
     await menuButton.click();
-    await expect(sidebar).not.toHaveAttribute('aria-hidden');
-    await expect(sidebar).not.toHaveAttribute('inert');
+    await expect(sidebar).toBeVisible();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     await expect
       .poll(async () => (await sidebar.boundingBox())?.x ?? -999)
@@ -1164,16 +1150,14 @@ test.describe('v3 research workspace candidate', () => {
       true,
     );
     await page.keyboard.press('Escape');
-    await expect(sidebar).toHaveAttribute('inert', '');
-    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(-300);
+    await expect(sidebar).toHaveCount(0);
     await expect(menuButton).toBeFocused();
     await expect(page.getByTestId('workspace-content')).not.toHaveAttribute('inert');
 
     await menuButton.click();
     await expect(page.getByTestId('workspace-nav-status')).toBeVisible();
     await page.getByTestId('workspace-nav-status').click();
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(page.getByRole('heading', { name: '데이터 상태' })).toBeVisible();
     await page.keyboard.press('Tab');
     const focused = await page.evaluate(() => document.activeElement?.tagName ?? '');
@@ -1192,16 +1176,14 @@ test.describe('v3 research workspace candidate', () => {
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
 
     await menuButton.click();
-    await expect(sidebar).not.toHaveAttribute('inert');
+    await expect(sidebar).toBeVisible();
     await expect(content).toHaveAttribute('inert', '');
     await expect(page.getByTestId('workspace-nav-today')).toBeFocused();
 
     await page.keyboard.press('Escape');
-    await expect(sidebar).toHaveAttribute('aria-hidden', 'true');
-    await expect(sidebar).toHaveAttribute('inert', '');
+    await expect(sidebar).toHaveCount(0);
     await expect(content).not.toHaveAttribute('inert');
     await expect(menuButton).toBeFocused();
-    await expect.poll(async () => (await sidebar.boundingBox())?.x ?? 0).toBeLessThan(-300);
   });
 
   test('keeps the data as-of time visible on mobile', async ({ page }, testInfo) => {

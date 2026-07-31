@@ -10,14 +10,7 @@ const animateRevision = 'efeb96ffd7a3b7a4868667e4ac3c346620fb3044';
 const shadcnRevision = 'cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4';
 
 const expectedSources = [
-  ...[
-    'sidebar',
-    'sheet',
-    'tabs',
-    'tooltip',
-    'accordion',
-    'popover',
-  ].map((name) => ({
+  ...['sidebar', 'sheet', 'tabs', 'tooltip', 'accordion', 'popover'].map((name) => ({
     path: `shared/ui/animate-ui/components/radix/${name}.tsx`,
     upstream: `https://animate-ui.com/docs/components/radix/${name}`,
     item: `@animate-ui/components-radix-${name}`,
@@ -89,9 +82,7 @@ describe('workspace registry source', () => {
   });
 
   it('keeps registry state styling out of page CSS', async () => {
-    const pageCss = await read(
-      'pages/research-workspace/ui/research-workspace-page.module.css',
-    );
+    const pageCss = await read('pages/research-workspace/ui/research-workspace-page.module.css');
     assert.doesNotMatch(pageCss, /data-\[state=|focus-visible:ring-|whileHover|whileTap/);
   });
 });

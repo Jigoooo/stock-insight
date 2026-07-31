@@ -1,7 +1,8 @@
-import type { ResearchWorkspaceUrlState, SectionId } from '../ui/research-workspace-page';
+import type { ResearchWorkspaceUrlState } from '../ui/research-workspace-page';
+import type { WorkspaceSectionId } from '@/features/workspace-navigation';
 import type { ResearchFeedLaneId } from '@stock-insight/contracts/research-workspace';
 
-const allowedViews = new Set<SectionId>([
+const allowedViews = new Set<WorkspaceSectionId>([
   'today',
   'radar',
   'stocks',
@@ -17,8 +18,8 @@ export function validateWorkspaceSearch(
   search: Record<string, unknown>,
 ): ResearchWorkspaceUrlState {
   const view =
-    typeof search.view === 'string' && allowedViews.has(search.view as SectionId)
-      ? (search.view as SectionId)
+    typeof search.view === 'string' && allowedViews.has(search.view as WorkspaceSectionId)
+      ? (search.view as WorkspaceSectionId)
       : undefined;
   const lane =
     typeof search.lane === 'string' && allowedLanes.has(search.lane as ResearchFeedLaneId)

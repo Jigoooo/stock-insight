@@ -30,7 +30,7 @@ export const Route = createFileRoute('/_authenticated/workspace')({
       { rel: 'stylesheet', href: '/styles/wanted-font.css' },
     ],
     meta: [
-      { title: '리서치 워크스페이스 | Futur Insight' },
+      { title: '리서치 워크스페이스 | Stock Insight' },
       {
         name: 'description',
         content: '근거와 관계 경로를 함께 보는 개인 투자 리서치 워크스페이스',

@@ -14,6 +14,7 @@ const cssUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.module.css',
   import.meta.url,
 );
+const shellUrl = new URL('../src/widgets/workspace-shell/ui/workspace-shell.tsx', import.meta.url);
 
 describe('workspace overlay integration', () => {
   it('keeps the inspector owner mounted through exit with urgent focus and inert truth', async () => {
@@ -32,16 +33,19 @@ describe('workspace overlay integration', () => {
     assert.match(inspector, /ref=\{inspectorRef\}/);
   });
 
-  it('uses the shared overlay hook for mobile navigation and removes ad-hoc GSAP ownership', async () => {
-    const page = await readFile(pageUrl, 'utf8');
+  it('uses the shared Sheet for mobile navigation and removes ad-hoc GSAP ownership', async () => {
+    const [page, shell] = await Promise.all([
+      readFile(pageUrl, 'utf8'),
+      readFile(shellUrl, 'utf8'),
+    ]);
 
     assert.match(page, /import \{ EvidenceInspector \} from '.\/evidence-inspector'/);
     assert.doesNotMatch(page, /function EvidenceInspector\(/);
-    assert.match(page, /useWorkspaceOverlayMotion\(\{[\s\S]*?kind:\s*'drawer'/);
-    assert.match(page, /ref=\{navigationScrimRef\}/);
-    assert.match(page, /navTransition\.rendered/);
+    assert.match(shell, /<Sheet[\s\S]*?open=\{mobileOpen\}/);
+    assert.match(shell, /<SheetContent[\s\S]*?side="left"/);
+    assert.match(shell, /dispatch\(\{ type: 'set-mobile-open', open \}\)/);
     assert.match(page, /open=\{inspectorVisible\}/);
-    assert.doesNotMatch(page, /gsap\.(?:killTweensOf|set|to)\(navigation/);
+    assert.doesNotMatch(shell, /gsap\.(?:killTweensOf|set|to)\(navigation/);
   });
 
   it('uses plain dim scrims without backdrop blur', async () => {

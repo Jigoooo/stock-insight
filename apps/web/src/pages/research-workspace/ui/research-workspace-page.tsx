@@ -1,23 +1,5 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- Shared EmptyState owns a div root; non-error feedback must remain an explicit status region. */
-import { Link } from '@tanstack/react-router';
-import {
-  Activity,
-  AlertCircle,
-  BarChart3,
-  Bitcoin,
-  BookOpen,
-  ChevronRight,
-  CircleDot,
-  Database,
-  History,
-  LayoutDashboard,
-  LoaderCircle,
-  LogOut,
-  Menu,
-  Network,
-  UserPlus,
-  type LucideIcon,
-} from 'lucide-react';
+import { AlertCircle, CircleDot, UserPlus } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -26,13 +8,10 @@ import {
   useState,
   useSyncExternalStore,
   useTransition,
-  type RefObject,
 } from 'react';
 
 import { EvidenceInspector } from './evidence-inspector';
 import styles from './research-workspace-page.module.css';
-import { ResearchWorkspaceShell } from './research-workspace-shell';
-import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
 import { CryptoWorkspaceView } from './views/crypto-workspace-view';
 import { HistoryView } from './views/history-view';
 import { MyResearchView } from './views/my-research-view';
@@ -55,7 +34,13 @@ import { filterWorkspaceStocks } from '../model/workspace-search-filter';
 import { isLatestWorkspaceIntent } from '../model/workspace-transition-policy';
 import type { ResearchWorkspaceViewPayload } from '../model/workspace-view-payload';
 
-import { Button, EmptyState, ErrorState, IconButton, Skeleton } from '@/shared/ui/primitives';
+import {
+  workspaceSections,
+  type WorkspaceNavigationItem,
+  type WorkspaceSectionId,
+} from '@/features/workspace-navigation';
+import { Button, EmptyState, ErrorState, Skeleton } from '@/shared/ui/primitives';
+import { WorkspaceShell } from '@/widgets/workspace-shell';
 import { createApiClient } from '@stock-insight/api-client';
 import type {
   DecisionHistoryPage,
@@ -67,15 +52,7 @@ import type {
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
 
-export type SectionId =
-  | 'today'
-  | 'radar'
-  | 'stocks'
-  | 'crypto'
-  | 'themes'
-  | 'research'
-  | 'history'
-  | 'status';
+export type SectionId = WorkspaceSectionId;
 export type DetailState = 'ready' | 'loading' | 'error';
 
 export type ResearchWorkspaceUrlState = {
@@ -112,17 +89,6 @@ function createFeedPaginationValue(today: WorkspaceToday): FeedPaginationValue {
     loadedCursors: {},
   };
 }
-
-const sections: Array<{ id: SectionId; label: string; icon: LucideIcon }> = [
-  { id: 'today', label: '오늘', icon: LayoutDashboard },
-  { id: 'radar', label: '세계 레이더', icon: Activity },
-  { id: 'stocks', label: '종목', icon: BarChart3 },
-  { id: 'crypto', label: '크립토', icon: Bitcoin },
-  { id: 'themes', label: '테마·관계', icon: Network },
-  { id: 'research', label: '내 리서치', icon: BookOpen },
-  { id: 'history', label: '판단 이력', icon: History },
-  { id: 'status', label: '데이터 상태', icon: Database },
-];
 
 export const laneLabels: Record<ResearchFeedLaneId, string> = {
   must_know: '꼭 봐야 할 변화',
@@ -230,88 +196,9 @@ export const domainLabels: Record<string, string> = {
   user: '내 기록',
 };
 
-const focusableSelector = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
 const subscribeHydration = () => () => undefined;
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
-
-function useFocusTrap(
-  active: boolean,
-  containerRef: RefObject<HTMLElement | null>,
-  onDismiss: () => void,
-) {
-  const dismissRef = useRef(onDismiss);
-  useEffect(() => {
-    dismissRef.current = onDismiss;
-  }, [onDismiss]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!active || !container) return;
-
-    const previousFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusableElements = () =>
-      Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
-        (element) =>
-          !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true',
-      );
-    const frame = window.requestAnimationFrame(() => {
-      (
-        container.querySelector<HTMLElement>('[data-initial-focus]') ??
-        focusableElements()[0] ??
-        container
-      ).focus();
-    });
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        dismissRef.current();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const elements = focusableElements();
-      if (elements.length === 0) {
-        event.preventDefault();
-        container.focus();
-        return;
-      }
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (!first || !last) return;
-      const current = document.activeElement;
-      if (event.shiftKey && (current === first || !container.contains(current))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && current === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => {
-        const activeFocus = document.activeElement;
-        if (
-          previousFocus?.isConnected &&
-          (activeFocus === document.body || !activeFocus || container.contains(activeFocus))
-        ) {
-          previousFocus.focus();
-        }
-      }, 0);
-    };
-  }, [active, containerRef]);
-}
 
 export function formatDate(value: string | null | undefined, withTime = false) {
   if (!value) return '기준 없음';
@@ -424,7 +311,6 @@ export function ResearchWorkspacePage({
   const [dismissedInspectorRecords, setDismissedInspectorRecords] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const hydrated = useSyncExternalStore(
@@ -456,8 +342,6 @@ export function ResearchWorkspacePage({
       ? { base: data.history, value: { page: data.history, state: 'ready' } }
       : null,
   );
-  const navigationRef = useRef<HTMLElement>(null);
-  const navigationScrimRef = useRef<HTMLButtonElement>(null);
   const api = useMemo(() => createApiClient(), []);
   const section = onUrlStateChange ? data.view : localSection;
   // The URL is authoritative for the selected lane, not the payload. The today
@@ -468,28 +352,15 @@ export function ResearchWorkspacePage({
   const lane = onUrlStateChange
     ? (urlState.lane ?? (data.view === 'today' ? data.lane : 'must_know'))
     : localLane;
-  const mobileNavHidden = isMobileViewport && !mobileNavOpen;
-  const mobileNavModalOpen = isMobileViewport && mobileNavOpen;
   const urlInspectorVisible = Boolean(
     urlState.record && !dismissedInspectorRecords.has(urlState.record),
   );
   const inspectorVisible = section === 'today' && (inspectorOpen || urlInspectorVisible);
   const inspectorModalOpen = isMobileViewport && inspectorVisible;
-  const navTransition = useWorkspaceOverlayMotion({
-    kind: 'drawer',
-    open: mobileNavModalOpen,
-    panelRef: navigationRef,
-    scopeRef: navigationRef,
-    scrimRef: navigationScrimRef,
-  });
-
-  useFocusTrap(mobileNavModalOpen, navigationRef, () => setMobileNavOpen(false));
-
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 860px)');
+    const media = window.matchMedia('(max-width: 767px)');
     const syncViewport = () => {
       setIsMobileViewport(media.matches);
-      if (!media.matches) setMobileNavOpen(false);
     };
     syncViewport();
     media.addEventListener('change', syncViewport);
@@ -651,7 +522,6 @@ export function ResearchWorkspacePage({
       setThemeRelation(undefined);
       setThemeRelationState('ready');
     }
-    setMobileNavOpen(false);
     if (!onUrlStateChange) {
       setLocalSection(next);
       return;
@@ -802,18 +672,13 @@ export function ResearchWorkspacePage({
     }
   };
 
-  const sectionTitle = sections.find((item) => item.id === section)?.label ?? '오늘';
   const viewNavigationPending =
     navigationIntent.pendingSection !== null || navigationIntent.pendingLane !== null;
-  const pendingNavigationLabel = navigationIntent.pendingSection
-    ? sections.find((item) => item.id === navigationIntent.pendingSection)?.label
-    : navigationIntent.pendingLane
-      ? laneLabels[navigationIntent.pendingLane as ResearchFeedLaneId]
-      : null;
-  const activeSectionIndex = Math.max(
-    0,
-    sections.findIndex((item) => item.id === section),
-  );
+  const navigationItems: readonly WorkspaceNavigationItem[] = workspaceSections.map((item) => ({
+    ...item,
+    ...(item.id === 'radar' ? { count: data.shell.radarScopeTotal } : {}),
+    ...(item.id === 'research' ? { count: data.shell.watchlistCount } : {}),
+  }));
   const visibleDetailState =
     urlState.record && urlState.record !== visibleDetail?.recordKey
       ? 'loading'
@@ -834,217 +699,130 @@ export function ResearchWorkspacePage({
     void onUrlStateChange?.({ record: undefined });
   };
 
-  return (
-    <ResearchWorkspaceShell className={styles.canvas} data-testid="research-workspace-v3">
-      <aside
-        ref={navigationRef}
-        id="workspace-navigation"
-        data-testid="workspace-sidebar"
-        className={styles.sidebar}
-        data-overlay-phase={navTransition.phase}
-        role={isMobileViewport ? 'dialog' : undefined}
-        aria-label={isMobileViewport ? '리서치 탐색 메뉴' : undefined}
-        aria-modal={mobileNavModalOpen || undefined}
-        aria-hidden={mobileNavHidden || inspectorModalOpen || undefined}
-        inert={mobileNavHidden || inspectorModalOpen || undefined}
-        tabIndex={-1}
-      >
-        <div className={styles.brand}>
-          <span className={styles.brandMark}>FI</span>
+  const contextualActions = canManageInvitations ? (
+    <Button
+      type="button"
+      motion="quiet"
+      disabled={!hydrated}
+      onClick={() => window.location.assign('/admin/invitations')}
+    >
+      <UserPlus aria-hidden="true" /> 가입 코드 관리
+    </Button>
+  ) : null;
+
+  const workspaceViewContent = (
+    <>
+      {viewLoadError && (
+        <ErrorState className={styles.viewLoadError} testId="workspace-view-load-error">
+          <AlertCircle aria-hidden="true" />
           <div>
-            <strong>Futur Insight</strong>
-            <span>Research workspace</span>
+            <strong>
+              {workspaceSections.find(({ id }) => id === viewLoadError)?.label ?? '선택한 화면'}을
+              불러오지 못했습니다
+            </strong>
+            <p>기존 워크스페이스는 유지했습니다. 연결을 확인한 뒤 다시 시도해 주세요.</p>
           </div>
-        </div>
-        <nav className={styles.nav} aria-label="리서치 워크스페이스">
-          <span
-            className={styles.navIndicator}
-            aria-hidden="true"
-            style={{ transform: `translate3d(0, ${activeSectionIndex * 48}px, 0)` }}
-          />
-          {sections.map(({ id, label, icon: Icon }) => (
-            /* A real anchor, not a click handler: each tab is its own route now,
-               so the browser gets a href it can middle-click, open in a new tab
-               and prefetch, while TanStack intercepts the click for a
-               client-side transition. */
-            <Link
-              key={id}
-              to={`/workspace/${id}`}
-              data-testid={`workspace-nav-${id}`}
-              data-pending={navigationIntent.pendingSection === id || undefined}
-              aria-busy={navigationIntent.pendingSection === id || undefined}
-              aria-current={section === id ? 'page' : undefined}
-              onFocus={() => onPrefetchSection?.(id)}
-              onPointerEnter={() => onPrefetchSection?.(id)}
-              onClick={() => selectSection(id)}
-            >
-              <Icon aria-hidden="true" />
-              <span>{label}</span>
-              {id === 'radar' && <small>{formatNumber(data.shell.radarScopeTotal)}</small>}
-              {id === 'research' && <small>{data.shell.watchlistCount}</small>}
-            </Link>
-          ))}
-        </nav>
-        <div className={styles.sidebarFoot}>
-          <div>
-            <CircleDot aria-hidden="true" />
-            <span>조회·리서치 전용</span>
-          </div>
-          {canManageInvitations ? (
-            <Button
-              type="button"
-              motion="quiet"
-              disabled={!hydrated}
-              onClick={() => window.location.assign('/admin/invitations')}
-            >
-              <UserPlus aria-hidden="true" /> 가입 코드 관리
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            motion="quiet"
-            disabled={!hydrated || loggingOut}
-            onClick={() => void handleLogout()}
-          >
-            <LogOut aria-hidden="true" /> {loggingOut ? '로그아웃 중' : '로그아웃'}
+          <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
+            다시 시도
           </Button>
-        </div>
-      </aside>
+        </ErrorState>
+      )}
+      {section === 'today' && data.view === 'today' && (
+        <TodayView
+          data={data.today}
+          interactive={hydrated}
+          lane={lane}
+          pendingLane={navigationIntent.pendingLane as ResearchFeedLaneId | null}
+          onLaneChange={selectLane}
+          items={currentLane?.items ?? []}
+          nextCursor={currentLane?.nextCursor ?? null}
+          cursorLoading={Boolean(
+            urlState.cursor && loadedCursor !== urlState.cursor && !failedCursor,
+          )}
+          cursorError={Boolean(urlState.cursor && failedCursor === urlState.cursor)}
+          onLoadMore={() => {
+            if (data.view === 'today' && currentLane?.nextCursor) {
+              setFeedPagination((current) => {
+                const value =
+                  resolveWorkspaceAuthoritativeOverride(data.today, current) ??
+                  createFeedPaginationValue(data.today);
+                return {
+                  base: data.today,
+                  value: { ...value, failedCursor: undefined },
+                };
+              });
+              void onUrlStateChange?.({ cursor: currentLane.nextCursor });
+            }
+          }}
+          selectedRecordKey={visibleDetail?.recordKey}
+          onSelectRecord={(item) => void selectRecord(item)}
+        />
+      )}
+      {section === 'radar' && data.view === 'radar' && (
+        <RadarView
+          data={visibleRadarPage ?? data.radar}
+          geoSnapshot={data.geoSnapshot}
+          interactive={hydrated}
+          pageState={visibleRadarPageState}
+          onLoadMore={() => void loadMoreRadar()}
+        />
+      )}
+      {section === 'stocks' && data.view === 'stocks' && (
+        <StocksView data={data.stocks} pending={searchPending} stocks={stocks} />
+      )}
+      {section === 'crypto' && data.view === 'crypto' && <CryptoWorkspaceView data={data.crypto} />}
+      {section === 'themes' && data.view === 'themes' && (
+        <ThemesView
+          data={data.themes}
+          interactive={hydrated}
+          relation={visibleThemeRelation}
+          relationState={visibleThemeRelationState}
+          onSelectEntity={(entityKey) => void selectThemeEntity(entityKey)}
+        />
+      )}
+      {section === 'research' && data.view === 'research' && (
+        <MyResearchView data={data.myResearch} personalization={data.personalization} />
+      )}
+      {section === 'history' && data.view === 'history' && (
+        <HistoryView
+          data={visibleHistoryPage ?? data.history}
+          interactive={hydrated}
+          pageState={visibleHistoryPageState}
+          onLoadMore={() => void loadMoreHistory()}
+        />
+      )}
+      {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
+    </>
+  );
 
-      <section
-        className={styles.workspace}
-        data-testid="workspace-content"
-        aria-hidden={mobileNavModalOpen || inspectorModalOpen || undefined}
-        inert={mobileNavModalOpen || inspectorModalOpen || undefined}
+  return (
+    <WorkspaceShell
+      activeSection={section}
+      contextualActions={contextualActions}
+      mobileModalInert={inspectorModalOpen}
+      navigationItems={navigationItems}
+      navigationPending={navigationIntent.pendingSection as WorkspaceSectionId | null}
+      onLogout={() => void handleLogout()}
+      onNavigate={selectSection}
+      onPrefetch={onPrefetchSection}
+      search={
+        <WorkspaceSearch
+          disabled={!hydrated}
+          onQueryChange={setQuery}
+          onSubmit={() => selectSection('stocks')}
+          pending={searchPending}
+          query={query}
+        />
+      }
+    >
+      <WorkspaceViewRegion
+        className={styles.content}
+        navigationSequence={navigationIntent.sequence}
+        pending={viewNavigationPending}
+        viewKey={section}
       >
-        <header className={styles.topbar}>
-          <IconButton
-            className={styles.mobileMenu}
-            type="button"
-            motion="quiet"
-            aria-label="메뉴 열기"
-            aria-controls="workspace-navigation"
-            aria-expanded={mobileNavOpen}
-            disabled={!hydrated}
-            onClick={() => setMobileNavOpen((value) => !value)}
-          >
-            <Menu aria-hidden="true" />
-          </IconButton>
-          <div className={styles.crumbs}>
-            <strong>{sectionTitle}</strong>
-            <ChevronRight aria-hidden="true" />
-            <span>리서치 워크스페이스</span>
-          </div>
-          {viewNavigationPending ? (
-            <output
-              className={styles.navigationStatus}
-              data-testid="workspace-navigation-status"
-              aria-live="polite"
-            >
-              <LoaderCircle aria-hidden="true" />
-              {pendingNavigationLabel ?? '선택한 화면'} 여는 중
-            </output>
-          ) : null}
-          <WorkspaceSearch
-            disabled={!hydrated}
-            onQueryChange={setQuery}
-            onSubmit={() => selectSection('stocks')}
-            pending={searchPending}
-            query={query}
-          />
-        </header>
-
-        <WorkspaceViewRegion
-          className={styles.content}
-          navigationSequence={navigationIntent.sequence}
-          pending={viewNavigationPending}
-          viewKey={section}
-        >
-          {viewLoadError && (
-            <ErrorState className={styles.viewLoadError} testId="workspace-view-load-error">
-              <AlertCircle aria-hidden="true" />
-              <div>
-                <strong>
-                  {sections.find(({ id }) => id === viewLoadError)?.label ?? '선택한 화면'}을
-                  불러오지 못했습니다
-                </strong>
-                <p>기존 워크스페이스는 유지했습니다. 연결을 확인한 뒤 다시 시도해 주세요.</p>
-              </div>
-              <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
-                다시 시도
-              </Button>
-            </ErrorState>
-          )}
-          {section === 'today' && data.view === 'today' && (
-            <TodayView
-              data={data.today}
-              interactive={hydrated}
-              lane={lane}
-              pendingLane={navigationIntent.pendingLane as ResearchFeedLaneId | null}
-              onLaneChange={selectLane}
-              items={currentLane?.items ?? []}
-              nextCursor={currentLane?.nextCursor ?? null}
-              cursorLoading={Boolean(
-                urlState.cursor && loadedCursor !== urlState.cursor && !failedCursor,
-              )}
-              cursorError={Boolean(urlState.cursor && failedCursor === urlState.cursor)}
-              onLoadMore={() => {
-                if (data.view === 'today' && currentLane?.nextCursor) {
-                  setFeedPagination((current) => {
-                    const value =
-                      resolveWorkspaceAuthoritativeOverride(data.today, current) ??
-                      createFeedPaginationValue(data.today);
-                    return {
-                      base: data.today,
-                      value: { ...value, failedCursor: undefined },
-                    };
-                  });
-                  void onUrlStateChange?.({ cursor: currentLane.nextCursor });
-                }
-              }}
-              selectedRecordKey={visibleDetail?.recordKey}
-              onSelectRecord={(item) => void selectRecord(item)}
-            />
-          )}
-          {section === 'radar' && data.view === 'radar' && (
-            <RadarView
-              data={visibleRadarPage ?? data.radar}
-              geoSnapshot={data.geoSnapshot}
-              interactive={hydrated}
-              pageState={visibleRadarPageState}
-              onLoadMore={() => void loadMoreRadar()}
-            />
-          )}
-          {section === 'stocks' && data.view === 'stocks' && (
-            <StocksView data={data.stocks} pending={searchPending} stocks={stocks} />
-          )}
-          {section === 'crypto' && data.view === 'crypto' && (
-            <CryptoWorkspaceView data={data.crypto} />
-          )}
-          {section === 'themes' && data.view === 'themes' && (
-            <ThemesView
-              data={data.themes}
-              interactive={hydrated}
-              relation={visibleThemeRelation}
-              relationState={visibleThemeRelationState}
-              onSelectEntity={(entityKey) => void selectThemeEntity(entityKey)}
-            />
-          )}
-          {section === 'research' && data.view === 'research' && (
-            <MyResearchView data={data.myResearch} personalization={data.personalization} />
-          )}
-          {section === 'history' && data.view === 'history' && (
-            <HistoryView
-              data={visibleHistoryPage ?? data.history}
-              interactive={hydrated}
-              pageState={visibleHistoryPageState}
-              onLoadMore={() => void loadMoreHistory()}
-            />
-          )}
-          {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
-        </WorkspaceViewRegion>
-      </section>
-
+        {workspaceViewContent}
+      </WorkspaceViewRegion>
       <EvidenceInspector
         detail={visibleDetail}
         relation={relation}
@@ -1053,20 +831,7 @@ export function ResearchWorkspacePage({
         onClose={closeInspector}
         open={inspectorVisible}
       />
-      {isMobileViewport && navTransition.rendered && (
-        <Button
-          ref={navigationScrimRef}
-          className={styles.scrim}
-          type="button"
-          motion="none"
-          aria-hidden={!navTransition.desiredOpen || undefined}
-          aria-label="메뉴 닫기"
-          disabled={!navTransition.desiredOpen}
-          tabIndex={navTransition.desiredOpen ? 0 : -1}
-          onClick={() => setMobileNavOpen(false)}
-        />
-      )}
-    </ResearchWorkspaceShell>
+    </WorkspaceShell>
   );
 }
 

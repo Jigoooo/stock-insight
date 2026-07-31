@@ -6,8 +6,23 @@ const pageSource = readFileSync(
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   'utf8',
 );
+const workspaceShell = [
+  readFileSync(
+    new URL('../src/widgets/workspace-shell/ui/workspace-navigation.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/widgets/workspace-shell/ui/workspace-topbar.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/widgets/workspace-shell/ui/workspace-shell.tsx', import.meta.url),
+    'utf8',
+  ),
+].join('\n');
 const workspace = [
   pageSource,
+  workspaceShell,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
     'utf8',
@@ -98,11 +113,15 @@ describe('v3 research workspace structure', () => {
   });
 
   it('keeps stable workspace navigation and view-region contracts', () => {
+    assert.match(page, /<WorkspaceShell/);
+    assert.match(workspace, /function WorkspaceNavigation/);
+    assert.match(workspace, /function WorkspaceTopbar/);
     assert.match(page, /data-testid="workspace-content"/);
-    assert.match(page, /data-testid=\{`workspace-nav-\$\{id\}`\}/);
-    assert.match(page, /aria-current=\{section === id \? 'page' : undefined\}/);
+    assert.match(page, /data-testid=\{`workspace-nav-\$\{item\.id\}`\}/);
+    assert.match(page, /aria-current=\{activeSection === item\.id \? 'page' : undefined\}/);
     assert.match(page, /navigationSequence=\{navigationIntent\.sequence\}/);
     assert.match(page, /viewKey=\{section\}/);
+    assert.doesNotMatch(page, /const sections:\s*Array/);
   });
 
   it('maps every machine-facing value to stable Korean workspace copy', () => {
