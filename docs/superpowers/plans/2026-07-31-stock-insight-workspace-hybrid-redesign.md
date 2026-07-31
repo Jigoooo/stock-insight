@@ -248,131 +248,107 @@ Expected: all remaining tasks run only in `/private/tmp/stock-insight-workspace-
 ### Task 2: Lock Existing Workspace Behavior Before Visual Conversion
 
 **Files:**
-- Create: `apps/web/test/workspace-shell-state.test.ts`
+- Create: `apps/web/test/workspace-shell-current-contract.test.ts`
 - Modify: `apps/web/test/research-workspace-v3-structure.test.ts`
 - Modify: `apps/web/test/workspace-overlay-integration-contract.test.ts`
 - Modify: `e2e/research-workspace-v3.spec.ts`
 
 **Interfaces:**
-- Consumes: current `SectionId`, current navigation test IDs, current Sheet/inspector focus behavior.
-- Produces: failing contracts for the 210px/68px/below-768 shell and preserved route behavior.
+- Consumes: current `SectionId`, navigation test IDs, URL state, mobile drawer, and inspector focus behavior.
+- Produces: passing characterization tests for behavior that the visual conversion must preserve.
 
-- [ ] **Step 1: Write the shell-state contract**
+- [ ] **Step 1: Write the current shell characterization contract**
 
-Create `apps/web/test/workspace-shell-state.test.ts`:
+Create `apps/web/test/workspace-shell-current-contract.test.ts`:
 
 ```ts
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-import {
-  createWorkspaceShellState,
-  reduceWorkspaceShellState,
-  resolveResponsiveNavigationMode,
-} from '../src/widgets/workspace-shell/model/workspace-shell-state.ts';
+const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
-describe('workspace shell state', () => {
-  it('uses the approved responsive defaults', () => {
-    assert.equal(resolveResponsiveNavigationMode(1440), 'expanded');
-    assert.equal(resolveResponsiveNavigationMode(1240), 'expanded');
-    assert.equal(resolveResponsiveNavigationMode(1239), 'compact');
-    assert.equal(resolveResponsiveNavigationMode(768), 'compact');
-    assert.equal(resolveResponsiveNavigationMode(767), 'mobile');
+describe('current workspace shell behavior', () => {
+  it('keeps URL authority and real navigation links', async () => {
+    const page = await read('pages/research-workspace/ui/research-workspace-page.tsx');
+    assert.match(page, /to=\{`\/workspace\/\$\{id\}`\}/);
+    assert.match(page, /data-testid=\{`workspace-nav-\$\{id\}`\}/);
+    assert.match(page, /onFocus=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
+    assert.match(page, /onPointerEnter=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
+    assert.match(page, /const lane = onUrlStateChange/);
+    assert.match(page, /void onUrlStateChange\?\.\(\{ record: undefined \}\)/);
   });
 
-  it('keeps an explicit desktop override only for the mounted shell', () => {
-    const initial = createWorkspaceShellState(1440);
-    const compact = reduceWorkspaceShellState(initial, { type: 'toggle-desktop-mode' });
-    assert.equal(compact.mode, 'compact');
-    assert.equal(compact.override, 'compact');
-    assert.deepEqual(createWorkspaceShellState(1440), {
-      mode: 'expanded',
-      override: null,
-      mobileOpen: false,
-    });
-  });
-
-  it('closes the mobile sheet when a route is committed', () => {
-    const opened = reduceWorkspaceShellState(createWorkspaceShellState(390), {
-      type: 'set-mobile-open',
-      open: true,
-    });
-    assert.equal(opened.mobileOpen, true);
-    assert.equal(
-      reduceWorkspaceShellState(opened, { type: 'route-committed' }).mobileOpen,
-      false,
-    );
+  it('keeps mobile navigation and evidence focus ownership explicit', async () => {
+    const page = await read('pages/research-workspace/ui/research-workspace-page.tsx');
+    const inspector = await read('pages/research-workspace/ui/evidence-inspector.tsx');
+    assert.match(page, /useFocusTrap\(mobileNavModalOpen/);
+    assert.match(page, /inert=\{mobileNavModalOpen \|\| inspectorModalOpen \|\| undefined\}/);
+    assert.match(page, /setMobileNavOpen\(false\)/);
+    assert.match(inspector, /event\.key !== 'Escape'/);
+    assert.match(inspector, /useFocusTrap\(renderModal && transition\.desiredOpen/);
+    assert.match(inspector, /opener\?\.isConnected/);
   });
 });
 ```
 
-- [ ] **Step 2: Add structural assertions for the future component boundary**
+- [ ] **Step 2: Extend existing structure tests with preserved contracts**
 
-Append tests to `apps/web/test/research-workspace-v3-structure.test.ts` that assert:
+Append assertions that remain valid before and after the redesign:
 
 ```ts
-assert.match(page, /<WorkspaceShell/);
-assert.match(page, /<WorkspaceNavigation/);
-assert.match(page, /<WorkspaceTopbar/);
 assert.match(page, /data-testid="workspace-content"/);
-assert.doesNotMatch(page, /const sections:\s*Array/);
+assert.match(page, /data-testid=\{`workspace-nav-\$\{id\}`\}/);
+assert.match(page, /aria-current=\{section === id \? 'page' : undefined\}/);
+assert.match(page, /navigationSequence=\{navigationIntent\.sequence\}/);
+assert.match(page, /viewKey=\{section\}/);
 ```
 
-Update the fixture to read the future widget sources into `workspace` before applying the assertions.
-
-- [ ] **Step 3: Add browser assertions for all three navigation modes**
+- [ ] **Step 3: Add a passing browser characterization**
 
 Add one Playwright test to `e2e/research-workspace-v3.spec.ts`:
 
 ```ts
-test('uses expanded, compact, and mobile navigation without duplicating routes', async ({
+test('keeps one navigation target and restores mobile focus', async ({
   page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 960 });
+}, testInfo) => {
   await page.goto('/workspace/today');
-  await expect(page.getByTestId('workspace-sidebar')).toHaveAttribute(
-    'data-navigation-mode',
-    'expanded',
-  );
   await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
 
-  await page.setViewportSize({ width: 1180, height: 900 });
-  await expect(page.getByTestId('workspace-sidebar')).toHaveAttribute(
-    'data-navigation-mode',
-    'compact',
-  );
-  await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByTestId('workspace-sidebar')).toHaveCount(0);
+  if (testInfo.project.name !== 'mobile') return;
+  const trigger = page.getByRole('button', { name: '메뉴 열기' });
+  await trigger.focus();
   await page.getByRole('button', { name: '메뉴 열기' }).click();
-  await expect(page.getByRole('dialog', { name: '워크스페이스 메뉴' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeVisible();
   await expect(page.getByTestId('workspace-nav-today')).toHaveCount(1);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '리서치 탐색 메뉴' })).toBeHidden();
+  await expect(trigger).toBeFocused();
 });
 ```
 
-- [ ] **Step 4: Run the new tests and confirm they fail for missing implementation**
+- [ ] **Step 4: Run the characterization tests and confirm they pass**
 
 Run:
 
 ```bash
 pnpm --filter @stock-insight/web exec node --test \
-  test/workspace-shell-state.test.ts \
+  test/workspace-shell-current-contract.test.ts \
   test/research-workspace-v3-structure.test.ts \
   test/workspace-overlay-integration-contract.test.ts
 ```
 
-Expected: FAIL because `widgets/workspace-shell` and the new composition boundary do not exist.
+Expected: PASS against the current implementation.
 
-- [ ] **Step 5: Commit the red tests**
+- [ ] **Step 5: Commit the green characterization tests**
 
 ```bash
 git add \
-  apps/web/test/workspace-shell-state.test.ts \
+  apps/web/test/workspace-shell-current-contract.test.ts \
   apps/web/test/research-workspace-v3-structure.test.ts \
   apps/web/test/workspace-overlay-integration-contract.test.ts \
   e2e/research-workspace-v3.spec.ts
-git commit -m "test(workspace): A+B 셸 동작 계약 고정"
+git commit -m "test(workspace): 기존 셸 동작 계약 고정"
 ```
 
 ---
@@ -497,6 +473,7 @@ git commit -m "feat(ui): workspace registry 기반 추가"
 ### Task 4: Build the A+B Workspace Shell
 
 **Files:**
+- Create: `apps/web/test/workspace-shell-state.test.ts`
 - Create: `apps/web/src/features/workspace-navigation/model/sections.ts`
 - Create: `apps/web/src/features/workspace-navigation/index.ts`
 - Create: `apps/web/src/widgets/workspace-shell/model/workspace-shell-state.ts`
@@ -516,6 +493,8 @@ git commit -m "feat(ui): workspace registry 기반 추가"
 - Modify: `apps/web/src/routes/_authenticated/workspace/research.tsx`
 - Modify: `apps/web/src/routes/_authenticated/workspace/history.tsx`
 - Modify: `apps/web/src/routes/_authenticated/workspace/status.tsx`
+- Modify: `apps/web/test/research-workspace-v3-structure.test.ts`
+- Modify: `e2e/research-workspace-v3.spec.ts`
 - Delete: `apps/web/src/pages/research-workspace/ui/research-workspace-shell.tsx`
 - Delete: `apps/web/src/pages/research-workspace/ui/research-workspace-shell.module.css`
 
@@ -558,7 +537,78 @@ export type WorkspaceShellProps = {
 };
 ```
 
-- [ ] **Step 1: Implement the pure shell reducer**
+- [ ] **Step 1: Write the failing A+B shell tests**
+
+Create `apps/web/test/workspace-shell-state.test.ts`:
+
+```ts
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  createWorkspaceShellState,
+  reduceWorkspaceShellState,
+  resolveResponsiveNavigationMode,
+} from '../src/widgets/workspace-shell/model/workspace-shell-state.ts';
+
+describe('workspace shell state', () => {
+  it('uses the approved responsive defaults', () => {
+    assert.equal(resolveResponsiveNavigationMode(1440), 'expanded');
+    assert.equal(resolveResponsiveNavigationMode(1240), 'expanded');
+    assert.equal(resolveResponsiveNavigationMode(1239), 'compact');
+    assert.equal(resolveResponsiveNavigationMode(768), 'compact');
+    assert.equal(resolveResponsiveNavigationMode(767), 'mobile');
+  });
+
+  it('keeps an explicit desktop override only for the mounted shell', () => {
+    const initial = createWorkspaceShellState(1440);
+    const compact = reduceWorkspaceShellState(initial, { type: 'toggle-desktop-mode' });
+    assert.equal(compact.mode, 'compact');
+    assert.equal(compact.override, 'compact');
+    assert.deepEqual(createWorkspaceShellState(1440), {
+      mode: 'expanded',
+      override: null,
+      mobileOpen: false,
+    });
+  });
+
+  it('closes the mobile sheet when a route is committed', () => {
+    const opened = reduceWorkspaceShellState(createWorkspaceShellState(390), {
+      type: 'set-mobile-open',
+      open: true,
+    });
+    assert.equal(opened.mobileOpen, true);
+    assert.equal(
+      reduceWorkspaceShellState(opened, { type: 'route-committed' }).mobileOpen,
+      false,
+    );
+  });
+});
+```
+
+Add future structure assertions:
+
+```ts
+assert.match(page, /<WorkspaceShell/);
+assert.match(workspace, /function WorkspaceNavigation/);
+assert.match(workspace, /function WorkspaceTopbar/);
+assert.match(page, /data-testid="workspace-content"/);
+assert.doesNotMatch(page, /const sections:\s*Array/);
+```
+
+Add the expanded/compact/mobile browser test from the approved A+B contract, asserting one `workspace-nav-today` target in every mode.
+
+- [ ] **Step 2: Run the new tests and verify the expected failure**
+
+```bash
+pnpm --filter @stock-insight/web exec node --test \
+  test/workspace-shell-state.test.ts \
+  test/research-workspace-v3-structure.test.ts
+```
+
+Expected: FAIL because `widgets/workspace-shell` and its state model do not exist.
+
+- [ ] **Step 3: Implement the pure shell reducer**
 
 Create `workspace-shell-state.ts`:
 
@@ -614,7 +664,7 @@ export function reduceWorkspaceShellState(
 }
 ```
 
-- [ ] **Step 2: Run the reducer test**
+- [ ] **Step 4: Run the reducer test**
 
 Run:
 
@@ -624,7 +674,7 @@ pnpm --filter @stock-insight/web exec node --test test/workspace-shell-state.tes
 
 Expected: PASS.
 
-- [ ] **Step 3: Extract the canonical section model and navigation component**
+- [ ] **Step 5: Extract the canonical section model and navigation component**
 
 Move the current `sections` configuration to `features/workspace-navigation/model/sections.ts`. Update `workspace-search.ts` to import `WorkspaceSectionId` from the feature model. Keep `export type SectionId = WorkspaceSectionId` in `research-workspace-page.tsx` temporarily so existing external test contracts remain source-compatible.
 
@@ -643,7 +693,7 @@ Compact buttons must use:
 
 Do not add scale motion to navigation rows.
 
-- [ ] **Step 4: Build the single-tree responsive shell**
+- [ ] **Step 6: Build the single-tree responsive shell**
 
 `WorkspaceShell` must:
 
@@ -664,7 +714,7 @@ const shellTransition = { duration: 0.18, ease: [0.22, 1, 0.36, 1] } as const;
 
 Set the width immediately when `useReducedMotion()` is true.
 
-- [ ] **Step 5: Move top-bar ownership**
+- [ ] **Step 7: Move top-bar ownership**
 
 Build `WorkspaceTopbar` with:
 
@@ -677,7 +727,7 @@ Build `WorkspaceTopbar` with:
 
 Pending route state belongs in the top bar. Do not apply opacity or transform to `WorkspaceViewRegion`.
 
-- [ ] **Step 6: Replace the inline shell in `ResearchWorkspacePage`**
+- [ ] **Step 8: Replace the inline shell in `ResearchWorkspacePage`**
 
 Keep pagination, URL authority, inspector state, prefetch, and view dispatch in `ResearchWorkspacePage`. Replace only the render-owned sidebar/topbar/scrim sections with:
 
@@ -712,11 +762,11 @@ Keep pagination, URL authority, inspector state, prefetch, and view dispatch in 
 
 Extract the current conditional view block into the local `workspaceViewContent` variable without changing any child props. Keep the existing navigation intent reducer and call `onNavigate` from the real route link click so mobile state closes without issuing a second navigation.
 
-- [ ] **Step 7: Update authenticated route branding**
+- [ ] **Step 9: Update authenticated route branding**
 
 Change only the document-title suffix in the workspace layout and all eight child routes from `Futur Insight` to `Stock Insight`. Keep route paths, descriptions, loaders, pending settings, and search validation unchanged.
 
-- [ ] **Step 8: Run shell contracts and focused browser tests**
+- [ ] **Step 10: Run shell contracts and focused browser tests**
 
 Run:
 
@@ -738,7 +788,7 @@ pnpm exec playwright test e2e/research-workspace-v3.spec.ts \
 
 Expected: unit contracts pass; credential-backed browser tests pass with exactly one route link per navigation item.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add \
@@ -750,7 +800,8 @@ git add \
   apps/web/src/pages/research-workspace/ui/research-workspace-shell.module.css \
   apps/web/src/routes/_authenticated/workspace.tsx \
   apps/web/src/routes/_authenticated/workspace \
-  apps/web/test
+  apps/web/test \
+  e2e/research-workspace-v3.spec.ts
 git commit -m "feat(workspace): A+B 하이브리드 셸 적용"
 ```
 
