@@ -70,6 +70,26 @@ async function expectUniqueHeadingReference(page: Page) {
   await expect(page.locator(`#${headingId}`)).toHaveCount(1);
 }
 
+async function activeLiveRegionOwners(page: Page, message: string) {
+  return page.locator('[aria-live]').evaluateAll(
+    (elements, expectedMessage) =>
+      elements
+        .filter(
+          (element) =>
+            element.getAttribute('aria-live') !== 'off' &&
+            !element.closest('[aria-hidden="true"]') &&
+            (element.textContent ?? '').includes(expectedMessage),
+        )
+        .map((element) => ({
+          id: element.id,
+          live: element.getAttribute('aria-live'),
+          role: element.getAttribute('role'),
+          text: element.textContent?.trim() ?? '',
+        })),
+    message,
+  );
+}
+
 test.describe('one-time enrollment presentation', () => {
   for (const target of ['available', 'unavailable', 'error'] as const) {
     test(`keeps the checking to ${target} heading reference unique`, async ({ page }) => {
@@ -238,6 +258,21 @@ test.describe('one-time enrollment presentation', () => {
     expect(samples).toContain(
       'alert:계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.',
     );
+    await page.waitForTimeout(500);
+    expect(
+      await activeLiveRegionOwners(
+        page,
+        '계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.',
+      ),
+    ).toEqual([
+      {
+        id: 'signup-error',
+        live: 'assertive',
+        role: 'alert',
+        text: '계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.',
+      },
+    ]);
+    await expect(page.locator('[data-toast-id]')).toHaveCount(0);
   });
 });
 

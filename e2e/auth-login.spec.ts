@@ -133,6 +133,26 @@ async function authStateAppearance(page: Page) {
   });
 }
 
+async function activeLiveRegionOwners(page: Page, message: string) {
+  return page.locator('[aria-live]').evaluateAll(
+    (elements, expectedMessage) =>
+      elements
+        .filter(
+          (element) =>
+            element.getAttribute('aria-live') !== 'off' &&
+            !element.closest('[aria-hidden="true"]') &&
+            (element.textContent ?? '').includes(expectedMessage),
+        )
+        .map((element) => ({
+          id: element.id,
+          live: element.getAttribute('aria-live'),
+          role: element.getAttribute('role'),
+          text: element.textContent?.trim() ?? '',
+        })),
+    message,
+  );
+}
+
 test.describe('private workspace authentication', () => {
   test('uses one restrained centered auth card without decorative marketing chrome', async ({
     page,
@@ -505,17 +525,39 @@ test.describe('private workspace authentication', () => {
     );
     expect(feedbackSamples).toContain('status:계정 정보를 확인하고 있습니다.');
     expect(feedbackSamples).toContain('alert:아이디 또는 비밀번호를 확인해 주세요.');
-    const toast = page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' });
-    await expect(toast).toBeVisible();
-    const closeToast = toast.getByRole('button', { name: '알림 닫기' });
-    await expect(closeToast).toBeVisible();
-    await closeToast.click();
-    await expect(toast).toBeHidden();
+    await page.waitForTimeout(500);
+    expect(await activeLiveRegionOwners(page, '아이디 또는 비밀번호를 확인해 주세요.')).toEqual([
+      {
+        id: 'login-error',
+        live: 'assertive',
+        role: 'alert',
+        text: '아이디 또는 비밀번호를 확인해 주세요.',
+      },
+    ]);
+    await expect(page.locator('[data-toast-id]')).toHaveCount(0);
   });
 
   test('removes feedback translation when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/login');
+    await page.locator('[data-auth-feedback-announcement]').evaluate((announcement) => {
+      const slot = announcement.parentElement;
+      if (!slot) throw new Error('feedback slot is missing');
+      const samples: Array<{ phase: string; text: string; transform: string }> = [];
+      const capture = (phase: string) => {
+        for (const visual of slot.querySelectorAll<HTMLElement>('[data-auth-feedback-visual]')) {
+          const text = visual.textContent?.trim() ?? '';
+          if (text) {
+            samples.push({ phase, text, transform: getComputedStyle(visual).transform });
+          }
+        }
+      };
+      new MutationObserver(() => {
+        capture('transition-start');
+        requestAnimationFrame(() => capture('next-frame'));
+      }).observe(slot, { childList: true, subtree: true, characterData: true });
+      Object.assign(window, { __reducedFeedbackTransformSamples: samples });
+    });
     await page.getByLabel('사용자 이름').fill('invalid-user');
     await page.getByRole('textbox', { name: '비밀번호', exact: true }).fill('not-a-real-password');
     await page.getByRole('button', { name: '로그인', exact: true }).click();
@@ -526,40 +568,29 @@ test.describe('private workspace authentication', () => {
     await expect
       .poll(() => visualFeedback.evaluate((element) => getComputedStyle(element).transform))
       .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
-  });
-
-  test('finishes a toast exit when reduced-motion changes during close', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/login');
-    const usernameField = page.getByLabel('사용자 이름');
-    const passwordField = page.getByRole('textbox', { name: '비밀번호', exact: true });
-    const submit = page.getByRole('button', { name: '로그인', exact: true });
-
-    await usernameField.fill('invalid-user');
-    await passwordField.fill('not-a-real-password');
-    await submit.click();
-
-    const firstToast = page
-      .locator('[data-toast-id]')
-      .filter({ hasText: '로그인하지 못했습니다.' });
-    await expect(firstToast).toBeVisible();
-    const firstToastId = await firstToast.getAttribute('data-toast-id');
-    await firstToast.getByRole('button', { name: '알림 닫기' }).click();
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(firstToast).toBeHidden();
-
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await submit.click();
-    const secondToast = page
-      .locator('[data-toast-id]')
-      .filter({ hasText: '로그인하지 못했습니다.' });
-    await expect(secondToast).toBeVisible();
-    await expect(secondToast).not.toHaveAttribute('data-toast-id', firstToastId ?? '');
-    await page.waitForTimeout(500);
-    await expect(secondToast).toBeVisible();
-    await expect(
-      page.locator('[data-toast-id]').filter({ hasText: '로그인하지 못했습니다.' }),
-    ).toHaveCount(1);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    const samples = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __reducedFeedbackTransformSamples?: Array<{
+              phase: string;
+              text: string;
+              transform: string;
+            }>;
+          }
+        ).__reducedFeedbackTransformSamples ?? [],
+    );
+    const errorSamples = samples.filter(({ text }) => text.includes('아이디 또는 비밀번호'));
+    expect(errorSamples.some(({ phase }) => phase === 'transition-start')).toBe(true);
+    expect(errorSamples.some(({ phase }) => phase === 'next-frame')).toBe(true);
+    expect(
+      errorSamples.every(({ transform }) =>
+        /^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(transform),
+      ),
+    ).toBe(true);
   });
 
   test('keeps dark-mode authentication accessible with visible focus', async ({ page }) => {
