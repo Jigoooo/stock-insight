@@ -32,9 +32,13 @@ function findUnresolvedTokens(definitionSources: string[], usageSources: string[
   const definitions = new Set<string>(
     definitionSources.join('\n').match(/--[\w-]+(?=\s*:)/g) ?? [],
   );
+  const componentLocalDefinitions = new Set<string>();
   const componentUses = new Set<string>();
 
   for (const source of usageSources) {
+    for (const match of source.matchAll(/['"](--[\w-]+)['"]\s*:/g)) {
+      if (match[1]) componentLocalDefinitions.add(match[1]);
+    }
     for (const match of source.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
       if (match[1]) componentUses.add(match[1]);
     }
@@ -43,9 +47,8 @@ function findUnresolvedTokens(definitionSources: string[], usageSources: string[
     }
   }
 
-  const runtimeLocalTokens = new Set(['--strength']);
   return [...componentUses]
-    .filter((token) => !definitions.has(token) && !runtimeLocalTokens.has(token))
+    .filter((token) => !definitions.has(token) && !componentLocalDefinitions.has(token))
     .sort();
 }
 

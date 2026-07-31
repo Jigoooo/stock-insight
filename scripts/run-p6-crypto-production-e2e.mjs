@@ -7,10 +7,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { hashProductionArtifact } from './production-artifact-hash.mjs';
+import { createScryptPasswordRecordAsync } from '../apps/api/src/auth/password-record.ts';
 import { getCryptoResearchWorkspace } from '../apps/api/src/crypto/read-model.ts';
 import { getMyResearchOverview } from '../apps/api/src/my-research/read-model.ts';
 import { getRadarSignals } from '../apps/api/src/radar/read-model.ts';
-import { createScryptPasswordRecordAsync } from '../apps/web/src/server/auth/session-core.ts';
 import { cryptoIdentityFoundationMigrationSql } from '../packages/db-schema/src/migrations/046_crypto_identity_foundation.ts';
 import { cryptoTruthFoundationMigrationSql } from '../packages/db-schema/src/migrations/047_crypto_truth_foundation.ts';
 import { cryptoTokenomicsMigrationSql } from '../packages/db-schema/src/migrations/048_crypto_tokenomics.ts';

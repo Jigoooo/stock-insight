@@ -61,19 +61,25 @@ describe('workspace shell and keyed view-region contract', () => {
   });
 
   it('uses APG manual activation: arrows move roving focus without committing a lane', async () => {
-    const today = await read('views/today-view.tsx');
+    const [today, tabs, e2e] = await Promise.all([
+      read('views/today-view.tsx'),
+      read('../../../shared/ui/animate-ui/primitives/radix/tabs.tsx'),
+      readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
+    ]);
 
     assert.doesNotMatch(today, /requestAnimationFrame/);
-    assert.match(today, /const \[rovingIntent, setRovingIntent\]/);
-    assert.match(today, /rovingIntent\.baseLane === lane \? rovingIntent\.targetLane : lane/);
-    assert.match(today, /setRovingIntent\(\{ baseLane: lane, targetLane: nextLane \}\)/);
-    assert.match(today, /tabIndex=\{rovingLane === item\.lane \? 0 : -1\}/);
-    const focusHandler = today.slice(
-      today.indexOf('const moveLaneFocus'),
-      today.indexOf('return ('),
+    assert.match(today, /activationMode="manual"/);
+    assert.match(tabs, /type TabsProps = React\.ComponentProps<typeof TabsPrimitive\.Root>/);
+    assert.match(tabs, /<TabsPrimitive\.Root[\s\S]*?\{\.\.\.props\}/);
+    assert.doesNotMatch(today, /rovingIntent|rovingLane|onKeyDown|tabIndex|aria-selected/);
+    assert.match(e2e, /supports APG keyboard navigation across feed lanes/);
+    assert.match(e2e, /await expect\(tabs\.nth\(2\)\)\.toBeFocused\(\)/);
+    assert.match(
+      e2e,
+      /await expect\(tabs\.first\(\)\)\.toHaveAttribute\('aria-selected', 'true'\)/,
     );
-    assert.match(focusHandler, /setRovingLane\(nextLane\)/);
-    assert.doesNotMatch(focusHandler, /onLaneChange\(nextLane\)/);
+    assert.match(e2e, /await expect\(page\)\.not\.toHaveURL\(\/lane=explore\/\)/);
+    assert.match(e2e, /await page\.keyboard\.press\('Enter'\)/);
   });
 
   it('exposes navigation progress in persistent chrome while keeping committed content authoritative', async () => {

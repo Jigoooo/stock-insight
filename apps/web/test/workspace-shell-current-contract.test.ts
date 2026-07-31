@@ -23,24 +23,43 @@ describe('current workspace shell behavior', () => {
   });
 
   it('keeps URL authority and real navigation links', async () => {
-    const page = await read('pages/research-workspace/ui/research-workspace-page.tsx');
-    assert.match(page, /to=\{`\/workspace\/\$\{id\}`\}/);
-    assert.match(page, /data-testid=\{`workspace-nav-\$\{id\}`\}/);
-    assert.match(page, /onFocus=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
-    assert.match(page, /onPointerEnter=\{\(\) => onPrefetchSection\?\.\(id\)\}/);
+    const [page, navigation, route, sections] = await Promise.all([
+      read('pages/research-workspace/ui/research-workspace-page.tsx'),
+      read('widgets/workspace-shell/ui/workspace-navigation.tsx'),
+      read('pages/research-workspace/ui/workspace-view-route.tsx'),
+      read('features/workspace-navigation/model/sections.ts'),
+    ]);
+    assert.match(navigation, /<Link[\s\S]*?to=\{item\.href\}/);
+    assert.match(navigation, /data-testid=\{`workspace-nav-\$\{item\.id\}`\}/);
+    assert.match(navigation, /onFocus=\{\(\) => onPrefetch\?\.\(item\.id\)\}/);
+    assert.match(navigation, /onPointerEnter=\{\(\) => onPrefetch\?\.\(item\.id\)\}/);
+    assert.match(sections, /href: '\/workspace\/today'/);
+    assert.match(route, /await navigate\(/);
+    assert.match(page, /const section = onUrlStateChange \? data\.view : localSection/);
     assert.match(page, /const lane = onUrlStateChange/);
     assert.match(page, /void onUrlStateChange\?\.\(\{ record: undefined \}\)/);
   });
 
   it('keeps mobile navigation and evidence focus ownership explicit', async () => {
-    const page = await read('pages/research-workspace/ui/research-workspace-page.tsx');
-    const inspector = await read('pages/research-workspace/ui/evidence-inspector.tsx');
-    assert.match(page, /useFocusTrap\(mobileNavModalOpen/);
-    assert.match(page, /inert=\{mobileNavModalOpen \|\| inspectorModalOpen \|\| undefined\}/);
-    assert.match(page, /setMobileNavOpen\(false\)/);
-    assert.match(page, /opener\?\.isConnected/);
+    const [page, inspector, shell, sheet, e2e] = await Promise.all([
+      read('pages/research-workspace/ui/research-workspace-page.tsx'),
+      read('pages/research-workspace/ui/evidence-inspector.tsx'),
+      read('widgets/workspace-shell/ui/workspace-shell.tsx'),
+      read('shared/ui/animate-ui/primitives/radix/sheet.tsx'),
+      readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
+    ]);
+    assert.match(shell, /<Sheet open=\{mobileOpen\}/);
+    assert.match(shell, /<SheetContent[\s\S]*?side="left"/);
+    assert.match(shell, /inert=\{mobileOpen \|\| mobileModalInert \|\| undefined\}/);
+    assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
+    assert.doesNotMatch(shell, /useFocusTrap|previousFocus|event\.key !== 'Escape'/);
     assert.match(inspector, /event\.key !== 'Escape'/);
     assert.match(inspector, /useFocusTrap\(renderModal && transition\.desiredOpen/);
     assert.match(inspector, /previousFocus\?\.isConnected/);
+    assert.match(page, /opener\?\.isConnected/);
+    assert.match(e2e, /supports mobile navigation and keyboard-visible controls/);
+    assert.match(e2e, /await page\.keyboard\.press\('Escape'\)/);
+    assert.match(e2e, /workspace-nav-today'\)\)\.toBeFocused/);
+    assert.match(e2e, /menuButton\)\.toBeFocused/);
   });
 });
