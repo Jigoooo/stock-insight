@@ -61,9 +61,16 @@
 .themeLedger {
   display: grid;
   max-height: min(66dvh, 680px);
+  margin: 0;
+  padding: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  list-style: none;
+}
+
+.themeEmpty {
+  list-style: none;
 }
 
 .relationPanel {
@@ -330,19 +337,17 @@
 }
 
 .relationFallback {
-  max-height: 264px;
-  overflow-y: auto;
   border-bottom: 1px solid var(--color-border);
 }
 
-.relationFallback summary {
+.relationFallbackTrigger {
+  width: 100%;
   min-height: 44px;
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 0 16px;
+  border: 0;
   color: var(--color-text-tertiary);
   background: var(--color-surface);
   font-size: 12px;
@@ -350,9 +355,17 @@
   cursor: pointer;
 }
 
-.relationFallback[open] summary {
+.relationFallbackTrigger[data-state='open'] {
   color: var(--color-text-primary);
   border-bottom: 1px solid var(--color-border);
+}
+
+.relationFallbackContent {
+  max-height: 220px;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .edgeList {
@@ -539,6 +552,13 @@
   letter-spacing: 0.07em;
 }
 
+.evidenceList,
+.sourceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .evidenceItem {
   display: grid;
   gap: 6px;
@@ -556,7 +576,7 @@
   font-size: 12px;
 }
 
-.inspectorBody section > a,
+.sourceList > li > a,
 .sourceMissing {
   display: flex;
   justify-content: space-between;
@@ -569,7 +589,7 @@
   text-decoration: none;
 }
 
-.inspectorBody section > a small,
+.sourceList > li > a small,
 .sourceMissing small {
   flex: none;
   max-width: 48%;
@@ -587,6 +607,11 @@
   line-height: 1.75;
 }
 
+.inspectorBody :is(.evidenceList, .sourceList) {
+  padding: 0;
+  list-style: none;
+}
+
 .scrim {
   display: none;
 }
@@ -597,7 +622,7 @@
     background: var(--color-surface-subtle);
   }
 
-  .inspectorBody section > a:hover span {
+  .sourceList > li > a:hover span {
     color: var(--color-accent-strong);
     text-decoration: underline;
   }
@@ -646,7 +671,7 @@
   }
 
   .inspector > header button,
-  .inspectorBody section > a,
+  .sourceList > li > a,
   .sourceMissing {
     min-height: 44px;
   }

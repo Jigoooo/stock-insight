@@ -1,5 +1,3 @@
-import { ChevronDown, Network } from 'lucide-react';
-
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import styles from './stock-deep-dive-panel.module.css';
 import {
@@ -8,8 +6,15 @@ import {
   type StockDeepDiveAvailability,
 } from '../model/stock-deep-dive';
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/shared/ui/animate-ui/components/radix/accordion';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/primitives';
-import { DetailSurface, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
+import { DetailSurface, PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export type StockDeepDivePanelState = 'idle' | 'loading' | 'error' | 'ready';
@@ -64,6 +69,12 @@ export function StockDeepDivePanel({
   relation: EntityRelationGraph | null;
   state: StockDeepDivePanelState;
 }) {
+  const { forcedColors, reducedMotion } = useMotionPreferences();
+  const disclosureTransition = {
+    duration: forcedColors || reducedMotion ? 0 : 0.18,
+    ease: 'easeOut',
+  } as const;
+
   if (state === 'idle') {
     return (
       <DetailSurface className={styles.deepDivePanel} aria-label="종목 Deep Dive">
@@ -114,13 +125,21 @@ export function StockDeepDivePanel({
           <h2>{deepDive.displayName}</h2>
           <p>{deepDive.entityKey}</p>
         </div>
-        <div className={styles.headerMeta}>
-          <Network aria-hidden="true" />
-          <span>12개 분석 축</span>
-        </div>
+        <PropertyList
+          className={styles.headerMeta}
+          aria-label="Deep Dive 속성"
+          items={[
+            { label: '분석 축', value: '12개' },
+            { label: '데이터', value: availabilityLabel[deepDive.availability] },
+          ]}
+        />
       </header>
 
-      <div className={styles.sectionList}>
+      <Accordion
+        className={styles.sectionList}
+        type="multiple"
+        defaultValue={['identity', 'direct_relations']}
+      >
         {DEEP_DIVE_SECTION_IDS.map((sectionId) => {
           const section = deepDive.sections.find((item) => item.id === sectionId);
           if (!section) return null;
@@ -130,19 +149,25 @@ export function StockDeepDivePanel({
             relation !== null &&
             relation.edges.length > 0;
           return (
-            <details
+            <AccordionItem
               key={section.id}
+              value={section.id}
               className={styles.section}
               data-availability={section.availability}
               data-deep-dive-section={section.id}
-              open={section.id === 'identity' || section.id === 'direct_relations'}
             >
-              <summary>
+              <AccordionTrigger className={styles.sectionTrigger}>
                 <span>{section.title}</span>
                 <small>{availabilityLabel[section.availability]}</small>
-                <ChevronDown className={styles.disclosureIcon} aria-hidden="true" />
-              </summary>
-              <div className={styles.sectionBody}>
+              </AccordionTrigger>
+              <AccordionContent
+                className={styles.sectionBody}
+                initial={{ height: 0 }}
+                animate={{ height: 'auto' }}
+                exit={{ height: 0 }}
+                transition={disclosureTransition}
+                style={{ overflow: 'hidden' }}
+              >
                 <p>{section.summary}</p>
                 {section.items.length > 0 && (
                   <StructuredList>
@@ -156,11 +181,11 @@ export function StockDeepDivePanel({
                     <RelationSigmaGraph graph={relation} onSelectEntity={onSelectEntity} />
                   </div>
                 )}
-              </div>
-            </details>
+              </AccordionContent>
+            </AccordionItem>
           );
         })}
-      </div>
+      </Accordion>
     </DetailSurface>
   );
 }

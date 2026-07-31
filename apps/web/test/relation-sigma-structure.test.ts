@@ -8,7 +8,7 @@ const componentPath = new URL(
 );
 const viteConfigPath = new URL('../vite.config.ts', import.meta.url);
 const componentStylesPath = new URL(
-  '../src/pages/research-workspace/ui/research-workspace-page.module.css',
+  '../src/pages/research-workspace/ui/relation-detail.module.css',
   import.meta.url,
 );
 const rootPackagePath = new URL('../../../package.json', import.meta.url);

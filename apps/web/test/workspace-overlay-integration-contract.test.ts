@@ -11,7 +11,7 @@ const pageUrl = new URL(
   import.meta.url,
 );
 const cssUrl = new URL(
-  '../src/pages/research-workspace/ui/research-workspace-page.module.css',
+  '../src/pages/research-workspace/ui/relation-detail.module.css',
   import.meta.url,
 );
 const shellUrl = new URL('../src/widgets/workspace-shell/ui/workspace-shell.tsx', import.meta.url);
@@ -95,13 +95,12 @@ describe('workspace overlay integration', () => {
     assert.doesNotMatch(mobileScrim, /backdrop-filter|blur\(/);
   });
 
-  it('keeps the mobile drawer visibly open after GSAP context reverts', async () => {
-    const css = await readFile(cssUrl, 'utf8');
+  it('delegates the mobile drawer presence state to the official Sheet', async () => {
+    const shell = await readFile(shellUrl, 'utf8');
 
-    assert.match(
-      css,
-      /\.sidebar\[data-overlay-phase='open'\],[\s\S]*?\.sidebar\[data-overlay-phase='closing'\][\s\S]*?transform:\s*translateX\(0\)/,
-    );
+    assert.match(shell, /<Sheet[\s\S]*?open=\{mobileOpen\}/);
+    assert.match(shell, /<SheetContent[\s\S]*?side="left"/);
+    assert.doesNotMatch(shell, /data-overlay-phase/);
   });
 
   it('closes inspector semantics immediately and restores the desktop opener', async () => {

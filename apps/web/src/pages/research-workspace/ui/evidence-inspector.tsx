@@ -291,14 +291,16 @@ export function EvidenceInspector({
                   description="이 기록에 묶인 근거가 확인되면 이곳에 표시됩니다."
                 />
               ) : (
-                detail.evidence.map((item) => (
-                  <article key={item.evidenceId} className={styles.evidenceItem}>
-                    <strong>{presentResearchSummary(item.claim)}</strong>
-                    <span>
-                      {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
-                    </span>
-                  </article>
-                ))
+                <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
+                  {detail.evidence.map((item) => (
+                    <li key={item.evidenceId} className={styles.evidenceItem}>
+                      <strong>{presentResearchSummary(item.claim)}</strong>
+                      <span>
+                        {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
+                      </span>
+                    </li>
+                  ))}
+                </StructuredList>
               )}
             </section>
             <section>
@@ -310,28 +312,26 @@ export function EvidenceInspector({
                   description="원문 출처가 확인되면 이름과 기준 시점 상태를 보여드립니다."
                 />
               ) : (
-                detail.sources.map((source) =>
-                  source.url ? (
-                    <TextLink
-                      key={source.sourceKey}
-                      href={source.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      motion="quiet"
-                    >
-                      <span>{sourceAttributionLabel(source.attributionText)}</span>
-                      <small>
-                        {sourceBindingLabel(source.bindingState)} ·{' '}
-                        {source.publishedAt ? formatDate(source.publishedAt) : '발행일 미확인'}
-                      </small>
-                    </TextLink>
-                  ) : (
-                    <div key={source.sourceKey} className={styles.sourceMissing}>
-                      <span>{sourceAttributionLabel(source.attributionText)}</span>
-                      <small>링크 없음</small>
-                    </div>
-                  ),
-                )
+                <StructuredList className={styles.sourceList} aria-label="출처 목록">
+                  {detail.sources.map((source) => (
+                    <li key={source.sourceKey}>
+                      {source.url ? (
+                        <TextLink href={source.url} target="_blank" rel="noreferrer" motion="quiet">
+                          <span>{sourceAttributionLabel(source.attributionText)}</span>
+                          <small>
+                            {sourceBindingLabel(source.bindingState)} ·{' '}
+                            {source.publishedAt ? formatDate(source.publishedAt) : '발행일 미확인'}
+                          </small>
+                        </TextLink>
+                      ) : (
+                        <div className={styles.sourceMissing}>
+                          <span>{sourceAttributionLabel(source.attributionText)}</span>
+                          <small>링크 없음</small>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </StructuredList>
               )}
             </section>
             {detail.limitations.length > 0 && (

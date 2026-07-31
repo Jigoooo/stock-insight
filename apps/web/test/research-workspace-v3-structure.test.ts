@@ -40,6 +40,10 @@ const workspace = [
     new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
     'utf8',
   ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+    'utf8',
+  ),
   ...[
     'today-view.tsx',
     'radar-view.tsx',
@@ -333,7 +337,12 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /와 방향 없는 관계/);
     assert.doesNotMatch(page, /approved=true · inferred=false/);
     assert.doesNotMatch(page, /분석 cutoff|비추론 관계/);
-    assert.match(page, /<details open className=\{styles\.relationFallback\}>/);
+    assert.match(page, /<Accordion type="single" defaultValue="relations">/);
+    assert.match(page, /<AccordionTrigger[^>]*>\s*관계를 텍스트로 보기/);
+    assert.match(page, /<AccordionContent/);
+    assert.match(page, /initial=\{\{ height: 0 \}\}/);
+    assert.match(page, /animate=\{\{ height: 'auto' \}\}/);
+    assert.match(page, /exit=\{\{ height: 0 \}\}/);
     assert.match(page, /graph\.evidenceSummary\.limitation/);
   });
 
@@ -349,11 +358,27 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /styles\.relationPanel/);
     assert.match(page, /themeTitleLabel\(theme\.title\)/);
     assert.match(page, /className=\{styles\.themeSelect\}/);
+    assert.match(page, /<StructuredList[\s\S]*?className=\{styles\.themeLedger\}/);
+    assert.match(page, /aria-pressed=\{isActive\}/);
+    assert.match(page, /motion="none"/);
+    assert.match(page, /<StructuredList className=\{styles\.edgeList\}/);
     assert.match(page, /onSelectEntity\(entityKey\)/);
     const relationPanel = relationCss.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
     assert.match(relationPanel, /overflow-y:\s*auto/);
     assert.match(relationPanel, /overscroll-behavior:\s*contain/);
     assert.match(relationPanel, /scrollbar-gutter:\s*stable/);
+  });
+
+  it('uses shared selected-row, detail, property, and evidence-list anatomy', () => {
+    assert.match(workspace, /aria-pressed=\{selectedStockKey === stock\.entityKey\}/);
+    assert.match(workspace, /data-selected=\{selectedStockKey === stock\.entityKey/);
+    assert.match(workspace, /<DataTable/);
+    assert.match(workspace, /<DetailSurface/);
+    assert.match(workspace, /<PropertyList/);
+    assert.match(workspace, /useWorkspaceRelationCrossfade/);
+    assert.match(workspace, /관계를 텍스트로 보기/);
+    assert.match(workspace, /aria-label="검증 근거 목록"/);
+    assert.match(workspace, /aria-label="출처 목록"/);
   });
 
   it('consumes the stable semantic interface without banning profile styling choices', () => {

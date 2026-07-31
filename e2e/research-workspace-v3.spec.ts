@@ -569,6 +569,24 @@ test.describe('v3 research workspace candidate', () => {
       await page.getByTestId(`workspace-nav-${id}`).click();
       await expect(page).toHaveURL(new RegExp(`view=${id}`));
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+      if (id === 'stocks') {
+        const stockScrollOwner = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
+        await expect(stockScrollOwner).toHaveAttribute('data-slot', 'table-container');
+        await expect(stockScrollOwner.getByRole('table', { name: '종목 커버리지' })).toBeVisible();
+        const firstStock = stockScrollOwner.getByRole('button').first();
+        await firstStock.click();
+        await expect(firstStock).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
+        expect(
+          await page.evaluate(() => {
+            const table = document.querySelector(
+              '[aria-label="종목 커버리지 표 가로 스크롤 영역"]',
+            );
+            const detail = document.querySelector('[data-testid="stock-deep-dive-region"]');
+            return Boolean(table && detail && table.compareDocumentPosition(detail) & 4);
+          }),
+        ).toBe(true);
+      }
     }
 
     if (testInfo.project.name === 'mobile') {
@@ -576,11 +594,14 @@ test.describe('v3 research workspace candidate', () => {
     }
     await page.getByTestId('workspace-nav-themes').click();
     await expect(page.getByTestId('relation-graph')).toBeVisible();
-    await expect(page.getByText('관계를 텍스트로 보기')).toBeVisible();
+    const relationFallback = page.getByRole('button', { name: '관계를 텍스트로 보기' });
+    await expect(relationFallback).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('list', { name: '관계 근거 목록' })).toBeVisible();
     for (const rawTheme of ['ai_semi', 'megacap_ai', 'electronic_components']) {
       await expect(page.getByTestId('research-workspace-v3')).not.toContainText(rawTheme);
     }
-    await expect(page.getByTestId('theme-ledger')).toBeVisible();
+    await expect(page.getByTestId('theme-ledger')).toHaveJSProperty('tagName', 'UL');
+    await expect(page.getByTestId('theme-ledger').locator(':scope > li').first()).toBeVisible();
     const selectableThemes = page.locator('[data-testid="theme-select"]:not([disabled])');
     const targetTheme = selectableThemes.nth(1);
     const targetThemeName = (await targetTheme.getAttribute('aria-label'))?.replace(
@@ -632,6 +653,8 @@ test.describe('v3 research workspace candidate', () => {
       await expect(inspector).not.toContainText(rawToken);
     }
     await expect(inspector.getByRole('heading', { level: 2 })).toHaveText(recordTitle!);
+    await expect(inspector.getByRole('list', { name: '검증 근거 목록' })).toBeVisible();
+    await expect(inspector.getByRole('list', { name: '출처 목록' })).toBeVisible();
 
     if (testInfo.project.name === 'mobile') {
       await expect(closeInspector).toBeFocused();
