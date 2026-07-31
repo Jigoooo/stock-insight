@@ -59,6 +59,7 @@ export const issueInvitation = createServerFn({ method: 'POST' })
       await import('@tanstack/react-start/server');
     const { getAuthenticationOrigin } = await import('@/server/auth/auth-runtime');
     const { issueAdminInvitationForUser } = await import('@/server/auth/admin-invitations');
+    const { areRemoteBrainMutationsDisabled } = await import('@/server/mutation-policy');
     setResponseHeader('Cache-Control', 'no-store');
     const request = getRequest();
     if (
@@ -69,6 +70,10 @@ export const issueInvitation = createServerFn({ method: 'POST' })
       )
     ) {
       setResponseStatus(403);
+      return { ok: false as const, error: genericError };
+    }
+    if (areRemoteBrainMutationsDisabled()) {
+      setResponseStatus(503);
       return { ok: false as const, error: genericError };
     }
     const admission = adminMutationRateLimiter.consume(context.session.sub);
@@ -98,6 +103,7 @@ export const revokeInvitation = createServerFn({ method: 'POST' })
       await import('@tanstack/react-start/server');
     const { getAuthenticationOrigin } = await import('@/server/auth/auth-runtime');
     const { revokeAdminInvitationForUser } = await import('@/server/auth/admin-invitations');
+    const { areRemoteBrainMutationsDisabled } = await import('@/server/mutation-policy');
     setResponseHeader('Cache-Control', 'no-store');
     const request = getRequest();
     if (
@@ -108,6 +114,10 @@ export const revokeInvitation = createServerFn({ method: 'POST' })
       )
     ) {
       setResponseStatus(403);
+      return { ok: false as const, error: genericError };
+    }
+    if (areRemoteBrainMutationsDisabled()) {
+      setResponseStatus(503);
       return { ok: false as const, error: genericError };
     }
     const admission = adminMutationRateLimiter.consume(context.session.sub);

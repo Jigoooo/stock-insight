@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:remote": "node scripts/dev-remote.mjs",
+    "dev:remote:check": "node scripts/dev-remote.mjs --check",
     "dev:web": "pnpm --filter @stock-insight/web dev",
     "dev:api": "pnpm --filter @stock-insight/api-server dev",
     "preview": "pnpm --filter @stock-insight/web preview",
@@ -15,7 +17,8 @@
     "lint:fix": "oxlint --fix apps packages e2e playwright.config.ts",
     "format": "oxfmt apps packages e2e package.json pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json playwright.config.ts",
     "format:check": "oxfmt --check apps packages e2e package.json pnpm-workspace.yaml turbo.json tsconfig.json tsconfig.base.json playwright.config.ts",
-    "test": "turbo run test",
+    "test": "turbo run test && pnpm test:dev:remote",
+    "test:dev:remote": "node --test scripts/dev-remote.test.mjs",
     "test:design:hard": "pnpm --filter @stock-insight/web test:design:hard",
     "test:design:browser": "playwright test e2e/auth-login.spec.ts --grep 'loads the active profile|redirects an anonymous root request|alternative visual profile|input focus visible|dark-mode authentication accessible'",
     "test:design:browser:production": "PLAYWRIGHT_USE_PRODUCTION_BUILD=1 PLAYWRIGHT_PORT=18094 playwright test e2e/auth-login.spec.ts --grep 'loads the active profile|redirects an anonymous root request|alternative visual profile|input focus visible|dark-mode authentication accessible'",

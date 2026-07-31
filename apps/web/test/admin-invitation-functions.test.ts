@@ -7,6 +7,20 @@ const sourceUrl = new URL(
   import.meta.url,
 );
 
+function assertRemoteReadOnlyGatePrecedesMutation(handler: string, mutationCall: string): void {
+  const gateIndex = handler.indexOf('if (areRemoteBrainMutationsDisabled())');
+  const admissionIndex = handler.indexOf('const admission = adminMutationRateLimiter.consume');
+  const mutationIndex = handler.indexOf(mutationCall);
+  assert.notEqual(gateIndex, -1);
+  assert.notEqual(admissionIndex, -1);
+  assert.notEqual(mutationIndex, -1);
+  assert.ok(gateIndex < admissionIndex);
+  assert.ok(gateIndex < mutationIndex);
+  const gateBlock = handler.slice(gateIndex, admissionIndex);
+  assert.match(gateBlock, /setResponseStatus\(503\)/);
+  assert.match(gateBlock, /\breturn\s+\{/);
+}
+
 describe('admin invitation server function boundary', () => {
   it('protects every function with the verified-session middleware', async () => {
     const source = await readFile(sourceUrl, 'utf8');
@@ -32,6 +46,32 @@ describe('admin invitation server function boundary', () => {
     assert.match(source, /setResponseStatus\(403\)/);
     assert.match(source, /setResponseStatus\(429\)/);
     assert.match(source, /Cache-Control', 'no-store'/);
+  });
+
+  it('blocks both invitation mutations in remote read-only mode', async () => {
+    const source = await readFile(sourceUrl, 'utf8');
+    const issueStart = source.indexOf('export const issueInvitation');
+    const revokeStart = source.indexOf('export const revokeInvitation');
+    assert.ok(issueStart >= 0 && revokeStart > issueStart);
+    assertRemoteReadOnlyGatePrecedesMutation(
+      source.slice(issueStart, revokeStart),
+      'issueAdminInvitationForUser(',
+    );
+    assertRemoteReadOnlyGatePrecedesMutation(
+      source.slice(revokeStart),
+      'revokeAdminInvitationForUser(',
+    );
+  });
+
+  it('rejects a remote gate that does not terminate before mutation admission', () => {
+    const unsafeHandler = `
+      if (areRemoteBrainMutationsDisabled()) setResponseStatus(503);
+      const admission = adminMutationRateLimiter.consume(context.session.sub);
+      await revokeAdminInvitationForUser(context.session.sub, invitationId, reason);
+    `;
+    assert.throws(() =>
+      assertRemoteReadOnlyGatePrecedesMutation(unsafeHandler, 'revokeAdminInvitationForUser('),
+    );
   });
 
   it('loads navigation capability from DB instead of caching a role in the session token', async () => {

@@ -63,6 +63,31 @@ pnpm dev
 
 BFF가 두뇌를 바라보게 하려면 `STOCK_INSIGHT_BRAIN_URL=http://127.0.0.1:6200`을 지정합니다. 두뇌는 DB DSN(`DATABASE_READ_URL`)과 내부 컨텍스트 시크릿(`STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE`)이 필요하고, BFF는 DB 자격증명을 갖지 않습니다.
 
+### 다른 컴퓨터에서 운영 두뇌를 사용하는 개발 모드
+
+이 실행기는 **WSL/Linux**를 지원합니다. `pnpm dev`는 로컬 DB와 로컬 두뇌를 전제로 합니다. 운영 두뇌에 안전하게 연결해 동일한 계정으로 로그인하려면 아래 시크릿을 **신뢰할 수 있는 개발 컴퓨터에만** 별도로 전달한 뒤 `pnpm dev:remote`를 사용하세요. 시크릿 값은 Git에 커밋하지 않습니다.
+
+- `~/.hermes/secrets/insight-api-access.env` (`0600`)
+  - `API_DEV_CLIENT_ID=...`
+  - `API_DEV_CLIENT_SECRET=...`
+- `~/.hermes/secrets/stock-insight-internal-context.secret` (`0600`)
+  - 운영 두뇌와 동일한 내부 HMAC 시크릿입니다.
+- `~/.hermes/secrets/stock-insight-dev-session.secret` (`0600`)
+  - 기기별 세션 서명 키이며 처음 실행할 때 자동 생성됩니다. 다른 컴퓨터에서 복사할 필요가 없습니다.
+
+```bash
+mkdir -p ~/.hermes/secrets
+chmod 700 ~/.hermes/secrets
+chmod 600 \
+  ~/.hermes/secrets/insight-api-access.env \
+  ~/.hermes/secrets/stock-insight-internal-context.secret
+
+pnpm dev:remote:check
+pnpm dev:remote
+```
+
+원격 개발 모드는 BFF만 `127.0.0.1:6100`에 열고 `https://insight-api.jigooo.com`을 사용합니다. DB 자격증명은 자식 프로세스에서 제거하며 회원가입과 데이터 변경을 비활성화합니다. 포트를 바꾸려면 `VITE_PORT`를 지정하세요. 내부 시크릿과 Access 토큰을 함께 보유한 기기는 운영 두뇌의 신뢰 경계 안에 있으므로 분실·공유 시 즉시 폐기 또는 교체해야 합니다.
+
 주요 검증 명령:
 
 ```bash
