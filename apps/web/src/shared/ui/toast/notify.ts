@@ -1,13 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type NotifyOptions = {
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-  description?: ReactNode;
-  duration?: number;
-};
+import type { ActionToastOptions, NotifyOptions, ProgressToastOptions } from './toast-controller';
 
 function importToastModule() {
   return import('./motion-toast');
@@ -55,8 +48,22 @@ export const notify = {
     withToastModule((module) => module.notify.error(title, options)),
   loading: (title: ReactNode, options?: Omit<NotifyOptions, 'duration'>) =>
     withToastModule((module) => module.notify.loading(title, options)),
+  action: (title: ReactNode, options: ActionToastOptions) =>
+    withToastModule((module) => module.notify.action(title, options)),
+  progress: (title: ReactNode, options?: ProgressToastOptions) =>
+    withToastModule((module) => module.notify.progress(title, options)),
   dismiss: (id?: number | string) => withToastModule((module) => module.notify.dismiss(id)),
 };
+
+export type {
+  ActionToastOptions,
+  NotifyOptions,
+  ProgressToastController,
+  ProgressToastOptions,
+  ToastKind,
+  ToastRetryOptions,
+  ToastTone,
+} from './toast-controller';
 
 declare global {
   interface Window {

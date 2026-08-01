@@ -1,229 +1,120 @@
-import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 
-import styles from './motion-toast.module.css';
-import type { NotifyOptions } from './notify';
-
-import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
+import styles from './toast.module.css';
+import { AppToast } from './app-toast';
 import {
-  readProfileMotionNumber,
-  readProfileMotionSeconds,
-  readProfileMotionValue,
-} from '@/shared/ui/motion/profile-motion';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
-import { Button } from '@/shared/ui/primitives/button';
+  createToastId,
+  type ActionToastOptions,
+  type NotifyOptions,
+  type ProgressToastController,
+  type ProgressToastOptions,
+  type ToastKind,
+  type ToastTone,
+} from './toast-controller';
 
-type ToastTone = 'default' | 'success' | 'info' | 'warning' | 'error' | 'loading';
+const statusDuration = 4600;
+const persistentDuration = Number.POSITIVE_INFINITY;
 
-type MotionToastProps = NotifyOptions & {
-  id: number | string;
+type RenderToastOptions = NotifyOptions & {
+  id?: string | number;
+  kind: ToastKind;
   title: ReactNode;
   tone: ToastTone;
 };
 
-const toneLabels: Record<ToastTone, string> = {
-  default: '알림',
-  success: '완료',
-  info: '안내',
-  warning: '주의',
-  error: '오류',
-  loading: '진행 중',
-};
+function renderToast({
+  action,
+  description,
+  duration,
+  id = createToastId(),
+  kind,
+  retry,
+  title,
+  tone,
+}: RenderToastOptions) {
+  const resolvedDuration =
+    duration ?? (kind === 'status' || kind === 'action' ? statusDuration : persistentDuration);
 
-const sonnerOuterDuration = 7 * 24 * 60 * 60 * 1000;
-
-function MotionToast({ action, description, duration = 4600, id, title, tone }: MotionToastProps) {
-  const elementRef = useRef<HTMLElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedAtRef = useRef(0);
-  const remainingRef = useRef(duration);
-  const closingRef = useRef(false);
-  const pendingDismissRef = useRef(false);
-  const runExitRef = useRef<(onComplete: () => void) => void>((onComplete) => onComplete());
-  const adapter = useMemo(() => createMotionDomAdapter(), []);
-  const { forcedColors, reducedMotion } = useMotionPreferences();
-  const normalizeMotion = reducedMotion || forcedColors;
-
-  const finishDismiss = useCallback(() => {
-    if (!pendingDismissRef.current) return;
-    pendingDismissRef.current = false;
-    toast.dismiss(id);
-  }, [id]);
-
-  const close = useCallback(() => {
-    if (closingRef.current) return;
-    closingRef.current = true;
-    pendingDismissRef.current = true;
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    runExitRef.current(finishDismiss);
-  }, [finishDismiss]);
-
-  const resumeTimer = useCallback(() => {
-    if (!Number.isFinite(remainingRef.current) || closingRef.current) return;
-    startedAtRef.current = performance.now();
-    timerRef.current = setTimeout(close, remainingRef.current);
-  }, [close]);
-
-  const pauseTimer = useCallback(() => {
-    if (!timerRef.current) return;
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
-    remainingRef.current = Math.max(
-      0,
-      remainingRef.current - (performance.now() - startedAtRef.current),
-    );
-  }, []);
-
-  useEffect(() => {
-    const element = elementRef.current;
-    if (!element) return;
-    const runExit = (onComplete: () => void) => {
-      adapter.killTweensOf(element);
-      if (normalizeMotion) {
-        onComplete();
-        return;
-      }
-      adapter.to(element, {
-        opacity: 0,
-        y: readProfileMotionNumber('--motion-toast-exit-y'),
-        scale: readProfileMotionNumber('--motion-toast-exit-scale'),
-        duration: readProfileMotionSeconds('--motion-toast-exit-duration'),
-        ease: readProfileMotionValue('--motion-toast-exit-ease'),
-        overwrite: 'auto',
-        onComplete,
-      });
-    };
-    runExitRef.current = runExit;
-
-    if (normalizeMotion) {
-      adapter.set(element, { clearProps: 'opacity,transform' });
-    } else {
-      adapter.fromTo(
-        element,
-        {
-          opacity: 0,
-          y: readProfileMotionNumber('--motion-toast-enter-y'),
-          scale: readProfileMotionNumber('--motion-toast-enter-scale'),
-        },
-        {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          duration: readProfileMotionSeconds('--motion-toast-enter-duration'),
-          ease: readProfileMotionValue('--motion-toast-enter-ease'),
-          clearProps: 'transform,opacity',
-          overwrite: 'auto',
-        },
-      );
-    }
-
-    return () => {
-      runExitRef.current = (onComplete) => onComplete();
-      adapter.killTweensOf(element);
-      if (pendingDismissRef.current) finishDismiss();
-    };
-  }, [adapter, finishDismiss, normalizeMotion]);
-
-  useEffect(() => {
-    const element = elementRef.current;
-    if (tone !== 'loading') resumeTimer();
-    const onVisibilityChange = () => {
-      if (document.hidden) pauseTimer();
-      else resumeTimer();
-    };
-    const onDismiss = (event: Event) => {
-      const detail = (event as CustomEvent<number | string | undefined>).detail;
-      if (detail === undefined || String(detail) === String(id)) close();
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('app-toast-dismiss', onDismiss);
-    element?.addEventListener('mouseenter', pauseTimer);
-    element?.addEventListener('mouseleave', resumeTimer);
-    return () => {
-      pauseTimer();
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('app-toast-dismiss', onDismiss);
-      element?.removeEventListener('mouseenter', pauseTimer);
-      element?.removeEventListener('mouseleave', resumeTimer);
-      if (element) adapter.killTweensOf(element);
-    };
-  }, [adapter, close, id, pauseTimer, resumeTimer, tone]);
-
-  return (
-    <article
-      ref={elementRef}
-      className={styles.motionToast}
-      data-slot="toast-root"
-      data-tone={tone}
-      data-toast-id={String(id)}
-      aria-label={toneLabels[tone]}
-    >
-      <span className={styles.toneRail} data-slot="toast-indicator" aria-hidden="true" />
-      <div className={styles.toastBody} data-slot="toast-content">
-        <span className={styles.toastEyebrow} data-slot="toast-status">
-          {toneLabels[tone]}
-        </span>
-        <strong className={styles.toastTitle} data-slot="toast-title">
-          {title}
-        </strong>
-        {description ? (
-          <p className={styles.toastDescription} data-slot="toast-description">
-            {description}
-          </p>
-        ) : null}
-        {action ? (
-          <Button
-            className={styles.toastAction}
-            data-slot="toast-action"
-            motion="pressable"
-            type="button"
-            onClick={() => {
-              action.onClick();
-              close();
-            }}
-          >
-            {action.label}
-          </Button>
-        ) : null}
-      </div>
-      <Button
-        className={styles.toastClose}
-        data-slot="toast-close"
-        motion="quiet"
-        type="button"
-        onClick={close}
-        aria-label="알림 닫기"
-      >
-        닫기
-      </Button>
-    </article>
+  toast.custom(
+    () => (
+      <AppToast
+        action={action}
+        description={description}
+        id={id}
+        kind={kind}
+        retry={retry}
+        title={title}
+        tone={tone}
+        onDismiss={() => toast.dismiss(id)}
+      />
+    ),
+    {
+      id,
+      duration: resolvedDuration,
+      unstyled: true,
+    },
   );
+
+  return id;
 }
 
-function createToast(tone: ToastTone, title: ReactNode, options: NotifyOptions = {}) {
-  return toast.custom((id) => <MotionToast id={id} title={title} tone={tone} {...options} />, {
-    duration: sonnerOuterDuration,
-    unstyled: true,
-  });
+function createStatusToast(tone: ToastTone, title: ReactNode, options: NotifyOptions = {}) {
+  return renderToast({ kind: tone === 'error' ? 'critical' : 'status', title, tone, ...options });
+}
+
+function createProgressToast(
+  title: ReactNode,
+  options: ProgressToastOptions = {},
+): ProgressToastController {
+  const id = createToastId();
+  renderToast({ ...options, id, kind: 'progress', title, tone: 'loading' });
+
+  return {
+    id,
+    success: (nextTitle, description) => {
+      renderToast({
+        id,
+        kind: 'status',
+        title: nextTitle,
+        tone: 'success',
+        description,
+        duration: statusDuration,
+      });
+    },
+    error: (nextTitle, description) => {
+      renderToast({
+        id,
+        kind: 'critical',
+        title: nextTitle,
+        tone: 'error',
+        description,
+        duration: persistentDuration,
+      });
+    },
+    dismiss: () => toast.dismiss(id),
+  };
 }
 
 function dismiss(id?: number | string) {
-  if (typeof window === 'undefined') return toast.dismiss(id);
-  window.dispatchEvent(new CustomEvent('app-toast-dismiss', { detail: id }));
+  toast.dismiss(id);
   return id ?? 'all';
 }
 
 export const notify = {
-  message: (title: ReactNode, options?: NotifyOptions) => createToast('default', title, options),
-  success: (title: ReactNode, options?: NotifyOptions) => createToast('success', title, options),
-  info: (title: ReactNode, options?: NotifyOptions) => createToast('info', title, options),
-  warning: (title: ReactNode, options?: NotifyOptions) => createToast('warning', title, options),
-  error: (title: ReactNode, options?: NotifyOptions) => createToast('error', title, options),
+  message: (title: ReactNode, options?: NotifyOptions) =>
+    createStatusToast('default', title, options),
+  success: (title: ReactNode, options?: NotifyOptions) =>
+    createStatusToast('success', title, options),
+  info: (title: ReactNode, options?: NotifyOptions) => createStatusToast('info', title, options),
+  warning: (title: ReactNode, options?: NotifyOptions) =>
+    createStatusToast('warning', title, options),
+  error: (title: ReactNode, options?: NotifyOptions) => createStatusToast('error', title, options),
   loading: (title: ReactNode, options?: Omit<NotifyOptions, 'duration'>) =>
-    createToast('loading', title, { ...options, duration: Number.POSITIVE_INFINITY }),
+    renderToast({ ...options, kind: 'progress', title, tone: 'loading' }),
+  action: (title: ReactNode, options: ActionToastOptions) =>
+    renderToast({ ...options, kind: 'action', title, tone: 'default' }),
+  progress: createProgressToast,
   dismiss,
 };
 
@@ -248,7 +139,7 @@ export function AppToaster() {
       position="top-right"
       swipeDirections={['right', 'top']}
       theme="system"
-      toastOptions={{ unstyled: true, duration: sonnerOuterDuration }}
+      toastOptions={{ unstyled: true }}
       visibleToasts={4}
     />
   );

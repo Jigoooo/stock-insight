@@ -19,7 +19,7 @@ const primitivesCssUrl = new URL(
   import.meta.url,
 );
 const toastUrl = new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url);
-const toastCssUrl = new URL('../src/shared/ui/toast/motion-toast.module.css', import.meta.url);
+const toastCssUrl = new URL('../src/shared/ui/toast/toast.module.css', import.meta.url);
 const feedbackUrl = new URL('../src/shared/ui/primitives/feedback.tsx', import.meta.url);
 
 describe('shared interaction and feedback boundaries', () => {
@@ -79,15 +79,16 @@ describe('shared interaction and feedback boundaries', () => {
     assert.match(switchCss, /\.track\s*\{/);
   });
 
-  it('provides toast pause, dismiss, and preference fallbacks without fixing a library', async () => {
+  it('delegates toast stack, dismiss, and swipe behavior to Sonner', async () => {
     const [toast, toastCss] = await Promise.all([
       readFile(toastUrl, 'utf8'),
       readFile(toastCssUrl, 'utf8'),
     ]);
 
-    assert.match(toast, /visibilitychange/);
-    assert.match(toast, /addEventListener\('mouseenter', pauseTimer\)/);
-    assert.match(toast, /app-toast-dismiss/);
+    assert.match(toast, /toast\.custom/);
+    assert.match(toast, /toast\.dismiss/);
+    assert.match(toast, /swipeDirections=\{\['right', 'top'\]\}/);
+    assert.match(toast, /unstyled:\s*true/);
     assert.match(toastCss, /prefers-reduced-transparency/);
   });
 });

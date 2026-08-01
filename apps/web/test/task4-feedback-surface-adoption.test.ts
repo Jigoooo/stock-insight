@@ -8,8 +8,8 @@ const primitivesCssUrl = new URL(
   '../src/shared/ui/primitives/primitives.module.css',
   import.meta.url,
 );
-const toastUrl = new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url);
-const toastCssUrl = new URL('../src/shared/ui/toast/motion-toast.module.css', import.meta.url);
+const toastUrl = new URL('../src/shared/ui/toast/app-toast.tsx', import.meta.url);
+const toastCssUrl = new URL('../src/shared/ui/toast/toast.module.css', import.meta.url);
 
 const adoptionUrls = [
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
@@ -63,7 +63,7 @@ describe('Task 4 shared feedback and surface contract', () => {
     assert.match(feedback, /data-slot="feedback-content"/);
     assert.match(feedback, /data-slot="skeleton-root"/);
     assert.match(toast, /data-slot="toast-root"/);
-    assert.match(toast, /data-slot="toast-indicator"/);
+    assert.match(toast, /data-slot="toast-icon"/);
     assert.match(toast, /data-slot="toast-content"/);
     assert.match(toast, /data-slot="toast-title"/);
     assert.match(toast, /data-slot="toast-description"/);

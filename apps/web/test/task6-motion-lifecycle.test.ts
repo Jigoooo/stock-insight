@@ -183,19 +183,16 @@ describe('Task 6 React ownership contract', () => {
     assert.doesNotMatch(surface + feedback, /data-motion-(?:enter|loop)/);
   });
 
-  it('uses interruptible Motion toast animation with finite outer lifetime and preserved pause/dismiss/swipe paths', async () => {
+  it('delegates custom toast lifecycle and swipe handling to Sonner', async () => {
     const source = await readFile(toastUrl, 'utf8');
 
-    assert.match(source, /createMotionDomAdapter/);
-    assert.doesNotMatch(source, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
-    assert.doesNotMatch(source, /useLayoutEffect/);
-    assert.match(source, /const sonnerOuterDuration = 7 \* 24 \* 60 \* 60 \* 1000/);
-    assert.match(source, /visibilitychange/);
-    assert.match(source, /mouseenter/);
-    assert.match(source, /app-toast-dismiss/);
+    assert.doesNotMatch(
+      source,
+      /createMotionDomAdapter|(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/,
+    );
+    assert.match(source, /toast\.custom/);
+    assert.match(source, /toast\.dismiss/);
+    assert.match(source, /unstyled:\s*true/);
     assert.match(source, /swipeDirections=\{\['right', 'top'\]\}/);
-    assert.match(source, /pendingDismissRef/);
-    assert.match(source, /finishDismiss/);
-    assert.match(source, /if \(pendingDismissRef\.current\) finishDismiss\(\)/);
   });
 });
