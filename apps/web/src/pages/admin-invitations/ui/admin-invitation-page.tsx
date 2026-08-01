@@ -223,13 +223,11 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             </Button>
           </form>
 
-          <output
-            className={styles.status}
-            data-testid="admin-invitation-status"
-            aria-live="polite"
-          >
+          <div className={styles.status} data-testid="admin-invitation-status">
             {pending ? (
-              <span className={styles.pendingMessage}>요청을 처리하고 있습니다.</span>
+              <output className={styles.pendingMessage} aria-live="polite">
+                요청을 처리하고 있습니다.
+              </output>
             ) : null}
             {error ? (
               <WorkspaceState
@@ -280,7 +278,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                 </div>
               </DetailSurface>
             ) : null}
-          </output>
+          </div>
         </Panel>
 
         <Panel className={styles.listPanel} aria-labelledby="list-heading">

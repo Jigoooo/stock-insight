@@ -813,10 +813,10 @@ test.describe('v3 research workspace candidate', () => {
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
-    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
+    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
     await expect(tabs).toHaveCount(8);
     await expect(tabs.first()).toHaveAttribute('data-slot', 'toggle-group-item');
-    await expect(tabs.first()).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.first()).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByTestId('radar-row')).toHaveCount(2);
     await expect(page.getByTestId('radar-row').first()).toHaveJSProperty('tagName', 'LI');
     await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
@@ -827,7 +827,9 @@ test.describe('v3 research workspace candidate', () => {
     await tabs.first().focus();
     await page.keyboard.press('ArrowRight');
     await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs.nth(1)).toHaveAttribute('aria-checked', 'false');
+    await tabs.nth(1).press('Space');
+    await expect(tabs.nth(1)).toHaveAttribute('aria-checked', 'true');
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'partial');
     await expect(page.getByRole('note')).toContainText('인과 추정값이 아니라');
     await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
@@ -961,7 +963,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.getByTestId('workspace-nav-radar').click();
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
-    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
+    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
     await tabs.nth(6).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText(
@@ -1000,7 +1002,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
 
-    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
+    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
     await tabs.nth(6).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
@@ -1043,7 +1045,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('radar-row')).toHaveCount(0);
     await expect(page.getByTestId('radar-load-more')).toHaveCount(0);
 
-    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
+    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
     for (const [index, title] of [
       [0, '이벤트 레이더'],
       [1, '팩터 맵'],

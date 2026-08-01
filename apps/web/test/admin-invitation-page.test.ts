@@ -23,7 +23,9 @@ describe('admin invitation console UI contract', () => {
     assert.match(source, /<DetailSurface/);
     assert.match(source, /<form/);
     assert.match(source, /<Field/);
-    assert.match(source, /<output[^>]*aria-live="polite"/);
+    assert.match(source, /<div[^>]*data-testid="admin-invitation-status"/);
+    assert.doesNotMatch(source, /<output[^>]*data-testid="admin-invitation-status"/);
+    assert.match(source, /<output[^>]*pendingMessage[^>]*aria-live="polite"/);
     assert.equal((source.match(/aria-live="polite"/g) ?? []).length, 1);
     assert.match(source, /이 코드는 지금 한 번만 표시됩니다/);
     assert.match(source, /caption="가입 코드 발급 및 사용 상태"/);

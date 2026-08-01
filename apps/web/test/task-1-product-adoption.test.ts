@@ -61,6 +61,14 @@ describe('Task 1 product shared UI adoption', () => {
     assert.match(inspector, /<DialogContent\b/);
     assert.match(inspector, /<DialogHeader\b/);
     assert.match(inspector, /<DialogBody\b/);
+    assert.match(
+      inspector,
+      /onPointerDownOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
+    );
+    assert.match(
+      inspector,
+      /onFocusOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
+    );
     assert.doesNotMatch(inspector, /<dialog\b|useFocusTrap|focusableSelector/);
   });
 
@@ -95,5 +103,24 @@ describe('Task 1 product shared UI adoption', () => {
     ]) {
       assert.match(admin, new RegExp(`notify\\.(?:success|error)\\('${title}'`));
     }
+    assert.match(admin, /<div[\s\S]*?data-testid="admin-invitation-status"/);
+    assert.doesNotMatch(admin, /<output[\s\S]*?data-testid="admin-invitation-status"/);
+    assert.equal((admin.match(/aria-live="polite"/g) ?? []).length, 1);
+    assert.match(admin, /<output[^>]*pendingMessage[^>]*aria-live="polite"/);
+    assert.match(admin, /<WorkspaceState[\s\S]*?announcement="inherit"[\s\S]*?kind="error"/);
+  });
+
+  it('locks the market ToggleGroup browser contract to Radix radio semantics', async () => {
+    const e2e = await readFile(
+      new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(e2e, /getByRole\('radiogroup', \{ name: '시장 화면 선택' \}\)/);
+    assert.match(e2e, /getByRole\('radio'\)/);
+    assert.match(e2e, /toHaveAttribute\('aria-checked', 'true'\)/);
+    assert.match(e2e, /press\('ArrowRight'\)[\s\S]*?toBeFocused\(\)[\s\S]*?aria-checked', 'false'/);
+    assert.match(e2e, /press\('Space'\)[\s\S]*?aria-checked', 'true'/);
+    assert.doesNotMatch(e2e, /getByRole\('group', \{ name: '시장 화면 선택' \}\)/);
   });
 });

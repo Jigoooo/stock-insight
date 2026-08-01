@@ -109,7 +109,13 @@ export function EvidenceInspector({
         showOverlay={modal}
         size="lg"
         onCloseAutoFocus={(event) => event.preventDefault()}
+        onFocusOutside={(event) => {
+          if (!modal) event.preventDefault();
+        }}
         onOpenAutoFocus={(event) => {
+          if (!modal) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
           if (!modal) event.preventDefault();
         }}
       >
