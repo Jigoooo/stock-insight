@@ -1,0 +1,8 @@
+.root {
+  isolation: isolate;
+}
+
+.clearIcon {
+  width: 15px;
+  height: 15px;
+}

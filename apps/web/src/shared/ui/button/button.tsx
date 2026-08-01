@@ -46,6 +46,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const unavailable = Boolean(disabled || pending);
+  const pendingAccessibleLabel =
+    pending && props['aria-label'] === undefined && typeof children === 'string'
+      ? children
+      : props['aria-label'];
 
   if (asChild) {
     return (
@@ -68,6 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <ButtonPrimitive
       {...props}
+      aria-label={pendingAccessibleLabel}
       aria-busy={pending || props['aria-busy']}
       aria-disabled={unavailable || props['aria-disabled']}
       className={classNames(styles.button, className)}
@@ -88,7 +93,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         </span>
         <span className={styles.pending} data-slot="button-pending" aria-hidden={!pending}>
           <LoaderCircle className={styles.spinner} data-slot="button-spinner" aria-hidden="true" />
-          <span>{pendingLabel ?? children}</span>
+          <span>{pendingLabel ?? '처리 중'}</span>
         </span>
       </span>
     </ButtonPrimitive>

@@ -10,7 +10,8 @@ import { logout } from '@/pages/auth/model/auth-functions';
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
 import { Field, FieldLabel } from '@/shared/ui/field';
 import { Input } from '@/shared/ui/input';
-import { Button, SelectBox, type SelectOption } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/button';
+import { Select, type SelectOption } from '@/shared/ui/select';
 import {
   DataTable,
   DetailSurface,
@@ -185,7 +186,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             </Field>
             <Field className={styles.formField}>
               <FieldLabel id="max-uses-label">사용 가능 횟수</FieldLabel>
-              <SelectBox
+              <Select
                 aria-labelledby="max-uses-label"
                 defaultValue="1"
                 name="maxUses"
@@ -194,7 +195,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             </Field>
             <Field className={styles.formField}>
               <FieldLabel id="expiration-label">유효 기간</FieldLabel>
-              <SelectBox
+              <Select
                 aria-labelledby="expiration-label"
                 defaultValue="24"
                 name="expiresInHours"

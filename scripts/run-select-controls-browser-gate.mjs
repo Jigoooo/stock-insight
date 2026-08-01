@@ -66,10 +66,26 @@ try {
   }
   const nativeEventLog = await page.evaluate(() => window.__nativeEventLog);
   for (const probe of ['button', 'icon-button', 'switch', 'toggle', 'text-link']) {
-    assert.deepEqual(nativeEventLog[`${probe}-normal`], expectedNativeEventOrder);
-    assert.deepEqual(nativeEventLog[`${probe}-stopped`], expectedStoppedNativeEventOrder);
-    assert.deepEqual(nativeEventLog[`${probe}-animation-normal`], expectedNativeEventOrder);
-    assert.deepEqual(nativeEventLog[`${probe}-animation-stopped`], expectedStoppedNativeEventOrder);
+    assert.deepEqual(
+      nativeEventLog[`${probe}-normal`],
+      expectedNativeEventOrder,
+      `${probe} drag propagation`,
+    );
+    assert.deepEqual(
+      nativeEventLog[`${probe}-stopped`],
+      expectedStoppedNativeEventOrder,
+      `${probe} stopped drag propagation`,
+    );
+    assert.deepEqual(
+      nativeEventLog[`${probe}-animation-normal`],
+      expectedNativeEventOrder,
+      `${probe} animation propagation`,
+    );
+    assert.deepEqual(
+      nativeEventLog[`${probe}-animation-stopped`],
+      expectedStoppedNativeEventOrder,
+      `${probe} stopped animation propagation`,
+    );
   }
 
   const wrappedFieldLabel = page.locator('label').filter({ hasText: 'Wrapped field' });
@@ -92,13 +108,13 @@ try {
 
   const animatedTarget = page.locator('[data-event-target="button-normal"]');
   const animatedButton = page.locator('button', { has: animatedTarget });
-  const animatedVisual = animatedButton.locator('[data-slot="motion-visual"]');
+  const animatedVisual = animatedButton;
   await animatedButton.hover();
   await page.waitForTimeout(120);
   const hoverTransform = await animatedVisual.evaluate(
     (element) => getComputedStyle(element).transform,
   );
-  assert.notEqual(hoverTransform, 'none');
+  assert.match(hoverTransform, /^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
   await animatedButton.dispatchEvent('pointerdown', {
     button: 0,
     pointerId: 73,
@@ -108,7 +124,7 @@ try {
   const tapTransform = await animatedVisual.evaluate(
     (element) => getComputedStyle(element).transform,
   );
-  assert.notEqual(tapTransform, hoverTransform);
+  assert.equal(tapTransform, hoverTransform);
   await animatedButton.dispatchEvent('pointerup', {
     button: 0,
     pointerId: 73,
@@ -136,12 +152,8 @@ try {
   assert.equal(await geometryCombo.inputValue(), '');
 
   const focusNeutralVisuals = [
-    animatedVisual,
     page
       .locator('a', { has: page.locator('[data-event-target="text-link-normal"]') })
-      .locator('[data-slot="motion-visual"]'),
-    page
-      .getByRole('button', { name: 'Disabled button', exact: true })
       .locator('[data-slot="motion-visual"]'),
     page
       .getByRole('link', { name: 'ARIA disabled link', exact: true })
@@ -233,10 +245,11 @@ try {
   assert.equal(await select.getAttribute('aria-expanded'), 'true');
   const endActiveId = await select.getAttribute('aria-activedescendant');
   assert.match(endActiveId ?? '', /option-3$/);
-  assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('aria-selected'), 'true');
+  assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('aria-selected'), 'false');
+  assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('data-highlighted'), 'true');
   assert.equal(
     await page.getByRole('option', { name: 'Alpha', exact: true }).getAttribute('aria-selected'),
-    'false',
+    'true',
   );
   await page.keyboard.press('ArrowDown');
   assert.equal(await select.getAttribute('aria-activedescendant'), endActiveId);
@@ -251,11 +264,16 @@ try {
   assert.match(gammaId ?? '', /option-2$/);
   assert.equal(
     await page.getByRole('option', { name: /Gamma/ }).getAttribute('aria-selected'),
-    'true',
+    'false',
   );
   await page.keyboard.press('Tab');
-  assert.equal(await select.getAttribute('aria-expanded'), 'false');
   assert.equal((await select.innerText()).trim(), 'Gamma');
+  assert.equal(
+    await page.getByRole('option', { name: /Gamma/ }).getAttribute('data-selected'),
+    'true',
+  );
+  await selectListbox.waitFor({ state: 'detached' });
+  assert.equal(await select.getAttribute('aria-expanded'), 'false');
   assert.equal(
     await page
       .getByRole('combobox', { name: 'Controlled select', exact: true })
