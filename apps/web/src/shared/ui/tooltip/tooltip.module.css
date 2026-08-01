@@ -1,0 +1,17 @@
+.content {
+  z-index: 90;
+  max-width: 240px;
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--color-on-chrome) 12%, transparent);
+  border-radius: 7px;
+  color: var(--color-on-chrome);
+  background: var(--color-chrome-raised);
+  box-shadow: var(--shadow-panel);
+  font-size: 12px;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.arrow {
+  fill: var(--color-chrome-raised);
+}

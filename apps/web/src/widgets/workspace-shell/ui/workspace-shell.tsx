@@ -10,13 +10,7 @@ import {
 } from '../model/workspace-shell-state';
 
 import type { WorkspaceNavigationItem, WorkspaceSectionId } from '@/features/workspace-navigation';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetTitle,
-} from '@/shared/ui/animate-ui/components/radix/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/shared/ui/sheet';
 
 export type WorkspaceShellProps = {
   activeSection: WorkspaceSectionId | 'admin-invitations';

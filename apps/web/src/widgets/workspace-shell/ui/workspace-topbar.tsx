@@ -16,8 +16,8 @@ import type {
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
 import { Button } from '@/shared/ui/button';
-import { SheetTrigger } from '@/shared/ui/animate-ui/components/radix/sheet';
-import { IconButton } from '@/shared/ui/primitives';
+import { IconButton } from '@/shared/ui/button';
+import { SheetTrigger } from '@/shared/ui/sheet';
 
 type WorkspaceTopbarProps = {
   activeSection: WorkspaceSectionId | 'admin-invitations';

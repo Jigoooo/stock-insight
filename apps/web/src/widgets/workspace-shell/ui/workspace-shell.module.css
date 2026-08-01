@@ -33,11 +33,6 @@
   font: inherit;
 }
 
-.shell :is(button, a, input, summary):focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 3px;
-}
-
 .sidebar,
 .mobileSheet {
   min-width: 0;
@@ -136,6 +131,11 @@
   border-radius: var(--radius-control);
   color: var(--color-on-chrome-secondary);
   text-decoration: none;
+  outline: none;
+}
+
+.navigationLink:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-on-chrome) 28%, transparent);
 }
 
 [data-navigation-mode='compact'] .navigationLink {

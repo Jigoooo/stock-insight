@@ -7,11 +7,7 @@ import type {
   WorkspaceNavigationMode,
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/shared/ui/animate-ui/components/radix/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
 
 type WorkspaceNavigationProps = {
   activeSection: WorkspaceSectionId | 'admin-invitations';
