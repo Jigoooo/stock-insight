@@ -2,8 +2,11 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-const username = process.env.PLAYWRIGHT_AUTH_USERNAME;
-const password = process.env.PLAYWRIGHT_AUTH_PASSWORD;
+// These names must match ~/.hermes/secrets/stock-insight-e2e.env. A mismatch
+// makes the authenticated spec below test.skip() silently, so auth coverage
+// disappears without a single failing test.
+const username = process.env.STOCK_INSIGHT_E2E_USERNAME;
+const password = process.env.STOCK_INSIGHT_E2E_PASSWORD;
 const expressiveProfileUrl = new URL(
   '../apps/web/test/fixtures/expressive-design-profile.css',
   import.meta.url,
@@ -689,7 +692,9 @@ test.describe('private workspace authentication', () => {
     await page.locator('#login-password').fill(password!);
     await page.getByRole('button', { name: '로그인' }).click();
 
-    await expect(page).toHaveURL(/\/workspace(?:\?|$)/);
+    // The app normalises /workspace to its default view (/workspace/today), so
+    // the assertion must accept the sub-path it actually lands on.
+    await expect(page).toHaveURL(/\/workspace(?:\/[\w-]+)*(?:\?|$)/);
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
     const session = (await context.cookies()).find(
       (cookie) => cookie.name === '__Host-stock-insight-session',

@@ -1,0 +1,21 @@
+.banner {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  color: #fff8f7;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  pointer-events: none;
+  background: #8f261f;
+  border-radius: 999px;
+  box-shadow: 0 0.5rem 1.5rem rgb(72 15 11 / 20%);
+}

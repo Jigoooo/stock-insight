@@ -3,11 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { loadEnv } from 'vite';
 
 import { resolveDevServerPort } from './apps/web/config/dev-server';
+import { assertSafeE2eConfiguration, resolvePlaywrightBaseUrl } from './scripts/e2e-safety.mjs';
+import { buildE2eStack } from './scripts/e2e-stack.mjs';
 
 const webRoot = new URL('./apps/web/', import.meta.url).pathname;
 const env = loadEnv('dev', webRoot, '');
 const serverPort = resolveDevServerPort(process.env.PLAYWRIGHT_PORT ?? env.VITE_PORT);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${serverPort}`;
+const baseURL = resolvePlaywrightBaseUrl(process.env, serverPort);
 const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
 const excludeMotionPerformance = process.env.PLAYWRIGHT_EXCLUDE_MOTION_PERFORMANCE === '1';
 const configuredWorkers = Number.parseInt(process.env.PLAYWRIGHT_WORKERS ?? '', 10);
@@ -48,6 +50,59 @@ function workspaceVisualProject(
     },
   };
 }
+
+assertSafeE2eConfiguration(process.env);
+const serverEnv: Record<string, string> = {};
+for (const key of ['HOME', 'PATH', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'TZ', 'CI'] as const) {
+  const value = process.env[key];
+  if (typeof value === 'string') serverEnv[key] = value;
+}
+if (process.env.STOCK_INSIGHT_E2E_SESSION_SECRET_PATH) {
+  serverEnv.STOCK_INSIGHT_SESSION_SECRET_FILE = process.env.STOCK_INSIGHT_E2E_SESSION_SECRET_PATH;
+}
+
+// Authentication is served by the brain (apps/api-server), not by the BFF.
+// When STOCK_INSIGHT_E2E_DATABASE_URL names a disposable QA database we bring
+// the brain up alongside the web server so the authenticated specs exercise a
+// real login instead of silently skipping.
+const apiPort = Number.parseInt(process.env.PLAYWRIGHT_API_PORT ?? '', 10) || serverPort + 1;
+const stack = process.env.STOCK_INSIGHT_E2E_DATABASE_URL
+  ? buildE2eStack({ env: process.env, webPort: serverPort, apiPort })
+  : undefined;
+if (stack) {
+  Object.assign(serverEnv, stack.webServer.env);
+  // The signing secret must not outlive the run.
+  for (const signal of ['exit', 'SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => stack.cleanup());
+  }
+}
+Object.assign(serverEnv, {
+  PORT: String(serverPort),
+  STOCK_INSIGHT_APP_ORIGIN: baseURL,
+  ...(useProductionBuild ? { NODE_ENV: 'production', HOST: '127.0.0.1' } : { PLAYWRIGHT_E2E: '1' }),
+});
+
+const webServerConfig = {
+  command: useProductionBuild
+    ? 'node scripts/e2e-server-launcher.mjs web-production'
+    : 'node scripts/e2e-server-launcher.mjs web-dev',
+  env: serverEnv,
+  reuseExistingServer: false,
+  timeout: 120_000,
+  url: baseURL,
+};
+
+// The brain must be listening before the BFF answers a login, so it is listed
+// first: Playwright starts webServer entries in order.
+const brainServerConfig = stack
+  ? {
+      command: 'node scripts/e2e-server-launcher.mjs api',
+      env: stack.apiServer.env,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      url: stack.apiServer.url,
+    }
+  : undefined;
 
 export default defineConfig({
   testDir: './e2e',
@@ -105,12 +160,7 @@ export default defineConfig({
   webServer:
     process.env.PLAYWRIGHT_SKIP_WEB_SERVER === '1'
       ? undefined
-      : {
-          command: useProductionBuild
-            ? `cd apps/web && env NODE_ENV=production HOST=127.0.0.1 PORT=${serverPort} DATABASE_URL="\${DATABASE_URL:-postgresql://research_app@127.0.0.1:55432/research_app}" STOCK_INSIGHT_APP_ORIGIN=${baseURL} STOCK_INSIGHT_SESSION_SECRET_FILE="$STOCK_INSIGHT_E2E_SESSION_SECRET_PATH" node .output/server/index.mjs`
-            : `env PLAYWRIGHT_E2E=1 pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
-          reuseExistingServer: useProductionBuild ? false : !process.env.CI,
-          timeout: 120_000,
-          url: baseURL,
-        },
+      : brainServerConfig
+        ? [brainServerConfig, webServerConfig]
+        : webServerConfig,
 });

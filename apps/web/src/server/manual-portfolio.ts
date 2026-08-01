@@ -182,11 +182,20 @@ async function forwardMutation(
         if (error instanceof BrainRequestError && error.body !== undefined) {
           return jsonResponse(error.body, { status: error.status });
         }
-        // Genuine transport loss (DNS, connection refused, timeout, abort). The
-        // client envelope stays the same, but this must not vanish: a silent
-        // 500 here is indistinguishable from a brain-side rejection, which is
-        // exactly the ambiguity that made the P3 cutover hard to diagnose.
-        console.error('[manual-portfolio] brain transport failed', { method, path, error });
+        const errorCode =
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          typeof error.code === 'string' &&
+          /^[A-Z0-9_]{2,20}$/.test(error.code)
+            ? error.code
+            : undefined;
+        console.error('[manual-portfolio] brain transport failed', {
+          method,
+          path,
+          errorType: error instanceof Error ? error.name : 'NonError',
+          errorCode,
+        });
         return mutationFailedResponse();
       }
     },

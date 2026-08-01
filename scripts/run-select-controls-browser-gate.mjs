@@ -214,11 +214,7 @@ try {
     }
     await control.dispatchEvent('pointerup', { button: 0, pointerId: 91, pointerType: 'mouse' });
   }
-  for (const label of [
-    'Pending button',
-    'Pending icon button',
-    'Pending switch',
-  ]) {
+  for (const label of ['Pending button', 'Pending icon button', 'Pending switch']) {
     const control = page.getByRole(label.includes('switch') ? 'switch' : 'button', {
       name: label,
       exact: true,
@@ -244,7 +240,10 @@ try {
   const endActiveId = await select.getAttribute('aria-activedescendant');
   assert.match(endActiveId ?? '', /option-3$/);
   assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('aria-selected'), 'false');
-  assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('data-highlighted'), 'true');
+  assert.equal(
+    await page.locator(`[id="${endActiveId}"]`).getAttribute('data-highlighted'),
+    'true',
+  );
   assert.equal(
     await page.getByRole('option', { name: 'Alpha', exact: true }).getAttribute('aria-selected'),
     'true',

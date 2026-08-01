@@ -7,6 +7,7 @@
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run build && node --test test/*.test.ts",
+    "test:live-guard-acl": "pnpm run build && node test/live-database-guard-acl.integration.ts",
     "start": "node dist/main.js",
     "dev": "PORT=\"${STOCK_INSIGHT_API_PORT:-6200}\" tsup --watch --onSuccess \"node dist/main.js\"",
     "lint": "oxlint src test",

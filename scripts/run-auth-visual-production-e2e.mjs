@@ -21,22 +21,19 @@ for (const key of [
 }
 
 try {
-  const result = spawnSync(
-    'pnpm',
-    ['exec', 'playwright', 'test', 'e2e/auth-visual.spec.ts'],
-    {
-      cwd: root,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_PORT: '18098',
-        PLAYWRIGHT_USE_PRODUCTION_BUILD: '1',
-        STOCK_INSIGHT_E2E_SESSION_SECRET_PATH: secretPath,
-      },
-      stdio: 'inherit',
+  const result = spawnSync('pnpm', ['exec', 'playwright', 'test', 'e2e/auth-visual.spec.ts'], {
+    cwd: root,
+    env: {
+      ...process.env,
+      PLAYWRIGHT_PORT: '18098',
+      PLAYWRIGHT_USE_PRODUCTION_BUILD: '1',
+      STOCK_INSIGHT_E2E_SESSION_SECRET_PATH: secretPath,
     },
-  );
+    stdio: 'inherit',
+  });
   if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`production auth visual gate exited with ${result.status}`);
+  if (result.status !== 0)
+    throw new Error(`production auth visual gate exited with ${result.status}`);
 } finally {
   rmSync(temporaryRoot, { force: true, recursive: true });
 }

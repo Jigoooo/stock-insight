@@ -80,7 +80,17 @@ describe('P6 non-empty crypto browser gate', () => {
     assert.match(p6ProductionRunner, /DROP DATABASE IF EXISTS/);
     assert.match(p6ProductionRunner, /expectedTests = 4/);
     assert.match(packageJson.scripts['test:design:browser:production'] ?? '', /18094/);
-    assert.match(playwrightConfig, /DATABASE_URL=.*research_app@127\.0\.0\.1:55432\/research_app/);
+    // The Playwright web server must NOT carry a hardcoded production DSN
+    // fallback: with the live-database dev mode, an ambient production
+    // DATABASE_URL would let a browser gate mutate the real research_app.
+    // Credentials now arrive only through the guarded, allowlisted server env.
+    assert.doesNotMatch(
+      playwrightConfig,
+      /research_app@127\.0\.0\.1:55432\/research_app/,
+      'playwright config must not hardcode a production database fallback',
+    );
+    assert.match(playwrightConfig, /assertSafeE2eConfiguration/);
+    assert.match(playwrightConfig, /reuseExistingServer: false/);
     assert.match(playwrightConfig, /STOCK_INSIGHT_SESSION_SECRET_FILE/);
     assert.equal((p3dSpec.match(/await document\.fonts\.ready/g) ?? []).length, 2);
     assert.match(sigmaRunner, /PLAYWRIGHT_PORT: process\.env\.PLAYWRIGHT_PORT \?\? '18095'/);
