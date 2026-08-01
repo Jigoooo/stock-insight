@@ -14,6 +14,7 @@
   "ignorePatterns": [
     "apps/web/src/routeTree.gen.ts",
     "apps/web/src/shared/ui/animate-ui/**",
+    "apps/web/src/shared/ui/chart/vendor/bklit/**",
     "apps/web/src/shared/ui/button.tsx",
     "apps/web/src/shared/ui/field.tsx",
     "apps/web/src/shared/ui/input-group.tsx",
@@ -22,6 +23,7 @@
     "apps/web/src/shared/ui/separator.tsx",
     "apps/web/src/shared/ui/textarea.tsx",
     "src/shared/ui/animate-ui/**",
+    "src/shared/ui/chart/vendor/bklit/**",
     "src/shared/ui/button.tsx",
     "src/shared/ui/field.tsx",
     "src/shared/ui/input-group.tsx",

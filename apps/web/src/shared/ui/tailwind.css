@@ -36,6 +36,33 @@
   --sidebar-accent-foreground: var(--color-on-chrome);
   --sidebar-border: var(--color-border);
   --sidebar-ring: var(--color-focus);
+  --chart-background: transparent;
+  --chart-foreground: var(--color-text-primary);
+  --chart-foreground-muted: var(--color-text-tertiary);
+  --chart-label: var(--color-text-tertiary);
+  --chart-line-primary: var(--color-accent);
+  --chart-line-secondary: var(--color-copper);
+  --chart-crosshair: var(--color-text-secondary);
+  --chart-grid: color-mix(in srgb, var(--color-border) 72%, transparent);
+  --chart-indicator-color: var(--color-text-primary);
+  --chart-indicator-secondary-color: var(--color-text-secondary);
+  --chart-marker-background: var(--color-surface-raised);
+  --chart-marker-border: var(--color-border-strong);
+  --chart-marker-foreground: var(--color-text-primary);
+  --chart-marker-badge-background: var(--color-text-primary);
+  --chart-marker-badge-foreground: var(--color-canvas);
+  --chart-segment-background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  --chart-segment-line: color-mix(in srgb, var(--color-accent) 34%, transparent);
+  --chart-brush-border: var(--color-border-strong);
+  --chart-tooltip-background: var(--color-chrome);
+  --chart-tooltip-foreground: var(--color-on-chrome);
+  --chart-tooltip-muted: color-mix(in srgb, var(--color-on-chrome) 68%, transparent);
+  --chart-scale-01: var(--color-surface-subtle);
+  --chart-scale-02: var(--color-surface-muted);
+  --chart-scale-03: var(--color-border);
+  --chart-scale-04: var(--color-border-strong);
+  --chart-scale-05: var(--color-text-tertiary);
+  --chart-scale-pattern-color: var(--color-surface-subtle);
 }
 
 @theme inline {
@@ -70,6 +97,24 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-scale-pattern-color: var(--chart-scale-pattern-color);
+  --color-chart-scale-05: var(--chart-scale-05);
+  --color-chart-scale-04: var(--chart-scale-04);
+  --color-chart-scale-03: var(--chart-scale-03);
+  --color-chart-scale-02: var(--chart-scale-02);
+  --color-chart-scale-01: var(--chart-scale-01);
+  --color-chart-label: var(--chart-label);
+  --color-chart-marker-foreground: var(--chart-marker-foreground);
+  --color-chart-marker-border: var(--chart-marker-border);
+  --color-chart-marker-background: var(--chart-marker-background);
+  --color-chart-tooltip-muted: var(--chart-tooltip-muted);
+  --color-chart-tooltip-foreground: var(--chart-tooltip-foreground);
+  --color-chart-tooltip-background: var(--chart-tooltip-background);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-crosshair: var(--chart-crosshair);
+  --color-chart-foreground-muted: var(--chart-foreground-muted);
+  --color-chart-foreground: var(--chart-foreground);
+  --color-chart-background: var(--chart-background);
 }
 
 [data-slot='input']::placeholder,
