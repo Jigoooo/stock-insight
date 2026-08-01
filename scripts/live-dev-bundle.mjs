@@ -8,11 +8,11 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const BUNDLE_SCHEMA_VERSION = 1;
+const BUNDLE_SCHEMA_VERSION = 2;
 const DATABASE_NAME = 'research_app';
 const READ_ROLE = 'stock_insight_app_reader';
 const WRITE_ROLE = 'stock_insight_app_writer';
-const BUNDLE_FIELDS = ['internalContext', 'manifest', 'pgpass', 'schemaVersion'];
+const BUNDLE_FIELDS = ['manifest', 'pgpass', 'schemaVersion'];
 const MANIFEST_FIELDS = ['database', 'files', 'roles', 'schemaVersion'];
 
 export function parseEnvText(text) {
@@ -64,15 +64,9 @@ function escapePgpass(value) {
   return value.replaceAll('\\', '\\\\').replaceAll(':', '\\:');
 }
 
-export function buildBundlePayload({ env, internalContext }) {
+export function buildBundlePayload({ env }) {
   const read = parseDatabaseUrl(env.STOCK_INSIGHT_DATABASE_READ_URL, 'reader', READ_ROLE);
   const write = parseDatabaseUrl(env.STOCK_INSIGHT_DATABASE_WRITE_URL, 'writer', WRITE_ROLE);
-  const normalizedInternalContext = String(internalContext ?? '').trim();
-  if (normalizedInternalContext.length < 32)
-    throw new Error('internal context secret is too short');
-  if (normalizedInternalContext.includes('\u0000') || /[\r\n]/.test(normalizedInternalContext)) {
-    throw new Error('internal context secret contains an invalid control character');
-  }
 
   const pgpass = [read, write]
     .map(({ role, password }) => `127.0.0.1:*:${DATABASE_NAME}:${role}:${escapePgpass(password)}`)
@@ -81,12 +75,11 @@ export function buildBundlePayload({ env, internalContext }) {
   const payload = {
     schemaVersion: BUNDLE_SCHEMA_VERSION,
     pgpass: `${pgpass}\n`,
-    internalContext: normalizedInternalContext,
     manifest: {
       schemaVersion: BUNDLE_SCHEMA_VERSION,
       database: DATABASE_NAME,
       roles: [READ_ROLE, WRITE_ROLE],
-      files: ['pgpass', 'stock-insight-internal-context.secret'],
+      files: ['pgpass'],
     },
   };
   validateBundlePayload(payload);
@@ -129,12 +122,6 @@ export function validateBundlePayload(payload) {
   if (payload.schemaVersion !== BUNDLE_SCHEMA_VERSION) {
     throw new Error(`unsupported bundle schema version: ${String(payload.schemaVersion)}`);
   }
-  if (typeof payload.internalContext !== 'string' || payload.internalContext.length < 32) {
-    throw new Error('internal context secret is too short');
-  }
-  if (payload.internalContext.includes('\u0000') || /[\r\n]/.test(payload.internalContext)) {
-    throw new Error('internal context secret contains an invalid control character');
-  }
   if (typeof payload.pgpass !== 'string' || !payload.pgpass.endsWith('\n')) {
     throw new Error('pgpass must be a newline-terminated string');
   }
@@ -159,8 +146,7 @@ export function validateBundlePayload(payload) {
     payload.manifest.schemaVersion !== BUNDLE_SCHEMA_VERSION ||
     payload.manifest.database !== DATABASE_NAME ||
     JSON.stringify(payload.manifest.roles) !== JSON.stringify([READ_ROLE, WRITE_ROLE]) ||
-    JSON.stringify(payload.manifest.files) !==
-      JSON.stringify(['pgpass', 'stock-insight-internal-context.secret'])
+    JSON.stringify(payload.manifest.files) !== JSON.stringify(['pgpass'])
   ) {
     throw new Error('bundle manifest does not match the live development contract');
   }
@@ -192,6 +178,13 @@ async function readPrivateFile(path, platform, label) {
   try {
     const metadata = await handle.stat();
     if (!metadata.isFile()) throw new Error(`${label} must be a regular file: ${path}`);
+    if (
+      platform !== 'win32' &&
+      typeof process.getuid === 'function' &&
+      metadata.uid !== process.getuid()
+    ) {
+      throw new Error(`${label} must be owned by the current user: ${path}`);
+    }
     if (platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
       throw new Error(`${label} must have mode 0600 or stricter: ${path}`);
     }
@@ -205,13 +198,27 @@ async function requirePrivateFile(path, platform, label) {
   await readPrivateFile(path, platform, label);
 }
 
+async function requireExistingPrivateFile(path, platform, label) {
+  try {
+    await requirePrivateFile(path, platform, label);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
 async function preparePrivateDirectoryChain(homeDir, platform) {
   let current = homeDir;
-  for (const [index, part] of ['.hermes', 'secrets', 'stock-insight-live-dev'].entries()) {
+  for (const part of ['.hermes', 'secrets', 'stock-insight-live-dev']) {
     current = join(current, part);
-    await mkdir(current, { mode: 0o700 }).catch((error) => {
+    let created = false;
+    try {
+      await mkdir(current, { mode: 0o700 });
+      created = true;
+    } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
-    });
+    }
     const metadata = await lstat(current);
     if (metadata.isSymbolicLink()) {
       throw new Error(`live development secret directory must not be a symbolic link: ${current}`);
@@ -219,18 +226,49 @@ async function preparePrivateDirectoryChain(homeDir, platform) {
     if (!metadata.isDirectory()) {
       throw new Error(`live development secret path must be a directory: ${current}`);
     }
-    if (platform !== 'win32' && index > 0) await chmod(current, 0o700);
+    if (
+      platform !== 'win32' &&
+      typeof process.getuid === 'function' &&
+      metadata.uid !== process.getuid()
+    ) {
+      throw new Error(
+        `live development secret directory must be owned by the current user: ${current}`,
+      );
+    }
+    if (platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
+      if (!created) {
+        throw new Error(
+          `live development secret directory must have mode 0700 or stricter: ${current}`,
+        );
+      }
+      await chmod(current, 0o700);
+    }
   }
   return current;
 }
 
-function runAge(args, options, label, spawnProcess = spawnSync) {
-  const result = spawnProcess('age', args, {
+function processFailureMessage(result, label, tool, platform) {
+  const original = String(result.error?.message ?? result.stderr ?? '')
+    .replace(/AGE-SECRET-KEY-[0-9A-Z-]+/gi, '[redacted age identity]')
+    .replace(/(stock_insight_app_(?:reader|writer):)[^\\\r\n"\s]+/g, '$1[redacted password]')
+    .replace(/(postgres(?:ql)?:\/\/[^:\s/"']+:)[^@\s/"']+@/gi, '$1[redacted password]@')
+    .trim();
+  const installHint =
+    platform === 'darwin' && result.error?.code === 'ENOENT'
+      ? ` ${tool} is not installed. Run: brew install age.`
+      : '';
+  return `${label} failed.${installHint}${original ? ` ${original.slice(0, 4096)}` : ''}`;
+}
+
+function runTool(tool, args, options, label, platform, spawnProcess = spawnSync) {
+  const result = spawnProcess(tool, args, {
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
     ...options,
   });
-  if (result.error || result.status !== 0) throw new Error(`${label} failed`);
+  if (result.error || result.status !== 0) {
+    throw new Error(processFailureMessage(result, label, tool, platform));
+  }
   return result;
 }
 
@@ -244,13 +282,37 @@ export async function encryptBundleFile(
   }
   if (typeof outputPath !== 'string' || !outputPath)
     throw new Error('bundle output path is required');
-  await mkdir(join(outputPath, '..'), { recursive: true, mode: 0o700 });
+  const outputDirectory = join(outputPath, '..');
+  const firstCreated = await mkdir(outputDirectory, { recursive: true, mode: 0o700 });
+  const outputDirectoryMetadata = await lstat(outputDirectory);
+  if (outputDirectoryMetadata.isSymbolicLink() || !outputDirectoryMetadata.isDirectory()) {
+    throw new Error(`bundle output directory must be a private directory: ${outputDirectory}`);
+  }
+  if (
+    platform !== 'win32' &&
+    typeof process.getuid === 'function' &&
+    outputDirectoryMetadata.uid !== process.getuid()
+  ) {
+    throw new Error(
+      `bundle output directory must be owned by the current user: ${outputDirectory}`,
+    );
+  }
+  if (platform !== 'win32' && (outputDirectoryMetadata.mode & 0o077) !== 0) {
+    if (firstCreated === undefined) {
+      throw new Error(
+        `bundle output directory must have mode 0700 or stricter: ${outputDirectory}`,
+      );
+    }
+    await chmod(outputDirectory, 0o700);
+  }
   const temporary = `${outputPath}.${process.pid}.${randomUUID()}.tmp`;
   try {
-    runAge(
+    runTool(
+      'age',
       ['--encrypt', '--recipient', recipient, '--output', temporary],
       { input: `${JSON.stringify(payload)}\n` },
       'age encryption',
+      platform,
       spawnProcess,
     );
     if (platform !== 'win32') await chmod(temporary, 0o600);
@@ -269,10 +331,12 @@ export async function decryptBundleFile(
   { identityFile, platform = process.platform, spawnProcess = spawnSync },
 ) {
   const identity = await readPrivateFile(identityFile, platform, 'age identity');
-  const result = runAge(
+  const result = runTool(
+    'age',
     ['--decrypt', '--identity', '-', bundlePath],
     { input: identity },
     'age decryption',
+    platform,
     spawnProcess,
   );
   if (Buffer.byteLength(result.stdout, 'utf8') > 64 * 1024) {
@@ -289,20 +353,18 @@ export async function decryptBundleFile(
 
 export async function exportLiveDevBundle({
   sourceEnvFile,
-  internalContextFile,
   recipient,
   outputPath,
   platform = process.platform,
+  spawnProcess = spawnSync,
 }) {
-  const [sourceEnv, internalContext] = await Promise.all([
-    readPrivateFile(sourceEnvFile, platform, 'production Docker environment file'),
-    readPrivateFile(internalContextFile, platform, 'internal context secret'),
-  ]);
-  const payload = buildBundlePayload({
-    env: parseEnvText(sourceEnv),
-    internalContext,
-  });
-  await encryptBundleFile(payload, { recipient, outputPath, platform });
+  const sourceEnv = await readPrivateFile(
+    sourceEnvFile,
+    platform,
+    'production Docker environment file',
+  );
+  const payload = buildBundlePayload({ env: parseEnvText(sourceEnv) });
+  await encryptBundleFile(payload, { recipient, outputPath, platform, spawnProcess });
   return { outputPath, manifest: payload.manifest };
 }
 
@@ -317,25 +379,41 @@ export async function installBundlePayload(
   const internalContextFile = join(secretDir, 'stock-insight-internal-context.secret');
   const sessionSecretFile = join(secretDir, 'stock-insight-session.secret');
 
+  await requireExistingPrivateFile(pgpassFile, platform, 'pgpass');
   await writePrivateFileAtomic(pgpassFile, payload.pgpass, platform);
-  await writePrivateFileAtomic(internalContextFile, `${payload.internalContext}\n`, platform);
-  try {
-    await writeFile(sessionSecretFile, `${randomBytes(48).toString('base64url')}\n`, {
-      encoding: 'utf8',
-      flag: 'wx',
-      mode: 0o600,
-    });
-  } catch (error) {
-    if (error?.code !== 'EEXIST') throw error;
+  for (const [localSecretFile, label] of [
+    [internalContextFile, 'internal context secret'],
+    [sessionSecretFile, 'session secret'],
+  ]) {
+    let created = false;
+    try {
+      await writeFile(localSecretFile, `${randomBytes(48).toString('base64url')}\n`, {
+        encoding: 'utf8',
+        flag: 'wx',
+        mode: 0o600,
+      });
+      created = true;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+    }
+    if (created) {
+      if (platform !== 'win32') await chmod(localSecretFile, 0o600);
+    } else {
+      await requirePrivateFile(localSecretFile, platform, label);
+    }
   }
-  if (platform !== 'win32') await chmod(sessionSecretFile, 0o600);
 
   await requirePrivateFile(pgpassFile, platform, 'pgpass');
   await requirePrivateFile(internalContextFile, platform, 'internal context secret');
   await requirePrivateFile(sessionSecretFile, platform, 'session secret');
+  const internalContext = (
+    await readPrivateFile(internalContextFile, platform, 'internal context secret')
+  ).trim();
   const sessionSecret = (
     await readPrivateFile(sessionSecretFile, platform, 'session secret')
   ).trim();
+  if (internalContext.length < 32)
+    throw new Error('device-local internal context secret is too short');
   if (sessionSecret.length < 32) throw new Error('device-local session secret is too short');
 
   return { secretDir, pgpassFile, internalContextFile, sessionSecretFile };
@@ -344,15 +422,12 @@ export async function installBundlePayload(
 const CLI_OPTION_NAMES = {
   '--bundle': 'bundlePath',
   '--identity': 'identityFile',
-  '--internal-context': 'internalContextFile',
-  '--out': 'outputPath',
   '--recipient': 'recipient',
-  '--source-env': 'sourceEnvFile',
 };
 
 export function parseBundleCliArgs(args) {
   const [command, ...rest] = args;
-  if (!['export', 'setup', 'inspect', 'init-recipient', 'help'].includes(command)) {
+  if (!['export', 'setup', 'help'].includes(command)) {
     throw new Error(`unknown bundle command: ${String(command ?? '')}`);
   }
   const result = { command };
@@ -369,29 +444,66 @@ export function parseBundleCliArgs(args) {
 
 function printHelp() {
   process.stdout.write(`Stock Insight live development bundle\n\n`);
-  process.stdout.write(`  init-recipient [--identity PATH]\n`);
-  process.stdout.write(
-    `  export --recipient AGE1... [--source-env PATH] [--internal-context PATH] [--out PATH]\n`,
-  );
-  process.stdout.write(`  setup --bundle PATH [--identity PATH]\n`);
-  process.stdout.write(`  inspect --bundle PATH [--identity PATH]\n`);
+  process.stdout.write(`  setup [--bundle PATH] [--identity PATH]\n`);
+  process.stdout.write(`  export --recipient AGE1...\n`);
 }
 
-async function initializeRecipient(identityFile, platform = process.platform) {
-  await mkdir(join(identityFile, '..'), { recursive: true, mode: 0o700 });
-  const result = spawnSync('age-keygen', ['-o', identityFile], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
-  if (result.error || result.status !== 0) throw new Error('age identity generation failed');
-  if (platform !== 'win32') await chmod(identityFile, 0o600);
-  const recipientResult = spawnSync('age-keygen', ['-y', identityFile], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  if (recipientResult.error || recipientResult.status !== 0) {
-    throw new Error('age recipient derivation failed');
+export async function initializeAgeRecipient(
+  identityFile,
+  { platform = process.platform, spawnProcess = spawnSync } = {},
+) {
+  const identityDirectory = join(identityFile, '..');
+  await mkdir(identityDirectory, { recursive: true, mode: 0o700 });
+  const directoryMetadata = await lstat(identityDirectory);
+  if (directoryMetadata.isSymbolicLink() || !directoryMetadata.isDirectory()) {
+    throw new Error(`age identity directory must be a private directory: ${identityDirectory}`);
   }
+  if (
+    platform !== 'win32' &&
+    typeof process.getuid === 'function' &&
+    directoryMetadata.uid !== process.getuid()
+  ) {
+    throw new Error(
+      `age identity directory must be owned by the current user: ${identityDirectory}`,
+    );
+  }
+  if (platform !== 'win32') await chmod(identityDirectory, 0o700);
+
+  let exists = true;
+  try {
+    await requirePrivateFile(identityFile, platform, 'age identity');
+  } catch (error) {
+    if (error?.code === 'ENOENT') exists = false;
+    else throw error;
+  }
+  if (!exists) {
+    const temporary = `${identityFile}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      runTool(
+        'age-keygen',
+        ['-o', temporary],
+        { stdio: ['ignore', 'ignore', 'pipe'] },
+        'age identity generation',
+        platform,
+        spawnProcess,
+      );
+      if (platform !== 'win32') await chmod(temporary, 0o600);
+      await rename(temporary, identityFile);
+    } finally {
+      await unlink(temporary).catch((error) => {
+        if (error?.code !== 'ENOENT') throw error;
+      });
+    }
+  }
+  await requirePrivateFile(identityFile, platform, 'age identity');
+  const recipientResult = runTool(
+    'age-keygen',
+    ['-y', identityFile],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+    'age recipient derivation',
+    platform,
+    spawnProcess,
+  );
   return recipientResult.stdout.trim();
 }
 
@@ -402,35 +514,25 @@ async function main() {
   const homeDir = homedir();
   const defaultIdentity = join(homeDir, '.config', 'age', 'stock-insight-live-dev.txt');
   if (parsed.command === 'help') return printHelp();
-  if (parsed.command === 'init-recipient') {
-    const identityFile = parsed.identityFile ?? defaultIdentity;
-    const recipient = await initializeRecipient(identityFile);
-    process.stdout.write(`Age recipient: ${recipient}\n`);
-    process.stdout.write(`Private identity: ${identityFile}\n`);
-    return;
-  }
   if (parsed.command === 'export') {
     if (!parsed.recipient) throw new Error('--recipient is required for export');
     const result = await exportLiveDevBundle({
-      sourceEnvFile: parsed.sourceEnvFile ?? resolve('.env.docker'),
-      internalContextFile:
-        parsed.internalContextFile ??
-        join(homeDir, '.hermes', 'secrets', 'stock-insight-internal-context.secret'),
+      sourceEnvFile: resolve('.env.docker'),
       recipient: parsed.recipient,
-      outputPath:
-        parsed.outputPath ?? join(homeDir, '.hermes', 'exports', 'stock-insight-live-dev.age'),
+      outputPath: join(homeDir, '.hermes', 'exports', 'stock-insight-live-dev.age'),
     });
     process.stdout.write(`Encrypted bundle: ${result.outputPath}\n`);
     process.stdout.write(`${JSON.stringify(result.manifest)}\n`);
     return;
   }
-  if (!parsed.bundlePath) throw new Error('--bundle is required');
   const identityFile = parsed.identityFile ?? defaultIdentity;
-  const payload = await decryptBundleFile(parsed.bundlePath, { identityFile });
-  if (parsed.command === 'inspect') {
-    process.stdout.write(`${JSON.stringify(payload.manifest, null, 2)}\n`);
+  if (!parsed.bundlePath) {
+    const recipient = await initializeAgeRecipient(identityFile);
+    process.stdout.write(`Age recipient: ${recipient}\n`);
+    process.stdout.write(`Private identity: ${identityFile}\n`);
     return;
   }
+  const payload = await decryptBundleFile(parsed.bundlePath, { identityFile });
   const installed = await installBundlePayload(payload, { homeDir });
   process.stdout.write(`Live development secrets installed: ${installed.secretDir}\n`);
 }

@@ -9,11 +9,13 @@ import test from 'node:test';
 import {
   prepareLiveDev,
   probePostgresServer,
+  captureDarwinProcessIdentity,
   spawnLiveApi,
   spawnLiveTunnel,
   spawnLiveWeb,
   startLiveDev,
   superviseLiveDev,
+  verifyDarwinTcpListenerOwnedByProcessGroup,
   verifyTcpListenerOwnedByProcessGroup,
   waitForPostgresTunnel,
   waitForTcpPort,
@@ -138,6 +140,55 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
   );
   assert.ok(prepared.webCommand.args.includes('/run/stock-insight-live-web/session.secret'));
   assert.ok(!prepared.webCommand.args.includes(join(secretDir, 'pgpass')));
+  await prepared.cleanup();
+});
+
+test('prepareLiveDev builds Darwin-native tunnel, API, and web commands with child-specific secrets', async () => {
+  const { homeDir, secretDir } = await createSecretFixture();
+  const nodeExecutable = '/opt/homebrew/bin/node';
+  const prepared = await prepareLiveDev({
+    homeDir,
+    nodeExecutable,
+    platform: 'darwin',
+    env: {
+      HOME: homeDir,
+      PATH: '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin',
+      DATABASE_READ_URL: 'postgresql://must-not-pass:secret@elsewhere/db',
+      DATABASE_WRITE_URL: 'postgresql://must-not-pass:secret@elsewhere/db',
+    },
+    resolveCommand: (name) =>
+      ({
+        cloudflared: '/opt/homebrew/bin/cloudflared',
+        pnpm: '/opt/homebrew/bin/pnpm',
+        lsof: '/usr/sbin/lsof',
+        ps: '/bin/ps',
+      })[name],
+  });
+
+  assert.equal(prepared.backend, 'darwin-native');
+  assert.deepEqual(prepared.tunnelCommand, {
+    executable: '/opt/homebrew/bin/cloudflared',
+    args: ['access', 'tcp', '--hostname', 'insight-db.jigooo.com', '--url', '127.0.0.1:55432'],
+  });
+  assert.equal(prepared.webCommand.executable, nodeExecutable);
+  assert.ok(prepared.webCommand.cwd.endsWith('/apps/web'));
+  assert.ok(prepared.webCommand.args[0].endsWith('/apps/web/node_modules/vite/bin/vite.js'));
+  assert.equal(
+    prepared.webEnv.STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE,
+    join(secretDir, 'stock-insight-internal-context.secret'),
+  );
+  assert.equal(
+    prepared.webEnv.STOCK_INSIGHT_SESSION_SECRET_FILE,
+    join(secretDir, 'stock-insight-session.secret'),
+  );
+  for (const childEnv of [prepared.tunnelEnv, prepared.webEnv]) {
+    assert.equal(childEnv.PGPASSFILE, undefined);
+    assert.equal(childEnv.DATABASE_READ_URL, undefined);
+    assert.equal(childEnv.DATABASE_WRITE_URL, undefined);
+    assert.doesNotMatch(JSON.stringify(childEnv), /must-not-pass|:secret@/);
+  }
+  assert.equal(prepared.listenerTools.lsof, '/usr/sbin/lsof');
+  assert.equal(prepared.listenerTools.ps, '/bin/ps');
   await prepared.cleanup();
 });
 
@@ -647,6 +698,67 @@ test('verifyTcpListenerOwnedByProcessGroup follows a bubblewrap child process gr
   );
 });
 
+test('Darwin ps identity and lsof listener verification bind a port to the spawned process group', async () => {
+  const calls = [];
+  const runCommand = async (executable, args) => {
+    calls.push([executable, args]);
+    if (executable === '/bin/ps') {
+      if (args.includes('5001')) return ' 5001 5001 Mon Aug  2 12:00:00 2026\n';
+      if (args.includes('5002')) return ' 5002 5001 Mon Aug  2 12:00:01 2026\n';
+    }
+    if (executable === '/usr/sbin/lsof') return 'p5002\n';
+    throw new Error(`unexpected command: ${executable}`);
+  };
+  const identity = await captureDarwinProcessIdentity(5001, {
+    psExecutable: '/bin/ps',
+    runCommand,
+  });
+
+  assert.deepEqual(identity, {
+    pid: 5001,
+    processGroupId: 5001,
+    startTime: 'Mon Aug 2 12:00:00 2026',
+  });
+  assert.equal(
+    await verifyDarwinTcpListenerOwnedByProcessGroup({
+      host: '127.0.0.1',
+      port: 55432,
+      processGroupId: 5001,
+      rootProcessIdentity: identity,
+      lsofExecutable: '/usr/sbin/lsof',
+      psExecutable: '/bin/ps',
+      runCommand,
+    }),
+    true,
+  );
+  assert.ok(calls.some(([executable]) => executable === '/usr/sbin/lsof'));
+});
+
+test('Darwin listener verification rejects an unrelated process group', async () => {
+  const runCommand = async (executable, args) => {
+    if (executable === '/usr/sbin/lsof') return 'p6002\n';
+    if (args.includes('6001')) return ' 6001 6001 Mon Aug  2 12:00:00 2026\n';
+    if (args.includes('6002')) return ' 6002 9999 Mon Aug  2 12:00:01 2026\n';
+    throw new Error('unexpected process');
+  };
+  assert.equal(
+    await verifyDarwinTcpListenerOwnedByProcessGroup({
+      host: '127.0.0.1',
+      port: 6200,
+      processGroupId: 6001,
+      rootProcessIdentity: {
+        pid: 6001,
+        processGroupId: 6001,
+        startTime: 'Mon Aug 2 12:00:00 2026',
+      },
+      lsofExecutable: '/usr/sbin/lsof',
+      psExecutable: '/bin/ps',
+      runCommand,
+    }),
+    false,
+  );
+});
+
 test('spawn helpers isolate tunnel, API, and sandboxed web environments', () => {
   const calls = [];
   const children = [{ pid: 1001 }, { pid: 1002 }, { pid: 1003 }];
@@ -1027,12 +1139,16 @@ test('startLiveDev owns parent signals during tunnel readiness and escalates bou
   const tunnel = new FakeProcess(4201);
   const kills = [];
   const timers = [];
+  let readinessSignal;
   const startup = startLiveDev(
     { tunnelPort: 55432 },
     {
       parent,
       spawnTunnel: () => tunnel,
-      waitUntilReady: () => new Promise(() => {}),
+      waitUntilReady: (_prepared, { signal }) => {
+        readinessSignal = signal;
+        return new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      },
       platform: 'linux',
       killProcess: (pid, signal) => kills.push([pid, signal]),
       schedule: (callback) => {
@@ -1048,10 +1164,47 @@ test('startLiveDev owns parent signals during tunnel readiness and escalates bou
   const rejection = assert.rejects(startup, /startup interrupted by SIGTERM/);
   parent.emit('SIGTERM');
   await rejection;
+  assert.equal(readinessSignal.aborted, true);
   assert.equal(parent.exitCode, 143);
   assert.deepEqual(kills, [[-4201, 'SIGTERM']]);
   await timers[0]();
   assert.deepEqual(kills.at(-1), [-4201, 'SIGKILL']);
+});
+
+test('startLiveDev aborts PostgreSQL SSO readiness immediately on Ctrl+C', async () => {
+  const parent = new EventEmitter();
+  parent.exitCode = undefined;
+  const tunnel = new FakeProcess(4251);
+  let receivedSignal;
+  let cleanupCount = 0;
+  const startup = startLiveDev(
+    {
+      tunnelPort: 55432,
+      cleanup: () => {
+        cleanupCount += 1;
+      },
+    },
+    {
+      parent,
+      spawnTunnel: () => tunnel,
+      waitUntilReady: async () => {},
+      verifyTunnelListener: async () => true,
+      waitUntilPostgresReady: (_prepared, { signal }) => {
+        receivedSignal = signal;
+        return new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      },
+      platform: 'darwin',
+      killProcess: () => {},
+      captureIdentity: async (pid) => ({ pid, processGroupId: pid, startTime: '1' }),
+      schedule: () => 1,
+    },
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  parent.emit('SIGINT');
+  await assert.rejects(startup, /startup interrupted by SIGINT/);
+  assert.equal(receivedSignal.aborted, true);
+  assert.equal(cleanupCount, 1);
 });
 
 test('startLiveDev rejects a web spawn error emitted while process identity is captured', async () => {
@@ -1157,10 +1310,8 @@ test('workspace scripts and Turbo explicitly carry the live-development file con
   assert.match(packageJson.scripts.format, /\bscripts\b/);
   assert.match(packageJson.scripts['format:check'], /\bscripts\b/);
   assert.equal(packageJson.scripts['setup:live'], 'node scripts/live-dev-bundle.mjs setup');
-  assert.equal(
-    packageJson.scripts['live:recipient:init'],
-    'node scripts/live-dev-bundle.mjs init-recipient',
-  );
+  assert.equal(packageJson.scripts['live:recipient:init'], undefined);
+  assert.equal(packageJson.scripts['live:bundle:inspect'], undefined);
   assert.equal(
     packageJson.scripts['live:bundle:export'],
     'node scripts/live-dev-bundle.mjs export',
