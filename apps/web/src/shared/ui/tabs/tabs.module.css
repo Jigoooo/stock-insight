@@ -1,0 +1,122 @@
+.root {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.highlight {
+  position: relative;
+  min-width: 0;
+}
+
+.list {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.item {
+  min-width: 0;
+}
+
+.trigger {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  color: var(--color-text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.trigger[data-state='active'] {
+  color: var(--color-text-primary);
+}
+
+.trigger:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
+}
+
+.trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.root[data-variant='inset'] .highlight {
+  width: fit-content;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-control) + 2px);
+  background: var(--color-surface-subtle);
+}
+
+.root[data-variant='inset'] .trigger {
+  border-radius: var(--radius-control);
+}
+
+.root[data-variant='inset'] [data-slot='motion-highlight'] {
+  border: 1px solid color-mix(in srgb, var(--color-border-strong) 72%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(32 33 31 / 7%);
+}
+
+.root[data-variant='hairline'] .highlight {
+  width: 100%;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.root[data-variant='hairline'] .list {
+  width: 100%;
+  gap: 22px;
+}
+
+.root[data-variant='hairline'] .trigger {
+  min-height: 42px;
+  padding-inline: 0;
+}
+
+.root[data-variant='hairline'] .trigger::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--color-text-primary);
+  content: '';
+  opacity: 0;
+  transform: scaleX(0.72);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform 190ms var(--ease-out);
+}
+
+.root[data-variant='hairline'] .trigger[data-state='active']::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.content {
+  flex: 1;
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .trigger::after {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}

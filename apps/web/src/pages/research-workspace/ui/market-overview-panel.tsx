@@ -18,7 +18,7 @@ import {
   TabsHighlightItem,
   TabsList,
   TabsTrigger,
-} from '@/shared/ui/animate-ui/primitives/radix/tabs';
+} from '@/shared/ui/tabs';
 import { DataTable, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';

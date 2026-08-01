@@ -18,7 +18,7 @@ import {
   TabsHighlightItem,
   TabsList,
   TabsTrigger,
-} from '@/shared/ui/animate-ui/primitives/radix/tabs';
+} from '@/shared/ui/tabs';
 import { Button } from '@/shared/ui/primitives';
 import {
   AvailabilityNotice,

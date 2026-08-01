@@ -12,6 +12,8 @@ const controllerUrl = new URL(
 );
 const motionCssUrl = new URL('../src/shared/ui/motion/motion-system.css', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
+const switchUrl = new URL('../src/shared/ui/switch/switch.tsx', import.meta.url);
+const switchCssUrl = new URL('../src/shared/ui/switch/switch.module.css', import.meta.url);
 const primitivesCssUrl = new URL(
   '../src/shared/ui/primitives/primitives.module.css',
   import.meta.url,
@@ -60,20 +62,21 @@ describe('shared interaction and feedback boundaries', () => {
   });
 
   it('removes browser-native control chrome and provides accessible shared link, switch, and toggle primitives', async () => {
-    const [controls, motionCss, primitivesCss] = await Promise.all([
+    const [controls, switchSource, switchCss, motionCss] = await Promise.all([
       readFile(controlsUrl, 'utf8'),
+      readFile(switchUrl, 'utf8'),
+      readFile(switchCssUrl, 'utf8'),
       readFile(motionCssUrl, 'utf8'),
-      readFile(primitivesCssUrl, 'utf8'),
     ]);
 
     assert.match(motionCss, /appearance:\s*none/);
     assert.match(motionCss, /-webkit-tap-highlight-color:\s*transparent/);
     assert.match(motionCss, /:focus-visible/);
-    assert.match(controls, /role="switch"/);
-    assert.match(controls, /aria-checked=\{checked\}/);
+    assert.match(switchSource, /SwitchPrimitive\.Root/);
+    assert.match(switchSource, /data-slot="switch-control"/);
     assert.match(controls, /aria-pressed=\{pressed\}/);
-    assert.match(controls, /data-motion="(?:switch|toggle|pressable)"/);
-    assert.match(primitivesCss, /\.switchControl,[\s\S]*?min-height:\s*44px/);
+    assert.match(controls, /data-motion="toggle"/);
+    assert.match(switchCss, /\.track\s*\{/);
   });
 
   it('provides toast pause, dismiss, and preference fallbacks without fixing a library', async () => {

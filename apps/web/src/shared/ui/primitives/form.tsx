@@ -16,6 +16,7 @@ import { FieldMotionHalo } from './field-motion-halo';
 import styles from './primitives.module.css';
 import { createMotionDomAdapter } from '../motion/dom-motion-adapter';
 import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
+import { Textarea as CanonicalTextarea } from '@/shared/ui/textarea';
 
 export { FieldMotionHalo } from './field-motion-halo';
 
@@ -200,10 +201,10 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
 
 export function Textarea({ className, variant = 'chrome', ...props }: TextareaProps) {
   return (
-    <textarea
+    <CanonicalTextarea
       className={classNames(styles.textarea, className)}
       data-slot="textarea-control"
-      data-variant={variant === 'bare' ? 'bare' : 'chrome'}
+      variant={variant === 'bare' ? 'plain' : 'plain'}
       {...props}
     />
   );

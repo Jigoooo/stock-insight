@@ -2,7 +2,12 @@
 
 import { LoaderCircle } from 'lucide-react';
 import type { HTMLMotionProps } from 'motion/react';
-import { forwardRef, type ReactElement, type ReactNode } from 'react';
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 import styles from './button.module.css';
 import { Button as ButtonPrimitive } from '@/shared/ui/animate-ui/primitives/buttons/button';
@@ -11,7 +16,10 @@ export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'dan
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 export type ButtonMotion = 'pressable' | 'quiet' | 'none';
 
-export type ButtonProps = Omit<HTMLMotionProps<'button'>, 'children'> & {
+type ButtonMotionProps = Pick<HTMLMotionProps<'button'>, 'transition' | 'whileHover' | 'whileTap'>;
+
+export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> &
+  ButtonMotionProps & {
   asChild?: boolean;
   children?: ReactNode;
   hoverScale?: number;
@@ -21,7 +29,7 @@ export type ButtonProps = Omit<HTMLMotionProps<'button'>, 'children'> & {
   size?: ButtonSize;
   tapScale?: number;
   variant?: ButtonVariant;
-};
+  };
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');

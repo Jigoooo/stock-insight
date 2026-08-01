@@ -1,181 +1,47 @@
-import {
-  useEffect,
-  useRef,
-  type ButtonHTMLAttributes,
-  type MouseEvent,
-  type ReactNode,
-} from 'react';
+import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from 'react';
 
-import {
-  applyControlStateMotion,
-  clearControlStateMotion,
-  shouldCommitControlChange,
-  type ControlMotionKind,
-} from './control-motion-controller';
-import styles from './primitives.module.css';
-import { createMotionDomAdapter } from '../motion/dom-motion-adapter';
-import { MotionButton } from '../motion/motion-button';
-import { readProfileMotionSeconds, readProfileMotionValue } from '../motion/profile-motion';
+import { Button } from '@/shared/ui/button';
+export { Switch } from '@/shared/ui/switch';
+export type { SwitchProps } from '@/shared/ui/switch';
 
-function classNames(...values: (string | false | null | undefined)[]) {
-  return values.filter(Boolean).join(' ');
-}
-
-function useControlStateMotion(active: boolean, kind: ControlMotionKind) {
-  const targetRef = useRef<HTMLSpanElement>(null);
-  const activeRef = useRef(active);
-  const previousActiveRef = useRef(active);
-  const runMotionRef = useRef<(nextActive: boolean) => void>(() => undefined);
-
-  useEffect(() => {
-    const target = targetRef.current;
-    if (!target) return;
-
-    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const domMotion = createMotionDomAdapter();
-    const adapter = {
-      killTweensOf: (motionTarget: object) => domMotion.killTweensOf(motionTarget as HTMLElement),
-      set: (motionTarget: object, vars: object) => domMotion.set(motionTarget as HTMLElement, vars),
-      to: (motionTarget: object, vars: object) => domMotion.to(motionTarget as HTMLElement, vars),
-    };
-    const runMotion = (nextActive: boolean, reduced = motionPreference.matches) => {
-      applyControlStateMotion({
-        active: nextActive,
-        adapter,
-        duration: readProfileMotionSeconds('--duration-fast'),
-        ease: readProfileMotionValue('--motion-ease-out'),
-        kind,
-        reducedMotion: reduced,
-        target,
-      });
-    };
-    const onMotionPreferenceChange = () => {
-      if (motionPreference.matches) runMotion(activeRef.current, true);
-    };
-
-    runMotionRef.current = runMotion;
-    runMotion(activeRef.current, true);
-    motionPreference.addEventListener('change', onMotionPreferenceChange);
-
-    return () => {
-      motionPreference.removeEventListener('change', onMotionPreferenceChange);
-      runMotionRef.current = () => undefined;
-      clearControlStateMotion({ adapter, kind, target });
-    };
-  }, [kind]);
-
-  useEffect(() => {
-    activeRef.current = active;
-    if (previousActiveRef.current === active) return;
-    previousActiveRef.current = active;
-    runMotionRef.current(active);
-  }, [active]);
-
-  return targetRef;
-}
-
-type SwitchProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'onChange'> & {
-  checked: boolean;
-  label: ReactNode;
-  onCheckedChange: (checked: boolean) => void;
-  pending?: boolean;
-};
-
-export function Switch({
-  checked,
-  className,
-  disabled,
-  label,
-  onCheckedChange,
-  onClick,
-  pending = false,
-  type = 'button',
-  ...props
-}: SwitchProps) {
-  const thumbRef = useControlStateMotion(checked, 'switch');
-  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
-    onClick?.(event);
-    if (
-      shouldCommitControlChange({ defaultPrevented: event.defaultPrevented, disabled, pending })
-    ) {
-      onCheckedChange(!checked);
-    }
-  };
-
-  return (
-    <MotionButton
-      {...props}
-      aria-busy={pending || undefined}
-      aria-checked={checked}
-      className={classNames(styles.switchControl, className)}
-      data-motion="switch"
-      data-slot="switch-control"
-      data-state={checked ? 'checked' : 'unchecked'}
-      disabled={disabled || pending}
-      role="switch"
-      type={type}
-      onClick={handleClick}
-    >
-      <span className={styles.switchTrack} data-slot="switch-indicator" aria-hidden="true">
-        <span ref={thumbRef} className={styles.switchThumb} data-switch-motion-thumb />
-      </span>
-      <span className={styles.controlLabel} data-slot="control-label">
-        {label}
-      </span>
-    </MotionButton>
-  );
-}
-
-type ToggleProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-pressed' | 'children'> & {
+export type ToggleProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'aria-pressed' | 'children'
+> & {
   children: ReactNode;
-  pressed: boolean;
   onPressedChange: (pressed: boolean) => void;
   pending?: boolean;
+  pressed: boolean;
 };
 
 export function Toggle({
   children,
-  className,
   disabled,
   onClick,
   onPressedChange,
   pending = false,
   pressed,
-  type = 'button',
   ...props
 }: ToggleProps) {
-  const railRef = useControlStateMotion(pressed, 'toggle');
+  const unavailable = disabled || pending;
+
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     onClick?.(event);
-    if (
-      shouldCommitControlChange({ defaultPrevented: event.defaultPrevented, disabled, pending })
-    ) {
-      onPressedChange(!pressed);
-    }
+    if (!event.defaultPrevented && !unavailable) onPressedChange(!pressed);
   };
 
   return (
-    <MotionButton
+    <Button
       {...props}
       aria-busy={pending || undefined}
       aria-pressed={pressed}
-      className={classNames(styles.toggleControl, className)}
       data-motion="toggle"
       data-slot="toggle-control"
-      data-state={pressed ? 'on' : 'off'}
-      disabled={disabled || pending}
-      type={type}
+      disabled={unavailable}
+      variant="secondary"
       onClick={handleClick}
     >
-      <span
-        ref={railRef}
-        className={styles.toggleRail}
-        data-toggle-motion-rail
-        aria-hidden="true"
-      />
-      <span className={styles.controlLabel} data-slot="control-label">
-        {children}
-      </span>
-    </MotionButton>
+      {children}
+    </Button>
   );
 }

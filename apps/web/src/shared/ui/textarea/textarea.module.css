@@ -1,0 +1,96 @@
+.shell {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(32 33 31 / 4%);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.shell:hover:not(:focus-within) {
+  border-color: var(--color-border-strong);
+}
+
+.shell:focus-within {
+  border-color: color-mix(in srgb, var(--color-focus) 36%, var(--color-border-strong));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 12%, transparent);
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 108px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-tertiary);
+  font-size: 12.5px;
+}
+
+.shell[data-variant='composer'] {
+  border-radius: calc(var(--radius-control) + 4px);
+  background: var(--color-surface-raised, var(--color-surface));
+}
+
+.shell[data-variant='composer'] .textarea {
+  min-height: 128px;
+}
+
+.shell[data-variant='editorial'] {
+  border-inline: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.shell[data-variant='editorial']:focus-within {
+  border-color: var(--color-border-strong);
+  box-shadow: inset 0 -1px var(--color-border-strong);
+}
+
+.shell[data-variant='editorial'] .textarea {
+  min-height: 168px;
+  padding-inline: 2px;
+  font-family: var(--font-display, inherit);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.footer {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 7px 12px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.textarea:disabled,
+.shell:has(.textarea:disabled) {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition-duration: 0.01ms;
+  }
+}

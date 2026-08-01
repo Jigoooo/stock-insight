@@ -11,12 +11,15 @@ const animateButtonPrimitiveUrl = new URL(
 );
 const motionButtonUrl = new URL('../src/shared/ui/motion/motion-button.tsx', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
+const switchUrl = new URL('../src/shared/ui/switch/switch.tsx', import.meta.url);
+const checkboxUrl = new URL('../src/shared/ui/checkbox/checkbox.tsx', import.meta.url);
+const toggleGroupUrl = new URL('../src/shared/ui/toggle-group/toggle-group.tsx', import.meta.url);
 const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
 const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
 const linkCssUrl = new URL('../src/shared/ui/primitives/link.module.css', import.meta.url);
 const segmentedTabsUrl = new URL('../src/shared/ui/primitives/segmented-tabs.tsx', import.meta.url);
-const selectBoxUrl = new URL('../src/shared/ui/primitives/select-box.tsx', import.meta.url);
-const comboboxUrl = new URL('../src/shared/ui/primitives/combobox.tsx', import.meta.url);
+const selectBoxUrl = new URL('../src/shared/ui/select/select.tsx', import.meta.url);
+const comboboxUrl = new URL('../src/shared/ui/combobox/combobox.tsx', import.meta.url);
 const authInputFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const rootPackageUrl = new URL('../../../package.json', import.meta.url);
@@ -82,12 +85,14 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('adopts the local Motion foundation at each interactive control boundary', async () => {
-    const [button, animateButton, motionButton, controls, link, segmentedTabs, selectBox, combobox] =
+    const [button, animateButton, motionButton, controls, switchSource, toggleGroup, link, segmentedTabs, selectBox, combobox] =
       await Promise.all([
         readFile(buttonUrl, 'utf8'),
         readFile(animateButtonPrimitiveUrl, 'utf8'),
         readFile(motionButtonUrl, 'utf8'),
         readFile(controlsUrl, 'utf8'),
+        readFile(switchUrl, 'utf8'),
+        readFile(toggleGroupUrl, 'utf8'),
         readFile(linkUrl, 'utf8'),
         readFile(segmentedTabsUrl, 'utf8'),
         readFile(selectBoxUrl, 'utf8'),
@@ -101,8 +106,11 @@ describe('shared primitive adoption contract', () => {
     assert.match(motionButton, /<motion\.span\b/);
     assert.match(motionButton, /data-motion-owner="motion"/);
     assert.match(motionButton, /\{\.\.\.props\}[\s\S]*data-motion-owner="motion"/);
-    assert.match(controls, /import \{ MotionButton/);
+    assert.match(controls, /import \{ Button/);
     assert.doesNotMatch(controls, /<button\b/);
+    assert.match(switchSource, /SwitchPrimitive\.Root/);
+    assert.match(toggleGroup, /layoutId="toggle-group-indicator"/);
+    assert.doesNotMatch(toggleGroup, /whileTap|scale/);
     assert.match(link, /import \{ motion/);
     assert.match(link, /<a\b/);
     assert.match(link, /<motion\.span\b/);
@@ -115,9 +123,12 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('exposes explicit control anatomy without changing native roles', async () => {
-    const [button, controls, form, link, segmentedTabs, selectBox, combobox] = await Promise.all([
+    const [button, controls, switchSource, checkbox, toggleGroup, form, link, segmentedTabs, selectBox, combobox] = await Promise.all([
       readFile(buttonUrl, 'utf8'),
       readFile(controlsUrl, 'utf8'),
+      readFile(switchUrl, 'utf8'),
+      readFile(checkboxUrl, 'utf8'),
+      readFile(toggleGroupUrl, 'utf8'),
       readFile(formUrl, 'utf8'),
       readFile(linkUrl, 'utf8'),
       readFile(segmentedTabsUrl, 'utf8'),
@@ -129,10 +140,12 @@ describe('shared primitive adoption contract', () => {
     assert.match(button, /data-slot="button-label"/);
     assert.match(button, /data-slot="button-spinner"/);
     assert.match(button, /function IconButton/);
-    assert.match(controls, /data-slot="switch-control"/);
-    assert.match(controls, /data-slot="switch-indicator"/);
+    assert.match(switchSource, /data-slot="switch-control"/);
+    assert.match(switchSource, /data-slot="switch-track"/);
+    assert.match(checkbox, /data-slot="checkbox-control"/);
+    assert.match(toggleGroup, /data-slot="toggle-group-indicator"/);
     assert.match(controls, /data-slot="toggle-control"/);
-    assert.match(controls, /data-slot="control-label"/);
+    assert.match(switchSource, /data-slot="control-label"/);
     assert.match(form, /data-slot="field-root"/);
     assert.match(form, /data-slot="field-label"/);
     assert.match(form, /data-slot="field-description"/);
@@ -149,16 +162,19 @@ describe('shared primitive adoption contract', () => {
       assert.match(source, /data-slot="select-root"/);
       assert.match(source, /data-slot="select-control"/);
       assert.match(source, /data-slot="select-option"/);
-      assert.match(source, /data-slot="select-label"/);
-      assert.match(source, /data-slot="select-description"/);
-      assert.match(source, /data-slot="select-indicator"/);
     }
+    assert.match(selectBox, /data-slot="select-label"/);
+    assert.match(selectBox, /data-slot="select-description"/);
+    assert.match(selectBox, /data-slot="select-indicator"/);
+    assert.match(combobox, /SelectOptionItem/);
   });
 
   it('exposes typed delegated recipes and closed component-owned control recipes', async () => {
-    const [button, controls] = await Promise.all([
+    const [button, controls, switchSource, toggleGroup] = await Promise.all([
       readFile(buttonUrl, 'utf8'),
       readFile(controlsUrl, 'utf8'),
+      readFile(switchUrl, 'utf8'),
+      readFile(toggleGroupUrl, 'utf8'),
     ]);
 
     assert.match(button, /type ButtonMotion = 'pressable' \| 'quiet' \| 'none'/);
@@ -167,9 +183,10 @@ describe('shared primitive adoption contract', () => {
     assert.match(button, /motion = 'pressable'/);
     assert.match(button, /forwardRef<HTMLButtonElement, ButtonProps>/);
     assert.match(button, /ref=\{ref\}/);
-    assert.match(controls, /data-motion="switch"/);
     assert.match(controls, /data-motion="toggle"/);
-    assert.doesNotMatch(controls, /^\s*motion\??:/m);
+    assert.match(switchSource, /data-variant=\{variant\}/);
+    assert.match(toggleGroup, /layoutId="toggle-group-indicator"/);
+    assert.doesNotMatch(toggleGroup, /whileTap|scale/);
   });
 
   it('removes raw buttons and anchors from the bounded product-control inventory', async () => {

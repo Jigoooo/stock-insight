@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent, type ReactNode } from 'react';
 
-import { Button } from './button';
+import { Button } from '@/shared/ui/button';
 import styles from './primitives.module.css';
 import { getNextEnabledTabIndex, isRovingTabKey } from './segmented-tabs-controller';
 import { PresenceRegion } from '../motion/presence-region';

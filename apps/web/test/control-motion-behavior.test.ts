@@ -11,6 +11,9 @@ import {
 } from '../src/shared/ui/primitives/control-motion-controller.ts';
 
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
+const switchUrl = new URL('../src/shared/ui/switch/switch.tsx', import.meta.url);
+const switchCssUrl = new URL('../src/shared/ui/switch/switch.module.css', import.meta.url);
+const toggleGroupUrl = new URL('../src/shared/ui/toggle-group/toggle-group.tsx', import.meta.url);
 const primitiveCssUrl = new URL(
   '../src/shared/ui/primitives/primitives.module.css',
   import.meta.url,
@@ -140,24 +143,21 @@ describe('control callback guard', () => {
 });
 
 describe('Switch and Toggle integration contract', () => {
-  it('uses an interruptible Motion owner for the thumb and decorative rail only', async () => {
-    const [source, css] = await Promise.all([
-      readFile(controlsUrl, 'utf8'),
-      readFile(primitiveCssUrl, 'utf8'),
+  it('uses Radix state and one sliding group indicator without pressed Motion', async () => {
+    const [source, css, toggleGroup] = await Promise.all([
+      readFile(switchUrl, 'utf8'),
+      readFile(switchCssUrl, 'utf8'),
+      readFile(toggleGroupUrl, 'utf8'),
     ]);
 
-    assert.match(source, /createMotionDomAdapter/);
+    assert.match(source, /SwitchPrimitive\.Root/);
     assert.doesNotMatch(source, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
-    assert.match(source, /data-switch-motion-thumb/);
-    assert.match(source, /data-toggle-motion-rail/);
-    assert.match(source, /applyControlStateMotion/);
-    assert.match(source, /clearControlStateMotion/);
     assert.match(source, /pending\?: boolean/);
-    assert.match(source, /aria-busy=\{pending \|\| undefined\}/);
+    assert.match(source, /aria-busy=\{pending \|\| props\['aria-busy'\]\}/);
     assert.match(source, /disabled=\{disabled \|\| pending\}/);
-    assert.match(source, /shouldCommitControlChange/);
-    assert.doesNotMatch(css, /\.switchThumb\s*\{[^}]*\btranslate\s*:/s);
-    assert.doesNotMatch(css, /\.switchControl\[data-state='checked'\] \.switchThumb/);
-    assert.match(css, /\.toggleRail\s*\{/);
+    assert.match(css, /\.root\[data-state='checked'\] \.thumb/);
+    assert.match(css, /translate:\s*15px 0/);
+    assert.match(toggleGroup, /layoutId="toggle-group-indicator"/);
+    assert.doesNotMatch(toggleGroup, /whileTap|scale/);
   });
 });
