@@ -83,7 +83,14 @@ apps/web/src/shared/ui/chart/
 ### 기본 타입
 
 ```ts
-type ChartStatus = 'loading' | 'empty' | 'error' | 'ready' | 'stale';
+type ChartStatus =
+  | 'loading'
+  | 'empty'
+  | 'error'
+  | 'ready'
+  | 'stale'
+  | 'partial'
+  | 'unavailable';
 
 type ChartRange = PriceSeriesRange; // '1M' | '3M' | '6M' | '1Y'
 
