@@ -20,6 +20,32 @@ describe('authentication same-origin boundary', () => {
     );
   });
 
+  it('allows equivalent localhost and IPv4 loopback origins on the configured port', () => {
+    assert.equal(
+      isSameOriginRequest('POST', 'http://localhost:6100', 'http://127.0.0.1:6100'),
+      true,
+    );
+    assert.equal(
+      isSameOriginRequest('POST', 'http://127.0.0.1:6100', 'http://localhost:6100'),
+      true,
+    );
+    assert.equal(
+      isSameOriginRequest('POST', 'http://[::1]:6100', 'http://localhost:6100'),
+      true,
+    );
+  });
+
+  for (const origin of [
+    'http://localhost:6101',
+    'https://localhost:6100',
+    'http://localhost.evil:6100',
+    'http://stock.jigooo.com:6100',
+  ]) {
+    it(`rejects non-equivalent loopback mutation origin: ${origin}`, () => {
+      assert.equal(isSameOriginRequest('POST', origin, 'http://127.0.0.1:6100'), false);
+    });
+  }
+
   for (const origin of [
     null,
     'http://stock.jigooo.com',
