@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: resolveDevServerPort(env.VITE_PORT),
-      open: true,
+      open: false,
       watch: isPlaywrightE2E
         ? {
             ignored: [

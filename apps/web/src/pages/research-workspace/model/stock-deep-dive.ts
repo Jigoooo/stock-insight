@@ -36,6 +36,13 @@ export type StockDeepDive = {
   sections: StockDeepDiveSection[];
 };
 
+export type StockDeepDiveLoadResult = {
+  deepDive: StockDeepDive;
+  relation: EntityRelationGraph | null;
+};
+
+export type StockDeepDiveLoader = (entityKey: string) => Promise<StockDeepDiveLoadResult>;
+
 export function createLatestRequestGate() {
   let generation = 0;
   return {
@@ -252,7 +259,7 @@ function isMissingRelationEndpoint(error: unknown): boolean {
 export async function loadStockDeepDiveData(
   entityKey: string,
   loaders: StockDeepDiveLoaders,
-): Promise<{ deepDive: StockDeepDive; relation: EntityRelationGraph | null }> {
+): Promise<StockDeepDiveLoadResult> {
   const [detail, relationResult] = await Promise.all([
     loaders.loadDetail(entityKey),
     loaders

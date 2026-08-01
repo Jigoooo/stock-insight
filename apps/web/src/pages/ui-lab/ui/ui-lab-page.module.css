@@ -1,0 +1,92 @@
+.page {
+  min-height: 100svh;
+  padding: clamp(24px, 5vw, 72px);
+  color: var(--color-text-primary);
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-border) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 28%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 40px 40px;
+}
+
+.shell {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  padding: clamp(24px, 4vw, 48px);
+  background: color-mix(in srgb, var(--color-surface) 96%, transparent);
+  box-shadow: var(--shadow-panel);
+}
+
+.header {
+  max-width: 620px;
+}
+
+.header h1,
+.header p {
+  margin: 0;
+}
+
+.header h1 {
+  font-size: clamp(24px, 4vw, 40px);
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+}
+
+.header > p:last-child {
+  margin-top: 12px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.kicker {
+  margin-bottom: 10px !important;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 40px;
+}
+
+.placeholder {
+  display: grid;
+  min-height: 132px;
+  align-content: space-between;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  background: var(--color-surface-subtle);
+}
+
+.placeholder span,
+.placeholder small {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.placeholder strong {
+  font-size: 14px;
+}
+
+@media (max-width: 520px) {
+  .page {
+    padding: 16px;
+  }
+
+  .shell {
+    padding: 22px;
+  }
+}

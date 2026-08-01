@@ -17,6 +17,7 @@ import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
+import type { StockDeepDiveLoader } from '../model/stock-deep-dive';
 import {
   resolveWorkspaceAuthoritativeOverride,
   type WorkspaceAuthoritativeOverride,
@@ -104,6 +105,7 @@ export type ResearchWorkspaceUrlState = {
 type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
+  loadStockDeepDive?: StockDeepDiveLoader;
   onLogout?: () => Promise<boolean>;
   onPrefetchSection?: (section: SectionId) => void;
   urlState?: ResearchWorkspaceUrlState;
@@ -329,6 +331,7 @@ export function whySurfacedLabel(item: ResearchFeedItem) {
 export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
+  loadStockDeepDive,
   onLogout,
   onPrefetchSection,
   urlState = {},
@@ -854,7 +857,12 @@ export function ResearchWorkspacePage({
         />
       )}
       {section === 'stocks' && data.view === 'stocks' && (
-        <StocksView data={data.stocks} pending={searchPending} stocks={stocks} />
+        <StocksView
+          data={data.stocks}
+          loadStockDeepDive={loadStockDeepDive}
+          pending={searchPending}
+          stocks={stocks}
+        />
       )}
       {section === 'crypto' && data.view === 'crypto' && <CryptoWorkspaceView data={data.crypto} />}
       {section === 'themes' && data.view === 'themes' && (

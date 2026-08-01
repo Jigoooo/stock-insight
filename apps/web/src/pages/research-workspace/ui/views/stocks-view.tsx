@@ -4,6 +4,7 @@ import {
   createLatestRequestGate,
   loadStockDeepDiveData,
   type StockDeepDive,
+  type StockDeepDiveLoader,
 } from '../../model/stock-deep-dive';
 import {
   analysisStatusLabel,
@@ -32,10 +33,12 @@ import type { EntityRelationGraph } from '@stock-insight/contracts/research-work
 const compactWorkspaceQuery = '(max-width: 1240px)';
 export function StocksView({
   data,
+  loadStockDeepDive,
   pending,
   stocks,
 }: {
   data: StockListResponse;
+  loadStockDeepDive?: StockDeepDiveLoader;
   pending: boolean;
   stocks: StockListResponse['data'];
 }) {
@@ -73,10 +76,12 @@ export function StocksView({
     });
 
     try {
-      const result = await loadStockDeepDiveData(entityKey, {
-        loadDetail: (key) => api.stockDetail(key),
-        loadRelation: (key) => api.entityRelations(key, 2),
-      });
+      const result = loadStockDeepDive
+        ? await loadStockDeepDive(entityKey)
+        : await loadStockDeepDiveData(entityKey, {
+            loadDetail: (key) => api.stockDetail(key),
+            loadRelation: (key) => api.entityRelations(key, 2),
+          });
       if (!requestGateRef.current.isCurrent(sequence)) return;
       setRelation(result.relation);
       setDeepDive(result.deepDive);

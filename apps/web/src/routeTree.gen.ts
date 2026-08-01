@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as Char91__uiLabChar93RouteImport } from './routes/[__ui-lab]'
+import { Route as Char91__devPreviewChar93RouteImport } from './routes/[__dev-preview]'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiWorkspaceRouteImport } from './routes/api/workspace'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
@@ -70,6 +72,17 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91__uiLabChar93Route = Char91__uiLabChar93RouteImport.update({
+  id: '/__ui-lab',
+  path: '/__ui-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91__devPreviewChar93Route =
+  Char91__devPreviewChar93RouteImport.update({
+    id: '/__dev-preview',
+    path: '/__dev-preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -301,6 +314,8 @@ const ApiGeoTilesZXYRoute = ApiGeoTilesZXYRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/__dev-preview': typeof Char91__devPreviewChar93Route
+  '/__ui-lab': typeof Char91__uiLabChar93Route
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/workspace': typeof AuthenticatedWorkspaceRouteWithChildren
@@ -348,6 +363,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/__dev-preview': typeof Char91__devPreviewChar93Route
+  '/__ui-lab': typeof Char91__uiLabChar93Route
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/api/feed': typeof ApiFeedRoute
@@ -395,6 +412,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/__dev-preview': typeof Char91__devPreviewChar93Route
+  '/__ui-lab': typeof Char91__uiLabChar93Route
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
@@ -445,6 +464,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/__dev-preview'
+    | '/__ui-lab'
     | '/login'
     | '/signup'
     | '/workspace'
@@ -492,6 +513,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/__dev-preview'
+    | '/__ui-lab'
     | '/login'
     | '/signup'
     | '/api/feed'
@@ -538,6 +561,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/__dev-preview'
+    | '/__ui-lab'
     | '/_authenticated'
     | '/login'
     | '/signup'
@@ -587,6 +612,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  Char91__devPreviewChar93Route: typeof Char91__devPreviewChar93Route
+  Char91__uiLabChar93Route: typeof Char91__uiLabChar93Route
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
@@ -640,6 +667,20 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__ui-lab': {
+      id: '/__ui-lab'
+      path: '/__ui-lab'
+      fullPath: '/__ui-lab'
+      preLoaderRoute: typeof Char91__uiLabChar93RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/__dev-preview': {
+      id: '/__dev-preview'
+      path: '/__dev-preview'
+      fullPath: '/__dev-preview'
+      preLoaderRoute: typeof Char91__devPreviewChar93RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1039,6 +1080,8 @@ const ApiWatchlistRouteWithChildren = ApiWatchlistRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  Char91__devPreviewChar93Route: Char91__devPreviewChar93Route,
+  Char91__uiLabChar93Route: Char91__uiLabChar93Route,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
