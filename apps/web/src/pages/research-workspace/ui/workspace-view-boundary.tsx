@@ -1,6 +1,6 @@
 import { Component, useLayoutEffect, type ReactNode } from 'react';
 
-import { Button } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/button';
 import { WorkspaceState } from '@/shared/ui/workspace';
 
 export function WorkspaceViewReady({

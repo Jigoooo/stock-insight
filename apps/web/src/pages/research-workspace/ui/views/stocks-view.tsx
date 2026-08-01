@@ -16,7 +16,7 @@ import styles from '../research-workspace-page.module.css';
 import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
 import stockStyles from '../stock-deep-dive-panel.module.css';
 
-import { Button } from '@/shared/ui/primitives/button';
+import { Button } from '@/shared/ui/button';
 import {
   AvailabilityNotice,
   DataTable,

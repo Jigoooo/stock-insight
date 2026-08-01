@@ -1,0 +1,182 @@
+:where(.statusBadge, .emptyState, .errorState, .skeleton) {
+  min-width: 0;
+}
+
+.statusBadge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.feedbackInlineVisual {
+  display: inherit;
+  min-width: 0;
+  align-items: inherit;
+  gap: inherit;
+}
+
+.statusBadge[data-tone='success'] {
+  border-color: color-mix(in srgb, var(--color-positive) 26%, var(--color-border));
+  color: var(--color-positive);
+  background: color-mix(in srgb, var(--color-positive-soft) 34%, var(--color-surface));
+}
+
+.statusBadge[data-tone='info'] {
+  border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  color: var(--color-accent-strong);
+  background: color-mix(in srgb, var(--color-accent-soft) 36%, var(--color-surface));
+}
+
+.statusBadge[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--color-signal) 28%, var(--color-border));
+  color: var(--color-signal);
+  background: color-mix(in srgb, var(--color-signal-soft) 36%, var(--color-surface));
+}
+
+.statusBadge[data-tone='danger'] {
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
+  color: var(--color-risk);
+  background: color-mix(in srgb, var(--color-risk-soft) 34%, var(--color-surface));
+}
+
+.statusBadge[data-tone='muted'],
+.statusBadge[data-tone='neutral'] {
+  color: var(--color-muted);
+}
+
+.dataQualityPopover {
+  position: relative;
+  min-width: min(280px, 100%);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.dataQualityPopover summary {
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  font-weight: 680;
+}
+
+.dataQualityContent {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  width: min(320px, calc(100vw - 48px));
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+}
+
+.dataQualityPopover[data-placement='above'] .dataQualityContent {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.dataQualityPopover b {
+  display: block;
+  color: var(--color-foreground);
+}
+
+.dataQualityPopover p {
+  margin: 4px 0 8px;
+}
+
+.dataQualityPopover dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.dataQualityPopover dl > div {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 8px;
+}
+
+.dataQualityPopover dt {
+  color: var(--color-muted);
+  font-weight: 720;
+}
+
+.dataQualityPopover dd {
+  margin: 0;
+}
+
+:where(.emptyState, .errorState) {
+  display: grid;
+  min-height: 96px;
+  place-content: center;
+  border: 1px solid color-mix(in srgb, var(--color-border) 74%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 18px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas));
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.errorState {
+  border-color: color-mix(in srgb, var(--color-risk) 28%, var(--color-border));
+  color: var(--color-risk);
+  background: color-mix(in srgb, var(--color-risk-soft) 28%, var(--color-surface));
+}
+
+.feedbackContent {
+  min-width: 0;
+}
+
+.feedbackVisual {
+  display: inherit;
+  min-width: 0;
+  grid-template-columns: inherit;
+  align-items: inherit;
+  justify-items: inherit;
+  place-content: inherit;
+  gap: inherit;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+}
+
+.skeletonVisual {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface));
+}
+
+.skeletonVisual::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-text-primary) 7%, transparent),
+    transparent
+  );
+  content: '';
+  opacity: 0.45;
+}

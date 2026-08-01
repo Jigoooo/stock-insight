@@ -35,7 +35,8 @@ import {
   type WorkspaceNavigationItem,
   type WorkspaceSectionId,
 } from '@/features/workspace-navigation';
-import { Button, ErrorState } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/button';
+import { ErrorState } from '@/shared/ui/feedback';
 import { WorkspaceState } from '@/shared/ui/workspace';
 import { WorkspaceShell } from '@/widgets/workspace-shell';
 import type {

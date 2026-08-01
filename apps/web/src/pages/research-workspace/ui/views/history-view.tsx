@@ -12,7 +12,7 @@ import {
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
-import { Button } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/button';
 import {
   AvailabilityNotice,
   PageHeader,

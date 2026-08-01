@@ -18,7 +18,9 @@ import {
 import type { Stock } from '../model/types';
 import { loadStockDetailResponse } from '@/pages/dashboard/model/load-stock-detail-response';
 import { resolveStockDetailForDashboard } from '@/pages/dashboard/model/resolve-stocks';
-import { Button, DataQualityPopover, StatusBadge, TextLink } from '@/shared/ui/primitives';
+import { Button } from '@/shared/ui/button';
+import { DataQualityPopover, StatusBadge } from '@/shared/ui/feedback';
+import { TextLink } from '@/shared/ui/link';
 import type {
   DataAvailability,
   ResponseMeta,

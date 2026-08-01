@@ -35,6 +35,29 @@ const targetUrls = [
 const legacyMotionRecipeUrls = targetUrls.filter(
   (url) => !url.pathname.includes('/src/pages/auth/'),
 );
+const researchWorkspaceUrls = [
+  new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/geo-market-map.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/today-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/radar-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/stocks-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/crypto-workspace-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/themes-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/my-research-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/history-view.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/views/status-view.tsx', import.meta.url),
+  new URL('../src/shared/ui/workspace/data-table.tsx', import.meta.url),
+  new URL('../src/shared/ui/workspace/panel.tsx', import.meta.url),
+  new URL('../src/shared/ui/workspace/structured-list.tsx', import.meta.url),
+];
+const researchWorkspaceStyleUrls = [
+  new URL('../src/pages/research-workspace/ui/research-workspace-page.module.css', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/relation-detail.module.css', import.meta.url),
+];
 
 function missingMotionRecipes(source: string, fileName: string) {
   const sourceFile = ts.createSourceFile(
@@ -73,6 +96,23 @@ function missingMotionRecipes(source: string, fileName: string) {
 }
 
 describe('shared primitive adoption contract', () => {
+  it('keeps research workspace composition on canonical shared UI boundaries', async () => {
+    const sources = await Promise.all(researchWorkspaceUrls.map((url) => readFile(url, 'utf8')));
+    const styles = await Promise.all(
+      researchWorkspaceStyleUrls.map((url) => readFile(url, 'utf8')),
+    );
+
+    for (const source of sources) {
+      assert.doesNotMatch(source, /@\/shared\/ui\/(?:primitives|animate-ui)(?:\/|['"])/);
+    }
+    for (const style of styles) {
+      assert.doesNotMatch(
+        style,
+        /\.button:active|input:focus(?:-visible|-within)?|\[role=['"]option['"]\]|\[data-slot=['"](?:toast|dialog)/,
+      );
+    }
+  });
+
   it('keeps native public control prop signatures on a compile-time fixture gate', async () => {
     const packageJson = JSON.parse(await readFile(rootPackageUrl, 'utf8')) as {
       scripts?: Record<string, string>;

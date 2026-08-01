@@ -15,8 +15,7 @@ import type {
   WorkspaceNavigationMode,
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
-import { Button } from '@/shared/ui/button';
-import { IconButton } from '@/shared/ui/button';
+import { Button, IconButton } from '@/shared/ui/button';
 import { SheetTrigger } from '@/shared/ui/sheet';
 
 type WorkspaceTopbarProps = {
@@ -118,6 +117,8 @@ export function WorkspaceLogoutAction({
   return (
     <Button
       className={className}
+      hoverScale={1.01}
+      tapScale={0.985}
       type="button"
       variant="ghost"
       aria-label="로그아웃"

@@ -36,6 +36,25 @@
   border-color: color-mix(in srgb, var(--color-risk) 72%, var(--color-border));
 }
 
+.inputShell[data-variant='bare'] {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.inputShell[data-variant='bare']:hover,
+.inputShell[data-variant='bare']:focus,
+.inputShell[data-variant='bare']:focus-visible,
+.inputShell[data-variant='bare']:focus-within {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .inputShell:disabled,
 .inputShell[data-disabled='true'] {
   cursor: not-allowed;
@@ -77,6 +96,39 @@
   font: inherit;
   font-size: 13px;
   line-height: 1.35;
+}
+
+.searchField {
+  display: flex;
+  width: min(400px, 100%);
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-tertiary);
+  background: var(--color-surface);
+}
+
+.searchField:focus-within {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
+}
+
+.searchIcon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.searchIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.searchControl {
+  min-height: 38px;
 }
 
 .groupControl:focus,

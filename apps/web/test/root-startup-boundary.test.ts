@@ -89,8 +89,8 @@ describe('public root startup boundary', () => {
       assert.doesNotMatch(source, /from ['"]@\/shared\/ui\/primitives['"]/);
       assert.doesNotMatch(source, /WorkspaceRoutePending/);
     }
-    assert.match(workspaceLayout, /primitives\/button/);
-    assert.match(workspaceLayout, /primitives\/feedback/);
+    assert.match(workspaceLayout, /shared\/ui\/button/);
+    assert.match(workspaceLayout, /shared\/ui\/feedback/);
     assert.match(workspaceLayout, /<ErrorState\b/);
     assert.match(workspaceRoute, /viewLoadError/);
   });

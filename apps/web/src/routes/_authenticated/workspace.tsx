@@ -2,8 +2,8 @@ import { Outlet, createFileRoute } from '@tanstack/react-router';
 
 import { validateWorkspaceSearch } from '@/pages/research-workspace/model/workspace-search';
 import boundaryStyles from '@/pages/research-workspace/ui/workspace-route-boundary.module.css';
-import { Button } from '@/shared/ui/primitives/button';
-import { ErrorState } from '@/shared/ui/primitives/feedback';
+import { Button } from '@/shared/ui/button';
+import { ErrorState } from '@/shared/ui/feedback';
 
 // Layout route for the workspace. Each tab is a child route under
 // routes/_authenticated/workspace/, so the tab is now part of the PATH

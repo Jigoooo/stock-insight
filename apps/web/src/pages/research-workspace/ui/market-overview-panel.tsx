@@ -12,13 +12,7 @@ import {
   type MarketModeId,
 } from '../model/market-overview';
 
-import {
-  Tabs,
-  TabsHighlight,
-  TabsHighlightItem,
-  TabsList,
-  TabsTrigger,
-} from '@/shared/ui/tabs';
+import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { DataTable, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';

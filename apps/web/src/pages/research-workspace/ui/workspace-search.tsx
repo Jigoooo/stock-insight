@@ -3,7 +3,7 @@ import { useDeferredValue } from 'react';
 
 import styles from './research-workspace-page.module.css';
 
-import { SearchField } from '@/shared/ui/primitives';
+import { SearchField } from '@/shared/ui/input';
 
 export function useDeferredWorkspaceSearch(query: string) {
   const deferredQuery = useDeferredValue(query);

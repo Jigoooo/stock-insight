@@ -11,7 +11,7 @@ import {
   unwrapPositionsForMinimumLongitudeSpan,
 } from '../model/geo-map-geometry';
 
-import { IconButton } from '@/shared/ui/primitives/button';
+import { IconButton } from '@/shared/ui/button';
 import { DataTable, PropertyList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 

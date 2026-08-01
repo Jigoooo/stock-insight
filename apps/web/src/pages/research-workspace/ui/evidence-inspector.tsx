@@ -8,7 +8,8 @@ import {
   presentResearchSummary,
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
-import { Button, IconButton, TextLink } from '@/shared/ui/primitives';
+import { Button, IconButton } from '@/shared/ui/button';
+import { TextLink } from '@/shared/ui/link';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
   EntityRelationGraph,
