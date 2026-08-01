@@ -1,5 +1,5 @@
 import { motion, type HTMLMotionProps } from 'motion/react';
-import { forwardRef, useState, type ButtonHTMLAttributes } from 'react';
+import { forwardRef, useState, type ButtonHTMLAttributes, type PointerEvent } from 'react';
 
 import styles from './motion-button.module.css';
 import { resolveMotionButtonAnimation } from './motion-values';
@@ -47,7 +47,7 @@ export const MotionButton = forwardRef<HTMLButtonElement, MotionButtonProps>(fun
         className={styles.visual}
         data-slot="motion-visual"
         onPointerCancel={() => setPressed(false)}
-        onPointerDown={(event) => {
+        onPointerDown={(event: PointerEvent<HTMLSpanElement>) => {
           if (event.button === 0 && resolvedTap) setPressed(true);
         }}
         onPointerLeave={() => setPressed(false)}

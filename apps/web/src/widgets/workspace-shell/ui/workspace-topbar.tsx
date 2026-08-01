@@ -15,7 +15,7 @@ import type {
   WorkspaceNavigationMode,
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
-import { Button } from '@/shared/ui/animate-ui/components/buttons/button';
+import { Button } from '@/shared/ui/button';
 import { SheetTrigger } from '@/shared/ui/animate-ui/components/radix/sheet';
 import { IconButton } from '@/shared/ui/primitives';
 
@@ -121,8 +121,6 @@ export function WorkspaceLogoutAction({
       type="button"
       variant="ghost"
       aria-label="로그아웃"
-      hoverScale={1.01}
-      tapScale={0.985}
       onClick={onLogout}
     >
       <LogOut aria-hidden="true" />

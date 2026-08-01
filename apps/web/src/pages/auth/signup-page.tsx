@@ -1,4 +1,3 @@
-import { useReducedMotion } from 'motion/react';
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { AuthFeedbackRegion, type AuthFeedbackState } from './auth-feedback-region';
@@ -10,7 +9,7 @@ import {
   type SignupFieldErrors,
   type SignupInput,
 } from './model/signup-validation';
-import { Button } from '@/shared/ui/animate-ui/components/buttons/button';
+import { Button } from '@/shared/ui/button';
 import { PresenceRegion } from '@/shared/ui/motion';
 import { TextLink } from '@/shared/ui/primitives/link';
 
@@ -31,8 +30,6 @@ const initialInput: SignupInput = {
   passwordConfirmation: '',
   enrollmentCode: '',
 };
-const authButtonHoverScale = 1.01;
-const authButtonTapScale = 0.985;
 
 export function SignupPage({
   availability,
@@ -44,7 +41,6 @@ export function SignupPage({
   const [input, setInput] = useState<SignupInput>(initialInput);
   const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [showPassword, setShowPassword] = useState(false);
-  const reducedMotion = useReducedMotion();
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmationRef = useRef<HTMLInputElement>(null);
@@ -117,8 +113,6 @@ export function SignupPage({
               <Button
                 className={styles.secondaryButton}
                 variant="secondary"
-                hoverScale={reducedMotion ? 1 : authButtonHoverScale}
-                tapScale={reducedMotion ? 1 : authButtonTapScale}
                 type="button"
                 onClick={onRetryAvailability}
               >
@@ -188,8 +182,6 @@ export function SignupPage({
                   <Button
                     className={styles.visibilityButton}
                     variant="ghost"
-                    hoverScale={1}
-                    tapScale={1}
                     type="button"
                     onClick={() => setShowPassword((visible) => !visible)}
                     aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -242,13 +234,12 @@ export function SignupPage({
 
               <Button
                 className={styles.submitButton}
-                variant="accent"
-                hoverScale={pending || reducedMotion ? 1 : authButtonHoverScale}
-                tapScale={pending || reducedMotion ? 1 : authButtonTapScale}
+                variant="primary"
+                pending={pending}
+                pendingLabel="설정 중"
                 type="submit"
-                disabled={pending}
               >
-                {pending ? '설정 중' : '계정 만들기'}
+                계정 만들기
               </Button>
             </form>
 

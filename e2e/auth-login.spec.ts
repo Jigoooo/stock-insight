@@ -12,6 +12,16 @@ const expressiveProfileUrl = new URL(
 type Rgb = Readonly<{ red: number; green: number; blue: number; alpha: number }>;
 
 function parseComputedRgb(value: string): Rgb {
+  const hexMatch = value.trim().match(/^#([\da-f]{6})$/i);
+  if (hexMatch?.[1]) {
+    return {
+      red: Number.parseInt(hexMatch[1].slice(0, 2), 16),
+      green: Number.parseInt(hexMatch[1].slice(2, 4), 16),
+      blue: Number.parseInt(hexMatch[1].slice(4, 6), 16),
+      alpha: 1,
+    };
+  }
+
   const oklabMatch = value.match(
     /oklab\(\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)(?:\s*\/\s*([\d.]+))?\s*\)/,
   );
@@ -94,12 +104,23 @@ function strongestFocusContrast(focusColors: string[], background: string) {
 }
 
 async function focusedControlAppearance(field: Locator) {
-  await field.focus();
-  await field.page().waitForTimeout(220);
-  return field.evaluate((input: HTMLInputElement) => {
+  const restingAppearance = await field.evaluate((input: HTMLInputElement) => {
     const control =
       input.closest<HTMLElement>('[data-slot="input-group"]') ??
-      input.closest<HTMLElement>('[data-slot="input"]');
+      input.closest<HTMLElement>('[data-slot="input-shell"]');
+    if (!control) throw new Error('auth focus control is missing');
+    const style = getComputedStyle(control);
+    return {
+      borderColor: style.borderColor,
+      boxShadow: style.boxShadow,
+    };
+  });
+  await field.focus();
+  await field.page().waitForTimeout(220);
+  return field.evaluate((input: HTMLInputElement, restingAppearance) => {
+    const control =
+      input.closest<HTMLElement>('[data-slot="input-group"]') ??
+      input.closest<HTMLElement>('[data-slot="input-shell"]');
     const adjacent = control?.closest<HTMLElement>('[data-auth-card]');
     if (!control || !adjacent) throw new Error('auth focus surfaces are missing');
     const style = getComputedStyle(control);
@@ -109,10 +130,16 @@ async function focusedControlAppearance(field: Locator) {
     return {
       focusColors: [style.borderColor, ...shadowColors],
       adjacentBackground: getComputedStyle(adjacent).backgroundColor,
+      borderColor: style.borderColor,
+      boxShadow: style.boxShadow,
       inlineBoxShadow: control.style.boxShadow,
       outlineStyle: getComputedStyle(input).outlineStyle,
+      restingAppearance,
+      focusToken: getComputedStyle(document.documentElement).getPropertyValue('--color-focus'),
+      transitionDuration: style.transitionDuration,
+      transitionProperty: style.transitionProperty,
     };
-  });
+  }, restingAppearance);
 }
 
 async function authStateAppearance(page: Page) {
@@ -202,11 +229,14 @@ test.describe('private workspace authentication', () => {
     expect(geometry.wordmarkFontSize).toBe('20px');
   });
 
-  test('keeps native label focusing without replaying a focus transition', async ({ page }) => {
+  test('keeps native label focusing without replaying the restored focus transition', async ({
+    page,
+  }) => {
     await page.goto('/login');
 
     const username = page.getByLabel('사용자 이름');
     const label = page.locator('label[for="login-username"]');
+    await expect(page.locator('[data-auth-card="true"]')).toHaveCSS('opacity', '1');
     await expect(username).toBeEnabled();
     await username.focus();
     await expect(username).toBeFocused();
@@ -218,8 +248,9 @@ test.describe('private workspace authentication', () => {
         groupDuration: group ? getComputedStyle(group).transitionDuration : null,
       };
     });
-    expect(transitionState.inputDuration).toBe('0s');
+    expect(transitionState.inputDuration).not.toBe('0s');
     expect(transitionState.groupDuration).toBeNull();
+    await page.waitForTimeout(220);
 
     await username.evaluate((element) => {
       element.dataset.focusMotionEvents = '0';
@@ -272,7 +303,7 @@ test.describe('private workspace authentication', () => {
     await motionProbe.hover();
     await expect
       .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
-      .toBe('matrix(1.01, 0, 0, 1.01, 0, 0)');
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
     const motionBox = await motionProbe.boundingBox();
     if (!motionBox) throw new Error('login motion probe does not have a bounding box');
     await page.mouse.move(motionBox.x + motionBox.width / 2, motionBox.y + motionBox.height / 2);
@@ -280,7 +311,7 @@ test.describe('private workspace authentication', () => {
     try {
       await expect
         .poll(() => motionProbe.evaluate((element) => getComputedStyle(element).transform))
-        .toBe('matrix(0.985, 0, 0, 0.985, 0, 0)');
+        .toBe('matrix(1, 0, 0, 1, 0, 1)');
     } finally {
       await page.mouse.up();
     }
@@ -479,6 +510,18 @@ test.describe('private workspace authentication', () => {
     const focusAppearance = await focusedControlAppearance(usernameField);
     expect(focusAppearance.inlineBoxShadow).toBe('');
     expect(focusAppearance.outlineStyle).toBe('none');
+    const focusedBorder = parseComputedRgb(focusAppearance.borderColor);
+    const focusToken = parseComputedRgb(focusAppearance.focusToken);
+    expect(
+      Math.max(
+        Math.abs(focusedBorder.red - focusToken.red),
+        Math.abs(focusedBorder.green - focusToken.green),
+        Math.abs(focusedBorder.blue - focusToken.blue),
+      ),
+    ).toBeGreaterThan(16);
+    expect(focusAppearance.boxShadow).not.toBe(focusAppearance.restingAppearance.boxShadow);
+    expect(focusAppearance.transitionDuration).not.toBe('0s');
+    expect(focusAppearance.transitionProperty).toContain('box-shadow');
     expect(
       strongestFocusContrast(focusAppearance.focusColors, focusAppearance.adjacentBackground),
     ).toBeGreaterThanOrEqual(3);

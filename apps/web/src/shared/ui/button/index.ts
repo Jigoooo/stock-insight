@@ -6,4 +6,4 @@ export {
   type ButtonSize,
   type ButtonVariant,
   type IconButtonProps,
-} from '@/shared/ui/button/button';
+} from './button';

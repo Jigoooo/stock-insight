@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-const animateButtonUrl = new URL(
-  '../src/shared/ui/animate-ui/components/buttons/button.tsx',
-  import.meta.url,
-);
+const canonicalButtonUrl = new URL('../src/shared/ui/button/button.tsx', import.meta.url);
 const animateButtonPrimitiveUrl = new URL(
   '../src/shared/ui/animate-ui/primitives/buttons/button.tsx',
   import.meta.url,
@@ -14,10 +11,10 @@ const animateSlotUrl = new URL(
   '../src/shared/ui/animate-ui/primitives/animate/slot.tsx',
   import.meta.url,
 );
-const shadcnInputUrl = new URL('../src/shared/ui/input.tsx', import.meta.url);
-const shadcnFieldUrl = new URL('../src/shared/ui/field.tsx', import.meta.url);
-const shadcnInputGroupUrl = new URL('../src/shared/ui/input-group.tsx', import.meta.url);
-const shadcnButtonUrl = new URL('../src/shared/ui/button.tsx', import.meta.url);
+const canonicalInputUrl = new URL('../src/shared/ui/input/input.tsx', import.meta.url);
+const canonicalInputGroupUrl = new URL('../src/shared/ui/input/input-group.tsx', import.meta.url);
+const canonicalInputCssUrl = new URL('../src/shared/ui/input/input.module.css', import.meta.url);
+const canonicalFieldUrl = new URL('../src/shared/ui/field/field.tsx', import.meta.url);
 const shadcnLabelUrl = new URL('../src/shared/ui/label.tsx', import.meta.url);
 const shadcnSeparatorUrl = new URL('../src/shared/ui/separator.tsx', import.meta.url);
 const tailwindFoundationUrl = new URL('../src/shared/ui/tailwind.css', import.meta.url);
@@ -27,52 +24,52 @@ const signupUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 
 describe('auth registry component adoption', () => {
-  it('keeps the official Animate UI button API and motion defaults', async () => {
+  it('keeps the Animate UI motion API behind the calm canonical button', async () => {
     const [button, primitive] = await Promise.all([
-      readFile(animateButtonUrl, 'utf8'),
+      readFile(canonicalButtonUrl, 'utf8'),
       readFile(animateButtonPrimitiveUrl, 'utf8'),
     ]);
 
-    assert.match(button, /class-variance-authority/);
-    assert.match(button, /variant:\s*\{[\s\S]*?accent:/);
-    assert.match(button, /variant:\s*\{[\s\S]*?ghost:/);
+    assert.match(button, /type ButtonVariant = 'primary' \| 'secondary' \| 'outline' \| 'ghost' \| 'danger'/);
+    assert.match(button, /hoverScale = 1/);
+    assert.match(button, /tapScale = 1/);
+    assert.match(button, /pendingLabel/);
     assert.match(primitive, /HTMLMotionProps<'button'>/);
     assert.match(primitive, /hoverScale\s*=\s*1\.05/);
     assert.match(primitive, /tapScale\s*=\s*0\.95/);
-    assert.match(primitive, /whileHover=\{\{\s*scale:\s*hoverScale\s*\}\}/);
-    assert.match(primitive, /whileTap=\{\{\s*scale:\s*tapScale\s*\}\}/);
+    assert.match(primitive, /whileHover=\{hoverScale === 1 \? undefined : \{ scale: hoverScale \}\}/);
+    assert.match(primitive, /whileTap=\{tapScale === 1 \? undefined : \{ scale: tapScale \}\}/);
   });
 
-  it('uses the official shadcn focus and invalid-state recipes', async () => {
-    const [input, field, inputGroup, tailwindFoundation] = await Promise.all([
-      readFile(shadcnInputUrl, 'utf8'),
-      readFile(shadcnFieldUrl, 'utf8'),
-      readFile(shadcnInputGroupUrl, 'utf8'),
+  it('uses a single neutral focus owner for canonical inputs', async () => {
+    const [input, field, inputGroup, inputCss, tailwindFoundation] = await Promise.all([
+      readFile(canonicalInputUrl, 'utf8'),
+      readFile(canonicalFieldUrl, 'utf8'),
+      readFile(canonicalInputGroupUrl, 'utf8'),
+      readFile(canonicalInputCssUrl, 'utf8'),
       readFile(tailwindFoundationUrl, 'utf8'),
     ]);
 
-    assert.match(input, /data-slot="input"/);
-    assert.match(input, /focus-visible:border-ring/);
-    assert.match(input, /focus-visible:ring-\[3px\]/);
-    assert.match(input, /focus-visible:ring-ring\/50/);
-    assert.match(input, /aria-invalid:border-destructive/);
+    assert.match(input, /data-slot="input-shell"/);
+    assert.doesNotMatch(input, /focus-visible:ring/);
     assert.match(field, /data-slot="field"/);
     assert.match(field, /data-slot="field-label"/);
     assert.match(field, /data-slot="field-error"/);
     assert.match(inputGroup, /data-slot="input-group"/);
     assert.match(inputGroup, /data-slot="input-group-control"/);
-    assert.match(inputGroup, /ring-ring\/50/);
+    assert.match(inputCss, /\.inputShell:focus-within/);
+    assert.match(inputCss, /\.groupControl:focus-visible[\s\S]*?box-shadow:\s*none/);
     assert.match(tailwindFoundation, /\[data-slot='input'\]::placeholder,[\s\S]*?opacity:\s*1/);
   });
 
   it('keeps the public auth startup path off the Radix root barrel', async () => {
     const [button, label, separator] = await Promise.all([
-      readFile(shadcnButtonUrl, 'utf8'),
+      readFile(canonicalButtonUrl, 'utf8'),
       readFile(shadcnLabelUrl, 'utf8'),
       readFile(shadcnSeparatorUrl, 'utf8'),
     ]);
 
-    assert.match(button, /from 'radix-ui\/slot'/);
+    assert.match(button, /animate-ui\/primitives\/buttons\/button/);
     assert.match(label, /from 'radix-ui\/label'/);
     assert.match(separator, /from 'radix-ui\/separator'/);
 
@@ -84,13 +81,12 @@ describe('auth registry component adoption', () => {
   it('keeps the public auth registry path off the general tailwind merge runtime', async () => {
     const registrySources = await Promise.all(
       [
-        animateButtonUrl,
+        canonicalButtonUrl,
         animateButtonPrimitiveUrl,
         animateSlotUrl,
-        shadcnButtonUrl,
-        shadcnFieldUrl,
-        shadcnInputGroupUrl,
-        shadcnInputUrl,
+        canonicalFieldUrl,
+        canonicalInputGroupUrl,
+        canonicalInputUrl,
         shadcnLabelUrl,
         shadcnSeparatorUrl,
       ].map((url) => readFile(url, 'utf8')),
@@ -103,8 +99,8 @@ describe('auth registry component adoption', () => {
 
   it('keeps unused registry branches out of the public auth startup graph', async () => {
     const [field, inputGroup] = await Promise.all([
-      readFile(shadcnFieldUrl, 'utf8'),
-      readFile(shadcnInputGroupUrl, 'utf8'),
+      readFile(canonicalFieldUrl, 'utf8'),
+      readFile(canonicalInputGroupUrl, 'utf8'),
     ]);
 
     assert.doesNotMatch(field, /@\/shared\/ui\/separator/);
@@ -112,7 +108,7 @@ describe('auth registry component adoption', () => {
     assert.doesNotMatch(inputGroup, /@\/shared\/ui\/textarea/);
   });
 
-  it('migrates only auth controls to the registry components', async () => {
+  it('migrates authentication controls to canonical public paths', async () => {
     const [authInput, login, signup] = await Promise.all([
       readFile(authInputUrl, 'utf8'),
       readFile(loginUrl, 'utf8'),
@@ -120,39 +116,19 @@ describe('auth registry component adoption', () => {
     ]);
 
     assert.match(authInput, /from '@\/shared\/ui\/field'/);
-    assert.match(authInput, /from '@\/shared\/ui\/input-group'/);
-    assert.match(authInput, /focus-visible:border-foreground focus-visible:ring-0/);
-    assert.match(
-      authInput,
-      /has-\[\[data-slot=input-group-control\]:focus-visible\]:border-foreground[\s\S]*?ring-0/,
-    );
-    assert.match(authInput, /transition-none/);
-    assert.doesNotMatch(authInput, /transition-colors|duration-100/);
+    assert.match(authInput, /from '@\/shared\/ui\/input'/);
     assert.doesNotMatch(authInput, /TextInput|FieldMotionHalo/);
-    assert.match(login, /from '@\/shared\/ui\/animate-ui\/components\/buttons\/button'/);
-    assert.match(signup, /from '@\/shared\/ui\/animate-ui\/components\/buttons\/button'/);
-    assert.match(login, /variant="accent"/);
-    assert.match(signup, /variant="accent"/);
+    assert.match(login, /from '@\/shared\/ui\/button'/);
+    assert.match(signup, /from '@\/shared\/ui\/button'/);
+    assert.match(login, /variant="primary"/);
+    assert.match(signup, /variant="primary"/);
     assert.match(login, /variant="ghost"/);
     assert.match(signup, /variant="ghost"/);
-    assert.match(login, /const authButtonHoverScale = 1\.01/);
-    assert.match(login, /const authButtonTapScale = 0\.985/);
-    assert.match(login, /hoverScale=\{disableButtonMotion \? 1 : authButtonHoverScale\}/);
-    assert.match(login, /tapScale=\{disableButtonMotion \? 1 : authButtonTapScale\}/);
-    assert.match(login, /variant="ghost"[\s\S]*?hoverScale=\{1\}[\s\S]*?tapScale=\{1\}/);
-    assert.match(login, /const disableButtonMotion = !hydrated \|\| pending \|\| reducedMotion/);
-    assert.match(signup, /const authButtonHoverScale = 1\.01/);
-    assert.match(signup, /const authButtonTapScale = 0\.985/);
-    assert.match(signup, /hoverScale=\{pending \|\| reducedMotion \? 1 : authButtonHoverScale\}/);
-    assert.match(signup, /tapScale=\{pending \|\| reducedMotion \? 1 : authButtonTapScale\}/);
-    assert.match(
-      signup,
-      /variant="secondary"[\s\S]*?hoverScale=\{reducedMotion \? 1 : authButtonHoverScale\}/,
-    );
-    assert.match(
-      signup,
-      /variant="secondary"[\s\S]*?tapScale=\{reducedMotion \? 1 : authButtonTapScale\}/,
-    );
+    assert.match(login, /pending=\{pending\}/);
+    assert.match(login, /pendingLabel="확인 중"/);
+    assert.match(signup, /pending=\{pending\}/);
+    assert.match(signup, /pendingLabel="설정 중"/);
+    assert.doesNotMatch(login + signup, /authButtonHoverScale|authButtonTapScale|hoverScale|tapScale/);
   });
 
   it('leaves component state visuals to Animate UI and shadcn', async () => {

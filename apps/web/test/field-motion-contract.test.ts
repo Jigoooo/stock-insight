@@ -9,25 +9,27 @@ const primitiveCssUrl = new URL(
   import.meta.url,
 );
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
-const shadcnInputUrl = new URL('../src/shared/ui/input.tsx', import.meta.url);
-const shadcnInputGroupUrl = new URL('../src/shared/ui/input-group.tsx', import.meta.url);
+const canonicalInputUrl = new URL('../src/shared/ui/input/input.tsx', import.meta.url);
+const canonicalInputGroupUrl = new URL('../src/shared/ui/input/input-group.tsx', import.meta.url);
+const canonicalInputCssUrl = new URL('../src/shared/ui/input/input.module.css', import.meta.url);
 const workspaceUrl = new URL(
   '../src/pages/research-workspace/ui/workspace-search.tsx',
   import.meta.url,
 );
 
 async function sources() {
-  const [form, authField, primitiveCss, authCss, shadcnInput, shadcnInputGroup] = await Promise.all(
+  const [form, authField, primitiveCss, authCss, canonicalInput, canonicalInputGroup, canonicalInputCss] = await Promise.all(
     [
       readFile(formUrl, 'utf8'),
       readFile(authFieldUrl, 'utf8'),
       readFile(primitiveCssUrl, 'utf8'),
       readFile(authCssUrl, 'utf8'),
-      readFile(shadcnInputUrl, 'utf8'),
-      readFile(shadcnInputGroupUrl, 'utf8'),
+      readFile(canonicalInputUrl, 'utf8'),
+      readFile(canonicalInputGroupUrl, 'utf8'),
+      readFile(canonicalInputCssUrl, 'utf8'),
     ],
   );
-  return { authCss, authField, form, primitiveCss, shadcnInput, shadcnInputGroup };
+  return { authCss, authField, canonicalInput, canonicalInputCss, canonicalInputGroup, form, primitiveCss };
 }
 
 describe('field-shell motion contract', () => {
@@ -66,9 +68,9 @@ describe('field-shell motion contract', () => {
     assert.match(form, /shell\.matches\(':focus-within'\)/);
   });
 
-  it('keeps auth focus and invalid rings in shadcn while the legacy halo has no transition', async () => {
-    const { authCss, primitiveCss, shadcnInput, shadcnInputGroup } = await sources();
-    const combinedCss = `${primitiveCss}\n${authCss}`.replace(/\/\*[\s\S]*?\*\//g, '');
+  it('keeps one canonical auth focus shell while the legacy workspace halo has no transition', async () => {
+    const { authCss, canonicalInput, canonicalInputCss, canonicalInputGroup, primitiveCss } = await sources();
+    const combinedCss = `${primitiveCss}\n${canonicalInputCss}\n${authCss}`.replace(/\/\*[\s\S]*?\*\//g, '');
     const haloBlocks = [
       ...combinedCss.matchAll(/\.[\w-]*fieldMotionHalo[\w-]*\s*\{([^}]*)\}/gi),
     ].map((match) => match[1] ?? '');
@@ -78,10 +80,12 @@ describe('field-shell motion contract', () => {
     assert.match(baseHaloBlock, /pointer-events:\s*none/);
     assert.doesNotMatch(baseHaloBlock, /transition\s*:/);
     assert.match(primitiveCss, /:where\(\.searchField:focus-within\)/);
-    assert.match(shadcnInput, /focus-visible:ring-\[3px\]/);
-    assert.match(shadcnInput, /aria-invalid:border-destructive/);
-    assert.match(shadcnInputGroup, /focus-visible\]:ring-\[3px\]/);
-    assert.match(shadcnInputGroup, /aria-invalid=true\]\]:border-destructive/);
+    assert.match(canonicalInput, /data-slot="input-shell"/);
+    assert.doesNotMatch(canonicalInput, /focus-visible:ring/);
+    assert.match(canonicalInputGroup, /data-slot="input-group-control"/);
+    assert.match(canonicalInputCss, /\.inputShell:focus-within/);
+    assert.match(canonicalInputCss, /\.groupControl:focus-visible[\s\S]*?box-shadow:\s*none/);
+    assert.match(canonicalInputCss, /aria-invalid='true'/);
     assert.doesNotMatch(authCss, /\.inputShell|\.authInput:focus-visible/);
     assert.match(combinedCss, /box-shadow:\s*0 0 0/);
     assert.match(combinedCss, /@media\s*\(forced-colors:\s*active\)/);

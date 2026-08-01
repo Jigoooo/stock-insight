@@ -67,7 +67,7 @@ export function SegmentedTabs({
         return (
           <Button
             key={item.value}
-            ref={(element) => {
+            ref={(element: HTMLButtonElement | null) => {
               tabRefs.current[index] = element;
             }}
             id={item.id}
@@ -83,7 +83,7 @@ export function SegmentedTabs({
             tabIndex={selected ? 0 : -1}
             type="button"
             onClick={() => onValueChange(item.value)}
-            onKeyDown={(event) => handleKeyDown(event, index)}
+            onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => handleKeyDown(event, index)}
           >
             <PresenceRegion
               aria-hidden="true"

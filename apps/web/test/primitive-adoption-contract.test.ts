@@ -3,8 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import ts from 'typescript';
 
-const buttonUrl = new URL('../src/shared/ui/primitives/button.tsx', import.meta.url);
-const buttonCssUrl = new URL('../src/shared/ui/primitives/button.module.css', import.meta.url);
+const buttonUrl = new URL('../src/shared/ui/button/button.tsx', import.meta.url);
+const buttonCssUrl = new URL('../src/shared/ui/button/button.module.css', import.meta.url);
+const animateButtonPrimitiveUrl = new URL(
+  '../src/shared/ui/animate-ui/primitives/buttons/button.tsx',
+  import.meta.url,
+);
 const motionButtonUrl = new URL('../src/shared/ui/motion/motion-button.tsx', import.meta.url);
 const controlsUrl = new URL('../src/shared/ui/primitives/controls.tsx', import.meta.url);
 const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
@@ -78,9 +82,10 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('adopts the local Motion foundation at each interactive control boundary', async () => {
-    const [button, motionButton, controls, link, segmentedTabs, selectBox, combobox] =
+    const [button, animateButton, motionButton, controls, link, segmentedTabs, selectBox, combobox] =
       await Promise.all([
         readFile(buttonUrl, 'utf8'),
+        readFile(animateButtonPrimitiveUrl, 'utf8'),
         readFile(motionButtonUrl, 'utf8'),
         readFile(controlsUrl, 'utf8'),
         readFile(linkUrl, 'utf8'),
@@ -89,8 +94,9 @@ describe('shared primitive adoption contract', () => {
         readFile(comboboxUrl, 'utf8'),
       ]);
 
-    assert.match(button, /import \{ MotionButton/);
+    assert.match(button, /Button as ButtonPrimitive/);
     assert.doesNotMatch(button, /<button\b/);
+    assert.match(animateButton, /motion\.button/);
     assert.match(motionButton, /<button\b/);
     assert.match(motionButton, /<motion\.span\b/);
     assert.match(motionButton, /data-motion-owner="motion"/);
@@ -121,7 +127,8 @@ describe('shared primitive adoption contract', () => {
 
     assert.match(button, /data-slot="button-control"/);
     assert.match(button, /data-slot="button-label"/);
-    assert.match(button, /data-slot="icon-button-control"/);
+    assert.match(button, /data-slot="button-spinner"/);
+    assert.match(button, /function IconButton/);
     assert.match(controls, /data-slot="switch-control"/);
     assert.match(controls, /data-slot="switch-indicator"/);
     assert.match(controls, /data-slot="toggle-control"/);
@@ -154,11 +161,8 @@ describe('shared primitive adoption contract', () => {
       readFile(controlsUrl, 'utf8'),
     ]);
 
-    assert.match(
-      button,
-      /type ButtonMotionRecipe = Extract<MotionRecipe, 'pressable' \| 'quiet' \| 'none'>/,
-    );
-    assert.match(button, /motion\?: ButtonMotionRecipe/);
+    assert.match(button, /type ButtonMotion = 'pressable' \| 'quiet' \| 'none'/);
+    assert.match(button, /motion\?: ButtonMotion/);
     assert.match(button, /data-motion=\{motion\}/);
     assert.match(button, /motion = 'pressable'/);
     assert.match(button, /forwardRef<HTMLButtonElement, ButtonProps>/);
@@ -183,7 +187,6 @@ describe('shared primitive adoption contract', () => {
 
     assert.match(source, /from '@\/shared\/ui\/field'/);
     assert.match(source, /from '@\/shared\/ui\/input'/);
-    assert.match(source, /from '@\/shared\/ui\/input-group'/);
     assert.match(source, /<Field\b/);
     assert.match(source, /<Input(?:Group|GroupInput)?\b/);
     assert.doesNotMatch(source, /TextInput|FieldMotionHalo/);
@@ -204,21 +207,19 @@ describe('shared primitive adoption contract', () => {
     assert.deepEqual(missingRecipes, []);
   });
 
-  it('keeps transform and quiet opacity ownership out of primitive CSS transitions', async () => {
+  it('keeps calm press feedback in the canonical button and out of page styles', async () => {
     const [buttonSource, authSource] = await Promise.all([
       readFile(buttonCssUrl, 'utf8'),
       readFile(authCssUrl, 'utf8'),
     ]);
     const css = buttonSource.replace(/\/\*[\s\S]*?\*\//g, '');
-    const buttonBlock = css.match(/:where\(\.button,\s*\.iconButton\)\s*\{([\s\S]*?)\}/)?.[1] ?? '';
     const authActionBlock =
       authSource.match(
         /\.submitButton,\s*\.primaryLink,\s*\.secondaryButton\s*\{([\s\S]*?)\}/,
       )?.[1] ?? '';
 
-    assert.doesNotMatch(buttonBlock, /\btransform\b/);
-    assert.doesNotMatch(buttonBlock, /\bopacity\b/);
-    assert.doesNotMatch(css, /\.(?:button|iconButton):active[^{}]*\{[^}]*transform\s*:/);
+    assert.match(css, /:active[\s\S]*?translateY\(1px\)/);
+    assert.doesNotMatch(css, /scale\(/);
     assert.doesNotMatch(authActionBlock, /\btransform\b/);
     assert.doesNotMatch(
       authSource,
@@ -226,16 +227,16 @@ describe('shared primitive adoption contract', () => {
     );
   });
 
-  it('keeps shared control visuals lower-specificity than page-owned custom classes', async () => {
+  it('keeps shared control state selectors out of page-owned styles', async () => {
     const css =
       `${await readFile(buttonCssUrl, 'utf8')}\n${await readFile(linkCssUrl, 'utf8')}`.replace(
         /\/\*[\s\S]*?\*\//g,
         '',
       );
 
-    assert.match(css, /:where\(\.button,\s*\.iconButton\)\s*\{/);
-    assert.match(css, /:where\(\.button\[data-variant='secondary'\],\s*\.iconButton\)/);
+    assert.match(css, /\.button\s*\{/);
+    assert.match(css, /\.button\[data-variant='secondary'\]/);
     assert.match(css, /:where\(\.textLink\)\s*\{/);
-    assert.doesNotMatch(css, /(?:^|\n)\.(?:button|iconButton|textLink)(?:\b|\[)/);
+    assert.doesNotMatch(await readFile(authCssUrl, 'utf8'), /\.submitButton:(?:active|hover|focus-visible|disabled)/);
   });
 });

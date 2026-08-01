@@ -56,7 +56,7 @@ export const Effect = forwardRef<HTMLElement, EffectProps>(function Effect(
     slide,
     zoom,
   });
-  const Component = effectElements[as] as typeof motion.div;
+  const Component = effectElements[as as keyof typeof effectElements] as typeof motion.div;
 
   return (
     <Component

@@ -1,4 +1,3 @@
-import { useReducedMotion } from 'motion/react';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 
 import { AuthFeedbackRegion, type AuthFeedbackState } from './auth-feedback-region';
@@ -10,7 +9,7 @@ import {
   type LoginCredentialsInput,
   type LoginFieldErrors,
 } from './model/login-validation';
-import { Button } from '@/shared/ui/animate-ui/components/buttons/button';
+import { Button } from '@/shared/ui/button';
 import { TextLink } from '@/shared/ui/primitives/link';
 
 export type LoginCredentials = LoginCredentialsInput;
@@ -25,8 +24,6 @@ export type LoginPageProps = {
 const subscribeHydration = () => () => undefined;
 const getClientHydrationSnapshot = () => true;
 const getServerHydrationSnapshot = () => false;
-const authButtonHoverScale = 1.01;
-const authButtonTapScale = 0.985;
 
 export function LoginPage({
   error = null,
@@ -45,8 +42,6 @@ export function LoginPage({
   );
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const reducedMotion = useReducedMotion();
-  const disableButtonMotion = !hydrated || pending || reducedMotion;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -141,8 +136,6 @@ export function LoginPage({
             <Button
               className={styles.visibilityButton}
               variant="ghost"
-              hoverScale={1}
-              tapScale={1}
               type="button"
               onClick={() => setShowPassword((visible) => !visible)}
               aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시하기'}
@@ -159,13 +152,13 @@ export function LoginPage({
 
         <Button
           className={styles.submitButton}
-          variant="accent"
-          hoverScale={disableButtonMotion ? 1 : authButtonHoverScale}
-          tapScale={disableButtonMotion ? 1 : authButtonTapScale}
+          variant="primary"
+          pending={pending}
+          pendingLabel="확인 중"
           type="submit"
-          disabled={!hydrated || pending}
+          disabled={!hydrated}
         >
-          {pending ? '확인 중' : '로그인'}
+          로그인
         </Button>
       </form>
     </AuthShell>

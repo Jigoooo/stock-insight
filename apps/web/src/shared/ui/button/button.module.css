@@ -1,0 +1,190 @@
+.button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(32 33 31 / 5%);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 680;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-press) var(--ease-out);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.button[data-size='sm'] {
+  min-height: 36px;
+  gap: 7px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+.button[data-size='md'] {
+  min-height: 40px;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.button[data-size='lg'] {
+  min-height: 44px;
+  gap: 9px;
+  padding: 0 18px;
+  font-size: 13px;
+}
+
+.button[data-size='icon'] {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.button[data-variant='primary'] {
+  border-color: var(--color-accent-strong);
+  color: var(--color-on-accent);
+  background: var(--color-accent-strong);
+  box-shadow:
+    0 1px 2px rgb(32 33 31 / 12%),
+    inset 0 1px rgb(255 255 255 / 12%);
+}
+
+.button[data-variant='secondary'] {
+  border-color: color-mix(in srgb, var(--color-border) 82%, transparent);
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.button[data-variant='outline'] {
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+}
+
+.button[data-variant='ghost'] {
+  color: var(--color-text-secondary);
+  background: transparent;
+  box-shadow: none;
+}
+
+.button[data-variant='danger'] {
+  border-color: var(--color-risk);
+  color: #fff;
+  background: var(--color-risk);
+}
+
+.button:focus-visible {
+  outline: none;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
+}
+
+.button:not(:disabled):not([aria-busy='true']):not([data-motion='none']):active {
+  transform: translateY(1px);
+  box-shadow:
+    0 0 0 transparent,
+    inset 0 2px 4px rgb(17 18 15 / 16%);
+}
+
+.button:disabled,
+.button[aria-busy='true'] {
+  cursor: default;
+  opacity: 0.56;
+  transform: none;
+}
+
+.content,
+.label,
+.pending {
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  display: inline-grid;
+  grid-template-areas: 'content';
+}
+
+.label,
+.pending {
+  grid-area: content;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.label {
+  display: inline-flex;
+  gap: 8px;
+  opacity: 1;
+}
+
+.pending {
+  display: inline-flex;
+  gap: 7px;
+  opacity: 0;
+  transform: translateY(3px);
+  pointer-events: none;
+}
+
+.content[data-pending='true'] .label {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+.content[data-pending='true'] .pending {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  animation: button-spin var(--motion-spinner-duration, 760ms) linear infinite;
+}
+
+@keyframes button-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button[data-variant='primary']:hover:not(:disabled) {
+    background: var(--color-accent);
+  }
+
+  .button[data-variant='secondary']:hover:not(:disabled),
+  .button[data-variant='outline']:hover:not(:disabled) {
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-subtle);
+  }
+
+  .button[data-variant='ghost']:hover:not(:disabled) {
+    color: var(--color-text-primary);
+    background: var(--color-surface-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .label,
+  .pending {
+    transition-duration: 0.01ms;
+  }
+
+  .button {
+    transform: none !important;
+  }
+}

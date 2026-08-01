@@ -3,8 +3,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import styles from './auth-page.module.css';
 
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/shared/ui/field';
-import { Input } from '@/shared/ui/input';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/shared/ui/input-group';
+import { Input, InputGroup, InputGroupAddon, InputGroupInput } from '@/shared/ui/input';
 
 type AuthInputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   endAction?: ReactNode;
@@ -18,10 +17,6 @@ type AuthInputFieldProps = InputHTMLAttributes<HTMLInputElement> & {
 function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
 }
-
-const authInputFocus = 'focus-visible:border-foreground focus-visible:ring-0 transition-none';
-const authInputGroupFocus =
-  'has-[[data-slot=input-group-control]:focus-visible]:border-foreground has-[[data-slot=input-group-control]:focus-visible]:ring-0 transition-none';
 
 export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
   function AuthInputField(
@@ -48,10 +43,6 @@ export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
       id,
       'aria-describedby': descriptionIds || undefined,
       ...inputProps,
-      style: {
-        ...inputProps.style,
-        transitionDuration: '0s',
-      },
     };
 
     return (
@@ -62,17 +53,15 @@ export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
       >
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {endAction ? (
-          <InputGroup className={classNames(styles.authControl, authInputGroupFocus)}>
-            <InputGroupInput
-              {...controlProps}
-              className={classNames('transition-none', className)}
-            />
+          <InputGroup className={styles.authControl} density="auth">
+            <InputGroupInput {...controlProps} className={className} />
             <InputGroupAddon align="inline-end">{endAction}</InputGroupAddon>
           </InputGroup>
         ) : (
           <Input
             {...controlProps}
-            className={classNames(styles.authControl, authInputFocus, className)}
+            className={classNames(styles.authControl, className)}
+            density="auth"
           />
         )}
         <div className={styles.fieldFeedback}>

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState, type AnchorHTMLAttributes, type ReactNode } from 'react';
+import { useState, type AnchorHTMLAttributes, type PointerEvent, type ReactNode } from 'react';
 
 import styles from './link.module.css';
 import type { MotionRecipe } from '../motion/motion-contract';
@@ -48,7 +48,7 @@ export function TextLink({
         className={styles.motionVisual}
         data-slot="motion-visual"
         onPointerCancel={() => setPressed(false)}
-        onPointerDown={(event) => {
+        onPointerDown={(event: PointerEvent<HTMLSpanElement>) => {
           if (event.button === 0 && tapTarget) setPressed(true);
         }}
         onPointerLeave={() => setPressed(false)}
