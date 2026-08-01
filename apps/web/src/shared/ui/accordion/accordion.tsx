@@ -23,11 +23,7 @@ export type AccordionProps = AccordionPrimitiveProps & {
 
 export function Accordion({ className, variant = 'editorial', ...props }: AccordionProps) {
   return (
-    <AccordionPrimitive
-      className={cn(styles.root, className)}
-      data-variant={variant}
-      {...props}
-    />
+    <AccordionPrimitive className={cn(styles.root, className)} data-variant={variant} {...props} />
   );
 }
 

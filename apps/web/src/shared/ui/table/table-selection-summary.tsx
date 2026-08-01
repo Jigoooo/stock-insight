@@ -21,9 +21,7 @@ export function TableSelectionSummary({
 
   return (
     <div className={styles.summary} data-slot="table-selection-summary" aria-live="polite">
-      <div className={styles.summaryCopy}>
-        {children ?? `${selectedCount}개 항목 선택됨`}
-      </div>
+      <div className={styles.summaryCopy}>{children ?? `${selectedCount}개 항목 선택됨`}</div>
       {onClear ? (
         <Button size="sm" variant="secondary" onClick={onClear}>
           {actionLabel}

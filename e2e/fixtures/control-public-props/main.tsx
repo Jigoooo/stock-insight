@@ -1,15 +1,21 @@
 import { createRef, type AnimationEventHandler, type DragEventHandler } from 'react';
 
-import { Button, IconButton, Switch, TextInput, TextLink, Toggle } from '@/shared/ui/primitives';
+import { Button, IconButton } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { TextLink } from '@/shared/ui/link';
+import { Switch } from '@/shared/ui/switch';
+import { ToggleGroup } from '@/shared/ui/toggle-group';
 
 const buttonDrag: DragEventHandler<HTMLButtonElement> = () => undefined;
 const buttonAnimationStart: AnimationEventHandler<HTMLButtonElement> = () => undefined;
+const groupDrag: DragEventHandler<HTMLDivElement> = () => undefined;
+const groupAnimationStart: AnimationEventHandler<HTMLDivElement> = () => undefined;
 const anchorDrag: DragEventHandler<HTMLAnchorElement> = () => undefined;
 const anchorAnimationStart: AnimationEventHandler<HTMLAnchorElement> = () => undefined;
 
 export const nativeControlPropsFixture = (
   <>
-    <TextInput
+    <Input
       ref={createRef<HTMLInputElement>()}
       autoComplete="username"
       id="fixture-input"
@@ -35,15 +41,14 @@ export const nativeControlPropsFixture = (
       onCheckedChange={() => undefined}
       onDrag={buttonDrag}
     />
-    <Toggle
+    <ToggleGroup
       draggable
-      onAnimationStart={buttonAnimationStart}
-      onDrag={buttonDrag}
-      onPressedChange={() => undefined}
-      pressed={false}
-    >
-      Toggle
-    </Toggle>
+      items={[{ label: 'Toggle', value: 'toggle' }]}
+      onAnimationStart={groupAnimationStart}
+      onDrag={groupDrag}
+      onValueChange={() => undefined}
+      value=""
+    />
     <TextLink
       draggable
       href="/native-link"

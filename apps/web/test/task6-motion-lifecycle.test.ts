@@ -14,8 +14,8 @@ import {
 
 const motionRegionUrl = new URL('../src/shared/ui/motion/motion-region.tsx', import.meta.url);
 const motionAdapterUrl = new URL('../src/shared/ui/motion/dom-motion-adapter.ts', import.meta.url);
-const surfaceUrl = new URL('../src/shared/ui/primitives/surface.tsx', import.meta.url);
-const feedbackUrl = new URL('../src/shared/ui/primitives/feedback.tsx', import.meta.url);
+const surfaceUrl = new URL('../src/shared/ui/card/card.tsx', import.meta.url);
+const feedbackUrl = new URL('../src/shared/ui/feedback/feedback.tsx', import.meta.url);
 const toastUrl = new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url);
 
 class FakeMediaQuery implements MotionPreferenceMediaQuery {
@@ -174,8 +174,8 @@ describe('Task 6 React ownership contract', () => {
     assert.doesNotMatch(motionRegion, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
     assert.match(motionRegion, /onEnterComplete/);
     assert.match(motionRegion, /onExitComplete/);
-    assert.match(surface, /import \{ Effect \}/);
-    assert.match(surface, /data-slot="card-root"/);
+    assert.match(surface, /data-slot="card"/);
+    assert.match(surface, /data-variant=\{variant\}/);
     assert.match(feedback, /import \{ Effect, PresenceRegion \}/);
     assert.match(feedback, /data-slot="status-badge-root"/);
     assert.match(feedback, /data-slot="feedback-root"/);

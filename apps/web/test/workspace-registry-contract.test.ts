@@ -7,13 +7,23 @@ const readNotices = () =>
   readFile(new URL('../../../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8');
 
 const animateRevision = 'efeb96ffd7a3b7a4868667e4ac3c346620fb3044';
-const shadcnRevision = 'cb2bcd88d93b2f9bddb030e9136f1f8773e7eac4';
 
 const expectedSources = [
-  ...['sidebar', 'sheet', 'tabs', 'tooltip', 'accordion', 'popover'].map((name) => ({
-    path: `shared/ui/animate-ui/components/radix/${name}.tsx`,
-    upstream: `https://animate-ui.com/docs/components/radix/${name}`,
-    item: `@animate-ui/components-radix-${name}`,
+  ...[
+    [
+      'animate/slot',
+      'primitives-animate-slot',
+      'https://animate-ui.com/docs/primitives/animate/slot',
+    ],
+    [
+      'buttons/button',
+      'primitives-buttons-button',
+      'https://animate-ui.com/docs/primitives/buttons/button',
+    ],
+  ].map(([path, item, upstream]) => ({
+    path: `shared/ui/animate-ui/primitives/${path}.tsx`,
+    upstream,
+    item: `@animate-ui/${item}`,
     revision: animateRevision,
     license: 'MIT + Commons Clause License Condition',
   })),
@@ -21,11 +31,7 @@ const expectedSources = [
     ['effects/auto-height', 'primitives-effects-auto-height'],
     ['effects/highlight', 'primitives-effects-highlight'],
     ['radix/accordion', 'primitives-radix-accordion'],
-    ['radix/checkbox', 'primitives-radix-checkbox'],
-    ['radix/popover', 'primitives-radix-popover'],
-    ['radix/sheet', 'primitives-radix-sheet'],
     ['radix/tabs', 'primitives-radix-tabs'],
-    ['radix/tooltip', 'primitives-radix-tooltip'],
   ].map(([path, item]) => ({
     path: `shared/ui/animate-ui/primitives/${path}.tsx`,
     upstream: `https://github.com/imskyleen/animate-ui/blob/${animateRevision}/apps/www/registry/primitives/${path}/index.tsx`,
@@ -53,13 +59,6 @@ const expectedSources = [
     item: '@animate-ui/hooks-use-controlled-state',
     revision: animateRevision,
     license: 'MIT + Commons Clause License Condition',
-  },
-  {
-    path: 'shared/lib/use-mobile.ts',
-    upstream: `https://github.com/shadcn-ui/ui/blob/${shadcnRevision}/apps/v4/registry/new-york-v4/hooks/use-mobile.ts`,
-    item: 'use-mobile',
-    revision: shadcnRevision,
-    license: 'MIT License',
   },
 ] as const;
 

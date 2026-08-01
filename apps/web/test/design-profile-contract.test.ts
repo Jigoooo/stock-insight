@@ -36,6 +36,9 @@ function findUnresolvedTokens(definitionSources: string[], usageSources: string[
   const componentUses = new Set<string>();
 
   for (const source of usageSources) {
+    for (const match of source.matchAll(/(--[\w-]+)\s*:/g)) {
+      if (match[1]) componentLocalDefinitions.add(match[1]);
+    }
     for (const match of source.matchAll(/['"](--[\w-]+)['"]\s*:/g)) {
       if (match[1]) componentLocalDefinitions.add(match[1]);
     }

@@ -49,9 +49,8 @@ export function Table({
   ...props
 }: TableProps) {
   const groupName = useId();
-  const [internalSelectedKeys, setInternalSelectedKeys] = useState<readonly string[]>(
-    defaultSelectedKeys,
-  );
+  const [internalSelectedKeys, setInternalSelectedKeys] =
+    useState<readonly string[]>(defaultSelectedKeys);
   const currentKeys = selectedKeys ?? internalSelectedKeys;
   const selectedSet = useMemo(() => new Set(currentKeys), [currentKeys]);
   const { className: containerClassName, ...restContainerProps } = containerProps ?? {};

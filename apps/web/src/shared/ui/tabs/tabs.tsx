@@ -27,13 +27,7 @@ export type TabsProps = TabsPrimitiveProps & {
 };
 
 export function Tabs({ className, variant = 'inset', ...props }: TabsProps) {
-  return (
-    <TabsPrimitive
-      className={cn(styles.root, className)}
-      data-variant={variant}
-      {...props}
-    />
-  );
+  return <TabsPrimitive className={cn(styles.root, className)} data-variant={variant} {...props} />;
 }
 
 export type TabsHighlightProps = TabsHighlightPrimitiveProps;

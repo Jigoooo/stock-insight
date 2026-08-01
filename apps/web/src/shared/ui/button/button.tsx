@@ -2,12 +2,7 @@
 
 import { LoaderCircle } from 'lucide-react';
 import type { HTMLMotionProps } from 'motion/react';
-import {
-  forwardRef,
-  type ButtonHTMLAttributes,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type ReactElement, type ReactNode } from 'react';
 
 import styles from './button.module.css';
 import { Button as ButtonPrimitive } from '@/shared/ui/animate-ui/primitives/buttons/button';
@@ -20,15 +15,15 @@ type ButtonMotionProps = Pick<HTMLMotionProps<'button'>, 'transition' | 'whileHo
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> &
   ButtonMotionProps & {
-  asChild?: boolean;
-  children?: ReactNode;
-  hoverScale?: number;
-  motion?: ButtonMotion;
-  pending?: boolean;
-  pendingLabel?: ReactNode;
-  size?: ButtonSize;
-  tapScale?: number;
-  variant?: ButtonVariant;
+    asChild?: boolean;
+    children?: ReactNode;
+    hoverScale?: number;
+    motion?: ButtonMotion;
+    pending?: boolean;
+    pendingLabel?: ReactNode;
+    size?: ButtonSize;
+    tapScale?: number;
+    variant?: ButtonVariant;
   };
 
 function classNames(...values: Array<string | false | null | undefined>) {
@@ -95,7 +90,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       tapScale={tapScale}
       type={type}
     >
-      <span className={styles.content} data-pending={pending || undefined} data-slot="button-content">
+      <span
+        className={styles.content}
+        data-pending={pending || undefined}
+        data-slot="button-content"
+      >
         <span className={styles.label} data-slot="button-label" aria-hidden={pending}>
           {children}
         </span>

@@ -14,7 +14,9 @@ const options = [
 
 describe('select option behavior', () => {
   it('moves with arrows, Home, and End without wrapping past boundaries', async () => {
-    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(() => null);
+    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(
+      () => null,
+    );
     assert.ok(controller, 'select controls controller must exist');
 
     assert.equal(
@@ -60,7 +62,9 @@ describe('select option behavior', () => {
   });
 
   it('filters labels locally by default and accepts a custom filter', async () => {
-    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(() => null);
+    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(
+      () => null,
+    );
     assert.ok(controller, 'select controls controller must exist');
 
     assert.deepEqual(
@@ -79,7 +83,9 @@ describe('select option behavior', () => {
   });
 
   it('selects enabled options and preserves the current value for disabled options', async () => {
-    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(() => null);
+    const controller = await import('../src/shared/ui/select/select-controller.ts').catch(
+      () => null,
+    );
     assert.ok(controller, 'select controls controller must exist');
 
     assert.equal(controller.resolveSelectableValue(options[2], 'one'), 'three');
@@ -89,14 +95,15 @@ describe('select option behavior', () => {
 
 describe('SelectBox and Combobox structure', () => {
   it('exposes the approved A+C anatomy from canonical public paths', async () => {
-    const [selectSource, comboboxSource, selectCss, selectIndex, comboboxIndex] =
-      await Promise.all([
+    const [selectSource, comboboxSource, selectCss, selectIndex, comboboxIndex] = await Promise.all(
+      [
         read('shared/ui/select/select.tsx'),
         read('shared/ui/combobox/combobox.tsx'),
         read('shared/ui/select/select.module.css'),
         read('shared/ui/select/index.ts'),
         read('shared/ui/combobox/index.ts'),
-      ]);
+      ],
+    );
 
     assert.match(selectSource, /const optionCloseDurationMs = 155/);
     assert.match(selectSource, /data-density=\{density\}/);
@@ -124,13 +131,11 @@ describe('SelectBox and Combobox structure', () => {
   });
 
   it('connects combobox triggers to listboxes and submits values through hidden inputs', async () => {
-    const [selectBox, combobox, primitiveSelect, primitiveCombobox, primitiveIndex] =
-      await Promise.all([
+    const [selectBox, combobox, selectIndex, comboboxIndex] = await Promise.all([
       read('shared/ui/select/select.tsx'),
       read('shared/ui/combobox/combobox.tsx'),
-      read('shared/ui/primitives/select-box.tsx'),
-      read('shared/ui/primitives/combobox.tsx'),
-      read('shared/ui/primitives/index.ts'),
+      read('shared/ui/select/index.ts'),
+      read('shared/ui/combobox/index.ts'),
     ]);
 
     for (const source of [selectBox, combobox]) {
@@ -145,11 +150,10 @@ describe('SelectBox and Combobox structure', () => {
       assert.match(source, /type="hidden"/);
       assert.match(source, /name=\{name\}/);
     }
-    assert.match(primitiveIndex, /export \{ SelectBox/);
-    assert.match(primitiveIndex, /export \{ Combobox/);
-    assert.match(primitiveIndex, /type SelectOption/);
-    assert.match(primitiveSelect, /Select as SelectBox/);
-    assert.match(primitiveCombobox, /Combobox/);
+    assert.match(selectIndex, /export \{ Select, SelectBox/);
+    assert.match(selectIndex, /SelectOption/);
+    assert.match(comboboxIndex, /export \{ Combobox/);
+    assert.match(comboboxIndex, /SelectOption/);
   });
 
   it('dismisses with Escape, Tab, and outside pointer interaction', async () => {

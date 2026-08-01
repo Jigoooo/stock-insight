@@ -30,14 +30,20 @@ describe('auth registry component adoption', () => {
       readFile(animateButtonPrimitiveUrl, 'utf8'),
     ]);
 
-    assert.match(button, /type ButtonVariant = 'primary' \| 'secondary' \| 'outline' \| 'ghost' \| 'danger'/);
+    assert.match(
+      button,
+      /type ButtonVariant = 'primary' \| 'secondary' \| 'outline' \| 'ghost' \| 'danger'/,
+    );
     assert.match(button, /hoverScale = 1/);
     assert.match(button, /tapScale = 1/);
     assert.match(button, /pendingLabel/);
     assert.match(primitive, /HTMLMotionProps<'button'>/);
     assert.match(primitive, /hoverScale\s*=\s*1\.05/);
     assert.match(primitive, /tapScale\s*=\s*0\.95/);
-    assert.match(primitive, /whileHover=\{hoverScale === 1 \? undefined : \{ scale: hoverScale \}\}/);
+    assert.match(
+      primitive,
+      /whileHover=\{hoverScale === 1 \? undefined : \{ scale: hoverScale \}\}/,
+    );
     assert.match(primitive, /whileTap=\{tapScale === 1 \? undefined : \{ scale: tapScale \}\}/);
   });
 
@@ -128,7 +134,10 @@ describe('auth registry component adoption', () => {
     assert.match(login, /pendingLabel="확인 중"/);
     assert.match(signup, /pending=\{pending\}/);
     assert.match(signup, /pendingLabel="설정 중"/);
-    assert.doesNotMatch(login + signup, /authButtonHoverScale|authButtonTapScale|hoverScale|tapScale/);
+    assert.doesNotMatch(
+      login + signup,
+      /authButtonHoverScale|authButtonTapScale|hoverScale|tapScale/,
+    );
   });
 
   it('leaves component state visuals to Animate UI and shadcn', async () => {

@@ -112,13 +112,15 @@ describe('P6-6 crypto read-only workspace vertical', () => {
   });
 
   it('keeps one shared table scroll owner and mobile layout rules', async () => {
-    const [css, table] = await Promise.all([
+    const [css, table, tableCss] = await Promise.all([
       read('pages/research-workspace/ui/views/crypto-workspace-view.module.css'),
-      read('shared/ui/table.tsx'),
+      read('shared/ui/table/table.tsx'),
+      read('shared/ui/table/table.module.css'),
     ]);
     assert.doesNotMatch(extractCssBlock(css, '.tableWrap'), /overflow-x:/);
     assert.match(extractCssBlock(css, '.tableWrap'), /min-width:\s*0/);
-    assert.match(table, /data-slot="table-container"[\s\S]*overflow-x-auto/);
+    assert.match(table, /data-slot="table-container"/);
+    assert.match(extractCssBlock(tableCss, '.container'), /overflow-x:\s*auto/);
     assert.match(extractCssBlock(css, '@media (max-width: 520px)'), /grid-template-columns:\s*1fr/);
   });
 

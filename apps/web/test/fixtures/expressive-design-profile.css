@@ -30,6 +30,7 @@
   --surface-inspector-background: rgb(255 248 255 / 94%);
   --surface-border-color: rgb(179 35 184 / 28%);
   --shadow-panel: 0 16px 44px rgb(80 20 100 / 24%);
+  --shadow-card: 0 10px 32px rgb(80 20 100 / 18%);
   --shadow-hover: 0 24px 68px rgb(80 20 100 / 34%);
   --shadow-raised: 0 32px 88px rgb(80 20 100 / 42%);
   --radius-xs: 8px;

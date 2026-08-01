@@ -13,18 +13,14 @@ import './style.css';
 import { useWorkspaceAppendReveal } from '@/pages/research-workspace/ui/use-workspace-append-reveal';
 import { useWorkspaceRelationCrossfade } from '@/pages/research-workspace/ui/use-workspace-relation-crossfade';
 import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
-import {
-  Button,
-  Combobox,
-  Field,
-  IconButton,
-  SelectBox,
-  Switch,
-  TextInput,
-  TextLink,
-  Toggle,
-  type SelectOption,
-} from '@/shared/ui/primitives';
+import { Button, IconButton } from '@/shared/ui/button';
+import { Combobox } from '@/shared/ui/combobox';
+import { Field } from '@/shared/ui/field';
+import { Input } from '@/shared/ui/input';
+import { TextLink } from '@/shared/ui/link';
+import { SelectBox, type SelectOption } from '@/shared/ui/select';
+import { Switch } from '@/shared/ui/switch';
+import { ToggleGroup } from '@/shared/ui/toggle-group';
 
 declare global {
   interface Window {
@@ -332,16 +328,15 @@ function Fixture() {
           </NativeEventProbe>
           <NativeEventProbe probe="toggle">
             {(targets) => (
-              <Toggle
+              <ToggleGroup
+                items={[{ label: targets, value: 'toggle' }]}
                 onAnimationStart={recordNativeRootEvent('root-bubble')}
                 onAnimationStartCapture={recordNativeRootEvent('root-capture')}
                 onDrag={recordNativeRootEvent('root-bubble')}
                 onDragCapture={recordNativeRootEvent('root-capture')}
-                onPressedChange={() => undefined}
-                pressed={false}
-              >
-                {targets}
-              </Toggle>
+                onValueChange={() => undefined}
+                value=""
+              />
             )}
           </NativeEventProbe>
           <NativeEventProbe probe="text-link">
@@ -367,7 +362,7 @@ function Fixture() {
             </div>
           </Field>
           <Field description="Direct description" error="Direct error" label="Direct field">
-            <TextInput id="direct-field-control" name="directField" />
+            <Input id="direct-field-control" name="directField" />
           </Field>
         </section>
 
@@ -397,12 +392,12 @@ function Fixture() {
             onCheckedChange={() => undefined}
             pending
           />
-          <Toggle disabled onPressedChange={() => undefined} pressed={false}>
-            Disabled toggle
-          </Toggle>
-          <Toggle onPressedChange={() => undefined} pending pressed={false}>
-            Pending toggle
-          </Toggle>
+          <ToggleGroup
+            disabled
+            items={[{ label: 'Disabled toggle', value: 'toggle' }]}
+            onValueChange={() => undefined}
+            value=""
+          />
         </section>
 
         <label id="uncontrolled-select-label" htmlFor="uncontrolled-select">

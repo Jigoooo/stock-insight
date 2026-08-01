@@ -2,12 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-const surfaceUrl = new URL('../src/shared/ui/primitives/surface.tsx', import.meta.url);
-const feedbackUrl = new URL('../src/shared/ui/primitives/feedback.tsx', import.meta.url);
-const primitivesCssUrl = new URL(
-  '../src/shared/ui/primitives/primitives.module.css',
-  import.meta.url,
-);
+const surfaceUrl = new URL('../src/shared/ui/card/card.tsx', import.meta.url);
+const feedbackUrl = new URL('../src/shared/ui/feedback/feedback.tsx', import.meta.url);
+const surfaceCssUrl = new URL('../src/shared/ui/card/card.module.css', import.meta.url);
+const feedbackCssUrl = new URL('../src/shared/ui/feedback/feedback.module.css', import.meta.url);
 const toastUrl = new URL('../src/shared/ui/toast/app-toast.tsx', import.meta.url);
 const toastCssUrl = new URL('../src/shared/ui/toast/toast.module.css', import.meta.url);
 
@@ -53,7 +51,9 @@ describe('Task 4 shared feedback and surface contract', () => {
       readFile(toastUrl, 'utf8'),
     ]);
 
-    assert.match(surface, /data-slot="card-root"/);
+    assert.match(surface, /data-slot="card"/);
+    assert.match(surface, /data-slot="card-header"/);
+    assert.match(surface, /data-slot="card-content"/);
     assert.match(feedback, /data-slot="status-badge-root"/);
     assert.match(feedback, /data-slot="status-badge-label"/);
     assert.match(feedback, /data-slot="data-quality-root"/);
@@ -70,14 +70,14 @@ describe('Task 4 shared feedback and surface contract', () => {
     assert.match(toast, /data-slot="toast-close"/);
   });
 
-  it('uses the local Motion foundation for surface, feedback, and disclosure presence', async () => {
+  it('keeps card geometry stable and uses the local Motion foundation for feedback presence', async () => {
     const [surface, feedback] = await Promise.all([
       readFile(surfaceUrl, 'utf8'),
       readFile(feedbackUrl, 'utf8'),
     ]);
 
-    assert.match(surface, /import \{ Effect \}/);
-    assert.match(surface, /<Effect\b/);
+    assert.match(surface, /data-variant=\{variant\}/);
+    assert.doesNotMatch(surface, /whileHover|whileTap|layoutId/);
     assert.match(feedback, /import \{ Effect, PresenceRegion \}/);
     assert.match(feedback, /<Effect\b/);
     assert.match(feedback, /<PresenceRegion\b/);
@@ -90,9 +90,8 @@ describe('Task 4 shared feedback and surface contract', () => {
       readFile(feedbackUrl, 'utf8'),
     ]);
 
-    assert.match(surface, /const Component = as/);
-    assert.match(surface, /<Component[\s\S]*\{\.\.\.props\}[\s\S]*data-slot="card-root"/);
-    assert.match(surface, /<Effect[\s\S]*data-slot="card-visual"/);
+    assert.match(surface, /const Component = selectable \? 'button' : 'div'/);
+    assert.match(surface, /<Component[\s\S]*\{\.\.\.props\}[\s\S]*data-slot="card"/);
     assert.match(feedback, /<span[\s\S]*data-slot="status-badge-root"/);
     assert.match(feedback, /<div[\s\S]*\{\.\.\.props\}[\s\S]*data-slot="feedback-root"/);
     assert.match(feedback, /data-slot="feedback-visual"/);
@@ -101,15 +100,16 @@ describe('Task 4 shared feedback and surface contract', () => {
   });
 
   it('keeps surface depth restrained and feedback styling semantic', async () => {
-    const [primitivesCss, toastCss] = await Promise.all([
-      readFile(primitivesCssUrl, 'utf8'),
+    const [surfaceCss, feedbackCss, toastCss] = await Promise.all([
+      readFile(surfaceCssUrl, 'utf8'),
+      readFile(feedbackCssUrl, 'utf8'),
       readFile(toastCssUrl, 'utf8'),
     ]);
 
-    assert.match(primitivesCss, /:where\(\.card\)/);
-    assert.match(primitivesCss, /var\(--color-surface\)/);
-    assert.match(primitivesCss, /color-mix\(in srgb, var\(--color-border\)/);
-    assert.doesNotMatch(primitivesCss, /\.card\s*\{[^}]*var\(--shadow-panel\)/s);
+    assert.match(surfaceCss, /\.card\s*\{/);
+    assert.match(surfaceCss, /var\(--color-surface\)/);
+    assert.match(feedbackCss, /color-mix\(in srgb, var\(--color-border\)/);
+    assert.doesNotMatch(surfaceCss, /\.card\s*\{[^}]*var\(--shadow-panel\)/s);
     assert.doesNotMatch(toastCss, /backdrop-filter:/);
     assert.match(toastCss, /var\(--color-surface\)/);
   });

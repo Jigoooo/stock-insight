@@ -45,13 +45,14 @@ describe('current workspace shell behavior', () => {
       read('pages/research-workspace/ui/research-workspace-page.tsx'),
       read('pages/research-workspace/ui/evidence-inspector.tsx'),
       read('widgets/workspace-shell/ui/workspace-shell.tsx'),
-      read('shared/ui/animate-ui/primitives/radix/sheet.tsx'),
+      read('shared/ui/sheet/sheet.tsx'),
       readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
     ]);
     assert.match(shell, /<Sheet open=\{mobileOpen\}/);
     assert.match(shell, /<SheetContent[\s\S]*?side="left"/);
     assert.match(shell, /inert=\{mobileOpen \|\| mobileModalInert \|\| undefined\}/);
     assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
+    assert.match(sheet, /<motion\.div/);
     assert.doesNotMatch(shell, /useFocusTrap|previousFocus|event\.key !== 'Escape'/);
     assert.match(inspector, /event\.key !== 'Escape'/);
     assert.match(inspector, /useFocusTrap\(renderModal && transition\.desiredOpen/);

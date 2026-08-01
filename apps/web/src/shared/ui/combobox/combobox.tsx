@@ -80,7 +80,8 @@ export function Combobox({
   const inputId = id ?? `${generatedId}-input`;
   const listboxId = `${generatedId}-listbox`;
   const defaultSelectedLabel = options.find((option) => option.value === defaultValue);
-  const initialQuery = defaultQuery ?? (defaultSelectedLabel ? getOptionText(defaultSelectedLabel) : '');
+  const initialQuery =
+    defaultQuery ?? (defaultSelectedLabel ? getOptionText(defaultSelectedLabel) : '');
   const rootRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);

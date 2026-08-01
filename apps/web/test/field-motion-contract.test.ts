@@ -2,106 +2,49 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
 const authFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
-const primitiveCssUrl = new URL(
-  '../src/shared/ui/primitives/primitives.module.css',
-  import.meta.url,
-);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
-const canonicalInputUrl = new URL('../src/shared/ui/input/input.tsx', import.meta.url);
-const canonicalInputGroupUrl = new URL('../src/shared/ui/input/input-group.tsx', import.meta.url);
-const canonicalInputCssUrl = new URL('../src/shared/ui/input/input.module.css', import.meta.url);
+const inputUrl = new URL('../src/shared/ui/input/input.tsx', import.meta.url);
+const inputGroupUrl = new URL('../src/shared/ui/input/input-group.tsx', import.meta.url);
+const inputCssUrl = new URL('../src/shared/ui/input/input.module.css', import.meta.url);
+const searchFieldUrl = new URL('../src/shared/ui/input/search-field.tsx', import.meta.url);
 const workspaceUrl = new URL(
   '../src/pages/research-workspace/ui/workspace-search.tsx',
   import.meta.url,
 );
 
-async function sources() {
-  const [form, authField, primitiveCss, authCss, canonicalInput, canonicalInputGroup, canonicalInputCss] = await Promise.all(
-    [
-      readFile(formUrl, 'utf8'),
+describe('field focus ownership contract', () => {
+  it('keeps auth and workspace fields on one canonical input boundary', async () => {
+    const [authField, workspace] = await Promise.all([
       readFile(authFieldUrl, 'utf8'),
-      readFile(primitiveCssUrl, 'utf8'),
-      readFile(authCssUrl, 'utf8'),
-      readFile(canonicalInputUrl, 'utf8'),
-      readFile(canonicalInputGroupUrl, 'utf8'),
-      readFile(canonicalInputCssUrl, 'utf8'),
-    ],
-  );
-  return { authCss, authField, canonicalInput, canonicalInputCss, canonicalInputGroup, form, primitiveCss };
-}
-
-describe('field-shell motion contract', () => {
-  it('keeps the legacy halo recipe out of public auth while retaining it for workspace fields', async () => {
-    const { authField, form } = await sources();
-
-    assert.doesNotMatch(form, /data-motion="field"/);
-    assert.match(form, /data-motion="field-shell"/);
-    assert.match(form, /data-field-motion-halo/);
-    assert.match(authField, /<Field\b/);
-    assert.match(authField, /<InputGroup\b/);
-    assert.doesNotMatch(authField, /data-motion="field-shell"|FieldMotionHalo/);
-  });
-
-  it('owns focusin and focusout opacity with interruptible scoped Motion only', async () => {
-    const { form } = await sources();
-
-    assert.match(form, /createMotionDomAdapter/);
-    assert.doesNotMatch(form, /(?:@gsap\/react|from ['"]gsap['"]|useGSAP|\bgsap\.)/);
-    assert.match(form, /addEventListener\('focusin'/);
-    assert.match(form, /addEventListener\('focusout'/);
-    assert.match(form, /adapter\.killTweensOf\(halo\)/);
-    assert.match(form, /opacity:\s*(?:focused \? )?1/);
-    assert.match(form, /overwrite:\s*'auto'/);
-    assert.match(form, /clearProps:\s*'opacity'/);
-    assert.doesNotMatch(form, /(?:boxShadow|box-shadow|transform|x:|y:)\s*:/);
-  });
-
-  it('normalizes the halo immediately when reduced-motion changes', async () => {
-    const { form } = await sources();
-
-    assert.match(form, /prefers-reduced-motion: reduce/);
-    assert.match(form, /addEventListener\('change'/);
-    assert.match(form, /removeEventListener\('change'/);
-    assert.match(form, /motionPreference\.matches/);
-    assert.match(form, /shell\.matches\(':focus-within'\)/);
-  });
-
-  it('keeps one canonical auth focus shell while the legacy workspace halo has no transition', async () => {
-    const { authCss, canonicalInput, canonicalInputCss, canonicalInputGroup, primitiveCss } = await sources();
-    const combinedCss = `${primitiveCss}\n${canonicalInputCss}\n${authCss}`.replace(/\/\*[\s\S]*?\*\//g, '');
-    const haloBlocks = [
-      ...combinedCss.matchAll(/\.[\w-]*fieldMotionHalo[\w-]*\s*\{([^}]*)\}/gi),
-    ].map((match) => match[1] ?? '');
-    const baseHaloBlock = haloBlocks.find((block) => /opacity:\s*0/.test(block));
-
-    assert.ok(baseHaloBlock);
-    assert.match(baseHaloBlock, /pointer-events:\s*none/);
-    assert.doesNotMatch(baseHaloBlock, /transition\s*:/);
-    assert.match(primitiveCss, /:where\(\.searchField:focus-within\)/);
-    assert.match(canonicalInput, /data-slot="input-shell"/);
-    assert.doesNotMatch(canonicalInput, /focus-visible:ring/);
-    assert.match(canonicalInputGroup, /data-slot="input-group-control"/);
-    assert.match(canonicalInputCss, /\.inputShell:focus-within/);
-    assert.match(canonicalInputCss, /\.groupControl:focus-visible[\s\S]*?box-shadow:\s*none/);
-    assert.match(canonicalInputCss, /aria-invalid='true'/);
-    assert.doesNotMatch(authCss, /\.inputShell|\.authInput:focus-visible/);
-    assert.match(combinedCss, /box-shadow:\s*0 0 0/);
-    assert.match(combinedCss, /@media\s*\(forced-colors:\s*active\)/);
-  });
-
-  it('adopts the shared field shell in workspace search without duplicate raw markup', async () => {
-    const [form, workspace, primitiveCss] = await Promise.all([
-      readFile(formUrl, 'utf8'),
       readFile(workspaceUrl, 'utf8'),
-      readFile(primitiveCssUrl, 'utf8'),
     ]);
 
-    assert.match(form, /data-motion="field-shell"/);
+    assert.match(authField, /<Field\b/);
+    assert.match(authField, /<Input(?:Group|GroupInput)?\b/);
     assert.match(workspace, /<SearchField[\s\S]*?className=\{styles\.search\}/);
-    assert.doesNotMatch(workspace, /<label className=\{styles\.search\}>/);
-    assert.match(primitiveCss, /:where\(\.searchField\)\s*\{/);
-    assert.match(primitiveCss, /:where\(\.searchField:focus-within\)\s*\{/);
+    assert.doesNotMatch(authField + workspace, /FieldMotionHalo|useFieldShellMotion/);
+  });
+
+  it('uses a single neutral ring owner and makes bare inputs opt out completely', async () => {
+    const [authCss, input, inputGroup, inputCss, searchField] = await Promise.all([
+      readFile(authCssUrl, 'utf8'),
+      readFile(inputUrl, 'utf8'),
+      readFile(inputGroupUrl, 'utf8'),
+      readFile(inputCssUrl, 'utf8'),
+      readFile(searchFieldUrl, 'utf8'),
+    ]);
+
+    assert.match(input, /data-slot="input-shell"/);
+    assert.match(input, /data-variant=\{variant\}/);
+    assert.match(inputGroup, /data-slot="input-group-control"/);
+    assert.match(inputCss, /\.inputShell:focus-within/);
+    assert.match(
+      inputCss,
+      /\.inputShell\[data-variant='bare'\]:focus-within[\s\S]*box-shadow:\s*none/,
+    );
+    assert.match(searchField, /variant="bare"/);
+    assert.doesNotMatch(authCss, /\.inputShell|\.authInput:focus-visible/);
+    assert.doesNotMatch(inputCss, /fieldMotionHalo|@keyframes|animation:/);
   });
 });

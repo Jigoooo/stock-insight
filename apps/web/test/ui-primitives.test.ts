@@ -11,7 +11,7 @@ import {
   getAvailabilityTone,
   getSourceLabel,
   shouldShowDelayedFeedback,
-} from '../src/shared/ui/primitives/status.ts';
+} from '../src/shared/ui/feedback/status.ts';
 import { dataAvailabilitySchema } from '@stock-insight/contracts';
 
 describe('shared UI status primitives', () => {
