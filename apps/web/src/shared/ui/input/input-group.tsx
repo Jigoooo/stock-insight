@@ -11,12 +11,23 @@ function classNames(...values: Array<string | false | null | undefined>) {
 
 export type InputGroupProps = HTMLAttributes<HTMLDivElement> & {
   density?: InputDensity;
+  disabled?: boolean;
+  invalid?: boolean;
 };
 
-export function InputGroup({ className, density = 'general', ...props }: InputGroupProps) {
+export function InputGroup({
+  className,
+  density = 'general',
+  disabled = false,
+  invalid = false,
+  ...props
+}: InputGroupProps) {
   return (
     <div
+      aria-disabled={disabled || undefined}
       data-density={density}
+      data-disabled={disabled || undefined}
+      data-invalid={invalid || undefined}
       data-slot="input-group"
       role="group"
       className={classNames(styles.inputShell, styles.inputGroup, className)}

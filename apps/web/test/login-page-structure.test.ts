@@ -84,6 +84,26 @@ describe('login page structure', () => {
     assert.doesNotMatch(component, /Google|Kakao|Naver|Apple|OAuth|SSO/i);
   });
 
+  it('uses state-matched password visibility icons without replacing the accessible label', async () => {
+    const [component, stylesheet] = await Promise.all([
+      readFile(componentUrl, 'utf8'),
+      readFile(stylesheetUrl, 'utf8'),
+    ]);
+
+    assert.match(component, /import \{ Eye, EyeOff \} from 'lucide-react'/);
+    assert.match(
+      component,
+      /aria-label=\{showPassword \? '비밀번호 숨기기' : '비밀번호 표시하기'\}/,
+    );
+    assert.match(component, /showPassword \? <EyeOff[^>]*aria-hidden="true"[^>]*\/> : <Eye/);
+    assert.doesNotMatch(component, /\{showPassword \? '숨기기' : '보기'\}/);
+    assert.match(
+      stylesheet,
+      /\.authCard \.visibilityButton\[data-slot='button-control'\]\s*\{(?=[^}]*width:\s*32px)(?=[^}]*height:\s*32px)(?=[^}]*min-width:\s*32px)(?=[^}]*min-height:\s*32px)[^}]*\}/s,
+    );
+    assert.match(stylesheet, /\.visibilityButton\s+svg\s*\{[^}]*width:\s*16px[^}]*height:\s*16px/s);
+  });
+
   it('uses custom inline validation and focuses the first invalid field', async () => {
     const [component, inputField] = await Promise.all([
       readFile(componentUrl, 'utf8'),

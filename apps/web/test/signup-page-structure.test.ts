@@ -75,6 +75,16 @@ describe('one-time signup source contract', () => {
     assert.doesNotMatch(page, /\srequired(?:=|\s|>)/);
   });
 
+  it('uses state-matched password visibility icons with one label for both password fields', async () => {
+    const page = await readFile(pageUrl, 'utf8');
+
+    assert.match(page, /import \{ Eye, EyeOff \} from 'lucide-react'/);
+    assert.match(page, /aria-label=\{showPassword \? '비밀번호 숨기기' : '비밀번호 표시하기'\}/);
+    assert.match(page, /aria-controls="signup-password signup-password-confirmation"/);
+    assert.match(page, /showPassword \? <EyeOff[^>]*aria-hidden="true"[^>]*\/> : <Eye/);
+    assert.doesNotMatch(page, /\{showPassword \? '숨기기' : '보기'\}/);
+  });
+
   it('renders the unavailable completion state with a login exit', async () => {
     const [page, screen] = await Promise.all([
       readFile(pageUrl, 'utf8'),
