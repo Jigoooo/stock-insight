@@ -12,11 +12,10 @@ export function DataTable({
   captionClassName,
   containerProps,
   ...props
-}: Omit<ComponentProps<'table'>, 'children'> & {
+}: Omit<ComponentProps<typeof Table>, 'children'> & {
   caption: ReactNode;
   captionClassName?: string;
   children: ReactNode;
-  containerProps?: ComponentProps<'div'>;
 }) {
   return (
     <Table className={cn(styles.table, className)} containerProps={containerProps} {...props}>

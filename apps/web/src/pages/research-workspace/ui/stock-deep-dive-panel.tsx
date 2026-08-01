@@ -11,7 +11,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/shared/ui/animate-ui/components/radix/accordion';
+} from '@/shared/ui/accordion';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/primitives';
 import { DetailSurface, PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
