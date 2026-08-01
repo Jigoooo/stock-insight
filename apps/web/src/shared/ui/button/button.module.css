@@ -89,7 +89,9 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
 }
 
-.button:not(:disabled):not([aria-busy='true']):not([data-motion='none']):active {
+.button:not(:disabled):not([aria-disabled='true']):not([aria-busy='true']):not(
+    [data-motion='none']
+  ):active {
   transform: translateY(1px);
   box-shadow:
     0 0 0 transparent,
@@ -97,10 +99,12 @@
 }
 
 .button:disabled,
-.button[aria-busy='true'] {
+.button[aria-disabled='true'],
+.button[aria-busy='true'],
+:global([inert]) .button {
   cursor: default;
   opacity: 0.56;
-  transform: none;
+  transform: none !important;
 }
 
 .content,
@@ -161,17 +165,17 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .button[data-variant='primary']:hover:not(:disabled) {
+  .button[data-variant='primary']:hover:not(:disabled):not([aria-disabled='true']) {
     background: var(--color-accent);
   }
 
-  .button[data-variant='secondary']:hover:not(:disabled),
-  .button[data-variant='outline']:hover:not(:disabled) {
+  .button[data-variant='secondary']:hover:not(:disabled):not([aria-disabled='true']),
+  .button[data-variant='outline']:hover:not(:disabled):not([aria-disabled='true']) {
     border-color: var(--color-border-strong);
     background: var(--color-surface-subtle);
   }
 
-  .button[data-variant='ghost']:hover:not(:disabled) {
+  .button[data-variant='ghost']:hover:not(:disabled):not([aria-disabled='true']) {
     color: var(--color-text-primary);
     background: var(--color-surface-subtle);
   }

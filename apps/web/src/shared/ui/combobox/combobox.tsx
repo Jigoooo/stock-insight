@@ -15,6 +15,7 @@ import {
 import comboStyles from './combobox.module.css';
 
 import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import {
   optionCloseDurationMs,
   SelectOptionItem,
@@ -86,11 +87,11 @@ export function Combobox({
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [internalQuery, setInternalQuery] = useState(initialQuery);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const { reducedMotion } = useMotionPreferences();
   const selectedValue = value ?? internalValue;
   const queryValue = query ?? internalQuery;
   const filteredOptions = useMemo(
@@ -102,22 +103,7 @@ export function Combobox({
       ? `${listboxId}-option-${activeIndex}`
       : undefined;
 
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = undefined;
-  };
-
-  const closeListbox = (delay = 0) => {
-    clearCloseTimer();
-    if (delay === 0) {
-      setOpen(false);
-      return;
-    }
-    closeTimerRef.current = setTimeout(() => {
-      setOpen(false);
-      closeTimerRef.current = undefined;
-    }, delay);
-  };
+  const closeListbox = () => setOpen(false);
 
   const setSelectedValue = (nextValue: string) => {
     if (value === undefined) setInternalValue(nextValue);
@@ -137,7 +123,7 @@ export function Combobox({
     setSelectedValue(nextValue);
     setQueryValue(getOptionText(option));
     setActiveIndex(index);
-    closeListbox(optionCloseDurationMs);
+    setOpen(false);
   };
 
   useEffect(() => {
@@ -165,13 +151,6 @@ export function Combobox({
     return () => form.removeEventListener('reset', reset);
   }, [defaultValue, initialQuery, onQueryChange, onValueChange, query, value]);
 
-  useEffect(
-    () => () => {
-      clearCloseTimer();
-    },
-    [],
-  );
-
   useEffect(() => {
     if (!open || activeIndex < 0) return;
     optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
@@ -183,13 +162,11 @@ export function Combobox({
     const selectedOption = options.find((option) => option.value === selectedValue);
     if (nextQuery !== (selectedOption ? getOptionText(selectedOption) : '')) setSelectedValue('');
     setActiveIndex(-1);
-    clearCloseTimer();
     setOpen(true);
   };
 
   const handleFocus = (_event: FocusEvent<HTMLInputElement>) => {
     if (!disabled) {
-      clearCloseTimer();
       setOpen(true);
     }
   };
@@ -201,7 +178,6 @@ export function Combobox({
       case 'Home':
       case 'End':
         event.preventDefault();
-        clearCloseTimer();
         setOpen(true);
         {
           const key = event.key as NavigationKey;
@@ -240,7 +216,6 @@ export function Combobox({
     setQueryValue('');
     setSelectedValue('');
     setActiveIndex(-1);
-    clearCloseTimer();
     setOpen(true);
     inputRef.current?.focus();
   };
@@ -315,6 +290,10 @@ export function Combobox({
         presenceKey={listboxId}
         present={open}
         role="listbox"
+        transition={{
+          duration: reducedMotion ? 0 : optionCloseDurationMs / 1_000,
+          ease: 'easeOut',
+        }}
       >
         {filteredOptions.length === 0 ? (
           <div

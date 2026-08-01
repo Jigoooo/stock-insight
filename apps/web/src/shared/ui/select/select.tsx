@@ -20,6 +20,7 @@ import {
 import styles from './select.module.css';
 
 import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 
 export const optionCloseDurationMs = 155;
 
@@ -133,31 +134,16 @@ export function Select({
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [internalValue, setInternalValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const { reducedMotion } = useMotionPreferences();
   const selectedValue = value ?? internalValue;
   const selectedOption = options.find((option) => option.value === selectedValue);
   const activeDescendant =
     open && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
 
-  const clearCloseTimer = () => {
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = undefined;
-  };
-
-  const closeListbox = (delay = 0) => {
-    clearCloseTimer();
-    if (delay === 0) {
-      setOpen(false);
-      return;
-    }
-    closeTimerRef.current = setTimeout(() => {
-      setOpen(false);
-      closeTimerRef.current = undefined;
-    }, delay);
-  };
+  const closeListbox = () => setOpen(false);
 
   const setSelectedValue = (nextValue: string) => {
     if (value === undefined) setInternalValue(nextValue);
@@ -165,7 +151,6 @@ export function Select({
   };
 
   const openListbox = (placement: 'selected' | 'first' | 'last' = 'selected') => {
-    clearCloseTimer();
     const selectedIndex = options.findIndex(
       (option) => option.value === selectedValue && !option.disabled,
     );
@@ -185,7 +170,7 @@ export function Select({
     if (nextValue === selectedValue && option.disabled) return;
     setSelectedValue(nextValue);
     setActiveIndex(index);
-    closeListbox(optionCloseDurationMs);
+    setOpen(false);
   };
 
   useEffect(() => {
@@ -214,7 +199,6 @@ export function Select({
   useEffect(
     () => () => {
       if (typeaheadTimerRef.current) clearTimeout(typeaheadTimerRef.current);
-      clearCloseTimer();
     },
     [],
   );
@@ -337,6 +321,10 @@ export function Select({
         presenceKey={listboxId}
         present={open}
         role="listbox"
+        transition={{
+          duration: reducedMotion ? 0 : optionCloseDurationMs / 1_000,
+          ease: 'easeOut',
+        }}
       >
         {options.map((option, index) => (
           <SelectOptionItem
