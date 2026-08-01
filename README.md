@@ -65,49 +65,51 @@ BFF가 두뇌를 바라보게 하려면 `STOCK_INSIGHT_BRAIN_URL=http://127.0.0.
 
 ### 다른 컴퓨터에서 운영 DB를 직접 사용하는 개발 모드
 
-이 실행기는 **WSL/Linux**를 지원합니다. 신규 DB나 외부 전용 역할을 만들지 않고 Cloudflare Access TCP를 통해 기존 운영 `research_app`의 `stock_insight_app_reader` / `stock_insight_app_writer`를 그대로 사용합니다. 시크릿 값은 Git에 커밋하지 않습니다.
+이 실행기는 **macOS와 WSL/Linux**를 지원합니다. Native Windows는 거부하며 WSL 사용을 안내합니다. 신규 DB나 외부 전용 역할을 만들지 않고 Cloudflare Access TCP를 통해 기존 운영 `research_app`의 `stock_insight_app_reader` / `stock_insight_app_writer`를 그대로 사용합니다.
 
-외부 PC에 최종 설치되는 파일은 아래 두 운영 시크릿과 기기별 session secret입니다.
-
-```bash
-~/.hermes/secrets/stock-insight-live-dev/pgpass
-~/.hermes/secrets/stock-insight-live-dev/stock-insight-internal-context.secret
-~/.hermes/secrets/stock-insight-live-dev/stock-insight-session.secret
-```
-
-모든 파일은 `0600`, 상위 디렉터리는 `0700`이어야 하며 실행기가 이를 강제합니다. 외부 PC에서 먼저 `age` recipient를 생성하고 공개 recipient만 운영 호스트에 전달합니다.
+Mac 최초 설정은 다음과 같습니다.
 
 ```bash
-pnpm live:recipient:init
-# 출력된 Age recipient(age1...)만 운영 호스트에 전달합니다. private identity는 반출하지 않습니다.
-```
-
-운영 호스트의 원본 위치와 단일 암호화 bundle 생성 명령:
-
-```bash
-# DB DSN 원본: $HOME/.hermes/workspace/stock-insight/.env.docker
-# 내부 문맥키:   $HOME/.hermes/secrets/stock-insight-internal-context.secret
-pnpm live:bundle:export \
-  --recipient '<외부 PC의 age1... 공개 recipient>' \
-  --source-env "$HOME/.hermes/workspace/stock-insight/.env.docker" \
-  --internal-context "$HOME/.hermes/secrets/stock-insight-internal-context.secret" \
-  --out "$HOME/.hermes/exports/stock-insight-live-dev.age"
-```
-
-외부 PC에는 Git 저장소와 `stock-insight-live-dev.age` 한 파일만 전달합니다. `age`, `cloudflared`, `bubblewrap`, Node.js, pnpm을 설치한 뒤:
-
-```bash
+brew install age cloudflared
 pnpm install --frozen-lockfile
-pnpm setup:live --bundle ~/stock-insight-live-dev.age
-pnpm dev:live:check
+pnpm setup:live
+# 출력된 공개 recipient(age1...)만 운영 호스트에 전달
+```
+
+기존 identity가 있으면 `pnpm setup:live`가 그대로 재사용합니다. private identity는 Mac 밖으로 보내지 않습니다.
+
+```bash
+# 운영 호스트
+cd "$HOME/.hermes/workspace/stock-insight"
+pnpm live:bundle:export --recipient '<Mac에서 출력된 age1...>'
+# 생성 위치: $HOME/.hermes/exports/stock-insight-live-dev.age
+```
+
+암호화된 `stock-insight-live-dev.age` 파일은 메신저나 파일 전송으로 Mac에 전달할 수 있습니다. bundle에는 reader/writer DB 자격증명만 들어가며 다른 `.env.docker` 값과 내부 context/session secret은 들어가지 않습니다.
+
+```bash
+# Mac
+pnpm setup:live --bundle ~/Downloads/stock-insight-live-dev.age
 pnpm dev
 ```
 
-`pnpm dev`는 `insight-db.jigooo.com` Access 로그인을 열고 `127.0.0.1:55432` TCP listener가 실제로 방금 실행한 `cloudflared` Bubblewrap process tree 소유인지 확인한 후에만 API를 시작합니다. 설치된 `.pgpass`의 비밀번호는 환경변수나 로그에 들어가지 않으며, 실행 시 정확한 listener port로 제한된 임시 `0600` pgpass를 API에만 제공합니다. 임시 파일은 종료 시 제거됩니다.
+이후 평상시에는 `pnpm dev`만 실행합니다. Age는 최초 자격증명 전달과 DB 비밀번호 회전 때만 사용합니다.
+
+| 용도 | 위치 |
+|---|---|
+| Mac Age private identity | `~/.config/age/stock-insight-live-dev.txt` |
+| 운영 호스트 암호화 결과 | `~/.hermes/exports/stock-insight-live-dev.age` |
+| Mac DB pgpass | `~/.hermes/secrets/stock-insight-live-dev/pgpass` |
+| Mac 로컬 context secret | `~/.hermes/secrets/stock-insight-live-dev/stock-insight-internal-context.secret` |
+| Mac 로컬 session secret | `~/.hermes/secrets/stock-insight-live-dev/stock-insight-session.secret` |
+
+시크릿 디렉터리는 `0700`, 파일은 `0600`이어야 합니다. importer와 launcher는 symlink, 다른 소유자, 느슨한 권한을 거부합니다. `pnpm dev`는 `insight-db.jigooo.com` Access 로그인을 열고 `127.0.0.1:55432` listener가 방금 실행한 cloudflared process group 소유인지 확인한 후에만 API를 시작합니다. Linux는 `/proc`과 Bubblewrap, macOS는 `lsof`와 `ps`를 사용합니다.
 
 API는 기동 전에 PostgreSQL system identifier, 실제 session/login role, reader 세션 read-only, 재귀 도달 role 속성, 전체 비시스템 relation·column-only·sequence·schema 권한, 접근 테이블의 RLS/policy, SECURITY DEFINER 함수 allowlist와 객체 비소유 상태를 운영 계약 digest와 대조합니다. 운영 cluster 재구축이나 권한·RLS 변경 뒤에는 계약을 명시적으로 갱신하기 전까지 fail-closed 됩니다.
 
-Web/Vite와 `cloudflared`는 각각 Bubblewrap mount·PID namespace에서 실행되어 호스트 홈 전체와 API process를 볼 수 없습니다. 작업 트리와 필요한 실행 파일만 명시적으로 다시 노출하며, Web에는 BFF 동작에 필요한 내부 문맥키와 기기별 session secret만 읽기 전용으로 전달됩니다. 화면에는 `운영 DB · 실제 쓰기` 표식이 계속 표시됩니다. 시작 대기 중 종료하더라도 모든 process group을 `SIGTERM` 후 제한 시간 내 정리하며, 지연 `SIGKILL` 전에는 원래 process group identity를 다시 검증합니다.
+API에만 DB URL과 실행 포트로 제한된 임시 pgpass가 전달됩니다. Web과 cloudflared 환경에는 DB URL, 비밀번호, `PGPASSFILE`이 없습니다. Linux에서는 Web/tunnel도 Bubblewrap으로 격리합니다. macOS에서는 child별 native process group과 최소 환경을 사용하므로 동일 사용자 권한의 Node dependency가 로컬 파일을 읽을 수 있는 잔여 위험은 수용합니다. Ctrl+C 시 child process, listener와 임시 pgpass를 정리합니다.
+
+`pnpm dev:live:check`는 정상 절차가 아니라 문제 발생 시 사용하는 선택 진단입니다. 도구 설치, 시크릿 권한, platform backend와 포트 구성을 검사할 뿐 실제 Cloudflare SSO나 운영 DB 연결 성공을 검증하지 않습니다.
 
 기존 읽기 전용 원격 두뇌 모드는 롤백 경로로 유지합니다.
 
@@ -122,7 +124,7 @@ pnpm dev:remote:check
 pnpm dev:remote
 ```
 
-운영 DB 직접 모드에서는 seed, reset, migration을 실행하지 마세요. Playwright는 기존 서버 재사용과 production-like DB를 기본 거부하며, 승인된 운영 mutation E2E에만 `STOCK_INSIGHT_E2E_PRODUCTION_MUTATION_ACK=I_ACKNOWLEDGE_PRODUCTION_WRITES`를 명시해야 합니다. bundle 또는 외부 PC가 유출되면 기존 reader/writer 비밀번호와 내부 문맥키를 운영 API와 함께 회전해야 합니다.
+운영 DB 직접 모드에서는 seed, reset, migration을 실행하지 마세요. Playwright는 기존 서버 재사용과 production-like DB를 기본 거부하며, 승인된 운영 mutation E2E에만 `STOCK_INSIGHT_E2E_PRODUCTION_MUTATION_ACK=I_ACKNOWLEDGE_PRODUCTION_WRITES`를 명시해야 합니다. bundle 또는 외부 PC가 유출되면 기존 reader/writer 비밀번호를 운영 API와 함께 회전하고, 해당 Mac의 로컬 context/session secret도 폐기해야 합니다.
 
 ### 인증 E2E 실행
 

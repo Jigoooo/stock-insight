@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import {
   access,
@@ -82,6 +82,13 @@ async function requirePrivateFile(path, platform, label) {
   try {
     const metadata = await handle.stat();
     if (!metadata.isFile()) throw new Error(`${label} must be a regular file: ${path}`);
+    if (
+      platform !== 'win32' &&
+      typeof process.getuid === 'function' &&
+      metadata.uid !== process.getuid()
+    ) {
+      throw new Error(`${label} must be owned by the current user: ${path}`);
+    }
     if (platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
       throw new Error(`${label} must have mode 0600 or stricter: ${path}`);
     }
@@ -196,9 +203,17 @@ export async function prepareLiveDev({
     throw new Error('cloudflared is required; install it before running live development');
   const pnpm = await resolveCommand('pnpm');
   if (!pnpm) throw new Error('pnpm is required; install it before running live development');
-  const bubblewrap = await resolveCommand('bwrap');
-  if (!bubblewrap) {
+  const bubblewrap = platform === 'linux' ? await resolveCommand('bwrap') : undefined;
+  if (platform === 'linux' && !bubblewrap) {
     throw new Error('bubblewrap is required to isolate the web process from database credentials');
+  }
+  const lsof = platform === 'darwin' ? await resolveCommand('lsof') : undefined;
+  const ps = platform === 'darwin' ? await resolveCommand('ps') : undefined;
+  if (platform === 'darwin' && (!lsof || !ps)) {
+    throw new Error('macOS process verification requires the built-in lsof and ps commands');
+  }
+  if (!['linux', 'darwin'].includes(platform)) {
+    throw new Error(`Unsupported live development platform: ${platform}`);
   }
 
   // NEVER os.tmpdir(): it honours TMPDIR, and on WSL drvfs (/mnt/c) chmod is a
@@ -262,7 +277,7 @@ export async function prepareLiveDev({
 
   const baseEnv = selectChildEnvironment(env);
   const tunnelSandboxHome = '/tmp/stock-insight-live-tunnel-home';
-  const tunnelEnv = { ...baseEnv, HOME: tunnelSandboxHome };
+  const tunnelEnv = platform === 'linux' ? { ...baseEnv, HOME: tunnelSandboxHome } : { ...baseEnv };
   delete tunnelEnv.XDG_CONFIG_HOME;
   delete tunnelEnv.XDG_DATA_HOME;
   const apiEnv = {
@@ -288,8 +303,10 @@ export async function prepareLiveDev({
     HOST: '127.0.0.1',
     VITE_PORT: String(webPort),
     STOCK_INSIGHT_BRAIN_URL: `http://127.0.0.1:${apiPort}`,
-    STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: `${sandboxSecretDir}/internal-context.secret`,
-    STOCK_INSIGHT_SESSION_SECRET_FILE: `${sandboxSecretDir}/session.secret`,
+    STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE:
+      platform === 'linux' ? `${sandboxSecretDir}/internal-context.secret` : internalContextFile,
+    STOCK_INSIGHT_SESSION_SECRET_FILE:
+      platform === 'linux' ? `${sandboxSecretDir}/session.secret` : sessionSecretFile,
     STOCK_INSIGHT_APP_ORIGIN: `http://127.0.0.1:${webPort}`,
     STOCK_INSIGHT_SIGNUP_ENABLED: 'true',
     STOCK_INSIGHT_MUTATIONS_ENABLED: 'true',
@@ -302,6 +319,41 @@ export async function prepareLiveDev({
   const workspaceRoot = dirname(fileURLToPath(new URL('../package.json', import.meta.url)));
   const webRoot = join(workspaceRoot, 'apps', 'web');
   const viteCli = join(webRoot, 'node_modules', 'vite', 'bin', 'vite.js');
+  const common = {
+    hostname,
+    tunnelPort,
+    webPort,
+    apiPort,
+    pgpassFile,
+    runtimePgpassFile,
+    internalContextFile,
+    sessionSecretFile,
+    cleanup,
+    tunnelEnv,
+    apiEnv,
+    webEnv,
+    apiCommand: {
+      executable: pnpm,
+      cwd: workspaceRoot,
+      args: ['--filter', '@stock-insight/api-server', 'dev'],
+    },
+  };
+  if (platform === 'darwin') {
+    return {
+      ...common,
+      backend: 'darwin-native',
+      listenerTools: { lsof, ps },
+      tunnelCommand: {
+        executable: cloudflared,
+        args: ['access', 'tcp', '--hostname', hostname, '--url', `127.0.0.1:${tunnelPort}`],
+      },
+      webCommand: {
+        executable: nodeExecutable,
+        cwd: webRoot,
+        args: [viteCli, '--mode', 'dev'],
+      },
+    };
+  }
   const createDirectoryChain = (directory) => {
     const args = [];
     let current = '';
@@ -372,18 +424,8 @@ export async function prepareLiveDev({
     }
   }
   return {
-    hostname,
-    tunnelPort,
-    webPort,
-    apiPort,
-    pgpassFile,
-    runtimePgpassFile,
-    internalContextFile,
-    sessionSecretFile,
-    cleanup,
-    tunnelEnv,
-    apiEnv,
-    webEnv,
+    ...common,
+    backend: 'linux-bubblewrap',
     tunnelCommand: {
       executable: bubblewrap,
       args: [
@@ -410,11 +452,6 @@ export async function prepareLiveDev({
         '--url',
         `127.0.0.1:${tunnelPort}`,
       ],
-    },
-    apiCommand: {
-      executable: pnpm,
-      cwd: workspaceRoot,
-      args: ['--filter', '@stock-insight/api-server', 'dev'],
     },
     webCommand: {
       executable: bubblewrap,
@@ -520,8 +557,10 @@ export function probePostgresServer({
   user = READ_ROLE,
   database = DATABASE_NAME,
   connect = createConnection,
+  signal,
 }) {
   return new Promise((resolve) => {
+    if (signal?.aborted) return resolve(false);
     const socket = connect({ host, port });
     let settled = false;
     let response = Buffer.alloc(0);
@@ -530,9 +569,12 @@ export function probePostgresServer({
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
+      signal?.removeEventListener('abort', onAbort);
       socket.destroy();
       resolve(result);
     };
+    const onAbort = () => done(false);
+    signal?.addEventListener('abort', onAbort, { once: true });
     socket.once('connect', () => socket.write(createPostgresStartupPacket(user, database)));
     socket.on('data', (chunk) => {
       response = Buffer.concat([response, chunk], response.length + chunk.length);
@@ -589,6 +631,101 @@ async function captureProcessIdentity(pid) {
   } catch {
     return undefined;
   }
+}
+
+function defaultRunCommand(executable, args) {
+  return new Promise((resolve, reject) => {
+    execFile(executable, args, { encoding: 'utf8', maxBuffer: 1024 * 1024 }, (error, stdout) => {
+      if (error) reject(error);
+      else resolve(stdout);
+    });
+  });
+}
+
+function parseDarwinProcessIdentity(text) {
+  const line = String(text ?? '')
+    .trim()
+    .split(/\r?\n/, 1)[0];
+  if (!line) return undefined;
+  const fields = line.trim().split(/\s+/);
+  const pid = Number(fields.shift());
+  const processGroupId = Number(fields.shift());
+  const startTime = fields.join(' ');
+  if (!Number.isInteger(pid) || !Number.isInteger(processGroupId) || !startTime) return undefined;
+  return { pid, processGroupId, startTime };
+}
+
+export async function captureDarwinProcessIdentity(
+  pid,
+  { psExecutable = '/bin/ps', runCommand = defaultRunCommand } = {},
+) {
+  try {
+    return parseDarwinProcessIdentity(
+      await runCommand(psExecutable, [
+        '-o',
+        'pid=',
+        '-o',
+        'pgid=',
+        '-o',
+        'lstart=',
+        '-p',
+        String(pid),
+      ]),
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+async function darwinProcessGroupStillOwned(
+  identity,
+  { psExecutable = '/bin/ps', runCommand = defaultRunCommand } = {},
+) {
+  if (!identity) return false;
+  const current = await captureDarwinProcessIdentity(identity.pid, { psExecutable, runCommand });
+  return Boolean(
+    current &&
+    current.processGroupId === identity.processGroupId &&
+    current.startTime === identity.startTime,
+  );
+}
+
+export async function verifyDarwinTcpListenerOwnedByProcessGroup({
+  host,
+  port,
+  processGroupId,
+  rootProcessIdentity,
+  lsofExecutable = '/usr/sbin/lsof',
+  psExecutable = '/bin/ps',
+  runCommand = defaultRunCommand,
+}) {
+  if (host !== '127.0.0.1' || !Number.isInteger(processGroupId) || processGroupId <= 0) {
+    return false;
+  }
+  if (
+    rootProcessIdentity &&
+    !(await darwinProcessGroupStillOwned(rootProcessIdentity, { psExecutable, runCommand }))
+  ) {
+    return false;
+  }
+  let output;
+  try {
+    output = await runCommand(lsofExecutable, [
+      '-nP',
+      '-a',
+      `-iTCP@${host}:${port}`,
+      '-sTCP:LISTEN',
+      '-Fp',
+    ]);
+  } catch {
+    return false;
+  }
+  const listenerPids = [...String(output).matchAll(/^p(\d+)$/gm)].map((match) => Number(match[1]));
+  for (const pid of listenerPids) {
+    const identity = await captureDarwinProcessIdentity(pid, { psExecutable, runCommand });
+    if (identity?.processGroupId === processGroupId) return true;
+  }
+  return false;
 }
 
 async function processGroupStillOwned(identity) {
@@ -683,9 +820,11 @@ export async function waitForTcpPort({
   probe = () => defaultTcpProbe(host, port),
   now = Date.now,
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  signal,
 }) {
   const deadline = now() + timeoutMs;
   while (now() < deadline) {
+    if (signal?.aborted) throw new Error('TCP listener wait was cancelled');
     if (await probe()) return;
     await delay(100);
   }
@@ -696,15 +835,19 @@ export async function waitForPostgresTunnel({
   host,
   port,
   timeoutMs = 300_000,
-  probe = (probeTimeoutMs) => probePostgresServer({ host, port, timeoutMs: probeTimeoutMs }),
+  probe = (probeTimeoutMs, probeSignal) =>
+    probePostgresServer({ host, port, timeoutMs: probeTimeoutMs, signal: probeSignal }),
   now = Date.now,
   delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  signal,
 }) {
   const deadline = now() + timeoutMs;
   while (true) {
+    if (signal?.aborted) throw new Error('PostgreSQL tunnel wait was cancelled');
     const remaining = deadline - now();
     if (remaining <= 0) break;
-    if (await probe(remaining)) return;
+    if (await probe(remaining, signal)) return;
+    if (signal?.aborted) throw new Error('PostgreSQL tunnel wait was cancelled');
     const retryDelay = Math.min(500, Math.max(0, deadline - now()));
     if (retryDelay > 0) await delay(retryDelay);
   }
@@ -792,35 +935,73 @@ export async function startLiveDev(
   {
     parent = process,
     spawnTunnel = spawnLiveTunnel,
-    waitUntilReady = () => waitForTcpPort({ host: '127.0.0.1', port: prepared.tunnelPort }),
-    verifyTunnelListener = ({ tunnel, identity }) =>
-      verifyTcpListenerOwnedByProcessGroup({
-        host: '127.0.0.1',
-        port: prepared.tunnelPort,
-        processGroupId: identity?.processGroupId ?? tunnel.pid,
-        rootProcessIdentity: identity,
-      }),
-    waitUntilPostgresReady = () =>
-      waitForPostgresTunnel({ host: '127.0.0.1', port: prepared.tunnelPort }),
+    waitUntilReady = (_prepared, { signal }) =>
+      waitForTcpPort({ host: '127.0.0.1', port: prepared.tunnelPort, signal }),
+    verifyTunnelListener,
+    waitUntilPostgresReady,
     spawnApi = spawnLiveApi,
-    waitUntilApiReady = () => waitForTcpPort({ host: '127.0.0.1', port: prepared.apiPort }),
-    verifyApiListener = ({ api, identity }) =>
-      verifyTcpListenerOwnedByProcessGroup({
-        host: '127.0.0.1',
-        port: prepared.apiPort,
-        processGroupId: identity?.processGroupId ?? api.pid,
-        rootProcessIdentity: identity,
-      }),
+    waitUntilApiReady = (_prepared, { signal }) =>
+      waitForTcpPort({ host: '127.0.0.1', port: prepared.apiPort, signal }),
+    verifyApiListener,
     spawnWeb = spawnLiveWeb,
     supervise = superviseLiveDev,
     platform = process.platform,
     killProcess = (pid, signal) => process.kill(pid, signal),
     schedule = (callback, delay) => setTimeout(callback, delay),
     cancelSchedule = (timer) => clearTimeout(timer),
-    ownsProcessGroup = processGroupStillOwned,
-    captureIdentity = captureProcessIdentity,
+    ownsProcessGroup,
+    captureIdentity,
   } = {},
 ) {
+  const startupAbort = new AbortController();
+  const listenerTools = prepared.listenerTools ?? {};
+  const captureIdentityForPlatform =
+    captureIdentity ??
+    (platform === 'darwin'
+      ? (pid) =>
+          captureDarwinProcessIdentity(pid, {
+            psExecutable: listenerTools.ps,
+          })
+      : captureProcessIdentity);
+  const ownsProcessGroupForPlatform =
+    ownsProcessGroup ??
+    (platform === 'darwin'
+      ? (identity) =>
+          darwinProcessGroupStillOwned(identity, {
+            psExecutable: listenerTools.ps,
+          })
+      : processGroupStillOwned);
+  const verifyListener = ({ child, identity, port }) =>
+    platform === 'darwin'
+      ? verifyDarwinTcpListenerOwnedByProcessGroup({
+          host: '127.0.0.1',
+          port,
+          processGroupId: identity?.processGroupId ?? child.pid,
+          rootProcessIdentity: identity,
+          lsofExecutable: listenerTools.lsof,
+          psExecutable: listenerTools.ps,
+        })
+      : verifyTcpListenerOwnedByProcessGroup({
+          host: '127.0.0.1',
+          port,
+          processGroupId: identity?.processGroupId ?? child.pid,
+          rootProcessIdentity: identity,
+        });
+  const verifyTunnelListenerForPlatform =
+    verifyTunnelListener ??
+    (({ tunnel, identity }) =>
+      verifyListener({ child: tunnel, identity, port: prepared.tunnelPort }));
+  const verifyApiListenerForPlatform =
+    verifyApiListener ??
+    (({ api, identity }) => verifyListener({ child: api, identity, port: prepared.apiPort }));
+  const waitUntilPostgresReadyForPlatform =
+    waitUntilPostgresReady ??
+    ((_prepared, { signal }) =>
+      waitForPostgresTunnel({
+        host: '127.0.0.1',
+        port: prepared.tunnelPort,
+        signal,
+      }));
   const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'];
   const handlers = new Map();
   const children = [];
@@ -847,7 +1028,7 @@ export async function startLiveDev(
       child.exitCode = code;
       child.signalCode = signal;
     });
-    identities.set(child, await captureIdentity(child.pid));
+    identities.set(child, await captureIdentityForPlatform(child.pid));
     if (registrationError) throw registrationError;
     if (startupSettlements.has(child) || child.exitCode !== null || child.signalCode != null) {
       throw new Error(`${label} exited during startup registration`);
@@ -859,7 +1040,7 @@ export async function startLiveDev(
     for (const child of children) {
       const identity = identities.get(child);
       if (settled.has(child)) {
-        if (await ownsProcessGroup(identity)) {
+        if (await ownsProcessGroupForPlatform(identity)) {
           terminated =
             terminateOwnedProcessGroup(identity, signal, { platform, killProcess }) || terminated;
         }
@@ -875,7 +1056,7 @@ export async function startLiveDev(
       forceTimer = undefined;
       for (const child of children) {
         const identity = identities.get(child);
-        if (await ownsProcessGroup(identity)) {
+        if (await ownsProcessGroupForPlatform(identity)) {
           terminateOwnedProcessGroup(identity, 'SIGKILL', { platform, killProcess });
         }
       }
@@ -895,6 +1076,7 @@ export async function startLiveDev(
     const handler = () => {
       if (startupInterrupted) return;
       startupInterrupted = true;
+      startupAbort.abort();
       parent.exitCode = exitCodeFor(null, signal);
       void beginTeardown();
       resolveInterruption(new Error(`live development startup interrupted by ${signal}`));
@@ -910,25 +1092,51 @@ export async function startLiveDev(
   try {
     tunnel = await register(spawnTunnel(prepared), 'cloudflared');
     const tunnelReadiness = await Promise.race([
-      waitForManagedChild(tunnel, () => waitUntilReady(prepared), 'cloudflared'),
+      waitForManagedChild(
+        tunnel,
+        () => waitUntilReady(prepared, { signal: startupAbort.signal }),
+        'cloudflared',
+      ),
       interrupted,
     ]);
+    if (startupInterrupted) throw await interrupted;
     if (tunnelReadiness instanceof Error) throw tunnelReadiness;
-    if (!(await verifyTunnelListener({ tunnel, identity: identities.get(tunnel), prepared }))) {
+    if (
+      !(await verifyTunnelListenerForPlatform({
+        tunnel,
+        identity: identities.get(tunnel),
+        prepared,
+      }))
+    ) {
       throw new Error('local database listener is not owned by spawned cloudflared');
     }
-    const postgresReadiness = await Promise.race([waitUntilPostgresReady(prepared), interrupted]);
+    const postgresReadiness = await Promise.race([
+      waitUntilPostgresReadyForPlatform(prepared, { signal: startupAbort.signal }),
+      interrupted,
+    ]);
+    if (startupInterrupted) throw await interrupted;
     if (postgresReadiness instanceof Error) throw postgresReadiness;
-    if (!(await verifyTunnelListener({ tunnel, identity: identities.get(tunnel), prepared }))) {
+    if (
+      !(await verifyTunnelListenerForPlatform({
+        tunnel,
+        identity: identities.get(tunnel),
+        prepared,
+      }))
+    ) {
       throw new Error('local database listener is not owned by spawned cloudflared');
     }
     api = await register(spawnApi(prepared), 'API server');
     const apiReadiness = await Promise.race([
-      waitForManagedChild(api, () => waitUntilApiReady(prepared), 'API server'),
+      waitForManagedChild(
+        api,
+        () => waitUntilApiReady(prepared, { signal: startupAbort.signal }),
+        'API server',
+      ),
       interrupted,
     ]);
+    if (startupInterrupted) throw await interrupted;
     if (apiReadiness instanceof Error) throw apiReadiness;
-    if (!(await verifyApiListener({ api, identity: identities.get(api), prepared }))) {
+    if (!(await verifyApiListenerForPlatform({ api, identity: identities.get(api), prepared }))) {
       throw new Error('local API listener is not owned by spawned API server');
     }
     web = await register(spawnWeb(prepared), 'Web server');
@@ -939,11 +1147,12 @@ export async function startLiveDev(
       schedule,
       cancelSchedule,
       identities,
-      ownsProcessGroup,
+      ownsProcessGroup: ownsProcessGroupForPlatform,
       onCleanup: prepared.cleanup,
     });
     return { tunnel, api, web };
   } catch (error) {
+    startupAbort.abort();
     removeStartupHandlers();
     await beginTeardown();
     await prepared.cleanup?.();
@@ -1054,9 +1263,16 @@ async function main() {
   process.stdout.write(`  Local DB port:   ${prepared.tunnelPort}\n`);
   process.stdout.write(`  Runtime pgpass:  ${prepared.runtimePgpassFile}\n`);
   process.stdout.write(`  App origin:      ${prepared.webEnv.STOCK_INSIGHT_APP_ORIGIN}\n`);
-  process.stdout.write('  Web sandbox:     DB credentials hidden by bubblewrap\n');
+  process.stdout.write(
+    prepared.backend === 'linux-bubblewrap'
+      ? '  Process backend: Linux Bubblewrap isolation\n'
+      : '  Process backend: macOS native process groups with child-specific environments\n',
+  );
   process.stdout.write('  Mutations:       enabled (real production data)\n');
   if (process.argv.includes('--check')) {
+    process.stdout.write(
+      'Diagnostic only: Cloudflare SSO and an actual production DB connection were not tested.\n',
+    );
     await prepared.cleanup();
     return;
   }
