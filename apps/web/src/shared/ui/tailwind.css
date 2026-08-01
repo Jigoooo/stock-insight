@@ -46,7 +46,7 @@
   --chart-grid: color-mix(in srgb, var(--color-border) 72%, transparent);
   --chart-indicator-color: var(--color-text-primary);
   --chart-indicator-secondary-color: var(--color-text-secondary);
-  --chart-marker-background: var(--color-surface-raised);
+  --chart-marker-background: var(--color-surface);
   --chart-marker-border: var(--color-border-strong);
   --chart-marker-foreground: var(--color-text-primary);
   --chart-marker-badge-background: var(--color-text-primary);
