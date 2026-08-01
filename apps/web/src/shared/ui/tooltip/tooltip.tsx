@@ -6,9 +6,9 @@ import type { ComponentProps } from 'react';
 
 import styles from './tooltip.module.css';
 
-import { cn } from '@/shared/lib/utils';
 import { getStrictContext } from '@/shared/lib/get-strict-context';
 import { useControlledState } from '@/shared/lib/use-controlled-state';
+import { cn } from '@/shared/lib/utils';
 
 type TooltipContextValue = { open: boolean };
 const [TooltipStateProvider, useTooltipState] =

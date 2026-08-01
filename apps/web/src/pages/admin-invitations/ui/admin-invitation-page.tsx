@@ -8,9 +8,9 @@ import { issueInvitation, revokeInvitation } from '../model/admin-invitation-fun
 import { workspaceSections } from '@/features/workspace-navigation';
 import { logout } from '@/pages/auth/model/auth-functions';
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
+import { Button } from '@/shared/ui/button';
 import { Field, FieldLabel } from '@/shared/ui/field';
 import { Input } from '@/shared/ui/input';
-import { Button } from '@/shared/ui/button';
 import { Select, type SelectOption } from '@/shared/ui/select';
 import {
   DataTable,

@@ -10,6 +10,7 @@ const repositoryRoot = resolve(fixtureRoot, '../../..');
 const webNodeModules = resolve(repositoryRoot, 'apps/web/node_modules');
 
 export default defineConfig({
+  cacheDir: resolve(repositoryRoot, 'node_modules/.vite/p6-crypto-ui', String(process.pid)),
   root: fixtureRoot,
   plugins: [react()],
   publicDir: resolve(repositoryRoot, 'apps/web/public'),

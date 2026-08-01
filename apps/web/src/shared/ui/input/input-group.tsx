@@ -2,8 +2,8 @@
 
 import { forwardRef, type HTMLAttributes, type InputHTMLAttributes } from 'react';
 
-import styles from './input.module.css';
 import type { InputDensity } from './input';
+import styles from './input.module.css';
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -32,7 +32,6 @@ export type InputGroupAddonProps = HTMLAttributes<HTMLDivElement> & {
 export function InputGroupAddon({
   align = 'inline-start',
   className,
-  onClick,
   ...props
 }: InputGroupAddonProps) {
   return (
@@ -41,11 +40,6 @@ export function InputGroupAddon({
       data-align={align}
       data-slot="input-group-addon"
       className={classNames(styles.addon, className)}
-      onClick={(event) => {
-        onClick?.(event);
-        if (event.defaultPrevented || (event.target as HTMLElement).closest('button')) return;
-        event.currentTarget.parentElement?.querySelector('input')?.focus();
-      }}
       {...props}
     />
   );

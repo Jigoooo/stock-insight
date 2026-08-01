@@ -16,6 +16,11 @@ import comboStyles from './combobox.module.css';
 
 import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
 import {
+  optionCloseDurationMs,
+  SelectOptionItem,
+  type SelectDensity,
+} from '@/shared/ui/select/select';
+import {
   filterSelectOptions,
   getNextEnabledOptionIndex,
   getOptionText,
@@ -24,11 +29,6 @@ import {
   type SelectOption,
   type SelectOptionFilter,
 } from '@/shared/ui/select/select-controller';
-import {
-  optionCloseDurationMs,
-  SelectOptionItem,
-  type SelectDensity,
-} from '@/shared/ui/select/select';
 import selectStyles from '@/shared/ui/select/select.module.css';
 
 export type ComboboxProps = {

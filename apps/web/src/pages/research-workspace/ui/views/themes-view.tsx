@@ -20,8 +20,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/shared/ui/accordion';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button } from '@/shared/ui/button';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import {
   AvailabilityNotice,
   Panel,

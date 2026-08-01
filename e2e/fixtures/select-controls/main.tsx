@@ -12,12 +12,12 @@ import './style.css';
 
 import { useWorkspaceAppendReveal } from '@/pages/research-workspace/ui/use-workspace-append-reveal';
 import { useWorkspaceRelationCrossfade } from '@/pages/research-workspace/ui/use-workspace-relation-crossfade';
-import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import { Button, IconButton } from '@/shared/ui/button';
 import { Combobox } from '@/shared/ui/combobox';
-import { Field } from '@/shared/ui/field';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/shared/ui/field';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
+import { createMotionDomAdapter } from '@/shared/ui/motion/dom-motion-adapter';
 import { SelectBox, type SelectOption } from '@/shared/ui/select';
 import { Switch } from '@/shared/ui/switch';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
@@ -356,13 +356,32 @@ function Fixture() {
         </section>
 
         <section aria-label="Field anatomy">
-          <Field description="Wrapped description" label="Wrapped field">
+          <Field>
+            <FieldLabel htmlFor="wrapped-field-control">Wrapped field</FieldLabel>
             <div>
-              <input id="wrapped-field-control" name="wrappedField" />
+              <input
+                aria-describedby="wrapped-field-control-description"
+                id="wrapped-field-control"
+                name="wrappedField"
+              />
             </div>
+            <FieldDescription id="wrapped-field-control-description">
+              Wrapped description
+            </FieldDescription>
           </Field>
-          <Field description="Direct description" error="Direct error" label="Direct field">
-            <Input id="direct-field-control" name="directField" />
+          <Field data-invalid="true">
+            <FieldLabel htmlFor="direct-field-control">Direct field</FieldLabel>
+            <Input
+              aria-describedby="direct-field-control-description"
+              aria-errormessage="direct-field-control-error"
+              aria-invalid="true"
+              id="direct-field-control"
+              name="directField"
+            />
+            <FieldDescription id="direct-field-control-description">
+              Direct description
+            </FieldDescription>
+            <FieldError id="direct-field-control-error">Direct error</FieldError>
           </Field>
         </section>
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui';
 import { LayoutGroup, motion } from 'motion/react';
+import { ToggleGroup as ToggleGroupPrimitive } from 'radix-ui';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 
 import styles from './toggle-group.module.css';

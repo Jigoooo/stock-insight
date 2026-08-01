@@ -35,3 +35,11 @@ Market Graphite는 전문적인 리서치 도구의 밀도와 OpenHuman 계열�
 - shared component가 border, focus, pressed, selected, pending, loading 상태를 소유한다.
 - page와 widget은 배경, layout, spacing, product copy만 소유한다.
 - 미확정된 navigation, chart, graph, drawer, bottom sheet 시각 규칙은 후속 디자인 라운드에서 이 문서에 추가한다.
+
+## Shared UI baseline — 2026-08-01
+
+- 공용 진입점은 `apps/web/src/shared/ui/<component>`이며 제품 layer에서 내부 파일이나 legacy `primitives` 경로를 직접 import하지 않는다.
+- 확정 완료: Button, IconButton, Input, InputGroup, Field, Select, Combobox, Accordion, Card, Table, Switch, Checkbox, ToggleGroup, Textarea, Tabs, Dialog, AlertDialog, Sheet, Tooltip, Sonner custom Toast, feedback state, workspace shell.
+- Animate UI 원본 경계는 Button, Slot, Accordion, Tabs와 실제로 쓰이는 effect에만 남긴다.
+- auth input placeholder는 본문보다 작은 `12.5px`, control은 `42px`로 고정한다. forced-colors에서는 장식 halo 대신 control 자체의 2px outline을 사용한다.
+- fixture Vite cache는 fixture/process별로 격리해 병렬 Playwright 실행 중 dependency 재최적화가 서로의 module graph를 끊지 않게 한다.

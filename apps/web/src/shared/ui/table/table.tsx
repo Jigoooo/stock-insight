@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useId,
   useMemo,
@@ -9,8 +10,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import styles from './table.module.css';
 import { resolveTableSelection } from './table-selection-controller';
+import styles from './table.module.css';
 
 import { cn } from '@/shared/lib/utils';
 
@@ -55,12 +56,15 @@ export function Table({
   const selectedSet = useMemo(() => new Set(currentKeys), [currentKeys]);
   const { className: containerClassName, ...restContainerProps } = containerProps ?? {};
 
-  const toggleSelectedKey = (key: string) => {
-    if (selectionMode === 'none') return;
-    const nextKeys = resolveTableSelection({ currentKeys, key, selectionMode });
-    if (selectedKeys === undefined) setInternalSelectedKeys(nextKeys);
-    onSelectionChange?.(nextKeys);
-  };
+  const toggleSelectedKey = useCallback(
+    (key: string) => {
+      if (selectionMode === 'none') return;
+      const nextKeys = resolveTableSelection({ currentKeys, key, selectionMode });
+      if (selectedKeys === undefined) setInternalSelectedKeys(nextKeys);
+      onSelectionChange?.(nextKeys);
+    },
+    [currentKeys, onSelectionChange, selectedKeys, selectionMode],
+  );
 
   const context = useMemo<SelectionContextValue>(
     () => ({
@@ -69,7 +73,7 @@ export function Table({
       selectionMode,
       toggleSelectedKey,
     }),
-    [groupName, selectedSet, selectionMode],
+    [groupName, selectedSet, selectionMode, toggleSelectedKey],
   );
 
   return (

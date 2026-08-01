@@ -21,6 +21,14 @@
 3. Active profile: semantic 역할의 값과 시각 recipe.
 4. Components: profile 값을 사용하되 안전 불변식을 유지.
 
+## 공용 컴포넌트 경계
+
+- 제품 코드는 `@/shared/ui/<component>`의 공개 API만 사용한다.
+- `@/shared/ui` root barrel은 가벼운 기본 primitive만 노출하며 overlay와 Toast처럼 runtime side effect가 있는 계층은 전용 경로로 import한다.
+- 상태 styling은 공용 컴포넌트가, 화면별 배치와 제품 문구는 page/widget이 소유한다.
+- Tailwind는 shadcn/Animate UI 원본 통합을 위한 build-time layer이며 UI Provider를 만들지 않는다.
+- Sonner는 운송과 queue를 담당하고 실제 Toast DOM, retry, progress, close 동작은 로컬 custom Toast가 담당한다.
+
 ## 테스트 계층
 
 - `design:hard`: Constitution 위반을 차단한다.
@@ -39,3 +47,4 @@
 - 2026-07-17: Apple/Emil 기반 `Calm Market Lens` 전체 재설계 완료.
 - 2026-07-17: 단일 디자인 원장을 UX Constitution + active profile 구조로 분리.
 - 2026-08-01: 확정된 저채도 graphite 공용 UI 방향을 `Market Graphite` profile로 활성화.
+- 2026-08-01: 인증과 워크스페이스 제품 화면을 canonical shared UI로 연결하고 legacy `shared/ui/primitives` 경계를 제거.

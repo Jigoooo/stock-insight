@@ -3,13 +3,13 @@
 import { Bell, CircleCheck, CircleX, Info, LoaderCircle, TriangleAlert, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import styles from './toast.module.css';
 import type {
   ToastActionOptions,
   ToastKind,
   ToastRetryOptions,
   ToastTone,
 } from './toast-controller';
+import styles from './toast.module.css';
 
 import { Button, IconButton } from '@/shared/ui/button';
 

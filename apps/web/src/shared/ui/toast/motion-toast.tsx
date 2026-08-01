@@ -1,7 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
 
-import styles from './toast.module.css';
 import { AppToast } from './app-toast';
 import {
   createToastId,
@@ -12,6 +11,7 @@ import {
   type ToastKind,
   type ToastTone,
 } from './toast-controller';
+import styles from './toast.module.css';
 
 const statusDuration = 4600;
 const persistentDuration = Number.POSITIVE_INFINITY;

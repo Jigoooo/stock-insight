@@ -7,9 +7,9 @@ import type { ComponentProps, HTMLAttributes } from 'react';
 
 import styles from './dialog.module.css';
 
-import { cn } from '@/shared/lib/utils';
 import { getStrictContext } from '@/shared/lib/get-strict-context';
 import { useControlledState } from '@/shared/lib/use-controlled-state';
+import { cn } from '@/shared/lib/utils';
 import { Button, type ButtonProps } from '@/shared/ui/button';
 
 export type DialogSize = 'sm' | 'md' | 'lg';

@@ -9,6 +9,7 @@ const repositoryRoot = resolve(fixtureRoot, '../../..');
 const webNodeModules = resolve(repositoryRoot, 'apps/web/node_modules');
 
 export default defineConfig({
+  cacheDir: resolve(repositoryRoot, 'node_modules/.vite/workspace-lazy-focus', String(process.pid)),
   root: fixtureRoot,
   plugins: [react()],
   resolve: {

@@ -180,8 +180,7 @@ try {
     page.getByRole('button', { name: 'Pending icon button', exact: true }),
     page.getByRole('switch', { name: 'Disabled switch', exact: true }),
     page.getByRole('switch', { name: 'Pending switch', exact: true }),
-    page.getByRole('button', { name: 'Disabled toggle', exact: true }),
-    page.getByRole('button', { name: 'Pending toggle', exact: true }),
+    page.locator('[data-slot="toggle-group-item"]', { hasText: 'Disabled toggle' }),
     page.getByRole('combobox', { name: 'Disabled select', exact: true }),
     page.getByRole('combobox', { name: 'Disabled search choices', exact: true }),
   ];
@@ -219,7 +218,6 @@ try {
     'Pending button',
     'Pending icon button',
     'Pending switch',
-    'Pending toggle',
   ]) {
     const control = page.getByRole(label.includes('switch') ? 'switch' : 'button', {
       name: label,

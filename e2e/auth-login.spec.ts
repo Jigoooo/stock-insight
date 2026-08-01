@@ -224,7 +224,7 @@ test.describe('private workspace authentication', () => {
     expect(geometry.inputHeight).toBe(42);
     expect(geometry.submitHeight).toBe(geometry.inputHeight);
     expect(geometry.inputFontSize).toBe('14px');
-    expect(geometry.placeholderFontSize).toBe(geometry.inputFontSize);
+    expect(geometry.placeholderFontSize).toBe('12.5px');
     expect(geometry.titleFontSize).toBe('20px');
     expect(geometry.wordmarkFontSize).toBe('20px');
   });

@@ -16,10 +16,10 @@ import {
   createRelationRuntimeCleanup,
   transitionRelationDrag,
 } from '@/pages/research-workspace/model/relation-sigma-runtime';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import { Button, IconButton } from '@/shared/ui/button';
 import { ErrorState } from '@/shared/ui/feedback';
 import { Input } from '@/shared/ui/input';
+import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 type RelationRenderer = Sigma<

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const rootPackageUrl = new URL('../../../package.json', import.meta.url);
@@ -15,8 +15,67 @@ const workspaceAuthTeardownUrl = new URL(
   import.meta.url,
 );
 const playwrightConfigUrl = new URL('../../../playwright.config.ts', import.meta.url);
+const sourceRootUrl = new URL('../src/', import.meta.url);
+const productLayerNames = ['pages', 'widgets', 'features', 'entities'] as const;
+
+async function readSourceTree(directory: URL): Promise<Array<{ path: string; source: string }>> {
+  const sources: Array<{ path: string; source: string }> = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const child = new URL(entry.isDirectory() ? `${entry.name}/` : entry.name, directory);
+    if (entry.isDirectory()) sources.push(...(await readSourceTree(child)));
+    else if (entry.isFile() && /\.(?:css|ts|tsx)$/.test(entry.name)) {
+      sources.push({ path: child.pathname, source: await readFile(child, 'utf8') });
+    }
+  }
+  return sources;
+}
 
 describe('release UI browser gates', () => {
+  it('locks the Market Graphite profile and canonical shared UI boundaries', async () => {
+    const [profileContract, layers] = await Promise.all([
+      readFile(new URL('../src/shared/theme/design-profile-contract.ts', import.meta.url), 'utf8'),
+      Promise.all(
+        productLayerNames.map((layer) => readSourceTree(new URL(`${layer}/`, sourceRootUrl))),
+      ),
+    ]);
+
+    assert.match(profileContract, /id:\s*'market-graphite'/);
+    for (const { path, source } of layers.flat()) {
+      assert.doesNotMatch(source, /@\/shared\/ui\/(?:primitives|animate-ui)(?:\/|['"])/, path);
+    }
+  });
+
+  it('keeps custom Sonner transport and page-owned control states outside route styles', async () => {
+    const [toast, layers] = await Promise.all([
+      readFile(new URL('../src/shared/ui/toast/motion-toast.tsx', import.meta.url), 'utf8'),
+      Promise.all(
+        productLayerNames.map((layer) => readSourceTree(new URL(`${layer}/`, sourceRootUrl))),
+      ),
+    ]);
+
+    assert.match(toast, /toast\.custom/);
+    assert.match(toast, /unstyled:\s*true/);
+    assert.match(toast, /swipeDirections=\{\['right', 'top'\]\}/);
+    for (const { path, source } of layers.flat().filter(({ path }) => path.endsWith('.css'))) {
+      assert.doesNotMatch(
+        source,
+        /\.button:active|input:focus(?:-visible|-within)?|\[role=['"]option['"]\]|\[data-slot=['"](?:toast|dialog)/,
+        path,
+      );
+    }
+  });
+
+  it('keeps the hard design gate on canonical adoption and boundary tests', async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { scripts?: Record<string, string> };
+    const gate = packageJson.scripts?.['test:design:hard'] ?? '';
+
+    assert.match(gate, /primitive-adoption-contract\.test\.ts/);
+    assert.match(gate, /shared-ui-boundary\.test\.ts/);
+    assert.doesNotMatch(gate, /motion-primitives-structure\.test\.ts/);
+  });
+
   it('keeps auth accessibility assertions mandatory and screenshots opt-in', async () => {
     const source = await readFile(authVisualUrl, 'utf8');
 

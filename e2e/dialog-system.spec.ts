@@ -12,6 +12,7 @@ test.beforeAll(async () => {
   const root = fileURLToPath(new URL('./fixtures/dialog-system/', import.meta.url));
 
   fixtureServer = await createServer({
+    cacheDir: `${repoRoot}node_modules/.vite/dialog-system/${process.pid}`,
     configFile: false,
     root,
     resolve: {

@@ -4,18 +4,18 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 import type { ComponentProps, HTMLAttributes } from 'react';
 
-import styles from './dialog.module.css';
-
-import { cn } from '@/shared/lib/utils';
-import { getStrictContext } from '@/shared/lib/get-strict-context';
-import { useControlledState } from '@/shared/lib/use-controlled-state';
-import { Button, type ButtonProps } from '@/shared/ui/button';
 import {
   dialogTransition,
   type DialogActionTone,
   type DialogComposition,
   type DialogSize,
 } from './dialog';
+import styles from './dialog.module.css';
+
+import { getStrictContext } from '@/shared/lib/get-strict-context';
+import { useControlledState } from '@/shared/lib/use-controlled-state';
+import { cn } from '@/shared/lib/utils';
+import { Button, type ButtonProps } from '@/shared/ui/button';
 
 type AlertDialogContextValue = {
   open: boolean;
