@@ -53,7 +53,7 @@ describe('login page structure', () => {
     assert.match(component, /headingId="login-form-heading"/);
     assert.match(component, /title="로그인"/);
     assert.match(stylesheet, /min-height:\s*100svh/);
-    assert.match(stylesheet, /:focus-visible/);
+    assert.doesNotMatch(stylesheet, /\.(?:primaryLink|signupLink):focus-visible/);
     assert.match(rootComponent, /<MotionConfig reducedMotion="user">/);
     assert.match(stylesheet, /prefers-reduced-transparency:\s*reduce/);
     assert.match(stylesheet, /prefers-contrast:\s*more/);

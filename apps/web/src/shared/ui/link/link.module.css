@@ -1,0 +1,39 @@
+:where(.textLink) {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentcolor 35%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  outline: none;
+}
+
+:where(.textLink):focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 16%, transparent);
+}
+
+.motionVisual {
+  display: inline-flex;
+  min-width: 0;
+  align-items: inherit;
+}
+
+:where(.textLink[data-tone='accent']) {
+  color: var(--color-accent-strong);
+}
+
+:where(.textLink[data-tone='muted']) {
+  color: var(--color-text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.textLink, .motionVisual) {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

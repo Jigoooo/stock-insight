@@ -11,7 +11,7 @@ const buttonCssUrl = new URL('../src/shared/ui/button/button.module.css', import
 const inputUrl = new URL('../src/shared/ui/input/input.tsx', import.meta.url);
 const inputGroupUrl = new URL('../src/shared/ui/input/input-group.tsx', import.meta.url);
 const inputCssUrl = new URL('../src/shared/ui/input/input.module.css', import.meta.url);
-const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
+const linkUrl = new URL('../src/shared/ui/link/link.tsx', import.meta.url);
 const loginPageUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
 const signupPageUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
 // Path updated by the workspace route split: the shared route body moved from
@@ -71,9 +71,9 @@ describe('public root startup boundary', () => {
     assert.match(authField, /shared\/ui\/input/);
     assert.doesNotMatch(loginPage + signupPage, /from ['"]@\/shared\/ui\/primitives['"]/);
     assert.match(loginPage, /shared\/ui\/button/);
-    assert.match(loginPage, /primitives\/link/);
+    assert.match(loginPage, /shared\/ui\/link/);
     assert.match(signupPage, /shared\/ui\/button/);
-    assert.match(signupPage, /primitives\/link/);
+    assert.match(signupPage, /shared\/ui\/link/);
   });
 
   it('keeps workspace initial and local error fallbacks free of the side-effectful primitive barrel', async () => {

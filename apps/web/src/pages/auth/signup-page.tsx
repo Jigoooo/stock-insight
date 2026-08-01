@@ -11,7 +11,7 @@ import {
 } from './model/signup-validation';
 import { Button } from '@/shared/ui/button';
 import { PresenceRegion } from '@/shared/ui/motion';
-import { TextLink } from '@/shared/ui/primitives/link';
+import { TextLink } from '@/shared/ui/link';
 
 export type SignupCredentials = Pick<SignupInput, 'username' | 'password' | 'enrollmentCode'>;
 export type SignupAvailability = 'checking' | 'available' | 'unavailable' | 'error';

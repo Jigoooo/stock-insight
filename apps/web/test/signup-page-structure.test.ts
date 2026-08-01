@@ -113,7 +113,7 @@ describe('one-time signup source contract', () => {
     ]);
 
     assert.match(stylesheet, /\.fieldFeedback\s*\{[\s\S]*?min-height:/);
-    assert.match(stylesheet, /:focus-visible/);
+    assert.doesNotMatch(stylesheet, /\.(?:primaryLink|signupLink):focus-visible/);
     assert.match(rootComponent, /<MotionConfig reducedMotion="user">/);
     assert.match(stylesheet, /prefers-reduced-transparency:\s*reduce/);
     assert.match(stylesheet, /prefers-contrast:\s*more/);

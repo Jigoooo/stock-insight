@@ -10,7 +10,7 @@ import {
   type LoginFieldErrors,
 } from './model/login-validation';
 import { Button } from '@/shared/ui/button';
-import { TextLink } from '@/shared/ui/primitives/link';
+import { TextLink } from '@/shared/ui/link';
 
 export type LoginCredentials = LoginCredentialsInput;
 

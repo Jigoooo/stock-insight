@@ -214,11 +214,6 @@
   margin-top: 4px;
 }
 
-.primaryLink:focus-visible {
-  outline: 2px solid var(--color-text-primary);
-  outline-offset: 2px;
-}
-
 .signupPrompt,
 .loginNote {
   margin: 20px 0 0;
@@ -233,13 +228,6 @@
   color: var(--color-text-primary);
   font-weight: 700;
   text-underline-offset: 3px;
-}
-
-.signupLink:focus-visible,
-.loginNote a:focus-visible {
-  border-radius: 3px;
-  outline: 2px solid var(--color-text-primary);
-  outline-offset: 2px;
 }
 
 .availabilityRegion {

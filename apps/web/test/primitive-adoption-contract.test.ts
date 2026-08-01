@@ -15,8 +15,8 @@ const switchUrl = new URL('../src/shared/ui/switch/switch.tsx', import.meta.url)
 const checkboxUrl = new URL('../src/shared/ui/checkbox/checkbox.tsx', import.meta.url);
 const toggleGroupUrl = new URL('../src/shared/ui/toggle-group/toggle-group.tsx', import.meta.url);
 const formUrl = new URL('../src/shared/ui/primitives/form.tsx', import.meta.url);
-const linkUrl = new URL('../src/shared/ui/primitives/link.tsx', import.meta.url);
-const linkCssUrl = new URL('../src/shared/ui/primitives/link.module.css', import.meta.url);
+const linkUrl = new URL('../src/shared/ui/link/link.tsx', import.meta.url);
+const linkCssUrl = new URL('../src/shared/ui/link/link.module.css', import.meta.url);
 const segmentedTabsUrl = new URL('../src/shared/ui/primitives/segmented-tabs.tsx', import.meta.url);
 const selectBoxUrl = new URL('../src/shared/ui/select/select.tsx', import.meta.url);
 const comboboxUrl = new URL('../src/shared/ui/combobox/combobox.tsx', import.meta.url);
@@ -85,19 +85,29 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('adopts the local Motion foundation at each interactive control boundary', async () => {
-    const [button, animateButton, motionButton, controls, switchSource, toggleGroup, link, segmentedTabs, selectBox, combobox] =
-      await Promise.all([
-        readFile(buttonUrl, 'utf8'),
-        readFile(animateButtonPrimitiveUrl, 'utf8'),
-        readFile(motionButtonUrl, 'utf8'),
-        readFile(controlsUrl, 'utf8'),
-        readFile(switchUrl, 'utf8'),
-        readFile(toggleGroupUrl, 'utf8'),
-        readFile(linkUrl, 'utf8'),
-        readFile(segmentedTabsUrl, 'utf8'),
-        readFile(selectBoxUrl, 'utf8'),
-        readFile(comboboxUrl, 'utf8'),
-      ]);
+    const [
+      button,
+      animateButton,
+      motionButton,
+      controls,
+      switchSource,
+      toggleGroup,
+      link,
+      segmentedTabs,
+      selectBox,
+      combobox,
+    ] = await Promise.all([
+      readFile(buttonUrl, 'utf8'),
+      readFile(animateButtonPrimitiveUrl, 'utf8'),
+      readFile(motionButtonUrl, 'utf8'),
+      readFile(controlsUrl, 'utf8'),
+      readFile(switchUrl, 'utf8'),
+      readFile(toggleGroupUrl, 'utf8'),
+      readFile(linkUrl, 'utf8'),
+      readFile(segmentedTabsUrl, 'utf8'),
+      readFile(selectBoxUrl, 'utf8'),
+      readFile(comboboxUrl, 'utf8'),
+    ]);
 
     assert.match(button, /Button as ButtonPrimitive/);
     assert.doesNotMatch(button, /<button\b/);
@@ -123,7 +133,18 @@ describe('shared primitive adoption contract', () => {
   });
 
   it('exposes explicit control anatomy without changing native roles', async () => {
-    const [button, controls, switchSource, checkbox, toggleGroup, form, link, segmentedTabs, selectBox, combobox] = await Promise.all([
+    const [
+      button,
+      controls,
+      switchSource,
+      checkbox,
+      toggleGroup,
+      form,
+      link,
+      segmentedTabs,
+      selectBox,
+      combobox,
+    ] = await Promise.all([
       readFile(buttonUrl, 'utf8'),
       readFile(controlsUrl, 'utf8'),
       readFile(switchUrl, 'utf8'),
@@ -254,6 +275,9 @@ describe('shared primitive adoption contract', () => {
     assert.match(css, /\.button\s*\{/);
     assert.match(css, /\.button\[data-variant='secondary'\]/);
     assert.match(css, /:where\(\.textLink\)\s*\{/);
-    assert.doesNotMatch(await readFile(authCssUrl, 'utf8'), /\.submitButton:(?:active|hover|focus-visible|disabled)/);
+    assert.doesNotMatch(
+      await readFile(authCssUrl, 'utf8'),
+      /\.submitButton:(?:active|hover|focus-visible|disabled)/,
+    );
   });
 });
