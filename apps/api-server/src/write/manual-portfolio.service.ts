@@ -190,16 +190,18 @@ async function mutateManualPortfolio(
       return { kind: 'completed' as const, response };
     });
   } catch (error) {
-    // A swallowed exception here cost ~30 minutes during the P3 cutover: the
-    // route answered a generic 500 envelope while the real cause (a foreign-key
-    // violation) was invisible in the container logs. The client contract is
-    // unchanged — callers still get the opaque MANUAL_PORTFOLIO_WRITE_FAILED
-    // body, since a write failure must not leak schema details — but the
-    // operator now gets the actual error on stderr.
+    const errorCode =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      /^[A-Z0-9_]{2,20}$/.test(error.code)
+        ? error.code
+        : undefined;
     console.error('[manual-portfolio] mutation failed', {
       operation,
-      idempotencyKey,
-      error,
+      errorType: error instanceof Error ? error.name : 'NonError',
+      errorCode,
     });
     return mutationFailedResult();
   }

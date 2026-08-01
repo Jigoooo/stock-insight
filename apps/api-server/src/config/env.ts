@@ -25,8 +25,10 @@ const apiServerEnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(6200),
   DATABASE_URL: optionalNonEmptyUrl,
   DATABASE_READ_URL: optionalNonEmptyUrl,
+  DATABASE_WRITE_URL: optionalNonEmptyUrl,
   STOCK_INSIGHT_USER_ID: optionalUserId,
   STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE: optionalAbsolutePath,
+  STOCK_INSIGHT_LIVE_DATABASE_EXPECTED: z.enum(['true', 'false']).default('false'),
   NODE_ENV: z.string().optional(),
 });
 
@@ -34,6 +36,8 @@ export type ApiServerEnv = {
   host: string;
   port: number;
   databaseReadUrl?: string;
+  databaseWriteUrl?: string;
+  liveDatabaseExpected: boolean;
   userId?: string;
   internalContextSecretFile?: string;
   nodeEnv?: string;
@@ -50,12 +54,16 @@ export function parseApiServerEnv(source: EnvSource = process.env): ApiServerEnv
     throw new Error(`Invalid api-server environment: ${issues}`);
   }
 
+  const databaseReadUrl = result.data.DATABASE_READ_URL ?? result.data.DATABASE_URL;
+  const databaseWriteUrl = result.data.DATABASE_WRITE_URL;
   const env: ApiServerEnv = {
     host: result.data.HOST,
     port: result.data.PORT,
+    liveDatabaseExpected:
+      result.data.STOCK_INSIGHT_LIVE_DATABASE_EXPECTED === 'true' || Boolean(databaseWriteUrl),
   };
-  const databaseReadUrl = result.data.DATABASE_READ_URL ?? result.data.DATABASE_URL;
   if (databaseReadUrl) env.databaseReadUrl = databaseReadUrl;
+  if (databaseWriteUrl) env.databaseWriteUrl = databaseWriteUrl;
   if (result.data.STOCK_INSIGHT_USER_ID) env.userId = result.data.STOCK_INSIGHT_USER_ID;
   if (result.data.STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE) {
     env.internalContextSecretFile = result.data.STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET_FILE;

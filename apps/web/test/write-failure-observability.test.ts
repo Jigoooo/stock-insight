@@ -34,6 +34,13 @@ describe('write failures are observable to the operator', () => {
         /console\.error\(/,
         `${path} must log the underlying error before answering with a failure envelope`,
       );
+      const logCalls = source.match(/console\.error\([\s\S]*?\n\s*\}\);/g) ?? [];
+      assert.ok(logCalls.length > 0, `${path} must use a structured operator log`);
+      for (const logCall of logCalls) {
+        assert.match(logCall, /errorType:/);
+        assert.doesNotMatch(logCall, /\berror\s*[,}]/);
+        assert.doesNotMatch(logCall, /\bidempotencyKey\b|\bmessage:|\bdetail:/);
+      }
     });
 
     // A bare `} catch {` cannot even reference the error, so it is structurally

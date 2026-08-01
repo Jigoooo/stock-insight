@@ -14,6 +14,10 @@ import { createInternalContextGuard } from './read/internal-context.guard.ts';
 
 export { AppModule } from './app.module.ts';
 export { parseApiServerEnv, type ApiServerEnv } from './config/env.ts';
+export {
+  SECURITY_DEFINER_ACL_JSON_SQL,
+  verifyLiveDatabaseTarget,
+} from './db/live-database-guard.ts';
 export { API_SERVER_DB, API_SERVER_ENV } from './config/tokens.ts';
 export { ZodValidationPipe } from './common/zod-validation.pipe.ts';
 export type { DbProbeResult, DbService } from './db/db-service.ts';

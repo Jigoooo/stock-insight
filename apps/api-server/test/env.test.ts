@@ -9,6 +9,29 @@ test('defaults: host 127.0.0.1, port 6200, no db', () => {
   assert.equal(env.port, 6200);
   assert.equal(env.databaseReadUrl, undefined);
   assert.equal(env.userId, undefined);
+  assert.equal(env.databaseWriteUrl, undefined);
+  assert.equal(env.liveDatabaseExpected, false);
+});
+
+test('a dedicated writer URL always forces live database verification', () => {
+  const env = parseApiServerEnv({
+    DATABASE_READ_URL: 'postgresql://reader@127.0.0.1:55432/research_app',
+    DATABASE_WRITE_URL: 'postgresql://writer@127.0.0.1:55432/research_app',
+    STOCK_INSIGHT_LIVE_DATABASE_EXPECTED: 'false',
+  });
+  assert.equal(env.databaseWriteUrl, 'postgresql://writer@127.0.0.1:55432/research_app');
+  assert.equal(env.liveDatabaseExpected, true);
+  assert.equal(
+    parseApiServerEnv({
+      DATABASE_READ_URL: 'postgresql://reader@127.0.0.1:55432/research_app',
+      DATABASE_WRITE_URL: 'postgresql://writer@127.0.0.1:55432/research_app',
+    }).liveDatabaseExpected,
+    true,
+  );
+  assert.throws(
+    () => parseApiServerEnv({ STOCK_INSIGHT_LIVE_DATABASE_EXPECTED: 'TRUE' }),
+    /Invalid api-server environment/,
+  );
 });
 
 test('DATABASE_READ_URL falls back to DATABASE_URL', () => {
