@@ -351,9 +351,16 @@ export async function prepareLiveDev({
   // The workspace is mounted read-only, but Vite/Turbo still need writable
   // caches. bwrap cannot mkdir a tmpfs target inside a read-only mount, so only
   // overlay directories that already exist on the host.
+  const viteConfigCache = join(webRoot, 'node_modules', '.vite-temp');
+  await mkdir(viteConfigCache, { recursive: true, mode: 0o700 });
+  const viteConfigCacheStat = await lstat(viteConfigCache);
+  if (viteConfigCacheStat.isSymbolicLink() || !viteConfigCacheStat.isDirectory()) {
+    throw new Error('Vite config cache must be a real directory');
+  }
   const sandboxWritableCaches = [];
   for (const candidate of [
     join(webRoot, 'node_modules', '.vite'),
+    viteConfigCache,
     join(workspaceRoot, 'node_modules', '.cache'),
     join(workspaceRoot, '.turbo'),
   ]) {
@@ -491,6 +498,55 @@ function defaultTcpProbe(host, port) {
     socket.once('connect', () => done(true));
     socket.once('timeout', () => done(false));
     socket.once('error', () => done(false));
+  });
+}
+
+function createPostgresStartupPacket(user, database) {
+  const parameters = Buffer.from(
+    `user\0${user}\0database\0${database}\0application_name\0stock-insight-live-readiness\0\0`,
+    'utf8',
+  );
+  const packet = Buffer.alloc(8 + parameters.length);
+  packet.writeInt32BE(packet.length, 0);
+  packet.writeInt32BE(196608, 4);
+  parameters.copy(packet, 8);
+  return packet;
+}
+
+export function probePostgresServer({
+  host,
+  port,
+  timeoutMs = 2_000,
+  user = READ_ROLE,
+  database = DATABASE_NAME,
+  connect = createConnection,
+}) {
+  return new Promise((resolve) => {
+    const socket = connect({ host, port });
+    let settled = false;
+    let response = Buffer.alloc(0);
+    const timeout = setTimeout(() => done(false), timeoutMs);
+    const done = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      socket.destroy();
+      resolve(result);
+    };
+    socket.once('connect', () => socket.write(createPostgresStartupPacket(user, database)));
+    socket.on('data', (chunk) => {
+      response = Buffer.concat([response, chunk], response.length + chunk.length);
+      if (response.length < 5) return;
+      const type = response.toString('ascii', 0, 1);
+      const length = response.readInt32BE(1);
+      const validLength =
+        length <= 1_048_576 && ((type === 'R' && length >= 8) || (type === 'E' && length >= 5));
+      if (!validLength) return done(false);
+      if (response.length < length + 1) return;
+      done(true);
+    });
+    socket.once('error', () => done(false));
+    socket.once('end', () => done(false));
   });
 }
 
@@ -636,6 +692,27 @@ export async function waitForTcpPort({
   throw new Error(`Cloudflare Access TCP listener was not ready on ${host}:${port}`);
 }
 
+export async function waitForPostgresTunnel({
+  host,
+  port,
+  timeoutMs = 300_000,
+  probe = (probeTimeoutMs) => probePostgresServer({ host, port, timeoutMs: probeTimeoutMs }),
+  now = Date.now,
+  delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+}) {
+  const deadline = now() + timeoutMs;
+  while (true) {
+    const remaining = deadline - now();
+    if (remaining <= 0) break;
+    if (await probe(remaining)) return;
+    const retryDelay = Math.min(500, Math.max(0, deadline - now()));
+    if (retryDelay > 0) await delay(retryDelay);
+  }
+  throw new Error(
+    `PostgreSQL tunnel was not ready after Cloudflare Access login on ${host}:${port}`,
+  );
+}
+
 function exitCodeFor(code, signal) {
   return signal ? 128 + (constants.signals[signal] ?? 0) : (code ?? 1);
 }
@@ -723,6 +800,8 @@ export async function startLiveDev(
         processGroupId: identity?.processGroupId ?? tunnel.pid,
         rootProcessIdentity: identity,
       }),
+    waitUntilPostgresReady = () =>
+      waitForPostgresTunnel({ host: '127.0.0.1', port: prepared.tunnelPort }),
     spawnApi = spawnLiveApi,
     waitUntilApiReady = () => waitForTcpPort({ host: '127.0.0.1', port: prepared.apiPort }),
     verifyApiListener = ({ api, identity }) =>
@@ -835,6 +914,11 @@ export async function startLiveDev(
       interrupted,
     ]);
     if (tunnelReadiness instanceof Error) throw tunnelReadiness;
+    if (!(await verifyTunnelListener({ tunnel, identity: identities.get(tunnel), prepared }))) {
+      throw new Error('local database listener is not owned by spawned cloudflared');
+    }
+    const postgresReadiness = await Promise.race([waitUntilPostgresReady(prepared), interrupted]);
+    if (postgresReadiness instanceof Error) throw postgresReadiness;
     if (!(await verifyTunnelListener({ tunnel, identity: identities.get(tunnel), prepared }))) {
       throw new Error('local database listener is not owned by spawned cloudflared');
     }

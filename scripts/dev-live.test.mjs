@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { chmod, mkdtemp, readFile, rm, stat, symlink, unlink, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
 import {
   prepareLiveDev,
+  probePostgresServer,
   spawnLiveApi,
   spawnLiveTunnel,
   spawnLiveWeb,
   startLiveDev,
   superviseLiveDev,
   verifyTcpListenerOwnedByProcessGroup,
+  waitForPostgresTunnel,
   waitForTcpPort,
 } from './dev-live.mjs';
 
@@ -231,6 +234,13 @@ test('prepareLiveDev mounts the workspace read-only except the writable dev-serv
     ),
     'the sandbox must provide a writable tmpfs for the Vite cache',
   );
+  assert.ok(
+    args.some(
+      (value, index) =>
+        args[index - 1] === '--tmpfs' && String(value).endsWith('node_modules/.vite-temp'),
+    ),
+    'the sandbox must provide a writable tmpfs for Vite config bundles',
+  );
   await prepared.cleanup();
 });
 
@@ -392,6 +402,134 @@ test('waitForTcpPort retries until the readiness probe succeeds', async () => {
   });
   assert.equal(calls, 3);
   assert.deepEqual(delays, [100, 100]);
+});
+
+test('probePostgresServer waits for a PostgreSQL authentication frame', async () => {
+  const server = createServer((socket) => {
+    socket.once('data', (request) => {
+      assert.equal(request.readInt32BE(4), 196608);
+      assert.match(request.toString('utf8'), /stock_insight_app_reader/);
+      const authenticationSasl = Buffer.alloc(9);
+      authenticationSasl.write('R', 0, 'ascii');
+      authenticationSasl.writeInt32BE(8, 1);
+      authenticationSasl.writeInt32BE(10, 5);
+      socket.end(authenticationSasl);
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  try {
+    const address = server.address();
+    assert.notEqual(address, null);
+    assert.equal(
+      await probePostgresServer({ host: '127.0.0.1', port: address.port, timeoutMs: 1000 }),
+      true,
+    );
+  } finally {
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test('probePostgresServer rejects an incomplete PostgreSQL frame', async () => {
+  const server = createServer((socket) => {
+    socket.once('data', () => {
+      const incomplete = Buffer.alloc(5);
+      incomplete.write('R', 0, 'ascii');
+      incomplete.writeInt32BE(8, 1);
+      socket.write(incomplete);
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.notEqual(address, null);
+  assert.equal(typeof address, 'object');
+  try {
+    assert.equal(
+      await probePostgresServer({
+        host: '127.0.0.1',
+        port: address.port,
+        timeoutMs: 30,
+      }),
+      false,
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('probePostgresServer enforces an absolute timeout against slow response fragments', async () => {
+  const server = createServer((socket) => {
+    socket.once('data', () => {
+      const frame = Buffer.alloc(9);
+      frame.write('R', 0, 'ascii');
+      frame.writeInt32BE(8, 1);
+      frame.writeInt32BE(10, 5);
+      let offset = 0;
+      const interval = setInterval(() => {
+        if (offset < frame.length) socket.write(frame.subarray(offset, ++offset));
+      }, 15);
+      socket.once('close', () => clearInterval(interval));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  assert.notEqual(address, null);
+  assert.equal(typeof address, 'object');
+  const startedAt = Date.now();
+  try {
+    assert.equal(
+      await probePostgresServer({
+        host: '127.0.0.1',
+        port: address.port,
+        timeoutMs: 40,
+      }),
+      false,
+    );
+    assert.ok(Date.now() - startedAt < 120, 'absolute timeout must not reset on socket activity');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('waitForPostgresTunnel retries until Cloudflare reaches PostgreSQL', async () => {
+  let calls = 0;
+  const delays = [];
+  await waitForPostgresTunnel({
+    host: '127.0.0.1',
+    port: 55432,
+    timeoutMs: 2000,
+    probe: async () => {
+      calls += 1;
+      return calls >= 3;
+    },
+    now: (() => {
+      let value = 0;
+      return () => (value += 100);
+    })(),
+    delay: async (milliseconds) => delays.push(milliseconds),
+  });
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [500, 500]);
+});
+
+test('waitForPostgresTunnel gives one PostgreSQL probe the remaining human login budget', async () => {
+  let receivedTimeout;
+  await waitForPostgresTunnel({
+    host: '127.0.0.1',
+    port: 55432,
+    timeoutMs: 300_000,
+    probe: async (timeoutMs) => {
+      receivedTimeout = timeoutMs;
+      return true;
+    },
+    now: () => 0,
+  });
+  assert.equal(receivedTimeout, 300_000);
 });
 
 test('verifyTcpListenerOwnedByProcessGroup binds readiness to the spawned PGID socket', async () => {
@@ -776,6 +914,80 @@ test('startLiveDev rejects a listener not owned by the spawned tunnel before API
   assert.deepEqual(kills, [[-4101, 'SIGTERM']]);
 });
 
+test('startLiveDev waits for upstream PostgreSQL readiness before loading API credentials', async () => {
+  const tunnel = new FakeProcess(4121);
+  const api = new FakeProcess(4122);
+  const web = new FakeProcess(4123);
+  let releasePostgresReadiness;
+  let apiStarted = false;
+  const postgresReady = new Promise((resolve) => {
+    releasePostgresReadiness = resolve;
+  });
+
+  const startup = startLiveDev(
+    { tunnelPort: 55432, apiPort: 6200 },
+    {
+      spawnTunnel: () => tunnel,
+      waitUntilReady: async () => {},
+      verifyTunnelListener: async () => true,
+      waitUntilPostgresReady: () => postgresReady,
+      spawnApi: () => {
+        apiStarted = true;
+        return api;
+      },
+      waitUntilApiReady: async () => {},
+      verifyApiListener: async () => true,
+      spawnWeb: () => web,
+      supervise: () => {},
+      captureIdentity: async (pid) => ({ pid, processGroupId: pid, startTime: '1' }),
+    },
+  );
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(apiStarted, false);
+
+  releasePostgresReadiness();
+  await startup;
+  assert.equal(apiStarted, true);
+});
+
+test('startLiveDev revalidates tunnel ownership after upstream readiness before loading API credentials', async () => {
+  const tunnel = new FakeProcess(4131);
+  let ownershipChecks = 0;
+  let apiStarted = false;
+
+  await assert.rejects(
+    startLiveDev(
+      { tunnelPort: 55432, apiPort: 6200 },
+      {
+        spawnTunnel: () => tunnel,
+        waitUntilReady: async () => {},
+        verifyTunnelListener: async () => ++ownershipChecks === 1,
+        waitUntilPostgresReady: async () => {},
+        spawnApi: () => {
+          apiStarted = true;
+          return new FakeProcess(4132);
+        },
+        waitUntilApiReady: async () => {},
+        verifyApiListener: async () => true,
+        spawnWeb: () => new FakeProcess(4133),
+        supervise: () => {},
+        captureIdentity: async (pid) => ({ pid, processGroupId: pid, startTime: '1' }),
+        platform: 'linux',
+        killProcess: () => {},
+      },
+    ),
+    /not owned by spawned cloudflared/,
+  );
+
+  assert.equal(ownershipChecks, 2);
+  assert.equal(
+    apiStarted,
+    false,
+    'API credentials must remain unloaded after tunnel ownership loss',
+  );
+});
+
 test('startLiveDev rejects an API listener not owned by the spawned API process group', async () => {
   const tunnel = new FakeProcess(4151);
   const api = new FakeProcess(4152);
@@ -789,6 +1001,7 @@ test('startLiveDev rejects an API listener not owned by the spawned API process 
         spawnTunnel: () => tunnel,
         waitUntilReady: async () => {},
         verifyTunnelListener: async () => true,
+        waitUntilPostgresReady: async () => {},
         spawnApi: () => api,
         waitUntilApiReady: async () => {},
         verifyApiListener: async () => false,
@@ -862,6 +1075,7 @@ test('startLiveDev rejects a web spawn error emitted while process identity is c
         spawnTunnel: () => tunnel,
         waitUntilReady: async () => {},
         verifyTunnelListener: async () => true,
+        waitUntilPostgresReady: async () => {},
         spawnApi: () => api,
         waitUntilApiReady: async () => {},
         verifyApiListener: async () => true,
@@ -898,6 +1112,7 @@ test('startLiveDev tears down a settled startup leader process group before supe
         spawnTunnel: () => tunnel,
         waitUntilReady: async () => {},
         verifyTunnelListener: async () => true,
+        waitUntilPostgresReady: async () => {},
         spawnApi: () => api,
         waitUntilApiReady: async () => {},
         verifyApiListener: async () => true,
