@@ -87,10 +87,44 @@ describe('Task 1A.2 button availability contract', () => {
 });
 
 describe('Task 1A.2 select and combobox close contract', () => {
+  it('commits the first enabled partial match through the relation focus callback on Enter', async () => {
+    const controller = await import('../src/shared/ui/select/select-controller.ts');
+    assert.equal(
+      typeof controller.commitComboboxSelection,
+      'function',
+      'Combobox must expose its real selection commit behavior for unit coverage',
+    );
+
+    const partialMatches = controller.filterSelectOptions(
+      [
+        { value: 'two', label: 'Two', disabled: true },
+        { value: 'three', label: 'Three', description: 'Third option' },
+      ],
+      't',
+    );
+    const events: string[] = [];
+    let focusedEntity = '';
+    const committedIndex = controller.commitComboboxSelection({
+      activeIndex: -1,
+      currentValue: '',
+      onQueryChange: (query: string) => events.push(`query:${query}`),
+      onValueChange: (value: string) => {
+        events.push(`value:${value}`);
+        focusedEntity = value;
+      },
+      options: partialMatches,
+    });
+
+    assert.equal(committedIndex, 1);
+    assert.deepEqual(events, ['value:three', 'query:Three']);
+    assert.equal(focusedEntity, 'three');
+  });
+
   it('commits values synchronously and begins one bounded exit immediately', async () => {
-    const [select, combobox] = await Promise.all([
+    const [select, combobox, motionIndex] = await Promise.all([
       read('shared/ui/select/select.tsx'),
       read('shared/ui/combobox/combobox.tsx'),
+      read('shared/ui/motion/index.ts'),
     ]);
 
     const durationMatch = select.match(/optionCloseDurationMs\s*=\s*(\d+)/);
@@ -100,13 +134,23 @@ describe('Task 1A.2 select and combobox close contract', () => {
 
     for (const source of [select, combobox]) {
       assert.doesNotMatch(source, /closeTimerRef|setTimeout\([^)]*setOpen\(false\)/s);
-      assert.match(source, /setSelectedValue\(nextValue\);[\s\S]*?setOpen\(false\)/);
       assert.match(source, /const \{ reducedMotion \} = useMotionPreferences\(\)/);
       assert.match(
         source,
         /transition=\{\{\s*duration:\s*reducedMotion\s*\?\s*0\s*:\s*optionCloseDurationMs\s*\/\s*1_000/,
       );
+      assert.match(
+        source,
+        /import \{[^}]*useMotionPreferences[^}]*\} from '@\/shared\/ui\/motion'/s,
+      );
+      assert.doesNotMatch(source, /@\/shared\/ui\/motion\/use-motion-preferences/);
     }
+    assert.match(select, /setSelectedValue\(nextValue\);[\s\S]*?setOpen\(false\)/);
+    assert.match(
+      combobox,
+      /commitComboboxSelection\(\{[\s\S]*?onValueChange:\s*setSelectedValue[\s\S]*?\}\);[\s\S]*?setOpen\(false\)/,
+    );
+    assert.match(motionIndex, /export \{\s*useMotionPreferences/);
   });
 });
 
@@ -118,7 +162,10 @@ describe('Task 1A.2 canonical search adoption', () => {
     assert.match(relation, /<Combobox/);
     assert.match(relation, /onQueryChange=/);
     assert.match(relation, /onValueChange=/);
-    assert.match(relation, /selectAndFocusNode/);
+    assert.match(
+      relation,
+      /onValueChange=\{\(entityKey\) => \{[\s\S]*?if \(entityKey\) selectAndFocusNode\(entityKey\)/,
+    );
     assert.match(
       relation,
       /<div className=\{styles\.graphSearch\} data-testid="relation-graph-search">[\s\S]*?<Combobox/,

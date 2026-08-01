@@ -14,18 +14,17 @@ import {
 
 import comboStyles from './combobox.module.css';
 
-import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { MotionButton, PresenceRegion, useMotionPreferences } from '@/shared/ui/motion';
 import {
   optionCloseDurationMs,
   SelectOptionItem,
   type SelectDensity,
 } from '@/shared/ui/select/select';
 import {
+  commitComboboxSelection,
   filterSelectOptions,
   getNextEnabledOptionIndex,
   getOptionText,
-  resolveSelectableValue,
   type NavigationKey,
   type SelectOption,
   type SelectOptionFilter,
@@ -116,14 +115,17 @@ export function Combobox({
   };
 
   const selectIndex = (index: number) => {
-    const option = filteredOptions[index];
-    if (!option) return;
-    const nextValue = resolveSelectableValue(option, selectedValue);
-    if (nextValue === selectedValue && option.disabled) return;
-    setSelectedValue(nextValue);
-    setQueryValue(getOptionText(option));
-    setActiveIndex(index);
+    const committedIndex = commitComboboxSelection({
+      activeIndex: index,
+      currentValue: selectedValue,
+      onQueryChange: setQueryValue,
+      onValueChange: setSelectedValue,
+      options: filteredOptions,
+    });
+    if (committedIndex < 0) return false;
+    setActiveIndex(committedIndex);
     setOpen(false);
+    return true;
   };
 
   useEffect(() => {
@@ -191,9 +193,8 @@ export function Combobox({
         }
         return;
       case 'Enter':
-        if (!open || activeIndex < 0) return;
-        event.preventDefault();
-        selectIndex(activeIndex);
+        if (!open) return;
+        if (selectIndex(activeIndex)) event.preventDefault();
         return;
       case 'Escape':
         if (open) event.preventDefault();

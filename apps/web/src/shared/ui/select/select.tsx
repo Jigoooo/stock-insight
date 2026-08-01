@@ -19,8 +19,7 @@ import {
 } from './select-controller';
 import styles from './select.module.css';
 
-import { MotionButton, PresenceRegion } from '@/shared/ui/motion';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { MotionButton, PresenceRegion, useMotionPreferences } from '@/shared/ui/motion';
 
 export const optionCloseDurationMs = 155;
 

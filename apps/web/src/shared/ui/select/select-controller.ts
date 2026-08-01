@@ -76,6 +76,31 @@ export function resolveSelectableValue(option: SelectOption, currentValue: strin
   return option.disabled ? currentValue : option.value;
 }
 
+export function commitComboboxSelection({
+  activeIndex,
+  currentValue,
+  onQueryChange,
+  onValueChange,
+  options,
+}: {
+  activeIndex: number;
+  currentValue: string;
+  onQueryChange: (query: string) => void;
+  onValueChange: (value: string) => void;
+  options: readonly SelectOption[];
+}) {
+  const commitIndex =
+    activeIndex >= 0
+      ? activeIndex
+      : getNextEnabledOptionIndex({ currentIndex: -1, key: 'Home', options });
+  const option = options[commitIndex];
+  if (!option || option.disabled) return -1;
+
+  onValueChange(resolveSelectableValue(option, currentValue));
+  onQueryChange(getOptionText(option));
+  return commitIndex;
+}
+
 export function getTypeaheadOptionIndex({
   currentIndex,
   options,
