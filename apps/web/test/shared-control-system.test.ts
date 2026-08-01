@@ -48,7 +48,7 @@ describe('canonical shared controls', () => {
     ]);
 
     assert.match(css, /\.inputShell:focus-within/);
-    assert.match(css, /box-shadow:\s*0 0 0 2px color-mix/);
+    assert.match(css, /box-shadow:\s*0 0 0 3px color-mix\([^;]+16%/);
     assert.doesNotMatch(input, /focus-visible:ring/);
     assert.match(inputGroup, /styles\.groupControl/);
     assert.match(css, /\.groupControl[\s\S]*?border:\s*0/);

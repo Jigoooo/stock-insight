@@ -13,6 +13,14 @@ const expressiveProfileUrl = new URL(
 );
 
 type Rgb = Readonly<{ red: number; green: number; blue: number; alpha: number }>;
+type ComputedBoxShadow = Readonly<{
+  inset: boolean;
+  offsetX: number;
+  offsetY: number;
+  blur: number;
+  spread: number;
+  color: Rgb;
+}>;
 
 function parseComputedRgb(value: string): Rgb {
   const hexMatch = value.trim().match(/^#([\da-f]{6})$/i);
@@ -67,6 +75,52 @@ function parseComputedRgb(value: string): Rgb {
     blue: Number(match[3]),
     alpha: match[4] === undefined ? 1 : Number(match[4]),
   };
+}
+
+function splitCssLayers(value: string) {
+  const layers: string[] = [];
+  let layerStart = 0;
+  let parenthesisDepth = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === '(') parenthesisDepth += 1;
+    if (character === ')') parenthesisDepth -= 1;
+    if (character === ',' && parenthesisDepth === 0) {
+      layers.push(value.slice(layerStart, index).trim());
+      layerStart = index + 1;
+    }
+  }
+
+  layers.push(value.slice(layerStart).trim());
+  return layers.filter(Boolean);
+}
+
+function parseComputedBoxShadows(value: string): ComputedBoxShadow[] {
+  if (value.trim() === 'none') return [];
+
+  return splitCssLayers(value).map((layer) => {
+    const colorMatch = layer.match(
+      /(?:rgba?\([^)]*\)|color\(srgb[^)]*\)|oklab\([^)]*\)|#[\da-f]{6})/i,
+    );
+    if (!colorMatch) throw new Error(`Expected a computed shadow color, received: ${layer}`);
+
+    const lengths = (layer.replace(colorMatch[0], '').match(/-?[\d.]+px/g) ?? []).map(
+      Number.parseFloat,
+    );
+    if (lengths.length < 2) {
+      throw new Error(`Expected computed shadow offsets, received: ${layer}`);
+    }
+
+    return {
+      inset: /\binset\b/.test(layer),
+      offsetX: lengths[0] ?? 0,
+      offsetY: lengths[1] ?? 0,
+      blur: lengths[2] ?? 0,
+      spread: lengths[3] ?? 0,
+      color: parseComputedRgb(colorMatch[0]),
+    };
+  });
 }
 
 function relativeLuminance({ red, green, blue }: Rgb) {
@@ -183,7 +237,128 @@ async function activeLiveRegionOwners(page: Page, message: string) {
   );
 }
 
+type AuthGeometrySample = Readonly<{
+  cardHeight: number;
+  cardWidth: number;
+  inputHeight: number;
+  phase: string;
+  submitHeight: number;
+}>;
+
+async function installAuthFirstPaintProbe(page: Page) {
+  await page.addInitScript(() => {
+    const geometrySamples: AuthGeometrySample[] = [];
+    const layoutShifts: number[] = [];
+    let captureQueued = false;
+
+    const capture = (phase: string) => {
+      const card = document.querySelector<HTMLElement>('[data-auth-card]');
+      const input = document.querySelector<HTMLInputElement>('#login-username');
+      const submit = document.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (!card || !input || !submit) return;
+      const cardRect = card.getBoundingClientRect();
+      geometrySamples.push({
+        cardHeight: cardRect.height,
+        cardWidth: cardRect.width,
+        inputHeight: input.getBoundingClientRect().height,
+        phase,
+        submitHeight: submit.getBoundingClientRect().height,
+      });
+    };
+
+    const scheduleCapture = (phase: string) => {
+      if (captureQueued) return;
+      captureQueued = true;
+      requestAnimationFrame(() => {
+        captureQueued = false;
+        capture(phase);
+      });
+    };
+
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const shift = entry as PerformanceEntry & {
+          hadRecentInput?: boolean;
+          sources?: Array<{ node?: Node | null }>;
+          value?: number;
+        };
+        const authOwned = shift.sources?.some(({ node }) => {
+          if (!(node instanceof Element)) return false;
+          return Boolean(node.closest('[data-auth-shell], [data-auth-card]'));
+        });
+        if (!shift.hadRecentInput && authOwned && typeof shift.value === 'number') {
+          layoutShifts.push(shift.value);
+        }
+      }
+    }).observe({ buffered: true, type: 'layout-shift' });
+
+    new MutationObserver(() => scheduleCapture('mutation-frame')).observe(document, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    document.addEventListener('readystatechange', () => capture(document.readyState));
+    window.addEventListener('DOMContentLoaded', () => capture('domcontentloaded'));
+    window.addEventListener('load', () => {
+      capture('load');
+      requestAnimationFrame(() => {
+        capture('raf-1');
+        requestAnimationFrame(() => capture('raf-2'));
+      });
+    });
+
+    Object.assign(window, {
+      __authFirstPaintGeometrySamples: geometrySamples,
+      __authFirstPaintLayoutShifts: layoutShifts,
+    });
+  });
+}
+
 test.describe('private workspace authentication', () => {
+  test('keeps auth card and control geometry stable from first paint', async ({
+    page,
+  }, testInfo) => {
+    await installAuthFirstPaintProbe(page);
+    await page.goto('/login');
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+
+    const probe = await page.evaluate(() => ({
+      geometrySamples:
+        (
+          window as typeof window & {
+            __authFirstPaintGeometrySamples?: AuthGeometrySample[];
+          }
+        ).__authFirstPaintGeometrySamples ?? [],
+      layoutShifts:
+        (
+          window as typeof window & {
+            __authFirstPaintLayoutShifts?: number[];
+          }
+        ).__authFirstPaintLayoutShifts ?? [],
+    }));
+    await testInfo.attach('auth-first-paint-probe', {
+      body: Buffer.from(JSON.stringify(probe, null, 2)),
+      contentType: 'application/json',
+    });
+
+    expect(probe.geometrySamples.length).toBeGreaterThan(1);
+    const finalGeometry = probe.geometrySamples.at(-1);
+    expect(finalGeometry).toBeDefined();
+    expect(probe.layoutShifts.reduce((total, value) => total + value, 0)).toBe(0);
+    expect(
+      probe.geometrySamples.every(
+        ({ cardHeight, cardWidth, inputHeight, submitHeight }) =>
+          Math.abs(cardHeight - finalGeometry!.cardHeight) <= 0.5 &&
+          Math.abs(cardWidth - finalGeometry!.cardWidth) <= 0.5 &&
+          inputHeight === 44 &&
+          submitHeight === 44,
+      ),
+    ).toBe(true);
+  });
+
   test('uses one restrained centered auth card without decorative marketing chrome', async ({
     page,
   }) => {
@@ -224,7 +399,7 @@ test.describe('private workspace authentication', () => {
     expect(geometry.width).toBeGreaterThanOrEqual(340);
     expect(Math.abs(geometry.leftGap - geometry.rightGap)).toBeLessThanOrEqual(2);
     expect(geometry.radius).toBe('16px');
-    expect(geometry.inputHeight).toBe(42);
+    expect(geometry.inputHeight).toBe(44);
     expect(geometry.submitHeight).toBe(geometry.inputHeight);
     expect(geometry.inputFontSize).toBe('14px');
     expect(geometry.placeholderFontSize).toBe('12.5px');
@@ -245,25 +420,31 @@ test.describe('private workspace authentication', () => {
     await expect(username).toBeFocused();
 
     const transitionState = await username.evaluate((element) => {
-      const group = element.closest<HTMLElement>('[data-slot="input-group"]');
+      const shell = element.closest<HTMLElement>(
+        '[data-slot="input-group"], [data-slot="input-shell"]',
+      );
       return {
         inputDuration: getComputedStyle(element).transitionDuration,
-        groupDuration: group ? getComputedStyle(group).transitionDuration : null,
+        shellDuration: shell ? getComputedStyle(shell).transitionDuration : null,
       };
     });
     expect(transitionState.inputDuration).not.toBe('0s');
-    expect(transitionState.groupDuration).toBeNull();
+    expect(transitionState.shellDuration).not.toBeNull();
     await page.waitForTimeout(220);
 
     await username.evaluate((element) => {
-      element.dataset.focusMotionEvents = '0';
+      const shell = element.closest<HTMLElement>(
+        '[data-slot="input-group"], [data-slot="input-shell"]',
+      );
+      if (!shell) throw new Error('auth focus shell is missing');
+      shell.dataset.focusMotionEvents = '0';
       const countMotionEvent = () => {
-        element.dataset.focusMotionEvents = String(
-          Number(element.dataset.focusMotionEvents ?? '0') + 1,
+        shell.dataset.focusMotionEvents = String(
+          Number(shell.dataset.focusMotionEvents ?? '0') + 1,
         );
       };
-      element.addEventListener('transitionrun', countMotionEvent);
-      element.addEventListener('animationstart', countMotionEvent);
+      shell.addEventListener('transitionrun', countMotionEvent);
+      shell.addEventListener('animationstart', countMotionEvent);
     });
     await label.click();
     await page.evaluate(
@@ -272,7 +453,171 @@ test.describe('private workspace authentication', () => {
     );
 
     await expect(username).toBeFocused();
-    await expect(username).toHaveAttribute('data-focus-motion-events', '0');
+    await expect(
+      username.locator('xpath=ancestor-or-self::*[@data-slot="input-shell"]'),
+    ).toHaveAttribute('data-focus-motion-events', '0');
+  });
+
+  test('uses the BC auth lift and one state-aware 3px ring', async ({ page }) => {
+    await page.goto('/login');
+
+    const usernameField = page.getByLabel('사용자 이름');
+    await expect(usernameField).toBeEnabled();
+    const restingY = await usernameField.evaluate((input) => input.getBoundingClientRect().y);
+    await usernameField.focus();
+    await page.waitForTimeout(220);
+    const focused = await usernameField.evaluate((input) => {
+      const shell = input.closest<HTMLElement>('[data-slot="input-shell"]');
+      if (!shell) throw new Error('auth username shell is missing');
+      const style = getComputedStyle(shell);
+      return {
+        boxShadow: style.boxShadow,
+        focusToken: getComputedStyle(document.documentElement)
+          .getPropertyValue('--color-focus')
+          .trim(),
+        transform: style.transform,
+        y: shell.getBoundingClientRect().y,
+      };
+    });
+    expect(focused.transform).toBe('matrix(1, 0, 0, 1, 0, -1)');
+    expect(focused.y).toBe(restingY - 1);
+    const focusedShadows = parseComputedBoxShadows(focused.boxShadow);
+    expect(focusedShadows).toHaveLength(1);
+    const [focusedHalo] = focusedShadows;
+    expect(focusedHalo).toMatchObject({
+      inset: false,
+      offsetX: 0,
+      offsetY: 0,
+      blur: 0,
+      spread: 3,
+    });
+    const focusToken = parseComputedRgb(focused.focusToken);
+    expect(
+      Math.max(
+        Math.abs(focusedHalo!.color.red - focusToken.red),
+        Math.abs(focusedHalo!.color.green - focusToken.green),
+        Math.abs(focusedHalo!.color.blue - focusToken.blue),
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(focusedHalo!.color.alpha).toBeGreaterThanOrEqual(0.1);
+    expect(focusedHalo!.color.alpha).toBeLessThanOrEqual(0.25);
+
+    await page.getByRole('button', { name: '로그인', exact: true }).click();
+    await expect(usernameField).toBeFocused();
+    await page.waitForTimeout(220);
+    const invalid = await usernameField.evaluate((input) => {
+      const shell = input.closest<HTMLElement>('[data-slot="input-shell"]');
+      if (!shell) throw new Error('invalid auth username shell is missing');
+      const style = getComputedStyle(shell);
+      return {
+        boxShadow: style.boxShadow,
+        risk: getComputedStyle(document.documentElement).getPropertyValue('--color-risk').trim(),
+        transform: style.transform,
+      };
+    });
+    expect(invalid.transform).toBe('matrix(1, 0, 0, 1, 0, -1)');
+    const invalidShadows = parseComputedBoxShadows(invalid.boxShadow);
+    expect(invalidShadows).toHaveLength(1);
+    expect(invalidShadows[0]).toMatchObject({
+      inset: false,
+      offsetX: 0,
+      offsetY: 0,
+      blur: 0,
+      spread: 3,
+    });
+    const risk = parseComputedRgb(invalid.risk);
+    const invalidHalo = invalidShadows[0]!;
+    expect(
+      Math.max(
+        Math.abs(invalidHalo.color.red - risk.red),
+        Math.abs(invalidHalo.color.green - risk.green),
+        Math.abs(invalidHalo.color.blue - risk.blue),
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(invalidHalo.color.alpha).toBeGreaterThanOrEqual(0.1);
+    expect(invalidHalo.color.alpha).toBeLessThanOrEqual(0.35);
+  });
+
+  test('suppresses auth lift for disabled and reduced-motion controls', async ({ page }) => {
+    await page.goto('/login');
+    const usernameField = page.getByLabel('사용자 이름');
+    await expect(usernameField).toBeEnabled();
+    await usernameField.focus();
+    await expect(usernameField).toBeFocused();
+    await expect
+      .poll(() =>
+        usernameField.evaluate((input) => {
+          const shell = input.closest<HTMLElement>(
+            '[data-slot="input-group"], [data-slot="input-shell"]',
+          );
+          if (!shell) throw new Error('focused auth input shell is missing');
+          return getComputedStyle(shell).transform;
+        }),
+      )
+      .toBe('matrix(1, 0, 0, 1, 0, -1)');
+    await usernameField.evaluate((input) => {
+      const shell = input.closest<HTMLElement>(
+        '[data-slot="input-group"], [data-slot="input-shell"]',
+      );
+      if (!shell) throw new Error('disabled auth input shell is missing');
+      shell.dataset.disabled = 'true';
+    });
+    await expect(usernameField).toBeFocused();
+    await expect
+      .poll(() =>
+        usernameField.evaluate((input) => {
+          const shell = input.closest<HTMLElement>(
+            '[data-slot="input-group"], [data-slot="input-shell"]',
+          );
+          if (!shell) throw new Error('disabled focused auth input shell is missing');
+          return getComputedStyle(shell).transform;
+        }),
+      )
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.reload();
+    await expect(usernameField).toBeEnabled();
+    await usernameField.focus();
+    await expect(usernameField).toBeFocused();
+    await expect
+      .poll(() =>
+        usernameField.evaluate((input) => {
+          const shell = input.closest<HTMLElement>(
+            '[data-slot="input-group"], [data-slot="input-shell"]',
+          );
+          if (!shell) throw new Error('reduced-motion auth input shell is missing');
+          return getComputedStyle(shell).transform;
+        }),
+      )
+      .toMatch(/^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+  });
+
+  test('keeps the password addon inside the single group focus ring', async ({ page }) => {
+    await page.goto('/login');
+    const passwordField = page.getByLabel('비밀번호', { exact: true });
+    const visibilityButton = page.getByRole('button', { name: '비밀번호 표시하기' });
+    const group = passwordField.locator('xpath=ancestor::*[@data-slot="input-group"]');
+
+    await expect(passwordField).toBeEnabled();
+    await passwordField.focus();
+    await page.keyboard.press('Tab');
+    await expect(visibilityButton).toBeFocused();
+    await page.waitForTimeout(220);
+    const appearance = await group.evaluate((shell) => {
+      const addonButton = shell.querySelector<HTMLButtonElement>('button');
+      if (!addonButton) throw new Error('password addon button is missing');
+      return {
+        addonBoxShadow: getComputedStyle(addonButton).boxShadow,
+        addonOutline: getComputedStyle(addonButton).outlineStyle,
+        groupBoxShadow: getComputedStyle(shell).boxShadow,
+        groupTransform: getComputedStyle(shell).transform,
+      };
+    });
+    expect(appearance.groupTransform).toBe('matrix(1, 0, 0, 1, 0, -1)');
+    expect(parseComputedBoxShadows(appearance.groupBoxShadow)).toHaveLength(1);
+    expect(appearance.addonBoxShadow).toBe('none');
+    expect(appearance.addonOutline).toBe('none');
   });
 
   test('loads the active profile behind responsive and motion safety invariants', async ({
@@ -419,6 +764,44 @@ test.describe('private workspace authentication', () => {
     expect(forcedColorState.haloCount).toBe(0);
     expect(forcedColorState.outlineStyle).not.toBe('none');
     expect(forcedColorState.outlineWidth).toBeGreaterThanOrEqual(2);
+
+    const passwordField = page.getByLabel('비밀번호', { exact: true });
+    const visibilityButton = page.getByRole('button', { name: '비밀번호 표시하기' });
+    await passwordField.focus();
+    await page.keyboard.press('Tab');
+    await expect(visibilityButton).toBeFocused();
+    const groupFocusState = await visibilityButton.evaluate((button) => {
+      const group = button.closest<HTMLElement>('[data-slot="input-group"]');
+      const control = group?.querySelector<HTMLElement>('[data-slot="input-group-control"]');
+      if (!group || !control) throw new Error('forced-colors password group is missing');
+
+      const groupStyle = getComputedStyle(group);
+      const buttonStyle = getComputedStyle(button);
+      const controlStyle = getComputedStyle(control);
+      const explicitIndicators = [groupStyle, buttonStyle, controlStyle].filter(
+        (style) => style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) >= 2,
+      );
+
+      return {
+        active: document.activeElement === button,
+        explicitIndicatorCount: explicitIndicators.length,
+        groupOutlineStyle: groupStyle.outlineStyle,
+        groupOutlineWidth: Number.parseFloat(groupStyle.outlineWidth),
+        buttonOutlineStyle: buttonStyle.outlineStyle,
+        buttonBoxShadow: buttonStyle.boxShadow,
+        controlOutlineStyle: controlStyle.outlineStyle,
+        controlBoxShadow: controlStyle.boxShadow,
+      };
+    });
+
+    expect(groupFocusState.active).toBe(true);
+    expect(groupFocusState.explicitIndicatorCount).toBe(1);
+    expect(groupFocusState.groupOutlineStyle).not.toBe('none');
+    expect(groupFocusState.groupOutlineWidth).toBeGreaterThanOrEqual(2);
+    expect(groupFocusState.buttonOutlineStyle).toBe('none');
+    expect(groupFocusState.buttonBoxShadow).toBe('none');
+    expect(groupFocusState.controlOutlineStyle).toBe('none');
+    expect(groupFocusState.controlBoxShadow).toBe('none');
   });
 
   test('keeps hard invariants under an alternative visual profile', async ({ page }) => {

@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from 'lucide-react';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 
 import { AuthFeedbackRegion, type AuthFeedbackState } from './auth-feedback-region';
@@ -143,7 +144,7 @@ export function LoginPage({
               aria-pressed={showPassword}
               disabled={!hydrated || pending}
             >
-              {showPassword ? '숨기기' : '보기'}
+              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
             </Button>
           }
         />
@@ -152,6 +153,7 @@ export function LoginPage({
 
         <Button
           className={styles.submitButton}
+          size="lg"
           variant="primary"
           pending={pending}
           pendingLabel="확인 중"

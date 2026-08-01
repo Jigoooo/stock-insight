@@ -19,6 +19,7 @@
     "hooks": "@/shared/lib"
   },
   "registries": {
-    "@animate-ui": "https://animate-ui.com/r/{name}.json"
+    "@animate-ui": "https://animate-ui.com/r/{name}.json",
+    "@bklit": "https://ui.bklit.com/r/{name}.json"
   }
 }

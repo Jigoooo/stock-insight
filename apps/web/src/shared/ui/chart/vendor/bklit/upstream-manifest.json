@@ -1,0 +1,23 @@
+{
+  "source": "https://github.com/bklit/bklit-ui",
+  "revision": "c57f66bfa7c3198edb677b567ce08cbf364ae159",
+  "license": "MIT",
+  "registryItems": ["@bklit/area-chart", "@bklit/composed-chart", "@bklit/reference-area"],
+  "manualSourceFiles": [
+    "packages/ui/src/charts/chart-brush.tsx",
+    "packages/ui/src/charts/chart-brush-handle.tsx",
+    "packages/ui/src/charts/chart-brush-layout.tsx",
+    "packages/ui/src/charts/chart-brush-selection-overlay.tsx",
+    "packages/ui/src/charts/chart-brush-track-overlay.tsx",
+    "packages/ui/src/charts/markers/chart-markers.tsx",
+    "packages/ui/src/charts/markers/index.ts",
+    "packages/ui/src/charts/markers/marker-group.tsx"
+  ],
+  "compatibilityPatches": [
+    "Use the repository @/shared/lib/utils alias for cn imports.",
+    "Resolve the generated loading-label import within the private vendor directory.",
+    "Use the public @visx/brush type exports required by its package export map.",
+    "Consume the existing marker memo result to satisfy noUnusedLocals without changing behavior.",
+    "Exclude only this vendored boundary from repository lint so upstream behavior remains intact while repository-owned chart layers stay linted."
+  ]
+}

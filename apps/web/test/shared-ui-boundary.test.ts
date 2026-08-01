@@ -29,7 +29,9 @@ describe('shared UI FSD boundary', () => {
     ).flat();
 
     const forbidden = sources.flatMap(({ path, source }) =>
-      /@\/shared\/ui\/(?:primitives|animate-ui)(?:\/|['"])/.test(source) ? [path] : [],
+      /@\/shared\/ui\/(?:primitives|animate-ui|chart\/vendor)(?:\/|['"])/.test(source)
+        ? [path]
+        : [],
     );
 
     assert.deepEqual(forbidden, []);

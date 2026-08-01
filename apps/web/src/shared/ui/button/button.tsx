@@ -2,8 +2,15 @@
 
 import { LoaderCircle } from 'lucide-react';
 import type { HTMLMotionProps } from 'motion/react';
-import { forwardRef, type ButtonHTMLAttributes, type ReactElement, type ReactNode } from 'react';
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
+import { guardButtonInteraction } from './button-availability';
 import styles from './button.module.css';
 import { Button as ButtonPrimitive } from '@/shared/ui/animate-ui/primitives/buttons/button';
 
@@ -48,24 +55,35 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   },
   ref,
 ) {
-  const unavailable = Boolean(disabled || pending);
+  const ariaDisabled = props['aria-disabled'];
+  const nativeDisabled = Boolean(disabled || pending);
+  const unavailable = Boolean(nativeDisabled || ariaDisabled === true || ariaDisabled === 'true');
   const pendingAccessibleLabel =
     pending && props['aria-label'] === undefined && typeof children === 'string'
       ? children
       : props['aria-label'];
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (guardButtonInteraction(event)) return;
+    props.onClick?.(event);
+  };
 
   if (asChild) {
     return (
       <ButtonPrimitive
         {...props}
         asChild
+        aria-disabled={unavailable || ariaDisabled}
         className={classNames(styles.button, className)}
         data-motion={motion}
+        data-pending={pending || undefined}
         data-size={size}
         data-variant={variant}
-        hoverScale={hoverScale}
+        hoverScale={unavailable ? 1 : hoverScale}
+        onClick={handleClick}
         ref={ref}
-        tapScale={tapScale}
+        tapScale={unavailable ? 1 : tapScale}
+        whileHover={unavailable ? undefined : props.whileHover}
+        whileTap={unavailable ? undefined : props.whileTap}
       >
         {children as ReactElement}
       </ButtonPrimitive>
@@ -84,11 +102,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       data-size={size}
       data-slot="button-control"
       data-variant={variant}
-      disabled={unavailable}
-      hoverScale={hoverScale}
+      disabled={nativeDisabled}
+      hoverScale={unavailable ? 1 : hoverScale}
+      onClick={handleClick}
       ref={ref}
-      tapScale={tapScale}
+      tapScale={unavailable ? 1 : tapScale}
       type={type}
+      whileHover={unavailable ? undefined : props.whileHover}
+      whileTap={unavailable ? undefined : props.whileTap}
     >
       <span
         className={styles.content}

@@ -1,5 +1,5 @@
-import { Minus, Plus, RotateCcw, Search } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type Sigma from 'sigma';
 import type { EdgeDisplayData, NodeDisplayData } from 'sigma/types';
 
@@ -17,8 +17,8 @@ import {
   transitionRelationDrag,
 } from '@/pages/research-workspace/model/relation-sigma-runtime';
 import { Button, IconButton } from '@/shared/ui/button';
+import { Combobox } from '@/shared/ui/combobox';
 import { ErrorState } from '@/shared/ui/feedback';
-import { Input } from '@/shared/ui/input';
 import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
@@ -75,7 +75,6 @@ export function RelationSigmaGraph({
   const [liveMessage, setLiveMessage] = useState('관계 지도를 탐색할 수 있습니다.');
   const [runtimeState, setRuntimeState] = useState<RelationRuntimeState>('initializing');
   const [runtimeRevision, setRuntimeRevision] = useState(0);
-  const suggestionId = useId();
   const descriptionId = useId();
   const { forcedColors, reducedMotion } = useMotionPreferences();
   const normalizeMotion = forcedColors || reducedMotion;
@@ -85,6 +84,15 @@ export function RelationSigmaGraph({
     0,
   );
   const undirectedEdgeCount = source.edges.length - directedEdgeCount;
+  const searchOptions = useMemo(
+    () =>
+      source.nodes.map((node) => ({
+        description: node.market,
+        label: node.label,
+        value: node.entityKey,
+      })),
+    [source.nodes],
+  );
 
   useEffect(() => {
     onSelectEntityRef.current = onSelectEntity;
@@ -410,12 +418,6 @@ export function RelationSigmaGraph({
     };
   }, [normalizeMotion, refreshSelection, runtimeRevision, source]);
 
-  const matchingNodes = query.trim()
-    ? source.nodes.filter(({ label }) =>
-        label.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
-      )
-    : source.nodes;
-
   return (
     <div
       className={styles.graphFrame}
@@ -423,41 +425,24 @@ export function RelationSigmaGraph({
       data-testid="relation-graph"
     >
       <div className={styles.graphSearch} data-testid="relation-graph-search">
-        <Search aria-hidden="true" />
-        <Input
+        <Combobox
           aria-label="관계 노드 검색"
-          autoComplete="off"
-          list={suggestionId}
+          density="compact"
+          options={searchOptions}
           placeholder="종목 검색"
-          variant="bare"
-          value={query}
-          onBlur={() => {
-            if (!query) refreshSelection();
-          }}
-          onChange={(event) => {
-            const nextQuery = event.currentTarget.value;
+          query={query}
+          value={selectedNode ?? ''}
+          onQueryChange={(nextQuery) => {
             setQuery(nextQuery);
             const exact = source.nodes.find(
               ({ label }) => label.toLocaleLowerCase() === nextQuery.trim().toLocaleLowerCase(),
             );
             refreshSelection(exact?.entityKey);
           }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
-            const first = matchingNodes[0];
-            if (!first) return;
-            event.preventDefault();
-            setQuery(first.label);
-            selectAndFocusNode(first.entityKey);
+          onValueChange={(entityKey) => {
+            if (entityKey) selectAndFocusNode(entityKey);
           }}
         />
-        <datalist id={suggestionId}>
-          {source.nodes.map((node) => (
-            <option key={node.entityKey} value={node.label}>
-              {node.label} ({node.market})
-            </option>
-          ))}
-        </datalist>
       </div>
 
       {runtimeState === 'error' && (

@@ -53,7 +53,12 @@ export const AuthInputField = forwardRef<HTMLInputElement, AuthInputFieldProps>(
       >
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {endAction ? (
-          <InputGroup className={styles.authControl} density="auth">
+          <InputGroup
+            className={styles.authControl}
+            density="auth"
+            disabled={inputProps.disabled}
+            invalid={Boolean(inputProps['aria-invalid'])}
+          >
             <InputGroupInput {...controlProps} className={className} />
             <InputGroupAddon align="inline-end">{endAction}</InputGroupAddon>
           </InputGroup>
