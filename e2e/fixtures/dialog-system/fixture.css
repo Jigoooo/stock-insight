@@ -1,0 +1,47 @@
+body {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 32px;
+}
+
+.fixture-shell {
+  width: min(720px, 100%);
+}
+
+.fixture-kicker {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+h1 {
+  margin: 0 0 24px;
+  font-size: clamp(24px, 4vw, 36px);
+}
+
+.fixture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fixture-form,
+.fixture-decision {
+  display: grid;
+  gap: 10px;
+}
+
+.fixture-form label,
+.fixture-form > span {
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.fixture-decision {
+  gap: 16px;
+}
