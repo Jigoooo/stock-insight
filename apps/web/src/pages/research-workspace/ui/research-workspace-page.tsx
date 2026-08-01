@@ -106,6 +106,7 @@ type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
   loadStockDeepDive?: StockDeepDiveLoader;
+  navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
   onPrefetchSection?: (section: SectionId) => void;
   urlState?: ResearchWorkspaceUrlState;
@@ -332,6 +333,7 @@ export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
   loadStockDeepDive,
+  navigationMode = 'route',
   onLogout,
   onPrefetchSection,
   urlState = {},
@@ -895,6 +897,7 @@ export function ResearchWorkspacePage({
       contextualActions={contextualActions}
       mobileModalInert={inspectorModalOpen}
       navigationItems={navigationItems}
+      navigationMode={navigationMode}
       navigationPending={navigationIntent.pendingSection as WorkspaceSectionId | null}
       onLogout={() => void handleLogout()}
       onNavigate={selectSection}

@@ -154,6 +154,10 @@
   box-shadow: 0 8px 22px color-mix(in srgb, var(--color-chrome) 56%, transparent);
 }
 
+.navigationLink[data-static='true'] {
+  cursor: default;
+}
+
 .navigationLink[data-pending='true'] {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent) inset;
 }
@@ -332,7 +336,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .navigationLink:hover {
+  .navigationLink:not([data-static='true']):hover {
     color: var(--color-on-chrome);
     background: color-mix(in srgb, var(--color-chrome-raised) 78%, transparent);
   }

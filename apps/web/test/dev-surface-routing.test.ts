@@ -83,9 +83,20 @@ describe('development-only visual surface routes', () => {
     assert.ok(fixture.stocks.data.length > 0);
     assert.match(previewPage, /<ResearchWorkspacePage/);
     assert.match(previewPage, /loadStockDeepDive=/);
+    assert.match(previewPage, /navigationMode="static"/);
     assert.match(previewPage, /개발 전용 미리보기/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
+  });
+
+  it('renders preview navigation without authenticated route links', async () => {
+    const navigation = await readSource(
+      '../src/widgets/workspace-shell/ui/workspace-navigation.tsx',
+    );
+
+    assert.match(navigation, /navigationMode.*'route'.*'static'/s);
+    assert.match(navigation, /navigationMode === 'static'/);
+    assert.match(navigation, /aria-disabled="true"/);
   });
 
   it('keeps UI Lab an empty Market Graphite shell rather than a product preview', async () => {

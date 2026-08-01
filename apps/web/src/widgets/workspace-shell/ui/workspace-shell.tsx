@@ -18,6 +18,7 @@ export type WorkspaceShellProps = {
   contextualActions?: ReactNode;
   mobileModalInert?: boolean;
   navigationItems: readonly WorkspaceNavigationItem[];
+  navigationMode?: 'route' | 'static';
   navigationPending: WorkspaceSectionId | null;
   onLogout?: () => void;
   onNavigate?: (section: WorkspaceSectionId) => void;
@@ -47,6 +48,7 @@ export function WorkspaceShell({
   contextualActions,
   mobileModalInert = false,
   navigationItems,
+  navigationMode = 'route',
   navigationPending,
   onLogout,
   onNavigate,
@@ -90,6 +92,7 @@ export function WorkspaceShell({
       activeSection={activeSection}
       items={navigationItems}
       mode={state.mode}
+      navigationMode={navigationMode}
       pending={navigationPending}
       onNavigate={handleNavigate}
       onPrefetch={onPrefetch}

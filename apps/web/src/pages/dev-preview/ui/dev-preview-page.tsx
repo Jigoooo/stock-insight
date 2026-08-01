@@ -10,6 +10,7 @@ export function DevPreviewPage() {
       <ResearchWorkspacePage
         data={stocksPreviewFixture}
         loadStockDeepDive={loadPreviewStockDeepDive}
+        navigationMode="static"
         canManageInvitations={false}
         onLogout={async () => false}
         onPrefetchSection={() => undefined}
