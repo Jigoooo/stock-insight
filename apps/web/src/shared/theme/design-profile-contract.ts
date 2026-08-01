@@ -61,13 +61,13 @@ export interface DesignProfileMetadata {
 }
 
 export const activeDesignProfile = {
-  id: 'calm-market',
-  label: 'Calm Market Lens',
-  cssHref: '/styles/profiles/calm-market.css',
+  id: 'market-graphite',
+  label: 'Market Graphite',
+  cssHref: '/styles/profiles/market-graphite.css',
   colorSchemes: ['light', 'dark'],
   themeColors: {
-    light: '#f3f3f1',
-    dark: '#111210',
+    light: '#f2f1ec',
+    dark: '#11120f',
   },
 } as const satisfies DesignProfileMetadata;
 

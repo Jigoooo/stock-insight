@@ -53,6 +53,15 @@ function findUnresolvedTokens(definitionSources: string[], usageSources: string[
 }
 
 describe('design profile contract', () => {
+  it('uses the approved Market Graphite profile', () => {
+    assert.equal(activeDesignProfile.id, 'market-graphite');
+    assert.equal(activeDesignProfile.cssHref, '/styles/profiles/market-graphite.css');
+    assert.deepEqual(activeDesignProfile.themeColors, {
+      light: '#f2f1ec',
+      dark: '#11120f',
+    });
+  });
+
   it('keeps taste values in the active profile behind one semantic interface', async () => {
     const [profile, foundation, document] = await Promise.all([
       readFile(profileUrl, 'utf8'),

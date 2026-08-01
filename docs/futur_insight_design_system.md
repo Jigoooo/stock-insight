@@ -10,7 +10,7 @@
 
 ## 현재 활성 디자인 profile
 
-- `docs/design/profiles/calm-market.md`
+- `docs/design/profiles/market-graphite.md`
 - 현재 production의 palette, typography, material, composition, density, motion recipe를 기록한다.
 - 특정 미감은 배포 헌법이 아니다. Constitution을 지키는 다른 profile로 교체할 수 있다.
 
@@ -38,3 +38,4 @@
 
 - 2026-07-17: Apple/Emil 기반 `Calm Market Lens` 전체 재설계 완료.
 - 2026-07-17: 단일 디자인 원장을 UX Constitution + active profile 구조로 분리.
+- 2026-08-01: 확정된 저채도 graphite 공용 UI 방향을 `Market Graphite` profile로 활성화.
