@@ -573,9 +573,9 @@ test.describe('v3 research workspace candidate', () => {
         const stockScrollOwner = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
         await expect(stockScrollOwner).toHaveAttribute('data-slot', 'table-container');
         await expect(stockScrollOwner.getByRole('table', { name: '종목 커버리지' })).toBeVisible();
-        const firstStock = stockScrollOwner.getByRole('button').first();
+        const firstStock = stockScrollOwner.getByRole('radio').first();
         await firstStock.click();
-        await expect(firstStock).toHaveAttribute('aria-pressed', 'true');
+        await expect(firstStock).toBeChecked();
         await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
         expect(
           await page.evaluate(() => {
@@ -813,16 +813,10 @@ test.describe('v3 research workspace candidate', () => {
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
-    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
     await expect(tabs).toHaveCount(8);
-    await expect(tabs.first()).toHaveAttribute('data-slot', 'tabs-trigger');
-    const danglingControls = await tabs.evaluateAll((elements) =>
-      elements
-        .map((element) => element.getAttribute('aria-controls'))
-        .filter((id) => !id || !document.getElementById(id)),
-    );
-    expect(danglingControls).toEqual([]);
-    await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.first()).toHaveAttribute('data-slot', 'toggle-group-item');
+    await expect(tabs.first()).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('radar-row')).toHaveCount(2);
     await expect(page.getByTestId('radar-row').first()).toHaveJSProperty('tagName', 'LI');
     await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
@@ -833,7 +827,7 @@ test.describe('v3 research workspace candidate', () => {
     await tabs.first().focus();
     await page.keyboard.press('ArrowRight');
     await expect(tabs.nth(1)).toBeFocused();
-    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(tabs.nth(1)).toHaveAttribute('aria-pressed', 'true');
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'partial');
     await expect(page.getByRole('note')).toContainText('인과 추정값이 아니라');
     await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
@@ -967,7 +961,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.getByTestId('workspace-nav-radar').click();
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
-    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
     await tabs.nth(6).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText(
@@ -1006,7 +1000,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
 
-    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
     await tabs.nth(6).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
@@ -1049,7 +1043,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('radar-row')).toHaveCount(0);
     await expect(page.getByTestId('radar-load-more')).toHaveCount(0);
 
-    const tabs = page.getByRole('tablist', { name: '시장 화면 선택' }).getByRole('tab');
+    const tabs = page.getByRole('group', { name: '시장 화면 선택' }).getByRole('button');
     for (const [index, title] of [
       [0, '이벤트 레이더'],
       [1, '팩터 맵'],
@@ -1058,7 +1052,7 @@ test.describe('v3 research workspace candidate', () => {
       [5, '타임라인'],
     ] as const) {
       await tabs.nth(index).click();
-      const panel = page.getByRole('tabpanel');
+      const panel = page.getByRole('region', { name: `${title} 화면` });
       await expect(panel).toContainText(`${title}에 표시할 신호 없음`);
       await expect(panel).toHaveAttribute('data-display-state', 'empty');
       await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);

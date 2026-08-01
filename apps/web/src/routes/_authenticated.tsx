@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 
 import { getCurrentSession } from '@/pages/auth/model/auth-functions';
-import { InteractionMotionProvider } from '@/shared/ui/motion/interaction-motion';
+import { InteractionMotionProvider } from '@/shared/ui/motion';
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: async ({ context, location }) => {

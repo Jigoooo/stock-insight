@@ -8,7 +8,7 @@ import '@/pages/auth/auth-page.module.css';
 import { RootComponent, RootDocument, RootNotFound } from '@/pages/root';
 import type { StockInsightRouterContext } from '@/router';
 import { activeDesignProfile } from '@/shared/theme/design-profile-contract';
-import nativeScrollbarUrl from '@/shared/ui/scroll/native-scrollbar.css?url';
+import { nativeScrollbarUrl } from '@/shared/ui/scroll';
 
 const styleLinks = [
   { rel: 'preload', href: '/styles/font.css', as: 'style' },

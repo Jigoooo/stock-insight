@@ -13,7 +13,7 @@ import {
   AccordionTrigger,
 } from '@/shared/ui/accordion';
 import { Button } from '@/shared/ui/button';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { useMotionPreferences } from '@/shared/ui/motion';
 import { DetailSurface, PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 

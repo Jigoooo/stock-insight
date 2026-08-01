@@ -14,7 +14,7 @@ import {
   reduceWorkspaceOverlayState,
 } from './workspace-overlay-transition-state';
 
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { useMotionPreferences } from '@/shared/ui/motion';
 
 const useBeforePaintEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 

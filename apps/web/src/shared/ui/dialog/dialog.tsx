@@ -15,6 +15,7 @@ import { Button, type ButtonProps } from '@/shared/ui/button';
 export type DialogSize = 'sm' | 'md' | 'lg';
 export type DialogComposition = 'form' | 'detail' | 'decision';
 export type DialogActionTone = 'secondary' | 'primary' | 'danger';
+export type DialogPresentation = 'modal' | 'inspector';
 
 type DialogContextValue = {
   open: boolean;
@@ -60,16 +61,24 @@ export type DialogContentProps = Omit<
   ComponentProps<typeof DialogPrimitive.Content>,
   'asChild' | 'forceMount'
 > & {
+  closeLabel?: string;
   composition?: DialogComposition;
+  portalled?: boolean;
+  presentation?: DialogPresentation;
   showClose?: boolean;
+  showOverlay?: boolean;
   size?: DialogSize;
 };
 
 export function DialogContent({
   children,
   className,
+  closeLabel = '닫기',
   composition = 'detail',
+  portalled = true,
+  presentation = 'modal',
   showClose = true,
+  showOverlay = true,
   size = 'md',
   ...props
 }: DialogContentProps) {
@@ -78,36 +87,48 @@ export function DialogContent({
   const initial = reducedMotion ? false : { x: 72, opacity: 0 };
   const exit = reducedMotion ? { opacity: 0 } : { x: 48, opacity: 0 };
 
-  return (
-    <AnimatePresence>
-      {open ? (
-        <DialogPrimitive.Portal forceMount>
-          <DialogPrimitive.Overlay className={styles.overlay} data-slot="dialog-overlay" />
-          <DialogPrimitive.Content asChild forceMount {...props}>
-            <motion.div
-              animate={{ x: 0, opacity: 1 }}
-              className={cn(styles.content, className)}
-              data-composition={composition}
-              data-motion-owner="motion"
-              data-size={size}
-              data-slot="dialog-content"
-              exit={exit}
-              initial={initial}
-              transition={dialogTransition}
-            >
-              {children}
-              {showClose ? (
-                <DialogPrimitive.Close className={styles.close} data-slot="dialog-close">
-                  <X aria-hidden="true" />
-                  <span className={styles.srOnly}>닫기</span>
-                </DialogPrimitive.Close>
-              ) : null}
-            </motion.div>
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      ) : null}
-    </AnimatePresence>
+  const content = (
+    <DialogPrimitive.Content asChild forceMount {...props}>
+      <motion.div
+        animate={{ x: 0, opacity: 1 }}
+        className={cn(styles.content, className)}
+        data-composition={composition}
+        data-motion-owner="motion"
+        data-portalled={portalled}
+        data-presentation={presentation}
+        data-size={size}
+        data-slot="dialog-content"
+        exit={exit}
+        initial={initial}
+        transition={dialogTransition}
+      >
+        {children}
+        {showClose ? (
+          <DialogPrimitive.Close className={styles.close} data-slot="dialog-close">
+            <X aria-hidden="true" />
+            <span className={styles.srOnly}>{closeLabel}</span>
+          </DialogPrimitive.Close>
+        ) : null}
+      </motion.div>
+    </DialogPrimitive.Content>
   );
+
+  if (portalled) {
+    return (
+      <AnimatePresence>
+        {open ? (
+          <DialogPrimitive.Portal forceMount>
+            {showOverlay ? (
+              <DialogPrimitive.Overlay className={styles.overlay} data-slot="dialog-overlay" />
+            ) : null}
+            {content}
+          </DialogPrimitive.Portal>
+        ) : null}
+      </AnimatePresence>
+    );
+  }
+
+  return <AnimatePresence>{open ? content : null}</AnimatePresence>;
 }
 
 export function DialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

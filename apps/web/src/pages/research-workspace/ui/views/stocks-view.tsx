@@ -16,7 +16,7 @@ import styles from '../research-workspace-page.module.css';
 import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
 import stockStyles from '../stock-deep-dive-panel.module.css';
 
-import { Button } from '@/shared/ui/button';
+import { TableRow, TableSelectionHead } from '@/shared/ui/table';
 import {
   AvailabilityNotice,
   DataTable,
@@ -135,6 +135,12 @@ export function StocksView({
               caption="종목 커버리지"
               captionClassName={styles.srOnly}
               className={stockStyles.stockTable}
+              selectionMode="single"
+              selectedKeys={selectedStockKey ? [selectedStockKey] : []}
+              onSelectionChange={(keys) => {
+                const entityKey = keys[0];
+                if (entityKey && entityKey !== selectedStockKey) void loadDeepDive(entityKey);
+              }}
               containerProps={{
                 'aria-describedby': 'stock-table-scroll-hint',
                 'aria-label': '종목 커버리지 표 가로 스크롤 영역',
@@ -143,6 +149,7 @@ export function StocksView({
             >
               <thead>
                 <tr>
+                  <TableSelectionHead scope="col" />
                   <th scope="col">종목</th>
                   <th scope="col">시장</th>
                   <th scope="col">현재 상태</th>
@@ -154,7 +161,7 @@ export function StocksView({
               <tbody>
                 {!pending && stocks.length === 0 && (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <WorkspaceState
                         kind="empty"
                         title="조건에 맞는 종목이 없습니다"
@@ -164,23 +171,17 @@ export function StocksView({
                   </tr>
                 )}
                 {stocks.map((stock) => (
-                  <tr
+                  <TableRow
                     key={stock.entityKey}
                     className={stocks.length > 100 ? stockStyles.deferredTableRow : undefined}
-                    data-selected={selectedStockKey === stock.entityKey || undefined}
+                    rowKey={stock.entityKey}
+                    selectionLabel={`${stock.displayName} 종목 선택`}
                   >
                     <td aria-label={`${stock.displayName} ${stock.ticker}`}>
-                      <Button
-                        type="button"
-                        className={stockStyles.stockSelectButton}
-                        motion="quiet"
-                        variant="ghost"
-                        aria-pressed={selectedStockKey === stock.entityKey}
-                        onClick={() => void loadDeepDive(stock.entityKey)}
-                      >
+                      <div className={stockStyles.stockIdentity}>
                         <strong>{stock.displayName}</strong>
                         <small>{stock.ticker}</small>
-                      </Button>
+                      </div>
                     </td>
                     <td>{marketLabel(stock.market)}</td>
                     <td>
@@ -205,7 +206,7 @@ export function StocksView({
                       {stock.changePct === undefined ? '—' : `${stock.changePct.toFixed(2)}%`}
                     </td>
                     <td>{formatDate(stock.lastAnalyzedAt, true)}</td>
-                  </tr>
+                  </TableRow>
                 ))}
               </tbody>
             </DataTable>

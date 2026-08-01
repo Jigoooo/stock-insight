@@ -60,9 +60,10 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(source, /api\.entityRelations\(key, 2\)/);
     assert.match(modelSource, /Promise\.all/);
     assert.match(modelSource, /Entity relations failed with 404/);
-    assert.match(source, /aria-pressed/);
-    assert.match(source, /aria-pressed=\{selectedStockKey === stock\.entityKey\}/);
-    assert.match(source, /data-selected=\{selectedStockKey === stock\.entityKey/);
+    assert.match(source, /selectionMode="single"/);
+    assert.match(source, /selectedKeys=\{selectedStockKey \? \[selectedStockKey\] : \[\]\}/);
+    assert.match(source, /<TableRow/);
+    assert.match(source, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
     assert.match(source, /<DataTable/);
     assert.match(source, /containerProps=\{\{/);
     assert.match(source, /'aria-label': '종목 커버리지 표 가로 스크롤 영역'/);

@@ -148,35 +148,6 @@
   font-size: 12px;
 }
 
-.stockSelectButton {
-  width: 100%;
-  min-width: 132px;
-  min-height: 44px;
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  padding: 4px 8px;
-  border: 0;
-  border-radius: var(--radius-control);
-  color: inherit;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.stockSelectButton:hover {
-  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-}
-
-.stockSelectButton[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--color-accent) 11%, var(--color-surface));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent) inset;
-}
-
-.stockTable tr[data-selected='true'] td {
-  background: color-mix(in srgb, var(--color-accent) 3%, transparent);
-}
-
 .positive {
   color: var(--color-positive) !important;
 }

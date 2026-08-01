@@ -54,9 +54,9 @@ describe('current workspace shell behavior', () => {
     assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
     assert.match(sheet, /<motion\.div/);
     assert.doesNotMatch(shell, /useFocusTrap|previousFocus|event\.key !== 'Escape'/);
-    assert.match(inspector, /event\.key !== 'Escape'/);
-    assert.match(inspector, /useFocusTrap\(renderModal && transition\.desiredOpen/);
-    assert.match(inspector, /previousFocus\?\.isConnected/);
+    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
+    assert.match(inspector, /<DialogContent/);
+    assert.doesNotMatch(inspector, /useFocusTrap|event\.key !== 'Escape'/);
     assert.match(page, /opener\?\.isConnected/);
     assert.match(e2e, /supports mobile navigation and keyboard-visible controls/);
     assert.match(e2e, /await page\.keyboard\.press\('Escape'\)/);

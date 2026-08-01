@@ -34,19 +34,16 @@ describe('P3-WC market overview UI structure', () => {
     assert.match(overview, /buildMarketOverview\(data\.items, geoSnapshot\)/);
   });
 
-  it('uses a keyboard-addressable tablist and a single labelled tabpanel', async () => {
+  it('uses a keyboard-addressable display toggle and a single labelled region', async () => {
     const overview = await read('market-overview-panel.tsx');
-    assert.match(overview, /<Tabs value=\{activeMode\} onValueChange=\{onModeChange\}/);
-    assert.match(overview, /<TabsList[^>]*aria-label="시장 화면 선택"/);
-    assert.match(overview, /<TabsTrigger/);
-    assert.match(overview, /value=\{item\.id\}/);
-    assert.match(overview, /aria-selected=\{item\.id === activeMode\}/);
-    assert.match(overview, /const panelId = 'market-mode-panel'/);
-    assert.match(overview, /aria-controls=\{panelId\}/);
-    assert.match(overview, /role="tabpanel"/);
-    assert.match(overview, /id=\{panelId\}/);
-    assert.match(overview, /aria-labelledby=\{`market-tab-/);
-    assert.match(overview, /onKeyDown=\{handleModeKeyDown\}/);
+    assert.match(overview, /<ToggleGroup/);
+    assert.match(overview, /aria-label="시장 화면 선택"/);
+    assert.match(overview, /items=\{overview\.modes\.map/);
+    assert.match(overview, /value=\{activeMode\}/);
+    assert.match(overview, /onValueChange=\{onModeChange\}/);
+    assert.match(overview, /role="region"/);
+    assert.match(overview, /aria-label=\{`\$\{mode\.title\} 화면`\}/);
+    assert.doesNotMatch(overview, /role="tabpanel"|aria-selected=/);
   });
 
   it('announces the active component watermark without replacing the mode semantics', async () => {
@@ -124,12 +121,11 @@ describe('P3-WC market overview UI structure', () => {
   it('provides 44px mode targets, stable overflow and non-border-led grouping', async () => {
     const css = await read('market-overview.module.css');
     assert.match(extractCssBlock(css, '.marketModeNav'), /overflow:\s*hidden/);
-    const tab = extractCssBlock(css, '.marketModeTab {');
+    const tab = extractCssBlock(css, ".marketModeNav [data-slot='toggle-group-item']");
     assert.match(tab, /min-height:\s*44px/);
-    assert.match(tab, /user-select:\s*none/);
-    assert.match(css, /\.marketModeTab > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
-    assert.match(css, /\.marketModeTab > small\s*\{[\s\S]*?white-space:\s*nowrap/);
-    assert.match(css, /\.marketModeTab\[aria-selected='true'\] > small/);
+    assert.match(css, /\.marketModeOption > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
+    assert.match(css, /\.marketModeOption > small\s*\{[\s\S]*?white-space:\s*nowrap/);
+    assert.doesNotMatch(css, /\[aria-selected='true'\]/);
     assert.doesNotMatch(css, /\[data-slot='button-label'\]/);
     assert.match(extractCssBlock(css, '.marketModePanel'), /min-width:\s*0/);
     const emptyBody = extractCssBlock(css, ".marketModeBody[data-display-state='empty']");

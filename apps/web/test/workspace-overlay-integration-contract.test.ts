@@ -10,10 +10,7 @@ const pageUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.tsx',
   import.meta.url,
 );
-const cssUrl = new URL(
-  '../src/pages/research-workspace/ui/relation-detail.module.css',
-  import.meta.url,
-);
+const dialogCssUrl = new URL('../src/shared/ui/dialog/dialog.module.css', import.meta.url);
 const shellUrl = new URL('../src/widgets/workspace-shell/ui/workspace-shell.tsx', import.meta.url);
 const topbarUrl = new URL(
   '../src/widgets/workspace-shell/ui/workspace-topbar.tsx',
@@ -25,20 +22,16 @@ const shellCssUrl = new URL(
 );
 
 describe('workspace overlay integration', () => {
-  it('keeps the inspector owner mounted through exit with urgent focus and inert truth', async () => {
+  it('delegates inspector presence, focus, escape, and modal truth to shared Dialog', async () => {
     const inspector = await readFile(inspectorUrl, 'utf8');
 
-    assert.match(inspector, /useWorkspaceOverlayMotion/);
     assert.match(inspector, /open:\s*boolean/);
-    assert.match(inspector, /if \(!transition\.rendered\) return null/);
-    assert.match(inspector, /useFocusTrap\(renderModal && transition\.desiredOpen/);
-    assert.match(inspector, /aria-hidden=\{!transition\.desiredOpen \|\| undefined\}/);
-    assert.match(inspector, /inert=\{!transition\.desiredOpen \|\| undefined\}/);
-    assert.match(inspector, /event\.key !== 'Escape'/);
-    assert.match(inspector, /previousFocus\?\.isConnected/);
-    assert.match(inspector, /previousFocus\.focus\(\)/);
-    assert.match(inspector, /ref=\{scrimRef\}/);
-    assert.match(inspector, /ref=\{inspectorRef\}/);
+    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
+    assert.match(inspector, /<DialogContent/);
+    assert.match(inspector, /portalled=\{modal\}/);
+    assert.match(inspector, /presentation="inspector"/);
+    assert.match(inspector, /showOverlay=\{modal\}/);
+    assert.doesNotMatch(inspector, /useFocusTrap|useWorkspaceOverlayMotion|<dialog\b/);
   });
 
   it('uses the shared Sheet for mobile navigation and removes ad-hoc GSAP ownership', async () => {
@@ -88,8 +81,8 @@ describe('workspace overlay integration', () => {
   });
 
   it('uses plain dim scrims without backdrop blur', async () => {
-    const css = await readFile(cssUrl, 'utf8');
-    const mobileScrim = css.match(/\.scrim\s*\{([\s\S]*?)\}/g)?.join('\n') ?? '';
+    const css = await readFile(dialogCssUrl, 'utf8');
+    const mobileScrim = css.match(/\.overlay\s*\{([\s\S]*?)\}/)?.[0] ?? '';
 
     assert.match(mobileScrim, /background:/);
     assert.doesNotMatch(mobileScrim, /backdrop-filter|blur\(/);

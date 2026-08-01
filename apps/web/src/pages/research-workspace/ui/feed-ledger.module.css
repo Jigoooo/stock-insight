@@ -11,22 +11,6 @@
   scrollbar-width: none;
 }
 
-.laneIndicator {
-  height: 2px;
-  position: absolute;
-  inset: auto 0 -1px;
-  z-index: 2;
-  border-radius: 2px 2px 0 0;
-  background: var(--color-accent);
-  pointer-events: none;
-}
-
-.laneTabItem {
-  min-width: 0;
-  position: relative;
-  display: flex;
-}
-
 .laneTabs::-webkit-scrollbar {
   display: none;
 }
@@ -43,16 +27,6 @@
   font-size: 12px;
   font-weight: 570;
   z-index: 1;
-}
-
-.laneTab[aria-selected='true'] {
-  color: var(--color-text-primary);
-  font-weight: 680;
-}
-
-.laneTab[data-pending='true'] {
-  outline: 1px dashed var(--color-accent);
-  outline-offset: -3px;
 }
 
 .laneTabs small {

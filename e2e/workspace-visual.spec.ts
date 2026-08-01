@@ -280,7 +280,7 @@ test.describe('authenticated workspace visual matrix', () => {
     test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/stocks');
     const stockRegion = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
-    const stock = stockRegion.getByRole('button').first();
+    const stock = stockRegion.getByRole('radio').first();
     await skipAfterCanonicalAbsence({
       canonicalTitle: '조건에 맞는 종목이 없습니다',
       reason: 'canonical empty stock table has no selectable stock',
@@ -288,7 +288,7 @@ test.describe('authenticated workspace visual matrix', () => {
       target: stock,
     });
     await stock.click();
-    await expect(stock).toHaveAttribute('aria-pressed', 'true');
+    await expect(stock).toBeChecked();
     await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
     await capture(page, testInfo, 'workspace-stocks-selected-deep-dive', [page.locator('time')]);
   });

@@ -13,7 +13,7 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/button';
-import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import {
   AvailabilityNotice,
   MetricStrip,
@@ -28,8 +28,6 @@ import type {
   ResearchFeedLaneId,
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
-
-const tabsTransition = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
 
 export function TodayView({
   data,
@@ -95,27 +93,24 @@ export function TodayView({
           <h2>시장 인텔리전스</h2>
           <p>각 레코드는 하나의 분류에만 노출됩니다.</p>
         </PanelHeader>
-        <Tabs value={lane} onValueChange={onLaneChange} activationMode="manual">
-          <TabsHighlight className={styles.laneIndicator} transition={tabsTransition} click={false}>
-            <TabsList className={styles.laneTabs} aria-label="인사이트 분류">
-              {data.lanes.map((item) => (
-                <TabsHighlightItem key={item.lane} value={item.lane} className={styles.laneTabItem}>
-                  <TabsTrigger
-                    id={`lane-tab-${item.lane}`}
-                    type="button"
-                    value={item.lane}
-                    className={styles.laneTab}
-                    data-pending={pendingLane === item.lane || undefined}
-                    aria-busy={pendingLane === item.lane || undefined}
-                    aria-controls="research-feed-panel"
-                    disabled={!interactive}
-                  >
-                    {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
-                  </TabsTrigger>
-                </TabsHighlightItem>
-              ))}
-            </TabsList>
-          </TabsHighlight>
+        <Tabs value={lane} variant="hairline" onValueChange={onLaneChange} activationMode="manual">
+          <TabsList className={styles.laneTabs} aria-label="인사이트 분류">
+            {data.lanes.map((item) => (
+              <TabsTrigger
+                key={item.lane}
+                id={`lane-tab-${item.lane}`}
+                type="button"
+                value={item.lane}
+                className={styles.laneTab}
+                data-pending={pendingLane === item.lane || undefined}
+                aria-busy={pendingLane === item.lane || undefined}
+                aria-controls="research-feed-panel"
+                disabled={!interactive}
+              >
+                {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </Tabs>
         <div
           ref={feedRef}

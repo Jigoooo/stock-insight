@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/button';
 import { Field, FieldLabel } from '@/shared/ui/field';
 import { Input } from '@/shared/ui/input';
 import { Select, type SelectOption } from '@/shared/ui/select';
+import { notify } from '@/shared/ui/toast';
 import {
   DataTable,
   DetailSurface,
@@ -86,13 +87,18 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
         });
         if (!result.ok) {
           setError(result.error);
+          void notify.error('요청을 완료하지 못했습니다', { description: result.error });
           return;
         }
         setInvitations((current) => [result.invitation, ...current]);
         setRevealedCode(result.code);
         form.reset();
+        void notify.success('가입 코드를 발급했습니다', {
+          description: '한 번만 표시되는 코드를 안전한 채널로 전달하세요.',
+        });
       } catch {
         setError(transportError);
+        void notify.error('요청을 완료하지 못했습니다', { description: transportError });
       }
     });
   };
@@ -107,6 +113,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
         });
         if (!result.ok) {
           setError(result.error);
+          void notify.error('요청을 완료하지 못했습니다', { description: result.error });
           return;
         }
         setInvitations((current) =>
@@ -122,9 +129,13 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
           ),
         );
         setStatusMessage(`${label} 코드를 폐기했습니다.`);
+        void notify.success('가입 코드를 폐기했습니다', {
+          description: `${label} 코드는 더 이상 사용할 수 없습니다.`,
+        });
         requestAnimationFrame(() => listHeadingRef.current?.focus());
       } catch {
         setError(transportError);
+        void notify.error('요청을 완료하지 못했습니다', { description: transportError });
       }
     });
   };
@@ -247,10 +258,20 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                     onClick={() => {
                       void navigator.clipboard
                         .writeText(revealedCode)
-                        .then(() => setCopied(true))
-                        .catch(() =>
-                          setError('클립보드에 복사하지 못했습니다. 코드를 직접 선택해 주세요.'),
-                        );
+                        .then(() => {
+                          setCopied(true);
+                          void notify.success('가입 코드를 복사했습니다', {
+                            description: '안전한 채널에 붙여 넣어 전달하세요.',
+                          });
+                        })
+                        .catch(() => {
+                          const copyError =
+                            '클립보드에 복사하지 못했습니다. 코드를 직접 선택해 주세요.';
+                          setError(copyError);
+                          void notify.error('가입 코드를 복사하지 못했습니다', {
+                            description: copyError,
+                          });
+                        });
                     }}
                   >
                     {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}

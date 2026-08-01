@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
 import { selectWorkspaceAppendedKeys } from '../model/workspace-append-reveal';
 
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { useMotionPreferences } from '@/shared/ui/motion';
 
 type AppendRevealBaseline = {
   keys: readonly string[];

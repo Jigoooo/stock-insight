@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { GeoMarketMap } from './geo-market-map';
 import styles from './market-overview.module.css';
@@ -12,7 +12,7 @@ import {
   type MarketModeId,
 } from '../model/market-overview';
 
-import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { ToggleGroup } from '@/shared/ui/toggle-group';
 import { DataTable, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
@@ -31,9 +31,6 @@ const componentAvailabilityLabel = {
   missing: '원천 미연결',
   error: '확인 필요',
 } as const;
-const panelId = 'market-mode-panel';
-const tabsTransition = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
-
 export function MarketOverviewPanel({
   data,
   eventContent,
@@ -62,27 +59,6 @@ export function MarketOverviewPanel({
     if (MARKET_MODE_IDS.includes(nextMode as MarketModeId)) {
       setActiveMode(nextMode as MarketModeId);
     }
-  };
-
-  const selectMode = (nextMode: MarketModeId, focus = false) => {
-    setActiveMode(nextMode);
-    if (focus) {
-      requestAnimationFrame(() => document.getElementById(`market-tab-${nextMode}`)?.focus());
-    }
-  };
-
-  const handleModeKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    const currentIndex = Number(event.currentTarget.dataset.modeIndex ?? 0);
-    let nextIndex: number | null = null;
-    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % MARKET_MODE_IDS.length;
-    if (event.key === 'ArrowLeft') {
-      nextIndex = (currentIndex - 1 + MARKET_MODE_IDS.length) % MARKET_MODE_IDS.length;
-    }
-    if (event.key === 'Home') nextIndex = 0;
-    if (event.key === 'End') nextIndex = MARKET_MODE_IDS.length - 1;
-    if (nextIndex === null) return;
-    event.preventDefault();
-    selectMode(MARKET_MODE_IDS[nextIndex]!, true);
   };
 
   const renderModeBody = () => {
@@ -261,84 +237,68 @@ export function MarketOverviewPanel({
   };
 
   return (
-    <Tabs value={activeMode} onValueChange={onModeChange} asChild>
-      <section className={styles.marketModePanel} aria-label="시장 시각화">
-        <TabsHighlight
-          className={styles.marketModeIndicator}
-          transition={tabsTransition}
-          click={false}
-        >
-          <TabsList className={styles.marketModeNav} aria-label="시장 화면 선택">
-            {overview.modes.map((item, index) => (
-              <TabsHighlightItem key={item.id} value={item.id} className={styles.marketModeTabItem}>
-                <TabsTrigger
-                  id={`market-tab-${item.id}`}
-                  type="button"
-                  value={item.id}
-                  className={styles.marketModeTab}
-                  aria-selected={item.id === activeMode}
-                  aria-controls={panelId}
-                  data-mode-index={index}
-                  data-availability={item.availability}
-                  onClick={() => selectMode(item.id)}
-                  onKeyDown={handleModeKeyDown}
-                >
-                  <span>{item.shortTitle}</span>
-                  <small>{availabilityLabel[item.availability]}</small>
-                </TabsTrigger>
-              </TabsHighlightItem>
-            ))}
-          </TabsList>
-        </TabsHighlight>
+    <section className={styles.marketModePanel} aria-label="시장 시각화">
+      <ToggleGroup
+        aria-label="시장 화면 선택"
+        className={styles.marketModeNav}
+        items={overview.modes.map((item) => ({
+          value: item.id,
+          label: (
+            <span className={styles.marketModeOption}>
+              <span>{item.shortTitle}</span>
+              <small>{availabilityLabel[item.availability]}</small>
+            </span>
+          ),
+        }))}
+        value={activeMode}
+        onValueChange={onModeChange}
+      />
 
-        <header className={styles.marketModeHeader}>
-          <div>
-            <h2>{mode.title}</h2>
-            <p>{mode.description}</p>
-          </div>
-          <span data-availability={mode.availability}>{availabilityLabel[mode.availability]}</span>
-        </header>
-
-        <output
-          className={styles.marketComponentWatermark}
-          data-testid="market-component-watermark"
-          data-component-availability={componentWatermark.availability}
-          aria-live="polite"
-        >
-          <strong>{componentAvailabilityLabel[componentWatermark.availability]}</strong>
-          {componentWatermark.watermarkAt ? (
-            <time dateTime={componentWatermark.watermarkAt}>
-              기준 {formatDate(componentWatermark.watermarkAt, true)}
-            </time>
-          ) : (
-            <span>기준 시각 없음</span>
-          )}
-          <span>{componentWatermark.rowCount.toLocaleString('ko-KR')}건</span>
-        </output>
-
-        {mode.limitation && mode.availability !== 'missing' ? (
-          <p className={styles.marketLimitation} role="note">
-            {mode.limitation}
-          </p>
-        ) : null}
-
-        <div
-          id={panelId}
-          role="tabpanel"
-          aria-labelledby={`market-tab-${mode.id}`}
-          tabIndex={0}
-          className={styles.marketModeBody}
-          data-display-state={displayState.kind}
-          data-testid={`market-mode-${mode.id}`}
-        >
-          {renderModeBody()}
+      <header className={styles.marketModeHeader}>
+        <div>
+          <h2>{mode.title}</h2>
+          <p>{mode.description}</p>
         </div>
-        {footer && mode.id === 'event_radar' ? (
-          <footer className={styles.marketModeFooter} data-testid="market-mode-footer">
-            {footer}
-          </footer>
-        ) : null}
-      </section>
-    </Tabs>
+        <span data-availability={mode.availability}>{availabilityLabel[mode.availability]}</span>
+      </header>
+
+      <output
+        className={styles.marketComponentWatermark}
+        data-testid="market-component-watermark"
+        data-component-availability={componentWatermark.availability}
+        aria-live="polite"
+      >
+        <strong>{componentAvailabilityLabel[componentWatermark.availability]}</strong>
+        {componentWatermark.watermarkAt ? (
+          <time dateTime={componentWatermark.watermarkAt}>
+            기준 {formatDate(componentWatermark.watermarkAt, true)}
+          </time>
+        ) : (
+          <span>기준 시각 없음</span>
+        )}
+        <span>{componentWatermark.rowCount.toLocaleString('ko-KR')}건</span>
+      </output>
+
+      {mode.limitation && mode.availability !== 'missing' ? (
+        <p className={styles.marketLimitation} role="note">
+          {mode.limitation}
+        </p>
+      ) : null}
+
+      <div
+        role="region"
+        aria-label={`${mode.title} 화면`}
+        className={styles.marketModeBody}
+        data-display-state={displayState.kind}
+        data-testid={`market-mode-${mode.id}`}
+      >
+        {renderModeBody()}
+      </div>
+      {footer && mode.id === 'event_radar' ? (
+        <footer className={styles.marketModeFooter} data-testid="market-mode-footer">
+          {footer}
+        </footer>
+      ) : null}
+    </section>
   );
 }

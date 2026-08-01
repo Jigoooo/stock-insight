@@ -19,7 +19,7 @@ import {
 import { Button, IconButton } from '@/shared/ui/button';
 import { Combobox } from '@/shared/ui/combobox';
 import { ErrorState } from '@/shared/ui/feedback';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { useMotionPreferences } from '@/shared/ui/motion';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 type RelationRenderer = Sigma<

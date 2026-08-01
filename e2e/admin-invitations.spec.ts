@@ -45,8 +45,11 @@ test.describe('administrator invitation console', () => {
 
     await expect(page.getByText('이 코드는 지금 한 번만 표시됩니다.')).toHaveCount(1);
     await expect(outputRegion.locator('code')).toHaveText(/^[A-Za-z0-9_-]{40,}$/);
+    await expect(page.locator('[data-toast-id]')).toContainText('가입 코드를 발급했습니다');
     const issuedCode = (await outputRegion.locator('code').textContent())?.trim();
     expect(issuedCode).toBeTruthy();
+    await page.getByRole('button', { name: '복사', exact: true }).click();
+    await expect(page.locator('[data-toast-id]')).toContainText('가입 코드를 복사했습니다');
 
     const issuedRow = page.getByRole('row').filter({ hasText: label });
     await expect(issuedRow).toContainText('사용 가능');
@@ -92,6 +95,7 @@ test.describe('administrator invitation console', () => {
     await reloadedRow.getByRole('button', { name: `${label} 코드 폐기` }).click();
     await expect(reloadedRow).toContainText('폐기됨');
     await expect(outputRegion).toHaveText(`${label} 코드를 폐기했습니다.`);
+    await expect(page.locator('[data-toast-id]')).toContainText('가입 코드를 폐기했습니다');
     await expect(page.getByRole('heading', { name: '발급 이력' })).toBeFocused();
 
     await page.reload();

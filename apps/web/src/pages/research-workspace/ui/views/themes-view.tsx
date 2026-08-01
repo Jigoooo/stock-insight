@@ -21,7 +21,7 @@ import {
   AccordionTrigger,
 } from '@/shared/ui/accordion';
 import { Button } from '@/shared/ui/button';
-import { useMotionPreferences } from '@/shared/ui/motion/use-motion-preferences';
+import { useMotionPreferences } from '@/shared/ui/motion';
 import {
   AvailabilityNotice,
   Panel,
@@ -86,15 +86,12 @@ export function ThemesView({
               data.items.map((theme) => {
                 const isActive = activeTheme?.themeKey === theme.themeKey;
                 return (
-                  <li
-                    key={theme.themeKey}
-                    className={styles.themeRow}
-                    data-selected={isActive || undefined}
-                  >
+                  <li key={theme.themeKey} className={styles.themeRow}>
                     <Button
                       className={styles.themeSelect}
                       type="button"
                       motion="none"
+                      variant="ghost"
                       data-testid="theme-select"
                       aria-label={`${themeTitleLabel(theme.title)} 관계 보기`}
                       aria-pressed={isActive}

@@ -293,8 +293,9 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /useSyncExternalStore\(/);
     assert.match(page, /const inspectorModalOpen = isMobileViewport && inspectorVisible/);
     assert.match(page, /modal=\{isMobileViewport\}/);
-    assert.match(page, /useFocusTrap\(renderModal && transition\.desiredOpen/);
-    assert.match(page, /aria-modal=\{\(renderModal && transition\.desiredOpen\) \|\| undefined\}/);
+    assert.match(page, /<Dialog[\s\S]*?modal=\{modal\}/);
+    assert.match(page, /<DialogContent[\s\S]*?portalled=\{modal\}/);
+    assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);
   });
 
@@ -313,7 +314,7 @@ describe('v3 research workspace structure', () => {
   });
 
   it('adopts shared semantic Radar surfaces without animating mode content', () => {
-    assert.match(marketOverviewSource, /<Tabs[^>]*value=\{activeMode\}/);
+    assert.match(marketOverviewSource, /<ToggleGroup/);
     assert.match(marketOverviewSource, /<DataTable/);
     assert.match(marketOverviewSource, /<StructuredList/);
     assert.match(geoMarketMapSource, /<PropertyList/);
@@ -398,8 +399,9 @@ describe('v3 research workspace structure', () => {
   });
 
   it('uses shared selected-row, detail, property, and evidence-list anatomy', () => {
-    assert.match(workspace, /aria-pressed=\{selectedStockKey === stock\.entityKey\}/);
-    assert.match(workspace, /data-selected=\{selectedStockKey === stock\.entityKey/);
+    assert.match(workspace, /selectionMode="single"/);
+    assert.match(workspace, /<TableRow/);
+    assert.match(workspace, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
     assert.match(workspace, /<DataTable/);
     assert.match(workspace, /<DetailSurface/);
     assert.match(workspace, /<PropertyList/);

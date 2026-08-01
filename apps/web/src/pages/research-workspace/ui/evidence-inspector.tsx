@@ -1,103 +1,25 @@
-import { FileText, X } from 'lucide-react';
-import { useEffect, useRef, type RefObject } from 'react';
+import { FileText } from 'lucide-react';
 
 import styles from './relation-detail.module.css';
-import { useWorkspaceOverlayMotion } from './use-workspace-overlay-motion';
 
 import {
   presentResearchSummary,
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
-import { Button, IconButton } from '@/shared/ui/button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
 import { TextLink } from '@/shared/ui/link';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
   EntityRelationGraph,
   ResearchRecordDetail,
 } from '@stock-insight/contracts/research-workspace';
-
-const focusableSelector = [
-  'a[href]',
-  'button:not([disabled])',
-  'input:not([disabled])',
-  'select:not([disabled])',
-  'textarea:not([disabled])',
-  '[tabindex]:not([tabindex="-1"])',
-].join(',');
-
-function useFocusTrap(
-  active: boolean,
-  containerRef: RefObject<HTMLElement | null>,
-  onDismiss: () => void,
-) {
-  const dismissRef = useRef(onDismiss);
-  useEffect(() => {
-    dismissRef.current = onDismiss;
-  }, [onDismiss]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!active || !container) return;
-
-    const previousFocus =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusableElements = () =>
-      Array.from(container.querySelectorAll<HTMLElement>(focusableSelector)).filter(
-        (element) =>
-          !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true',
-      );
-    const frame = window.requestAnimationFrame(() => {
-      (
-        container.querySelector<HTMLElement>('[data-initial-focus]') ??
-        focusableElements()[0] ??
-        container
-      ).focus();
-    });
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        dismissRef.current();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const elements = focusableElements();
-      if (elements.length === 0) {
-        event.preventDefault();
-        container.focus();
-        return;
-      }
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      if (!first || !last) return;
-      const current = document.activeElement;
-      if (event.shiftKey && (current === first || !container.contains(current))) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && current === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', onKeyDown);
-      if (previousFocus?.isConnected) {
-        window.setTimeout(() => {
-          const currentFocus = document.activeElement;
-          if (
-            previousFocus.isConnected &&
-            (currentFocus === null ||
-              currentFocus === document.body ||
-              container.contains(currentFocus))
-          ) {
-            previousFocus.focus();
-          }
-        }, 0);
-      }
-    };
-  }, [active, containerRef]);
-}
 
 function formatDate(value: string | null | undefined, withTime = false) {
   if (!value) return '기준 없음';
@@ -169,185 +91,160 @@ export function EvidenceInspector({
   relation: EntityRelationGraph | null;
   state: 'error' | 'loading' | 'ready';
 }) {
-  const inspectorRef = useRef<HTMLDialogElement>(null);
-  const scrimRef = useRef<HTMLButtonElement>(null);
-  const transition = useWorkspaceOverlayMotion({
-    kind: 'inspector',
-    open,
-    panelRef: inspectorRef,
-    scopeRef: inspectorRef,
-    scrimRef,
-  });
-
-  const renderModal = transition.rendered && modal;
-
-  useFocusTrap(renderModal && transition.desiredOpen, inspectorRef, onClose);
-  useEffect(() => {
-    if (renderModal || !transition.desiredOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, renderModal, transition.desiredOpen]);
-  if (!transition.rendered) return null;
-
   return (
-    <>
-      {renderModal && (
-        <Button
-          ref={scrimRef}
-          className={styles.scrim}
-          type="button"
-          motion="none"
-          aria-hidden={!transition.desiredOpen || undefined}
-          aria-label="인스펙터 닫기"
-          disabled={!transition.desiredOpen}
-          tabIndex={transition.desiredOpen ? 0 : -1}
-          onClick={onClose}
-        />
-      )}
-      <dialog
-        open
-        ref={inspectorRef}
+    <Dialog
+      modal={modal}
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogContent
         className={styles.inspector}
-        aria-modal={(renderModal && transition.desiredOpen) || undefined}
-        aria-hidden={!transition.desiredOpen || undefined}
-        aria-label="근거 인스펙터"
-        data-overlay-phase={transition.phase}
+        closeLabel="인스펙터 닫기"
+        composition="detail"
         data-testid="evidence-inspector"
-        inert={!transition.desiredOpen || undefined}
-        tabIndex={-1}
+        portalled={modal}
+        presentation="inspector"
+        showOverlay={modal}
+        size="lg"
+        onCloseAutoFocus={(event) => event.preventDefault()}
+        onOpenAutoFocus={(event) => {
+          if (!modal) event.preventDefault();
+        }}
       >
-        <header>
-          <div>
-            <FileText aria-hidden="true" />
-            <strong>근거 인스펙터</strong>
-          </div>
-          <IconButton
-            type="button"
-            motion="quiet"
-            aria-label="인스펙터 닫기"
-            data-initial-focus
-            onClick={onClose}
-          >
-            <X aria-hidden="true" />
-          </IconButton>
-        </header>
-        {state === 'loading' && (
-          <div className={styles.inspectorState}>
-            <WorkspaceState
-              kind="loading"
-              title="근거와 출처를 불러오고 있습니다"
-              description="선택한 변화에 묶인 기준 시점의 자료를 확인하는 중입니다."
-            />
-          </div>
-        )}
-        {state === 'error' && (
-          <div className={styles.inspectorState}>
-            <WorkspaceState
-              kind="error"
-              title="상세 근거를 불러오지 못했습니다"
-              description="목록으로 돌아가 잠시 후 같은 변화를 다시 선택해 주세요."
-            />
-          </div>
-        )}
-        {state === 'ready' && detail && (
-          <div className={styles.inspectorBody}>
-            <span className={styles.evidenceMarket}>
-              {marketLabel(detail.market)} · {categoryLabel(detail.category)}
-            </span>
-            <h2>{detail.title}</h2>
-            <p className={styles.bodyText}>{presentResearchSummary(detail.body)}</p>
-            <PropertyList
-              className={styles.evidenceMeta}
-              items={[
-                { label: '근거 수준', value: confidenceLabel(detail.confidence) },
-                {
-                  label: '연결 출처',
-                  value: `${detail.sourceCoverage.linked}/${detail.sourceCoverage.total}`,
-                },
-                { label: '관계 경로', value: relation?.edges.length ?? 0 },
-                {
-                  label: '분석 기준',
-                  value: formatDate(detail.meta.contentSnapshot.analysisCutoffAt, true),
-                },
-                {
-                  label: '시장 데이터',
-                  value: detail.meta.marketSnapshot.marketDataAsOf
-                    ? formatDate(detail.meta.marketSnapshot.marketDataAsOf, true)
-                    : '시각 미확인',
-                },
-                { label: '분석 버전', value: detail.meta.contentSnapshot.analysisRevision },
-              ]}
-            />
-            <section>
-              <h3>검증 근거</h3>
-              {detail.evidence.length === 0 ? (
-                <WorkspaceState
-                  kind="empty"
-                  title="연결된 근거가 없습니다"
-                  description="이 기록에 묶인 근거가 확인되면 이곳에 표시됩니다."
-                />
-              ) : (
-                <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
-                  {detail.evidence.map((item) => (
-                    <li key={item.evidenceId} className={styles.evidenceItem}>
-                      <strong>{presentResearchSummary(item.claim)}</strong>
-                      <span>
-                        {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
-                      </span>
-                    </li>
-                  ))}
-                </StructuredList>
-              )}
-            </section>
-            <section>
-              <h3>출처</h3>
-              {detail.sources.length === 0 ? (
-                <WorkspaceState
-                  kind="empty"
-                  title="연결된 출처가 없습니다"
-                  description="원문 출처가 확인되면 이름과 기준 시점 상태를 보여드립니다."
-                />
-              ) : (
-                <StructuredList className={styles.sourceList} aria-label="출처 목록">
-                  {detail.sources.map((source) => (
-                    <li key={source.sourceKey}>
-                      {source.url ? (
-                        <TextLink href={source.url} target="_blank" rel="noreferrer" motion="quiet">
-                          <span>{sourceAttributionLabel(source.attributionText)}</span>
-                          <small>
-                            {sourceBindingLabel(source.bindingState)} ·{' '}
-                            {source.publishedAt ? formatDate(source.publishedAt) : '발행일 미확인'}
-                          </small>
-                        </TextLink>
-                      ) : (
-                        <div className={styles.sourceMissing}>
-                          <span>{sourceAttributionLabel(source.attributionText)}</span>
-                          <small>링크 없음</small>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </StructuredList>
-              )}
-            </section>
-            {detail.limitations.length > 0 && (
+        <DialogHeader className={styles.inspectorHeader}>
+          <DialogTitle asChild>
+            <strong className={styles.inspectorTitle}>
+              <FileText aria-hidden="true" />
+              <span>근거 인스펙터</span>
+            </strong>
+          </DialogTitle>
+          <DialogDescription className={styles.inspectorDescription}>
+            선택한 변화의 검증 근거와 출처
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody className={styles.inspectorContent}>
+          {state === 'loading' && (
+            <div className={styles.inspectorState}>
+              <WorkspaceState
+                kind="loading"
+                title="근거와 출처를 불러오고 있습니다"
+                description="선택한 변화에 묶인 기준 시점의 자료를 확인하는 중입니다."
+              />
+            </div>
+          )}
+          {state === 'error' && (
+            <div className={styles.inspectorState}>
+              <WorkspaceState
+                kind="error"
+                title="상세 근거를 불러오지 못했습니다"
+                description="목록으로 돌아가 잠시 후 같은 변화를 다시 선택해 주세요."
+              />
+            </div>
+          )}
+          {state === 'ready' && detail && (
+            <div className={styles.inspectorBody}>
+              <span className={styles.evidenceMarket}>
+                {marketLabel(detail.market)} · {categoryLabel(detail.category)}
+              </span>
+              <h2>{detail.title}</h2>
+              <p className={styles.bodyText}>{presentResearchSummary(detail.body)}</p>
+              <PropertyList
+                className={styles.evidenceMeta}
+                items={[
+                  { label: '근거 수준', value: confidenceLabel(detail.confidence) },
+                  {
+                    label: '연결 출처',
+                    value: `${detail.sourceCoverage.linked}/${detail.sourceCoverage.total}`,
+                  },
+                  { label: '관계 경로', value: relation?.edges.length ?? 0 },
+                  {
+                    label: '분석 기준',
+                    value: formatDate(detail.meta.contentSnapshot.analysisCutoffAt, true),
+                  },
+                  {
+                    label: '시장 데이터',
+                    value: detail.meta.marketSnapshot.marketDataAsOf
+                      ? formatDate(detail.meta.marketSnapshot.marketDataAsOf, true)
+                      : '시각 미확인',
+                  },
+                  { label: '분석 버전', value: detail.meta.contentSnapshot.analysisRevision },
+                ]}
+              />
               <section>
-                <h3>한계</h3>
-                <StructuredList>
-                  {detail.limitations.map((item) => (
-                    <li key={item}>{presentResearchSummary(item)}</li>
-                  ))}
-                </StructuredList>
+                <h3>검증 근거</h3>
+                {detail.evidence.length === 0 ? (
+                  <WorkspaceState
+                    kind="empty"
+                    title="연결된 근거가 없습니다"
+                    description="이 기록에 묶인 근거가 확인되면 이곳에 표시됩니다."
+                  />
+                ) : (
+                  <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
+                    {detail.evidence.map((item) => (
+                      <li key={item.evidenceId} className={styles.evidenceItem}>
+                        <strong>{presentResearchSummary(item.claim)}</strong>
+                        <span>
+                          {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
+                        </span>
+                      </li>
+                    ))}
+                  </StructuredList>
+                )}
               </section>
-            )}
-          </div>
-        )}
-      </dialog>
-    </>
+              <section>
+                <h3>출처</h3>
+                {detail.sources.length === 0 ? (
+                  <WorkspaceState
+                    kind="empty"
+                    title="연결된 출처가 없습니다"
+                    description="원문 출처가 확인되면 이름과 기준 시점 상태를 보여드립니다."
+                  />
+                ) : (
+                  <StructuredList className={styles.sourceList} aria-label="출처 목록">
+                    {detail.sources.map((source) => (
+                      <li key={source.sourceKey}>
+                        {source.url ? (
+                          <TextLink
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            motion="quiet"
+                          >
+                            <span>{sourceAttributionLabel(source.attributionText)}</span>
+                            <small>
+                              {sourceBindingLabel(source.bindingState)} ·{' '}
+                              {source.publishedAt
+                                ? formatDate(source.publishedAt)
+                                : '발행일 미확인'}
+                            </small>
+                          </TextLink>
+                        ) : (
+                          <div className={styles.sourceMissing}>
+                            <span>{sourceAttributionLabel(source.attributionText)}</span>
+                            <small>링크 없음</small>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </StructuredList>
+                )}
+              </section>
+              {detail.limitations.length > 0 && (
+                <section>
+                  <h3>한계</h3>
+                  <StructuredList>
+                    {detail.limitations.map((item) => (
+                      <li key={item}>{presentResearchSummary(item)}</li>
+                    ))}
+                  </StructuredList>
+                </section>
+              )}
+            </div>
+          )}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 }

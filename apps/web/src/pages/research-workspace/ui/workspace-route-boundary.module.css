@@ -45,11 +45,6 @@
   font-weight: 680;
 }
 
-.surface button:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 3px;
-}
-
 .skeletons {
   display: grid;
   gap: 10px;

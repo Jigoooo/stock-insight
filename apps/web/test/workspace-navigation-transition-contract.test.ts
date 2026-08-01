@@ -18,10 +18,6 @@ const todayUrl = new URL(
   '../src/pages/research-workspace/ui/views/today-view.tsx',
   import.meta.url,
 );
-const cssUrl = new URL(
-  '../src/pages/research-workspace/ui/feed-ledger.module.css',
-  import.meta.url,
-);
 const navigationUrl = new URL(
   '../src/widgets/workspace-shell/ui/workspace-navigation.tsx',
   import.meta.url,
@@ -31,10 +27,6 @@ const shellCssUrl = new URL(
   import.meta.url,
 );
 const tabsUrl = new URL('../src/shared/ui/animate-ui/primitives/radix/tabs.tsx', import.meta.url);
-const highlightUrl = new URL(
-  '../src/shared/ui/animate-ui/primitives/effects/highlight.tsx',
-  import.meta.url,
-);
 
 describe('workspace authoritative navigation transition', () => {
   it('returns the router navigation promise and schedules controlled work as a transition', async () => {
@@ -68,7 +60,8 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /pendingLane=\{navigationIntent\.pendingLane/);
     assert.match(today, /pendingLane\?: ResearchFeedLaneId \| null/);
     assert.match(today, /data-pending=\{pendingLane === item\.lane \|\| undefined\}/);
-    assert.match(today, /<Tabs value=\{lane\}[\s\S]*?activationMode="manual"/);
+    assert.match(today, /<Tabs[\s\S]*?value=\{lane\}[\s\S]*?variant="hairline"/);
+    assert.match(today, /activationMode="manual"/);
     assert.match(tabs, /<TabsPrimitive\.Root[\s\S]*?\{\.\.\.props\}/);
     assert.match(tabs, /<TabsPrimitive\.Trigger data-slot="tabs-trigger" \{\.\.\.props\}/);
     assert.doesNotMatch(today, /aria-selected=|tabIndex=|rovingLane|rovingIntent/);
@@ -84,22 +77,18 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /\.catch\([\s\S]*?type: 'settle'/);
   });
 
-  it('keeps section state on links and moves only the lane indicator with transform', async () => {
-    const [navigation, today, css, shellCss, highlight] = await Promise.all([
+  it('keeps section state on links and delegates lane selection visuals to hairline Tabs', async () => {
+    const [navigation, today, shellCss] = await Promise.all([
       readFile(navigationUrl, 'utf8'),
       readFile(todayUrl, 'utf8'),
-      readFile(cssUrl, 'utf8'),
       readFile(shellCssUrl, 'utf8'),
-      readFile(highlightUrl, 'utf8'),
     ]);
 
     assert.match(navigation, /className=\{styles\.navigationLink\}/);
     assert.match(shellCss, /\.navigationLink\[aria-current='page'\]/);
     assert.doesNotMatch(navigation, /navIndicator|activeSectionIndex/);
-    assert.match(today, /className=\{styles\.laneIndicator\}/);
-    assert.match(highlight, /layoutId=\{`transition-background-\$\{contextId\}`\}/);
-    assert.match(highlight, /<motion\.div/);
+    assert.match(today, /variant="hairline"/);
+    assert.doesNotMatch(today, /TabsHighlight|laneIndicator/);
     assert.doesNotMatch(today, /activeLaneIndex|translate|transform/);
-    assert.doesNotMatch(css, /laneIndicator[\s\S]{0,400}transition:/);
   });
 });
