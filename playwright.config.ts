@@ -87,7 +87,7 @@ Object.assign(serverEnv, {
 const webServerConfig = {
   command: useProductionBuild
     ? 'node scripts/e2e-server-launcher.mjs web-production'
-    : `pnpm --filter @stock-insight/web exec vite --mode dev --host 127.0.0.1 --port ${serverPort} --strictPort`,
+    : 'node scripts/e2e-server-launcher.mjs web-dev',
   env: serverEnv,
   reuseExistingServer: false,
   timeout: 120_000,

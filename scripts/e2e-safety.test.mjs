@@ -65,7 +65,9 @@ test('Playwright web server command severs ambient env inheritance', () => {
     fileURLToPath(new URL('./e2e-server-launcher.mjs', import.meta.url)),
     'utf8',
   );
-  assert.match(config, /e2e-server-launcher\.mjs web-(?:dev|production)/);
+  assert.match(config, /e2e-server-launcher\.mjs web-dev/);
+  assert.match(config, /e2e-server-launcher\.mjs web-production/);
+  assert.doesNotMatch(config, /pnpm --filter @stock-insight\/web exec vite/);
   assert.match(launcher, /shell:\s*false/);
   assert.match(launcher, /selectServerEnvironment/);
   assert.doesNotMatch(
