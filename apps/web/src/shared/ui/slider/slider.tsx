@@ -44,7 +44,7 @@ export function Slider({
 
   return (
     <span
-      className={cn(styles.root, className)}
+      className={styles.root}
       data-slot="slider-control"
       data-variant={variant}
       data-disabled={disabled || pending ? '' : undefined}
@@ -62,7 +62,7 @@ export function Slider({
       <SliderPrimitive.Root
         {...props}
         aria-busy={pending || props['aria-busy']}
-        className={styles.sliderRoot}
+        className={cn(styles.sliderRoot, className)}
         data-slot="slider-root"
         defaultValue={initialValues}
         disabled={disabled || pending}
