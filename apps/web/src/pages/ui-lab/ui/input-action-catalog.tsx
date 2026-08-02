@@ -253,6 +253,8 @@ const multipleUploadSamples: UploadPreviewFile[] = [
   { id: 'watchlist', name: 'watchlist.xlsx', size: '632 KB' },
 ];
 
+const uploadMaxFileSize = 10 * 1024 * 1024;
+const acceptedUploadExtensions = new Set(['csv', 'xlsx', 'pdf']);
 const uploadEnterEase = [0.22, 1, 0.36, 1] as const;
 const uploadExitEase = [0.4, 0, 1, 1] as const;
 
@@ -262,6 +264,23 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function normalizeUploadFiles(fileList: FileList, nextUploadId: () => string) {
+  return Array.from(fileList)
+    .filter((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      return (
+        extension !== undefined &&
+        acceptedUploadExtensions.has(extension) &&
+        file.size <= uploadMaxFileSize
+      );
+    })
+    .map((file) => ({
+      id: nextUploadId(),
+      name: file.name,
+      size: formatFileSize(file.size),
+    }));
+}
+
 function UploadPreview({ direction }: { direction: DirectionId }) {
   const inputId = useId();
   const reducedMotion = useReducedMotion();
@@ -269,16 +288,20 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
   const fileSelectRef = useRef<HTMLButtonElement>(null);
   const deleteButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const focusFileSelectAfterExit = useRef(false);
+  const uploadIdSequence = useRef(0);
   const [mode, setMode] = useState<UploadMode>('single');
   const [files, setFiles] = useState<UploadPreviewFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [listExitPending, setListExitPending] = useState(false);
 
+  const nextUploadId = () => {
+    uploadIdSequence.current += 1;
+    return `${direction}-upload-${uploadIdSequence.current}`;
+  };
+
   const updateMode = (nextMode: UploadMode) => {
     setMode(nextMode);
-    if (files.length > 0) {
-      setFiles(nextMode === 'single' ? singleUploadSample : multipleUploadSamples);
-    }
+    setFiles((current) => (nextMode === 'single' ? current.slice(0, 1) : current));
   };
 
   const updateDemoState = (state: UploadDemoState) => {
@@ -294,13 +317,13 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
 
   const updateFiles = (fileList: FileList | null) => {
     if (!fileList) return;
-    const nextFiles = Array.from(fileList).map((file, index) => ({
-      id: `${file.name}-${file.lastModified}-${index}`,
-      name: file.name,
-      size: formatFileSize(file.size),
-    }));
-    setListExitPending(nextFiles.length === 0 && files.length > 0);
-    setFiles(mode === 'single' ? nextFiles.slice(0, 1) : nextFiles);
+    const nextFiles = normalizeUploadFiles(fileList, nextUploadId);
+    if (nextFiles.length > 0) {
+      setListExitPending(false);
+      setFiles((current) =>
+        mode === 'single' ? nextFiles.slice(0, 1) : current.concat(nextFiles),
+      );
+    }
     setDragActive(false);
   };
 
@@ -399,7 +422,10 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
           aria-hidden="true"
           accept=".csv,.xlsx,.pdf"
           multiple={mode === 'multiple'}
-          onChange={(event) => updateFiles(event.currentTarget.files)}
+          onChange={(event) => {
+            updateFiles(event.currentTarget.files);
+            event.currentTarget.value = '';
+          }}
         />
 
         {dragActive ? (

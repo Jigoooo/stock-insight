@@ -560,7 +560,7 @@
 
 .uploadControls .miniToggle button,
 .uploadStateToggle button {
-  min-height: 30px;
+  min-height: 28px;
   min-width: 0;
   flex: 1;
   padding: 0 7px;
@@ -569,7 +569,7 @@
   color: var(--color-text-tertiary);
   background: transparent;
   font: inherit;
-  font-size: 9px;
+  font-size: 10.5px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -668,7 +668,7 @@
 }
 
 .uploadPicker {
-  min-height: 34px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   margin-top: 8px;
@@ -1041,11 +1041,40 @@
     min-height: 320px;
     padding: 18px;
   }
+
+  .uploadControls .miniToggle button,
+  .uploadStateToggle button {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 11px;
+  }
+
+  .uploadPicker {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 11px;
+  }
+
+  .uploadFileList li {
+    grid-template-columns: 30px minmax(0, 1fr) 44px;
+  }
+
+  .uploadFileList button {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .previewSurface,
   .uploadDropFeedback {
     animation: none;
+  }
+
+  .upload {
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      box-shadow 160ms ease;
   }
 }

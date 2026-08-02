@@ -102,6 +102,32 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /aria-label=\{`\$\{file\.name\} 삭제`\}/);
   });
 
+  it('normalizes input and drop files through one append and validation contract', async () => {
+    const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
+    const uploadPreview = sourceBlock(catalog, 'function UploadPreview', 'function OtpPreview');
+    const updateModeHandler = sourceBlock(
+      uploadPreview,
+      'const updateMode',
+      'const updateDemoState',
+    );
+    const updateFilesHandler = sourceBlock(uploadPreview, 'const updateFiles', 'const removeFile');
+
+    assert.match(catalog, /const uploadMaxFileSize = 10 \* 1024 \* 1024/);
+    assert.match(catalog, /const acceptedUploadExtensions = new Set\(\['csv', 'xlsx', 'pdf'\]\)/);
+    assert.match(updateFilesHandler, /normalizeUploadFiles\(fileList, nextUploadId\)/);
+    assert.match(updateFilesHandler, /mode === 'single'/);
+    assert.match(updateFilesHandler, /current\.concat\(nextFiles\)/);
+    assert.match(updateModeHandler, /nextMode === 'single' \? current\.slice\(0, 1\) : current/);
+    assert.match(
+      uploadPreview,
+      /onDrop=\{\(event\) => \{[\s\S]*updateFiles\(event\.dataTransfer\.files\)/,
+    );
+    assert.match(
+      uploadPreview,
+      /onChange=\{\(event\) => \{[\s\S]*updateFiles\(event\.currentTarget\.files\);[\s\S]*event\.currentTarget\.value = ''/,
+    );
+  });
+
   it('animates upload rows with alternating exits, pop-layout reflow, and reduced-motion feedback', async () => {
     const [catalog, styles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
@@ -182,6 +208,12 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(uploadStyles, /\.uploadFileList\[aria-hidden='true'\] \{[\s\S]*?display: none/);
     assert.doesNotMatch(styles, /upload-file-enter/);
     assert.match(styles, /@keyframes upload-drop-enter/);
+    const reducedMotionRule = styles.slice(
+      styles.indexOf('@media (prefers-reduced-motion: reduce)'),
+    );
+    assert.match(reducedMotionRule, /\.upload \{/);
+    assert.doesNotMatch(reducedMotionRule, /min-height/);
+    assert.match(reducedMotionRule, /border-color 160ms ease/);
   });
 
   it('keeps the mockups keyboard-operable and stateful', async () => {
