@@ -52,6 +52,7 @@ import { Route as AuthenticatedWorkspaceCryptoRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated/admin/invitations'
 import { Route as ApiV1ReportsLatestRouteImport } from './routes/api/v1/reports/latest'
 import { Route as ApiV1PersonalFeedRouteImport } from './routes/api/v1/personal/feed'
+import { Route as ApiV1ImpactBriefRouteImport } from './routes/api/v1/impact/brief'
 import { Route as ApiV1CryptoWorkspaceRouteImport } from './routes/api/v1/crypto/workspace'
 import { Route as ApiV1CalibrationScorecardRouteImport } from './routes/api/v1/calibration/scorecard'
 import { Route as ApiStocksEntityKeyPricesRouteImport } from './routes/api/stocks/$entityKey.prices'
@@ -283,6 +284,11 @@ const ApiV1PersonalFeedRoute = ApiV1PersonalFeedRouteImport.update({
   path: '/api/v1/personal/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1ImpactBriefRoute = ApiV1ImpactBriefRouteImport.update({
+  id: '/brief',
+  path: '/brief',
+  getParentRoute: () => ApiV1ImpactRoute,
+} as any)
 const ApiV1CryptoWorkspaceRoute = ApiV1CryptoWorkspaceRouteImport.update({
   id: '/api/v1/crypto/workspace',
   path: '/api/v1/crypto/workspace',
@@ -350,13 +356,14 @@ export interface FileRoutesByFullPath {
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
   '/api/v1/features': typeof ApiV1FeaturesRoute
-  '/api/v1/impact': typeof ApiV1ImpactRoute
+  '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/workspace/': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
   '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
+  '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -398,13 +405,14 @@ export interface FileRoutesByTo {
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
   '/api/v1/features': typeof ApiV1FeaturesRoute
-  '/api/v1/impact': typeof ApiV1ImpactRoute
+  '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/workspace': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
   '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
+  '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -449,13 +457,14 @@ export interface FileRoutesById {
   '/api/stocks/$entityKey': typeof ApiStocksEntityKeyRouteWithChildren
   '/api/v1/confirmation': typeof ApiV1ConfirmationRoute
   '/api/v1/features': typeof ApiV1FeaturesRoute
-  '/api/v1/impact': typeof ApiV1ImpactRoute
+  '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/_authenticated/workspace/': typeof AuthenticatedWorkspaceIndexRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/stocks/$entityKey/prices': typeof ApiStocksEntityKeyPricesRoute
   '/api/v1/calibration/scorecard': typeof ApiV1CalibrationScorecardRoute
   '/api/v1/crypto/workspace': typeof ApiV1CryptoWorkspaceRoute
+  '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
@@ -507,6 +516,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
     | '/api/v1/crypto/workspace'
+    | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -555,6 +565,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
     | '/api/v1/crypto/workspace'
+    | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -605,6 +616,7 @@ export interface FileRouteTypes {
     | '/api/stocks/$entityKey/prices'
     | '/api/v1/calibration/scorecard'
     | '/api/v1/crypto/workspace'
+    | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
     | '/api/geo/tiles/$z/$x/$y'
@@ -637,7 +649,7 @@ export interface RootRouteChildren {
   ApiRecordsRecordKeyRoute: typeof ApiRecordsRecordKeyRoute
   ApiV1ConfirmationRoute: typeof ApiV1ConfirmationRoute
   ApiV1FeaturesRoute: typeof ApiV1FeaturesRoute
-  ApiV1ImpactRoute: typeof ApiV1ImpactRoute
+  ApiV1ImpactRoute: typeof ApiV1ImpactRouteWithChildren
   ApiEntitiesEntityKeyRelationsRoute: typeof ApiEntitiesEntityKeyRelationsRoute
   ApiV1CalibrationScorecardRoute: typeof ApiV1CalibrationScorecardRoute
   ApiV1CryptoWorkspaceRoute: typeof ApiV1CryptoWorkspaceRoute
@@ -949,6 +961,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1PersonalFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/impact/brief': {
+      id: '/api/v1/impact/brief'
+      path: '/brief'
+      fullPath: '/api/v1/impact/brief'
+      preLoaderRoute: typeof ApiV1ImpactBriefRouteImport
+      parentRoute: typeof ApiV1ImpactRoute
+    }
     '/api/v1/crypto/workspace': {
       id: '/api/v1/crypto/workspace'
       path: '/api/v1/crypto/workspace'
@@ -1078,6 +1097,18 @@ const ApiWatchlistRouteWithChildren = ApiWatchlistRoute._addFileChildren(
   ApiWatchlistRouteChildren,
 )
 
+interface ApiV1ImpactRouteChildren {
+  ApiV1ImpactBriefRoute: typeof ApiV1ImpactBriefRoute
+}
+
+const ApiV1ImpactRouteChildren: ApiV1ImpactRouteChildren = {
+  ApiV1ImpactBriefRoute: ApiV1ImpactBriefRoute,
+}
+
+const ApiV1ImpactRouteWithChildren = ApiV1ImpactRoute._addFileChildren(
+  ApiV1ImpactRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   Char91__devPreviewChar93Route: Char91__devPreviewChar93Route,
@@ -1105,7 +1136,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRecordsRecordKeyRoute: ApiRecordsRecordKeyRoute,
   ApiV1ConfirmationRoute: ApiV1ConfirmationRoute,
   ApiV1FeaturesRoute: ApiV1FeaturesRoute,
-  ApiV1ImpactRoute: ApiV1ImpactRoute,
+  ApiV1ImpactRoute: ApiV1ImpactRouteWithChildren,
   ApiEntitiesEntityKeyRelationsRoute: ApiEntitiesEntityKeyRelationsRoute,
   ApiV1CalibrationScorecardRoute: ApiV1CalibrationScorecardRoute,
   ApiV1CryptoWorkspaceRoute: ApiV1CryptoWorkspaceRoute,

@@ -50,7 +50,12 @@ test('machine-readable B0 gates are defined, versioned and fail-closed', () => {
   for (const id of [
     'b0-unverified-public-fact-zero',
     'b0-report-run-lineage-refresh',
-    'b0-sourceless-impact-exposure-zero',
+    // Replaced b0-sourceless-impact-exposure-zero, which compared the live view
+    // against a value recomputed with migration 018's formula. The live view uses
+    // migration 023's, and 018's inputs (knowledge.relation_evidence) have 0 rows,
+    // so the right-hand side was pinned at 0 and the gate could not fail.
+    'b0-impact-v1-stays-unserved',
+    'b0-impact-brief-covers-sealed-paths',
     'b0-stale-available-detection',
     'b0-non-news-backlog-unmasked',
   ]) {

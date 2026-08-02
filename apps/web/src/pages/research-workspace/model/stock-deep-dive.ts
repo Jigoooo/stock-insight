@@ -1,4 +1,4 @@
-import type { StockDetailResponse } from '@stock-insight/contracts';
+import type { ImpactBriefResponse, StockDetailResponse } from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export const DEEP_DIVE_SECTION_IDS = [
@@ -165,9 +165,45 @@ function allMissing(generatedAt: string, entityKey: string | null = null): Stock
  * relation read models. Unsupported P2 surfaces remain explicitly `missing`;
  * this function never invents factor/scenario/derivation data.
  */
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  supply_disruption: '공급 차질',
+  capex_increase: '설비 투자 확대',
+  ma_deal: '인수·합병',
+  regulation: '규제',
+  earnings: '실적 발표',
+  sec_8k: '수시 공시',
+  policy_event: '정책',
+  analyst: '애널리스트 의견',
+  insider_trade: '내부자 거래',
+  macro_shock: '거시 충격',
+  legal_action: '법적 조치',
+};
+
+/**
+ * Turn sealed impact paths into second-order exposure evidence.
+ *
+ * The wording stays descriptive: a path score is industrial linkage strength, not
+ * a price expectation, and the read-only product contract applies to what is
+ * rendered as much as to what is stored.
+ */
+function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
+  if (!brief || brief.data === null) return [];
+  return brief.data.paths
+    .slice()
+    .sort((left, right) => right.pathScore - left.pathScore)
+    .map((path) => {
+      const label = EVENT_TYPE_LABELS[path.eventType] ?? path.eventType;
+      // hopCount 1 means the event names this holding directly; 2 means it
+      // reaches it through one intermediary, which is what "2차" actually means.
+      const reach = path.hopCount <= 1 ? '직접 연결' : `${path.hopCount}단계 연결`;
+      return `${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
+    });
+}
+
 export function buildStockDeepDive(
   response: StockDetailResponse,
   graph: EntityRelationGraph | null,
+  impactBrief: ImpactBriefResponse | null = null,
 ): StockDeepDive {
   const detail = response.data;
   if (
@@ -202,12 +238,23 @@ export function buildStockDeepDive(
       : '보유 상태만 의사결정 근거로 표시합니다. 투자 행동 제안은 포함하지 않습니다.'
     : undefined;
 
+  const exposureItems = impactExposureItems(impactBrief);
+
   const sections: StockDeepDiveSection[] = [
     section('identity', identityItems.length > 0 ? 'available' : 'missing', identityItems),
     section('performance', performanceItems.length > 0 ? 'available' : 'missing', performanceItems),
     section('direct_relations', directItems.length > 0 ? 'available' : 'missing', directItems),
-    // A one-hop relation graph cannot prove a second-order exposure.
-    section('secondary_exposure', 'missing', []),
+    // A one-hop relation graph cannot prove a second-order exposure, but a sealed
+    // impact path can: every step carries a foreign key into the graph snapshot
+    // edge it traversed, and the whole pack is digest-sealed.
+    section(
+      'secondary_exposure',
+      exposureItems.length > 0 ? 'available' : 'missing',
+      exposureItems,
+      exposureItems.length > 0
+        ? `봉인된 영향 경로 ${exposureItems.length}건. 산업 연결 강도이며 가격 전망이 아닙니다.`
+        : undefined,
+    ),
     // Feature/impact serving surfaces are not yet wired to this read model.
     section('factor_exposure', 'missing', []),
     // Generic related news has no event lifecycle/horizon contract.
@@ -245,10 +292,20 @@ export function buildStockDeepDive(
 type StockDeepDiveLoaders = {
   loadDetail: (entityKey: string) => Promise<StockDetailResponse>;
   loadRelation: (entityKey: string) => Promise<EntityRelationGraph>;
+  /**
+   * Optional so existing callers keep working. Absent means the second-order
+   * exposure section stays missing, which is the honest state rather than a
+   * failure.
+   */
+  loadImpactBrief?: (entityKey: string) => Promise<ImpactBriefResponse>;
 };
 
 function isMissingRelationEndpoint(error: unknown): boolean {
   return error instanceof Error && /Entity relations failed with 404$/.test(error.message);
+}
+
+function isMissingEndpoint(error: unknown): boolean {
+  return error instanceof Error && / 404$/.test(error.message);
 }
 
 /**
@@ -260,7 +317,7 @@ export async function loadStockDeepDiveData(
   entityKey: string,
   loaders: StockDeepDiveLoaders,
 ): Promise<StockDeepDiveLoadResult> {
-  const [detail, relationResult] = await Promise.all([
+  const [detail, relationResult, impactBrief] = await Promise.all([
     loaders.loadDetail(entityKey),
     loaders
       .loadRelation(entityKey)
@@ -269,6 +326,15 @@ export async function loadStockDeepDiveData(
         if (isMissingRelationEndpoint(error)) return { graph: null, unavailable: true };
         throw error;
       }),
+    // The impact brief is supplementary: a stock page that cannot show second-order
+    // exposure is still a usable stock page, so a missing endpoint degrades to no
+    // section rather than failing the whole load. Transport and schema failures
+    // still propagate — only a confirmed absence is swallowed.
+    loaders.loadImpactBrief === undefined
+      ? Promise.resolve(null)
+      : loaders
+          .loadImpactBrief(entityKey)
+          .catch((error: unknown) => (isMissingEndpoint(error) ? null : Promise.reject(error))),
   ]);
   if (detail.availability === 'error') {
     throw new Error(detail.error?.message ?? 'Stock detail response reported an error');
@@ -288,8 +354,18 @@ export async function loadStockDeepDiveData(
     detail.availability !== 'missing' &&
     detail.availability !== 'unsupported';
   const relation = detailUsable ? rootDirectRelationGraph(relationResult.graph) : null;
+  const briefForEntity =
+    impactBrief && impactBrief.data && impactBrief.data.entityKey !== entityKey
+      ? // Identity mismatch is a correctness failure, not a degradation: rendering
+        // another holding's exposure under this one would be a false claim.
+        (() => {
+          throw new Error(
+            `Impact brief identity mismatch: requested ${entityKey}, received ${impactBrief.data.entityKey}`,
+          );
+        })()
+      : impactBrief;
   let deepDive = detailUsable
-    ? buildStockDeepDive(detail, relation)
+    ? buildStockDeepDive(detail, relation, briefForEntity)
     : allMissing(detail.meta.generatedAt, entityKey);
   if (relationResult.unavailable && deepDive.availability === 'available') {
     deepDive = { ...deepDive, availability: 'partial' };
