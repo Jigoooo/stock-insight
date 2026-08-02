@@ -116,13 +116,23 @@ const SERVING_YIELD = [
     upstream: 'SELECT count(*) FROM crypto_analytics.risk_exposure_revision',
     note: 'crypto plane',
   },
-  // The v2 impact plane seals paths nightly but the publisher never emits
+  // The v2 impact plane seals paths nightly but no publisher emits
   // item_kind='impact_path', so this pair reads N -> 0 the same way v1 does.
+  //
+  // The upstream is scoped to the snapshot the currently published packs sit on,
+  // not every sealed path ever. Packs are digest-sealed per snapshot, so paths
+  // from superseded snapshots can never appear in a current pack — counting them
+  // would hold this ratio permanently below 1 and make a fully working publisher
+  // still read as broken.
   {
     surface: 'serving.content_pack_item[impact_path]',
     view: "SELECT count(*) FROM serving.content_pack_item WHERE item_kind = 'impact_path'",
-    upstream: "SELECT count(*) FROM analytics.impact_path_v2 WHERE status = 'sealed'",
-    note: 'v2 impact paths in published packs',
+    upstream: `SELECT count(*) FROM analytics.impact_path_v2 path
+               WHERE path.status = 'sealed'
+                 AND path.graph_snapshot_id IN (
+                   SELECT graph_snapshot_id FROM serving.content_pack
+                   WHERE status = 'published')`,
+    note: 'v2 impact paths on the published snapshot',
   },
 ];
 

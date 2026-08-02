@@ -7,6 +7,11 @@ import type { SnapshotEdgeInput } from './graph-snapshot.ts';
 import { buildImpactPaths, type ImpactPathEdge } from './impact-path-builder.ts';
 import { planPriceCorrelations, type PriceObservation } from './price-correlation.ts';
 import { planRelationMeasurements } from './relation-measurement.ts';
+import type { ContentPackSourceItem } from '../relations/content-pack-builder.ts';
+import {
+  CONTENT_PACK_MAX_ITEMS,
+  publishContentPacks,
+} from '../relations/content-pack-publisher.ts';
 
 // P0-3 — L5 analytics producer (roadmap §4 P0-3).
 // Fills the three empty L5 tables against the LATEST SEALED snapshot:
@@ -22,6 +27,10 @@ const APPLY = process.argv.includes('--apply');
 const REHEARSE = process.argv.includes('--rehearse');
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const RULE_VERSION = 'impact-v2-r1';
+const RELEASE_COMMIT = 'f2ec673';
+// Matches the relation packs' window: both are rebuilt by the same nightly run,
+// so a shorter window here would make impact go stale while relations stayed fresh.
+const IMPACT_PACK_FRESHNESS_HOURS = 36;
 const HOP_DECAY = 0.7;
 const MAX_HOPS = 2;
 const MAX_PATHS_PER_EVENT = 20;
@@ -377,6 +386,12 @@ async function main(): Promise<void> {
 
       let insertedPaths = 0;
       let insertedSteps = 0;
+      // Sealed paths, grouped by the holding they land on, so they can be
+      // published as impact_brief packs below. Content packs are digest-sealed and
+      // immutable once published, so the relation packs the graph publisher wrote
+      // earlier in this pipeline cannot be reopened to carry these — this
+      // publisher has to write its own packs.
+      const impactItemsByTargetEntity = new Map<number, ContentPackSourceItem[]>();
       for (const { event, paths } of pathsByEvent) {
         // One row per (event, target): builder already returns the best-first
         // ordering; keep only the strongest path per target under the natural
@@ -443,8 +458,68 @@ async function main(): Promise<void> {
           if (sealed.rowCount !== 1) {
             throw new Error(`impact path ${impactPathId} seal failed`);
           }
+          const targetItems = impactItemsByTargetEntity.get(path.targetEntityId) ?? [];
+          targetItems.push({
+            itemKind: 'impact_path',
+            impactPathV2Id: impactPathId,
+            displayPayload: {
+              impact: {
+                triggerEventId: path.eventId,
+                sourceEntityId: path.sourceEntityId,
+                targetEntityId: path.targetEntityId,
+                eventType: event.event_type,
+                hopCount: path.hopCount,
+                pathScore: Math.min(1, Math.max(0, path.pathScore)),
+                // Same wording as the path's own explanation. This is what the
+                // product renders, and the read-only contract applies to it.
+                note: 'industrial linkage strength; never a price prediction',
+              },
+            },
+            // Higher score serves first. Scores are 0..1, so scaling keeps the
+            // rank an integer without collapsing near-ties.
+            rank: Math.round(Math.min(1, Math.max(0, path.pathScore)) * 1000),
+          });
+          impactItemsByTargetEntity.set(path.targetEntityId, targetItems);
         }
       }
+
+      // Publish the sealed paths as impact_brief packs. Until now nothing ever
+      // produced this pack kind: the paths were sealed nightly and then reached no
+      // serving surface at all, because the only pack producer emits `relation`
+      // and `evidence` items. The read path (getServableContentPack) already
+      // takes packKind as a parameter and the freshness view does not filter by
+      // kind, so this is the missing producer, not a new serving contract.
+      const impactPacks = [...impactItemsByTargetEntity.entries()]
+        .map(([entityId, sourceItems]) => ({
+          entityId,
+          label: `impact:${entityId}`,
+          // Ordering is not cosmetic here: the pack cap truncates, so the weakest
+          // links must be the ones dropped.
+          sourceItems: [...sourceItems]
+            .sort((left, right) => right.rank - left.rank)
+            .slice(0, CONTENT_PACK_MAX_ITEMS),
+        }))
+        .sort((left, right) => left.entityId - right.entityId);
+      const truncatedPacks = impactPacks.filter(
+        (pack) =>
+          (impactItemsByTargetEntity.get(pack.entityId)?.length ?? 0) > pack.sourceItems.length,
+      ).length;
+      const publishedImpact =
+        impactPacks.length > 0
+          ? await publishContentPacks(client, impactPacks, {
+              packKind: 'impact_brief',
+              graphSnapshotId: snapshot.graphSnapshotId,
+              builderVersion: RULE_VERSION,
+              builtAt: new Date(snapshot.knownAt),
+              freshnessHours: IMPACT_PACK_FRESHNESS_HOURS,
+              createdBy: 'stock-insight-v2-analytics-publisher',
+              metadataSource: 'canonical_v2_impact',
+              releaseCommit: RELEASE_COMMIT,
+              // The graph publisher owns snapshot lifecycle; this one only adds
+              // packs to the snapshot it already sealed.
+              supersedeOrphanSnapshots: false,
+            })
+          : { packIds: [], itemCount: 0 };
 
       let insertedCommunities = 0;
       let insertedMembers = 0;
@@ -522,6 +597,9 @@ async function main(): Promise<void> {
             insertedCommunities,
             insertedMembers,
             insertedMeasurements,
+            impactPacks: publishedImpact.packIds.length,
+            impactPackItems: publishedImpact.itemCount,
+            impactPacksTruncated: truncatedPacks,
           }),
         );
         return;
@@ -537,6 +615,9 @@ async function main(): Promise<void> {
           insertedCommunities,
           insertedMembers,
           insertedMeasurements,
+          impactPacks: publishedImpact.packIds.length,
+          impactPackItems: publishedImpact.itemCount,
+          impactPacksTruncated: truncatedPacks,
         }),
       );
     } catch (error) {

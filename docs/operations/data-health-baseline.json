@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-02T14:44:45Z",
+  "capturedAt": "2026-08-02T14:58:11Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -107,8 +107,8 @@
     },
     {
       "surface": "serving.content_pack_item[impact_path]",
-      "note": "v2 impact paths in published packs",
-      "upstream": 40750,
+      "note": "v2 impact paths on the published snapshot",
+      "upstream": 1719,
       "view": 0,
       "ratio": 0,
       "error": null

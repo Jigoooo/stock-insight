@@ -7,6 +7,10 @@ function read(relative: string): string {
 }
 
 const runner = read('../src/analytics/run-v2-graph-publish.ts');
+// The lineage machinery moved out of the runner so a second publisher can emit a
+// different pack kind without duplicating it. The contract below is unchanged —
+// it is now enforced in the shared module every publisher goes through.
+const publisher = read('../src/relations/content-pack-publisher.ts');
 const rawStore = read('../src/ingest/raw-object-store.ts');
 const sourceStore = read('../src/ingest/source-revision-store.ts');
 const pipeline = read('../scripts/run_analytics_pipeline.sh');
@@ -20,18 +24,29 @@ test('V2 publisher refuses an active foreign claim and only replays completed da
 });
 
 test('V2 publisher seals one typed derivation before every content-pack item insert', () => {
-  assert.match(runner, /INSERT INTO knowledge\.derivation/);
-  assert.match(runner, /INSERT INTO knowledge\.derivation_step/);
-  assert.match(runner, /INSERT INTO knowledge\.derivation_input/);
+  assert.match(publisher, /INSERT INTO knowledge\.derivation/);
+  assert.match(publisher, /INSERT INTO knowledge\.derivation_step/);
+  assert.match(publisher, /INSERT INTO knowledge\.derivation_input/);
   assert.match(
-    runner,
+    publisher,
     /status='sealed'[\s\S]*knowledge\.compute_derivation_digest\(derivation\.derivation_id\)/,
   );
-  assert.match(runner, /content_pack_id,item_no,item_kind,derivation_id,relation_revision_id/);
+  assert.match(publisher, /content_pack_id,item_no,item_kind,derivation_id,relation_revision_id/);
   assert.ok(
-    runner.indexOf('INSERT INTO knowledge.derivation') <
-      runner.indexOf('INSERT INTO serving.content_pack_item'),
+    publisher.indexOf('INSERT INTO knowledge.derivation') <
+      publisher.indexOf('INSERT INTO serving.content_pack_item'),
   );
+});
+
+test('the shared publisher supersedes only its own pack kind', () => {
+  // With two publishers writing packs, a supersede scoped by status alone — or by
+  // a hardcoded kind — would have each run retire the other publisher's packs.
+  assert.match(
+    publisher,
+    /SET status='superseded'\s*\n\s*WHERE pack_kind=\$1 AND status='published' AND graph_snapshot_id<>\$2/,
+  );
+  assert.match(publisher, /\[options\.packKind, options\.graphSnapshotId\]/);
+  assert.doesNotMatch(publisher, /const PACK_KIND/);
 });
 
 test('raw registration detects overlapping applicable source contracts', () => {
