@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-02T17:34:04Z",
+  "capturedAt": "2026-08-02T17:46:18Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -108,8 +108,8 @@
     {
       "surface": "serving.content_pack_item[impact_path]",
       "note": "v2 impact paths on the published snapshot",
-      "upstream": 9312,
-      "view": 9312,
+      "upstream": 9309,
+      "view": 9309,
       "ratio": 1,
       "error": null
     }
@@ -161,17 +161,17 @@
         },
         {
           "label": "impact_path_v2 (sealed)",
-          "rows": 9312,
+          "rows": 9309,
           "error": null
         },
         {
           "label": "content_pack_item[impact_path]",
-          "rows": 9312,
+          "rows": 9309,
           "error": null
         },
         {
           "label": "impact_brief 팩 (servable)",
-          "rows": 264,
+          "rows": 262,
           "error": null
         }
       ],
@@ -223,15 +223,15 @@
   "contentPackItemKinds": [
     {
       "itemKind": "evidence",
-      "rows": 585449
+      "rows": 712231
     },
     {
       "itemKind": "relation",
-      "rows": 252419
+      "rows": 307241
     },
     {
       "itemKind": "impact_path",
-      "rows": 12790
+      "rows": 27591
     }
   ],
   "impactLinked": {
@@ -310,7 +310,7 @@
       },
       {
         "providerKey": "internal-etf-holdings-snapshot",
-        "lastFetchRun": "2026-08-02T17:18:41.531Z",
+        "lastFetchRun": "2026-08-02T17:44:12.248Z",
         "lastSourceRevision": "2026-08-02T13:18:59.708Z",
         "activeRecently": true,
         "usesContractLayer": true
@@ -569,7 +569,7 @@
     },
     {
       "jobName": "stock-insight-analytics-wrapper",
-      "lastSuccess": "2026-08-02T17:20:02.819Z",
+      "lastSuccess": "2026-08-02T17:45:29.614Z",
       "lastFailure": "2026-08-02T15:09:59.952Z",
       "consecutiveFailures": 0
     },
@@ -581,13 +581,13 @@
     },
     {
       "jobName": "stock-insight-core-identity-sync",
-      "lastSuccess": "2026-08-02T17:18:30.272Z",
+      "lastSuccess": "2026-08-02T17:43:57.630Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-core-identity-sync-stage",
-      "lastSuccess": "2026-08-02T17:18:32.231Z",
+      "lastSuccess": "2026-08-02T17:43:59.499Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -617,25 +617,25 @@
     },
     {
       "jobName": "stock-insight-feature-snapshot",
-      "lastSuccess": "2026-08-02T17:18:32.850Z",
+      "lastSuccess": "2026-08-02T17:44:00.507Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feature-snapshot-stage",
-      "lastSuccess": "2026-08-02T17:18:34.820Z",
+      "lastSuccess": "2026-08-02T17:44:02.484Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feed-build",
-      "lastSuccess": "2026-08-02T17:18:40.266Z",
+      "lastSuccess": "2026-08-02T17:44:07.946Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feed-build-stage",
-      "lastSuccess": "2026-08-02T17:18:39.242Z",
+      "lastSuccess": "2026-08-02T17:44:09.850Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -653,13 +653,13 @@
     },
     {
       "jobName": "stock-insight-graph-inference",
-      "lastSuccess": "2026-08-02T17:18:36.004Z",
+      "lastSuccess": "2026-08-02T17:44:03.628Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-graph-inference-stage",
-      "lastSuccess": "2026-08-02T17:18:37.949Z",
+      "lastSuccess": "2026-08-02T17:44:05.591Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -671,7 +671,7 @@
     },
     {
       "jobName": "stock-insight-knowledge-document-sync",
-      "lastSuccess": "2026-08-02T15:47:55.055Z",
+      "lastSuccess": "2026-08-02T17:46:19.627Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -691,7 +691,7 @@
       "jobName": "stock-insight-knowledge-wrapper",
       "lastSuccess": "2026-08-02T15:48:07.365Z",
       "lastFailure": "2026-08-02T09:47:12.741Z",
-      "consecutiveFailures": 0
+      "consecutiveFailures": 1
     },
     {
       "jobName": "stock-insight-market-enrichment-wrapper",
@@ -719,7 +719,7 @@
     },
     {
       "jobName": "stock-insight-outbox-delivery-stage",
-      "lastSuccess": "2026-08-02T17:20:00.208Z",
+      "lastSuccess": "2026-08-02T17:45:26.854Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -755,19 +755,19 @@
     },
     {
       "jobName": "stock-insight-probability-calibration",
-      "lastSuccess": "2026-08-02T17:18:39.413Z",
+      "lastSuccess": "2026-08-02T17:44:10.043Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-probability-calibration-stage",
-      "lastSuccess": "2026-08-02T17:18:41.323Z",
+      "lastSuccess": "2026-08-02T17:44:12.033Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-report-publish-stage",
-      "lastSuccess": "2026-08-02T17:18:40.088Z",
+      "lastSuccess": "2026-08-02T17:44:07.766Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -809,13 +809,13 @@
     },
     {
       "jobName": "stock-insight-v2-graph-publish-stage",
-      "lastSuccess": "2026-08-02T17:19:34.113Z",
+      "lastSuccess": "2026-08-02T17:45:01.165Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-v2-l5-publish-stage",
-      "lastSuccess": "2026-08-02T17:19:58.191Z",
+      "lastSuccess": "2026-08-02T17:45:24.842Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
