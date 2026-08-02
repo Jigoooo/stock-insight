@@ -10,18 +10,28 @@ export type ButtonGroupVariant = 'hairline' | 'inset';
 export type ButtonGroupOrientation = 'horizontal' | 'vertical';
 
 export type ButtonGroupProps = HTMLAttributes<HTMLDivElement> & {
+  fullWidth?: boolean;
   orientation?: ButtonGroupOrientation;
   variant?: ButtonGroupVariant;
 };
 
 export const ButtonGroup = forwardRef<HTMLDivElement, ButtonGroupProps>(function ButtonGroup(
-  { children, className, orientation = 'horizontal', role, variant = 'hairline', ...props },
+  {
+    children,
+    className,
+    fullWidth = false,
+    orientation = 'horizontal',
+    role,
+    variant = 'hairline',
+    ...props
+  },
   ref,
 ) {
   return (
     <div
       {...props}
       className={cn(styles.root, className)}
+      data-full-width={fullWidth || undefined}
       data-orientation={orientation}
       data-slot="button-group"
       data-variant={variant}

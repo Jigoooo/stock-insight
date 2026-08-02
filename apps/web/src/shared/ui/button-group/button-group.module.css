@@ -11,6 +11,15 @@
   flex-direction: column;
 }
 
+.root[data-full-width='true'] {
+  width: 100%;
+}
+
+.root[data-full-width='true'][data-orientation='horizontal']
+  > :global([data-slot='button-control']) {
+  flex: 1 1 0;
+}
+
 .root > :global([data-slot='button-control']) {
   position: relative;
   border: 0;
@@ -96,9 +105,16 @@
   background: var(--color-surface);
 }
 
-.root > :global([data-slot='button-control']:active) {
-  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
-  box-shadow: none;
+.root
+  > :global(
+    [data-slot='button-control']:not(:disabled):not([aria-disabled='true']):not(
+        [aria-busy='true']
+      ):not([data-motion='none']):active
+  ) {
+  background: color-mix(in srgb, var(--color-text-primary) 11%, var(--color-surface));
+  box-shadow:
+    inset 0 2px 4px rgb(16 18 16 / 20%),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
 }
 
 @media (max-width: 480px) {

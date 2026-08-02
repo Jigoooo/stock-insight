@@ -286,7 +286,11 @@ function OtpPreview({ direction }: { direction: DirectionId }) {
 function ButtonGroupPreview({ direction }: { direction: DirectionId }) {
   return (
     <div className={styles.buttonPreview} data-direction={direction}>
-      <ButtonGroup aria-label="리포트 작업" variant={direction === 'inset' ? 'inset' : 'hairline'}>
+      <ButtonGroup
+        fullWidth
+        aria-label="리포트 작업"
+        variant={direction === 'inset' ? 'inset' : 'hairline'}
+      >
         <Button size="sm" variant="outline">
           저장
         </Button>

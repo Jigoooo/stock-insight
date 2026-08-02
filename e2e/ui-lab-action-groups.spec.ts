@@ -83,6 +83,46 @@ test.describe('UI Lab action groups', () => {
         borderTopWidth: '0px',
       });
       expect(styles[3]).toBe('1px');
+      await expect(group).toHaveAttribute('data-full-width', 'true');
+      const [previewBox, groupBox, firstBox, secondBox] = await Promise.all([
+        preview.boundingBox(),
+        group.boundingBox(),
+        firstAction.boundingBox(),
+        secondAction.boundingBox(),
+      ]);
+      expect(previewBox).not.toBeNull();
+      expect(groupBox).not.toBeNull();
+      expect(firstBox).not.toBeNull();
+      expect(secondBox).not.toBeNull();
+      expect(Math.abs(groupBox!.width - previewBox!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(firstBox!.width - secondBox!.width)).toBeLessThanOrEqual(1.1);
+    }
+  });
+
+  test('gives every ButtonGroup variant a pressed surface without moving its segment', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'mobile', 'pointer-down visual state is desktop-only');
+    await openCategory(page, 'ButtonGroup');
+    for (const variant of ['hairline', 'inset'] as const) {
+      const action = page
+        .locator(`article[data-direction="${variant}"]`)
+        .getByRole('button', { name: '저장' });
+      const restingBackground = await action.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      const box = await action.boundingBox();
+
+      expect(box).not.toBeNull();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      await page.mouse.down();
+      await expect(action).toHaveCSS('transform', 'none');
+      await expect(action).toHaveCSS('box-shadow', /inset/);
+      const pressedBackground = await action.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      expect(pressedBackground).not.toBe(restingBackground);
+      await page.mouse.up();
     }
   });
 
