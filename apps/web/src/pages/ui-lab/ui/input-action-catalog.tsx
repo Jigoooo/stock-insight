@@ -367,6 +367,10 @@ function CategoryPreview({
 export function InputActionCatalog() {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('radio');
   const activeLabel = categories.find(({ id }) => id === activeCategory)?.label;
+  const visibleDirections =
+    activeCategory === 'upload'
+      ? directions.filter(({ id }) => id !== 'rail')
+      : directions;
 
   return (
     <section className={styles.catalog} aria-labelledby="input-action-title">
@@ -400,7 +404,7 @@ export function InputActionCatalog() {
       </div>
 
       <div className={styles.comparisonGrid}>
-        {directions.map((defaultDirection) => {
+        {visibleDirections.map((defaultDirection) => {
           const direction =
             activeCategory === 'split-button'
               ? splitButtonDirections[defaultDirection.id]

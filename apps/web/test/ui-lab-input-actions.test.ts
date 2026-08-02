@@ -49,6 +49,16 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /'split-button': \['hairline', 'inset', 'rail'\]/);
   });
 
+  it('renders only the approved upload directions while preserving three-way comparisons elsewhere', async () => {
+    const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
+
+    assert.match(
+      catalog,
+      /activeCategory === 'upload'[\s\S]*directions\.filter\(\(\{ id \}\) => id !== 'rail'\)/,
+    );
+    assert.match(catalog, /visibleDirections\.map\(\(defaultDirection\) =>/);
+  });
+
   it('keeps the mockups keyboard-operable and stateful', async () => {
     const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
 
