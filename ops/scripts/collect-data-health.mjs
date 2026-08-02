@@ -200,6 +200,21 @@ const CHAINS = [
     ],
   },
   {
+    // Attribution is what decides whether an event can reach any screen at all.
+    // 1,516 events sat unattributed because migration 012's LEFT JOIN ran before
+    // core.entity_identifier was filled, and nothing re-ran it — invisible until
+    // measured, because an unattributed event simply never appears anywhere.
+    name: '사건 귀속 → 월드 참여자',
+    steps: [
+      { label: 'knowledge.event', sql: 'SELECT count(*) FROM knowledge.event' },
+      {
+        label: '엔티티 붙은 사건',
+        sql: 'SELECT count(*) FROM knowledge.event WHERE target_entity_id IS NOT NULL',
+      },
+      { label: 'world.event_participant', sql: 'SELECT count(*) FROM world.event_participant' },
+    ],
+  },
+  {
     name: '지식 추출 → 검증된 주장',
     steps: [
       { label: 'knowledge.document', sql: 'SELECT count(*) FROM knowledge.document' },

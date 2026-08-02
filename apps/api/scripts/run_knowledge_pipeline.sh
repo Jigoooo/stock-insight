@@ -66,6 +66,14 @@ else
 fi
 pipeline_record_stage_success stock-insight-knowledge-extraction-stage "$RUN_STARTED_AT" || exit $?
 
+# Migration 012 carried the legacy entity link with a LEFT JOIN onto
+# core.entity_identifier, so signals whose identifier did not exist yet landed
+# unattributed — 1,516 of them. The identifiers arrived later and nothing re-ran
+# the join. This must precede the world projection: event participants are derived
+# from target_entity_id, so resolving after projecting would leave them empty.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-event-entity-resolution.ts --apply
+pipeline_record_stage_success stock-insight-event-entity-resolution-stage "$RUN_STARTED_AT" || exit $?
+
 # The world plane is a projection of knowledge.event and had no producer: migration
 # 032 filled it once and it then drifted 923 events behind before anyone noticed,
 # because its serving view reports 100% yield over whatever it happens to hold.
@@ -102,11 +110,12 @@ SELECT CASE WHEN
    WHERE job_name IN (
      'stock-insight-knowledge-document-sync-stage',
      'stock-insight-knowledge-extraction-stage',
+     'stock-insight-event-entity-resolution-stage',
      'stock-insight-world-event-sync-stage',
      'stock-insight-event-brief'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 4
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 5
   AND (SELECT count(*) FROM knowledge.document) >= 2500
   -- The world plane must be a complete projection, not a partial one. A partial
   -- plane still reports 100% yield through its serving view, which is exactly how

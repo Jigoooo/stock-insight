@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-02T17:25:01Z",
+  "capturedAt": "2026-08-02T17:34:04Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -178,6 +178,27 @@
       "brokenAt": null
     },
     {
+      "name": "사건 귀속 → 월드 참여자",
+      "steps": [
+        {
+          "label": "knowledge.event",
+          "rows": 3964,
+          "error": null
+        },
+        {
+          "label": "엔티티 붙은 사건",
+          "rows": 3075,
+          "error": null
+        },
+        {
+          "label": "world.event_participant",
+          "rows": 3075,
+          "error": null
+        }
+      ],
+      "brokenAt": null
+    },
+    {
       "name": "지식 추출 → 검증된 주장",
       "steps": [
         {
@@ -331,8 +352,8 @@
       },
       {
         "providerKey": "rss-news-bundle",
-        "lastFetchRun": "2026-08-02T17:01:23.864Z",
-        "lastSourceRevision": "2026-08-02T17:01:26.025Z",
+        "lastFetchRun": "2026-08-02T17:30:55.065Z",
+        "lastSourceRevision": "2026-08-02T17:30:57.049Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -589,6 +610,12 @@
       "consecutiveFailures": 0
     },
     {
+      "jobName": "stock-insight-event-entity-resolution",
+      "lastSuccess": "2026-08-02T17:32:53.262Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
       "jobName": "stock-insight-feature-snapshot",
       "lastSuccess": "2026-08-02T17:18:32.850Z",
       "lastFailure": null,
@@ -746,7 +773,7 @@
     },
     {
       "jobName": "stock-insight-rss-news-ingest",
-      "lastSuccess": "2026-08-02T17:01:26.379Z",
+      "lastSuccess": "2026-08-02T17:30:57.426Z",
       "lastFailure": "2026-07-24T13:30:43.368Z",
       "consecutiveFailures": 0
     },
@@ -794,7 +821,7 @@
     },
     {
       "jobName": "stock-insight-world-event-sync",
-      "lastSuccess": "2026-08-02T16:57:43.230Z",
+      "lastSuccess": "2026-08-02T17:33:21.931Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
