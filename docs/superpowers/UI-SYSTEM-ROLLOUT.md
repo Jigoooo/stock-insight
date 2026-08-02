@@ -84,6 +84,7 @@
 ### 2026-08-02 — 1B Calendar + DatePicker + RangePicker 검증 완료
 
 - 공용 API·UI Lab 이식 커밋: `ed4c042`
+- 후속 레이아웃 보정 커밋: `442e5d9` — 헤더 화살표 수평 정렬, embedded 팝오버 surface, range 중간 테두리 제거
 - `@daypicker/react@10.0.1` 기반 Calendar·RangeCalendar와 DatePicker·RangePicker 공개 API 구현
 - 승인 variant 보존: Calendar `compact|soft-inset|ledger`, DatePicker/RangePicker `hairline|inset|rail`
 - 전역 focus 규칙의 우선순위를 낮춰 공용 컴포넌트가 focus·invalid·pending 상태를 단독 소유
