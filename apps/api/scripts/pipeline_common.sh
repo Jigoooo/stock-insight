@@ -271,6 +271,7 @@ pipeline_finish_wrapper_attempt() {
   finish_token="${PIPELINE_WRAPPER_ATTEMPT_TOKEN:-}"
   if [[ "$run_id" != "${PIPELINE_WRAPPER_ATTEMPT_ID:-}" ||
         ! "$finish_token" =~ ^[0-9a-f]{64}$ ]]; then
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt capability is unavailable" >&2
     return 70
   fi
@@ -321,10 +322,16 @@ WHERE run_id = :'wrapper_run_id'
 RETURNING 1;
 SQL
 )"; then
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt update failed" >&2
     return 70
   fi
   if [[ "$result" != "1" ]]; then
+    # Reached when the completion UPDATE matched no row. The usual cause is the
+    # provenance guard: the source tree hash recorded at start no longer matches,
+    # i.e. the working tree changed while the pipeline ran. Naming this step keeps
+    # the audit row from blaming whatever stage happened to run last.
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt update affected an unexpected row count" >&2
     return 70
   fi

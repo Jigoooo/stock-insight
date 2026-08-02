@@ -91,18 +91,25 @@ test('every function the wrappers guard with `|| exit $?` announces its step', a
 
   assert.ok(guarded.size > 0, 'expected to find guarded pipeline calls in the wrappers');
 
-  // The reporter is the one function that must NOT announce a step. It runs from
-  // the EXIT trap and reads PIPELINE_CURRENT_STEP to name the failure; if it set
-  // the variable on entry it would overwrite the very step it is about to report,
-  // and every failure would be attributed to the reporter itself.
+  // The reporter is special: it READS PIPELINE_CURRENT_STEP to name the failure,
+  // so it must not set it before that read or it would blame itself for every
+  // failure. It may set it afterwards — when the reporter is itself what failed,
+  // naming the previous stage is a misattribution. A real run recorded
+  // `db-assertion:analytics` when that assertion had passed and the completion
+  // UPDATE was what died, which is what this ordering check prevents.
   const reporter = 'pipeline_finish_wrapper_attempt';
   const reporterBody = source.match(new RegExp(`^${reporter}\\(\\) \\{[\\s\\S]*?^\\}`, 'm'));
   assert.ok(reporterBody);
-  assert.doesNotMatch(
-    reporterBody[0],
-    /pipeline_begin_step /,
-    `${reporter} reads PIPELINE_CURRENT_STEP to report the failure — setting it here would clobber the step being reported`,
-  );
+  const readsFallback = reporterBody[0].indexOf('failed_command="${PIPELINE_CURRENT_STEP:-}"');
+  assert.ok(readsFallback >= 0, `${reporter} must fall back to the in-flight step`);
+  for (const match of reporterBody[0].matchAll(/PIPELINE_CURRENT_STEP=/g)) {
+    assert.ok(
+      match.index! > readsFallback,
+      `${reporter} assigns PIPELINE_CURRENT_STEP before reading it — the step being reported would be clobbered`,
+    );
+  }
+  // And it must name itself when its own update is what failed.
+  assert.match(reporterBody[0], /PIPELINE_CURRENT_STEP="wrapper-finish:/);
   guarded.delete(reporter);
 
   for (const fn of guarded) {
