@@ -74,8 +74,6 @@ const slidingVariants = [
   },
 ] as const;
 
-// Baseline semantic shape retained for the source contract: <nav aria-label="경로 탭 비교">
-
 export function NavigationTabsCatalog() {
   const [activeRoute, setActiveRoute] = useState<(typeof routeItems)[number]['id']>('overview');
   const [activeView, setActiveView] = useState('impact');

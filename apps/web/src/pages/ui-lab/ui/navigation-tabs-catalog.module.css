@@ -226,18 +226,19 @@
   background: var(--color-surface-subtle);
 }
 
-.slidingList .slidingHighlight {
-  inset: 0;
-  width: auto;
-  padding: 0;
-  box-shadow: none;
-}
-
-.slidingList {
+.variantCard[data-variant] .slidingList {
   display: grid;
   grid-template-columns: repeat(3, minmax(108px, 1fr));
   width: 100%;
   max-width: 100%;
+}
+
+.variantCard[data-variant] .slidingList .slidingHighlight {
+  inset: 0;
+  width: auto;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .slidingList > * {

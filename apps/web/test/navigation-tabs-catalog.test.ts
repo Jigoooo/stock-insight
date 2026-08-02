@@ -57,7 +57,11 @@ describe('UI Lab navigation tabs catalog', () => {
 
   it('keeps route navigation semantics separate from sliding tab state', async () => {
     const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
-    const routeSection = sourceBlock(catalog, '<nav aria-label="경로 탭 비교">', '</nav>');
+    const routeSection = sourceBlock(
+      catalog,
+      '<nav aria-label={`경로 탭 비교 · ${variant.title}`}>',
+      '</nav>',
+    );
     const slidingSection = sourceBlock(
       catalog,
       '<Tabs value={activeView} onValueChange={setActiveView}>',
@@ -65,13 +69,14 @@ describe('UI Lab navigation tabs catalog', () => {
     );
 
     assert.match(catalog, /from '@\/shared\/ui\/tabs'/);
-    assert.match(routeSection, /<nav aria-label="경로 탭 비교">/);
+    assert.match(routeSection, /<nav aria-label=\{`경로 탭 비교 · \$\{variant\.title\}`\}>/);
     assert.match(
       routeSection,
       /(?:<a\b(?=[^>]*href=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>|<Link\b(?=[^>]*to=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>)/,
     );
     assert.match(slidingSection, /<Tabs value=\{activeView\} onValueChange=\{setActiveView\}>/);
     assert.match(slidingSection, /<TabsHighlight/);
+    assert.match(slidingSection, /aria-label=\{`화면 탭 비교 · \$\{variant\.title\}`\}/);
     assert.match(slidingSection, /<TabsTrigger[\s\S]*value=\{item\.id\}/);
     assert.doesNotMatch(
       slidingSection,
@@ -108,5 +113,21 @@ describe('UI Lab navigation tabs catalog', () => {
     assert.match(mobileCss, /overflow-x: auto/);
     assert.match(mobileCss, /(?:flex-wrap|white-space): nowrap/);
     assert.match(mobileCss, /min-height: 44px/);
+  });
+
+  it('keeps the catalog layout and indicator stronger than shared tab defaults', async () => {
+    const css = await readUiLabSource('navigation-tabs-catalog.module.css');
+    const listCss = balancedCssBlock(css, '.variantCard[data-variant] .slidingList');
+    const indicatorCss = balancedCssBlock(
+      css,
+      '.variantCard[data-variant] .slidingList .slidingHighlight',
+    );
+
+    assert.match(listCss, /display: grid/);
+    assert.match(listCss, /grid-template-columns: repeat\(3, minmax\(108px, 1fr\)\)/);
+    assert.match(indicatorCss, /width: auto/);
+    assert.match(indicatorCss, /padding: 0/);
+    assert.match(indicatorCss, /border: 0/);
+    assert.match(indicatorCss, /box-shadow: none/);
   });
 });
