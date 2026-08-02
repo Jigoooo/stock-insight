@@ -261,6 +261,10 @@ export function buildStockDeepDive(
     : undefined;
 
   const exposureItems = impactExposureItems(impactBrief);
+  // The rendered list is capped, so its length is not the number of paths. Using
+  // it in the summary understated 240 paths as "13건" — the count has to come
+  // from the data, not from how much of it fits on screen.
+  const exposurePathCount = impactBrief?.data?.paths.length ?? 0;
 
   const sections: StockDeepDiveSection[] = [
     section('identity', identityItems.length > 0 ? 'available' : 'missing', identityItems),
@@ -274,7 +278,7 @@ export function buildStockDeepDive(
       exposureItems.length > 0 ? 'available' : 'missing',
       exposureItems,
       exposureItems.length > 0
-        ? `봉인된 영향 경로 ${exposureItems.length}건. 산업 연결 강도이며 가격 전망이 아닙니다.`
+        ? `봉인된 영향 경로 ${exposurePathCount}건. 산업 연결 강도이며 가격 전망이 아닙니다.`
         : undefined,
     ),
     // Feature/impact serving surfaces are not yet wired to this read model.

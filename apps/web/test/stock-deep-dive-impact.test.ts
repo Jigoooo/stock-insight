@@ -147,6 +147,9 @@ describe('second-order exposure from sealed impact paths', () => {
 
     assert.equal(section.items.length, 13, '12 paths plus one line naming the remainder');
     assert.match(section.items.at(-1)!, /나머지 18건 생략/);
+    // The summary counts paths, not rendered rows. Using the rendered length
+    // reported 240 paths as "13건".
+    assert.match(section.summary, /영향 경로 30건/);
     // Strongest first, so what survives the cap is what matters.
     assert.match(section.items[0]!, /0\.75/);
   });
