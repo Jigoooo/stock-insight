@@ -36,6 +36,28 @@ import {
 } from '../relations/relation-graph-projector-v2.ts';
 
 const APPLY = process.argv.includes('--apply');
+// The run slot is the KST date, so a second publish in one day is impossible by
+// design — which is right for accidental double-runs but leaves no supported way
+// to re-run after a code fix. The only alternative was deleting the claim row by
+// hand: no audit trail, and a DELETE against the table that prevents concurrent
+// double-publishing.
+//
+// A suffix makes the re-run its own slot instead. The guard is untouched — each
+// key is still claimed exactly once, so two concurrent runs still cannot collide —
+// and the forced run leaves its own claim row, so "why are there two snapshots
+// today" is answerable from the data.
+const SLOT_SUFFIX = (() => {
+  const index = process.argv.indexOf('--slot-suffix');
+  if (index === -1) return '';
+  const value = process.argv[index + 1];
+  if (value === undefined || value.startsWith('--')) {
+    throw new Error('--slot-suffix requires a value');
+  }
+  if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(value)) {
+    throw new Error('--slot-suffix must be lowercase alphanumeric with dashes, max 32 chars');
+  }
+  return `#${value}`;
+})();
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const FRESHNESS_HOURS = 36;
 const SUPERHUB_DEGREE_THRESHOLD = 200;
@@ -1040,7 +1062,7 @@ async function apply(client: Client): Promise<void> {
     `SELECT to_char(clock_timestamp() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD') AS slot`,
   );
   const slot = slotResult.rows[0]!.slot;
-  const naturalRunKey = `v2-graph-publish:${slot}`;
+  const naturalRunKey = `v2-graph-publish:${slot}${SLOT_SUFFIX}`;
   const claimedBy = `${hostname()}:${process.pid}:${RELEASE_COMMIT}`;
   const claimResult = await client.query<
     QueryResultRow & { claimed: boolean; fencing_token: string | number; owner: string }

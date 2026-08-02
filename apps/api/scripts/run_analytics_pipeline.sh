@@ -91,8 +91,11 @@ SELECT CASE WHEN
   AND EXISTS (SELECT 1 FROM serving.probability_scorecard_v1)
   AND EXISTS (
     SELECT 1 FROM ops.pipeline_run_claim claim
-    WHERE claim.natural_run_key = 'v2-graph-publish:' ||
-          to_char(clock_timestamp() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD')
+    -- Prefix match: a re-run publishes under 'v2-graph-publish:<date>#<suffix>'
+    -- (see SLOT_SUFFIX in run-v2-graph-publish.ts). Exact equality here would make
+    -- a supported re-run fail its own readback.
+    WHERE claim.natural_run_key LIKE 'v2-graph-publish:' ||
+          to_char(clock_timestamp() AT TIME ZONE 'Asia/Seoul','YYYY-MM-DD') || '%'
       AND claim.claim_status='completed'
       AND claim.completed_at IS NOT NULL
   )

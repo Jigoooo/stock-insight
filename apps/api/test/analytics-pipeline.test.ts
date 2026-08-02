@@ -27,7 +27,7 @@ test('analytics pipeline fails closed on stale OHLCV and preserves stage order',
   );
   assert.match(
     pipeline,
-    /claim\.natural_run_key = 'v2-graph-publish:'[\s\S]*claim_status='completed'/,
+    /claim\.natural_run_key LIKE 'v2-graph-publish:'[\s\S]*claim_status='completed'/,
   );
   assert.match(pipeline, /serving\.v_relation_graph_freshness[\s\S]*servable=true/);
   assert.match(pipeline, /cd "\$ROOT"/);

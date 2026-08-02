@@ -19,7 +19,7 @@ test('V2 publisher refuses an active foreign claim and only replays completed da
   assert.match(runner, /SELECT claim_status,completed_at[\s\S]*FROM ops\.pipeline_run_claim/);
   assert.match(runner, /claim_status !== 'completed'[\s\S]*claim is owned by another active run/);
   assert.doesNotMatch(runner, /outcome:\s*['"]not_claimed['"]/);
-  assert.match(pipeline, /natural_run_key = 'v2-graph-publish:'[\s\S]*claim_status='completed'/);
+  assert.match(pipeline, /natural_run_key LIKE 'v2-graph-publish:'[\s\S]*claim_status='completed'/);
   assert.match(pipeline, /serving\.v_relation_graph_freshness[\s\S]*servable=true/);
 });
 

@@ -126,7 +126,12 @@ const SERVING_YIELD = [
   // still read as broken.
   {
     surface: 'serving.content_pack_item[impact_path]',
-    view: "SELECT count(*) FROM serving.content_pack_item WHERE item_kind = 'impact_path'",
+    // Scoped to published packs. Items are not deleted when a pack is superseded,
+    // so counting the table raw grows without bound and pushed this ratio above 1
+    // the first time a second snapshot published in one day.
+    view: `SELECT count(*) FROM serving.content_pack_item item
+           JOIN serving.content_pack pack USING (content_pack_id)
+           WHERE item.item_kind = 'impact_path' AND pack.status = 'published'`,
     upstream: `SELECT count(*) FROM analytics.impact_path_v2 path
                WHERE path.status = 'sealed'
                  AND path.graph_snapshot_id IN (
@@ -174,7 +179,9 @@ const CHAINS = [
       },
       {
         label: 'content_pack_item[impact_path]',
-        sql: "SELECT count(*) FROM serving.content_pack_item WHERE item_kind = 'impact_path'",
+        sql: `SELECT count(*) FROM serving.content_pack_item item
+              JOIN serving.content_pack pack USING (content_pack_id)
+              WHERE item.item_kind = 'impact_path' AND pack.status = 'published'`,
       },
       {
         label: 'impact_brief 팩 (servable)',
