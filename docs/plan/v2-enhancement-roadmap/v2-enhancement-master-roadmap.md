@@ -9,6 +9,11 @@
 > - 작성일: 2026-07-20 KST
 > - 목표: **고도화 계획의 모든 항목을 예외 없이 100% 구현** (보류·축소 없음; 단, 각 항목의 "100%"는 §3의 scope-bound 정의를 따른다)
 > - 폐기된 이전 계획: 2026-07-20 오전 세션의 12-TODO 계획(complete-v2)은 본 문서로 **흡수·대체**된다 (§2 매핑표 참조)
+>
+> **진행 상태 기록 규칙**: §10이 요구하는 `★완료(날짜)` 마킹과 실측 수치는 각 Phase 절에
+> 남긴다. 현재 P0에만 진행 기록이 있으며(아래 "P0 진행 기록"), P1~P6은 미기록이다.
+> 미기록은 "미완료"가 아니라 "측정하지 않음"을 뜻한다 — 판단하려면 라이브 DB를 조회할 것.
+> 성능·엣지 관련 실측은 [`docs/operations/edge-and-login-performance.md`](../../operations/edge-and-login-performance.md).
 
 ---
 
@@ -160,13 +165,48 @@ flowchart TB
 +------+----------------------------------------------------------------------------+
 
 완료 조건 (전부 실측):
-[ ] impact_path_v2·community·measurement 각각 운영 행 > 0, 반복 실행 성공
-[ ] 동일 input replay digest 일치
-[ ] fallback 없는 V2 API로 핵심 여정 통과 (255/255 root, v1_fallback 호출 0)
-[ ] outbox terminal row 미정착 0, dead-letter 처리 검증
-[ ] latest_report_pointer 상시 존재
-[ ] restore drill 1회 성공 (RPO/RTO 문서화)
+[x] impact_path_v2·community·measurement 각각 운영 행 > 0 — 39,031 / 48 / 839 (2026-08-02 실측)
+[ ]   └ 단, "반복 실행 성공"은 미충족. 아래 §P0 진행 기록 참조
+[ ] 동일 input replay digest 일치 — 미검증
+[ ] fallback 없는 V2 API로 핵심 여정 통과 (255/255 root, v1_fallback 호출 0) — 미검증
+[x] outbox terminal row 미정착 0, dead-letter 처리 검증 — delivery 1,030건 전부 delivered,
+    dead_letter 0건 (2026-08-02 실측)
+[x] latest_report_pointer 상시 존재 — 20행 (2026-08-02 실측)
+[ ] restore drill 1회 성공 (RPO/RTO 문서화) — 미검증
 ```
+
+#### P0 진행 기록 (2026-08-02 실측)
+
+**부분 달성.** 데이터로 확인 가능한 항목은 대부분 충족했으나 두 가지가 남았다.
+
+| 항목 | 실측 | 판정 |
+| --- | --- | --- |
+| P0-3 L5 producer 3종 | `impact_path_v2` 39,031 / `graph_community` 48 / `relation_measurement` 839 | 행은 충족 |
+| P0-4 report pack + pointer | `serving.latest_report_pointer` 20행, `serving.content_pack` 1,678행 | ✅ |
+| P0-6 outbox + dead-letter | delivery 1,030 전건 delivered, `ops.dead_letter` 0 | ✅ |
+| P0-7 source contract 승인 | `approved` 32 / `provisional_review_required` 29 (총 61) | 🔶 부분 |
+
+**미충족 1 — 반복 실행이 깨져 있다.** `stock-insight-analytics-wrapper`가 2026-07-31부터
+연속 실패 중이고 마지막 성공은 2026-07-28이다. 원인은 `run-core-identity-sync`가
+`core identity state conflict for KR:060720`으로 중단되는 것:
+
+`ELIGIBLE_IDENTITIES_SQL`은 기대 거래소를 `company_profiles.profile_json->>'corporationClass'`
+에서 유도하는데(`K`→KOSDAQ, `Y`→KOSPI), 두 종목의 `core.listing`이 KOSPI로 적재되어 있어
+`listing_count`가 0이 되고 `classifyIdentityState`가 conflict로 판정한다.
+
+| 티커 | 이름 | 기대 | 실제 listing | listing_id |
+| --- | --- | --- | --- | --- |
+| 060720 | (주)케이에이치바텍 | EXCHANGE:KOSDAQ | EXCHANGE:KOSPI | 330 |
+| 086390 | (주)유니테스트 | EXCHANGE:KOSDAQ | EXCHANGE:KOSPI | 335 |
+
+둘 다 2026-07-24 적재분이며, 전수 조사 결과 불일치는 이 2건뿐이다. L5 producer가 멈춘
+동안에도 RSS 수집과 knowledge 파이프라인은 정상 동작하고 있다.
+
+**미충족 2 — replay digest·V1 fallback 부재·restore drill은 측정하지 않았다.**
+체크되지 않은 항목은 "실패"가 아니라 "미검증"이다.
+
+**P0-7은 부분 달성으로 남긴다.** 로드맵 원문의 "32건 중 3건 승인" 기준은 해소됐지만
+(승인 32건), 전체 61건 중 29건이 아직 `provisional_review_required` 상태다.
 
 ### P1 — Truth Infrastructure + Geo 기반
 

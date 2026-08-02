@@ -1,5 +1,10 @@
 # Stock Insight — V2 고도화 종합 계획 및 심층 검토 보고서
 
+> **이 문서는 설계 근거이지 진행 원장이 아니다.** "어디까지 왔나"의 답은
+> [`v2-enhancement-roadmap/v2-enhancement-master-roadmap.md`](v2-enhancement-roadmap/v2-enhancement-master-roadmap.md)
+> 하나이며, 그 문서가 본 문서를 흡수해 실행 정본을 선언한다. 여기서는 §0~§30이 *왜*
+> 그렇게 설계됐는지를 읽고, 무엇이 실제로 구현·배포됐는지는 로드맵에서 확인할 것.
+
 > **목표 명칭**: Evidence-Grounded Market World Model — 근거 기반 시장 월드모델  
 > **문서 성격**: 기존 완성형 V2 아키텍처를 폐기하거나 새 메이저 API로 교체하지 않고, 동일한 L0~L8·X1~X4 계약 안에 지리·영향·시나리오·개인화 의사결정 기능을 추가하는 구현 계획  
 > **검토 대상**: `stock-insight-e2e-layers.md` (완성형 V2 목표 아키텍처 및 현재 실측표)  
