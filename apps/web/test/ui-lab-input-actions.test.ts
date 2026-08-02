@@ -92,6 +92,28 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /aria-label=\{`\$\{file\.name\} 삭제`\}/);
   });
 
+  it('animates upload rows with alternating exits, pop-layout reflow, and reduced-motion feedback', async () => {
+    const [catalog, styles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+    ]);
+
+    assert.match(catalog, /useReducedMotion/);
+    assert.match(catalog, /<AnimatePresence initial=\{false\} mode="popLayout">/);
+    assert.match(catalog, /<motion\.li/);
+    assert.match(catalog, /<motion\.li[\s\S]*key=\{file\.id\}/);
+    assert.doesNotMatch(catalog, /key=\{index\}/);
+    assert.match(catalog, /layout=\{reducedMotion \? false : 'position'\}/);
+    assert.match(catalog, /index % 2 === 0 \? -18 : 18/);
+    assert.match(catalog, /index \* 0\.028/);
+    assert.match(catalog, /index \* 0\.018/);
+    assert.match(catalog, /duration: 0\.14/);
+    assert.match(catalog, /duration: 0\.24/);
+    assert.match(catalog, /duration: 0\.1/);
+    assert.match(styles, /\.uploadFileList \{[\s\S]*position: relative/);
+    assert.doesNotMatch(styles, /upload-file-enter/);
+  });
+
   it('keeps the mockups keyboard-operable and stateful', async () => {
     const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
 

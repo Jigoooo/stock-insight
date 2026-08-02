@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -253,6 +253,9 @@ const multipleUploadSamples: UploadPreviewFile[] = [
   { id: 'watchlist', name: 'watchlist.xlsx', size: '632 KB' },
 ];
 
+const uploadEnterEase = [0.22, 1, 0.36, 1] as const;
+const uploadExitEase = [0.4, 0, 1, 1] as const;
+
 function formatFileSize(size: number) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
@@ -261,6 +264,7 @@ function formatFileSize(size: number) {
 
 function UploadPreview({ direction }: { direction: DirectionId }) {
   const inputId = useId();
+  const reducedMotion = useReducedMotion();
   const [mode, setMode] = useState<UploadMode>('single');
   const [files, setFiles] = useState<UploadPreviewFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -391,28 +395,79 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
         )}
       </div>
 
-      {files.length > 0 && (
-        <ul className={styles.uploadFileList} aria-label="선택된 파일">
-          {files.map((file) => (
-            <li key={file.id}>
-              <span className={styles.uploadFileIcon} aria-hidden="true">
-                <FileText size={15} strokeWidth={1.7} />
-              </span>
-              <span className={styles.uploadFileMeta}>
-                <strong>{file.name}</strong>
-                <small>{file.size} · 준비됨</small>
-              </span>
-              <button
-                type="button"
-                aria-label={`${file.name} 삭제`}
-                onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
+      <ul
+        className={styles.uploadFileList}
+        aria-label="선택된 파일"
+        aria-hidden={files.length === 0 || undefined}
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {files.map((file, index) => {
+            const exitX = index % 2 === 0 ? -18 : 18;
+
+            return (
+              <motion.li
+                key={file.id}
+                layout={reducedMotion ? false : 'position'}
+                initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                animate={
+                  reducedMotion
+                    ? { opacity: 1, transition: { duration: 0.1 } }
+                    : {
+                        opacity: 1,
+                        x: 0,
+                        y: 0,
+                        scale: 1,
+                        transition: {
+                          duration: 0.16,
+                          delay: index * 0.028,
+                          ease: uploadEnterEase,
+                        },
+                      }
+                }
+                exit={
+                  reducedMotion
+                    ? { opacity: 0, transition: { duration: 0.1 } }
+                    : {
+                        opacity: 0,
+                        x: exitX,
+                        scale: 0.985,
+                        transition: { duration: 0.14, ease: uploadExitEase },
+                      }
+                }
+                transition={
+                  reducedMotion
+                    ? undefined
+                    : {
+                        layout: {
+                          type: 'spring',
+                          duration: 0.24,
+                          bounce: 0,
+                          delay: index * 0.018,
+                        },
+                      }
+                }
               >
-                <X aria-hidden="true" size={14} strokeWidth={1.8} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                <span className={styles.uploadFileIcon} aria-hidden="true">
+                  <FileText size={15} strokeWidth={1.7} />
+                </span>
+                <span className={styles.uploadFileMeta}>
+                  <strong>{file.name}</strong>
+                  <small>{file.size} · 준비됨</small>
+                </span>
+                <button
+                  type="button"
+                  aria-label={`${file.name} 삭제`}
+                  onClick={() =>
+                    setFiles((current) => current.filter((item) => item.id !== file.id))
+                  }
+                >
+                  <X aria-hidden="true" size={14} strokeWidth={1.8} />
+                </button>
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ul>
     </div>
   );
 }
