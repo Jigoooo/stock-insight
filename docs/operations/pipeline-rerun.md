@@ -23,6 +23,12 @@ cd /home/jigoo/.hermes/workspace/stock-insight
 DATABASE_URL=… node apps/api/src/analytics/run-v2-graph-publish.ts --apply --slot-suffix rerun-1
 ```
 
+Or re-run the whole wrapper — the env form is inherited, so no script forwards it:
+
+```bash
+STOCK_INSIGHT_SLOT_SUFFIX=rerun-1 bash apps/api/scripts/run_analytics_pipeline.sh
+```
+
 The re-run publishes under `v2-graph-publish:2026-08-03#rerun-1` — its own slot.
 
 - The concurrency guard is untouched. Each key is still claimed exactly once, so

@@ -48,7 +48,18 @@ const APPLY = process.argv.includes('--apply');
 // today" is answerable from the data.
 const SLOT_SUFFIX = (() => {
   const index = process.argv.indexOf('--slot-suffix');
-  if (index === -1) return '';
+  // Also readable from the environment so the whole pipeline wrapper can be
+  // re-run without teaching every script to forward the flag — env inherits.
+  const fromEnv = process.env.STOCK_INSIGHT_SLOT_SUFFIX?.trim();
+  if (index === -1) {
+    if (!fromEnv) return '';
+    if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(fromEnv)) {
+      throw new Error(
+        'STOCK_INSIGHT_SLOT_SUFFIX must be lowercase alphanumeric with dashes, max 32 chars',
+      );
+    }
+    return `#${fromEnv}`;
+  }
   const value = process.argv[index + 1];
   if (value === undefined || value.startsWith('--')) {
     throw new Error('--slot-suffix requires a value');
