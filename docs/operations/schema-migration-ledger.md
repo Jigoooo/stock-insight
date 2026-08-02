@@ -78,10 +78,42 @@ replaying migrations.
 Closing that gap means either taking ownership of the base schema in this repo or
 documenting it as an external contract with its own provenance. Neither is done.
 
-## Two migration tracks still coexist
+## Two migration series, deliberately not merged
 
-`packages/db-schema/src/migrations/001..054` is the registry this runner drives.
-`ops/db/migrations/222_publication_record_revision.sql` is a separate, differently
-numbered track applied by hand, with its own rehearsal script and test. The runner
-does not know about it. Unifying them, or writing down why they are separate, is
-open work.
+`ops/db/migrations/222_publication_record_revision.sql` is not a stray file with an
+odd number. `220` and `221` exist too — as marker tables in the live database:
+
+```
+ops.stock_prediction_loop_migration_220
+ops.stock_fixed_horizon_migration_221
+```
+
+each holding one row of `migration_id`, `migration_token`, `installed_at`. That is
+the **legacy research app's** convention: a per-migration marker table rather than a
+central ledger. `222` is a migration in *that* series which this repository happens
+to author, and it operates on legacy-owned territory (`ops.*`,
+`public.publication_records`, `public.analysis_run_record`). It is live — 6,478 rows
+in `ops.publication_record_revision`.
+
+It is not folded into `additiveAppMigrations`, for three reasons:
+
+- Renumbering it to `055_` would claim ownership of schema this repository does not
+  own, and would break the rehearsal script and test that refer to it as 222.
+- The file carries its own `BEGIN;`/`COMMIT;` and advisory lock. Running it inside
+  the runner's single transaction would nest transactions.
+- It follows the legacy series' review and rehearsal path, not ours.
+
+What *was* wrong is that it was recorded nowhere — not in our ledger, and (unlike
+220 and 221) not by a marker table either. It is now recorded in
+`public.schema_migration` with `source = 'ops/db/migrations'`.
+
+The planner filters on `source = 'db-schema'`, so a foreign row can never be
+mistaken for one of ours; `schema:status` reports them separately:
+
+```json
+"otherSeries": ["ops/db/migrations:222_publication_record_revision"]
+```
+
+**Convention**: a raw SQL migration added under `ops/db/migrations/` must be
+recorded in `public.schema_migration` with its file's sha256 and
+`source = 'ops/db/migrations'` when it is applied by hand.

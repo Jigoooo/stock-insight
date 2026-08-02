@@ -13,7 +13,12 @@ const migration = (id: string, sql: string) => ({ id, description: id, tables: [
 test('plans unapplied migrations in registry order and skips recorded ones', () => {
   const migrations = [migration('001_a', 'SELECT 1'), migration('002_b', 'SELECT 2')];
   const ledger = [
-    { migration_id: '001_a', checksum: migrationChecksum(migrations[0]!), baselined: false },
+    {
+      migration_id: '001_a',
+      checksum: migrationChecksum(migrations[0]!),
+      baselined: false,
+      source: 'db-schema',
+    },
   ];
 
   const { plan, drift } = planMigrations(migrations, ledger, { baseline: false });
@@ -44,7 +49,12 @@ test('detects a migration edited after it was applied', () => {
   const applied = migration('001_a', 'SELECT 1');
   const edited = migration('001_a', 'SELECT 1 -- reworded');
   const ledger = [
-    { migration_id: '001_a', checksum: migrationChecksum(applied), baselined: false },
+    {
+      migration_id: '001_a',
+      checksum: migrationChecksum(applied),
+      baselined: false,
+      source: 'db-schema',
+    },
   ];
 
   const { drift } = planMigrations([edited], ledger, { baseline: false });
@@ -77,4 +87,25 @@ test('the runner refuses --baseline without --apply and holds an advisory lock',
   assert.match(source, /schema migration drift/);
   // public.migration_runs is a pipeline job log; the schema ledger is separate.
   assert.match(source, /CREATE TABLE IF NOT EXISTS public\.schema_migration/);
+});
+
+test('ignores ledger rows recorded from another migration series', () => {
+  // ops/db/migrations/222_* belongs to the legacy research app's series
+  // (…220, 221, 222). It is recorded so it is not invisible, but it must never
+  // be mistaken for one of ours — an id collision across series would otherwise
+  // silently mark our migration as applied.
+  const migrations = [migration('222_publication_record_revision', 'SELECT 1')];
+  const foreign = [
+    {
+      migration_id: '222_publication_record_revision',
+      checksum: 'whatever-the-file-hashed-to',
+      baselined: true,
+      source: 'ops/db/migrations',
+    },
+  ];
+
+  const { plan, drift } = planMigrations(migrations, foreign, { baseline: false });
+
+  assert.deepEqual(drift, [], 'a foreign-series row must not register as drift');
+  assert.equal(plan[0]?.action, 'apply', 'our series must still be planned');
 });

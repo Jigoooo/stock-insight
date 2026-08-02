@@ -18,6 +18,13 @@ const APPLY = process.argv.includes('--apply');
 // adopt the ledger without replaying its own history.
 const BASELINE = process.argv.includes('--baseline');
 
+// `source` exists because this repository writes into two different migration
+// series. 'db-schema' is our own additive registry, which this runner drives.
+// 'ops/db/migrations' is the legacy research app's series (…220, 221, 222) —
+// those files touch schema the legacy system owns, carry their own advisory
+// locks and BEGIN/COMMIT, and are applied by hand with a rehearsal script. The
+// runner does NOT manage them; recording them here only stops them from being
+// invisible. Rows with a foreign source are ignored by the planner.
 const LEDGER_SQL = `
 CREATE TABLE IF NOT EXISTS public.schema_migration (
   migration_id text PRIMARY KEY,
@@ -28,6 +35,13 @@ CREATE TABLE IF NOT EXISTS public.schema_migration (
   baselined boolean NOT NULL DEFAULT false
 )
 `;
+
+const LEDGER_SOURCE_SQL = `
+ALTER TABLE public.schema_migration
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'db-schema'
+`;
+
+const REGISTRY_SOURCE = 'db-schema';
 
 const INSERT_MIGRATION_RUN_SQL = `
 INSERT INTO public.migration_runs (
@@ -40,7 +54,7 @@ INSERT INTO public.migration_runs (
 )
 `;
 
-type LedgerRow = { migration_id: string; checksum: string; baselined: boolean };
+type LedgerRow = { migration_id: string; checksum: string; baselined: boolean; source: string };
 
 type PgModule = {
   Pool: new (options: { connectionString: string; max?: number }) => pg.Pool;
@@ -76,7 +90,13 @@ export function planMigrations(
   ledger: readonly LedgerRow[],
   options: { baseline: boolean },
 ): { plan: MigrationPlanEntry[]; drift: MigrationDrift[] } {
-  const recorded = new Map(ledger.map((row) => [row.migration_id, row.checksum]));
+  // Only our own series is planned. Rows recorded from another migration series
+  // are informational and must not be mistaken for ours.
+  const recorded = new Map(
+    ledger
+      .filter((row) => row.source === REGISTRY_SOURCE)
+      .map((row) => [row.migration_id, row.checksum]),
+  );
   const plan: MigrationPlanEntry[] = [];
   const drift: MigrationDrift[] = [];
 
@@ -100,7 +120,7 @@ export function planMigrations(
 
 async function readLedger(client: PoolClient): Promise<LedgerRow[]> {
   const result = await client.query<LedgerRow>(
-    'SELECT migration_id, checksum, baselined FROM public.schema_migration',
+    'SELECT migration_id, checksum, baselined, source FROM public.schema_migration',
   );
   return result.rows;
 }
@@ -116,6 +136,7 @@ async function run(): Promise<void> {
 
   try {
     await client.query(LEDGER_SQL);
+    await client.query(LEDGER_SOURCE_SQL);
     // One migrator at a time. Two concurrent runners would both see an empty
     // ledger and both try to apply.
     await client.query('BEGIN');
@@ -144,6 +165,10 @@ async function run(): Promise<void> {
             applied: plan.length - pending.length,
             pending: pending.map((entry) => entry.id),
             hint: pending.length === 0 ? 'schema is up to date' : 'rerun with --apply',
+            // Surfaced, not managed — see the note on LEDGER_SQL.
+            otherSeries: ledger
+              .filter((row) => row.source !== REGISTRY_SOURCE)
+              .map((row) => `${row.source}:${row.migration_id}`),
           },
           null,
           2,
@@ -159,9 +184,15 @@ async function run(): Promise<void> {
       const began = Date.now();
       if (entry.action === 'apply') await client.query(migration.sql);
       await client.query(
-        `INSERT INTO public.schema_migration (migration_id, checksum, duration_ms, baselined)
-         VALUES ($1, $2, $3, $4)`,
-        [migration.id, entry.checksum, Date.now() - began, entry.action === 'baseline'],
+        `INSERT INTO public.schema_migration (migration_id, checksum, duration_ms, baselined, source)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          migration.id,
+          entry.checksum,
+          Date.now() - began,
+          entry.action === 'baseline',
+          REGISTRY_SOURCE,
+        ],
       );
     }
 
