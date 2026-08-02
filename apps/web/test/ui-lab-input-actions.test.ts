@@ -6,6 +6,16 @@ async function readSource(path: string) {
   return readFile(new URL(path, import.meta.url), 'utf8').catch(() => '');
 }
 
+function sourceBlock(source: string, start: string, end: string) {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+
+  assert.notEqual(startIndex, -1, `Missing source block start: ${start}`);
+  assert.notEqual(endIndex, -1, `Missing source block end: ${end}`);
+
+  return source.slice(startIndex, endIndex);
+}
+
 describe('UI Lab input and action mockup batch', () => {
   it('keeps the comparison catalog separate from the product preview', async () => {
     const [labPage, catalog, previewPage] = await Promise.all([
@@ -98,20 +108,52 @@ describe('UI Lab input and action mockup batch', () => {
       readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
     ]);
 
+    const motionConfig = sourceBlock(catalog, 'const uploadEnterEase', 'function formatFileSize');
+    const uploadPreview = sourceBlock(catalog, 'function UploadPreview', 'function OtpPreview');
+    const presenceTag = sourceBlock(uploadPreview, '<AnimatePresence', '>');
+    const uploadStyles = sourceBlock(styles, '.uploadFileList {', '.visuallyHidden {');
+    const uploadListRule = sourceBlock(uploadStyles, '.uploadFileList {', '.uploadFileList li {');
+
     assert.match(catalog, /useReducedMotion/);
-    assert.match(catalog, /<AnimatePresence initial=\{false\} mode="popLayout">/);
-    assert.match(catalog, /<motion\.li/);
-    assert.match(catalog, /<motion\.li[\s\S]*key=\{file\.id\}/);
-    assert.doesNotMatch(catalog, /key=\{index\}/);
-    assert.match(catalog, /layout=\{reducedMotion \? false : 'position'\}/);
-    assert.match(catalog, /index % 2 === 0 \? -18 : 18/);
-    assert.match(catalog, /index \* 0\.028/);
-    assert.match(catalog, /index \* 0\.018/);
-    assert.match(catalog, /duration: 0\.14/);
-    assert.match(catalog, /duration: 0\.24/);
-    assert.match(catalog, /duration: 0\.1/);
-    assert.match(styles, /\.uploadFileList \{[\s\S]*position: relative/);
+    assert.match(motionConfig, /\[0\.22, 1, 0\.36, 1\] as const/);
+    assert.match(motionConfig, /\[0\.4, 0, 1, 1\] as const/);
+    assert.match(presenceTag, /initial=\{false\}/);
+    assert.match(presenceTag, /mode="popLayout"/);
+    assert.match(presenceTag, /onExitComplete=\{handleFileListExitComplete\}/);
+    assert.match(uploadPreview, /<motion\.li/);
+    assert.match(uploadPreview, /<motion\.li[\s\S]*key=\{file\.id\}/);
+    assert.doesNotMatch(uploadPreview, /key=\{index\}/);
+    assert.match(uploadPreview, /layout=\{reducedMotion \? false : 'position'\}/);
+    assert.match(uploadPreview, /index % 2 === 0 \? -18 : 18/);
+    assert.match(uploadPreview, /duration: 0\.16/);
+    assert.match(uploadPreview, /delay: index \* 0\.028/);
+    assert.match(uploadPreview, /ease: uploadEnterEase/);
+    assert.match(uploadPreview, /duration: 0\.14, ease: uploadExitEase/);
+    assert.match(uploadPreview, /scale: 0\.985/);
+    assert.match(uploadPreview, /duration: 0\.24/);
+    assert.match(uploadPreview, /delay: index \* 0\.018/);
+    assert.match(
+      uploadPreview,
+      /reducedMotion\s*\? \{ opacity: 1, transition: \{ duration: 0\.1 \} \}/,
+    );
+    assert.match(
+      uploadPreview,
+      /reducedMotion\s*\? \{ opacity: 0, transition: \{ duration: 0\.1 \} \}/,
+    );
+    assert.match(uploadPreview, /files\.length === 0 && !listExitPending/);
+    assert.match(uploadPreview, /remainingFiles\[Math\.min\(index, remainingFiles\.length - 1\)\]/);
+    assert.match(uploadPreview, /deleteButtonRefs\.current\[nextFile\.id\]\?\.focus\(\)/);
+    assert.match(uploadPreview, /fileSelectRef\.current\?\.focus\(\)/);
+    assert.match(
+      uploadPreview,
+      /<button\s+ref=\{fileSelectRef\}[\s\S]*?className=\{styles\.uploadPicker\}[\s\S]*?type="button"/,
+    );
+    assert.match(uploadPreview, /deleteButtonRefs\.current\[file\.id\] = node/);
+    assert.match(uploadListRule, /position: relative/);
+    assert.doesNotMatch(uploadListRule, /animation:/);
+    assert.match(uploadStyles, /\.uploadFileList\[aria-hidden='true'\] \{[\s\S]*?display: none/);
     assert.doesNotMatch(styles, /upload-file-enter/);
+    assert.match(styles, /@keyframes upload-drop-enter/);
   });
 
   it('keeps the mockups keyboard-operable and stateful', async () => {

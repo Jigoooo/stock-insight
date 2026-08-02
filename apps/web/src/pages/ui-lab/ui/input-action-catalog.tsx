@@ -265,9 +265,14 @@ function formatFileSize(size: number) {
 function UploadPreview({ direction }: { direction: DirectionId }) {
   const inputId = useId();
   const reducedMotion = useReducedMotion();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileSelectRef = useRef<HTMLButtonElement>(null);
+  const deleteButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const focusFileSelectAfterExit = useRef(false);
   const [mode, setMode] = useState<UploadMode>('single');
   const [files, setFiles] = useState<UploadPreviewFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [listExitPending, setListExitPending] = useState(false);
 
   const updateMode = (nextMode: UploadMode) => {
     setMode(nextMode);
@@ -279,9 +284,11 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
   const updateDemoState = (state: UploadDemoState) => {
     setDragActive(state === 'dragging');
     if (state === 'idle' || state === 'dragging') {
+      setListExitPending(files.length > 0);
       setFiles([]);
       return;
     }
+    setListExitPending(false);
     setFiles(mode === 'single' ? singleUploadSample : multipleUploadSamples);
   };
 
@@ -292,8 +299,31 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
       name: file.name,
       size: formatFileSize(file.size),
     }));
+    setListExitPending(nextFiles.length === 0 && files.length > 0);
     setFiles(mode === 'single' ? nextFiles.slice(0, 1) : nextFiles);
     setDragActive(false);
+  };
+
+  const removeFile = (file: UploadPreviewFile, index: number) => {
+    const remainingFiles = files.filter((item) => item.id !== file.id);
+    const nextFile = remainingFiles[Math.min(index, remainingFiles.length - 1)];
+
+    if (nextFile) {
+      deleteButtonRefs.current[nextFile.id]?.focus();
+    } else {
+      focusFileSelectAfterExit.current = true;
+      setListExitPending(true);
+    }
+
+    setFiles(remainingFiles);
+  };
+
+  const handleFileListExitComplete = () => {
+    setListExitPending(false);
+    if (!focusFileSelectAfterExit.current) return;
+
+    focusFileSelectAfterExit.current = false;
+    fileSelectRef.current?.focus();
   };
 
   const demoState: UploadDemoState = dragActive
@@ -361,6 +391,7 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
         }}
       >
         <input
+          ref={fileInputRef}
           id={inputId}
           className={styles.visuallyHidden}
           type="file"
@@ -390,7 +421,14 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
                   : '파일을 더 놓거나 목록에서 개별 삭제할 수 있습니다.'
                 : '끌어다 놓거나 직접 선택 · CSV, XLSX, PDF · 최대 10MB'}
             </small>
-            <label htmlFor={inputId}>{files.length > 0 ? '파일 다시 선택' : '파일 선택'}</label>
+            <button
+              ref={fileSelectRef}
+              className={styles.uploadPicker}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {files.length > 0 ? '파일 다시 선택' : '파일 선택'}
+            </button>
           </>
         )}
       </div>
@@ -398,9 +436,13 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
       <ul
         className={styles.uploadFileList}
         aria-label="선택된 파일"
-        aria-hidden={files.length === 0 || undefined}
+        aria-hidden={(files.length === 0 && !listExitPending) || undefined}
       >
-        <AnimatePresence initial={false} mode="popLayout">
+        <AnimatePresence
+          initial={false}
+          mode="popLayout"
+          onExitComplete={handleFileListExitComplete}
+        >
           {files.map((file, index) => {
             const exitX = index % 2 === 0 ? -18 : 18;
 
@@ -455,11 +497,12 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
                   <small>{file.size} · 준비됨</small>
                 </span>
                 <button
+                  ref={(node) => {
+                    deleteButtonRefs.current[file.id] = node;
+                  }}
                   type="button"
                   aria-label={`${file.name} 삭제`}
-                  onClick={() =>
-                    setFiles((current) => current.filter((item) => item.id !== file.id))
-                  }
+                  onClick={() => removeFile(file, index)}
                 >
                   <X aria-hidden="true" size={14} strokeWidth={1.8} />
                 </button>
