@@ -394,6 +394,19 @@ function repairableRows(rows: IdentityRow[]): IdentityRow[] {
   return rows.filter((row) => classifyIdentityState(toIdentityState(row)) === 'repairable');
 }
 
+// Rows whose upstream reference data has not arrived. Reported, never fatal —
+// see the note on classifyIdentityState.
+function deferredRows(rows: IdentityRow[]): IdentityRow[] {
+  return rows.filter((row) => classifyIdentityState(toIdentityState(row)) === 'deferred');
+}
+
+function deferredReason(row: IdentityRow): string {
+  if (!isTrustedName(row)) return 'untrusted or missing company name';
+  if (row.market === 'US' && normalizeCik(row.cik) === null) return 'no trusted SEC CIK yet';
+  if (row.exchange_key === null) return 'no authoritative exchange yet';
+  return 'reference data incomplete';
+}
+
 async function repairIdentity(client: PoolClient, row: IdentityRow): Promise<void> {
   const cik = normalizeCik(row.cik);
   if (row.company_id === null || cik === null) {
@@ -424,13 +437,12 @@ async function run(): Promise<void> {
       const eligible = await loadEligible(client);
       const missing = missingRows(eligible);
       const repairable = repairableRows(eligible);
+      const deferred = deferredRows(eligible);
       await client.query('COMMIT');
-      const blocked = missing.filter(
-        (row) =>
-          !isTrustedName(row) ||
-          row.exchange_key === null ||
-          (row.market === 'US' && normalizeCik(row.cik) === null),
-      );
+      // `missing` rows that still lack a trusted name are the one readiness gap
+      // classifyIdentityState cannot see (it has no name column), so they are
+      // filtered here rather than minted with an untrustworthy display name.
+      const notReady = missing.filter((row) => !isTrustedName(row));
       console.log(
         JSON.stringify(
           {
@@ -439,14 +451,16 @@ async function run(): Promise<void> {
             eligible: eligible.length,
             missing: missing.length,
             repairable: repairable.length,
-            syncable: missing.length - blocked.length,
-            blocked: blocked.map((row) => row.entity_key),
+            syncable: missing.length - notReady.length,
+            deferred: [...deferred, ...notReady].map((row) => ({
+              entityKey: row.entity_key,
+              reason: deferredReason(row),
+            })),
           },
           null,
           2,
         ),
       );
-      if (blocked.length > 0) throw new Error('core identity sync has blocked rows');
       return;
     }
 
@@ -457,38 +471,37 @@ async function run(): Promise<void> {
     const eligible = await loadEligible(client);
     const missing = missingRows(eligible);
     const repairable = repairableRows(eligible);
-    const blocked = missing.filter(
-      (row) =>
-        !isTrustedName(row) ||
-        row.exchange_key === null ||
-        (row.market === 'US' && normalizeCik(row.cik) === null),
-    );
-    if (blocked.length > 0) {
-      throw new Error(
-        `core identity sync blocked: ${blocked.map((row) => row.entity_key).join(',')}`,
-      );
-    }
+    const deferred = deferredRows(eligible);
+    const notReady = missing.filter((row) => !isTrustedName(row));
     for (const row of missing) {
       if (!isTrustedName(row) || row.exchange_key === null) continue;
       await syncIdentity(client, { ...row, exchange_key: row.exchange_key });
     }
     for (const row of repairable) await repairIdentity(client, row);
     const verified = await loadEligible(client);
-    const unresolved = verified.filter(
-      (row) => classifyIdentityState(toIdentityState(row)) !== 'complete',
-    );
+    // 'deferred' is an expected steady state, not a verification failure: those
+    // rows are waiting on upstream reference data and nothing was written for
+    // them. Anything else that is not 'complete' after a write is a real bug.
+    const unresolved = verified.filter((row) => {
+      const state = classifyIdentityState(toIdentityState(row));
+      return state !== 'complete' && state !== 'deferred';
+    });
     if (unresolved.length > 0) {
       throw new Error(
         `post-write identity verification failed: ${unresolved.map((row) => row.entity_key).join(',')}`,
       );
     }
+    const syncedCount = missing.length - notReady.length;
     const summary = {
       eligible: eligible.length,
       existing: eligible.length - missing.length,
       missing: missing.length,
-      synced: missing.length,
+      synced: syncedCount,
       repaired: repairable.length,
-      blocked: [],
+      deferred: [...deferred, ...notReady].map((row) => ({
+        entityKey: row.entity_key,
+        reason: deferredReason(row),
+      })),
     };
     await client.query(INSERT_MIGRATION_RUN_SQL, [
       JOB_NAME,

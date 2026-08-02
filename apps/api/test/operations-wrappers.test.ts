@@ -61,3 +61,33 @@ test('versioned systemd units avoid a missing user network target and retry fund
   assert.match(fundamentals, /RestartSec=15min/);
   assert.match(fundamentals, /StartLimitBurst=4/);
 });
+
+// Stages record a row only on success, so a mid-pipeline failure used to leave
+// `wrapper_failed` and nothing else. The analytics pipeline died nightly for
+// four days (2026-07-29 .. 2026-08-01) before anyone could tell which stage was
+// at fault. These wrappers must name the failing command in the audit row.
+test('wrapper failures record the command that failed, not a bare wrapper_failed', () => {
+  const wrappers = [
+    'run_analytics_pipeline.sh',
+    'run_knowledge_pipeline.sh',
+    'run_market_enrichment.sh',
+    'run_ohlcv_daily.sh',
+  ];
+  for (const script of wrappers) {
+    const body = read(`scripts/${script}`);
+    assert.match(body, /trap 'PIPELINE_FAILED_COMMAND=\$BASH_COMMAND' ERR/, script);
+    assert.match(
+      body,
+      /pipeline_finish_wrapper_attempt "\$WRAPPER_ATTEMPT_ID" failed "\$PIPELINE_FAILED_COMMAND"/,
+      script,
+    );
+  }
+
+  const common = read('scripts/pipeline_common.sh');
+  // The detail is bounded and single-line: it lands in a text column operators
+  // read at a glance.
+  assert.match(common, /failure_detail="wrapper_failed"/);
+  assert.match(common, /tr '\\n' ' ' \| cut -c1-300/);
+  assert.match(common, /error = CASE WHEN :'wrapper_status' = 'failed' THEN :'failure_detail'/);
+  assert.doesNotMatch(common, /THEN 'wrapper_failed' ELSE NULL END/);
+});

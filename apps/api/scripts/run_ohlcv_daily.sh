@@ -10,7 +10,12 @@ pipeline_acquire_lock ohlcv || exit $?
 RUN_STARTED_AT=$(pipeline_db_now) || exit $?
 pipeline_start_wrapper_attempt stock-insight-ohlcv-wrapper "$RUN_STARTED_AT" || exit $?
 WRAPPER_ATTEMPT_ID="$PIPELINE_WRAPPER_ATTEMPT_ID"
-trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" failed >/dev/null 2>&1 || true; fi; exit "$rc"' EXIT
+# Stages record a row only on success, so a mid-pipeline failure used to leave
+# just `wrapper_failed`. The ERR trap captures the command that actually failed
+# and hands it to the audit row, so migration_runs names the culprit.
+PIPELINE_FAILED_COMMAND=""
+trap 'PIPELINE_FAILED_COMMAND=$BASH_COMMAND' ERR
+trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" failed "$PIPELINE_FAILED_COMMAND" >/dev/null 2>&1 || true; fi; exit "$rc"' EXIT
 pipeline_wait_for_network ohlcv https://query1.finance.yahoo.com 6 10 || exit $?
 cd "$ROOT"
 

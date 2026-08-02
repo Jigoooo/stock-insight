@@ -216,14 +216,26 @@ SQL
   PIPELINE_WRAPPER_ATTEMPT_TOKEN="$attempt_token"
 }
 
+# $3 (optional) is the command that failed. Stages only record a row on success,
+# so without it a mid-pipeline failure left `wrapper_failed` and nothing else —
+# the analytics pipeline died nightly for four days before anyone could tell
+# which stage was at fault. Recording the failing command makes the audit row
+# self-diagnosing.
 pipeline_finish_wrapper_attempt() {
   local run_id="$1"
   local status="$2"
+  local failed_command="${3:-}"
   local result finish_commit="" finish_config_hash="" finish_source_tree_hash=""
   local finish_repo_root="" finish_wrapper_script="" finish_token finish_token_hash
+  local failure_detail="wrapper_failed"
   if [[ "$status" != "completed" && "$status" != "failed" ]]; then
     echo "invalid wrapper attempt status: $status" >&2
     return 64
+  fi
+  if [[ -n "$failed_command" ]]; then
+    # Keep it single-line and bounded: this lands in a text column that operators
+    # read at a glance, and the command can be arbitrarily long.
+    failure_detail="wrapper_failed: $(printf '%s' "$failed_command" | tr '\n' ' ' | cut -c1-300)"
   fi
   finish_token="${PIPELINE_WRAPPER_ATTEMPT_TOKEN:-}"
   if [[ "$run_id" != "${PIPELINE_WRAPPER_ATTEMPT_ID:-}" ||
@@ -250,11 +262,12 @@ pipeline_finish_wrapper_attempt() {
     -v finish_source_tree_hash="$finish_source_tree_hash" \
     -v finish_repo_root="$finish_repo_root" \
     -v finish_wrapper_script="$finish_wrapper_script" \
-    -v finish_token_hash="$finish_token_hash" <<'SQL'
+    -v finish_token_hash="$finish_token_hash" \
+    -v failure_detail="$failure_detail" <<'SQL'
 UPDATE public.migration_runs
 SET status = :'wrapper_status',
     finished_at = clock_timestamp(),
-    error = CASE WHEN :'wrapper_status' = 'failed' THEN 'wrapper_failed' ELSE NULL END
+    error = CASE WHEN :'wrapper_status' = 'failed' THEN :'failure_detail' ELSE NULL END
 WHERE run_id = :'wrapper_run_id'
   AND status = 'running'
   AND summary ->> 'attempt_token_hash' = :'finish_token_hash'

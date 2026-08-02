@@ -16,7 +16,13 @@ test('core identity sync is additive, canonical-name gated, and transactionally 
 
   assert.match(runner, /LEFT JOIN public\.company_profiles/);
   assert.match(runner, /profile\.name/);
-  assert.match(runner, /blocked/);
+  // Rows that cannot be minted yet are still recognised and reported — they are
+  // just no longer fatal. The audit row must name them and say why, so a stalled
+  // ticker is visible in migration_runs instead of only in a crash.
+  assert.match(runner, /deferredRows/);
+  assert.match(runner, /deferredReason/);
+  assert.match(runner, /deferred: \[\.\.\.deferred, \.\.\.notReady\]/);
+  assert.doesNotMatch(runner, /throw new Error\(\s*`core identity sync blocked/);
   assert.match(runner, /BEGIN/);
   assert.match(runner, /pg_advisory_xact_lock/);
   assert.match(runner, /INSERT INTO core\.entity/);
@@ -135,24 +141,42 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() =>
     classifyIdentityState({ ...complete, stockId: null, stockType: null, listingOwner: 99 }),
   );
-  assert.throws(() =>
+  // A brand-new US ticker without a CIK is deferred, not fatal. New tickers land
+  // in public.entities as soon as news or price ingestion sees them, while their
+  // CIK only arrives with the weekly fundamentals backfill — and some never
+  // resolve (absent from SEC company_tickers.json). Failing here let one
+  // unresolvable ticker kill the whole nightly analytics pipeline.
+  const newUsWithoutCik = {
+    ...complete,
+    cik: null,
+    stockId: null,
+    stockType: null,
+    listingCount: 0,
+    listingOwner: null,
+    listingExchangeKey: null,
+    tickerIdentifierCount: 0,
+    tickerIdentifierOwner: null,
+    tickerIdentifierNamespace: null,
+    companyId: null,
+    companyType: null,
+    cikOwner: null,
+    cikOwnerType: null,
+  };
+  assert.equal(classifyIdentityState(newUsWithoutCik), 'deferred');
+  // Same for a new identity whose authoritative exchange is not known yet.
+  assert.equal(
     classifyIdentityState({
-      ...complete,
-      cik: null,
-      stockId: null,
-      stockType: null,
-      listingCount: 0,
-      listingOwner: null,
-      listingExchangeKey: null,
-      tickerIdentifierCount: 0,
-      tickerIdentifierOwner: null,
-      tickerIdentifierNamespace: null,
-      companyId: null,
-      companyType: null,
-      cikOwner: null,
-      cikOwnerType: null,
+      ...newUsWithoutCik,
+      entityKey: 'KR:000125',
+      market: 'KR',
+      expectedExchangeKey: null,
     }),
+    'deferred',
   );
+  // Readiness must never mask a contradiction: half-built state under a ticker we
+  // believe is new still throws, even when the CIK is absent.
+  assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, listingCount: 1 }));
+  assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
 test('analytics runs all nine stages in order with an adjacent receipt per command', async () => {

@@ -33,7 +33,17 @@ export function normalizeCik(value: string | null): string | null {
   return candidate.length === 10 && /^(?!0{10}$)\d{10}$/.test(candidate) ? candidate : null;
 }
 
-export function classifyIdentityState(state: IdentityState): 'complete' | 'missing' | 'repairable' {
+// 'deferred' means nothing is wrong — the reference data needed to mint this
+// identity has not arrived yet. New US tickers land in public.entities as soon
+// as news or price ingestion sees them, but their SEC CIK only arrives with the
+// weekly fundamentals backfill, and some tickers (e.g. those absent from SEC
+// company_tickers.json) never resolve at all. Treating that as a conflict made a
+// single unresolvable ticker kill the whole nightly analytics pipeline; the SEC
+// backfill already records the same situation as a non-fatal `missing_cik`.
+// A genuine contradiction still throws.
+export function classifyIdentityState(
+  state: IdentityState,
+): 'complete' | 'missing' | 'repairable' | 'deferred' {
   if (!['KR', 'US'].includes(state.market) || !state.entityKey || !state.ticker) {
     return fail(state, 'legacy identity is incomplete');
   }
@@ -53,12 +63,8 @@ export function classifyIdentityState(state: IdentityState): 'complete' | 'missi
   }
 
   if (state.stockId === null) {
-    if (state.market === 'US' && state.cik === null) {
-      return fail(state, 'new US identity requires a trusted SEC CIK');
-    }
-    if (state.expectedExchangeKey === null) {
-      return fail(state, 'new identity has no authoritative exchange');
-    }
+    // Conflicts are checked BEFORE readiness: half-built state under a ticker we
+    // believe is new is a real contradiction and must never be deferred away.
     if (
       state.stockType !== null ||
       state.listingCount !== 0 ||
@@ -70,6 +76,10 @@ export function classifyIdentityState(state: IdentityState): 'complete' | 'missi
     ) {
       return fail(state, 'new identity conflicts with an existing ticker or listing');
     }
+    // Nothing exists yet and the authoritative reference is not in hand. Wait for
+    // the upstream backfill rather than minting an identity we cannot anchor.
+    if (state.market === 'US' && state.cik === null) return 'deferred';
+    if (state.expectedExchangeKey === null) return 'deferred';
     return 'missing';
   }
 
