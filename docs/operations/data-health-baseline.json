@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-02T18:10:49Z",
+  "capturedAt": "2026-08-02T18:18:46Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -258,8 +258,8 @@
   "collection": {
     "registeredSources": 32,
     "activeWindowHours": 48,
-    "activeSources": 3,
-    "sourcesUsingContractLayer": 4,
+    "activeSources": 4,
+    "sourcesUsingContractLayer": 5,
     "sources": [
       {
         "providerKey": "alternative-me",
@@ -312,10 +312,10 @@
       },
       {
         "providerKey": "fred",
-        "lastFetchRun": null,
-        "lastSourceRevision": null,
-        "activeRecently": false,
-        "usesContractLayer": false
+        "lastFetchRun": "2026-08-02T18:16:35.634Z",
+        "lastSourceRevision": "2026-08-02T18:17:36.703Z",
+        "activeRecently": true,
+        "usesContractLayer": true
       },
       {
         "providerKey": "internal-company-profile-snapshot",
@@ -488,10 +488,18 @@
     ]
   },
   "marketLineage": {
-    "facts": {
-      "total": 67711,
-      "withLineage": 36
-    },
+    "routedTables": [
+      {
+        "table": "market.financial_fact",
+        "total": 67711,
+        "withLineage": 36
+      },
+      {
+        "table": "market.macro_vintage",
+        "total": 55097,
+        "withLineage": 22584
+      }
+    ],
     "tables": [
       {
         "table": "market.corporate_action",
@@ -507,7 +515,7 @@
       },
       {
         "table": "market.macro_vintage",
-        "hasLineageColumn": false
+        "hasLineageColumn": true
       },
       {
         "table": "market.short_volume_daily",
@@ -522,7 +530,7 @@
         "hasLineageColumn": false
       }
     ],
-    "tablesWithLineageColumn": 1
+    "tablesWithLineageColumn": 2
   },
   "verification": [
     {
@@ -673,7 +681,7 @@
     },
     {
       "jobName": "stock-insight-fred-vintage",
-      "lastSuccess": "2026-08-01T20:25:53.031Z",
+      "lastSuccess": "2026-08-02T18:17:37.525Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -805,7 +813,7 @@
     },
     {
       "jobName": "stock-insight-schema-migrations",
-      "lastSuccess": "2026-08-02T18:06:17.445Z",
+      "lastSuccess": "2026-08-02T18:15:39.778Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },

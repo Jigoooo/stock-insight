@@ -54,6 +54,7 @@ import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto
 import { adminInvitationControlMigrationSql } from './migrations/054_admin_invitation_control.ts';
 import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_internal_only.ts';
 import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fact_source_lineage.ts';
+import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vintage_source_lineage.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -714,6 +715,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: marketFactSourceLineageMigrationSql,
   },
+  {
+    id: '057_macro_vintage_source_lineage',
+    description:
+      'Adds source_revision_id to market.macro_vintage so a PIT vintage can be audited against the fetch that produced it.',
+    tables: [],
+    sql: macroVintageSourceLineageMigrationSql,
+  },
 ];
 
 export {
@@ -773,4 +781,5 @@ export {
   adminInvitationControlMigrationSql,
   impactV1InternalOnlyMigrationSql,
   marketFactSourceLineageMigrationSql,
+  macroVintageSourceLineageMigrationSql,
 };

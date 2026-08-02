@@ -301,10 +301,19 @@ const MARKET_LINEAGE_SQL = `
 // Column presence says the table CAN record lineage; this says how much of it
 // actually does. Rows loaded before the collector was routed keep a NULL rather
 // than a manufactured revision, so the two numbers stay far apart for a while.
+// Per routed table, so wiring a new collector shows up as its own line rather
+// than being averaged into one number that hides which tables are still dark.
 const FACT_LINEAGE_SQL = `
-  SELECT count(*)::bigint AS total,
+  SELECT 'market.financial_fact' AS table_name,
+         count(*)::bigint AS total,
          count(source_revision_id)::bigint AS with_lineage
-  FROM market.financial_fact`;
+  FROM market.financial_fact
+  UNION ALL
+  SELECT 'market.macro_vintage',
+         count(*)::bigint,
+         count(source_revision_id)::bigint
+  FROM market.macro_vintage
+  ORDER BY 1`;
 
 const VERIFICATION_SQL = `
   SELECT 'knowledge.claim' AS relation, verification_status AS state, count(*)::bigint AS rows
@@ -452,10 +461,11 @@ try {
       sources: sourceRows,
     },
     marketLineage: {
-      facts: {
-        total: Number(factLineage.rows[0].total),
-        withLineage: Number(factLineage.rows[0].with_lineage),
-      },
+      routedTables: factLineage.rows.map((row) => ({
+        table: row.table_name,
+        total: Number(row.total),
+        withLineage: Number(row.with_lineage),
+      })),
       tables: marketLineage.rows.map((row) => ({
         table: `market.${row.table_name}`,
         hasLineageColumn: row.has_lineage_column,
@@ -541,9 +551,11 @@ function markdown(data) {
   lines.push(
     `- 계보 컬럼(\`source_revision_id\`)을 가진 \`market.*\` 테이블 **${data.marketLineage.tablesWithLineageColumn} / ${data.marketLineage.tables.length}**`,
   );
-  lines.push(
-    `- 출처가 붙은 \`market.financial_fact\` **${num(data.marketLineage.facts.withLineage)} / ${num(data.marketLineage.facts.total)}** (${pct(ratio(data.marketLineage.facts.withLineage, data.marketLineage.facts.total))})`,
-  );
+  for (const routed of data.marketLineage.routedTables) {
+    lines.push(
+      `- 출처가 붙은 \`${routed.table}\` **${num(routed.withLineage)} / ${num(routed.total)}** (${pct(ratio(routed.withLineage, routed.total))})`,
+    );
+  }
 
   lines.push('', '## Verification state', '');
   lines.push('| relation | state | rows |');
