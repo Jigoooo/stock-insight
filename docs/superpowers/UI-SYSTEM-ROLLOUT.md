@@ -74,10 +74,11 @@
 
 ### 2026-08-02 — 1A RadioGroup + Slider 검증 완료
 
-- 공개 API·보정 커밋: `77514ba`, `69cc64e`, `f270d68`, `acdd57b`, `bb074f1`
-- UI Lab 이식·브라우저 계약: `feat(ui): 선택 입력 UI Lab 이식 및 검증`
+- 공개 API·보정 커밋: `77514ba`, `69cc64e`, `f270d68`, `acdd57b`, `bb074f1`, `d9d6ad3`, `8731a5e`
+- UI Lab 이식·브라우저 계약: `408e09d`
+- 모바일 Slider 44px touch-target 후속 완료: `fix(ui): 모바일 슬라이더 터치 영역 보강`
 - 계약 검증: 선택 입력 관련 Node 5개 파일, fixture typecheck, web typecheck·lint·build
-- 브라우저 매트릭스: desktop 8건, mobile 8건; hairline·inset·rail, 키보드, 390px 44px hit area, overflow, forced-colors, reduced-motion 포함
+- 브라우저 매트릭스: desktop 9건 + mobile 9건 = 총 18건; hairline·inset·rail, 키보드, 390px 44px hit area, overflow, forced-colors, reduced-motion 포함
 - 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 RadioGroup·Slider 또는 raw radio/range 사용처 없음. 가짜 제품 기능은 추가하지 않음.
 
 ## 실행 환경 메모

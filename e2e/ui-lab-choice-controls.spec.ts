@@ -226,7 +226,11 @@ test.describe('UI Lab choice controls', () => {
       await expect(control).toHaveAttribute('data-variant', variant);
       const rootBox = await root.boundingBox();
       expect(rootBox, `${variant} slider should have a bounding box`).not.toBeNull();
-      expect(rootBox!.height).toBeLessThanOrEqual(44);
+      if (testInfo.project.name === 'mobile') {
+        expect(rootBox!.height).toBeGreaterThanOrEqual(44);
+      } else {
+        expect(rootBox!.height).toBeLessThanOrEqual(44);
+      }
     }
 
     expect(
