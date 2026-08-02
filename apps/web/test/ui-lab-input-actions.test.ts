@@ -112,12 +112,27 @@ describe('UI Lab input and action mockup batch', () => {
     assert.doesNotMatch(styles, /\.previewSurface button:focus-visible/);
   });
 
-  it('keeps the rail OTP focus feedback on the underline only', async () => {
-    const styles = await readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css');
+  it('renders OTP states through the shared public API with rail-only underline focus', async () => {
+    const [catalog, pageStyles, sharedComponent, sharedStyles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+      readSource('../src/shared/ui/otp/otp.tsx'),
+      readSource('../src/shared/ui/otp/otp.module.css'),
+    ]);
+    const otpPreview = sourceBlock(catalog, 'function OtpPreview', 'function ButtonGroupPreview');
 
-    assert.match(styles, /\.otp\[data-direction='rail'\] \.otpCells input:focus-visible/);
-    assert.match(styles, /border-bottom-color: var\(--color-text-primary\)/);
-    assert.match(styles, /outline: none/);
+    assert.match(catalog, /from '@\/shared\/ui\/otp'/);
+    assert.match(otpPreview, /<OTP/);
+    assert.match(otpPreview, /defaultValue="47"/);
+    assert.match(otpPreview, /variant=\{direction\}/);
+    assert.doesNotMatch(otpPreview, /<input|useRef|onKeyDown|onChange/);
+    assert.doesNotMatch(pageStyles, /\.otpCells|\.otp\[data-direction/);
+    assert.doesNotMatch(pageStyles, /\.previewSurface input:focus-visible/);
+    assert.match(sharedComponent, /data-slot="otp-input"/);
+    assert.match(sharedStyles, /\.root\[data-variant='rail'\] \.input:focus-visible/);
+    assert.match(sharedStyles, /border-bottom-color: var\(--color-text-primary\)/);
+    assert.match(sharedStyles, /outline: none/);
+    assert.match(sharedStyles, /box-shadow: none/);
   });
 
   it('renders file input states through the shared public API without page-owned drop logic', async () => {
@@ -155,7 +170,7 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /<DatePicker/);
     assert.match(catalog, /<RangePicker/);
     assert.match(catalog, /<FileUpload/);
-    assert.match(catalog, /aria-label=\{`OTP/);
+    assert.match(catalog, /<OTP/);
     assert.match(catalog, /aria-haspopup="menu"/);
   });
 

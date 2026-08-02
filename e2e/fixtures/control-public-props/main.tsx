@@ -6,6 +6,7 @@ import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
+import { OTP } from '@/shared/ui/otp';
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { Slider } from '@/shared/ui/slider';
 import { Switch } from '@/shared/ui/switch';
@@ -98,6 +99,14 @@ export const nativeControlPropsFixture = (
       mode="single"
       onFilesSelected={() => undefined}
       variant="hairline"
+    />
+    <OTP
+      defaultValue="47"
+      label="Verification code"
+      name="verificationCode"
+      onComplete={() => undefined}
+      onValueChange={() => undefined}
+      variant="rail"
     />
     <ToggleGroup
       draggable

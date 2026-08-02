@@ -1,12 +1,13 @@
 import { ChevronDown, Download, FileText, Link2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
 import { Calendar, type CalendarVariant } from '@/shared/ui/calendar';
 import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { FileUpload, type FileUploadFile, type FileUploadMode } from '@/shared/ui/file-upload';
+import { OTP } from '@/shared/ui/otp';
 import { RadioGroup, type RadioGroupVariant } from '@/shared/ui/radio-group';
 import { Slider, type SliderVariant } from '@/shared/ui/slider';
 
@@ -262,43 +263,15 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
 }
 
 function OtpPreview({ direction }: { direction: DirectionId }) {
-  const otpPositions = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'] as const;
-  const [digits, setDigits] = useState(['4', '7', '', '', '', '']);
-  const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   return (
-    <div className={styles.otp} data-direction={direction}>
-      <div className={styles.controlHeading}>
-        <strong>확인 코드</strong>
-        <small>02:41</small>
-      </div>
-      <div className={styles.otpCells}>
-        {digits.map((digit, index) => (
-          <input
-            key={otpPositions[index]}
-            ref={(node) => {
-              inputsRef.current[index] = node;
-            }}
-            aria-label={`OTP ${index + 1}번째 자리`}
-            inputMode="numeric"
-            maxLength={1}
-            value={digit}
-            onChange={(event) => {
-              const nextDigit = event.currentTarget.value.replace(/\D/g, '').slice(-1);
-              setDigits((current) =>
-                current.map((item, itemIndex) => (itemIndex === index ? nextDigit : item)),
-              );
-              if (nextDigit) inputsRef.current[index + 1]?.focus();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Backspace' && !digit) inputsRef.current[index - 1]?.focus();
-            }}
-          />
-        ))}
-      </div>
-      <p aria-live="polite">
-        {digits.every(Boolean) ? '코드 입력 완료' : '나머지 숫자를 입력하세요.'}
-      </p>
-    </div>
+    <OTP
+      completeText="코드 입력 완료"
+      defaultValue="47"
+      description="나머지 숫자를 입력하세요."
+      label="확인 코드"
+      meta="02:41"
+      variant={direction}
+    />
   );
 }
 
