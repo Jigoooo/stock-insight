@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음 — `1C 파일 입력` 검증 완료
-- 다음 묶음: `1D 짧은 보안 입력 — OTP`
+- 현재 활성 묶음: 없음 — `1D 짧은 보안 입력` 검증 완료
+- 다음 묶음: `1E 액션 조합 — ButtonGroup + SplitButton`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -28,7 +28,7 @@
 | 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행 |
 | 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행 |
 | 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행 |
-| 1D   | OTP                                 | 승인      | 1C 완료 후 공용화                |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행 |
 | 1E   | ButtonGroup + SplitButton           | 승인      | 1D 완료 후 공용화                |
 | 2A   | 인증·관리자 폼 수렴                 | 대기      | 1단계 공용화 이후 감사           |
 | 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 2A 완료 후 감사                  |
@@ -105,6 +105,17 @@
 - 계약 검증: web Node 584건, FileUpload Playwright desktop/mobile 12건, fixture typecheck, 전체 format·lint·typecheck·build, `git diff --check`
 - Codex 인앱 브라우저 단일 탭에서 A/B 대기·다중 선택·삭제 후 focus와 목록 재배치를 확인
 - 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 파일 입력 사용처 없음. 가짜 제품 기능은 추가하지 않음.
+
+### 2026-08-02 — 1D OTP 검증 완료
+
+- 공용 API·UI Lab 이식 커밋: `2f2d32f`
+- 공용 `OTP` 공개 API와 UI Lab 이식: `hairline|inset|rail`, controlled/uncontrolled, 1~12자리 길이, form name, disabled·invalid·pending·required 상태
+- 숫자 정규화, `one-time-code` autocomplete, 붙여넣기 분배, 자동 포커스 전진, Backspace·Delete·방향키·Home·End 이동 구현
+- C Rail은 focus ring 없이 밑줄만 강조하고 A/B는 공용 컴포넌트가 단일 focus owner로 은은한 피드백을 소유
+- 의미 구조를 `fieldset`으로 제공하고 light/dark 보조 문구 대비, 390px 44px 셀, reduced-motion, Axe 자동 접근성을 검증
+- 계약 검증: web Node 584건, OTP Playwright desktop/mobile 11건 통과·desktop 전용 mobile 계약 1건 skip, fixture typecheck, 전체 format·lint·typecheck·build, `git diff --check`
+- Codex 인앱 브라우저 단일 탭에서 A/B/C 렌더링과 C Rail의 `box-shadow: none`, `outline: none` 계산 스타일 확인
+- 제품 사용처 감사: signup의 enrollment code는 최대 256자의 opaque 값이라 고정 숫자 OTP로 교체하지 않음. 그 외 OTP 사용처가 없어 가짜 제품 기능은 추가하지 않음.
 
 ## 실행 환경 메모
 
