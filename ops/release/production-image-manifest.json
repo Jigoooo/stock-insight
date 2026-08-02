@@ -1,11 +1,11 @@
 {
   "formatVersion": 1,
   "api": {
-    "tag": "stock-insight-api:7e59ccc",
+    "tag": "stock-insight-api:2224a28",
     "imageId": "sha256:991ace10920f0369d6fe8bb41e1c6afe9412e989a447c0e7ab26dacfcffbe230"
   },
   "app": {
-    "tag": "stock-insight-app:7e59ccc",
-    "imageId": "sha256:942ace23fb5e520aed29bd4e5f0ed1192ba3796c038d9962964444705efaae75"
+    "tag": "stock-insight-app:2224a28",
+    "imageId": "sha256:6a9d0ee5999d944e4caff65aed72947c65a4687a4d40569eceb7f93a8136a989"
   }
 }

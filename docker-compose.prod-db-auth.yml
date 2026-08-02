@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:942ace23fb5e520aed29bd4e5f0ed1192ba3796c038d9962964444705efaae75}
+    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:6a9d0ee5999d944e4caff65aed72947c65a4687a4d40569eceb7f93a8136a989}
     pull_policy: never
     environment:
       NODE_ENV: production
