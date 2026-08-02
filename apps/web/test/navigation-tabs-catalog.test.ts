@@ -122,13 +122,33 @@ describe('UI Lab navigation tabs catalog', () => {
     const mobileCss = balancedCssBlock(css, '@media (max-width: 520px)');
     const slidingTargetCss = balancedCssBlock(
       mobileCss,
-      ".variantCard[data-variant] .slidingList [data-slot='tabs-trigger']",
+      ".variantCard[data-variant] .slidingList [role='tab']",
     );
 
     assert.match(mobileCss, /overflow-x: auto/);
     assert.match(mobileCss, /(?:flex-wrap|white-space): nowrap/);
     assert.match(mobileCss, /min-height: 44px/);
     assert.match(slidingTargetCss, /min-height: 44px/);
+  });
+
+  it('styles the rendered tab role instead of the overwritten trigger slot', async () => {
+    const css = await readUiLabSource('navigation-tabs-catalog.module.css');
+    const baseTriggerCss = balancedCssBlock(css, ".slidingList [role='tab']");
+    const softInsetTriggerCss = balancedCssBlock(
+      css,
+      ".variantCard[data-variant='soft-inset'] .slidingList [role='tab']",
+    );
+    const underlineTriggerCss = balancedCssBlock(
+      css,
+      ".variantCard[data-variant='sliding-underline'] .slidingList [role='tab']",
+    );
+    const reducedMotionCss = balancedCssBlock(css, '@media (prefers-reduced-motion: reduce)');
+
+    assert.match(baseTriggerCss, /width: 100%/);
+    assert.match(softInsetTriggerCss, /border-radius:/);
+    assert.match(underlineTriggerCss, /min-height: 42px/);
+    assert.match(reducedMotionCss, /\.slidingList \[role='tab'\]/);
+    assert.doesNotMatch(css, /\[data-slot='tabs-trigger'\]/);
   });
 
   it('keeps the catalog layout and indicator stronger than shared tab defaults', async () => {
