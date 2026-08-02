@@ -6,7 +6,7 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `1A 선택 입력 — RadioGroup + Slider`
+- 현재 활성 묶음: 없음
 - 다음 묶음: `1B 날짜 입력 — Calendar + DatePicker + RangePicker`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
@@ -23,34 +23,34 @@
 
 ## 전체 현황
 
-| 묶음 | 내용 | 현재 상태 | 다음 행동 |
-| --- | --- | --- | --- |
-| 1A | RadioGroup + Slider | 공용화 | 공개 API·UI Lab 이식·브라우저 검증 |
-| 1B | Calendar + DatePicker + RangePicker | 승인 | 1A 완료 후 공용화 |
-| 1C | FileUpload + Dropzone | 승인 | 검증된 목업을 공용 API로 승격 |
-| 1D | OTP | 승인 | 1C 완료 후 공용화 |
-| 1E | ButtonGroup + SplitButton | 승인 | 1D 완료 후 공용화 |
-| 2A | 인증·관리자 폼 수렴 | 대기 | 1단계 공용화 이후 감사 |
-| 2B | 워크스페이스 검색·선택 수렴 | 대기 | 2A 완료 후 감사 |
-| 2C | 워크스페이스 데이터·오버레이 수렴 | 대기 | 2B 완료 후 감사 |
-| 2D | 미사용 공용 컴포넌트 검증 | 대기 | 2C 완료 후 판단 |
-| 3A | Route Tabs + Sliding Tabs | 대기 | UI Lab 3안 비교 |
-| 3B | Side Tab + Side List | 대기 | UI Lab 3안 비교 |
-| 3C | Breadcrumb + Pagination | 대기 | UI Lab 3안 비교 |
-| 3D | Stepper + CommandPalette | 대기 | UI Lab 3안 비교 |
-| 4A | DropdownMenu + ContextMenu | 대기 | UI Lab 3안 비교 |
-| 4B | Popover | 대기 | UI Lab 3안 비교 |
-| 4C | Drawer + Sheet + BottomSheet | 대기 | UI Lab 3안 비교 |
-| 5A | Avatar + Badge + Status | 대기 | UI Lab 3안 비교 |
-| 5B | List + Timeline + Carousel | 대기 | UI Lab 3안 비교 |
-| 5C | Table + DataGrid 확장 | 대기 | UI Lab 3안 비교 |
-| 5D | Progress + Spinner | 대기 | UI Lab 3안 비교 |
-| 5E | Skeleton + Empty + Error + Loading | 대기 | UI Lab 3안 비교 |
-| 6A | Chart core + ChartFrame | 대기 | renderer-neutral 계약 구현 |
-| 6B | Market Tape | 대기 | Bklit Area + Brush 구현 |
-| 6C | Evidence Band | 대기 | ComposedChart + marker 구현 |
-| 6D | Candle Ledger | 대기 | Lightweight Charts 구현 |
-| 6E | 차트 갤러리·제품 연결 | 대기 | A/B/C 비교 후 Deep Dive 연결 |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                        |
+| ---- | ----------------------------------- | --------- | -------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행 |
+| 1B   | Calendar + DatePicker + RangePicker | 승인      | 1A 완료 후 공용화                |
+| 1C   | FileUpload + Dropzone               | 승인      | 검증된 목업을 공용 API로 승격    |
+| 1D   | OTP                                 | 승인      | 1C 완료 후 공용화                |
+| 1E   | ButtonGroup + SplitButton           | 승인      | 1D 완료 후 공용화                |
+| 2A   | 인증·관리자 폼 수렴                 | 대기      | 1단계 공용화 이후 감사           |
+| 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 2A 완료 후 감사                  |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 대기      | 2B 완료 후 감사                  |
+| 2D   | 미사용 공용 컴포넌트 검증           | 대기      | 2C 완료 후 판단                  |
+| 3A   | Route Tabs + Sliding Tabs           | 대기      | UI Lab 3안 비교                  |
+| 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
+| 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
+| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                  |
+| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                  |
+| 4B   | Popover                             | 대기      | UI Lab 3안 비교                  |
+| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                  |
+| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                  |
+| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                  |
+| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                  |
+| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                  |
+| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                  |
+| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현       |
+| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현          |
+| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현      |
+| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현          |
+| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결     |
 
 ## 완료 기록
 
@@ -71,6 +71,14 @@
 - 파일 추가 stagger, 홀짝 좌우 exit, 위쪽 reflow, 삭제 focus handoff
 - desktop compact, 390px 44px hit area, reduced-motion
 - UI Lab과 E2E 검증 완료
+
+### 2026-08-02 — 1A RadioGroup + Slider 검증 완료
+
+- 공개 API·보정 커밋: `77514ba`, `69cc64e`, `f270d68`, `acdd57b`, `bb074f1`
+- UI Lab 이식·브라우저 계약: `feat(ui): 선택 입력 UI Lab 이식 및 검증`
+- 계약 검증: 선택 입력 관련 Node 5개 파일, fixture typecheck, web typecheck·lint·build
+- 브라우저 매트릭스: desktop 8건, mobile 8건; hairline·inset·rail, 키보드, 390px 44px hit area, overflow, forced-colors, reduced-motion 포함
+- 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 RadioGroup·Slider 또는 raw radio/range 사용처 없음. 가짜 제품 기능은 추가하지 않음.
 
 ## 실행 환경 메모
 

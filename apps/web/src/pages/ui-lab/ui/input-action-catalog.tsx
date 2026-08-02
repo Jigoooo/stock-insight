@@ -13,9 +13,10 @@ import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
-import { Slider } from '@/shared/ui/slider';
+import { RadioGroup, type RadioGroupVariant } from '@/shared/ui/radio-group';
+import { Slider, type SliderVariant } from '@/shared/ui/slider';
 
-type DirectionId = 'hairline' | 'inset' | 'rail';
+type DirectionId = RadioGroupVariant & SliderVariant;
 type CategoryId =
   | 'radio'
   | 'slider'
@@ -111,39 +112,17 @@ const splitButtonDirections = {
 } as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
 
 function RadioPreview({ direction }: { direction: DirectionId }) {
-  const name = useId();
-  const [value, setValue] = useState('watch');
   return (
-    <fieldset className={styles.radioGroup} data-direction={direction}>
-      <legend>리서치 범위</legend>
-      {(
-        [
-          ['holding', '보유 종목', '포트폴리오와 직접 연결'],
-          ['watch', '관심 종목', '추적 중인 종목만 표시'],
-          ['market', '시장 전체', '발견 후보까지 확장'],
-        ] as const
-      ).map(([id, label, description]) => (
-        <label
-          key={id}
-          className={styles.radioOption}
-          data-selected={value === id || undefined}
-          aria-label={`${label}: ${description}`}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={id}
-            checked={value === id}
-            onChange={() => setValue(id)}
-          />
-          <span className={styles.radioMark} aria-hidden="true" />
-          <span>
-            <strong>{label}</strong>
-            <small>{description}</small>
-          </span>
-        </label>
-      ))}
-    </fieldset>
+    <RadioGroup
+      defaultValue="watch"
+      items={[
+        { value: 'holding', label: '보유 종목', description: '포트폴리오와 직접 연결' },
+        { value: 'watch', label: '관심 종목', description: '추적 중인 종목만 표시' },
+        { value: 'market', label: '시장 전체', description: '발견 후보까지 확장' },
+      ]}
+      label="리서치 범위"
+      variant={direction}
+    />
   );
 }
 

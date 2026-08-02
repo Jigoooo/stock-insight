@@ -220,22 +220,30 @@ describe('UI Lab input and action mockup batch', () => {
     const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
 
     assert.match(catalog, /aria-pressed=/);
-    assert.match(catalog, /type="radio"/);
+    assert.match(catalog, /<RadioGroup/);
     assert.match(catalog, /<Slider/);
     assert.match(catalog, /type="file"/);
     assert.match(catalog, /aria-label=\{`OTP/);
     assert.match(catalog, /aria-haspopup="menu"/);
   });
 
-  it('uses the canonical Slider without retaining raw range styling', async () => {
+  it('uses the canonical choice controls without retaining raw control ownership', async () => {
     const [catalog, styles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
       readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
     ]);
+    const radioPreview = sourceBlock(catalog, 'function RadioPreview', 'function SliderPreview');
+    const sliderPreview = sourceBlock(catalog, 'function SliderPreview', 'const calendarDays');
 
-    assert.match(catalog, /import \{ Slider \} from '@\/shared\/ui\/slider'/);
-    assert.match(catalog, /<Slider[\s\S]*defaultValue=\{\[64\]\}/);
-    assert.doesNotMatch(catalog, /type="range"|--slider-value/);
-    assert.doesNotMatch(styles, /\.sliderPreview|\.sliderScale|::-webkit-slider/);
+    assert.match(
+      catalog,
+      /import \{ RadioGroup, type RadioGroupVariant \} from '@\/shared\/ui\/radio-group'/,
+    );
+    assert.match(catalog, /import \{ Slider, type SliderVariant \} from '@\/shared\/ui\/slider'/);
+    assert.match(radioPreview, /<RadioGroup[\s\S]*variant=\{direction\}/);
+    assert.match(sliderPreview, /<Slider[\s\S]*defaultValue=\{\[64\]\}/);
+    assert.doesNotMatch(radioPreview, /type="radio"/);
+    assert.doesNotMatch(sliderPreview, /type="range"|--slider-value/);
+    assert.doesNotMatch(styles, /\.radioMark|\.sliderPreview|\.sliderScale|::-webkit-slider/);
   });
 });
