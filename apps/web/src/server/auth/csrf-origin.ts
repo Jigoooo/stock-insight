@@ -1,3 +1,5 @@
+const loopbackHostnames = new Set(['localhost', '127.0.0.1', '[::1]']);
+
 export function isSameOriginRequest(
   method: string,
   requestOrigin: string | null | undefined,
@@ -10,10 +12,16 @@ export function isSameOriginRequest(
   try {
     const requestUrl = new URL(requestOrigin);
     const expectedUrl = new URL(expectedOrigin);
+    const originsAreCanonical =
+      requestOrigin === requestUrl.origin && expectedOrigin === expectedUrl.origin;
+    if (!originsAreCanonical) return false;
+    if (requestUrl.origin === expectedUrl.origin) return true;
+
     return (
-      requestOrigin === requestUrl.origin &&
-      expectedOrigin === expectedUrl.origin &&
-      requestUrl.origin === expectedUrl.origin
+      requestUrl.protocol === expectedUrl.protocol &&
+      requestUrl.port === expectedUrl.port &&
+      loopbackHostnames.has(requestUrl.hostname) &&
+      loopbackHostnames.has(expectedUrl.hostname)
     );
   } catch {
     return false;
