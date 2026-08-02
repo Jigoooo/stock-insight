@@ -2,7 +2,7 @@ name: stock-insight-edge
 
 services:
   edge:
-    image: ${STOCK_INSIGHT_EDGE_IMAGE:-sha256:bd26fcbac48633dadd9e3cc53f896d4ddc2cbd4693e759b3941311971a400713}
+    image: ${STOCK_INSIGHT_EDGE_IMAGE:-sha256:5d537d7ac6dd92781d96425915bf219e110c26e8f5570ffd9b1b348391bb4082}
     ports:
       - '127.0.0.1:${STOCK_INSIGHT_EDGE_PORT:-8092}:80'
     networks:

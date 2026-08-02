@@ -36,7 +36,7 @@ describe('Stock Insight edge isolation', () => {
     assert.doesNotMatch(compose, /cloudflared|TUNNEL_TOKEN|consulting-web|web:81/);
   });
 
-  it('keeps the Stock edge uncached, origin-local, and free of Basic Auth', async () => {
+  it('keeps dynamic edge responses uncached, origin-local, and free of Basic Auth', async () => {
     const [nginx, headers, dockerfile] = await Promise.all([
       source('deploy/stock-edge/nginx.conf'),
       source('deploy/stock-edge/security-headers.conf'),
@@ -62,6 +62,20 @@ describe('Stock Insight edge isolation', () => {
       nginx,
       /Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, no-transform"/,
     );
+    // Documents, server functions and the brain stay no-store; only the
+    // content-hashed /assets/ prefix is allowed to keep the origin's immutable
+    // header. Pin that split so a future edit cannot widen the carve-out to
+    // authenticated responses.
+    const assetBlock = /location \^~ \/assets\/ \{[\s\S]*?\n  \}/.exec(nginx)?.[0] ?? '';
+    assert.notEqual(assetBlock, '', 'asset location block is missing');
+    assert.doesNotMatch(assetBlock, /proxy_hide_header Cache-Control/);
+    assert.doesNotMatch(assetBlock, /add_header Cache-Control/);
+    assert.match(assetBlock, /CDN-Cache-Control "public, max-age=31536000, immutable"/);
+    // add_header does not merge across levels, so the carve-out must re-include
+    // the security snippet or it silently ships assets without CSP/HSTS.
+    assert.match(assetBlock, /include \/etc\/nginx\/snippets\/stock-security-headers\.conf;/);
+    assert.match(assetBlock, /limit_req zone=stock_connector/);
+    assert.match(assetBlock, /limit_req zone=stock_client/);
     assert.doesNotMatch(nginx, /auth_basic|consulting/);
     assert.match(headers, /Content-Security-Policy/);
     assert.doesNotMatch(headers, /cloudflareinsights|static\.cloudflareinsights/);
