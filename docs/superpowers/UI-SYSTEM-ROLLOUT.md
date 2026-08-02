@@ -130,8 +130,9 @@
 - Codex 인앱 브라우저 단일 탭에서 세 SplitButton variant, 기본·대체 액션, menu focus 복귀와 React console warning 0건을 확인
 - 결합면·첫 모션 후속 보정: `efc65e0` — ButtonGroup·SplitButton A/B의 외곽 surface 소유권을 wrapper로 단일화하고, 내부 segment의 독립 press 이동과 UI Lab 이중 배경을 제거
 - ButtonGroup inset lip 후속 보정: `875bf3f` — 3px 안쪽 padding을 제거해 A/B 높이와 결합 구조를 통일하고 B에는 단일 저채도 fill만 유지
+- ButtonGroup 너비·press 후속 보정: `d88db83` — reusable `fullWidth` API로 가용 너비와 균등 segment 분할을 지원하고 A/B 모두 위치 이동 없는 pressed fill·inset shadow를 제공
 - SplitButton chevron은 명시적 `rotate(0deg)`에서 시작해 첫 열림과 닫힘이 같은 transition을 사용하며, menu 진입은 170ms·퇴장은 80ms로 조정
-- 후속 회귀 검증: Playwright desktop/mobile 17건 통과·desktop 전용 mobile 계약 1건 skip, surface 연속성·첫 열림·press transform·Axe·reduced-motion 포함
+- 후속 회귀 검증: Playwright desktop/mobile 18건 통과·pointer/mobile 전용 계약 2건 skip, full-width·균등 분할·pressed surface·첫 열림·Axe·reduced-motion 포함
 
 ## 실행 환경 메모
 
