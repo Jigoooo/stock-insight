@@ -1,5 +1,6 @@
 export * from './accordion';
 export * from './button';
+export * from './button-group';
 export * from './calendar';
 export * from './card';
 export * from './checkbox';
@@ -14,6 +15,7 @@ export * from './otp';
 export * from './radio-group';
 export * from './select';
 export * from './slider';
+export * from './split-button';
 export * from './switch';
 export * from './table';
 export * from './tabs';

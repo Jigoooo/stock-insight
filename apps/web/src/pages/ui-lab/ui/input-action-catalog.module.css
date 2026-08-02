@@ -51,8 +51,7 @@
 }
 
 .categoryNav button,
-.miniToggle button,
-.buttonGroup button {
+.miniToggle button {
   min-height: 34px;
   flex: none;
   padding-inline: 12px;
@@ -71,8 +70,7 @@
 }
 
 .categoryNav button[aria-pressed='true'],
-.miniToggle button[aria-pressed='true'],
-.buttonGroup button[aria-pressed='true'] {
+.miniToggle button[aria-pressed='true'] {
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: 0 0 0 1px var(--color-border) inset;
@@ -176,8 +174,7 @@
   gap: 18px;
 }
 
-.miniToggle,
-.buttonGroup {
+.miniToggle {
   display: flex;
   padding: 3px;
   border: 1px solid var(--color-border);
@@ -185,8 +182,7 @@
   background: var(--color-surface-subtle);
 }
 
-.miniToggle button,
-.buttonGroup button {
+.miniToggle button {
   min-width: 0;
   flex: 1;
 }
@@ -252,10 +248,6 @@
   align-content: start;
 }
 
-.buttonPreview[data-direction='hairline'] .buttonGroup {
-  border-radius: 0;
-}
-
 .buttonPreview[data-direction='inset'] {
   padding: 16px;
   border-radius: var(--radius-md);
@@ -278,146 +270,6 @@
   color: var(--color-text-tertiary);
   font-size: 10px;
   line-height: 1.5;
-}
-
-.splitButton {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 12px;
-  background: var(--color-text-primary);
-  box-shadow: 0 6px 18px rgb(20 22 20 / 8%);
-}
-
-.splitButton > button {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 0;
-  color: var(--color-canvas);
-  background: var(--color-text-primary);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 640;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    transform 120ms ease;
-}
-
-.splitButton > button:active {
-  transform: scale(0.985);
-}
-
-.splitButton > button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 28%, transparent) inset;
-}
-
-.splitPrimary {
-  border-radius: 11px 0 0 11px !important;
-}
-
-.splitTrigger {
-  border-radius: 0 11px 11px 0 !important;
-}
-
-.splitButton[data-direction='hairline'] .splitTrigger {
-  border-left: 1px solid color-mix(in srgb, var(--color-canvas) 22%, transparent);
-}
-
-.splitButton[data-direction='hairline'] > button:hover {
-  background: color-mix(in srgb, var(--color-text-primary) 91%, var(--color-canvas));
-}
-
-.splitButton[data-direction='inset'] {
-  border-color: var(--color-border);
-  background: var(--color-surface);
-  box-shadow: 0 5px 16px rgb(20 22 20 / 6%);
-}
-
-.splitButton[data-direction='inset'] > button {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.splitButton[data-direction='inset'] .splitTrigger {
-  margin: 3px;
-  border-radius: 9px !important;
-  background: var(--color-surface-subtle);
-}
-
-.splitButton[data-direction='inset'] > button:hover {
-  background: var(--color-surface-subtle);
-}
-
-.splitButton[data-direction='rail'] {
-  grid-template-columns: minmax(0, 1fr) 44px;
-  gap: 5px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.splitButton[data-direction='rail'] > button {
-  border: 1px solid var(--color-border-strong);
-  border-radius: 12px !important;
-}
-
-.splitButton[data-direction='rail'] .splitTrigger {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.splitButton[data-direction='rail'] > button:hover {
-  filter: brightness(0.96);
-}
-
-.splitMenu {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 6px);
-  right: 0;
-  left: 0;
-  display: grid;
-  gap: 2px;
-  padding: 6px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-raised, var(--color-surface));
-  box-shadow: var(--shadow-panel);
-  transform-origin: top right;
-}
-
-.splitMenu button {
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding-inline: 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  font-size: 11px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.splitMenu button svg {
-  flex: none;
-  color: var(--color-text-tertiary);
-}
-
-.splitMenu button:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
 }
 
 @keyframes catalog-enter {

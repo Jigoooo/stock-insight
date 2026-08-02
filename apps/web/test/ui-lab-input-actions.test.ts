@@ -59,13 +59,14 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /'split-button': \['hairline', 'inset', 'rail'\]/);
   });
 
-  it('renders only the approved upload directions while preserving three-way comparisons elsewhere', async () => {
+  it('renders only approved two-way groups while preserving three-way comparisons elsewhere', async () => {
     const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
 
     assert.match(
       catalog,
       /activeCategory === 'upload'[\s\S]*directions\.filter\(\(\{ id \}\) => id !== 'rail'\)/,
     );
+    assert.match(catalog, /activeCategory === 'button-group'/);
     assert.match(catalog, /visibleDirections\.map\(\(defaultDirection\) =>/);
   });
 
@@ -135,6 +136,32 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(sharedStyles, /box-shadow: none/);
   });
 
+  it('renders approved action groups through the shared public APIs', async () => {
+    const [catalog, styles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+    ]);
+    const buttonGroupPreview = sourceBlock(
+      catalog,
+      'function ButtonGroupPreview',
+      'function SplitButtonPreview',
+    );
+    const splitButtonPreview = sourceBlock(
+      catalog,
+      'function SplitButtonPreview',
+      'function CategoryPreview',
+    );
+
+    assert.match(catalog, /from '@\/shared\/ui\/button-group'/);
+    assert.match(catalog, /from '@\/shared\/ui\/split-button'/);
+    assert.match(buttonGroupPreview, /<ButtonGroup/);
+    assert.doesNotMatch(buttonGroupPreview, /aria-pressed|<button/);
+    assert.match(splitButtonPreview, /<SplitButton/);
+    assert.match(splitButtonPreview, /variant=\{splitButtonVariantByDirection\[direction\]\}/);
+    assert.doesNotMatch(splitButtonPreview, /AnimatePresence|motion\.|role="menu"|<button/);
+    assert.doesNotMatch(styles, /\.buttonGroup\b|\.splitButton\b|\.splitMenu\b/);
+  });
+
   it('renders file input states through the shared public API without page-owned drop logic', async () => {
     const [catalog, pageStyles, sharedComponent, sharedStyles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
@@ -171,7 +198,7 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /<RangePicker/);
     assert.match(catalog, /<FileUpload/);
     assert.match(catalog, /<OTP/);
-    assert.match(catalog, /aria-haspopup="menu"/);
+    assert.match(catalog, /<SplitButton/);
   });
 
   it('uses the canonical choice controls without retaining raw control ownership', async () => {

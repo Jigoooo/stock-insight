@@ -1,0 +1,75 @@
+.root {
+  display: inline-flex;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.root[data-orientation='vertical'] {
+  flex-direction: column;
+}
+
+.root[data-variant='hairline'] > :global([data-slot='button-control']) {
+  position: relative;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.root[data-variant='hairline'][data-orientation='horizontal']
+  > :global([data-slot='button-control'] + [data-slot='button-control']) {
+  margin-left: -1px;
+}
+
+.root[data-variant='hairline'][data-orientation='horizontal']
+  > :global([data-slot='button-control']:first-child) {
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
+}
+
+.root[data-variant='hairline'][data-orientation='horizontal']
+  > :global([data-slot='button-control']:last-child) {
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+}
+
+.root[data-variant='hairline'][data-orientation='vertical']
+  > :global([data-slot='button-control'] + [data-slot='button-control']) {
+  margin-top: -1px;
+}
+
+.root[data-variant='hairline'][data-orientation='vertical']
+  > :global([data-slot='button-control']:first-child) {
+  border-radius: var(--radius-control) var(--radius-control) 0 0;
+}
+
+.root[data-variant='hairline'][data-orientation='vertical']
+  > :global([data-slot='button-control']:last-child) {
+  border-radius: 0 0 var(--radius-control) var(--radius-control);
+}
+
+.root[data-variant='hairline'] > :global([data-slot='button-control']:focus-visible) {
+  z-index: 1;
+}
+
+.root[data-variant='inset'] {
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-control) + 3px);
+  background: var(--color-surface-subtle);
+}
+
+.root[data-variant='inset'] > :global([data-slot='button-control']) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.root[data-variant='inset'] > :global([data-slot='button-control']:hover) {
+  border-color: color-mix(in srgb, var(--color-border) 78%, transparent);
+  background: var(--color-surface);
+}
+
+@media (max-width: 480px) {
+  .root > :global([data-slot='button-control']) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

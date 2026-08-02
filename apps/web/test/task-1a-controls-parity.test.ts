@@ -77,7 +77,8 @@ describe('Task 1A.2 button availability contract', () => {
 
     assert.match(button, /guardButtonInteraction/);
     assert.match(button, /onClick=\{handleClick\}/);
-    assert.match(button, /unavailable \? undefined :/);
+    assert.match(button, /const hasComponentMotion =\s*!unavailable/);
+    assert.match(button, /const componentMotionProps: ButtonMotionProps/);
     assert.match(button, /disabled=\{nativeDisabled\}/);
     assert.doesNotMatch(button, /disabled=\{unavailable\}/);
     assert.match(css, /\.button\[aria-disabled='true'\]/);

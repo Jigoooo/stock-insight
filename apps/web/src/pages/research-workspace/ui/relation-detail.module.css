@@ -212,37 +212,6 @@
   top: 12px;
   right: 12px;
   z-index: 3;
-  display: grid;
-  grid-template-columns: repeat(3, 44px);
-  gap: 2px;
-  padding: 2px;
-  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-  border-radius: 12px;
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-border) 58%, transparent) inset,
-    0 8px 24px color-mix(in srgb, var(--color-text-primary) 7%, transparent);
-  backdrop-filter: blur(14px) saturate(130%);
-}
-
-.graphControls button {
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 0;
-  border-radius: 9px;
-}
-
-.graphControls button:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-}
-
-.graphControls svg {
-  width: 16px;
-  height: 16px;
 }
 
 .graphNodeList {

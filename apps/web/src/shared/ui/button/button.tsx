@@ -49,8 +49,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     pendingLabel,
     size = 'md',
     tapScale = 1,
+    transition,
     type = 'button',
     variant = 'secondary',
+    whileHover,
+    whileTap,
     ...props
   },
   ref,
@@ -66,11 +69,22 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     if (guardButtonInteraction(event)) return;
     props.onClick?.(event);
   };
+  const hasComponentMotion =
+    !unavailable &&
+    (hoverScale !== 1 || tapScale !== 1 || whileHover !== undefined || whileTap !== undefined);
+  const componentMotionProps: ButtonMotionProps = hasComponentMotion
+    ? {
+        ...(transition === undefined ? {} : { transition }),
+        ...(whileHover === undefined ? {} : { whileHover }),
+        ...(whileTap === undefined ? {} : { whileTap }),
+      }
+    : {};
 
   if (asChild) {
     return (
       <ButtonPrimitive
         {...props}
+        {...componentMotionProps}
         asChild
         aria-disabled={unavailable || ariaDisabled}
         className={classNames(styles.button, className)}
@@ -82,8 +96,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         onClick={handleClick}
         ref={ref}
         tapScale={unavailable ? 1 : tapScale}
-        whileHover={unavailable ? undefined : props.whileHover}
-        whileTap={unavailable ? undefined : props.whileTap}
       >
         {children as ReactElement}
       </ButtonPrimitive>
@@ -93,6 +105,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <ButtonPrimitive
       {...props}
+      {...componentMotionProps}
       aria-label={pendingAccessibleLabel}
       aria-busy={pending || props['aria-busy']}
       aria-disabled={unavailable || props['aria-disabled']}
@@ -108,8 +121,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       tapScale={unavailable ? 1 : tapScale}
       type={type}
-      whileHover={unavailable ? undefined : props.whileHover}
-      whileTap={unavailable ? undefined : props.whileTap}
     >
       <span
         className={styles.content}

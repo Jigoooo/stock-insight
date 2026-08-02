@@ -11,6 +11,10 @@ const componentStylesPath = new URL(
   '../src/pages/research-workspace/ui/relation-detail.module.css',
   import.meta.url,
 );
+const buttonGroupStylesPath = new URL(
+  '../src/shared/ui/button-group/button-group.module.css',
+  import.meta.url,
+);
 const rootPackagePath = new URL('../../../package.json', import.meta.url);
 const productionRunnerPath = new URL(
   '../../../scripts/run-sigma-production-e2e.mjs',
@@ -148,15 +152,17 @@ describe('RelationSigmaGraph structure', () => {
   });
 
   it('keeps mobile controls at 44px and binds Sigma CSP checks to a production artifact gate', async () => {
-    const [styles, rootPackage, runner, hasher] = await Promise.all([
+    const [styles, buttonGroupStyles, rootPackage, runner, hasher] = await Promise.all([
       readFile(componentStylesPath, 'utf8'),
+      readFile(buttonGroupStylesPath, 'utf8'),
       readFile(rootPackagePath, 'utf8'),
       readFile(productionRunnerPath, 'utf8'),
       readFile(productionHashPath, 'utf8'),
     ]);
 
-    assert.match(styles, /grid-template-columns:\s*repeat\(3, 44px\)/);
-    assert.match(styles, /\.graphControls button[\s\S]*?min-height:\s*44px/);
+    assert.match(buttonGroupStyles, /@media \(max-width: 480px\)/);
+    assert.match(buttonGroupStyles, /min-width:\s*44px/);
+    assert.match(buttonGroupStyles, /min-height:\s*44px/);
     assert.match(styles, /\.graphNodeList button\s*\{[\s\S]*?min-height:\s*44px/);
     // Vertical page scroll must survive over the canvas on touch devices.
     assert.match(styles, /\.sigmaCanvas\s*\{[\s\S]*?touch-action:\s*pan-y/);

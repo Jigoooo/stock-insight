@@ -1,6 +1,7 @@
 import { createRef, type AnimationEventHandler, type DragEventHandler } from 'react';
 
 import { Button, IconButton } from '@/shared/ui/button';
+import { ButtonGroup } from '@/shared/ui/button-group';
 import { Calendar } from '@/shared/ui/calendar';
 import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
@@ -9,6 +10,7 @@ import { TextLink } from '@/shared/ui/link';
 import { OTP } from '@/shared/ui/otp';
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { Slider } from '@/shared/ui/slider';
+import { SplitButton } from '@/shared/ui/split-button';
 import { Switch } from '@/shared/ui/switch';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
@@ -39,6 +41,25 @@ export const nativeControlPropsFixture = (
     >
       I
     </IconButton>
+    <ButtonGroup aria-label="Fixture actions" orientation="vertical" variant="inset">
+      <Button>First action</Button>
+      <Button pending pendingLabel="Running">
+        Second action
+      </Button>
+    </ButtonGroup>
+    <SplitButton
+      actions={[
+        { label: 'Download', value: 'download' },
+        { disabled: true, label: 'Archived action', value: 'archive' },
+      ]}
+      disableMenuWhilePending
+      onActionSelect={() => undefined}
+      onOpenChange={() => undefined}
+      triggerLabel="Fixture alternatives"
+      variant="twin"
+    >
+      Primary action
+    </SplitButton>
     <Switch
       checked={false}
       draggable
