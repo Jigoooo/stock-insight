@@ -1,6 +1,8 @@
 import { createRef, type AnimationEventHandler, type DragEventHandler } from 'react';
 
 import { Button, IconButton } from '@/shared/ui/button';
+import { Calendar } from '@/shared/ui/calendar';
+import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
 import { RadioGroup } from '@/shared/ui/radio-group';
@@ -61,6 +63,25 @@ export const nativeControlPropsFixture = (
       thumbLabels={['Confidence threshold']}
       value={[64]}
       variant="inset"
+    />
+    <Calendar
+      defaultMonth={new Date(2026, 7, 1)}
+      defaultValue={new Date(2026, 7, 12)}
+      onValueChange={() => undefined}
+      variant="ledger"
+    />
+    <DatePicker
+      defaultValue={new Date(2026, 7, 2)}
+      label="기준일"
+      onValueChange={() => undefined}
+      variant="inset"
+    />
+    <RangePicker
+      defaultValue={{ from: new Date(2026, 7, 2), to: new Date(2026, 7, 16) }}
+      endLabel="종료일"
+      onValueChange={() => undefined}
+      startLabel="시작일"
+      variant="rail"
     />
     <ToggleGroup
       draggable

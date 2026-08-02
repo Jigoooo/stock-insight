@@ -79,7 +79,7 @@
 }
 
 .categoryNav button:focus-visible,
-.previewSurface button:focus-visible,
+.previewSurface button:not([data-slot]):focus-visible,
 .previewSurface input:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
@@ -199,131 +199,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.calendar {
-  --calendar-cell-size: 30px;
-  --calendar-cell-height: 30px;
-  --calendar-cell-gap: 1px;
-
-  width: fit-content;
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-}
-
-.calendar[data-direction='hairline'] {
-  border-color: var(--color-border);
-}
-
-.calendar[data-direction='inset'] {
-  --calendar-cell-size: 32px;
-  --calendar-cell-height: 32px;
-  --calendar-cell-gap: 2px;
-
-  background: var(--color-surface-subtle);
-}
-
-.calendar[data-direction='rail'] {
-  --calendar-cell-size: 30px;
-  --calendar-cell-height: 28px;
-  --calendar-cell-gap: 1px;
-
-  border-color: var(--color-border-strong);
-  border-radius: 9px;
-}
-
-.calendar > header {
-  min-height: 46px;
-  display: grid;
-  grid-template-columns: 32px 1fr 32px;
-  place-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.calendar > header strong {
-  font-size: 12px;
-}
-
-.calendar > header button,
-.calendarGrid button {
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.calendar > header button {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-sm);
-}
-
-.weekdays,
-.calendarGrid {
-  display: grid;
-  grid-template-columns: repeat(7, var(--calendar-cell-size));
-  justify-content: center;
-}
-
-.weekdays {
-  padding: 8px 8px 0;
-}
-
-.weekdays span {
-  color: var(--color-text-tertiary);
-  font-size: 9px;
-  text-align: center;
-}
-
-.calendarGrid {
-  gap: var(--calendar-cell-gap);
-  padding: 6px 8px 10px;
-}
-
-.calendarGrid button {
-  width: var(--calendar-cell-size);
-  height: var(--calendar-cell-height);
-  border-radius: 7px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.calendarGrid button[data-today='true'] {
-  text-decoration: underline;
-  text-decoration-color: var(--color-border-strong);
-  text-underline-offset: 4px;
-}
-
-.calendar[data-direction='hairline'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-canvas);
-  background: var(--color-text-primary);
-}
-
-.calendar[data-direction='inset'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-border-strong) inset;
-}
-
-.calendar[data-direction='rail'] .calendarGrid button {
-  border-radius: 6px;
-}
-
-.calendar[data-direction='rail'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-  box-shadow: 0 0 0 1px var(--color-text-secondary) inset;
-}
-
-.calendarGrid button:hover:not([aria-pressed='true']) {
-  background: var(--color-surface-subtle);
-}
-
 .miniToggle,
 .buttonGroup {
   display: flex;
@@ -339,52 +214,14 @@
   flex: 1;
 }
 
-.dateFields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-.dateFields button {
-  min-width: 0;
-  min-height: 58px;
-  display: grid;
-  justify-items: start;
-  gap: 5px;
-  padding: 10px 12px;
-  color: var(--color-text-primary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font: inherit;
-  cursor: pointer;
-}
-
-.dateFields small,
 .dateRange p {
   color: var(--color-text-tertiary);
   font-size: 10px;
 }
 
-.dateFields strong {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
 .dateRange p {
   margin: 0;
   line-height: 1.55;
-}
-
-.dateRange[data-direction='inset'] .dateFields button {
-  border-color: transparent;
-  background: var(--color-surface-subtle);
-}
-
-.dateRange[data-direction='rail'] .dateFields button {
-  border-width: 0 0 1px;
-  border-radius: 0;
 }
 
 .uploadPreview {

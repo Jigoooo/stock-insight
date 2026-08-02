@@ -72,7 +72,7 @@ describe('UI Lab input and action mockup batch', () => {
   it('offers the approved calendar variants with compact rounded-square cells', async () => {
     const [catalog, styles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
-      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+      readSource('../src/shared/ui/calendar/calendar.module.css'),
     ]);
 
     assert.match(catalog, /A · Compact/);
@@ -80,6 +80,32 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /C · Ledger/);
     assert.match(styles, /--calendar-cell-size: 30px/);
     assert.match(styles, /border-radius: 7px/);
+  });
+
+  it('renders date controls through the shared public APIs instead of page-owned inputs', async () => {
+    const [catalog, styles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+    ]);
+    const calendarPreview = sourceBlock(
+      catalog,
+      'function CalendarPreview',
+      'function DateRangePreview',
+    );
+    const dateRangePreview = sourceBlock(catalog, 'function DateRangePreview', 'type UploadMode');
+
+    assert.match(catalog, /from '@\/shared\/ui\/calendar'/);
+    assert.match(catalog, /from '@\/shared\/ui\/date-picker'/);
+    assert.match(calendarPreview, /<Calendar/);
+    assert.match(calendarPreview, /calendarVariantByDirection\[direction\]/);
+    assert.doesNotMatch(calendarPreview, /calendarDays\.map|<button/);
+    assert.match(dateRangePreview, /<DatePicker/);
+    assert.match(dateRangePreview, /<RangePicker/);
+    assert.doesNotMatch(dateRangePreview, /<button/);
+    assert.doesNotMatch(styles, /\.calendarGrid button/);
+    assert.doesNotMatch(styles, /\.dateFields button/);
+    assert.match(styles, /\.previewSurface button:not\(\[data-slot\]\):focus-visible/);
+    assert.doesNotMatch(styles, /\.previewSurface button:focus-visible/);
   });
 
   it('keeps the rail OTP focus feedback on the underline only', async () => {
@@ -200,7 +226,7 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(filePickerButton, /type="button"/);
     assert.match(filePickerButton, /onClick=\{\(\) => fileInputRef\.current\?\.click\(\)\}/);
     assert.match(filePickerButton, /\{files\.length > 0 \? '파일 다시 선택' : '파일 선택'\}/);
-    assert.match(previewFocusRule, /\.previewSurface button:focus-visible/);
+    assert.match(previewFocusRule, /\.previewSurface button:not\(\[data-slot\]\):focus-visible/);
     assert.match(previewFocusRule, /outline: 2px solid var\(--color-focus\)/);
     assert.match(uploadPreview, /deleteButtonRefs\.current\[file\.id\] = node/);
     assert.match(uploadListRule, /position: relative/);
@@ -222,6 +248,9 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /aria-pressed=/);
     assert.match(catalog, /<RadioGroup/);
     assert.match(catalog, /<Slider/);
+    assert.match(catalog, /<Calendar/);
+    assert.match(catalog, /<DatePicker/);
+    assert.match(catalog, /<RangePicker/);
     assert.match(catalog, /type="file"/);
     assert.match(catalog, /aria-label=\{`OTP/);
     assert.match(catalog, /aria-haspopup="menu"/);
@@ -233,7 +262,11 @@ describe('UI Lab input and action mockup batch', () => {
       readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
     ]);
     const radioPreview = sourceBlock(catalog, 'function RadioPreview', 'function SliderPreview');
-    const sliderPreview = sourceBlock(catalog, 'function SliderPreview', 'const calendarDays');
+    const sliderPreview = sourceBlock(
+      catalog,
+      'function SliderPreview',
+      'function CalendarPreview',
+    );
 
     assert.match(
       catalog,

@@ -1,18 +1,11 @@
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  FileText,
-  Link2,
-  Upload,
-  X,
-} from 'lucide-react';
+import { ChevronDown, Download, FileText, Link2, Upload, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
+import { Calendar, type CalendarVariant } from '@/shared/ui/calendar';
+import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { RadioGroup, type RadioGroupVariant } from '@/shared/ui/radio-group';
 import { Slider, type SliderVariant } from '@/shared/ui/slider';
 
@@ -93,6 +86,12 @@ const calendarDirections = {
   },
 } as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
 
+const calendarVariantByDirection = {
+  hairline: 'compact',
+  inset: 'soft-inset',
+  rail: 'ledger',
+} as const satisfies Record<DirectionId, CalendarVariant>;
+
 const splitButtonDirections = {
   hairline: {
     label: 'A · Soft Join',
@@ -142,71 +141,33 @@ function SliderPreview({ direction }: { direction: DirectionId }) {
   );
 }
 
-const calendarDays = Array.from({ length: 28 }, (_, index) => index + 1);
-
 function CalendarPreview({ direction }: { direction: DirectionId }) {
-  const [selected, setSelected] = useState(12);
   return (
-    <div className={styles.calendar} data-direction={direction}>
-      <header>
-        <button type="button" aria-label="이전 달">
-          <ChevronLeft aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
-        <strong>2026년 8월</strong>
-        <button type="button" aria-label="다음 달">
-          <ChevronRight aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
-      </header>
-      <div className={styles.weekdays} aria-hidden="true">
-        {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-      <div className={styles.calendarGrid} aria-label="2026년 8월 날짜">
-        {calendarDays.map((day) => (
-          <button
-            key={day}
-            type="button"
-            aria-pressed={selected === day}
-            data-today={day === 2 || undefined}
-            onClick={() => setSelected(day)}
-          >
-            {day}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Calendar
+      defaultMonth={new Date(2026, 7, 1)}
+      defaultValue={new Date(2026, 7, 12)}
+      variant={calendarVariantByDirection[direction]}
+    />
   );
 }
 
 function DateRangePreview({ direction }: { direction: DirectionId }) {
-  const [mode, setMode] = useState<'single' | 'range'>('range');
   return (
     <div className={styles.dateRange} data-direction={direction}>
-      <div className={styles.miniToggle} aria-label="날짜 선택 방식">
-        <button type="button" aria-pressed={mode === 'single'} onClick={() => setMode('single')}>
-          하루
-        </button>
-        <button type="button" aria-pressed={mode === 'range'} onClick={() => setMode('range')}>
-          기간
-        </button>
-      </div>
-      <div className={styles.dateFields}>
-        <button type="button">
-          <small>{mode === 'single' ? '기준일' : '시작일'}</small>
-          <strong>2026.08.02</strong>
-        </button>
-        {mode === 'range' && (
-          <>
-            <span aria-hidden="true">—</span>
-            <button type="button">
-              <small>종료일</small>
-              <strong>2026.08.16</strong>
-            </button>
-          </>
-        )}
-      </div>
-      <p>{mode === 'single' ? '해당 거래일의 근거만 표시' : '15일간의 변화와 근거를 함께 표시'}</p>
+      <DatePicker
+        calendarVariant={calendarVariantByDirection[direction]}
+        defaultValue={new Date(2026, 7, 2)}
+        label="기준일"
+        variant={direction}
+      />
+      <RangePicker
+        calendarVariant={calendarVariantByDirection[direction]}
+        defaultValue={{ from: new Date(2026, 7, 2), to: new Date(2026, 7, 16) }}
+        endLabel="종료일"
+        startLabel="시작일"
+        variant={direction}
+      />
+      <p>기준일 또는 기간을 선택해 변화와 근거를 함께 확인합니다.</p>
     </div>
   );
 }

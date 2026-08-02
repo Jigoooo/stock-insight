@@ -207,11 +207,7 @@ kbd,
   user-select: text;
 }
 
-button:focus-visible,
-input:focus-visible,
-a:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+:where(button, input, a, select, textarea):focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
