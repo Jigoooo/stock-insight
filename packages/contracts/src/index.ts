@@ -629,6 +629,39 @@ export const impactSummaryResponseSchema = createApiEnvelopeSchema(
 );
 export type ImpactSummaryResponse = z.infer<typeof impactSummaryResponseSchema>;
 
+// The v2 impact plane, served through content packs of kind `impact_brief`.
+// Distinct from impactSummaryItemSchema above, which aggregates the v1 plane and
+// is permanently empty (see docs/operations/impact-plane-v1-v2.md): these are
+// individual paths, each anchored to a sealed analytics.impact_path_v2 row whose
+// steps carry real foreign keys into the graph snapshot.
+export const impactBriefPathSchema = z.object({
+  impactPathV2Id: z.number().int().positive(),
+  triggerEventId: z.number().int().positive(),
+  sourceEntityId: z.number().int().positive(),
+  eventType: z.string().min(1),
+  /** 1 = the event names this holding directly; 2 = it reaches it through one intermediary. */
+  hopCount: z.number().int().min(1),
+  pathScore: z.number().min(0).max(1),
+  /** Read-only contract: linkage strength, never a price expectation. */
+  note: z.string().min(1),
+});
+export type ImpactBriefPath = z.infer<typeof impactBriefPathSchema>;
+
+export const impactBriefSchema = z.object({
+  entityKey: z.string().min(1),
+  /** Identifies the exact pack served, so a rendered claim can be traced back. */
+  contentPackId: z.number().int().positive(),
+  packDigest: z.string().min(1),
+  graphSnapshotId: z.number().int().positive(),
+  builtAt: z.string().datetime(),
+  freshUntil: z.string().datetime(),
+  paths: z.array(impactBriefPathSchema),
+});
+export type ImpactBrief = z.infer<typeof impactBriefSchema>;
+
+export const impactBriefResponseSchema = createApiEnvelopeSchema(impactBriefSchema.nullable());
+export type ImpactBriefResponse = z.infer<typeof impactBriefResponseSchema>;
+
 export const marketConfirmationItemSchema = z.object({
   entityKey: z.string().min(1),
   market: apiStockMarketSchema,

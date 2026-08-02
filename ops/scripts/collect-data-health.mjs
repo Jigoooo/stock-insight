@@ -136,6 +136,66 @@ const SERVING_YIELD = [
   },
 ];
 
+// A single (upstream, view) pair is not enough. serving.v_world_event_current_v1
+// reads 3,041 -> 3,041 and looks perfectly healthy, but it is only
+// `world.event JOIN world.event_revision` — it measures that revisions exist, not
+// that anything consumes them. Three tables downstream the chain is empty and the
+// world model reaches nothing. A pair cannot see that; a chain can.
+const CHAINS = [
+  {
+    name: 'world model → 포트폴리오 노출',
+    steps: [
+      { label: 'world.event_revision', sql: 'SELECT count(*) FROM world.event_revision' },
+      { label: 'analytics.impact_shock', sql: 'SELECT count(*) FROM analytics.impact_shock' },
+      {
+        label: 'impact_exposure_revision (sealed)',
+        sql: "SELECT count(*) FROM analytics.impact_exposure_revision WHERE exposure_state = 'sealed'",
+      },
+      {
+        label: 'portfolio_lot_snapshot',
+        sql: 'SELECT count(*) FROM personalization.portfolio_lot_snapshot',
+      },
+    ],
+  },
+  {
+    name: 'v2 임팩트 → 제품',
+    steps: [
+      {
+        label: 'graph_snapshot_edge',
+        sql: `SELECT count(*) FROM analytics.graph_snapshot_edge edge
+              WHERE edge.graph_snapshot_id = (
+                SELECT max(graph_snapshot_id) FROM analytics.graph_snapshot WHERE status = 'sealed')`,
+      },
+      {
+        label: 'impact_path_v2 (sealed)',
+        sql: `SELECT count(*) FROM analytics.impact_path_v2
+              WHERE status = 'sealed' AND graph_snapshot_id = (
+                SELECT max(graph_snapshot_id) FROM analytics.graph_snapshot WHERE status = 'sealed')`,
+      },
+      {
+        label: 'content_pack_item[impact_path]',
+        sql: "SELECT count(*) FROM serving.content_pack_item WHERE item_kind = 'impact_path'",
+      },
+      {
+        label: 'impact_brief 팩 (servable)',
+        sql: `SELECT count(*) FROM serving.v_relation_graph_freshness
+              WHERE pack_kind = 'impact_brief' AND servable`,
+      },
+    ],
+  },
+  {
+    name: '지식 추출 → 검증된 주장',
+    steps: [
+      { label: 'knowledge.document', sql: 'SELECT count(*) FROM knowledge.document' },
+      { label: 'knowledge.claim', sql: 'SELECT count(*) FROM knowledge.claim' },
+      {
+        label: 'claim (verified)',
+        sql: "SELECT count(*) FROM knowledge.claim WHERE verification_status = 'verified'",
+      },
+    ],
+  },
+];
+
 const CONTENT_PACK_ITEM_KINDS_SQL = `
   SELECT item_kind, count(*)::bigint AS rows
   FROM serving.content_pack_item GROUP BY 1 ORDER BY 2 DESC`;
@@ -272,6 +332,24 @@ try {
     });
   }
 
+  const chains = [];
+  for (const chain of CHAINS) {
+    const steps = [];
+    for (const step of chain.steps) {
+      const value = await scalar(client, step.sql);
+      steps.push({ label: step.label, rows: value.value, error: value.error });
+    }
+    // The break is the first step that empties out while the one before it did not.
+    const breakAt = steps.findIndex(
+      (step, index) => index > 0 && step.rows === 0 && (steps[index - 1].rows ?? 0) > 0,
+    );
+    chains.push({
+      name: chain.name,
+      steps,
+      brokenAt: breakAt === -1 ? null : steps[breakAt].label,
+    });
+  }
+
   const packKinds = await client.query(CONTENT_PACK_ITEM_KINDS_SQL);
   const impactLinked = await client.query(IMPACT_LINKED_SQL);
   const sources = await client.query(SOURCE_ACTIVITY_SQL);
@@ -295,6 +373,7 @@ try {
   report = {
     capturedAt: capturedAt.rows[0].at,
     servingYield,
+    chains,
     contentPackItemKinds: packKinds.rows.map((row) => ({
       itemKind: row.item_kind,
       rows: Number(row.rows),
@@ -361,6 +440,20 @@ function markdown(data) {
       ? '모든 서빙 표면이 상류 대비 0이 아님.'
       : `**상류는 있는데 0을 내는 표면 ${broken.length}개**: ${broken.map((row) => `\`${row.surface}\``).join(', ')}`,
   );
+
+  lines.push('', '## Chains', '');
+  for (const chain of data.chains) {
+    const trail = chain.steps
+      .map((step) => `${step.label} ${step.rows === null ? '—' : num(step.rows)}`)
+      .join(' → ');
+    lines.push(`- **${chain.name}**`);
+    lines.push(`  ${trail}`);
+    lines.push(
+      chain.brokenAt === null
+        ? '  사슬이 끊긴 곳 없음.'
+        : `  **\`${chain.brokenAt}\`에서 끊김** — 상류가 있는데 여기서 0이 된다.`,
+    );
+  }
 
   lines.push('', '## Content pack items', '');
   lines.push('| item_kind | rows |');

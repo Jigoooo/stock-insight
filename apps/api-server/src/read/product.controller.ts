@@ -1,10 +1,11 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 
 import { unscopedRowQuery } from './read-context.ts';
 
 import {
   getCalibrationScorecard,
   getFeatureSnapshots,
+  getImpactBrief,
   getImpactSummaries,
   getLatestReports,
   getMarketConfirmations,
@@ -40,6 +41,17 @@ export class ProductController {
       entityKey: normalizeProductTextParam(entityKeyRaw),
       limit: normalizeProductLimitParam(limitRaw),
     });
+  }
+
+  // The v2 impact plane. `/impact` above reads serving.impact_summary_v1, which is
+  // permanently empty by construction — see docs/operations/impact-plane-v1-v2.md.
+  // entityKey is required here: a content pack is built for one holding, and its
+  // digest is what makes a rendered claim traceable.
+  @Get('impact/brief')
+  async impactBrief(@Query('entityKey') entityKeyRaw?: string | string[]) {
+    const entityKey = normalizeProductTextParam(entityKeyRaw);
+    if (entityKey === undefined) throw new BadRequestException({ error: 'invalid_query' });
+    return getImpactBrief(unscopedExecutor(), { entityKey });
   }
 
   @Get('confirmation')

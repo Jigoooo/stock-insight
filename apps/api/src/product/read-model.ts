@@ -3,16 +3,19 @@ import {
   PRODUCT_STALE_THRESHOLD_HOURS,
   resolveProductAvailability,
 } from '../publish/truth-gate.ts';
+import { getServableContentPack } from '../relations/graph-read-model-v2.ts';
 import type { UserScope } from '../server';
 import {
   calibrationScorecardResponseSchema,
   featureSnapshotResponseSchema,
+  impactBriefResponseSchema,
   impactSummaryResponseSchema,
   latestReportsResponseSchema,
   marketConfirmationResponseSchema,
   personalizedFeedResponseSchema,
   type CalibrationScorecardResponse,
   type FeatureSnapshotResponse,
+  type ImpactBriefResponse,
   type ImpactSummaryResponse,
   type LatestReportsResponse,
   type MarketConfirmationResponse,
@@ -300,6 +303,102 @@ export async function getImpactSummaries(
     });
   } catch {
     return errorEnvelope(impactSummaryResponseSchema, [], now, 'IMPACT_SUMMARY_READ_FAILED');
+  }
+}
+
+// Serves the v2 impact plane. getImpactSummaries above reads
+// serving.impact_summary_v1, which is permanently empty by construction — see
+// docs/operations/impact-plane-v1-v2.md. This reads the impact_brief content
+// packs instead, and goes through getServableContentPack so the pack's own
+// serving contract (published pack + sealed snapshot + fresh_until, re-checked in
+// process) applies rather than being re-implemented here.
+//
+// Per-entity rather than a list: a content pack is built for one holding, and a
+// cross-entity listing would have to fan out over packs and lose the digest that
+// makes a rendered claim traceable.
+export async function getImpactBrief(
+  executor: ProductQueryExecutor,
+  options: { entityKey: string; now?: Date },
+): Promise<ImpactBriefResponse> {
+  const now = options.now ?? new Date();
+  try {
+    const entityRows = await executor.queryRows<DbRow>(
+      `SELECT entity_id FROM core.entity_identifier
+       WHERE identifier_type = 'INTERNAL_KEY' AND identifier_value = $1::text
+       LIMIT 1`,
+      [options.entityKey],
+    );
+    const entityId = entityRows[0] === undefined ? null : numberValue(entityRows[0].entity_id, 0);
+    if (entityId === null || entityId <= 0) {
+      // An unknown key is "we have nothing for this", not a failure.
+      return impactBriefResponseSchema.parse({
+        data: null,
+        availability: resolveProductAvailability(
+          null,
+          0,
+          now,
+          PRODUCT_STALE_THRESHOLD_HOURS.impactSummary,
+        ),
+        error: null,
+        meta: meta(0, now),
+      });
+    }
+
+    const result = await getServableContentPack(executor, {
+      packKind: 'impact_brief',
+      entityId,
+      now,
+    });
+    if (result.status !== 'served') {
+      return impactBriefResponseSchema.parse({
+        data: null,
+        availability: resolveProductAvailability(
+          null,
+          0,
+          now,
+          PRODUCT_STALE_THRESHOLD_HOURS.impactSummary,
+        ),
+        error: null,
+        meta: meta(0, now),
+      });
+    }
+
+    const paths = result.pack.items
+      .filter((item) => item.itemKind === 'impact_path' && item.impactPathV2Id !== null)
+      .map((item) => {
+        const impact = (item.displayPayload.impact ?? {}) as Record<string, unknown>;
+        return {
+          impactPathV2Id: item.impactPathV2Id as number,
+          triggerEventId: numberValue(impact.triggerEventId),
+          sourceEntityId: numberValue(impact.sourceEntityId),
+          eventType: String(impact.eventType ?? 'unknown'),
+          hopCount: numberValue(impact.hopCount, 1),
+          pathScore: numberValue(impact.pathScore),
+          note: String(impact.note ?? 'industrial linkage strength; never a price prediction'),
+        };
+      });
+
+    return impactBriefResponseSchema.parse({
+      data: {
+        entityKey: options.entityKey,
+        contentPackId: result.pack.contentPackId,
+        packDigest: result.pack.packDigest,
+        graphSnapshotId: result.pack.snapshot.graphSnapshotId,
+        builtAt: result.pack.builtAt,
+        freshUntil: result.pack.freshUntil,
+        paths,
+      },
+      availability: resolveProductAvailability(
+        result.pack.builtAt,
+        paths.length,
+        now,
+        PRODUCT_STALE_THRESHOLD_HOURS.impactSummary,
+      ),
+      error: null,
+      meta: meta(paths.length, now),
+    });
+  } catch {
+    return errorEnvelope(impactBriefResponseSchema, null, now, 'IMPACT_BRIEF_READ_FAILED');
   }
 }
 
