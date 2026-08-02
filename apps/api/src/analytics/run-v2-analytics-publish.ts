@@ -60,6 +60,9 @@ const EVENT_LOOKBACK_DAYS = (() => {
 // being the binding constraint at lower event rates without pretending a wider
 // number would admit more.
 const EVENT_LIMIT = 500;
+// How many rows are loaded before ranking. The window already bounds the pool to
+// a few thousand, so this only guards against a pathological backfill.
+const EVENT_CANDIDATE_CEILING = 20_000;
 const FRESHNESS_HALF_LIFE_DAYS = 14;
 
 const EVENT_TYPE_BOOST: Record<string, number> = {
@@ -237,6 +240,53 @@ async function loadEntityNames(
   );
 }
 
+/**
+ * Rank candidate events by the strength the scorer will actually use.
+ *
+ * EVENT_LIMIT is a compute budget, and the rule that spends it matters as soon as
+ * it binds. It used to spend it on the most RECENT events. When event attribution
+ * doubled the candidate pool with lower-strength types (insider_trade, sec_8k,
+ * policy_event), recency handed 210 of the 500 slots to them and displaced
+ * stronger events — paths fell 9,312 to 5,527 and 35 holdings lost their impact
+ * brief. Adding information made coverage worse.
+ *
+ * The ranking uses eventStrength/freshness directly rather than a SQL copy of the
+ * boost table: two formulas that must agree are two formulas that drift, which is
+ * exactly how the impact serving gate went stale for two weeks.
+ */
+export function rankEventsByStrength(
+  events: readonly EventRow[],
+  asOf: string,
+  limit: number,
+  connectedEntityIds: ReadonlySet<number>,
+): EventRow[] {
+  return (
+    events
+      // An event whose entity has no edge in the snapshot cannot produce a path:
+      // the walk starts there and has nowhere to go. Measured after event
+      // attribution landed, 1,431 of 2,866 candidates were in exactly that state —
+      // every newly attributed one — and they took 210 of the 500 slots, displacing
+      // events that could have produced paths. This is a structural precondition,
+      // not a ranking preference.
+      .filter((event) => connectedEntityIds.has(Number(event.target_entity_id)))
+      .map((event) => ({
+        event,
+        strength: eventStrength(event) * freshness(toIso(event.occurred_at), asOf),
+      }))
+      // Deterministic: equal strength falls back to recency then id, so a replay
+      // selects the same set.
+      .sort(
+        (left, right) =>
+          right.strength - left.strength ||
+          new Date(toIso(right.event.occurred_at)).getTime() -
+            new Date(toIso(left.event.occurred_at)).getTime() ||
+          Number(right.event.event_id) - Number(left.event.event_id),
+      )
+      .slice(0, limit)
+      .map((entry) => entry.event)
+  );
+}
+
 async function loadRecentEvents(client: Client, asOf: string): Promise<EventRow[]> {
   const result = await client.query<EventRow>(
     `SELECT event.event_id, event.event_type, event.target_entity_id,
@@ -249,7 +299,9 @@ async function loadRecentEvents(client: Client, asOf: string): Promise<EventRow[
        AND coalesce(event.occurred_at, event.created_at) <= $1::timestamptz
      ORDER BY coalesce(event.occurred_at, event.created_at) DESC, event.event_id DESC
      LIMIT $3`,
-    [asOf, EVENT_LOOKBACK_DAYS, EVENT_LIMIT],
+    // The SQL bound is a safety ceiling on how much is loaded, not the selection
+    // rule; the window already bounds this to a few thousand rows.
+    [asOf, EVENT_LOOKBACK_DAYS, EVENT_CANDIDATE_CEILING],
   );
   return result.rows;
 }
@@ -306,7 +358,19 @@ async function main(): Promise<void> {
     const { pathEdges, communityEdges } = await loadSnapshotEdges(client, snapshot.graphSnapshotId);
     if (pathEdges.length === 0) throw new Error('sealed snapshot has no edges');
     const stockEntityIds = await loadStockEntityIds(client);
-    const events = await loadRecentEvents(client, snapshot.asOf);
+    const candidateEvents = await loadRecentEvents(client, snapshot.asOf);
+    // The edges are already in memory; the connected set costs nothing extra.
+    const connectedEntityIds = new Set<number>();
+    for (const edge of pathEdges) {
+      connectedEntityIds.add(edge.subjectEntityId);
+      connectedEntityIds.add(edge.objectEntityId);
+    }
+    const events = rankEventsByStrength(
+      candidateEvents,
+      snapshot.asOf,
+      EVENT_LIMIT,
+      connectedEntityIds,
+    );
 
     // ── impact paths ─────────────────────────────────────────────────────────
     const inferenceRunId = `${RULE_VERSION}:snapshot-${snapshot.graphSnapshotId}`;
@@ -692,7 +756,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+// Importing this module for its pure event-ranking helper must not open a
+// connection, run the publisher, or fail on a missing DATABASE_URL.
+if (process.argv[1]?.endsWith('run-v2-analytics-publish.ts')) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}
