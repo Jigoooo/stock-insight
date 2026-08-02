@@ -6,9 +6,9 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음 — `1E 액션 조합` 검증 완료
-- 다음 묶음: `2A 인증·관리자 폼 수렴`
-- 마지막 갱신: 2026-08-02
+- 현재 활성 묶음: `2B 워크스페이스 검색·선택 수렴`
+- 다음 묶음: `2C 워크스페이스 데이터·오버레이 수렴`
+- 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
 ## 상태값
@@ -30,8 +30,8 @@
 | 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행 |
 | 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행 |
 | 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사           |
-| 2A   | 인증·관리자 폼 수렴                 | 대기      | 1단계 공용화 이후 감사           |
-| 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 2A 완료 후 감사                  |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사   |
+| 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 제품 사용처·중복 상태 CSS 감사   |
 | 2C   | 워크스페이스 데이터·오버레이 수렴   | 대기      | 2B 완료 후 감사                  |
 | 2D   | 미사용 공용 컴포넌트 검증           | 대기      | 2C 완료 후 판단                  |
 | 3A   | Route Tabs + Sliding Tabs           | 대기      | UI Lab 3안 비교                  |
@@ -133,6 +133,17 @@
 - ButtonGroup 너비·press 후속 보정: `d88db83` — reusable `fullWidth` API로 가용 너비와 균등 segment 분할을 지원하고 A/B 모두 위치 이동 없는 pressed fill·inset shadow를 제공
 - SplitButton chevron은 명시적 `rotate(0deg)`에서 시작해 첫 열림과 닫힘이 같은 transition을 사용하며, menu 진입은 170ms·퇴장은 80ms로 조정
 - 후속 회귀 검증: Playwright desktop/mobile 18건 통과·pointer/mobile 전용 계약 2건 skip, full-width·균등 분할·pressed surface·첫 열림·Axe·reduced-motion 포함
+
+### 2026-08-03 — 2A 인증·관리자 폼 수렴 검증 완료
+
+- 공용화·제품 적용 커밋: `8ef4b4d`
+- 인증과 관리자 초대 폼의 idle·pending·error·success를 공용 `InlineFeedbackRegion`과 `PresenceRegion`으로 수렴하고, 관리자 발급·취소 작업의 pending 범위를 개별 액션으로 한정
+- 420ms 미만의 빠른 로그인 실패에도 기본 pending 모션이 읽히도록 실패 경로에만 최소 표시 시간을 적용하고 성공 리다이렉트에는 지연을 추가하지 않음
+- 인증 없는 `__dev-preview?surface=admin-invitations`에서 실제 관리자 폼을 로컬 fixture와 안전한 action으로 검증하도록 구성
+- 공용 Select·Combobox 팝업을 `document.body` 포털과 fixed 배치로 전환해 카드 overflow를 벗어나며, viewport flip·clamp와 스크롤 재배치를 지원
+- MotionButton의 내부 visual wrapper가 옵션 전체 grid를 차지하도록 보정해 선택 체크 아이콘을 옵션 오른쪽 10px 위치에 고정
+- 계약 검증: 전체 `pnpm test`, web Node 599건, dev remote 7건, dev live 53건, 인증 Playwright 40건 통과·자격 증명 필요 4건 skip, Select 브라우저 게이트 통과
+- 최종 게이트: `format:check`, `lint`, `typecheck`, `build`, `git diff --check`; Codex 인앱 브라우저에서 포털 호스트·부모 overflow 탈출·체크 위치·선택 반영을 확인
 
 ## 실행 환경 메모
 
