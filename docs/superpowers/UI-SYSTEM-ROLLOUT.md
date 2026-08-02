@@ -34,7 +34,7 @@
 | 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                   |
 | 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                   |
 | 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                     |
-| 3A   | Route Tabs + Sliding Tabs           | 목업      | UI Lab 3안 비교                  |
+| 3A   | Route Tabs + Sliding Tabs           | 목업      | 사용자 6안 비교·선택             |
 | 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
 | 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
 | 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                  |
@@ -153,6 +153,13 @@
 - 워크스페이스의 중복 eyebrow, 영문 쇼케이스 라벨, 반복 설명과 읽기 전용 안내를 줄이고 제품 문구를 한국어 중심으로 통일
 - RadioGroup·Slider·DatePicker·FileUpload·OTP·SplitButton 등 제품 사용처가 없는 공용 API는 가짜 기능에 연결하지 않고 UI Lab 계약으로 보존
 - 사용자 요청에 따라 전체 E2E·빌드 대신 관련 Node 계약, lint·typecheck·diff 검사와 핵심 화면 인앱 브라우저 확인으로 묶음을 종료
+
+### 2026-08-03 — 3A Route Tabs + Sliding Tabs 목업 비교 준비
+
+- Route Tabs: A Hairline, B Quiet Surface, C Ledger
+- Sliding Tabs: A Soft Inset, B Flush Segment, C Sliding Underline
+- 3A 상태는 사용자 비교·선택 전까지 `목업`으로 유지
+- 검증: web typecheck, web format check, navigation tabs 계약 테스트 5건, `git diff --check`
 
 ## 실행 환경 메모
 
