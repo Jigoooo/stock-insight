@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음 — `1B 날짜 입력` 검증 완료
-- 다음 묶음: `1C 파일 입력 — FileUpload + Dropzone`
+- 현재 활성 묶음: 없음 — `1C 파일 입력` 검증 완료
+- 다음 묶음: `1D 짧은 보안 입력 — OTP`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -27,7 +27,7 @@
 | ---- | ----------------------------------- | --------- | -------------------------------- |
 | 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행 |
 | 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행 |
-| 1C   | FileUpload + Dropzone               | 승인      | 검증된 목업을 공용 API로 승격    |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행 |
 | 1D   | OTP                                 | 승인      | 1C 완료 후 공용화                |
 | 1E   | ButtonGroup + SplitButton           | 승인      | 1D 완료 후 공용화                |
 | 2A   | 인증·관리자 폼 수렴                 | 대기      | 1단계 공용화 이후 감사           |
@@ -92,6 +92,19 @@
 - 브라우저 매트릭스: 날짜·선택·파일 입력 desktop/mobile 총 40건; 키보드, 390px hit area·overflow, focus 복귀, 범위 선택, reduced-motion 포함
 - Codex 인앱 브라우저에서 세 variant 렌더링, 팝오버 의미 구조, 2026-08-14 선택 반영 확인
 - 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 날짜 입력 사용처 없음. 가짜 제품 기능은 추가하지 않음.
+
+### 2026-08-02 — 1C FileUpload + Dropzone 검증 완료
+
+- 공용 API·UI Lab 이식 커밋: `a067385`
+- 공용 UI 토큰·검증 경계 보정 커밋: `25e8efe`
+- `FileUpload`과 `Dropzone` 공개 API 구현: controlled/uncontrolled 목록, `single|multiple`, `hairline|inset`, disabled·invalid·pending·drag 상태
+- CSV·XLSX·PDF와 10MB 기본 검증, 반복 선택 append, single 교체, rejection callback, native `File` 보존
+- Motion 목록 계약 보존: 추가 stagger, 홀짝 좌우 exit, `popLayout` 위쪽 reflow, reduced-motion opacity 피드백
+- focus 계약: 중간 삭제 시 인접 삭제 버튼, 마지막 삭제 exit 후 파일 선택 버튼으로 이동
+- UI Lab의 페이지 소유 드롭·검증·목록 모션과 상태 CSS를 공용 컴포넌트로 교체
+- 계약 검증: web Node 584건, FileUpload Playwright desktop/mobile 12건, fixture typecheck, 전체 format·lint·typecheck·build, `git diff --check`
+- Codex 인앱 브라우저 단일 탭에서 A/B 대기·다중 선택·삭제 후 focus와 목록 재배치를 확인
+- 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 파일 입력 사용처 없음. 가짜 제품 기능은 추가하지 않음.
 
 ## 실행 환경 메모
 
