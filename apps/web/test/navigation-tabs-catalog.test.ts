@@ -23,6 +23,30 @@ function arrayDeclaration(source: string, name: string) {
   return declaration[0];
 }
 
+function balancedCssBlock(source: string, start: string) {
+  const startIndex = source.indexOf(start);
+  assert.notEqual(startIndex, -1, `Missing CSS block start: ${start}`);
+
+  const openingBraceIndex = source.indexOf('{', startIndex + start.length);
+  assert.notEqual(openingBraceIndex, -1, `Missing opening brace for CSS block: ${start}`);
+
+  let depth = 0;
+
+  for (let index = openingBraceIndex; index < source.length; index += 1) {
+    if (source[index] === '{') {
+      depth += 1;
+    } else if (source[index] === '}') {
+      depth -= 1;
+
+      if (depth === 0) {
+        return source.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  assert.fail(`Missing closing brace for CSS block: ${start}`);
+}
+
 describe('UI Lab navigation tabs catalog', () => {
   it('connects the navigation comparison catalog to the UI Lab', async () => {
     const page = await readUiLabSource('ui-lab-page.tsx');
@@ -44,9 +68,8 @@ describe('UI Lab navigation tabs catalog', () => {
     assert.match(routeSection, /<nav aria-label="경로 탭 비교">/);
     assert.match(
       routeSection,
-      /(?:<a[\s\S]*href=\{item\.href\}|<Link[\s\S]*(?:href|to)=\{item\.href\})/,
+      /<(?:a|Link)\b(?=[^>]*(?:href|to)=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>/,
     );
-    assert.match(routeSection, /aria-current=\{activeRoute === item\.id \? 'page' : undefined\}/);
     assert.match(slidingSection, /<Tabs value=\{activeView\} onValueChange=\{setActiveView\}>/);
     assert.match(slidingSection, /<TabsHighlight/);
     assert.match(slidingSection, /<TabsTrigger[\s\S]*value=\{item\.id\}/);
@@ -80,9 +103,8 @@ describe('UI Lab navigation tabs catalog', () => {
 
   it('preserves the narrow-screen overflow contract', async () => {
     const css = await readUiLabSource('navigation-tabs-catalog.module.css');
-    const mobileCss = css.slice(css.indexOf('@media (max-width: 520px)'));
+    const mobileCss = balancedCssBlock(css, '@media (max-width: 520px)');
 
-    assert.match(css, /@media \(max-width: 520px\)/);
     assert.match(mobileCss, /overflow-x: auto/);
     assert.match(mobileCss, /(?:flex-wrap|white-space): nowrap/);
     assert.match(mobileCss, /min-height: 44px/);
