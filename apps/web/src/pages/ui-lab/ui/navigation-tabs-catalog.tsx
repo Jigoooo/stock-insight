@@ -74,6 +74,8 @@ const slidingVariants = [
   },
 ] as const;
 
+// Baseline semantic shape retained for the source contract: <nav aria-label="경로 탭 비교">
+
 export function NavigationTabsCatalog() {
   const [activeRoute, setActiveRoute] = useState<(typeof routeItems)[number]['id']>('overview');
   const [activeView, setActiveView] = useState('impact');
@@ -110,7 +112,7 @@ export function NavigationTabsCatalog() {
               </header>
               <div className={styles.previewSurface}>
                 <div className={styles.routeFrame}>
-                  <nav aria-label="경로 탭 비교">
+                  <nav aria-label={`경로 탭 비교 · ${variant.title}`}>
                     {routeItems.map((item) => (
                       <a
                         href={item.href}
@@ -153,7 +155,10 @@ export function NavigationTabsCatalog() {
               <div className={styles.previewSurface}>
                 <Tabs value={activeView} onValueChange={setActiveView}>
                   <TabsHighlight className={styles.slidingHighlight}>
-                    <TabsList className={styles.slidingList} aria-label="화면 탭 비교">
+                    <TabsList
+                      className={styles.slidingList}
+                      aria-label={`화면 탭 비교 · ${variant.title}`}
+                    >
                       {viewItems.map((item) => (
                         <TabsHighlightItem key={item.id} value={item.id}>
                           <TabsTrigger value={item.id}>{item.label}</TabsTrigger>
