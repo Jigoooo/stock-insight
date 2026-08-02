@@ -11,21 +11,21 @@ UI Lab 첫 번째 배치에서 승인된 입력·액션 시안을 하나의 외�
 
 ## 승인된 variant
 
-| 컴포넌트                     | 승인 variant                | 제외 variant |
-| ---------------------------- | --------------------------- | ------------ |
-| `RadioGroup`                 | `hairline`, `inset`, `rail` | 없음         |
-| `Slider`                     | `hairline`, `inset`, `rail` | 없음         |
-| `Calendar`                   | `hairline`, `inset`         | `rail`       |
-| `DatePicker` / `RangePicker` | `hairline`, `inset`, `rail` | 없음         |
-| `FileUpload` / `Dropzone`    | `hairline`, `inset`         | `rail`       |
-| `OTP`                        | `hairline`, `inset`, `rail` | 없음         |
-| `ButtonGroup`                | `hairline`, `inset`         | `rail`       |
-| `SplitButton`                | `solid`, `tonal`, `twin`    | 없음         |
+| 컴포넌트                     | 승인 variant                      | 제외 variant |
+| ---------------------------- | --------------------------------- | ------------ |
+| `RadioGroup`                 | `hairline`, `inset`, `rail`       | 없음         |
+| `Slider`                     | `hairline`, `inset`, `rail`       | 없음         |
+| `Calendar`                   | `compact`, `soft-inset`, `ledger` | 없음         |
+| `DatePicker` / `RangePicker` | `hairline`, `inset`, `rail`       | 없음         |
+| `FileUpload` / `Dropzone`    | `hairline`, `inset`               | `rail`       |
+| `OTP`                        | `hairline`, `inset`, `rail`       | 없음         |
+| `ButtonGroup`                | `hairline`, `inset`               | `rail`       |
+| `SplitButton`                | `solid`, `tonal`, `twin`          | 없음         |
 
-UI Lab의 SplitButton A/B/C 내부 식별자는 기존 비교 그리드와 맞추기 위해 각각 `hairline`,
-`inset`, `rail`을 유지한다. 공용 제품 API에서는 의미가 드러나는 `solid`, `tonal`, `twin`으로
-노출한다. adapter 또는 내부 variant map이 두 이름을 연결하며 UI Lab 식별자를 제품 API에
-노출하지 않는다.
+UI Lab의 Calendar와 SplitButton A/B/C 내부 식별자는 기존 비교 그리드와 맞추기 위해 각각
+`hairline`, `inset`, `rail`을 유지한다. 공용 제품 API에서 Calendar는 `compact`,
+`soft-inset`, `ledger`, SplitButton은 `solid`, `tonal`, `twin`으로 노출한다. adapter 또는 내부
+variant map이 두 이름을 연결하며 UI Lab 식별자를 제품 API에 노출하지 않는다.
 
 ## 컴포넌트 역할 경계
 
@@ -56,12 +56,31 @@ UI Lab의 SplitButton A/B/C 내부 식별자는 기존 비교 그리드와 맞�
 - 메뉴는 같은 공용 DropdownMenu 계층을 사용하고 SplitButton 안에 별도 overlay runtime을 만들지
   않는다.
 
+### FileUpload / Dropzone
+
+- `mode="single" | "multiple"`로 선택 계약을 분리한다. 단일 모드는 새 파일을 선택하거나 놓으면
+  기존 파일을 교체하고, 다중 모드는 파일 목록에 추가한다.
+- 대기, 허용 가능한 파일을 드래그 중인 상태, 파일 선택 완료 상태를 서로 다른 border style,
+  표면, 아이콘과 안내 문구로 구분한다. drag 상태는 색만 바꾸지 않는다.
+- 선택 완료 시 파일 수, 파일명, 크기, 준비 상태와 파일별 삭제 버튼을 노출한다. 마지막 파일을
+  삭제하면 별도 빈 목록을 남기지 않고 대기 상태로 복귀한다.
+- UI Lab의 `대기` / `드래그` / `선택` 전환기는 상태 비교용 개발 도구다. 공용 제품 API에는
+  노출하지 않고 실제 drag event와 선택 파일 값으로 상태를 계산한다.
+- `hairline`과 `inset`은 같은 상태·접근성 계약을 공유하고 표면 깊이만 다르게 표현한다.
+- FileUpload 비교 화면은 승인된 `hairline`과 `inset`만 렌더링한다. 제외된 `rail` 카드를 비교
+  이력 목적으로 계속 노출하지 않는다.
+
 ## 공용 API 원칙
 
 각 컴포넌트는 외형을 `variant`로 노출하되 행동을 variant별로 분기하지 않는다.
 
 ```ts
 type InputSurfaceVariant = 'hairline' | 'inset' | 'rail';
+
+type CalendarVariant = 'compact' | 'soft-inset' | 'ledger';
+
+type FileUploadVariant = 'hairline' | 'inset';
+type FileUploadMode = 'single' | 'multiple';
 
 type ButtonGroupVariant = 'hairline' | 'inset';
 
@@ -76,6 +95,11 @@ type SplitButtonVariant = 'solid' | 'tonal' | 'twin';
   Stock Insight entity를 참조하지 않는다.
 - 모션은 저장소의 `motion` 경계만 사용하고 reduced motion에서 transform과 layout tween을
   제거한다.
+
+Calendar의 세 variant는 같은 날짜 상태와 keyboard 계약을 사용한다. `compact`는 30px 셀과
+1px 간격의 채움형 선택, `soft-inset`은 32px 셀과 낮은 배경·inset border, `ledger`는 30×28px
+셀과 작은 outline tile을 사용한다. 세 variant 모두 날짜 선택 모양은 원형이 아닌 둥근
+사각형이다.
 
 ## FSD 배치
 
@@ -102,6 +126,21 @@ apps/web/src/shared/ui/
 
 - focus, hover, pressed, invalid, disabled, pending, open은 공용 컴포넌트가 단독 소유한다.
 - 페이지 CSS는 border, ring, transform, selected background를 다시 정의하지 않는다.
+- OTP `rail` variant는 칸을 둘러싼 focus halo를 만들지 않고 현재 칸의 하단선만 강화한다.
+- FileUpload는 drag enter/leave/drop에 즉시 반응한다. 목록은 `AnimatePresence
+mode="popLayout"`와 각 행의 `layout="position"`을 사용해 퇴장 행과 재정렬 행을 분리한다.
+- 여러 파일이 추가되면 각 행은 `opacity: 0 → 1`, `y: 6 → 0`으로 나타나며 파일 순서에 따라
+  28ms 간격으로 시작한다. 기본 enter duration은 160ms ease-out이다.
+- 삭제되는 행은 삭제 직전 index를 기준으로 짝수 행은 왼쪽 `x: -18`, 홀수 행은 오른쪽
+  `x: 18`로 번갈아 이동하며 `opacity: 1 → 0`, `scale: 1 → 0.985`를 140ms ease-in으로
+  실행한다.
+- 남은 행은 퇴장과 같은 렌더에서 위로 재정렬한다. 각 행은 새 index 기준 18ms의 차등 delay와
+  bounce 없는 약 240ms layout spring을 사용해 먼저 있던 행부터 순서대로 자리를 메운다.
+- 빠르게 연속 삭제해도 각 행의 고유 ID를 key로 유지하고 현재 진행 중인 layout animation을 새
+  위치로 interrupt할 수 있어야 한다. index를 React key로 사용하지 않는다.
+- reduced motion에서는 x, y, scale과 layout tween을 제거하고 100ms opacity 피드백만 유지한다.
+- FileUpload의 파일 삭제는 서버 업로드 취소와 별개다. 서버 전송을 시작한 이후의 취소·재시도는
+  상위 feature가 명시적인 상태와 callback으로 전달한다.
 - Button과 SplitButton의 pending 상태는 cursor를 wait로 바꾸지 않고 내부 spinner와 문구만
   전환한다.
 - overlay는 열릴 때 focus를 올바른 menu 또는 dialog로 보내고 닫힌 뒤 trigger로 복귀한다.
@@ -113,6 +152,9 @@ apps/web/src/shared/ui/
 - variant는 색만으로 상태를 전달하지 않는다.
 - RadioGroup, Slider, Calendar, OTP는 label과 상태 설명을 programmatic하게 연결한다.
 - FileUpload는 native file input을 유지하고 drag-and-drop이 keyboard 파일 선택을 대체하지 않는다.
+- FileUpload는 `multiple` 속성을 mode와 동기화하고, 선택 목록에 접근 가능한 이름을 부여하며,
+  파일별 삭제 버튼은 파일명을 포함한 `aria-label`을 가진다. drag 안내는 `aria-live="polite"`로
+  전달한다.
 - DatePicker와 RangePicker는 날짜 입력값을 텍스트로 읽을 수 있고 calendar popup 없이도 값을
   확인할 수 있어야 한다.
 
@@ -121,6 +163,10 @@ apps/web/src/shared/ui/
 - variant union과 public export를 타입 fixture로 검증한다.
 - 각 컴포넌트의 controlled/uncontrolled, disabled, invalid, pending 상태를 단위 테스트로 고정한다.
 - ButtonGroup과 ToggleGroup의 서로 다른 선택 계약을 keyboard 테스트로 검증한다.
+- FileUpload는 idle → drag-active → selected 전환, 단일 교체, 다중 추가, 파일별 삭제, 마지막
+  삭제 후 idle 복귀, 허용되지 않은 파일 처리와 reduced motion을 검증한다. 다중 추가의 28ms
+  enter stagger, 홀짝 좌우 퇴장, 18ms layout stagger, 연속 삭제 시 안정적인 ID와 최종 순서도
+  회귀 테스트로 고정한다.
 - SplitButton은 기본 액션, menu open/close, Escape, focus return, 세 variant를 검증한다.
 - 1440px와 390px, light/dark, normal/reduced motion에서 UI Lab 시각 회귀를 확인한다.
 - 제품 적용 시 페이지별 중복 focus ring과 상태 CSS가 남지 않았는지 computed style과 FSD boundary
@@ -132,3 +178,9 @@ apps/web/src/shared/ui/
 - 실제 `shared/ui` 구현, 제품 화면 교체, 다른 프로젝트용 패키지 추출은 별도 구현 계획에서 다룬다.
 - 다음 SaaS 배치인 내비게이션, 메뉴·오버레이, 데이터·피드백과 차트 구현은 이 문서의 범위가
   아니다.
+
+## 구현 참고
+
+- [Motion AnimatePresence](https://motion.dev/docs/react-animate-presence)
+- [Motion layout animation](https://motion.dev/docs/react-layout-animations)
+- [Animate UI accessibility](https://animate-ui.com/docs/accessibility)
