@@ -221,9 +221,21 @@ describe('UI Lab input and action mockup batch', () => {
 
     assert.match(catalog, /aria-pressed=/);
     assert.match(catalog, /type="radio"/);
-    assert.match(catalog, /type="range"/);
+    assert.match(catalog, /<Slider/);
     assert.match(catalog, /type="file"/);
     assert.match(catalog, /aria-label=\{`OTP/);
     assert.match(catalog, /aria-haspopup="menu"/);
+  });
+
+  it('uses the canonical Slider without retaining raw range styling', async () => {
+    const [catalog, styles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+    ]);
+
+    assert.match(catalog, /import \{ Slider \} from '@\/shared\/ui\/slider'/);
+    assert.match(catalog, /<Slider[\s\S]*defaultValue=\{\[64\]\}/);
+    assert.doesNotMatch(catalog, /type="range"|--slider-value/);
+    assert.doesNotMatch(styles, /\.sliderPreview|\.sliderScale|::-webkit-slider/);
   });
 });

@@ -13,6 +13,8 @@ import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
+import { Slider } from '@/shared/ui/slider';
+
 type DirectionId = 'hairline' | 'inset' | 'rail';
 type CategoryId =
   | 'radio'
@@ -146,27 +148,18 @@ function RadioPreview({ direction }: { direction: DirectionId }) {
 }
 
 function SliderPreview({ direction }: { direction: DirectionId }) {
-  const [value, setValue] = useState(64);
   return (
-    <div className={styles.sliderPreview} data-direction={direction}>
-      <div className={styles.controlHeading}>
-        <label htmlFor={`slider-${direction}`}>신뢰도 기준</label>
-        <output htmlFor={`slider-${direction}`}>{value}%</output>
-      </div>
-      <input
-        id={`slider-${direction}`}
-        type="range"
-        min="0"
-        max="100"
-        value={value}
-        style={{ '--slider-value': `${value}%` } as React.CSSProperties}
-        onChange={(event) => setValue(Number(event.currentTarget.value))}
-      />
-      <div className={styles.sliderScale} aria-hidden="true">
-        <span>넓게</span>
-        <span>엄격하게</span>
-      </div>
-    </div>
+    <Slider
+      defaultValue={[64]}
+      endLabel="엄격하게"
+      formatValue={(values) => `${values[0] ?? 0}%`}
+      label="신뢰도 기준"
+      max={100}
+      min={0}
+      startLabel="넓게"
+      thumbLabels={['신뢰도 기준']}
+      variant={direction}
+    />
   );
 }
 

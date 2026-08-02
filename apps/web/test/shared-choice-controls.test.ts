@@ -24,8 +24,9 @@ describe('shared choice controls', () => {
   });
 
   it('publishes the canonical Slider anatomy, variants, and pending behavior', async () => {
-    const [source, publicIndex] = await Promise.all([
+    const [source, styles, publicIndex] = await Promise.all([
       read('shared/ui/slider/slider.tsx'),
+      read('shared/ui/slider/slider.module.css'),
       read('shared/ui/index.ts'),
     ]);
 
@@ -36,14 +37,21 @@ describe('shared choice controls', () => {
     assert.match(source, /SliderPrimitive\.Range/);
     assert.match(source, /SliderPrimitive\.Thumb/);
     assert.match(source, /data-slot="slider-control"/);
+    assert.match(source, /data-slot="slider-root"/);
     assert.match(source, /data-slot="slider-track"/);
     assert.match(source, /data-slot="slider-range"/);
     assert.match(source, /data-slot="slider-thumb"/);
     assert.match(source, /data-slot="slider-value"/);
-    assert.match(source, /const values = value \?\? defaultValue \?\? \[min \?\? 0\]/);
-    assert.match(source, /values\.map\(\(_value, index\) =>/);
+    assert.match(source, /const initialValues = defaultValue \?\? \[min \?\? 0\]/);
+    assert.match(source, /const \[uncontrolledValues, setUncontrolledValues\] = useState/);
+    assert.match(source, /const currentValues = value \?\? uncontrolledValues/);
+    assert.match(source, /setUncontrolledValues\(nextValues\)/);
+    assert.match(source, /onValueChange\?\.\(nextValues\)/);
+    assert.match(source, /currentValues\.map\(\(_value, index\) =>/);
     assert.match(source, /aria-busy=\{pending \|\| props\['aria-busy'\]\}/);
     assert.match(source, /disabled=\{disabled \|\| pending\}/);
+    assert.match(styles, /@media \(forced-colors: active\)/);
+    assert.match(styles, /outline: 2px solid CanvasText/);
     assert.match(publicIndex, /export \* from '\.\/slider'/);
   });
 });

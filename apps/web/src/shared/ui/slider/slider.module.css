@@ -1,11 +1,8 @@
 .root {
-  position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
   gap: 10px;
-  touch-action: none;
-  user-select: none;
 }
 
 .root[data-variant='hairline'] {
@@ -48,11 +45,14 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sliderBody {
+.sliderRoot {
   position: relative;
   display: flex;
+  width: 100%;
   min-height: 16px;
   align-items: center;
+  touch-action: none;
+  user-select: none;
 }
 
 .track {
@@ -96,4 +96,12 @@
 .root[data-disabled] {
   cursor: not-allowed;
   opacity: 0.52;
+}
+
+@media (forced-colors: active) {
+  .thumb:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
