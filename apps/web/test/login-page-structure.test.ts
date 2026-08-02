@@ -10,8 +10,27 @@ const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.m
 const fontStylesheetUrl = new URL('../public/styles/font.css', import.meta.url);
 const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 const rootComponentUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
+const screenUrl = new URL('../src/pages/auth/login-screen.tsx', import.meta.url);
 
 describe('login page structure', () => {
+  it('hands off to the workspace with a client transition, not a document reload', async () => {
+    const screen = await readFile(screenUrl, 'utf8');
+
+    // Every document fetch on this deployment is a trans-Pacific round trip, and
+    // the bundle is already parsed and hydrated by the time login succeeds.
+    assert.doesNotMatch(screen, /window\.location\.assign/);
+    // invalidate() must run before navigating: the session cookie just changed,
+    // so any route match resolved while anonymous cannot be reused.
+    assert.match(
+      screen,
+      /await router\.invalidate\(\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*await navigate\(\{ href: redirectTo \}\)/,
+    );
+    // `pending` stays set on the success path. navigate() settles only after the
+    // workspace loader does and this screen stays mounted until then, so
+    // clearing it would flash an idle form over a still-loading workspace.
+    assert.doesNotMatch(screen, /finally\s*\{\s*setPending\(false\)/);
+  });
+
   it('uses the shared OpenHuman-style auth shell without legacy marketing chrome', async () => {
     assert.equal(existsSync(shellUrl), true, 'the shared auth shell must exist');
     const [component, shell, stylesheet] = await Promise.all([

@@ -47,7 +47,16 @@ describe('one-time signup source contract', () => {
       /enrollAccount\(\{\s*data:\s*\{\s*username,\s*password,\s*enrollmentCode\s*\}\s*\}\)/,
     );
     assert.doesNotMatch(screen, /passwordConfirmation[\s\S]*?enrollAccount\(/);
-    assert.match(screen, /window\.location\.assign\('\/workspace'\)/);
+    // A successful enrollment hands off with a client transition, not a document
+    // reload: the bundle is already hydrated and every document fetch on this
+    // deployment costs a trans-Pacific round trip. invalidate() must come first
+    // because the session cookie changed — a match resolved while anonymous
+    // cannot be reused once the caller is authenticated.
+    assert.doesNotMatch(screen, /window\.location\.assign/);
+    assert.match(
+      screen,
+      /await router\.invalidate\(\);\s*\n\s*await navigate\(\{ to: '\/workspace' \}\)/,
+    );
     assert.match(screen, /result\.error/);
   });
 

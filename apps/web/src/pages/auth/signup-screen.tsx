@@ -1,3 +1,4 @@
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { SignupPage, type SignupAvailability, type SignupCredentials } from './signup-page';
@@ -7,6 +8,8 @@ const fallbackEnrollmentError =
   '계정을 설정하지 못했습니다. 가입 코드와 입력 내용을 확인해 주세요.';
 
 export function SignupScreen() {
+  const router = useRouter();
+  const navigate = useNavigate();
   const [availability, setAvailability] = useState<SignupAvailability>('checking');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +53,16 @@ export function SignupScreen() {
       if (!result.ok) {
         const message = result.error || fallbackEnrollmentError;
         setError(message);
+        setPending(false);
         return;
       }
-      window.location.assign('/workspace');
+
+      // Same client transition as login-screen — see the comment there for why
+      // invalidate() runs first and why `pending` is held through navigate().
+      await router.invalidate();
+      await navigate({ to: '/workspace' });
     } catch {
       setError(fallbackEnrollmentError);
-    } finally {
       setPending(false);
     }
   }
