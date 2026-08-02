@@ -34,7 +34,7 @@
 | 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                   |
 | 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                   |
 | 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                     |
-| 3A   | Route Tabs + Sliding Tabs           | 대기      | UI Lab 3안 비교                  |
+| 3A   | Route Tabs + Sliding Tabs           | 목업      | UI Lab 3안 비교                  |
 | 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
 | 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
 | 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                  |
