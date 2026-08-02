@@ -1,0 +1,200 @@
+import { createHash } from 'node:crypto';
+
+import pg, { type PoolClient } from 'pg';
+
+import { additiveAppMigrations, type AppMigration } from '@stock-insight/db-schema';
+
+// Until now `additiveAppMigrations` was a list nobody applied: migrations were
+// run by hand and nothing recorded which of the 54 had landed. "Is this schema
+// up to date?" could only be answered by querying the live database and
+// guessing. This runner gives that question a file-based answer.
+//
+// public.migration_runs is a PIPELINE JOB log despite the name — it records
+// ingestion and analytics runs. The schema ledger is a separate table.
+const JOB_NAME = 'stock-insight-schema-migrations';
+const APPLY = process.argv.includes('--apply');
+// The production database already has all 54 applied but no ledger. --baseline
+// records them as applied WITHOUT executing them, so an existing deployment can
+// adopt the ledger without replaying its own history.
+const BASELINE = process.argv.includes('--baseline');
+
+const LEDGER_SQL = `
+CREATE TABLE IF NOT EXISTS public.schema_migration (
+  migration_id text PRIMARY KEY,
+  checksum text NOT NULL,
+  applied_at timestamptz NOT NULL DEFAULT now(),
+  applied_by text NOT NULL DEFAULT current_user,
+  duration_ms integer NOT NULL DEFAULT 0,
+  baselined boolean NOT NULL DEFAULT false
+)
+`;
+
+const INSERT_MIGRATION_RUN_SQL = `
+INSERT INTO public.migration_runs (
+  run_id, job_name, source_system, status, started_at, finished_at,
+  rows_read, rows_written, rows_skipped, error, summary
+) VALUES (
+  'schema-migrations-' || gen_random_uuid()::text,
+  $1, 'db-schema', 'completed', $2, clock_timestamp(),
+  $3, $4, $5, null, $6::jsonb
+)
+`;
+
+type LedgerRow = { migration_id: string; checksum: string; baselined: boolean };
+
+type PgModule = {
+  Pool: new (options: { connectionString: string; max?: number }) => pg.Pool;
+};
+
+function databaseUrl(): string {
+  const value = process.env.DATABASE_URL?.trim();
+  if (!value) throw new Error('DATABASE_URL is required');
+  return value;
+}
+
+// The checksum is over the exact SQL we would run. It exists to catch a migration
+// being edited after it was applied — the one failure a ledger alone cannot see,
+// because the id would still match.
+export function migrationChecksum(migration: AppMigration): string {
+  return createHash('sha256').update(migration.sql, 'utf8').digest('hex');
+}
+
+export type MigrationPlanEntry = {
+  id: string;
+  action: 'apply' | 'skip' | 'baseline';
+  checksum: string;
+};
+
+export type MigrationDrift = { id: string; recorded: string; current: string };
+
+/**
+ * Pure planner so the decision table is testable without a database.
+ * Ordering follows the registry, which is the numeric migration order.
+ */
+export function planMigrations(
+  migrations: readonly AppMigration[],
+  ledger: readonly LedgerRow[],
+  options: { baseline: boolean },
+): { plan: MigrationPlanEntry[]; drift: MigrationDrift[] } {
+  const recorded = new Map(ledger.map((row) => [row.migration_id, row.checksum]));
+  const plan: MigrationPlanEntry[] = [];
+  const drift: MigrationDrift[] = [];
+
+  for (const migration of migrations) {
+    const checksum = migrationChecksum(migration);
+    const previous = recorded.get(migration.id);
+    if (previous === undefined) {
+      plan.push({ id: migration.id, action: options.baseline ? 'baseline' : 'apply', checksum });
+      continue;
+    }
+    // An applied migration whose SQL no longer matches is a contract violation:
+    // the database and the repository disagree about what was run. Refuse rather
+    // than silently re-apply or silently ignore.
+    if (previous !== checksum)
+      drift.push({ id: migration.id, recorded: previous, current: checksum });
+    plan.push({ id: migration.id, action: 'skip', checksum });
+  }
+
+  return { plan, drift };
+}
+
+async function readLedger(client: PoolClient): Promise<LedgerRow[]> {
+  const result = await client.query<LedgerRow>(
+    'SELECT migration_id, checksum, baselined FROM public.schema_migration',
+  );
+  return result.rows;
+}
+
+async function run(): Promise<void> {
+  if (BASELINE && !APPLY) {
+    throw new Error('--baseline records ledger rows and therefore requires --apply');
+  }
+  const startedAt = new Date();
+  const Pool = (pg as PgModule).Pool;
+  const pool = new Pool({ connectionString: databaseUrl(), max: 1 });
+  const client = await pool.connect();
+
+  try {
+    await client.query(LEDGER_SQL);
+    // One migrator at a time. Two concurrent runners would both see an empty
+    // ledger and both try to apply.
+    await client.query('BEGIN');
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('stock-insight-schema-migrations', 0))",
+    );
+
+    const ledger = await readLedger(client);
+    const { plan, drift } = planMigrations(additiveAppMigrations, ledger, { baseline: BASELINE });
+
+    if (drift.length > 0) {
+      throw new Error(
+        `schema migration drift: ${drift.map((entry) => entry.id).join(',')} — applied SQL no longer matches the repository`,
+      );
+    }
+
+    const pending = plan.filter((entry) => entry.action !== 'skip');
+
+    if (!APPLY) {
+      await client.query('ROLLBACK');
+      console.log(
+        JSON.stringify(
+          {
+            mode: 'dry-run',
+            total: additiveAppMigrations.length,
+            applied: plan.length - pending.length,
+            pending: pending.map((entry) => entry.id),
+            hint: pending.length === 0 ? 'schema is up to date' : 'rerun with --apply',
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+
+    const byId = new Map(additiveAppMigrations.map((migration) => [migration.id, migration]));
+    for (const entry of pending) {
+      const migration = byId.get(entry.id);
+      if (!migration) throw new Error(`unknown migration in plan: ${entry.id}`);
+      const began = Date.now();
+      if (entry.action === 'apply') await client.query(migration.sql);
+      await client.query(
+        `INSERT INTO public.schema_migration (migration_id, checksum, duration_ms, baselined)
+         VALUES ($1, $2, $3, $4)`,
+        [migration.id, entry.checksum, Date.now() - began, entry.action === 'baseline'],
+      );
+    }
+
+    const summary = {
+      mode: BASELINE ? 'baseline' : 'apply',
+      total: additiveAppMigrations.length,
+      alreadyApplied: plan.length - pending.length,
+      changed: pending.map((entry) => entry.id),
+    };
+    await client.query(INSERT_MIGRATION_RUN_SQL, [
+      JOB_NAME,
+      startedAt,
+      additiveAppMigrations.length,
+      pending.length,
+      plan.length - pending.length,
+      JSON.stringify(summary),
+    ]);
+    await client.query('COMMIT');
+    console.log(JSON.stringify({ jobName: JOB_NAME, audit: summary }, null, 2));
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Preserve the original failure.
+    }
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+// Importing this module for its pure planner must not open a connection.
+if (process.argv[1]?.endsWith('run-schema-migrations.ts')) {
+  await run();
+}

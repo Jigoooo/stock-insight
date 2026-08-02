@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -121,34 +121,23 @@ async function restoreProductionShapedSnapshot(
   );
 }
 
+// The registry used to be scraped out of index.ts as text because its relative
+// imports had no file extensions, so Node could not load it. They do now, so this
+// imports the real thing — the parsed copy could drift from the registry it was
+// imitating without anyone noticing.
 async function loadAdditiveAppMigrations() {
-  const indexUrl = new URL('../../../packages/db-schema/src/index.ts', import.meta.url);
-  const source = await readFile(indexUrl, 'utf8');
-  const importByExport = new Map(
-    [...source.matchAll(/import\s+\{\s*(\w+)\s*\}\s+from\s+'\.\/migrations\/([^']+)'/g)].map(
-      (match) => [match[1], match[2]],
-    ),
+  const { additiveAppMigrations: registry } = await import(
+    new URL('../../../packages/db-schema/src/index.ts', import.meta.url)
   );
-  const registryStart = source.indexOf('export const additiveAppMigrations');
-  const registryEnd = source.indexOf('\n];', registryStart);
-  if (registryStart < 0 || registryEnd < 0) throw new Error('Migration registry source not found');
-  const registrySource = source.slice(registryStart, registryEnd);
-  const entries = [...registrySource.matchAll(/id:\s*'([^']+)'[\s\S]*?sql:\s*(\w+),\s*\n\s*\}/g)];
-  if (entries.length === 0) throw new Error('Migration registry is empty');
-
-  return Promise.all(
-    entries.map(async ([, id, exportName]) => {
-      const modulePath = importByExport.get(exportName);
-      if (!modulePath) throw new Error(`Migration export is not imported: ${exportName}`);
-      const migrationModule = await import(
-        new URL(`../../../packages/db-schema/src/migrations/${modulePath}.ts`, import.meta.url)
-      );
-      const sql = migrationModule[exportName];
-      if (typeof sql !== 'string')
-        throw new Error(`Migration SQL export is invalid: ${exportName}`);
-      return { id, sql };
-    }),
-  );
+  if (!Array.isArray(registry) || registry.length === 0) {
+    throw new Error('Migration registry is empty');
+  }
+  return registry.map(({ id, sql }) => {
+    if (typeof id !== 'string' || typeof sql !== 'string') {
+      throw new Error(`Migration registry entry is invalid: ${String(id)}`);
+    }
+    return { id, sql };
+  });
 }
 
 const additiveAppMigrations = await loadAdditiveAppMigrations();
