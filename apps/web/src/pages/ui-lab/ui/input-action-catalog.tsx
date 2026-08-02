@@ -1,9 +1,19 @@
+import { AnimatePresence, motion } from 'motion/react';
+import { ChevronDown, Download, FileText, Link2 } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
 type DirectionId = 'hairline' | 'inset' | 'rail';
-type CategoryId = 'radio' | 'slider' | 'calendar' | 'range' | 'upload' | 'otp' | 'buttons';
+type CategoryId =
+  | 'radio'
+  | 'slider'
+  | 'calendar'
+  | 'range'
+  | 'upload'
+  | 'otp'
+  | 'button-group'
+  | 'split-button';
 
 const directions = [
   {
@@ -38,8 +48,38 @@ const categories = [
   { id: 'range', label: 'DatePicker · RangePicker' },
   { id: 'upload', label: 'FileUpload · Dropzone' },
   { id: 'otp', label: 'OTP' },
-  { id: 'buttons', label: 'ButtonGroup · SplitButton' },
+  { id: 'button-group', label: 'ButtonGroup' },
+  { id: 'split-button', label: 'SplitButton' },
 ] as const satisfies ReadonlyArray<{ id: CategoryId; label: string }>;
+
+const selectedDirections = {
+  radio: ['hairline', 'inset', 'rail'],
+  slider: ['hairline', 'inset', 'rail'],
+  calendar: ['hairline', 'inset'],
+  range: ['hairline', 'inset', 'rail'],
+  upload: ['hairline', 'inset'],
+  otp: ['hairline', 'inset', 'rail'],
+  'button-group': ['hairline', 'inset'],
+  'split-button': ['hairline', 'inset', 'rail'],
+} as const satisfies Record<CategoryId, readonly DirectionId[]>;
+
+const splitButtonDirections = {
+  hairline: {
+    label: 'A · Soft Join',
+    title: '매트 솔리드',
+    description: '하나의 부드러운 덩어리 안에서 기본 액션과 옵션을 얇은 선으로만 나눕니다.',
+  },
+  inset: {
+    label: 'B · Tonal',
+    title: '톤 분리',
+    description: '밝은 본체와 낮은 음영의 옵션 영역으로 기능 차이를 차분하게 구분합니다.',
+  },
+  rail: {
+    label: 'C · Twin',
+    title: '트윈 캡슐',
+    description: '같은 그룹 안에서 두 버튼을 살짝 분리해 둥근 형태와 클릭 영역을 강조합니다.',
+  },
+} as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
 
 function RadioPreview({ direction }: { direction: DirectionId }) {
   const name = useId();
@@ -243,7 +283,6 @@ function OtpPreview({ direction }: { direction: DirectionId }) {
 
 function ButtonGroupPreview({ direction }: { direction: DirectionId }) {
   const [period, setPeriod] = useState('1M');
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className={styles.buttonPreview} data-direction={direction}>
       <div className={styles.buttonGroup} aria-label="차트 기간">
@@ -258,27 +297,51 @@ function ButtonGroupPreview({ direction }: { direction: DirectionId }) {
           </button>
         ))}
       </div>
-      <div className={styles.splitButton}>
-        <button type="button">리포트 저장</button>
+    </div>
+  );
+}
+
+function SplitButtonPreview({ direction }: { direction: DirectionId }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <div className={styles.splitPreview} data-direction={direction}>
+      <p>화살표 영역을 눌러 보조 액션을 확인하세요.</p>
+      <div className={styles.splitButton} data-direction={direction}>
+        <button className={styles.splitPrimary} type="button">
+          <FileText aria-hidden="true" size={15} strokeWidth={1.8} />
+          <span>리포트 저장</span>
+        </button>
         <button
+          className={styles.splitTrigger}
           type="button"
           aria-label="리포트 저장 옵션"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((current) => !current)}
         >
-          ▾
+          <ChevronDown aria-hidden="true" size={15} strokeWidth={1.8} />
         </button>
-        {menuOpen && (
-          <div className={styles.splitMenu} role="menu">
-            <button type="button" role="menuitem">
-              PDF로 저장
-            </button>
-            <button type="button" role="menuitem">
-              링크 복사
-            </button>
-          </div>
-        )}
+        <AnimatePresence>
+          {menuOpen && (
+            <motion.div
+              className={styles.splitMenu}
+              role="menu"
+              initial={{ opacity: 0, y: -4, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -3, scale: 0.99 }}
+              transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
+                <Download aria-hidden="true" size={15} strokeWidth={1.8} />
+                <span>PDF로 저장</span>
+              </button>
+              <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
+                <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />
+                <span>링크 복사</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -297,7 +360,8 @@ function CategoryPreview({
   if (category === 'range') return <DateRangePreview direction={direction} />;
   if (category === 'upload') return <UploadPreview direction={direction} />;
   if (category === 'otp') return <OtpPreview direction={direction} />;
-  return <ButtonGroupPreview direction={direction} />;
+  if (category === 'button-group') return <ButtonGroupPreview direction={direction} />;
+  return <SplitButtonPreview direction={direction} />;
 }
 
 export function InputActionCatalog() {
@@ -312,8 +376,8 @@ export function InputActionCatalog() {
           <h2 id="input-action-title">입력과 액션</h2>
         </div>
         <p>
-          같은 기능을 세 가지 시각 문법으로 비교합니다. 아직 제품 공용 컴포넌트에는 반영하지
-          않습니다.
+          확정된 시안은 상황별 variant 후보로 함께 보존합니다. SplitButton은 별도 비교 후 공용
+          컴포넌트 설계에 반영합니다.
         </p>
       </header>
 
@@ -336,22 +400,39 @@ export function InputActionCatalog() {
       </div>
 
       <div className={styles.comparisonGrid}>
-        {directions.map((direction) => (
-          <article
-            className={styles.directionCard}
-            key={direction.id}
-            data-direction={direction.id}
-          >
-            <header>
-              <span>{direction.label}</span>
-              <h3>{direction.title}</h3>
-              <p>{direction.description}</p>
-            </header>
-            <div className={styles.previewSurface} key={`${direction.id}-${activeCategory}`}>
-              <CategoryPreview category={activeCategory} direction={direction.id} />
-            </div>
-          </article>
-        ))}
+        {directions.map((defaultDirection) => {
+          const direction =
+            activeCategory === 'split-button'
+              ? splitButtonDirections[defaultDirection.id]
+              : defaultDirection;
+          const selected = (selectedDirections[activeCategory] as readonly DirectionId[]).includes(
+            defaultDirection.id,
+          );
+
+          return (
+            <article
+              className={styles.directionCard}
+              key={defaultDirection.id}
+              data-direction={defaultDirection.id}
+              data-approved={selected || undefined}
+            >
+              <header>
+                <div className={styles.directionMeta}>
+                  <span>{direction.label}</span>
+                  <small>{selected ? '선택됨' : '제외'}</small>
+                </div>
+                <h3>{direction.title}</h3>
+                <p>{direction.description}</p>
+              </header>
+              <div
+                className={styles.previewSurface}
+                key={`${defaultDirection.id}-${activeCategory}`}
+              >
+                <CategoryPreview category={activeCategory} direction={defaultDirection.id} />
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

@@ -29,7 +29,8 @@ describe('UI Lab input and action mockup batch', () => {
       'DatePicker · RangePicker',
       'FileUpload · Dropzone',
       'OTP',
-      'ButtonGroup · SplitButton',
+      'ButtonGroup',
+      'SplitButton',
     ]) {
       assert.match(catalog, new RegExp(label.replace(' · ', '[\\s\\S]*')));
     }
@@ -37,6 +38,15 @@ describe('UI Lab input and action mockup batch', () => {
     for (const direction of ['hairline', 'inset', 'rail']) {
       assert.match(catalog, new RegExp(`id: '${direction}'`));
     }
+  });
+
+  it('records approved directions as reusable variant candidates', async () => {
+    const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
+
+    assert.match(catalog, /calendar: \['hairline', 'inset'\]/);
+    assert.match(catalog, /upload: \['hairline', 'inset'\]/);
+    assert.match(catalog, /'button-group': \['hairline', 'inset'\]/);
+    assert.match(catalog, /'split-button': \['hairline', 'inset', 'rail'\]/);
   });
 
   it('keeps the mockups keyboard-operable and stateful', async () => {
