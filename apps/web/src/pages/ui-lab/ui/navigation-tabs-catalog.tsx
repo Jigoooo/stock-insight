@@ -18,6 +18,8 @@ const routeItems = [
   { id: 'timeline', label: '타임라인', href: '/__ui-lab?route-tab=timeline' },
 ] as const;
 
+export type RouteTabId = (typeof routeItems)[number]['id'];
+
 const viewItems = [
   { id: 'impact', label: '영향 경로', summary: '뉴스에서 기업까지 이어지는 영향 경로를 봅니다.' },
   {
@@ -74,11 +76,26 @@ const slidingVariants = [
   },
 ] as const;
 
-export function NavigationTabsCatalog() {
-  const [activeRoute, setActiveRoute] = useState<(typeof routeItems)[number]['id']>('overview');
+interface NavigationTabsCatalogProps {
+  initialRouteTab: RouteTabId;
+}
+
+export function NavigationTabsCatalog({ initialRouteTab }: NavigationTabsCatalogProps) {
+  const [activeRoute, setActiveRoute] = useState<RouteTabId>(initialRouteTab);
   const [activeView, setActiveView] = useState('impact');
 
   const selectRoute = (event: MouseEvent<HTMLAnchorElement>, item: (typeof routeItems)[number]) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      (event.currentTarget.target && event.currentTarget.target !== '_self')
+    ) {
+      return;
+    }
+
     event.preventDefault();
     window.history.replaceState(window.history.state, '', item.href);
     setActiveRoute(item.id);

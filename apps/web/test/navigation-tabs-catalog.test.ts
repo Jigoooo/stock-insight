@@ -51,12 +51,17 @@ describe('UI Lab navigation tabs catalog', () => {
   it('connects the navigation comparison catalog to the UI Lab', async () => {
     const page = await readUiLabSource('ui-lab-page.tsx');
 
-    assert.match(page, /import \{ NavigationTabsCatalog \} from '\.\/navigation-tabs-catalog'/);
-    assert.match(page, /<NavigationTabsCatalog \/>/);
+    assert.match(page, /NavigationTabsCatalog,[\s\S]*from '\.\/navigation-tabs-catalog'/);
+    assert.match(page, /<NavigationTabsCatalog initialRouteTab=\{initialRouteTab\} \/>/);
   });
 
   it('keeps route navigation semantics separate from sliding tab state', async () => {
     const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
+    const route = await readFile(
+      new URL('../src/routes/[__ui-lab].tsx', import.meta.url),
+      'utf8',
+    );
+    const page = await readUiLabSource('ui-lab-page.tsx');
     const routes = arrayDeclaration(catalog, 'routeItems');
     const routeSection = sourceBlock(
       catalog,
@@ -93,6 +98,25 @@ describe('UI Lab navigation tabs catalog', () => {
       slidingSection,
       /\bhref=|<Link\b|\bnavigate\(|window\.location|history\.(?:pushState|replaceState)/,
     );
+    assert.match(route, /validateSearch:/);
+    assert.match(route, /search\['route-tab'\]/);
+    assert.match(route, /<UiLabPage initialRouteTab=\{search\['route-tab'\]\} \/>/);
+    assert.match(page, /<NavigationTabsCatalog initialRouteTab=\{initialRouteTab\} \/>/);
+    assert.match(catalog, /useState<RouteTabId>\(initialRouteTab\)/);
+  });
+
+  it('preserves native modified-click behavior for route links', async () => {
+    const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
+    const selectRoute = sourceBlock(catalog, 'const selectRoute =', '\n  };');
+
+    assert.match(selectRoute, /event\.button !== 0/);
+    assert.match(selectRoute, /event\.metaKey/);
+    assert.match(selectRoute, /event\.ctrlKey/);
+    assert.match(selectRoute, /event\.shiftKey/);
+    assert.match(selectRoute, /event\.altKey/);
+    assert.match(selectRoute, /event\.currentTarget\.target/);
+    assert.match(selectRoute, /return;/);
+    assert.match(selectRoute, /event\.preventDefault\(\)/);
   });
 
   it('scopes all six visual variants to the correct navigation behavior', async () => {

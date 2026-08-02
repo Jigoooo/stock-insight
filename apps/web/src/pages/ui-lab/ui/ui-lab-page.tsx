@@ -1,10 +1,14 @@
 import { InputActionCatalog } from './input-action-catalog';
-import { NavigationTabsCatalog } from './navigation-tabs-catalog';
+import { NavigationTabsCatalog, type RouteTabId } from './navigation-tabs-catalog';
 import styles from './ui-lab-page.module.css';
 
 const futureBatches = ['메뉴와 오버레이', '데이터와 피드백'];
 
-export function UiLabPage() {
+interface UiLabPageProps {
+  initialRouteTab: RouteTabId;
+}
+
+export function UiLabPage({ initialRouteTab }: UiLabPageProps) {
   return (
     <main className={styles.page} data-testid="ui-lab-page">
       <section className={styles.shell} aria-labelledby="ui-lab-title">
@@ -14,7 +18,7 @@ export function UiLabPage() {
           <p>제품 화면과 분리된 공용 컴포넌트 목업 비교 공간입니다.</p>
         </header>
         <InputActionCatalog />
-        <NavigationTabsCatalog />
+        <NavigationTabsCatalog initialRouteTab={initialRouteTab} />
         <div className={styles.grid} aria-label="향후 배치">
           {futureBatches.map((batch, index) => (
             <article className={styles.placeholder} key={batch}>
