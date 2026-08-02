@@ -57,6 +57,7 @@ describe('UI Lab navigation tabs catalog', () => {
 
   it('keeps route navigation semantics separate from sliding tab state', async () => {
     const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
+    const routes = arrayDeclaration(catalog, 'routeItems');
     const routeSection = sourceBlock(
       catalog,
       '<nav aria-label={`경로 탭 비교 · ${variant.title}`}>',
@@ -73,6 +74,16 @@ describe('UI Lab navigation tabs catalog', () => {
     assert.match(
       routeSection,
       /(?:<a\b(?=[^>]*href=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>|<Link\b(?=[^>]*to=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>)/,
+    );
+    for (const route of ['overview', 'evidence', 'timeline']) {
+      assert.match(routes, new RegExp(`href: '/__ui-lab\\?route-tab=${route}'`));
+    }
+    assert.doesNotMatch(routes, /href: '#/);
+    assert.match(routeSection, /onClick=\{\(event\) => selectRoute\(event, item\)\}/);
+    assert.match(catalog, /event\.preventDefault\(\)/);
+    assert.match(
+      catalog,
+      /window\.history\.replaceState\(window\.history\.state, '', item\.href\)/,
     );
     assert.match(slidingSection, /<Tabs value=\{activeView\} onValueChange=\{setActiveView\}>/);
     assert.match(slidingSection, /<TabsHighlight/);
@@ -109,10 +120,15 @@ describe('UI Lab navigation tabs catalog', () => {
   it('preserves the narrow-screen overflow contract', async () => {
     const css = await readUiLabSource('navigation-tabs-catalog.module.css');
     const mobileCss = balancedCssBlock(css, '@media (max-width: 520px)');
+    const slidingTargetCss = balancedCssBlock(
+      mobileCss,
+      ".variantCard[data-variant] .slidingList [data-slot='tabs-trigger']",
+    );
 
     assert.match(mobileCss, /overflow-x: auto/);
     assert.match(mobileCss, /(?:flex-wrap|white-space): nowrap/);
     assert.match(mobileCss, /min-height: 44px/);
+    assert.match(slidingTargetCss, /min-height: 44px/);
   });
 
   it('keeps the catalog layout and indicator stronger than shared tab defaults', async () => {

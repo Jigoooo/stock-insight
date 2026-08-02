@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 
 import styles from './navigation-tabs-catalog.module.css';
 
@@ -13,9 +13,9 @@ import {
 } from '@/shared/ui/tabs';
 
 const routeItems = [
-  { id: 'overview', label: '개요', href: '#route-overview' },
-  { id: 'evidence', label: '근거', href: '#route-evidence' },
-  { id: 'timeline', label: '타임라인', href: '#route-timeline' },
+  { id: 'overview', label: '개요', href: '/__ui-lab?route-tab=overview' },
+  { id: 'evidence', label: '근거', href: '/__ui-lab?route-tab=evidence' },
+  { id: 'timeline', label: '타임라인', href: '/__ui-lab?route-tab=timeline' },
 ] as const;
 
 const viewItems = [
@@ -78,6 +78,12 @@ export function NavigationTabsCatalog() {
   const [activeRoute, setActiveRoute] = useState<(typeof routeItems)[number]['id']>('overview');
   const [activeView, setActiveView] = useState('impact');
 
+  const selectRoute = (event: MouseEvent<HTMLAnchorElement>, item: (typeof routeItems)[number]) => {
+    event.preventDefault();
+    window.history.replaceState(window.history.state, '', item.href);
+    setActiveRoute(item.id);
+  };
+
   return (
     <section className={styles.catalog} aria-labelledby="navigation-tabs-title">
       <header className={styles.catalogHeader}>
@@ -116,7 +122,7 @@ export function NavigationTabsCatalog() {
                         href={item.href}
                         aria-current={activeRoute === item.id ? 'page' : undefined}
                         key={item.id}
-                        onClick={() => setActiveRoute(item.id)}
+                        onClick={(event) => selectRoute(event, item)}
                       >
                         {item.label}
                       </a>

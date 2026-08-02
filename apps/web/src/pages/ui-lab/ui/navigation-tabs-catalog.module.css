@@ -362,8 +362,11 @@
     scrollbar-width: thin;
   }
 
-  .routeFrame a,
-  .slidingList [data-slot='tabs-trigger'] {
+  .routeFrame a {
+    min-height: 44px;
+  }
+
+  .variantCard[data-variant] .slidingList [data-slot='tabs-trigger'] {
     min-height: 44px;
   }
 
