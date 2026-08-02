@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음 — `1D 짧은 보안 입력` 검증 완료
-- 다음 묶음: `1E 액션 조합 — ButtonGroup + SplitButton`
+- 현재 활성 묶음: 없음 — `1E 액션 조합` 검증 완료
+- 다음 묶음: `2A 인증·관리자 폼 수렴`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -29,7 +29,7 @@
 | 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행 |
 | 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행 |
 | 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행 |
-| 1E   | ButtonGroup + SplitButton           | 승인      | 1D 완료 후 공용화                |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사           |
 | 2A   | 인증·관리자 폼 수렴                 | 대기      | 1단계 공용화 이후 감사           |
 | 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 2A 완료 후 감사                  |
 | 2C   | 워크스페이스 데이터·오버레이 수렴   | 대기      | 2B 완료 후 감사                  |
@@ -116,6 +116,18 @@
 - 계약 검증: web Node 584건, OTP Playwright desktop/mobile 11건 통과·desktop 전용 mobile 계약 1건 skip, fixture typecheck, 전체 format·lint·typecheck·build, `git diff --check`
 - Codex 인앱 브라우저 단일 탭에서 A/B/C 렌더링과 C Rail의 `box-shadow: none`, `outline: none` 계산 스타일 확인
 - 제품 사용처 감사: signup의 enrollment code는 최대 256자의 opaque 값이라 고정 숫자 OTP로 교체하지 않음. 그 외 OTP 사용처가 없어 가짜 제품 기능은 추가하지 않음.
+
+### 2026-08-02 — 1E ButtonGroup + SplitButton 검증 완료
+
+- 공용 API·UI Lab·제품 적용 커밋: `0ec183b`
+- 공용 `ButtonGroup` 공개 API 구현: `hairline|inset`, 가로·세로 방향, 의미 있는 group label, 자식 버튼의 선택 상태를 강제하지 않는 액션 컨테이너 계약
+- 공용 `SplitButton` 공개 API 구현: `solid|tonal|twin`, controlled/uncontrolled menu, primary·alternative action, pending·disabled 상태
+- Radix DropdownMenu 기반 non-modal menu, `대체 액션` 접근 가능한 이름, Escape 후 trigger focus 복귀, 390px 44px target, reduced-motion 무변형 계약 검증
+- UI Lab은 승인된 ButtonGroup A/B와 SplitButton A/B/C를 공용 컴포넌트로 교체하고 페이지 소유 menu·motion·상태 CSS를 제거
+- 관계 그래프 카메라 컨트롤을 `ButtonGroup variant="inset"`과 공용 `IconButton`으로 교체. SplitButton은 실제 제품 사용처가 없어 가짜 기능을 추가하지 않음.
+- Animate UI upstream Button 원본은 무변경으로 보존하고 canonical Button adapter에서 정의되지 않은 Motion props의 DOM 전달만 차단
+- 계약 검증: web Node 590건, 액션 그룹 Playwright desktop/mobile 11건 통과·desktop 전용 mobile 계약 1건 skip, 전체 format·lint·typecheck·build, `git diff --check`
+- Codex 인앱 브라우저 단일 탭에서 세 SplitButton variant, 기본·대체 액션, menu focus 복귀와 React console warning 0건을 확인
 
 ## 실행 환경 메모
 
