@@ -6,7 +6,15 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 // Quarterly + annual, filing-level (rcept_no as filing_ref).
 // NOTE: daily API quota — run with --limit and resume; idempotent upserts.
 
+import {
+  CLOSE_FETCH_RUN_SQL,
+  OPEN_FETCH_RUN_SQL,
+  registerRawObjectWithRevision,
+  writeRawObject,
+} from './raw-object-store.ts';
+
 const JOB_NAME = 'stock-insight-dart-financial-facts';
+const PROVIDER_KEY = 'opendart';
 const DART_BASE = 'https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json';
 
 // reprt_code: 11013 Q1, 11012 half(Q2), 11014 Q3, 11011 annual(FY)
@@ -40,8 +48,8 @@ const UPSERT_FACT_SQL = `
 INSERT INTO market.financial_fact (
   issuer_entity_id, concept, value, unit, currency, period_start, period_end,
   fiscal_year, fiscal_period, filing_ref, form, filed_at, available_at,
-  source_provider, metadata
-) VALUES ($1, $2, $3, 'KRW', 'KRW', $4, $5, $6, $7, $8, $9, $10, $10, 'opendart', $11::jsonb)
+  source_provider, metadata, source_revision_id
+) VALUES ($1, $2, $3, 'KRW', 'KRW', $4, $5, $6, $7, $8, $9, $10, $10, 'opendart', $11::jsonb, $12)
 ON CONFLICT (issuer_entity_id, concept, period_end, fiscal_period, filing_ref) DO NOTHING
 RETURNING fact_id
 `;
@@ -172,6 +180,9 @@ async function run(): Promise<void> {
   const limit = intOption('--limit', 30, 300);
   const requestedOffset = optionalIntOption('--offset', 300);
   const startedAt = new Date();
+  // Idempotency key for the fetch run: a retry of the same invocation reuses the
+  // run rather than opening a second one.
+  const runId = `${JOB_NAME}-${randomUUID()}`;
   const apiKey = required('OPENDART_API_KEY');
 
   const Pool = (pg as PgModule).Pool;
@@ -203,8 +214,29 @@ async function run(): Promise<void> {
         accountToConcept.set(accountId, concept.concept);
     }
 
+    // One fetch_run per script invocation. Every raw payload and source_revision
+    // this run registers hangs off it, which is what makes a fact traceable back
+    // to the exact request that produced it.
+    let fetchRunId: number | null = null;
+    if (apply) {
+      await client.query('BEGIN');
+      const opened = await client.query<QueryResultRow & { fetch_run_id: string | number }>(
+        OPEN_FETCH_RUN_SQL,
+        [
+          PROVIDER_KEY,
+          runId,
+          `${PROVIDER_KEY}:${runId}`,
+          startedAt.toISOString(),
+        ],
+      );
+      fetchRunId = Number(opened.rows[0]!.fetch_run_id);
+      await client.query('COMMIT');
+    }
+
     const targets = issuers.rows.slice(offset, offset + limit);
     let requests = 0;
+    let revisionsRegistered = 0;
+    let revisionsReplayed = 0;
     let factsSeen = 0;
     let factsInserted = 0;
     let issuersCompleted = 0;
@@ -231,6 +263,35 @@ async function run(): Promise<void> {
           if (apply && matched.length > 0) {
             await client.query('BEGIN');
             await client.query("SELECT set_config('statement_timeout', '120s', true)");
+
+            // Preserve the payload before parsing it away, then register it as a
+            // source revision. The response body was previously discarded, so a
+            // fact could not be traced to what was actually fetched.
+            //
+            // The record key is the filing, not the row: one OpenDART response
+            // covers a whole (corp, year, report) filing, and that is the unit
+            // whose content hash means anything. registerRawObjectWithRevision
+            // dedupes on the hash, so an unchanged refetch replays instead of
+            // appending a revision.
+            const fetchedAt = new Date().toISOString();
+            const raw = await writeRawObject({
+              providerKey: PROVIDER_KEY,
+              content: JSON.stringify({ status, list: rows }),
+              extension: 'json',
+              fetchedAt: new Date(fetchedAt),
+            });
+            const registered = await registerRawObjectWithRevision(client, {
+              fetchRunId: fetchRunId!,
+              sourceId: Number(sourceId),
+              providerRecordKey: `${issuer.corp_code}:${year}:${report.code}`,
+              contentHash: raw.contentHash,
+              objectUri: raw.objectUri,
+              httpMeta: { endpoint: DART_BASE, fs_div: 'CFS', status },
+              fetchedAt,
+            });
+            if (registered.replay) revisionsReplayed += 1;
+            else revisionsRegistered += 1;
+
             for (const row of matched) {
               const value = parseAmount(row.thstrm_amount);
               if (value === null || !row.rcept_no) continue;
@@ -247,6 +308,7 @@ async function run(): Promise<void> {
                 report.code,
                 filedAt,
                 JSON.stringify({ corp_code: issuer.corp_code, account_nm: row.account_nm }),
+                registered.sourceRevisionId,
               ]);
               if ((result.rowCount ?? 0) > 0) factsInserted += 1;
             }
@@ -271,6 +333,8 @@ async function run(): Promise<void> {
       requests,
       factsSeen,
       factsInserted,
+      revisionsRegistered,
+      revisionsReplayed,
       quotaExhausted,
       cursorAdvanced: apply && shouldAdvanceCursor,
     };
@@ -280,6 +344,19 @@ async function run(): Promise<void> {
     }
     await client.query('BEGIN');
     await client.query("SELECT set_config('statement_timeout', '120s', true)");
+    if (fetchRunId !== null) {
+      await client.query(CLOSE_FETCH_RUN_SQL, [
+        fetchRunId,
+        new Date().toISOString(),
+        quotaExhausted ? 'partial' : 'success',
+        factsSeen,
+        factsInserted,
+        factsSeen - factsInserted,
+        null,
+        new Date().toISOString(),
+        JSON.stringify(summary),
+      ]);
+    }
     if (shouldAdvanceCursor) {
       const savedCursor = await client.query(SAVE_CURSOR_SQL, [
         sourceId,

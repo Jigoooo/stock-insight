@@ -53,6 +53,7 @@ import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/
 import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto_serving_app_reader_grant.ts';
 import { adminInvitationControlMigrationSql } from './migrations/054_admin_invitation_control.ts';
 import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_internal_only.ts';
+import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fact_source_lineage.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -706,6 +707,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: impactV1InternalOnlyMigrationSql,
   },
+  {
+    id: '056_market_fact_source_lineage',
+    description:
+      'Adds source_revision_id to market.financial_fact so a fact can be traced to the payload it came from; none of the seven market.* tables had anywhere to record lineage.',
+    tables: [],
+    sql: marketFactSourceLineageMigrationSql,
+  },
 ];
 
 export {
@@ -764,4 +772,5 @@ export {
   cryptoServingAppReaderGrantMigrationSql,
   adminInvitationControlMigrationSql,
   impactV1InternalOnlyMigrationSql,
+  marketFactSourceLineageMigrationSql,
 };
