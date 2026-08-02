@@ -198,8 +198,12 @@ function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
       // (source_entity_id is never the target), so hopCount 1 means "one relation
       // away", not "about this company". Calling it a direct link would assert a
       // directness the data does not have.
-      const reach = `${path.hopCount}단계 떨어진 기업`;
-      return `${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
+      // Name the company when the pack carries it. Packs sealed before the name
+      // existed keep serving until the next pipeline run, so the unnamed form has
+      // to stay readable rather than showing an empty slot.
+      const where = path.sourceName ?? `${path.hopCount}단계 떨어진 기업`;
+      const reach = `관계 ${path.hopCount}단계`;
+      return `${where} · ${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
     });
 }
 

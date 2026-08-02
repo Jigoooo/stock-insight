@@ -372,6 +372,9 @@ export async function getImpactBrief(
           triggerEventId: numberValue(impact.triggerEventId),
           sourceEntityId: numberValue(impact.sourceEntityId),
           eventType: String(impact.eventType ?? 'unknown'),
+          sourceName: typeof impact.sourceName === 'string' ? impact.sourceName : null,
+          sourceEntityKey:
+            typeof impact.sourceEntityKey === 'string' ? impact.sourceEntityKey : null,
           hopCount: numberValue(impact.hopCount, 1),
           pathScore: numberValue(impact.pathScore),
           note: String(impact.note ?? 'industrial linkage strength; never a price prediction'),

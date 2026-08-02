@@ -639,7 +639,14 @@ export const impactBriefPathSchema = z.object({
   triggerEventId: z.number().int().positive(),
   sourceEntityId: z.number().int().positive(),
   eventType: z.string().min(1),
-  /** 1 = the event names this holding directly; 2 = it reaches it through one intermediary. */
+  /**
+   * The company the event actually happened at. Nullable because packs published
+   * before this field existed carry no name, and a pack is immutable once sealed —
+   * they keep serving until the next pipeline run replaces them.
+   */
+  sourceName: z.string().min(1).nullable(),
+  sourceEntityKey: z.string().min(1).nullable(),
+  /** Relation edges traversed. NOT a measure of how directly the event names this holding. */
   hopCount: z.number().int().min(1),
   pathScore: z.number().min(0).max(1),
   /** Read-only contract: linkage strength, never a price expectation. */

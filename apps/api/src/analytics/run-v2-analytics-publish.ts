@@ -182,6 +182,42 @@ async function loadStockEntityIds(client: Client): Promise<Set<number>> {
   return new Set(result.rows.map((row) => numeric(row.entity_id, 'stockEntityId')));
 }
 
+/**
+ * Display names for the entities an impact path can start from.
+ *
+ * Without this an impact item can only say "one relation away", which does not
+ * tell the reader anything they can act on as research — naming the company the
+ * event actually happened at is the difference between a number and a lead.
+ * Bounded by the snapshot's entity count, so one query up front is enough.
+ */
+async function loadEntityNames(
+  client: Client,
+  entityIds: readonly number[],
+): Promise<Map<number, { name: string; entityKey: string | null }>> {
+  if (entityIds.length === 0) return new Map();
+  const result = await client.query<
+    QueryResultRow & {
+      entity_id: string | number;
+      canonical_name: string;
+      entity_key: string | null;
+    }
+  >(
+    `SELECT entity.entity_id, entity.canonical_name, identifier.identifier_value AS entity_key
+     FROM core.entity entity
+     LEFT JOIN core.entity_identifier identifier
+       ON identifier.entity_id = entity.entity_id
+      AND identifier.identifier_type = 'INTERNAL_KEY'
+     WHERE entity.entity_id = ANY($1::bigint[])`,
+    [entityIds],
+  );
+  return new Map(
+    result.rows.map((row) => [
+      numeric(row.entity_id, 'entityId'),
+      { name: row.canonical_name, entityKey: row.entity_key },
+    ]),
+  );
+}
+
 async function loadRecentEvents(client: Client, asOf: string): Promise<EventRow[]> {
   const result = await client.query<EventRow>(
     `SELECT event.event_id, event.event_type, event.target_entity_id,
@@ -392,6 +428,9 @@ async function main(): Promise<void> {
       // earlier in this pipeline cannot be reopened to carry these — this
       // publisher has to write its own packs.
       const impactItemsByTargetEntity = new Map<number, ContentPackSourceItem[]>();
+      const sourceNames = await loadEntityNames(client, [
+        ...new Set(pathsByEvent.flatMap(({ paths }) => paths.map((p) => p.sourceEntityId))),
+      ]);
       for (const { event, paths } of pathsByEvent) {
         // One row per (event, target): builder already returns the best-first
         // ordering; keep only the strongest path per target under the natural
@@ -468,6 +507,11 @@ async function main(): Promise<void> {
                 sourceEntityId: path.sourceEntityId,
                 targetEntityId: path.targetEntityId,
                 eventType: event.event_type,
+                // Absent only if the entity vanished between path building and
+                // this lookup; the reader treats a missing name as unknown rather
+                // than inventing one.
+                sourceName: sourceNames.get(path.sourceEntityId)?.name ?? null,
+                sourceEntityKey: sourceNames.get(path.sourceEntityId)?.entityKey ?? null,
                 hopCount: path.hopCount,
                 pathScore: Math.min(1, Math.max(0, path.pathScore)),
                 // Same wording as the path's own explanation. This is what the

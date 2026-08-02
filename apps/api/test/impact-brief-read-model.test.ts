@@ -52,6 +52,8 @@ function itemRow(itemNo: number, impactPathV2Id: number, pathScore: number) {
         sourceEntityId: 242,
         targetEntityId: 42,
         eventType: 'supply_disruption',
+        sourceName: 'TSMC',
+        sourceEntityKey: 'US:TSM',
         hopCount: 2,
         pathScore,
         note: 'industrial linkage strength; never a price prediction',
@@ -90,10 +92,45 @@ test('serves impact paths from the entity content pack with its digest', async (
     triggerEventId: 6873,
     sourceEntityId: 242,
     eventType: 'supply_disruption',
+    sourceName: 'TSMC',
+    sourceEntityKey: 'US:TSM',
     hopCount: 2,
     pathScore: 0.71,
     note: 'industrial linkage strength; never a price prediction',
   });
+});
+
+test('a pack sealed before the source name existed still parses', async () => {
+  // Content packs are immutable once published, so packs already serving carry no
+  // sourceName until the next pipeline run replaces them. Treating that as a
+  // schema violation would take the whole section down for a day.
+  const legacyItem = {
+    ...itemRow(1, 57865, 0.71),
+    display_payload: {
+      impact: {
+        triggerEventId: 6873,
+        sourceEntityId: 242,
+        eventType: 'supply_disruption',
+        hopCount: 2,
+        pathScore: 0.71,
+        note: 'industrial linkage strength; never a price prediction',
+      },
+    },
+  };
+  const result = await getImpactBrief(
+    executorFor((sql) =>
+      sql.includes('core.entity_identifier')
+        ? [{ entity_id: 42 }]
+        : sql.includes('v_relation_graph_freshness')
+          ? [packRow()]
+          : [legacyItem],
+    ),
+    { entityKey: 'US:AMD', now: NOW },
+  );
+
+  assert.equal(result.error, null);
+  assert.equal(result.data?.paths[0]?.sourceName, null);
+  assert.equal(result.data?.paths[0]?.sourceEntityKey, null);
 });
 
 test('an unknown entity key is "nothing here", not a failure', async () => {

@@ -59,6 +59,8 @@ const path = (overrides: Record<string, unknown> = {}) => ({
   triggerEventId: 6873,
   sourceEntityId: 242,
   eventType: 'supply_disruption',
+  sourceName: 'TSMC',
+  sourceEntityKey: 'US:TSM',
   hopCount: 2,
   pathScore: 0.71,
   note: 'industrial linkage strength; never a price prediction',
@@ -88,6 +90,8 @@ describe('second-order exposure from sealed impact paths', () => {
     assert.equal(section?.itemCount, 2);
     assert.match(section!.items[0]!, /공급 차질/);
     assert.match(section!.items[0]!, /0\.88/);
+    // The company the event happened at is what makes the item actionable.
+    assert.match(section!.items[0]!, /TSMC/);
     assert.match(section!.items[1]!, /규제/);
   });
 
@@ -109,12 +113,26 @@ describe('second-order exposure from sealed impact paths', () => {
     const twoHop = buildStockDeepDive(stockDetail, relation, brief([path({ hopCount: 2 })]));
 
     const first = oneHop.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!;
-    assert.match(first, /1단계 떨어진 기업/);
+    assert.match(first, /관계 1단계/);
     assert.doesNotMatch(first, /직접/);
     assert.match(
       twoHop.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!,
-      /2단계 떨어진 기업/,
+      /관계 2단계/,
     );
+  });
+
+  it('stays readable for packs sealed before the source name existed', () => {
+    // Content packs are immutable once published, so the packs already serving
+    // carry no sourceName until the next pipeline run replaces them. An empty
+    // slot would look like a rendering bug.
+    const result = buildStockDeepDive(
+      stockDetail,
+      relation,
+      brief([path({ sourceName: null, sourceEntityKey: null, hopCount: 1 })]),
+    );
+    const first = result.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!;
+    assert.match(first, /1단계 떨어진 기업/);
+    assert.doesNotMatch(first, /null|undefined/);
   });
 
   it('a missing impact endpoint degrades the section, not the whole page', async () => {
