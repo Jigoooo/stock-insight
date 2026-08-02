@@ -5,9 +5,9 @@
 
 ## 현재 포인터
 
-- 프로그램 상태: 준비 완료
-- 현재 활성 묶음: 없음
-- 다음 묶음: `1A 선택 입력 — RadioGroup + Slider`
+- 프로그램 상태: 실행 중
+- 현재 활성 묶음: `1A 선택 입력 — RadioGroup + Slider`
+- 다음 묶음: `1B 날짜 입력 — Calendar + DatePicker + RangePicker`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -25,7 +25,7 @@
 
 | 묶음 | 내용 | 현재 상태 | 다음 행동 |
 | --- | --- | --- | --- |
-| 1A | RadioGroup + Slider | 승인 | 공용 API 설계·구현 |
+| 1A | RadioGroup + Slider | 공용화 | 공개 API·UI Lab 이식·브라우저 검증 |
 | 1B | Calendar + DatePicker + RangePicker | 승인 | 1A 완료 후 공용화 |
 | 1C | FileUpload + Dropzone | 승인 | 검증된 목업을 공용 API로 승격 |
 | 1D | OTP | 승인 | 1C 완료 후 공용화 |
@@ -76,9 +76,8 @@
 
 - `pnpm dev:live:check`: AGE live 구성 정상
 - 기대 포트: web `6100`, API `6200`, Cloudflare DB listener `55432`
-- 2026-08-02 확인: `https://insight-db.jigooo.com/`이 Cloudflare `Error 1033`
-- 판정: 로컬 AGE 문제가 아니라 원격 Cloudflare Tunnel 연결이 복구되어야 `pnpm dev`가 기동 가능
-- 실패한 launcher는 종료했으며 6100/6200/55432를 점유하지 않도록 한다.
+- 2026-08-02 재확인: `https://insight-db.jigooo.com/`은 Cloudflare Access 로그인으로 정상 응답한다.
+- `pnpm dev` 라이브 스택은 web `6100`, API `6200`, DB listener `55432`에서 기동 확인했다.
 
 ## 갱신 규칙
 
