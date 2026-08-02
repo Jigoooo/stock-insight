@@ -55,8 +55,6 @@
 }
 
 .root[data-variant='inset'] {
-  padding: 3px;
-  border-radius: calc(var(--radius-control) + 3px);
   background: var(--color-surface-subtle);
 }
 
@@ -71,12 +69,12 @@
 
 .root[data-variant='inset'][data-orientation='horizontal']
   > :global([data-slot='button-control']:first-child) {
-  border-radius: calc(var(--radius-control) - 2px) 0 0 calc(var(--radius-control) - 2px);
+  border-radius: calc(var(--radius-control) - 1px) 0 0 calc(var(--radius-control) - 1px);
 }
 
 .root[data-variant='inset'][data-orientation='horizontal']
   > :global([data-slot='button-control']:last-child) {
-  border-radius: 0 calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px) 0;
+  border-radius: 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0;
 }
 
 .root[data-variant='inset'][data-orientation='vertical']
@@ -86,12 +84,12 @@
 
 .root[data-variant='inset'][data-orientation='vertical']
   > :global([data-slot='button-control']:first-child) {
-  border-radius: calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px) 0 0;
+  border-radius: calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0 0;
 }
 
 .root[data-variant='inset'][data-orientation='vertical']
   > :global([data-slot='button-control']:last-child) {
-  border-radius: 0 0 calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px);
+  border-radius: 0 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px);
 }
 
 .root[data-variant='inset'] > :global([data-slot='button-control']:hover) {

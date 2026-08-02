@@ -59,6 +59,7 @@ test.describe('UI Lab action groups', () => {
           return {
             borderTopWidth: style.borderTopWidth,
             columnGap: style.columnGap,
+            paddingInlineStart: style.paddingInlineStart,
           };
         }),
         firstAction.evaluate((element) => {
@@ -72,7 +73,11 @@ test.describe('UI Lab action groups', () => {
       ]);
 
       expect(styles[0]).toBe('rgba(0, 0, 0, 0)');
-      expect(styles[1]).toEqual({ borderTopWidth: '1px', columnGap: 'normal' });
+      expect(styles[1]).toEqual({
+        borderTopWidth: '1px',
+        columnGap: 'normal',
+        paddingInlineStart: '0px',
+      });
       expect(styles[2]).toEqual({
         backgroundColor: 'rgba(0, 0, 0, 0)',
         borderTopWidth: '0px',
