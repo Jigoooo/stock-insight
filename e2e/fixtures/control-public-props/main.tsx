@@ -4,6 +4,7 @@ import { Button, IconButton } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
 import { RadioGroup } from '@/shared/ui/radio-group';
+import { Slider } from '@/shared/ui/slider';
 import { Switch } from '@/shared/ui/switch';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
@@ -51,6 +52,15 @@ export const nativeControlPropsFixture = (
       onValueChange={() => undefined}
       value="watch"
       variant="rail"
+    />
+    <Slider
+      aria-label="Confidence threshold"
+      endLabel="Strict"
+      onValueChange={() => undefined}
+      startLabel="Broad"
+      thumbLabels={['Confidence threshold']}
+      value={[64]}
+      variant="inset"
     />
     <ToggleGroup
       draggable
