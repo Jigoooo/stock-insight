@@ -68,7 +68,7 @@ describe('UI Lab navigation tabs catalog', () => {
     assert.match(routeSection, /<nav aria-label="경로 탭 비교">/);
     assert.match(
       routeSection,
-      /<(?:a|Link)\b(?=[^>]*(?:href|to)=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>/,
+      /(?:<a\b(?=[^>]*href=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>|<Link\b(?=[^>]*to=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>)/,
     );
     assert.match(slidingSection, /<Tabs value=\{activeView\} onValueChange=\{setActiveView\}>/);
     assert.match(slidingSection, /<TabsHighlight/);
