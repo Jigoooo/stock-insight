@@ -1,7 +1,8 @@
 import { InputActionCatalog } from './input-action-catalog';
+import { NavigationTabsCatalog } from './navigation-tabs-catalog';
 import styles from './ui-lab-page.module.css';
 
-const futureBatches = ['내비게이션', '메뉴와 오버레이', '데이터와 피드백'];
+const futureBatches = ['메뉴와 오버레이', '데이터와 피드백'];
 
 export function UiLabPage() {
   return (
@@ -13,6 +14,7 @@ export function UiLabPage() {
           <p>제품 화면과 분리된 공용 컴포넌트 목업 비교 공간입니다.</p>
         </header>
         <InputActionCatalog />
+        <NavigationTabsCatalog />
         <div className={styles.grid} aria-label="향후 배치">
           {futureBatches.map((batch, index) => (
             <article className={styles.placeholder} key={batch}>
