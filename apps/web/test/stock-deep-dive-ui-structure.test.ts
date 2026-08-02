@@ -66,7 +66,7 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(source, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
     assert.match(source, /<DataTable/);
     assert.match(source, /containerProps=\{\{/);
-    assert.match(source, /'aria-label': '종목 커버리지 표 가로 스크롤 영역'/);
+    assert.match(source, /'aria-label': '종목 현황 표 가로 스크롤 영역'/);
     assert.match(source, /tabIndex: 0/);
     assert.match(source, /StockDeepDivePanel/);
   });
@@ -87,7 +87,7 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(stocksSource, /deepDiveRegionRef\.current\?\.focus/);
     assert.match(stocksSource, /scrollIntoView/);
     assert.match(stocksSource, /prefers-reduced-motion: reduce/);
-    assert.match(stocksSource, /caption="종목 커버리지"/);
+    assert.match(stocksSource, /caption="종목 현황"/);
     assert.match(panelStyles, /grid-template-areas:\s*'table detail'/);
     assert.match(panelStyles, /grid-template-areas:\s*'table'\s*'detail'/);
     assert.doesNotMatch(panelStyles, /\.deepDiveRegion\s*\{[^}]*order:\s*-1/);

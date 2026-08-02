@@ -2,8 +2,8 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 32px;
-  margin-bottom: 30px;
+  gap: 24px;
+  margin-bottom: 22px;
 }
 
 .pageHeader > div {
@@ -23,18 +23,18 @@
 .pageHeader h1 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: clamp(32px, 3.5vw, 48px);
+  font-size: clamp(24px, 2.5vw, 34px);
   font-weight: 700;
   letter-spacing: -0.025em;
-  line-height: 1.05;
+  line-height: 1.12;
 }
 
 .pageHeader p {
   max-width: 720px;
-  margin: 13px 0 0;
+  margin: 8px 0 0;
   color: var(--color-text-secondary);
   font-size: 14px;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
 .pageHeader time {

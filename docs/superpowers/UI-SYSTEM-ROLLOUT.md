@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `2B 워크스페이스 검색·선택 수렴`
-- 다음 묶음: `2C 워크스페이스 데이터·오버레이 수렴`
+- 현재 활성 묶음: `3A Route Tabs + Sliding Tabs 목업 비교`
+- 다음 묶음: `3B Side Tab + Side List 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -31,9 +31,9 @@
 | 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행 |
 | 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사           |
 | 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사   |
-| 2B   | 워크스페이스 검색·선택 수렴         | 대기      | 제품 사용처·중복 상태 CSS 감사   |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 대기      | 2B 완료 후 감사                  |
-| 2D   | 미사용 공용 컴포넌트 검증           | 대기      | 2C 완료 후 판단                  |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                   |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                   |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                     |
 | 3A   | Route Tabs + Sliding Tabs           | 대기      | UI Lab 3안 비교                  |
 | 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
 | 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
@@ -144,6 +144,15 @@
 - MotionButton의 내부 visual wrapper가 옵션 전체 grid를 차지하도록 보정해 선택 체크 아이콘을 옵션 오른쪽 10px 위치에 고정
 - 계약 검증: 전체 `pnpm test`, web Node 599건, dev remote 7건, dev live 53건, 인증 Playwright 40건 통과·자격 증명 필요 4건 skip, Select 브라우저 게이트 통과
 - 최종 게이트: `format:check`, `lint`, `typecheck`, `build`, `git diff --check`; Codex 인앱 브라우저에서 포털 호스트·부모 overflow 탈출·체크 위치·선택 반영을 확인
+
+### 2026-08-03 — 2A~2D 제품 UI 수렴 완료
+
+- 2A의 인증·관리자 폼 공용화를 기준선으로 유지하고, 2B 검색·선택과 2C 데이터·오버레이의 실제 제품 사용처가 `shared/ui` 공개 API를 사용함을 재확인
+- 종목 목록·상세 영역에 중복되어 있던 페이지 CSS를 삭제하고 실제 렌더링 모듈이 레이아웃·focus·pending·모바일 상태를 단독 소유하도록 정리
+- 데스크톱 로그아웃을 아이콘 버튼으로 축소하고 모바일 버튼은 내용 너비만 사용하도록 보정
+- 워크스페이스의 중복 eyebrow, 영문 쇼케이스 라벨, 반복 설명과 읽기 전용 안내를 줄이고 제품 문구를 한국어 중심으로 통일
+- RadioGroup·Slider·DatePicker·FileUpload·OTP·SplitButton 등 제품 사용처가 없는 공용 API는 가짜 기능에 연결하지 않고 UI Lab 계약으로 보존
+- 사용자 요청에 따라 전체 E2E·빌드 대신 관련 Node 계약, lint·typecheck·diff 검사와 핵심 화면 인앱 브라우저 확인으로 묶음을 종료
 
 ## 실행 환경 메모
 

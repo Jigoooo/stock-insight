@@ -570,9 +570,9 @@ test.describe('v3 research workspace candidate', () => {
       await expect(page).toHaveURL(new RegExp(`view=${id}`));
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
       if (id === 'stocks') {
-        const stockScrollOwner = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
+        const stockScrollOwner = page.getByLabel('종목 현황 표 가로 스크롤 영역');
         await expect(stockScrollOwner).toHaveAttribute('data-slot', 'table-container');
-        await expect(stockScrollOwner.getByRole('table', { name: '종목 커버리지' })).toBeVisible();
+        await expect(stockScrollOwner.getByRole('table', { name: '종목 현황' })).toBeVisible();
         const firstStock = stockScrollOwner.getByRole('radio').first();
         await firstStock.click();
         await expect(firstStock).toBeChecked();
@@ -580,7 +580,7 @@ test.describe('v3 research workspace candidate', () => {
         expect(
           await page.evaluate(() => {
             const table = document.querySelector(
-              '[aria-label="종목 커버리지 표 가로 스크롤 영역"]',
+              '[aria-label="종목 현황 표 가로 스크롤 영역"]',
             );
             const detail = document.querySelector('[data-testid="stock-deep-dive-region"]');
             return Boolean(table && detail && table.compareDocumentPosition(detail) & 4);

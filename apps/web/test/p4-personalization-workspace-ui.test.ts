@@ -65,7 +65,7 @@ describe('P4-C personalization workspace UI', () => {
     assert.match(view, /<StructuredList[^>]*aria-label="판단 근거 목록"/);
     assert.match(myResearchView, /<PropertyList[\s\S]*?aria-label="개인 리서치 입력"/);
     assert.match(myResearchView, /<StructuredList[\s\S]*?aria-label="관심종목과 판단 근거"/);
-    assert.match(myResearchView, /투자 행동을 제안하지 않습니다/);
+    assert.match(myResearchView, /개인 리서치 기록이며 주문 기능은 없습니다/);
     assert.doesNotMatch(view, /<button|<Button|<form|onClick=|매수하기|매도하기|주문 실행/i);
   });
 });

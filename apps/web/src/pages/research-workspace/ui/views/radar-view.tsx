@@ -38,9 +38,8 @@ export function RadarView({
   return (
     <>
       <PageHeader
-        eyebrow="시장 신호"
         title="세계 레이더"
-        description="강도와 관심·보유 연결 여부를 함께 비교합니다."
+        description="시장 신호의 강도와 보유·관심 연결을 비교합니다."
         asOf={data.signalAsOf}
       />
       <MarketOverviewPanel

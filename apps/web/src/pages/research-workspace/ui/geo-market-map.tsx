@@ -67,7 +67,7 @@ function evidenceLabel(
 ): string {
   const evidenceLocator = properties.evidenceLocator;
   if (!evidenceLocator) return '근거 누락';
-  return `geo revision ${evidenceLocator.geoEntityRevisionId ?? '누락'} · source revision ${evidenceLocator.sourceRevisionId}${
+  return `위치 버전 ${evidenceLocator.geoEntityRevisionId ?? '누락'} · 출처 버전 ${evidenceLocator.sourceRevisionId}${
     evidenceLocator.sourceId ? ` · ${evidenceLocator.sourceId}` : ''
   }`;
 }
@@ -387,7 +387,7 @@ export function GeoMarketMap({ snapshot }: { snapshot: GeoSnapshot }) {
           </div>
 
           <DataTable
-            caption="지도 표시 위치의 도형, 정밀도와 원천 revision"
+            caption="지도 표시 위치의 도형, 정밀도와 원천 버전"
             className={styles.geoEvidenceTable}
             containerProps={{ className: styles.geoEvidenceTableWrap }}
           >

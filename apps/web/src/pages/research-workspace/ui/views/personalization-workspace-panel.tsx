@@ -51,7 +51,6 @@ export function PersonalizationWorkspacePanel({
     >
       <PanelHeader meta={data.selectedEntityKey ?? '대상 없음'}>
         <h2 id="personalization-workspace-title">개인화 분석</h2>
-        <p>개인 원장과 공통 근거를 결합한 조회 전용 화면이며 주문 기능은 없습니다.</p>
       </PanelHeader>
 
       <div className={styles.personalizationGrid}>
@@ -86,7 +85,7 @@ export function PersonalizationWorkspacePanel({
           {data.impact ? (
             <>
               <strong>{signedPercent(data.impact.aggregateImpact)}</strong>
-              <p>{data.impact.affectedPositions.length}개 보유 종목의 PIT 영향 합계입니다.</p>
+              <p>{data.impact.affectedPositions.length}개 보유 종목의 기준 시점 영향 합계입니다.</p>
             </>
           ) : (
             <p>연결된 영향 데이터가 없습니다.</p>
@@ -99,7 +98,7 @@ export function PersonalizationWorkspacePanel({
             <>
               <p>{thesis.thesisText}</p>
               <small>
-                {thesis.sourceKind === 'user_authored' ? '사용자 작성' : '시스템 생성'} · revision{' '}
+                {thesis.sourceKind === 'user_authored' ? '사용자 작성' : '시스템 생성'} · 버전{' '}
                 {thesis.revisionNo}
               </small>
             </>
@@ -132,7 +131,7 @@ export function PersonalizationWorkspacePanel({
             <article>
               <h4>공통 종목 관점</h4>
               <p>
-                {explanation.commonAssetView.direction} · coverage{' '}
+                {explanation.commonAssetView.direction} · 근거 범위{' '}
                 {percent(explanation.commonAssetView.coverage)}
               </p>
             </article>

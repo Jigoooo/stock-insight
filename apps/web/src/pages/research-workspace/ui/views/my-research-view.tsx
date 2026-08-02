@@ -73,16 +73,14 @@ export function MyResearchView({
   return (
     <>
       <PageHeader
-        eyebrow="개인 보관함"
         title="내 리서치"
-        description="관심종목, 보유종목, 열린 판단과 검토 기한을 한곳에서 확인합니다."
+        description="개인 리서치 기록이며 주문 기능은 없습니다."
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />
       <Panel aria-labelledby="my-research-inputs-title">
         <PanelHeader>
-          <h2 id="my-research-inputs-title">개인 리서치 입력</h2>
-          <p>관심 목록과 개인 판단 기록의 범위만 요약하며 투자 행동을 제안하지 않습니다.</p>
+          <h2 id="my-research-inputs-title">리서치 현황</h2>
         </PanelHeader>
         <div className={personalizationStyles.researchInputGrid}>
           <PropertyList
@@ -118,7 +116,6 @@ export function MyResearchView({
         <Panel>
           <PanelHeader>
             <h2>최근 판단</h2>
-            <p>주문·투자 조언이 아닌 개인 리서치 기록입니다.</p>
           </PanelHeader>
           <HistoryRows items={data.recentHistory} />
         </Panel>

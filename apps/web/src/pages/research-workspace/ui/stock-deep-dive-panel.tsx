@@ -77,11 +77,11 @@ export function StockDeepDivePanel({
 
   if (state === 'idle') {
     return (
-      <DetailSurface className={styles.deepDivePanel} aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-label="종목 상세">
         <PanelState
           kind="empty"
           title="분석할 종목을 선택하세요"
-          description="표에서 종목을 선택하면 12개 분석 축과 관계 지도를 같은 화면에서 확인합니다."
+          description="종목을 선택하면 상세 분석을 표시합니다."
         />
       </DetailSurface>
     );
@@ -89,11 +89,11 @@ export function StockDeepDivePanel({
 
   if (state === 'loading') {
     return (
-      <DetailSurface className={styles.deepDivePanel} aria-busy="true" aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-busy="true" aria-label="종목 상세">
         <PanelState
           kind="loading"
-          title="Deep Dive를 구성하고 있습니다"
-          description="종목 상세와 2단계 관계망을 같은 기준 시점으로 불러옵니다."
+          title="종목 상세를 불러오는 중"
+          description="상세 정보와 관계를 불러오고 있습니다."
         />
       </DetailSurface>
     );
@@ -101,10 +101,10 @@ export function StockDeepDivePanel({
 
   if (state === 'error' || !deepDive) {
     return (
-      <DetailSurface className={styles.deepDivePanel} aria-label="종목 Deep Dive">
+      <DetailSurface className={styles.deepDivePanel} aria-label="종목 상세">
         <PanelState
           kind="error"
-          title="Deep Dive를 불러오지 못했습니다"
+          title="종목 상세를 불러오지 못했습니다"
           description={errorMessage ?? '잠시 후 다시 시도해 주세요.'}
           onRetry={onRetry}
         />
@@ -116,18 +116,17 @@ export function StockDeepDivePanel({
     <DetailSurface
       className={styles.deepDivePanel}
       aria-busy={false}
-      aria-label={`${deepDive.displayName} 종목 Deep Dive`}
+      aria-label={`${deepDive.displayName} 종목 상세`}
       data-testid="stock-deep-dive"
     >
       <header className={styles.header}>
         <div>
-          <span>Stock Deep Dive</span>
           <h2>{deepDive.displayName}</h2>
           <p>{deepDive.entityKey}</p>
         </div>
         <PropertyList
           className={styles.headerMeta}
-          aria-label="Deep Dive 속성"
+          aria-label="종목 상세 속성"
           items={[
             { label: '분석 축', value: '12개' },
             { label: '데이터', value: availabilityLabel[deepDive.availability] },

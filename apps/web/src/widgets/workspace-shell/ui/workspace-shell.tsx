@@ -177,7 +177,6 @@ function WorkspaceBrand({ mode }: { mode: 'expanded' | 'compact' | 'mobile' }) {
       <span className={styles.brandMark}>SI</span>
       <div>
         <strong>Stock Insight</strong>
-        <span>Research workspace</span>
       </div>
     </div>
   );

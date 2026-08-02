@@ -17,19 +17,19 @@ export function PageHeader({
   description,
   asOf,
 }: Readonly<{
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   asOf?: string | null;
 }>) {
   return (
     <header className={styles.pageHeader}>
       <div>
-        <span>{eyebrow}</span>
+        {eyebrow ? <span>{eyebrow}</span> : null}
         <h1 data-workspace-view-heading tabIndex={-1}>
           {title}
         </h1>
-        <p>{description}</p>
+        {description ? <p>{description}</p> : null}
       </div>
       {asOf ? (
         <time dateTime={asOf}>
