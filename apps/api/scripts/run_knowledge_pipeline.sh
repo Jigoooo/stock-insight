@@ -65,6 +65,14 @@ else
   exit 70
 fi
 pipeline_record_stage_success stock-insight-knowledge-extraction-stage "$RUN_STARTED_AT" || exit $?
+
+# The world plane is a projection of knowledge.event and had no producer: migration
+# 032 filled it once and it then drifted 923 events behind before anyone noticed,
+# because its serving view reports 100% yield over whatever it happens to hold.
+# Projecting here, right after extraction, is what keeps the two in step.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-world-event-sync.ts --apply
+pipeline_record_stage_success stock-insight-world-event-sync-stage "$RUN_STARTED_AT" || exit $?
+
 DATABASE_URL="$DB_URL" node apps/api/src/publish/run-event-brief.ts --apply
 
 # B0: record the known backlog as an explicit gauge — never hidden by success.
@@ -94,11 +102,17 @@ SELECT CASE WHEN
    WHERE job_name IN (
      'stock-insight-knowledge-document-sync-stage',
      'stock-insight-knowledge-extraction-stage',
+     'stock-insight-world-event-sync-stage',
      'stock-insight-event-brief'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 3
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 4
   AND (SELECT count(*) FROM knowledge.document) >= 2500
+  -- The world plane must be a complete projection, not a partial one. A partial
+  -- plane still reports 100% yield through its serving view, which is exactly how
+  -- 923 missing events went unnoticed for ten days.
+  AND (SELECT count(*) FROM world.event WHERE event_key LIKE 'legacy-event:%')
+      = (SELECT count(*) FROM knowledge.event)
   AND NOT EXISTS (
     SELECT 1
     FROM knowledge.claim claim

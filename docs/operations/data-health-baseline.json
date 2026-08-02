@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-02T16:44:40Z",
+  "capturedAt": "2026-08-02T16:58:57Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -60,8 +60,8 @@
     {
       "surface": "serving.v_world_event_current_v1",
       "note": "world events",
-      "upstream": 3041,
-      "view": 3041,
+      "upstream": 3964,
+      "view": 3964,
       "ratio": 1,
       "error": null
     },
@@ -119,8 +119,18 @@
       "name": "world model → 포트폴리오 노출",
       "steps": [
         {
+          "label": "knowledge.event",
+          "rows": 3964,
+          "error": null
+        },
+        {
+          "label": "world.event (projected)",
+          "rows": 3964,
+          "error": null
+        },
+        {
           "label": "world.event_revision",
-          "rows": 3041,
+          "rows": 3964,
           "error": null
         },
         {
@@ -779,6 +789,12 @@
     {
       "jobName": "stock-insight-v2-l5-publish-stage",
       "lastSuccess": "2026-08-02T16:41:21.436Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-world-event-sync",
+      "lastSuccess": "2026-08-02T16:57:43.230Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },

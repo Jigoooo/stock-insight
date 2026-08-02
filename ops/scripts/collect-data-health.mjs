@@ -150,6 +150,15 @@ const CHAINS = [
   {
     name: 'world model → 포트폴리오 노출',
     steps: [
+      // The projection source. world.event had no producer and drifted 923 events
+      // behind knowledge.event before anyone noticed, because the serving view
+      // reports 100% yield over whatever the plane happens to hold. Starting the
+      // chain one step earlier is what makes that drift visible.
+      { label: 'knowledge.event', sql: 'SELECT count(*) FROM knowledge.event' },
+      {
+        label: 'world.event (projected)',
+        sql: "SELECT count(*) FROM world.event WHERE event_key LIKE 'legacy-event:%'",
+      },
       { label: 'world.event_revision', sql: 'SELECT count(*) FROM world.event_revision' },
       { label: 'analytics.impact_shock', sql: 'SELECT count(*) FROM analytics.impact_shock' },
       {
