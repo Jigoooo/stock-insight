@@ -1,5 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, Download, FileText, Link2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Link2,
+  Upload,
+  X,
+} from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
@@ -55,13 +64,31 @@ const categories = [
 const selectedDirections = {
   radio: ['hairline', 'inset', 'rail'],
   slider: ['hairline', 'inset', 'rail'],
-  calendar: ['hairline', 'inset'],
+  calendar: ['hairline', 'inset', 'rail'],
   range: ['hairline', 'inset', 'rail'],
   upload: ['hairline', 'inset'],
   otp: ['hairline', 'inset', 'rail'],
   'button-group': ['hairline', 'inset'],
   'split-button': ['hairline', 'inset', 'rail'],
 } as const satisfies Record<CategoryId, readonly DirectionId[]>;
+
+const calendarDirections = {
+  hairline: {
+    label: 'A · Compact',
+    title: '컴팩트 솔리드',
+    description: '30px 셀과 1px 간격. 선택일만 작은 둥근 사각형으로 또렷하게 채웁니다.',
+  },
+  inset: {
+    label: 'B · Soft Inset',
+    title: '소프트 인셋',
+    description: '32px 셀에 낮은 배경과 얇은 inset border를 사용해 부드럽게 구분합니다.',
+  },
+  rail: {
+    label: 'C · Ledger',
+    title: '레저 아웃라인',
+    description: '금융 데이터 표처럼 밀도를 높이고 선택일은 작은 outline tile로 표시합니다.',
+  },
+} as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
 
 const splitButtonDirections = {
   hairline: {
@@ -151,11 +178,11 @@ function CalendarPreview({ direction }: { direction: DirectionId }) {
     <div className={styles.calendar} data-direction={direction}>
       <header>
         <button type="button" aria-label="이전 달">
-          ←
+          <ChevronLeft aria-hidden="true" size={15} strokeWidth={1.8} />
         </button>
         <strong>2026년 8월</strong>
         <button type="button" aria-label="다음 달">
-          →
+          <ChevronRight aria-hidden="true" size={15} strokeWidth={1.8} />
         </button>
       </header>
       <div className={styles.weekdays} aria-hidden="true">
@@ -212,30 +239,180 @@ function DateRangePreview({ direction }: { direction: DirectionId }) {
   );
 }
 
+type UploadMode = 'single' | 'multiple';
+type UploadDemoState = 'idle' | 'dragging' | 'selected';
+type UploadPreviewFile = { id: string; name: string; size: string };
+
+const singleUploadSample: UploadPreviewFile[] = [
+  { id: 'portfolio', name: 'portfolio-2026-08.csv', size: '284 KB' },
+];
+
+const multipleUploadSamples: UploadPreviewFile[] = [
+  ...singleUploadSample,
+  { id: 'earnings', name: 'earnings-notes.pdf', size: '1.8 MB' },
+  { id: 'watchlist', name: 'watchlist.xlsx', size: '632 KB' },
+];
+
+function formatFileSize(size: number) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function UploadPreview({ direction }: { direction: DirectionId }) {
   const inputId = useId();
-  const [fileName, setFileName] = useState('');
+  const [mode, setMode] = useState<UploadMode>('single');
+  const [files, setFiles] = useState<UploadPreviewFile[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+
+  const updateMode = (nextMode: UploadMode) => {
+    setMode(nextMode);
+    if (files.length > 0) {
+      setFiles(nextMode === 'single' ? singleUploadSample : multipleUploadSamples);
+    }
+  };
+
+  const updateDemoState = (state: UploadDemoState) => {
+    setDragActive(state === 'dragging');
+    if (state === 'idle' || state === 'dragging') {
+      setFiles([]);
+      return;
+    }
+    setFiles(mode === 'single' ? singleUploadSample : multipleUploadSamples);
+  };
+
+  const updateFiles = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const nextFiles = Array.from(fileList).map((file, index) => ({
+      id: `${file.name}-${file.lastModified}-${index}`,
+      name: file.name,
+      size: formatFileSize(file.size),
+    }));
+    setFiles(mode === 'single' ? nextFiles.slice(0, 1) : nextFiles);
+    setDragActive(false);
+  };
+
+  const demoState: UploadDemoState = dragActive
+    ? 'dragging'
+    : files.length > 0
+      ? 'selected'
+      : 'idle';
+
   return (
-    <div
-      className={styles.upload}
-      data-direction={direction}
-      data-filled={Boolean(fileName) || undefined}
-    >
-      <input
-        id={inputId}
-        className={styles.visuallyHidden}
-        type="file"
-        accept=".csv,.xlsx,.pdf"
-        onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? '')}
-      />
-      <span className={styles.uploadIcon} aria-hidden="true">
-        ↑
-      </span>
-      <strong>{fileName || '리서치 파일 추가'}</strong>
-      <small>
-        {fileName ? '파일이 로컬 목업에 선택되었습니다.' : 'CSV, XLSX, PDF · 최대 10MB'}
-      </small>
-      <label htmlFor={inputId}>{fileName ? '다른 파일 선택' : '파일 선택'}</label>
+    <div className={styles.uploadPreview} data-direction={direction}>
+      <div className={styles.uploadControls}>
+        <div className={styles.miniToggle} aria-label="파일 선택 방식">
+          <button
+            type="button"
+            aria-pressed={mode === 'single'}
+            onClick={() => updateMode('single')}
+          >
+            단일
+          </button>
+          <button
+            type="button"
+            aria-pressed={mode === 'multiple'}
+            onClick={() => updateMode('multiple')}
+          >
+            다중
+          </button>
+        </div>
+        <div className={styles.uploadStateToggle} aria-label="파일 업로드 목업 상태">
+          {(
+            [
+              ['idle', '대기'],
+              ['dragging', '드래그'],
+              ['selected', '선택'],
+            ] as const
+          ).map(([state, label]) => (
+            <button
+              key={state}
+              type="button"
+              aria-pressed={demoState === state}
+              onClick={() => updateDemoState(state)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className={styles.upload}
+        data-direction={direction}
+        data-filled={files.length > 0 || undefined}
+        data-drag-active={dragActive || undefined}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          setDragActive(true);
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+            setDragActive(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          updateFiles(event.dataTransfer.files);
+        }}
+      >
+        <input
+          id={inputId}
+          className={styles.visuallyHidden}
+          type="file"
+          accept=".csv,.xlsx,.pdf"
+          multiple={mode === 'multiple'}
+          onChange={(event) => updateFiles(event.currentTarget.files)}
+        />
+
+        {dragActive ? (
+          <div className={styles.uploadDropFeedback} aria-live="polite">
+            <Upload aria-hidden="true" size={20} strokeWidth={1.7} />
+            <strong>{files.length > 0 && mode === 'single' ? '놓아서 교체' : '놓아서 추가'}</strong>
+            <small>CSV, XLSX, PDF 파일을 여기에 놓으세요.</small>
+          </div>
+        ) : (
+          <>
+            <span className={styles.uploadIcon} aria-hidden="true">
+              <Upload size={17} strokeWidth={1.8} />
+            </span>
+            <strong>
+              {files.length > 0 ? `${files.length}개 파일 선택됨` : '리서치 파일 추가'}
+            </strong>
+            <small>
+              {files.length > 0
+                ? mode === 'single'
+                  ? '새 파일을 놓으면 현재 파일을 교체합니다.'
+                  : '파일을 더 놓거나 목록에서 개별 삭제할 수 있습니다.'
+                : '끌어다 놓거나 직접 선택 · CSV, XLSX, PDF · 최대 10MB'}
+            </small>
+            <label htmlFor={inputId}>{files.length > 0 ? '파일 다시 선택' : '파일 선택'}</label>
+          </>
+        )}
+      </div>
+
+      {files.length > 0 && (
+        <ul className={styles.uploadFileList} aria-label="선택된 파일">
+          {files.map((file) => (
+            <li key={file.id}>
+              <span className={styles.uploadFileIcon} aria-hidden="true">
+                <FileText size={15} strokeWidth={1.7} />
+              </span>
+              <span className={styles.uploadFileMeta}>
+                <strong>{file.name}</strong>
+                <small>{file.size} · 준비됨</small>
+              </span>
+              <button
+                type="button"
+                aria-label={`${file.name} 삭제`}
+                onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))}
+              >
+                <X aria-hidden="true" size={14} strokeWidth={1.8} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -368,9 +545,7 @@ export function InputActionCatalog() {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('radio');
   const activeLabel = categories.find(({ id }) => id === activeCategory)?.label;
   const visibleDirections =
-    activeCategory === 'upload'
-      ? directions.filter(({ id }) => id !== 'rail')
-      : directions;
+    activeCategory === 'upload' ? directions.filter(({ id }) => id !== 'rail') : directions;
 
   return (
     <section className={styles.catalog} aria-labelledby="input-action-title">
@@ -408,11 +583,12 @@ export function InputActionCatalog() {
           const direction =
             activeCategory === 'split-button'
               ? splitButtonDirections[defaultDirection.id]
-              : defaultDirection;
+              : activeCategory === 'calendar'
+                ? calendarDirections[defaultDirection.id]
+                : defaultDirection;
           const selected = (selectedDirections[activeCategory] as readonly DirectionId[]).includes(
             defaultDirection.id,
           );
-
           return (
             <article
               className={styles.directionCard}
