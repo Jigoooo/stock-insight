@@ -26,6 +26,27 @@ function radioParts(card: Locator) {
   };
 }
 
+function radioMark(item: Locator) {
+  return item.locator(':scope > span').first();
+}
+
+async function expectNoTransformMotion(locator: Locator) {
+  await expect
+    .poll(() => locator.evaluate((element) => getComputedStyle(element).transitionProperty))
+    .not.toContain('transform');
+  expect(
+    await locator.evaluate((element) =>
+      element
+        .getAnimations()
+        .some((animation) =>
+          animation.effect
+            ?.getKeyframes()
+            .some((keyframe) => typeof keyframe.transform === 'string'),
+        ),
+    ),
+  ).toBe(false);
+}
+
 async function activateRadioGroup(items: Locator) {
   await expect(async () => {
     await items.nth(0).click({ timeout: 1_000 });
@@ -152,6 +173,29 @@ test.describe('UI Lab choice controls', () => {
     }
   });
 
+  test('forced colors keeps a visible system focus outline on every radio variant', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await openCategory(page, 'RadioGroup');
+
+    for (const variant of variants) {
+      const { items } = radioParts(choiceControlCard(page, variant));
+      await activateRadioGroup(items);
+      await items.nth(1).focus();
+
+      await expect(items.nth(1)).toHaveCSS('outline-style', 'solid');
+      await expect
+        .poll(() =>
+          items
+            .nth(1)
+            .evaluate((element) => Number.parseFloat(getComputedStyle(element).outlineWidth)),
+        )
+        .toBeGreaterThanOrEqual(2);
+      await expect(items.nth(1)).toHaveCSS('outline-offset', '2px');
+    }
+  });
+
   test('keeps choice controls compact on desktop and tappable on mobile', async ({
     page,
   }, testInfo) => {
@@ -171,6 +215,10 @@ test.describe('UI Lab choice controls', () => {
         }
       }
     }
+
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
 
     await openCategory(page, 'Slider');
     for (const variant of variants) {
@@ -195,19 +243,24 @@ test.describe('UI Lab choice controls', () => {
       const { items } = radioParts(card);
       await activateRadioGroup(items);
       await page.keyboard.down('ArrowRight');
-      await expect(items.nth(2)).toHaveAttribute('data-state', 'checked');
+      const selectedItem = items.nth(2);
+      const selectedMark = radioMark(selectedItem);
+      await expect(selectedItem).toHaveAttribute('data-state', 'checked');
+      await expect(selectedItem.locator('[data-slot="radio-group-indicator"]')).toBeVisible();
+      await expectNoTransformMotion(selectedItem);
+      await expectNoTransformMotion(selectedMark);
       await page.keyboard.up('ArrowRight');
-      await expect(card.locator('[class*="previewSurface"]')).toHaveCSS('transform', 'none');
     }
 
     await openCategory(page, 'Slider');
     for (const variant of variants) {
       const card = choiceControlCard(page, variant);
-      const { output, thumb } = sliderParts(card);
+      const { output, root, thumb } = sliderParts(card);
       await thumb.focus();
       await thumb.press('ArrowRight');
       await expect(output).toHaveText('65%');
-      await expect(card.locator('[class*="previewSurface"]')).toHaveCSS('transform', 'none');
+      await expectNoTransformMotion(root);
+      await expectNoTransformMotion(thumb);
     }
   });
 });

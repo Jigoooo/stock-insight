@@ -108,6 +108,13 @@
   background: var(--color-surface-subtle);
 }
 
+@media (forced-colors: active) {
+  .item:focus {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mark {
     transition-duration: 0.01ms;
