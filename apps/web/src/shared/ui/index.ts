@@ -7,6 +7,7 @@ export * from './combobox';
 export * from './date-picker';
 export * from './feedback';
 export * from './field';
+export * from './file-upload';
 export * from './input';
 export * from './link';
 export * from './radio-group';

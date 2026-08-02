@@ -3,6 +3,7 @@ import { createRef, type AnimationEventHandler, type DragEventHandler } from 're
 import { Button, IconButton } from '@/shared/ui/button';
 import { Calendar } from '@/shared/ui/calendar';
 import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
+import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
 import { RadioGroup } from '@/shared/ui/radio-group';
@@ -82,6 +83,21 @@ export const nativeControlPropsFixture = (
       onValueChange={() => undefined}
       startLabel="시작일"
       variant="rail"
+    />
+    <FileUpload
+      accept=".csv,.xlsx,.pdf"
+      defaultFiles={[{ id: 'report', name: 'report.csv', size: 284 * 1024 }]}
+      mode="multiple"
+      onFilesChange={() => undefined}
+      onReject={() => undefined}
+      variant="inset"
+    />
+    <Dropzone
+      accept=".csv,.xlsx,.pdf"
+      filled
+      mode="single"
+      onFilesSelected={() => undefined}
+      variant="hairline"
     />
     <ToggleGroup
       draggable
