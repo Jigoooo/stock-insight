@@ -36,13 +36,13 @@ async function expectNoTransformMotion(locator: Locator) {
     .not.toContain('transform');
   expect(
     await locator.evaluate((element) =>
-      element
-        .getAnimations()
-        .some((animation) =>
-          animation.effect
-            ?.getKeyframes()
-            .some((keyframe) => typeof keyframe.transform === 'string'),
-        ),
+      element.getAnimations().some((animation) => {
+        const effect = animation.effect;
+        return (
+          effect instanceof KeyframeEffect &&
+          effect.getKeyframes().some((keyframe) => typeof keyframe.transform === 'string')
+        );
+      }),
     ),
   ).toBe(false);
 }
@@ -141,13 +141,13 @@ test.describe('UI Lab Slider', () => {
       .not.toContain('transform');
     expect(
       await thumb.evaluate((element) =>
-        element
-          .getAnimations()
-          .some((animation) =>
-            animation.effect
-              ?.getKeyframes()
-              .some((keyframe) => typeof keyframe.transform === 'string'),
-          ),
+        element.getAnimations().some((animation) => {
+          const effect = animation.effect;
+          return (
+            effect instanceof KeyframeEffect &&
+            effect.getKeyframes().some((keyframe) => typeof keyframe.transform === 'string')
+          );
+        }),
       ),
     ).toBe(false);
   });
