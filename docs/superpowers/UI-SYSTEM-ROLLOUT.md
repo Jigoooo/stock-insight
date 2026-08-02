@@ -159,7 +159,8 @@
 - Route Tabs: A Hairline, B Quiet Surface, C Ledger
 - Sliding Tabs: A Soft Inset, B Flush Segment, C Sliding Underline
 - 3A 상태는 사용자 비교·선택 전까지 `목업`으로 유지
-- 검증: web typecheck, web format check, navigation tabs 계약 테스트 5건, `git diff --check`
+- 검증: web typecheck, web format check, navigation tabs 계약 테스트 6건, `git diff --check`
+- Codex 인앱 브라우저: Route query·`aria-current`, Sliding URL 유지·`aria-selected`, 390px 여섯 variant 44px target·nowrap·가로 overflow 없음 확인
 
 ## 실행 환경 메모
 
