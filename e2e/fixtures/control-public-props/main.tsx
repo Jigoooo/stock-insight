@@ -3,6 +3,7 @@ import { createRef, type AnimationEventHandler, type DragEventHandler } from 're
 import { Button, IconButton } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
+import { RadioGroup } from '@/shared/ui/radio-group';
 import { Switch } from '@/shared/ui/switch';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
@@ -40,6 +41,16 @@ export const nativeControlPropsFixture = (
       onAnimationStart={buttonAnimationStart}
       onCheckedChange={() => undefined}
       onDrag={buttonDrag}
+    />
+    <RadioGroup
+      aria-label="Research scope"
+      items={[
+        { label: 'Holdings', value: 'holding' },
+        { description: 'Watched names', label: 'Watchlist', value: 'watch' },
+      ]}
+      onValueChange={() => undefined}
+      value="watch"
+      variant="rail"
     />
     <ToggleGroup
       draggable

@@ -1,0 +1,115 @@
+.root {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.groupLabel {
+  margin-bottom: 14px;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  min-height: 62px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border: 0;
+  color: var(--color-text-secondary);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+}
+
+.mark {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+}
+
+.item[data-state='checked'] .mark {
+  border-color: var(--color-text-primary);
+}
+
+.item:focus-visible .mark {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
+}
+
+.copy,
+.itemLabel,
+.description {
+  display: block;
+  min-width: 0;
+}
+
+.itemLabel {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.description {
+  margin-top: 3px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.item:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.root[data-variant='hairline'] .item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.root[data-variant='inset'] .item {
+  margin-bottom: 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+}
+
+.root[data-variant='inset'] .item[data-state='checked'] {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.root[data-variant='rail'] .item {
+  margin-bottom: 4px;
+  padding-left: 17px;
+  border-left: 2px solid var(--color-border);
+}
+
+.root[data-variant='rail'] .item[data-state='checked'] {
+  border-left-color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark {
+    transition-duration: 0.01ms;
+  }
+}

@@ -7,6 +7,7 @@ export * from './feedback';
 export * from './field';
 export * from './input';
 export * from './link';
+export * from './radio-group';
 export * from './select';
 export * from './switch';
 export * from './table';
