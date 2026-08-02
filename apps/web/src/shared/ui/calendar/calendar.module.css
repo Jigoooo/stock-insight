@@ -1,0 +1,294 @@
+.root {
+  --calendar-cell-size: 30px;
+  width: max-content;
+  max-width: 100%;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.root[data-variant='soft-inset'] {
+  --calendar-cell-size: 32px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 82%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface-subtle) 72%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-surface) 88%, transparent);
+}
+
+.root[data-variant='ledger'] {
+  --calendar-cell-size: 30px;
+  padding: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.root[data-surface='embedded'] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dayPicker,
+.months,
+.month {
+  width: max-content;
+  max-width: 100%;
+}
+
+.dayPicker {
+  position: relative;
+}
+
+.months {
+  display: flex;
+}
+
+.month {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+}
+
+.monthCaption {
+  grid-row: 1;
+  grid-column: 2;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.captionLabel {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.nav {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.navButton {
+  grid-row: 1;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.navButton[data-slot='calendar-nav-previous'] {
+  grid-column: 1;
+}
+
+.navButton[data-slot='calendar-nav-next'] {
+  grid-column: 3;
+}
+
+.navButton:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.navButton:focus-visible,
+.dayButton:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--color-focus) 72%, transparent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 12%, transparent);
+}
+
+.chevron {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.monthGrid {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  border-collapse: separate;
+  border-spacing: 1px;
+}
+
+.weekdays,
+.week {
+  height: var(--calendar-cell-size);
+}
+
+.weekday {
+  width: var(--calendar-cell-size);
+  padding: 0 0 4px;
+  color: var(--color-text-tertiary);
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.day {
+  width: var(--calendar-cell-size);
+  height: var(--calendar-cell-size);
+  padding: 0;
+  text-align: center;
+}
+
+.dayButton {
+  width: var(--calendar-cell-size);
+  height: var(--calendar-cell-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.dayButton:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.selected .dayButton,
+.dayButton[data-selected='true'] {
+  color: var(--color-surface);
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+}
+
+.root[data-variant='soft-inset'] .selected .dayButton,
+.root[data-variant='soft-inset'] .dayButton[data-selected='true'] {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-text-primary) 16%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text-primary) 11%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-surface) 64%, transparent);
+}
+
+.root[data-variant='ledger'] .dayButton {
+  border-color: color-mix(in srgb, var(--color-border) 62%, transparent);
+  border-radius: 6px;
+}
+
+.root[data-variant='ledger'] .selected .dayButton,
+.root[data-variant='ledger'] .dayButton[data-selected='true'] {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-primary);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-text-primary);
+}
+
+.today .dayButton,
+.dayButton[data-today='true'] {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  text-underline-offset: 3px;
+}
+
+.outside .dayButton,
+.dayButton[data-outside='true'] {
+  opacity: 0.34;
+}
+
+.disabled .dayButton,
+.dayButton:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.root .rangeMiddle .dayButton[data-selected='true'] {
+  color: var(--color-text-secondary);
+  border-color: transparent;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  box-shadow: none;
+}
+
+.rangeStart .dayButton,
+.rangeEnd .dayButton {
+  color: var(--color-surface);
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+}
+
+@media (max-width: 480px) {
+  .root {
+    --calendar-cell-size: 44px;
+  }
+
+  .root[data-variant='soft-inset'],
+  .root[data-variant='ledger'] {
+    --calendar-cell-size: 44px;
+    padding: 5px;
+  }
+
+  .root[data-surface='embedded'] {
+    padding: 0;
+  }
+
+  .navButton,
+  .dayButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .month {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+
+  .monthCaption,
+  .nav {
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navButton,
+  .dayButton {
+    transition-duration: 0ms;
+  }
+}
+
+@media (forced-colors: active) {
+  .selected .dayButton,
+  .dayButton[data-selected='true'] {
+    color: HighlightText;
+    border-color: Highlight;
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .navButton:focus-visible,
+  .dayButton:focus-visible {
+    outline: 2px solid CanvasText;
+    box-shadow: none;
+  }
+}

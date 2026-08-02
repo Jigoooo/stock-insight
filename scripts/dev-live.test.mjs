@@ -61,6 +61,7 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
       STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET: 'must-not-pass',
     },
     resolveCommand: (name) => `/usr/bin/${name}`,
+    sandboxPathIsReadable: async () => true,
   });
 
   assert.equal(prepared.tunnelCommand.executable, '/usr/bin/bwrap');
@@ -140,6 +141,34 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
   );
   assert.ok(prepared.webCommand.args.includes('/run/stock-insight-live-web/session.secret'));
   assert.ok(!prepared.webCommand.args.includes(join(secretDir, 'pgpass')));
+  await prepared.cleanup();
+});
+
+test('prepareLiveDev derives Linux runtime mounts from the injected filesystem probe', async () => {
+  const { homeDir } = await createSecretFixture();
+  const prepared = await prepareLiveDev({
+    homeDir,
+    nodeExecutable: '/sandbox/node',
+    platform: 'linux',
+    env: {
+      HOME: homeDir,
+      PATH: '/sandbox/bin',
+    },
+    resolveCommand: (name) => `/sandbox/bin/${name}`,
+    sandboxPathIsReadable: async (path) => path === '/lib',
+  });
+  const hasReadOnlyBind = (command, path) =>
+    command.args.some(
+      (value, index) =>
+        value === path &&
+        command.args[index - 1] === path &&
+        command.args[index - 2] === '--ro-bind',
+    );
+
+  for (const command of [prepared.tunnelCommand, prepared.webCommand]) {
+    assert.equal(hasReadOnlyBind(command, '/lib'), true);
+    assert.equal(hasReadOnlyBind(command, '/usr'), false);
+  }
   await prepared.cleanup();
 });
 
@@ -997,6 +1026,37 @@ test('startLiveDev tears down the tunnel when readiness fails before workspace s
 
   assert.equal(apiStarted, false);
   assert.deepEqual(kills, [[-4001, 'SIGTERM']]);
+});
+
+test('startLiveDev contains force-kill ownership probe failures during startup teardown', async () => {
+  const tunnel = new FakeProcess(4051);
+  const timers = [];
+
+  await assert.rejects(
+    startLiveDev(
+      { tunnelPort: 55432 },
+      {
+        spawnTunnel: () => tunnel,
+        waitUntilReady: async () => {
+          throw new Error('readiness failed');
+        },
+        captureIdentity: async (pid) => ({ pid, processGroupId: pid, startTime: '1' }),
+        ownsProcessGroup: async () => {
+          throw new Error('ownership probe failed');
+        },
+        platform: 'linux',
+        killProcess: () => {},
+        schedule: (callback) => {
+          timers.push(callback);
+          return timers.length;
+        },
+      },
+    ),
+    /readiness failed/,
+  );
+
+  assert.equal(timers.length, 1);
+  await assert.doesNotReject(timers[0]);
 });
 
 test('startLiveDev rejects a listener not owned by the spawned tunnel before API credentials load', async () => {
