@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음
-- 다음 묶음: `1B 날짜 입력 — Calendar + DatePicker + RangePicker`
+- 현재 활성 묶음: 없음 — `1B 날짜 입력` 검증 완료
+- 다음 묶음: `1C 파일 입력 — FileUpload + Dropzone`
 - 마지막 갱신: 2026-08-02
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -26,7 +26,7 @@
 | 묶음 | 내용                                | 현재 상태 | 다음 행동                        |
 | ---- | ----------------------------------- | --------- | -------------------------------- |
 | 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행 |
-| 1B   | Calendar + DatePicker + RangePicker | 승인      | 1A 완료 후 공용화                |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행 |
 | 1C   | FileUpload + Dropzone               | 승인      | 검증된 목업을 공용 API로 승격    |
 | 1D   | OTP                                 | 승인      | 1C 완료 후 공용화                |
 | 1E   | ButtonGroup + SplitButton           | 승인      | 1D 완료 후 공용화                |
@@ -80,6 +80,17 @@
 - 계약 검증: 선택 입력 관련 Node 5개 파일, fixture typecheck, web typecheck·lint·build
 - 브라우저 매트릭스: desktop 9건 + mobile 9건 = 총 18건; hairline·inset·rail, 키보드, 390px 44px hit area, overflow, forced-colors, reduced-motion 포함
 - 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 RadioGroup·Slider 또는 raw radio/range 사용처 없음. 가짜 제품 기능은 추가하지 않음.
+
+### 2026-08-02 — 1B Calendar + DatePicker + RangePicker 검증 완료
+
+- 공용 API·UI Lab 이식 커밋: `ed4c042`
+- `@daypicker/react@10.0.1` 기반 Calendar·RangeCalendar와 DatePicker·RangePicker 공개 API 구현
+- 승인 variant 보존: Calendar `compact|soft-inset|ledger`, DatePicker/RangePicker `hairline|inset|rail`
+- 전역 focus 규칙의 우선순위를 낮춰 공용 컴포넌트가 focus·invalid·pending 상태를 단독 소유
+- 계약 검증: 관련 Node 6개 파일 27건, fixture typecheck, web typecheck·lint·build, `git diff --check`
+- 브라우저 매트릭스: 날짜·선택·파일 입력 desktop/mobile 총 40건; 키보드, 390px hit area·overflow, focus 복귀, 범위 선택, reduced-motion 포함
+- Codex 인앱 브라우저에서 세 variant 렌더링, 팝오버 의미 구조, 2026-08-14 선택 반영 확인
+- 제품 사용처 감사: UI Lab 외 `pages`, `widgets`, `features`, `entities`에 날짜 입력 사용처 없음. 가짜 제품 기능은 추가하지 않음.
 
 ## 실행 환경 메모
 
