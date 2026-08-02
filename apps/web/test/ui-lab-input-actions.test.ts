@@ -110,7 +110,24 @@ describe('UI Lab input and action mockup batch', () => {
 
     const motionConfig = sourceBlock(catalog, 'const uploadEnterEase', 'function formatFileSize');
     const uploadPreview = sourceBlock(catalog, 'function UploadPreview', 'function OtpPreview');
+    const removeFileHandler = sourceBlock(
+      uploadPreview,
+      'const removeFile',
+      'const handleFileListExitComplete',
+    );
+    const exitCompleteHandler = sourceBlock(
+      uploadPreview,
+      'const handleFileListExitComplete',
+      'const demoState',
+    );
+    const nativeFileInput = sourceBlock(uploadPreview, '<input', '/>');
+    const filePickerButton = sourceBlock(
+      uploadPreview,
+      '<button\n              ref={fileSelectRef}',
+      '</button>',
+    );
     const presenceTag = sourceBlock(uploadPreview, '<AnimatePresence', '>');
+    const previewFocusRule = sourceBlock(styles, '.categoryNav button:focus-visible', '}');
     const uploadStyles = sourceBlock(styles, '.uploadFileList {', '.visuallyHidden {');
     const uploadListRule = sourceBlock(uploadStyles, '.uploadFileList {', '.uploadFileList li {');
 
@@ -141,13 +158,24 @@ describe('UI Lab input and action mockup batch', () => {
       /reducedMotion\s*\? \{ opacity: 0, transition: \{ duration: 0\.1 \} \}/,
     );
     assert.match(uploadPreview, /files\.length === 0 && !listExitPending/);
-    assert.match(uploadPreview, /remainingFiles\[Math\.min\(index, remainingFiles\.length - 1\)\]/);
-    assert.match(uploadPreview, /deleteButtonRefs\.current\[nextFile\.id\]\?\.focus\(\)/);
-    assert.match(uploadPreview, /fileSelectRef\.current\?\.focus\(\)/);
     assert.match(
-      uploadPreview,
-      /<button\s+ref=\{fileSelectRef\}[\s\S]*?className=\{styles\.uploadPicker\}[\s\S]*?type="button"/,
+      removeFileHandler,
+      /const remainingFiles = files\.filter[\s\S]*const nextFile = remainingFiles\[Math\.min\(index, remainingFiles\.length - 1\)\];[\s\S]*if \(nextFile\) \{[\s\S]*deleteButtonRefs\.current\[nextFile\.id\]\?\.focus\(\);[\s\S]*\} else \{[\s\S]*focusFileSelectAfterExit\.current = true;[\s\S]*setListExitPending\(true\);[\s\S]*\}[\s\S]*setFiles\(remainingFiles\);/,
     );
+    assert.match(
+      exitCompleteHandler,
+      /setListExitPending\(false\);[\s\S]*if \(!focusFileSelectAfterExit\.current\) return;[\s\S]*focusFileSelectAfterExit\.current = false;[\s\S]*fileSelectRef\.current\?\.focus\(\);/,
+    );
+    assert.match(nativeFileInput, /ref=\{fileInputRef\}/);
+    assert.match(nativeFileInput, /type="file"/);
+    assert.match(nativeFileInput, /tabIndex=\{-1\}/);
+    assert.match(nativeFileInput, /aria-hidden="true"/);
+    assert.match(filePickerButton, /className=\{styles\.uploadPicker\}/);
+    assert.match(filePickerButton, /type="button"/);
+    assert.match(filePickerButton, /onClick=\{\(\) => fileInputRef\.current\?\.click\(\)\}/);
+    assert.match(filePickerButton, /\{files\.length > 0 \? '파일 다시 선택' : '파일 선택'\}/);
+    assert.match(previewFocusRule, /\.previewSurface button:focus-visible/);
+    assert.match(previewFocusRule, /outline: 2px solid var\(--color-focus\)/);
     assert.match(uploadPreview, /deleteButtonRefs\.current\[file\.id\] = node/);
     assert.match(uploadListRule, /position: relative/);
     assert.doesNotMatch(uploadListRule, /animation:/);

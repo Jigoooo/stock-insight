@@ -395,6 +395,8 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
           id={inputId}
           className={styles.visuallyHidden}
           type="file"
+          tabIndex={-1}
+          aria-hidden="true"
           accept=".csv,.xlsx,.pdf"
           multiple={mode === 'multiple'}
           onChange={(event) => updateFiles(event.currentTarget.files)}
