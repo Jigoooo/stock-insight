@@ -165,8 +165,8 @@ flowchart TB
 +------+----------------------------------------------------------------------------+
 
 완료 조건 (전부 실측):
-[x] impact_path_v2·community·measurement 각각 운영 행 > 0 — 39,031 / 48 / 839 (2026-08-02 실측)
-[ ]   └ 단, "반복 실행 성공"은 미충족. 아래 §P0 진행 기록 참조
+[x] impact_path_v2·community·measurement 각각 운영 행 > 0, 반복 실행 성공 — 39,031 / 48 / 839,
+    2026-08-02 13:18 9개 스테이지 전 구간 성공 (4일간의 중단은 아래 §P0 진행 기록 참조)
 [ ] 동일 input replay digest 일치 — 미검증
 [ ] fallback 없는 V2 API로 핵심 여정 통과 (255/255 root, v1_fallback 호출 0) — 미검증
 [x] outbox terminal row 미정착 0, dead-letter 처리 검증 — delivery 1,030건 전부 delivered,
@@ -186,21 +186,22 @@ flowchart TB
 | P0-6 outbox + dead-letter | delivery 1,030 전건 delivered, `ops.dead_letter` 0 | ✅ |
 | P0-7 source contract 승인 | `approved` 32 / `provisional_review_required` 29 (총 61) | 🔶 부분 |
 
-**미충족 1 — 반복 실행이 깨져 있다.** `stock-insight-analytics-wrapper`가 2026-07-31부터
-연속 실패 중이고 마지막 성공은 2026-07-28이다. 원인은 `run-core-identity-sync`가
-`core identity state conflict for KR:060720`으로 중단되는 것:
+**✅ 해소됨 (2026-08-02) — 반복 실행이 4일간 깨져 있었다.**
+`stock-insight-analytics-wrapper`가 2026-07-29부터 매일 밤 3회씩 실패했고 마지막 성공은
+2026-07-28이었다. 원인이 두 겹이었다.
 
-`ELIGIBLE_IDENTITIES_SQL`은 기대 거래소를 `company_profiles.profile_json->>'corporationClass'`
-에서 유도하는데(`K`→KOSDAQ, `Y`→KOSPI), 두 종목의 `core.listing`이 KOSPI로 적재되어 있어
-`listing_count`가 0이 되고 `classifyIdentityState`가 conflict로 판정한다.
+1. `core.listing` 거래소 오적재 2건(060720 케이에이치바텍, 086390 유니테스트 — 둘 다
+   KOSDAQ인데 KOSPI로 적재). 데이터 정정으로 해소.
+2. 신규 US 티커의 SEC CIK 미도착을 치명적 충돌로 판정. 신규 티커는 수집 즉시 들어오지만
+   CIK는 주 1회 백필로만 오고, `US:CPRX`처럼 영영 해소 안 되는 티커도 있다. 해소 불가능한
+   티커 하나가 매일 밤 파이프라인 전체를 죽이는 구조였다.
 
-| 티커 | 이름 | 기대 | 실제 listing | listing_id |
-| --- | --- | --- | --- | --- |
-| 060720 | (주)케이에이치바텍 | EXCHANGE:KOSDAQ | EXCHANGE:KOSPI | 330 |
-| 086390 | (주)유니테스트 | EXCHANGE:KOSDAQ | EXCHANGE:KOSPI | 335 |
+`classifyIdentityState`에 `'deferred'`를 추가해 "참조 데이터 미도착"과 "모순"을 분리했고,
+wrapper 실패 시 실패한 명령을 감사 행에 기록하도록 고쳤다. 2026-08-02 13:18에 9개 스테이지
+전 구간이 성공했다. 상세: [`docs/operations/analytics-pipeline-outage-2026-08.md`](../../operations/analytics-pipeline-outage-2026-08.md).
 
-둘 다 2026-07-24 적재분이며, 전수 조사 결과 불일치는 이 2건뿐이다. L5 producer가 멈춘
-동안에도 RSS 수집과 knowledge 파이프라인은 정상 동작하고 있다.
+**남은 것**: 파이프라인 실패를 사람에게 알리는 경로가 없다. 이번 4일 outage는 로드맵 상태를
+감사하다 우연히 발견했다. 이제 진단은 되지만 여전히 *알아채지*는 못한다.
 
 **미충족 2 — replay digest·V1 fallback 부재·restore drill은 측정하지 않았다.**
 체크되지 않은 항목은 "실패"가 아니라 "미검증"이다.

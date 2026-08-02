@@ -41,6 +41,7 @@ Runtime schema validation lives under `shared/schema` and entity-level schema fi
 - Reads run as `stock_insight_app_reader` inside `BEGIN READ ONLY` with a transaction-local `stock_insight.user_id` GUC. Pipelines run as the `research_app` owner — do not reach for the app roles in a job.
 - **Filter by user inside the aggregate, not on the join.** Joining a per-user aggregate view and filtering `user_id` on the join condition lets the planner re-aggregate the whole view once per outer row. That cost 7 s on `/v1/workspace` until `FEED_SQL` was fixed; keep new read models on the same side of that line.
 - There is no schema-migration runner or ledger yet. `additiveAppMigrations` is a list; `public.migration_runs` is a pipeline job log despite the name. Answer "is this applied?" against the live database, not the files.
+- **"Upstream data has not arrived" is not a conflict.** New tickers reach `public.entities` as soon as ingestion sees them, while their reference data (SEC CIK, company profile) arrives on a slower schedule — and some never resolve. Identity sync defers those rows and reports them; only genuine contradictions fail. A pipeline that hard-fails on a not-yet-resolvable row will eventually stop forever on one bad ticker: `docs/operations/analytics-pipeline-outage-2026-08.md`.
 
 ## UI Rules
 - Preserve the HTML mockup's information architecture, not its duplicated desktop/mobile implementation.
