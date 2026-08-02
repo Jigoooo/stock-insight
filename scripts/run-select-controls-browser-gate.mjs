@@ -237,6 +237,45 @@ try {
   await select.focus();
   await page.keyboard.press('End');
   assert.equal(await select.getAttribute('aria-expanded'), 'true');
+  await page.waitForTimeout(180);
+  const selectPortalState = await selectListbox.evaluate((listbox) => {
+    const selectedOption = listbox.querySelector('[aria-selected="true"]');
+    const check = selectedOption?.querySelector('[class*="optionCheck"]');
+    const listboxRect = listbox.getBoundingClientRect();
+    const optionRect = selectedOption?.getBoundingClientRect();
+    const checkRect = check?.getBoundingClientRect();
+    return {
+      checkGapToRight:
+        optionRect && checkRect
+          ? Math.round((optionRect.right - checkRect.right) * 100) / 100
+          : null,
+      parent: listbox.parentElement?.parentElement?.tagName,
+      portalSlot: listbox.parentElement?.getAttribute('data-slot'),
+      position: getComputedStyle(listbox).position,
+      visible:
+        listboxRect.top >= 0 &&
+        listboxRect.bottom <= window.innerHeight &&
+        listboxRect.left >= 0 &&
+        listboxRect.right <= window.innerWidth,
+    };
+  });
+  assert.deepEqual(
+    {
+      parent: selectPortalState.parent,
+      portalSlot: selectPortalState.portalSlot,
+      position: selectPortalState.position,
+      visible: selectPortalState.visible,
+    },
+    {
+      parent: 'BODY',
+      portalSlot: 'select-portal-region',
+      position: 'fixed',
+      visible: true,
+    },
+  );
+  assert(selectPortalState.checkGapToRight !== null);
+  assert(selectPortalState.checkGapToRight >= 9);
+  assert(selectPortalState.checkGapToRight <= 11);
   const endActiveId = await select.getAttribute('aria-activedescendant');
   assert.match(endActiveId ?? '', /option-3$/);
   assert.equal(await page.locator(`[id="${endActiveId}"]`).getAttribute('aria-selected'), 'false');
@@ -265,10 +304,7 @@ try {
   );
   await page.keyboard.press('Tab');
   assert.equal((await select.innerText()).trim(), 'Gamma');
-  assert.equal(
-    await page.getByRole('option', { name: /Gamma/ }).getAttribute('data-selected'),
-    'true',
-  );
+  assert.equal(await page.locator('input[name="uncontrolledSelect"]').inputValue(), 'gamma');
   await selectListbox.waitFor({ state: 'detached' });
   assert.equal(await select.getAttribute('aria-expanded'), 'false');
   assert.equal(

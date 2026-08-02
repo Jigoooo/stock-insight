@@ -59,6 +59,7 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
       DATABASE_WRITE_URL: 'postgresql://must-not-pass:secret@elsewhere/db',
       CLOUDFLARE_TUNNEL_TOKEN: 'must-not-pass',
       STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET: 'must-not-pass',
+      VITE_ENABLE_DEV_PREVIEW: '1',
     },
     resolveCommand: (name) => `/usr/bin/${name}`,
     sandboxPathIsReadable: async () => true,
@@ -96,6 +97,9 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
   assert.equal(prepared.webEnv.STOCK_INSIGHT_REMOTE_READ_ONLY, 'false');
   assert.equal(prepared.apiEnv.STOCK_INSIGHT_LIVE_DATABASE_EXPECTED, 'true');
   assert.equal(prepared.webEnv.VITE_STOCK_INSIGHT_DATA_ENV, 'production-live');
+  assert.equal(prepared.webEnv.VITE_ENABLE_DEV_PREVIEW, '1');
+  assert.equal(prepared.apiEnv.VITE_ENABLE_DEV_PREVIEW, undefined);
+  assert.equal(prepared.tunnelEnv.VITE_ENABLE_DEV_PREVIEW, undefined);
   for (const childEnv of [prepared.tunnelEnv, prepared.apiEnv, prepared.webEnv]) {
     assert.equal(childEnv.CLOUDFLARE_TUNNEL_TOKEN, undefined);
     assert.equal(childEnv.STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET, undefined);

@@ -25,8 +25,10 @@ describe('admin invitation console UI contract', () => {
     assert.match(source, /<Field/);
     assert.match(source, /<div[^>]*data-testid="admin-invitation-status"/);
     assert.doesNotMatch(source, /<output[^>]*data-testid="admin-invitation-status"/);
-    assert.match(source, /<output[^>]*pendingMessage[^>]*aria-live="polite"/);
-    assert.equal((source.match(/aria-live="polite"/g) ?? []).length, 1);
+    assert.match(source, /<InlineFeedbackRegion/);
+    assert.doesNotMatch(source, /<output\b/);
+    assert.match(source, /<PresenceRegion[\s\S]*?present=\{Boolean\(error\)\}/);
+    assert.match(source, /<PresenceRegion[\s\S]*?present=\{Boolean\(revealedCode\)\}/);
     assert.match(source, /이 코드는 지금 한 번만 표시됩니다/);
     assert.match(source, /caption="가입 코드 발급 및 사용 상태"/);
     assert.match(source, /navigator\.clipboard[\s\S]*\.writeText/);
@@ -38,7 +40,7 @@ describe('admin invitation console UI contract', () => {
     assert.match(revokeHandler, /catch \{/);
     assert.match(source, /<th scope="row"[^>]*>/);
     assert.match(source, /aria-label=\{`\$\{invitation\.label\} 코드 폐기`\}/);
-    assert.match(source, /statusMessage \? <span/);
+    assert.match(source, /\? \{ key: 'success', message: statusMessage \}/);
     assert.match(source, /listHeadingRef\.current\?\.focus\(\)/);
   });
 

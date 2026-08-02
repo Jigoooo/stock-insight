@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { LoginPage, type LoginCredentials } from './login-page';
 import { login } from './model/auth-functions';
+import { holdLoginFailureFeedback } from './model/login-attempt-timing';
 
 const invalidLoginMessage = '아이디 또는 비밀번호를 확인해 주세요.';
 
@@ -14,12 +15,14 @@ export function LoginScreen({ redirectTo }: { redirectTo: string }) {
 
   async function handleSubmit(credentials: LoginCredentials) {
     if (pending) return;
+    const startedAt = performance.now();
     setPending(true);
     setError(null);
 
     try {
       const result = await login({ data: credentials });
       if (!result.ok) {
+        await holdLoginFailureFeedback(startedAt);
         setError(invalidLoginMessage);
         setPending(false);
         return;
@@ -43,6 +46,7 @@ export function LoginScreen({ redirectTo }: { redirectTo: string }) {
       // route id.
       await navigate({ href: redirectTo });
     } catch {
+      await holdLoginFailureFeedback(startedAt);
       setError(invalidLoginMessage);
       setPending(false);
     }

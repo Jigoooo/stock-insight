@@ -20,6 +20,11 @@ type AuthFeedbackRegionProps = {
 const webRoot = fileURLToPath(new URL('..', import.meta.url));
 const regionUrl = new URL('../src/pages/auth/auth-feedback-region.tsx', import.meta.url);
 const stylesheetUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
+const sharedFeedbackUrl = new URL('../src/shared/ui/feedback/feedback.tsx', import.meta.url);
+const sharedStylesheetUrl = new URL(
+  '../src/shared/ui/feedback/feedback.module.css',
+  import.meta.url,
+);
 const loginUrl = new URL('../src/pages/auth/login-page.tsx', import.meta.url);
 const signupUrl = new URL('../src/pages/auth/signup-page.tsx', import.meta.url);
 
@@ -60,33 +65,50 @@ describe('auth feedback region', () => {
     );
 
     for (const html of [idle, pending, error]) {
-      assert.equal((html.match(/data-auth-feedback-announcement/g) ?? []).length, 1);
+      assert.equal((html.match(/data-slot="inline-feedback-announcement"/g) ?? []).length, 1);
       assert.equal((html.match(/aria-atomic="true"/g) ?? []).length, 1);
-      assert.equal((html.match(/aria-hidden="true"/g) ?? []).length, 1);
     }
     assert.doesNotMatch(idle, /role="(?:status|alert)"|aria-live=/);
-    assert.match(pending, /data-auth-feedback-announcement[^>]*role="status"/);
+    assert.match(pending, /data-slot="inline-feedback-announcement"[^>]*role="status"/);
     assert.match(pending, /aria-live="polite"/);
     assert.match(error, /id="login-error"[^>]*role="alert"/);
     assert.match(error, /aria-live="assertive"/);
+    assert.equal((pending.match(/aria-hidden="true"/g) ?? []).length, 1);
+    assert.equal((error.match(/aria-hidden="true"/g) ?? []).length, 1);
   });
 
   it('uses synchronized restrained presence inside a fixed-geometry slot', async () => {
-    const [region, stylesheet] = await Promise.all([
+    const [region, stylesheet, sharedFeedback, sharedStylesheet] = await Promise.all([
       readFile(regionUrl, 'utf8'),
       readFile(stylesheetUrl, 'utf8'),
+      readFile(sharedFeedbackUrl, 'utf8'),
+      readFile(sharedStylesheetUrl, 'utf8'),
     ]);
 
-    assert.match(region, /mode="sync"/);
-    assert.match(region, /presenceKey=\{state\.key\}/);
-    assert.match(region, /aria-hidden="true"/);
-    assert.match(region, /useReducedMotion\(\)/);
-    assert.doesNotMatch(region, /scale|blur|filter|boxShadow|layout/);
-    for (const movement of region.matchAll(/\by:\s*(-?\d+(?:\.\d+)?)/g)) {
+    assert.match(region, /<InlineFeedbackRegion/);
+    assert.match(region, /density="compact"/);
+    assert.match(region, /reserveSpace/);
+    const inlineRegion = sharedFeedback.slice(
+      sharedFeedback.indexOf('export function InlineFeedbackRegion'),
+      sharedFeedback.indexOf('export function StatusBadge'),
+    );
+    assert.match(inlineRegion, /mode="sync"/);
+    assert.match(inlineRegion, /presenceKey=\{state\.key\}/);
+    assert.match(inlineRegion, /aria-hidden="true"/);
+    assert.doesNotMatch(inlineRegion, /scale|blur|filter|boxShadow|layout/);
+    for (const movement of inlineRegion.matchAll(/\by:\s*(-?\d+(?:\.\d+)?)/g)) {
       assert.ok(Math.abs(Number(movement[1])) <= 2, 'feedback translation must stay within 2px');
     }
-    assert.match(stylesheet, /\.feedbackSlot\s*\{[\s\S]*?min-height:/);
-    assert.match(stylesheet, /\.feedbackVisual\s*\{[\s\S]*?grid-area:\s*1\s*\/\s*1/);
+    assert.match(stylesheet, /\.authFeedback\s*\{/);
+    assert.match(
+      sharedStylesheet,
+      /\.inlineFeedback\[data-reserve-space='true'\]\s*\{[\s\S]*?min-height:/,
+    );
+    assert.match(sharedStylesheet, /\.inlineFeedbackVisual\s*\{[\s\S]*?grid-area:\s*1\s*\/\s*1/);
+    assert.match(
+      sharedStylesheet,
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.inlineFeedbackVisual\s*\{[\s\S]*?transform:\s*none !important/,
+    );
   });
 
   it('makes both auth pages derive one state and preserve error description links', async () => {

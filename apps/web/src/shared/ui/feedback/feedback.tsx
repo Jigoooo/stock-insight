@@ -28,6 +28,21 @@ export type FeedbackStateProps = HTMLAttributes<HTMLDivElement> & {
   testId?: string;
 };
 
+export type InlineFeedbackTone = 'pending' | 'error' | 'success';
+
+export type InlineFeedbackState = {
+  id?: string;
+  key: string;
+  message?: string;
+  tone?: InlineFeedbackTone;
+};
+
+export type InlineFeedbackRegionProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+  density?: 'compact' | 'default';
+  reserveSpace?: boolean;
+  state: InlineFeedbackState;
+};
+
 export type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   width?: CSSProperties['width'];
   height?: CSSProperties['height'];
@@ -35,6 +50,64 @@ export type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
 
 function classNames(...values: (string | false | null | undefined)[]) {
   return values.filter(Boolean).join(' ');
+}
+
+function resolveInlineFeedbackTone(state: InlineFeedbackState) {
+  if (state.tone) return state.tone;
+  if (state.key === 'pending' || state.key === 'error' || state.key === 'success') {
+    return state.key;
+  }
+  return undefined;
+}
+
+export function InlineFeedbackRegion({
+  className,
+  density = 'default',
+  reserveSpace = false,
+  state,
+  ...props
+}: InlineFeedbackRegionProps) {
+  const tone = resolveInlineFeedbackTone(state);
+  const message = state.message ?? '';
+  const active = message.length > 0;
+  const role = active ? (tone === 'error' ? 'alert' : 'status') : undefined;
+  const live = active ? (tone === 'error' ? 'assertive' : 'polite') : undefined;
+
+  return (
+    <div
+      {...props}
+      className={classNames(styles.inlineFeedback, className)}
+      data-density={density}
+      data-reserve-space={reserveSpace || undefined}
+      data-slot="inline-feedback-root"
+      data-tone={tone}
+    >
+      <div
+        id={state.id}
+        className={styles.inlineFeedbackAnnouncement}
+        data-slot="inline-feedback-announcement"
+        role={role}
+        aria-live={live}
+        aria-atomic="true"
+      >
+        {message}
+      </div>
+      <PresenceRegion
+        className={styles.inlineFeedbackVisual}
+        mode="sync"
+        presenceKey={state.key}
+        present={active}
+        initial={{ opacity: 0, y: 2 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -2 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        aria-hidden="true"
+        data-slot="inline-feedback-visual"
+      >
+        {message}
+      </PresenceRegion>
+    </div>
+  );
 }
 
 export function StatusBadge({ availability, className, label, source, testId }: StatusBadgeProps) {

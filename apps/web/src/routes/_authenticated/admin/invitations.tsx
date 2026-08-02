@@ -20,5 +20,5 @@ export const Route = createFileRoute('/_authenticated/admin/invitations')({
 
 function AdminInvitationRoute() {
   const data = Route.useLoaderData();
-  return <AdminInvitationPage initialInvitations={data.invitations} role={data.role} />;
+  return <AdminInvitationPage accountRole={data.role} initialInvitations={data.invitations} />;
 }

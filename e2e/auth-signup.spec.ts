@@ -214,7 +214,7 @@ test.describe('one-time enrollment presentation', () => {
     await page.goto('/signup');
 
     const submit = page.getByRole('button', { name: '계정 만들기', exact: true });
-    const announcement = page.locator('[data-auth-feedback-announcement]');
+    const announcement = page.locator('[data-slot="inline-feedback-announcement"]');
     await page.waitForTimeout(300);
     await announcement.evaluate((element) => {
       const samples: string[] = [];

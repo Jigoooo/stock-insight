@@ -322,6 +322,8 @@ export async function prepareLiveDev({
     STOCK_INSIGHT_MUTATIONS_ENABLED: 'true',
     STOCK_INSIGHT_REMOTE_READ_ONLY: 'false',
     VITE_STOCK_INSIGHT_DATA_ENV: 'production-live',
+    ...(env.VITE_ENABLE_DEV_PREVIEW === '1' ? { VITE_ENABLE_DEV_PREVIEW: '1' } : {}),
+    ...(env.VITE_ENABLE_UI_LAB === '1' ? { VITE_ENABLE_UI_LAB: '1' } : {}),
   };
   delete webEnv.XDG_CONFIG_HOME;
   delete webEnv.XDG_DATA_HOME;

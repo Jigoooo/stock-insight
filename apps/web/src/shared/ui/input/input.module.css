@@ -232,7 +232,7 @@
 
   .inputGroup .groupControl:focus-visible,
   .inputGroup [data-slot='input-group-addon'] [data-slot='button-control']:focus-visible {
-    outline: none;
+    outline: none !important;
     box-shadow: none;
   }
 }
