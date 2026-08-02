@@ -5,19 +5,24 @@ async function openFileUpload(page: Page) {
   const categoryButton = page.getByRole('button', { name: 'FileUpload · Dropzone' });
 
   await expect(async () => {
-    await categoryButton.click();
-    await expect(categoryButton).toHaveAttribute('aria-pressed', 'true');
-  }).toPass();
+    await categoryButton.click({ timeout: 1_000 });
+    await expect(categoryButton).toHaveAttribute('aria-pressed', 'true', { timeout: 1_000 });
+  }).toPass({ timeout: 8_000, intervals: [100, 250, 500] });
 }
 
 test.describe('UI Lab FileUpload', () => {
   test('shows only the approved A and B directions', async ({ page }) => {
     await openFileUpload(page);
     const comparison = page.locator('section[aria-labelledby="input-action-title"]');
+    const hairlineCard = comparison.locator('article[data-direction="hairline"]');
+    const insetCard = comparison.locator('article[data-direction="inset"]');
+    const railCard = comparison.locator('article[data-direction="rail"]');
 
-    await expect(comparison.getByRole('heading', { name: '선과 여백 중심' })).toBeVisible();
-    await expect(comparison.getByRole('heading', { name: '낮은 음영의 면' })).toBeVisible();
-    await expect(comparison.getByRole('heading', { name: '선택 레일과 높은 밀도' })).toHaveCount(0);
+    await expect(hairlineCard).toHaveCount(1);
+    await expect(hairlineCard.getByRole('heading', { name: '선과 여백 중심' })).toBeVisible();
+    await expect(insetCard).toHaveCount(1);
+    await expect(insetCard.getByRole('heading', { name: '낮은 음영의 면' })).toBeVisible();
+    await expect(railCard).toHaveCount(0);
   });
 
   test('removes one multiple-selection row and compacts the remaining order', async ({ page }) => {
