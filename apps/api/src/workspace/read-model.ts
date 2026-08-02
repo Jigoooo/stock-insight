@@ -73,8 +73,33 @@ const LATEST_RUN_SQL = `
   LIMIT 1
 `;
 
+// The user filter lives INSIDE the aggregate on purpose. Joining
+// public.v_user_feed_dedup and filtering user_id on the join condition let the
+// planner put the whole view on the inner side of a nested loop, so it
+// re-aggregated every user's feed rows once per publication row
+// (loops=124 x 34k rows, 4.7M buffers, ~7s). Filtering first turns that into a
+// single 35k-row scan. MATERIALIZED is load-bearing: without it the planner is
+// free to inline the CTE and rebuild the same nested loop.
 const FEED_SQL = `
-  WITH source_links AS (
+  WITH relevance AS MATERIALIZED (
+    SELECT
+      fi.record_id,
+      bool_or(fi.relevance_kind = 'direct') AS has_direct,
+      bool_or(fi.relevance_kind = 'related') AS has_related,
+      bool_or(fi.relevance_kind = 'indirect') AS has_indirect,
+      min(fi.hops) FILTER (WHERE fi.relevance_kind IN ('indirect', 'related'))
+        AS min_indirect_hops,
+      CASE
+        WHEN bool_or(fi.relevance_kind = 'direct') THEN 'direct'
+        WHEN bool_or(fi.relevance_kind = 'related') THEN 'related'
+        ELSE 'indirect'
+      END AS primary_kind,
+      (array_agg(fi.reason ORDER BY fi.relevance_score DESC))[1] AS top_reason
+    FROM public.user_feed_index fi
+    WHERE fi.user_id = $1::uuid
+    GROUP BY fi.record_id
+  ),
+  source_links AS (
     SELECT
       ars.record_key,
       count(*)::int AS source_count,
@@ -114,9 +139,7 @@ const FEED_SQL = `
     coalesce(source_links.source_count, 0)::int AS source_count,
     coalesce(source_links.clickable_source_count, 0)::int AS clickable_source_count
   FROM ops.internal_web_publication_records publication
-  LEFT JOIN public.v_user_feed_dedup relevance
-    ON relevance.user_id = $1::uuid
-   AND relevance.record_id = publication.id
+  LEFT JOIN relevance ON relevance.record_id = publication.id
   LEFT JOIN source_links ON source_links.record_key = publication.record_key
   WHERE publication.analysis_run_id = $2
     AND publication.analysis_revision = $3
