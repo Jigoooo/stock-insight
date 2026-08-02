@@ -8,6 +8,22 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 // path_score = event_strength * Π(edge_confidence) * hop_decay^(hops-1)
 //              * freshness * market_confirmation_dampener
 // Scores are INDUSTRIAL LINKAGE strength, never price predictions.
+//
+// INTERNAL ANALYSIS ONLY — this job's output does not reach the product.
+// serving.impact_summary_v1 requires every path edge to resolve through
+// serving.relation_current_v1, and that view exposes ISSUED_BY relations
+// exclusively (identity_mapping is the only evidence kind any relation carries,
+// and it applies only to ISSUED_BY). RELATION_PREDICATES below deliberately does
+// not include ISSUED_BY, so the two sets are disjoint and the serving yield has
+// been pinned at 0 since migration 023 landed on 2026-07-19 — 44,658 rows written
+// nightly, 0 served, for two weeks, unnoticed.
+//
+// Do NOT "fix" this by adding ISSUED_BY here or by relaxing the view. Those paths
+// have no evidence backing; exposing them would publish sourceless impact claims
+// against the read-only truth contract. The servable impact plane is v2:
+// run-v2-analytics-publish.ts writes analytics.impact_path_v2 with real edge
+// foreign keys and publishes it as content packs of kind 'impact_brief'.
+// See migration 055 and docs/operations/impact-plane-v1-v2.md.
 
 const JOB_NAME = 'stock-insight-graph-inference';
 const RULE_VERSION = 'impact-v1';

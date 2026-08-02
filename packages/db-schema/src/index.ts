@@ -52,6 +52,7 @@ import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_
 import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening.ts';
 import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto_serving_app_reader_grant.ts';
 import { adminInvitationControlMigrationSql } from './migrations/054_admin_invitation_control.ts';
+import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_internal_only.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -697,6 +698,14 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['app_account_roles', 'app_invitations', 'app_invitation_consumptions'],
     sql: adminInvitationControlMigrationSql,
   },
+  {
+    id: '055_impact_v1_internal_only',
+    description:
+      'Declares the v1 impact plane internal-only: serving.impact_summary_v1 is structurally empty since migration 023 and the servable plane is impact_path_v2 via impact_brief content packs.',
+    // Comment-only: it creates no objects, so it claims none.
+    tables: [],
+    sql: impactV1InternalOnlyMigrationSql,
+  },
 ];
 
 export {
@@ -754,4 +763,5 @@ export {
   personalizationReaderSurfaceHardeningMigrationSql,
   cryptoServingAppReaderGrantMigrationSql,
   adminInvitationControlMigrationSql,
+  impactV1InternalOnlyMigrationSql,
 };
