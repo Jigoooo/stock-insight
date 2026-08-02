@@ -2,21 +2,27 @@
   display: inline-flex;
   min-width: 0;
   align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
 }
 
 .root[data-orientation='vertical'] {
   flex-direction: column;
 }
 
-.root[data-variant='hairline'] > :global([data-slot='button-control']) {
+.root > :global([data-slot='button-control']) {
   position: relative;
+  border: 0;
   border-radius: 0;
+  background: transparent;
   box-shadow: none;
+  transform: none !important;
 }
 
 .root[data-variant='hairline'][data-orientation='horizontal']
   > :global([data-slot='button-control'] + [data-slot='button-control']) {
-  margin-left: -1px;
+  border-left: 1px solid var(--color-border);
 }
 
 .root[data-variant='hairline'][data-orientation='horizontal']
@@ -31,7 +37,7 @@
 
 .root[data-variant='hairline'][data-orientation='vertical']
   > :global([data-slot='button-control'] + [data-slot='button-control']) {
-  margin-top: -1px;
+  border-top: 1px solid var(--color-border);
 }
 
 .root[data-variant='hairline'][data-orientation='vertical']
@@ -49,22 +55,52 @@
 }
 
 .root[data-variant='inset'] {
-  gap: 3px;
   padding: 3px;
-  border: 1px solid var(--color-border);
   border-radius: calc(var(--radius-control) + 3px);
   background: var(--color-surface-subtle);
 }
 
 .root[data-variant='inset'] > :global([data-slot='button-control']) {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 0;
+}
+
+.root[data-variant='inset'][data-orientation='horizontal']
+  > :global([data-slot='button-control'] + [data-slot='button-control']) {
+  border-left: 1px solid var(--color-border);
+}
+
+.root[data-variant='inset'][data-orientation='horizontal']
+  > :global([data-slot='button-control']:first-child) {
+  border-radius: calc(var(--radius-control) - 2px) 0 0 calc(var(--radius-control) - 2px);
+}
+
+.root[data-variant='inset'][data-orientation='horizontal']
+  > :global([data-slot='button-control']:last-child) {
+  border-radius: 0 calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px) 0;
+}
+
+.root[data-variant='inset'][data-orientation='vertical']
+  > :global([data-slot='button-control'] + [data-slot='button-control']) {
+  border-top: 1px solid var(--color-border);
+}
+
+.root[data-variant='inset'][data-orientation='vertical']
+  > :global([data-slot='button-control']:first-child) {
+  border-radius: calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px) 0 0;
+}
+
+.root[data-variant='inset'][data-orientation='vertical']
+  > :global([data-slot='button-control']:last-child) {
+  border-radius: 0 0 calc(var(--radius-control) - 2px) calc(var(--radius-control) - 2px);
 }
 
 .root[data-variant='inset'] > :global([data-slot='button-control']:hover) {
-  border-color: color-mix(in srgb, var(--color-border) 78%, transparent);
   background: var(--color-surface);
+}
+
+.root > :global([data-slot='button-control']:active) {
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  box-shadow: none;
 }
 
 @media (max-width: 480px) {

@@ -248,12 +248,6 @@
   align-content: start;
 }
 
-.buttonPreview[data-direction='inset'] {
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
-}
-
 .buttonPreview[data-direction='rail'] {
   padding-left: 16px;
   border-left: 3px solid var(--color-text-primary);

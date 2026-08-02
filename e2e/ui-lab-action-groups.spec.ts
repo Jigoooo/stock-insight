@@ -40,6 +40,47 @@ test.describe('UI Lab action groups', () => {
     }
   });
 
+  test('renders ButtonGroup as one continuous surface without a nested preview backdrop', async ({
+    page,
+  }) => {
+    await openCategory(page, 'ButtonGroup');
+
+    for (const variant of ['hairline', 'inset'] as const) {
+      const card = page.locator(`article[data-direction="${variant}"]`);
+      const preview = card.locator('[data-direction]').last();
+      const group = card.getByRole('group', { name: '리포트 작업' });
+      const firstAction = group.getByRole('button').first();
+      const secondAction = group.getByRole('button').nth(1);
+
+      const styles = await Promise.all([
+        preview.evaluate((element) => getComputedStyle(element).backgroundColor),
+        group.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            borderTopWidth: style.borderTopWidth,
+            columnGap: style.columnGap,
+          };
+        }),
+        firstAction.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            backgroundColor: style.backgroundColor,
+            borderTopWidth: style.borderTopWidth,
+          };
+        }),
+        secondAction.evaluate((element) => getComputedStyle(element).borderLeftWidth),
+      ]);
+
+      expect(styles[0]).toBe('rgba(0, 0, 0, 0)');
+      expect(styles[1]).toEqual({ borderTopWidth: '1px', columnGap: 'normal' });
+      expect(styles[2]).toEqual({
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        borderTopWidth: '0px',
+      });
+      expect(styles[3]).toBe('1px');
+    }
+  });
+
   test('runs the primary action and exposes all three approved SplitButton variants', async ({
     page,
   }) => {
@@ -83,6 +124,74 @@ test.describe('UI Lab action groups', () => {
     await expect(card.locator('[data-slot="split-button-result"]')).toHaveText(
       '링크 복사를 선택했습니다.',
     );
+  });
+
+  test('keeps joined SplitButton segments continuous and motionless while pressed', async ({
+    page,
+  }) => {
+    await openCategory(page, 'SplitButton');
+
+    for (const direction of ['hairline', 'inset'] as const) {
+      const card = page.locator(`article[data-direction="${direction}"]`);
+      const root = card.locator('[data-slot="split-button"]');
+      const primary = card.getByRole('button', { name: '리포트 저장', exact: true });
+      const trigger = card.getByRole('button', { name: '리포트 저장 옵션' });
+
+      const joinedStyles = await Promise.all([
+        root.evaluate((element) => getComputedStyle(element).borderTopWidth),
+        primary.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            backgroundColor: style.backgroundColor,
+            borderTopWidth: style.borderTopWidth,
+          };
+        }),
+        trigger.evaluate((element) => {
+          const style = getComputedStyle(element);
+          return {
+            backgroundColor: style.backgroundColor,
+            borderLeftWidth: style.borderLeftWidth,
+          };
+        }),
+      ]);
+
+      expect(joinedStyles[0]).toBe('1px');
+      expect(joinedStyles[1]).toEqual({
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        borderTopWidth: '0px',
+      });
+      expect(joinedStyles[2]).toEqual({
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        borderLeftWidth: '1px',
+      });
+
+      const box = await trigger.boundingBox();
+      expect(box).not.toBeNull();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      await page.mouse.down();
+      await expect(trigger).toHaveCSS('transform', 'none');
+      await page.mouse.up();
+    }
+  });
+
+  test('starts the SplitButton chevron from an explicit closed state on first open', async ({
+    page,
+  }) => {
+    await openCategory(page, 'SplitButton');
+    const card = page.locator('article[data-direction="hairline"]');
+    const trigger = card.getByRole('button', { name: '리포트 저장 옵션' });
+    const chevron = trigger.locator('[data-slot="split-button-trigger"]');
+    const closedTransform = await chevron.evaluate(
+      (element) => getComputedStyle(element).transform,
+    );
+
+    expect(closedTransform).not.toBe('none');
+    await trigger.click();
+    await page.waitForTimeout(40);
+    const openingTransform = await chevron.evaluate(
+      (element) => getComputedStyle(element).transform,
+    );
+    expect(openingTransform).not.toBe(closedTransform);
   });
 
   test('keeps action targets tappable without horizontal overflow on mobile', async ({

@@ -30,6 +30,7 @@
 }
 
 .chevron {
+  transform: rotate(0deg);
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
@@ -38,24 +39,27 @@
 }
 
 .root[data-variant='solid'] {
+  border: 1px solid var(--color-accent-strong);
   border-radius: var(--radius-control);
+  background: var(--color-accent-strong);
   box-shadow: 0 6px 18px rgb(20 22 20 / 8%);
 }
 
 .root[data-variant='solid'] .primary,
 .root[data-variant='solid'] .trigger {
-  border-color: var(--color-accent-strong);
+  border: 0;
   color: var(--color-on-accent);
-  background: var(--color-accent-strong);
+  background: transparent;
+  box-shadow: none;
 }
 
 .root[data-variant='solid'] .trigger {
-  border-left-color: color-mix(in srgb, var(--color-on-accent) 24%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--color-on-accent) 24%, transparent);
 }
 
 .root[data-variant='solid'] .primary:hover,
 .root[data-variant='solid'] .trigger:hover {
-  background: var(--color-accent);
+  background: color-mix(in srgb, var(--color-on-accent) 9%, transparent);
 }
 
 .root[data-variant='tonal'] {
@@ -69,22 +73,36 @@
 .root[data-variant='tonal'] .trigger {
   border: 0;
   color: var(--color-text-primary);
-  background: var(--color-surface);
+  background: transparent;
   box-shadow: none;
 }
 
 .root[data-variant='tonal'] .trigger {
-  width: 34px;
-  height: calc(100% - 6px);
-  align-self: center;
-  margin-right: 3px;
-  border-radius: calc(var(--radius-control) - 2px);
-  background: var(--color-surface-subtle);
+  width: 40px;
+  border-left: 1px solid var(--color-border);
 }
 
 .root[data-variant='tonal'] .primary:hover,
 .root[data-variant='tonal'] .trigger:hover {
   background: var(--color-surface-subtle);
+}
+
+.root[data-variant='solid'] .primary,
+.root[data-variant='tonal'] .primary {
+  border-radius: calc(var(--radius-control) - 1px) 0 0 calc(var(--radius-control) - 1px);
+}
+
+.root[data-variant='solid'] .trigger,
+.root[data-variant='tonal'] .trigger {
+  border-radius: 0 calc(var(--radius-control) - 1px) calc(var(--radius-control) - 1px) 0;
+}
+
+.root[data-variant='solid'] .primary:active,
+.root[data-variant='solid'] .trigger:active,
+.root[data-variant='tonal'] .primary:active,
+.root[data-variant='tonal'] .trigger:active {
+  transform: none !important;
+  box-shadow: none;
 }
 
 .root[data-variant='twin'] {
@@ -120,11 +138,11 @@
 }
 
 .menu[data-state='open'] {
-  animation: split-menu-in 140ms var(--ease-out) both;
+  animation: split-menu-in 170ms var(--ease-out) both;
 }
 
 .menu[data-state='closed'] {
-  animation: split-menu-out 100ms ease-in both;
+  animation: split-menu-out 80ms ease-in both;
 }
 
 .menuItem {
@@ -165,7 +183,7 @@
 @keyframes split-menu-in {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.985);
+    transform: translateY(-6px) scale(0.98);
   }
   to {
     opacity: 1;
