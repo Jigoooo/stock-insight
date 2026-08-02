@@ -2,8 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-const read = async (path: string) =>
-  readFile(new URL(`../src/${path}`, import.meta.url), 'utf8').catch(() => '');
+const read = async (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
 describe('shared choice controls', () => {
   it('publishes the canonical RadioGroup contract and pending behavior', async () => {
