@@ -79,6 +79,7 @@ export function DatePicker({
             defaultMonth={currentValue}
             onValueChange={handleValueChange}
             pending={pending}
+            surface="embedded"
             value={currentValue}
             variant={calendarVariant}
           />

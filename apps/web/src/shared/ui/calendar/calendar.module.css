@@ -23,6 +23,14 @@
   background: var(--color-surface);
 }
 
+.root[data-surface='embedded'] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .dayPicker,
 .months,
 .month {
@@ -40,14 +48,19 @@
 
 .month {
   position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
 }
 
 .monthCaption {
+  grid-row: 1;
+  grid-column: 2;
   height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 38px;
+  padding: 0 8px;
 }
 
 .captionLabel {
@@ -68,6 +81,7 @@
 }
 
 .navButton {
+  grid-row: 1;
   width: 30px;
   height: 30px;
   display: inline-flex;
@@ -83,6 +97,14 @@
   transition:
     color 140ms ease,
     background-color 140ms ease;
+}
+
+.navButton[data-slot='calendar-nav-previous'] {
+  grid-column: 1;
+}
+
+.navButton[data-slot='calendar-nav-next'] {
+  grid-column: 3;
 }
 
 .navButton:hover {
@@ -104,6 +126,8 @@
 }
 
 .monthGrid {
+  grid-row: 2;
+  grid-column: 1 / -1;
   border-collapse: separate;
   border-spacing: 1px;
 }
@@ -200,9 +224,12 @@
   cursor: default;
 }
 
-.rangeMiddle .dayButton {
+.root .rangeMiddle .dayButton[data-selected='true'] {
+  color: var(--color-text-secondary);
+  border-color: transparent;
   border-radius: 4px;
   background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  box-shadow: none;
 }
 
 .rangeStart .dayButton,
@@ -223,10 +250,18 @@
     padding: 5px;
   }
 
+  .root[data-surface='embedded'] {
+    padding: 0;
+  }
+
   .navButton,
   .dayButton {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .month {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
   }
 
   .monthCaption,

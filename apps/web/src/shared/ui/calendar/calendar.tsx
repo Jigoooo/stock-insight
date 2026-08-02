@@ -22,6 +22,7 @@ import styles from './calendar.module.css';
 import { cn } from '@/shared/lib/utils';
 
 export type CalendarVariant = 'compact' | 'soft-inset' | 'ledger';
+export type CalendarSurface = 'standalone' | 'embedded';
 
 type CalendarBaseProps = Omit<
   PropsBase,
@@ -30,6 +31,7 @@ type CalendarBaseProps = Omit<
   className?: string;
   disabled?: Matcher | Matcher[];
   pending?: boolean;
+  surface?: CalendarSurface;
   variant?: CalendarVariant;
 };
 
@@ -117,6 +119,7 @@ export function Calendar({
   disabled,
   onValueChange,
   pending = false,
+  surface = 'standalone',
   value,
   variant = 'compact',
   ...props
@@ -134,6 +137,7 @@ export function Calendar({
     <div
       className={cn(styles.root, className)}
       data-slot="calendar"
+      data-surface={surface}
       data-variant={variant}
       aria-busy={pending || undefined}
     >
@@ -161,6 +165,7 @@ export function RangeCalendar({
   onValueChange,
   pending = false,
   resetOnSelect = true,
+  surface = 'standalone',
   value,
   variant = 'compact',
   ...props
@@ -169,6 +174,7 @@ export function RangeCalendar({
     <div
       className={cn(styles.root, className)}
       data-slot="calendar"
+      data-surface={surface}
       data-variant={variant}
       aria-busy={pending || undefined}
     >

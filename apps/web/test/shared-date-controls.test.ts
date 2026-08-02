@@ -17,6 +17,7 @@ describe('shared date controls', () => {
     assert.match(source, /mode="single"/);
     assert.match(source, /locale=\{ko\}/);
     assert.match(source, /data-slot="calendar"/);
+    assert.match(source, /data-surface=\{surface\}/);
     assert.match(source, /data-slot="calendar-caption"/);
     assert.match(source, /data-slot="calendar-grid"/);
     assert.match(source, /data-slot="calendar-day"/);
@@ -27,6 +28,13 @@ describe('shared date controls', () => {
     assert.match(styles, /@media \(max-width: 480px\)/);
     assert.match(styles, /min-width: 44px/);
     assert.match(styles, /min-height: 44px/);
+    assert.match(styles, /\.root\[data-surface='embedded'\]/);
+    assert.match(styles, /\.navButton\[data-slot='calendar-nav-previous'\]/);
+    assert.match(styles, /\.navButton\[data-slot='calendar-nav-next'\]/);
+    assert.match(
+      styles,
+      /\.rangeMiddle \.dayButton\[data-selected='true'\] \{[\s\S]*border-color: transparent/,
+    );
     assert.match(publicIndex, /export \* from '\.\/calendar'/);
     assert.match(source, /export function RangeCalendar/);
   });
@@ -45,6 +53,7 @@ describe('shared date controls', () => {
     assert.match(datePicker, /data-invalid=\{invalid \|\| undefined\}/);
     assert.doesNotMatch(datePicker, /aria-invalid=/);
     assert.match(datePicker, /data-slot="date-picker-content"/);
+    assert.match(datePicker, /surface="embedded"/);
     assert.match(datePicker, /formatDateValue\(currentValue, placeholder\)/);
     assert.match(datePicker, /setOpen\(false\)/);
     assert.match(rangePicker, /type DateRangeValue/);
@@ -53,9 +62,11 @@ describe('shared date controls', () => {
     assert.match(rangePicker, /data-invalid=\{invalid \|\| undefined\}/);
     assert.doesNotMatch(rangePicker, /aria-invalid=/);
     assert.match(rangePicker, /data-slot="range-picker-content"/);
+    assert.match(rangePicker, /surface="embedded"/);
     assert.match(rangePicker, /formatDateRangeValue\(currentValue, placeholder\)/);
     assert.match(rangePicker, /nextValue\?\.from && nextValue\.to/);
     assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+    assert.match(styles, /background: var\(--color-surface\)/);
     assert.match(publicIndex, /export \* from '\.\/date-picker'/);
   });
 });

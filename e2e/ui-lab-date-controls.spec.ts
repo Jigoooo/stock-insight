@@ -105,6 +105,45 @@ test.describe('UI Lab DatePicker and RangePicker', () => {
     await expect(trigger).toBeFocused();
   });
 
+  test('aligns calendar navigation and avoids nested range-picker surfaces', async ({ page }) => {
+    await openCategory(page, 'DatePicker · RangePicker');
+
+    for (const direction of catalogDirections) {
+      const trigger = card(page, direction).locator('[data-slot="range-picker-trigger"]');
+      await trigger.click();
+
+      const content = page.locator('[data-slot="range-picker-content"]');
+      const calendar = content.locator('[data-slot="calendar"]');
+      const previous = calendar.locator('[data-slot="calendar-nav-previous"]');
+      const caption = calendar.locator('[data-slot="calendar-caption"]');
+      const next = calendar.locator('[data-slot="calendar-nav-next"]');
+
+      await expect(content).toBeVisible();
+      await expect(calendar).toHaveAttribute('data-surface', 'embedded');
+      await expect(calendar).toHaveCSS('border-top-width', '0px');
+      await expect(calendar).toHaveCSS('padding-top', '0px');
+      await expect(content).toHaveCSS('background-color', /rgb\(/);
+      await expect(dayButton(content, 3)).toHaveCSS('border-top-color', 'rgba(0, 0, 0, 0)');
+
+      const [previousBox, captionBox, nextBox] = await Promise.all([
+        previous.boundingBox(),
+        caption.boundingBox(),
+        next.boundingBox(),
+      ]);
+      expect(previousBox).not.toBeNull();
+      expect(captionBox).not.toBeNull();
+      expect(nextBox).not.toBeNull();
+      expect(previousBox!.x).toBeLessThan(captionBox!.x);
+      expect(captionBox!.x + captionBox!.width).toBeLessThan(nextBox!.x + nextBox!.width);
+      expect(
+        Math.abs(previousBox!.y + previousBox!.height / 2 - (nextBox!.y + nextBox!.height / 2)),
+      ).toBeLessThanOrEqual(2);
+
+      await page.keyboard.press('Escape');
+      await expect(content).toBeHidden();
+    }
+  });
+
   test('exposes all surface variants with compact desktop and mobile hit targets', async ({
     page,
   }, testInfo) => {
