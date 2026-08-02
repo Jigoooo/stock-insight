@@ -1,4 +1,3 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ChevronDown,
   ChevronLeft,
@@ -9,6 +8,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useId, useRef, useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
