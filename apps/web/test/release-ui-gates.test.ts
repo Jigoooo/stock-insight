@@ -17,6 +17,7 @@ const workspaceAuthTeardownUrl = new URL(
 const playwrightConfigUrl = new URL('../../../playwright.config.ts', import.meta.url);
 const sourceRootUrl = new URL('../src/', import.meta.url);
 const productLayerNames = ['pages', 'widgets', 'features', 'entities'] as const;
+const developmentOnlyPageFragments = ['/pages/dev-preview/', '/pages/ui-lab/'] as const;
 
 async function readSourceTree(directory: URL): Promise<Array<{ path: string; source: string }>> {
   const sources: Array<{ path: string; source: string }> = [];
@@ -56,7 +57,13 @@ describe('release UI browser gates', () => {
     assert.match(toast, /toast\.custom/);
     assert.match(toast, /unstyled:\s*true/);
     assert.match(toast, /swipeDirections=\{\['right', 'top'\]\}/);
-    for (const { path, source } of layers.flat().filter(({ path }) => path.endsWith('.css'))) {
+    for (const { path, source } of layers
+      .flat()
+      .filter(
+        ({ path }) =>
+          path.endsWith('.css') &&
+          !developmentOnlyPageFragments.some((fragment) => path.includes(fragment)),
+      )) {
       assert.doesNotMatch(
         source,
         /\.button:active|input:focus(?:-visible|-within)?|\[role=['"]option['"]\]|\[data-slot=['"](?:toast|dialog)/,

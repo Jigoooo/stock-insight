@@ -29,10 +29,7 @@ describe('authentication same-origin boundary', () => {
       isSameOriginRequest('POST', 'http://127.0.0.1:6100', 'http://localhost:6100'),
       true,
     );
-    assert.equal(
-      isSameOriginRequest('POST', 'http://[::1]:6100', 'http://localhost:6100'),
-      true,
-    );
+    assert.equal(isSameOriginRequest('POST', 'http://[::1]:6100', 'http://localhost:6100'), true);
   });
 
   for (const origin of [

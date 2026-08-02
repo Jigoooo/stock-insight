@@ -48,7 +48,7 @@
 }
 
 .trigger[data-invalid='true'] {
-  border-color: color-mix(in srgb, var(--color-danger) 72%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-risk) 72%, var(--color-border));
 }
 
 .trigger:disabled {
@@ -106,6 +106,8 @@
 }
 
 .content {
+  --radix-popover-content-transform-origin: top left;
+
   z-index: 80;
   max-width: calc(100vw - 24px);
   padding: 7px;
@@ -114,8 +116,8 @@
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow:
-    0 18px 44px color-mix(in srgb, var(--color-shadow) 16%, transparent),
-    0 2px 10px color-mix(in srgb, var(--color-shadow) 9%, transparent);
+    0 18px 44px color-mix(in srgb, var(--color-chrome) 16%, transparent),
+    0 2px 10px color-mix(in srgb, var(--color-chrome) 9%, transparent);
   transform-origin: var(--radix-popover-content-transform-origin);
   animation: date-popover-in 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
