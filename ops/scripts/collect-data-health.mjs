@@ -215,6 +215,27 @@ const CHAINS = [
     ],
   },
   {
+    // "The collector is wired" and "the data is lineage-backed" are different
+    // claims. A routed collector only stamps rows it newly inserts, so this ratio
+    // starts near zero and climbs as the collector runs — measuring it stops the
+    // wiring from being mistaken for the outcome.
+    name: 'DART 수집 → 계보 붙은 사실',
+    steps: [
+      {
+        label: 'opendart source_revision',
+        sql: `SELECT count(*) FROM ingestion.source_revision revision
+              JOIN ingestion.source_record_identity identity
+                ON identity.source_record_identity_id = revision.source_record_identity_id
+              JOIN ingestion.source source ON source.source_id = identity.source_id
+              WHERE source.provider_key = 'opendart'`,
+      },
+      {
+        label: '계보 붙은 financial_fact',
+        sql: 'SELECT count(*) FROM market.financial_fact WHERE source_revision_id IS NOT NULL',
+      },
+    ],
+  },
+  {
     name: '지식 추출 → 검증된 주장',
     steps: [
       { label: 'knowledge.document', sql: 'SELECT count(*) FROM knowledge.document' },
@@ -277,6 +298,14 @@ const MARKET_LINEAGE_SQL = `
 // construction, while `structural` is where the causally meaningful edges
 // (OWNS/SUPPLIES) sit and where the quarantine actually bites. Reporting only the
 // table-wide total (19,069 accepted) would hide that.
+// Column presence says the table CAN record lineage; this says how much of it
+// actually does. Rows loaded before the collector was routed keep a NULL rather
+// than a manufactured revision, so the two numbers stay far apart for a while.
+const FACT_LINEAGE_SQL = `
+  SELECT count(*)::bigint AS total,
+         count(source_revision_id)::bigint AS with_lineage
+  FROM market.financial_fact`;
+
 const VERIFICATION_SQL = `
   SELECT 'knowledge.claim' AS relation, verification_status AS state, count(*)::bigint AS rows
     FROM knowledge.claim GROUP BY 1, 2
@@ -385,6 +414,7 @@ try {
   const impactLinked = await client.query(IMPACT_LINKED_SQL);
   const sources = await client.query(SOURCE_ACTIVITY_SQL);
   const marketLineage = await client.query(MARKET_LINEAGE_SQL);
+  const factLineage = await client.query(FACT_LINEAGE_SQL);
   const verification = await client.query(VERIFICATION_SQL);
   const pipeline = await client.query(PIPELINE_SQL);
   const capturedAt = await client.query(
@@ -422,6 +452,10 @@ try {
       sources: sourceRows,
     },
     marketLineage: {
+      facts: {
+        total: Number(factLineage.rows[0].total),
+        withLineage: Number(factLineage.rows[0].with_lineage),
+      },
       tables: marketLineage.rows.map((row) => ({
         table: `market.${row.table_name}`,
         hasLineageColumn: row.has_lineage_column,
@@ -506,6 +540,9 @@ function markdown(data) {
   );
   lines.push(
     `- 계보 컬럼(\`source_revision_id\`)을 가진 \`market.*\` 테이블 **${data.marketLineage.tablesWithLineageColumn} / ${data.marketLineage.tables.length}**`,
+  );
+  lines.push(
+    `- 출처가 붙은 \`market.financial_fact\` **${num(data.marketLineage.facts.withLineage)} / ${num(data.marketLineage.facts.total)}** (${pct(ratio(data.marketLineage.facts.withLineage, data.marketLineage.facts.total))})`,
   );
 
   lines.push('', '## Verification state', '');

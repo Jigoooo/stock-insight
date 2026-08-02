@@ -222,12 +222,7 @@ async function run(): Promise<void> {
       await client.query('BEGIN');
       const opened = await client.query<QueryResultRow & { fetch_run_id: string | number }>(
         OPEN_FETCH_RUN_SQL,
-        [
-          PROVIDER_KEY,
-          runId,
-          `${PROVIDER_KEY}:${runId}`,
-          startedAt.toISOString(),
-        ],
+        [PROVIDER_KEY, runId, `${PROVIDER_KEY}:${runId}`, startedAt.toISOString()],
       );
       fetchRunId = Number(opened.rows[0]!.fetch_run_id);
       await client.query('COMMIT');
