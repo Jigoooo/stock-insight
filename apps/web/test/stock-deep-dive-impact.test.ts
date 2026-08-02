@@ -135,6 +135,30 @@ describe('second-order exposure from sealed impact paths', () => {
     assert.doesNotMatch(first, /null|undefined/);
   });
 
+  it('caps the rendered list and says how much it left out', () => {
+    // Widening the event lookback took a holding from ~60 paths to several
+    // hundred. A truncated list that does not admit it reads as the whole set.
+    const many = Array.from({ length: 30 }, (_, index) =>
+      path({ impactPathV2Id: index + 1, pathScore: (30 - index) / 40 }),
+    );
+    const section = buildStockDeepDive(stockDetail, relation, brief(many)).sections.find(
+      (item) => item.id === 'secondary_exposure',
+    )!;
+
+    assert.equal(section.items.length, 13, '12 paths plus one line naming the remainder');
+    assert.match(section.items.at(-1)!, /나머지 18건 생략/);
+    // Strongest first, so what survives the cap is what matters.
+    assert.match(section.items[0]!, /0\.75/);
+  });
+
+  it('says nothing about omissions when everything fits', () => {
+    const section = buildStockDeepDive(stockDetail, relation, brief([path()])).sections.find(
+      (item) => item.id === 'secondary_exposure',
+    )!;
+    assert.equal(section.items.length, 1);
+    assert.doesNotMatch(section.items[0]!, /생략/);
+  });
+
   it('a missing impact endpoint degrades the section, not the whole page', async () => {
     const result = await loadStockDeepDiveData('KR:005930', {
       loadDetail: async () => stockDetail,

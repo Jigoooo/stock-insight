@@ -39,7 +39,26 @@ const MIN_COMMUNITY_SIZE = 2;
 const CORRELATION_WINDOW_DAYS = 45;
 const MIN_OVERLAPPING_RETURNS = 10;
 const MEASUREMENT_MODEL_VERSION = 'pearson-returns-v1';
-const EVENT_LOOKBACK_DAYS = 14;
+// The freshness decay (half-life 14 days) already attenuates old events smoothly.
+// A hard 14-day window on top of it is a second, cruder cut at exactly the point
+// where the curve is still near half strength: a 14-day-old event counts in full,
+// a 15-day-old one counts zero. Measured, the strongest event just outside the old
+// window scores 0.467 — not marginal, just past an arbitrary cliff.
+//
+// Overridable so the window can be measured rather than guessed at.
+const EVENT_LOOKBACK_DAYS = (() => {
+  const raw = process.env.STOCK_INSIGHT_EVENT_LOOKBACK_DAYS?.trim();
+  if (!raw) return 45;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 365) {
+    throw new Error('STOCK_INSIGHT_EVENT_LOOKBACK_DAYS must be an integer between 1 and 365');
+  }
+  return parsed;
+})();
+// EVENT_LIMIT binds from ~30 days on, so beyond that the window stops mattering
+// and "the most recent 500 events" is the real control. 45 keeps the window from
+// being the binding constraint at lower event rates without pretending a wider
+// number would admit more.
 const EVENT_LIMIT = 500;
 const FRESHNESS_HALF_LIFE_DAYS = 14;
 

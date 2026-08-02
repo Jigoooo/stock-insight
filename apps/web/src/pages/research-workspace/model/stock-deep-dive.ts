@@ -186,25 +186,40 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
  * a price expectation, and the read-only product contract applies to what is
  * rendered as much as to what is stored.
  */
+/**
+ * How many paths the section renders before it stops being readable.
+ *
+ * Widening the event lookback took a holding from ~60 paths to several hundred.
+ * Rendering all of them is not more information — it is a wall of near-identical
+ * rows that buries the strong links at the top. The rest are counted, never
+ * silently dropped.
+ */
+const IMPACT_ITEM_LIMIT = 12;
+
 function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
   if (!brief || brief.data === null) return [];
-  return brief.data.paths
-    .slice()
-    .sort((left, right) => right.pathScore - left.pathScore)
-    .map((path) => {
-      const label = EVENT_TYPE_LABELS[path.eventType] ?? path.eventType;
-      // hopCount counts RELATION EDGES traversed, not how directly the event
-      // names this holding. The event always happened at another entity
-      // (source_entity_id is never the target), so hopCount 1 means "one relation
-      // away", not "about this company". Calling it a direct link would assert a
-      // directness the data does not have.
-      // Name the company when the pack carries it. Packs sealed before the name
-      // existed keep serving until the next pipeline run, so the unnamed form has
-      // to stay readable rather than showing an empty slot.
-      const where = path.sourceName ?? `${path.hopCount}단계 떨어진 기업`;
-      const reach = `관계 ${path.hopCount}단계`;
-      return `${where} · ${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
-    });
+  const ranked = brief.data.paths.slice().sort((left, right) => right.pathScore - left.pathScore);
+  const shown = ranked.slice(0, IMPACT_ITEM_LIMIT).map((path) => {
+    const label = EVENT_TYPE_LABELS[path.eventType] ?? path.eventType;
+    // hopCount counts RELATION EDGES traversed, not how directly the event
+    // names this holding. The event always happened at another entity
+    // (source_entity_id is never the target), so hopCount 1 means "one relation
+    // away", not "about this company". Calling it a direct link would assert a
+    // directness the data does not have.
+    // Name the company when the pack carries it. Packs sealed before the name
+    // existed keep serving until the next pipeline run, so the unnamed form has
+    // to stay readable rather than showing an empty slot.
+    const where = path.sourceName ?? `${path.hopCount}단계 떨어진 기업`;
+    const reach = `관계 ${path.hopCount}단계`;
+    return `${where} · ${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
+  });
+  const hidden = ranked.length - shown.length;
+  // Say what was left out. A truncated list that does not admit it reads as the
+  // whole set, which is the same overstatement as an empty section reading as
+  // "nothing happened".
+  return hidden > 0
+    ? [...shown, `연결 강도 순 상위 ${IMPACT_ITEM_LIMIT}건만 표시 · 나머지 ${hidden}건 생략`]
+    : shown;
 }
 
 export function buildStockDeepDive(
