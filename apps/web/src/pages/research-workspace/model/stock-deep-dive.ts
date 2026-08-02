@@ -193,9 +193,12 @@ function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
     .sort((left, right) => right.pathScore - left.pathScore)
     .map((path) => {
       const label = EVENT_TYPE_LABELS[path.eventType] ?? path.eventType;
-      // hopCount 1 means the event names this holding directly; 2 means it
-      // reaches it through one intermediary, which is what "2차" actually means.
-      const reach = path.hopCount <= 1 ? '직접 연결' : `${path.hopCount}단계 연결`;
+      // hopCount counts RELATION EDGES traversed, not how directly the event
+      // names this holding. The event always happened at another entity
+      // (source_entity_id is never the target), so hopCount 1 means "one relation
+      // away", not "about this company". Calling it a direct link would assert a
+      // directness the data does not have.
+      const reach = `${path.hopCount}단계 떨어진 기업`;
       return `${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
     });
 }

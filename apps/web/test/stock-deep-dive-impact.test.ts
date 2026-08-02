@@ -102,17 +102,18 @@ describe('second-order exposure from sealed impact paths', () => {
     }
   });
 
-  it('distinguishes a directly named event from one reached through an intermediary', () => {
-    const direct = buildStockDeepDive(stockDetail, relation, brief([path({ hopCount: 1 })]));
-    const indirect = buildStockDeepDive(stockDetail, relation, brief([path({ hopCount: 2 })]));
+  it('states relation distance without claiming the event is about this holding', () => {
+    // hopCount counts relation edges. The event always happened somewhere else, so
+    // a one-hop path is "one relation away" — never "this company was named".
+    const oneHop = buildStockDeepDive(stockDetail, relation, brief([path({ hopCount: 1 })]));
+    const twoHop = buildStockDeepDive(stockDetail, relation, brief([path({ hopCount: 2 })]));
 
+    const first = oneHop.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!;
+    assert.match(first, /1단계 떨어진 기업/);
+    assert.doesNotMatch(first, /직접/);
     assert.match(
-      direct.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!,
-      /직접 연결/,
-    );
-    assert.match(
-      indirect.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!,
-      /2단계 연결/,
+      twoHop.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!,
+      /2단계 떨어진 기업/,
     );
   });
 
