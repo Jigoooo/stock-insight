@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `3C Breadcrumb + Pagination 목업 비교`
-- 다음 묶음: `3D Stepper + CommandPalette 목업 비교`
+- 현재 활성 묶음: `3D Stepper + CommandPalette 목업 비교`
+- 다음 묶음: `4A DropdownMenu + ContextMenu 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -23,34 +23,34 @@
 
 ## 전체 현황
 
-| 묶음 | 내용                                | 현재 상태 | 다음 행동                              |
-| ---- | ----------------------------------- | --------- | -------------------------------------- |
-| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행       |
-| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행       |
-| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행       |
-| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행       |
-| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                 |
-| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사         |
-| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                         |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                         |
-| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                           |
-| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교      |
-| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교   |
-| 3C   | Breadcrumb + Pagination             | 목업      | 승인 설계 문서 검토 후 UI Lab 3안 구현 |
-| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                        |
-| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                        |
-| 4B   | Popover                             | 대기      | UI Lab 3안 비교                        |
-| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                        |
-| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                        |
-| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                        |
-| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                        |
-| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                        |
-| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                        |
-| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현             |
-| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현                |
-| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현            |
-| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현                |
-| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결           |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                             |
+| ---- | ----------------------------------- | --------- | ------------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행      |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행      |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행      |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행      |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사        |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                        |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                        |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                          |
+| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교     |
+| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
+| 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
+| 3D   | Stepper + CommandPalette            | 목업      | A/B/C 설계 승인 후 UI Lab 비교        |
+| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                       |
+| 4B   | Popover                             | 대기      | UI Lab 3안 비교                       |
+| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                       |
+| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                       |
+| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                       |
+| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                       |
+| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                       |
+| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                       |
+| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현            |
+| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현               |
+| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현           |
+| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현               |
+| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결          |
 
 ## 완료 기록
 
@@ -211,6 +211,29 @@
 - UI Lab A/B/C는 공용 API를 사용하며 query를 변경하지 않는 로컬 상태로 세 시안을 동기화하고 Select 생략 페이지 이동과 38px compact option 계약을 유지함
 - Today·Radar·History의 기존 opaque cursor footer는 공용 `CursorPagination` composition으로 교체하며 handler·label·loading·error·disabled·retry·test id를 보존하고 숫자 전체 페이지 수를 만들지 않음
 - 제품 Breadcrumb는 보이는 계층 경로 소유자가 없어 `no suitable product breadcrumb use yet`으로 감사 완료했으며 가짜 hierarchy를 추가하지 않음
+
+### 2026-08-03 — 3C Breadcrumb + Pagination 검증 완료
+
+- 공용 API 커밋: `82e76a3`, disabled `asChild` 보정: `8fa6a91`, UI Lab·제품 적용: `ca52ba7`, 통합 계약 보정: `5e9efc7`
+- 공용 API와 제품 적용은 두 차례 독립 리뷰에서 spec·quality 모두 승인됨
+- Node 계약 8건, web typecheck, 소유 파일 lint·format, `git diff --check`, focused desktop Playwright 3건 통과
+- Codex 인앱 브라우저 6110 단일 탭에서 38px Select option, 8페이지 A/B/C 동기화, URL 고정, 1페이지 이전 버튼의 native disabled·`aria-disabled`·`tabIndex=-1`을 확인
+- 3C 카탈로그는 `완료` 탭으로 이동하고 다음 활성 묶음을 3D Stepper + CommandPalette로 전환
+
+### 2026-08-03 — UI Lab 진행 상태와 완료 카탈로그 정리
+
+- 상단을 `완료 | 목업 진행 중 | 예정` 세 상태로 나눠 현재 3C 비교와 확정 컴포넌트를 분리
+- 완료 탭은 Input·Textarea, Button, Select·Combobox, Checkbox·Switch·ToggleGroup, Accordion·Card·Table, Dialog·AlertDialog·Toast와 1A~1E·3A·3B 카탈로그를 실제 상호작용 가능한 상태로 유지
+- Accordion은 좌우 14px inset을 공통 적용하고, 기본 `editorial`은 무-hover single 예시, `surface-hover`는 multiple 예시로 분리
+- Dialog·AlertDialog overlay는 100ms에 퇴장하고 즉시 pointer interaction을 해제하며 footer의 구분선과 별도 배경을 제거
+- Dialog·AlertDialog 콘텐츠 퇴장은 80ms로 제한해 Portal과 Radix scroll lock을 120ms 안에 함께 해제
+- 읽기 전용 Dialog는 X 하나만 제공하고, Form·Decision Dialog는 실제 footer 액션을 유지하며, AlertDialog는 X 없이 취소·확인 액션을 명시
+- UI Lab의 Side List는 사용자 비교가 끊기지 않도록 URL 이동 없이 선택 indicator와 콘텐츠만 전환; 공용 `SideList`와 실제 제품의 링크 계약은 유지
+- 3C Breadcrumb·Pagination도 UI Lab query를 변경하지 않고 로컬 선택 상태만 전환
+- Breadcrumb B는 separator와 현재 surface 사이 7px 간격을 확보하고, Pagination ellipsis는 공용 Select와 재사용 가능한 `popupMinWidth`를 이용해 생략 구간의 페이지를 바로 고르는 interaction으로 전환
+- 공용 Select option의 Motion visual `min-height` 상속을 끊어 `compact`의 선언 높이와 실제 높이를 38px로 일치
+- Codex 인앱 브라우저 6110 단일 탭에서 완료 카탈로그 전체 노출, Side List URL 고정, Dialog overlay opacity 0, Accordion single/multiple과 좌우 여백 확인
+- 후속 검증: Dialog 종료 120ms 후 Portal·overlay·scroll lock 0, ellipsis에서 8페이지 선택 시 URL 고정·세 시안 상태 동기화, Breadcrumb B 간격 확인
 
 ## 실행 환경 메모
 

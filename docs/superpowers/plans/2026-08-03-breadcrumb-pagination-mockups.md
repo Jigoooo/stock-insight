@@ -8,6 +8,19 @@
 
 **Tech Stack:** React 19, TanStack Router Link/search validation, Motion 12 through `motion/react`, CSS Modules, Playwright, Axe.
 
+## 실행 중 사용자 수정 사항 — 2026-08-03
+
+아래 항목은 이 문서의 초기 Link/query 단계보다 우선하는 최신 결정이다.
+
+- UI Lab의 Breadcrumb·Pagination은 실제 경로를 이동하거나 query를 갱신하지 않고 로컬 선택 상태만 바꾼다.
+- UI Lab 상단은 `완료 | 목업 진행 중 | 예정`으로 나눈다. 기본 상태는 `목업 진행 중`이며 3C만 표시한다.
+- 완료 탭은 기존 확정 공용 컴포넌트 전체와 1A~1E·3A·3B 카탈로그를 실제 조작 가능한 상태로 보존한다.
+- UI Lab의 Side List도 링크 이동 없이 선택 indicator와 현재 경로 fixture만 전환한다. 공용·제품 Side List의 링크 계약은 변경하지 않는다.
+- Accordion은 quiet single과 surface-hover multiple을 함께 보여주고, Dialog footer 구분면과 늦게 남는 overlay를 제거한다.
+- Dialog·AlertDialog의 퇴장 Portal은 100ms 안에 unmount해 scroll lock과 상호작용을 함께 해제한다.
+- Breadcrumb B는 separator와 현재 surface 사이에 최소 6px 간격을 두고, Pagination ellipsis는 생략 구간 page picker로 동작한다.
+- 이 절과 충돌하는 아래의 `real href`, query 갱신, URL assertion 단계는 역사적 초기 계획으로만 남긴다.
+
 ## Global Constraints
 
 - Implement only the 3C comparison mockups; do not create `shared/ui/breadcrumb` or `shared/ui/pagination` yet.

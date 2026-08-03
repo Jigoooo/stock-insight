@@ -19,8 +19,9 @@
 - `mode`: `pages | compact | cursor`
 - A/B/C 시안은 시각 방향을 비교하고, mode는 동일한 시각 방향 안에서 제품 데이터 형태에 맞게 선택한다.
 - 숫자 페이지를 알 수 없는 cursor API에 임의 페이지 번호를 만들지 않는다.
-- 페이지 링크와 경로 링크는 실제 `href`를 제공하며 modified click 기본 동작을 보존한다.
-- UI Lab은 로컬 상태와 query를 사용해 상호작용을 보여주되 제품 loader나 인증 경계를 호출하지 않는다.
+- UI Lab 비교에서는 Breadcrumb·Pagination 선택이 URL을 바꾸지 않고 로컬 상태만 갱신한다.
+- 실제 `href`, modified click, route search 계약은 목업 승인 후 공용 API와 제품 사용처를 정할 때 별도로 확정한다.
+- UI Lab은 제품 loader나 인증 경계를 호출하지 않는다.
 
 ## Breadcrumb 시안
 
@@ -72,9 +73,10 @@
 
 - Breadcrumb fixture: `워크스페이스 / 종목 / NVDA / 근거 기록`
 - A/B는 전체 경로, C는 `워크스페이스 / … / NVDA / 근거 기록` 축약 상태를 기본으로 보여준다.
-- Breadcrumb 링크를 누르면 UI Lab query의 preview path만 바뀌고 실제 제품 경로로 이탈하지 않는다.
+- Breadcrumb 항목을 누르면 세 시안의 현재 위치가 로컬 상태로 함께 바뀌며 URL은 유지된다.
 - Pagination fixture는 12페이지 중 3페이지를 기본값으로 사용한다.
 - 숫자·이전·다음 선택이 즉시 동기화되며 disabled 경계는 1페이지와 12페이지에서 확인한다.
+- 생략된 페이지의 ellipsis는 공용 Select 기반 page picker이며, 작은 trigger와 독립적인 popup 최소 폭을 사용해 누락 구간의 페이지를 바로 선택하고 URL 이동 없이 세 시안을 동기화한다.
 - C에는 cursor loading과 마지막 페이지 상태를 별도 토글 없이 인라인 예시로 함께 보여준다.
 
 ## 향후 공용 API 경계
@@ -98,7 +100,7 @@
 
 - 두 컴포넌트 모두 `<nav>`와 구체적인 `aria-label`을 제공한다.
 - Breadcrumb는 ordered list를 사용하고 현재 페이지에 `aria-current="page"`를 적용한다.
-- Pagination 현재 링크도 `aria-current="page"`를 사용하고 disabled 항목은 navigation을 실행하지 않는다.
+- Pagination 현재 항목도 `aria-current="page"`를 사용하고 disabled 항목은 선택을 변경하지 않는다.
 - 모든 interactive target은 390px에서 최소 44px hit area를 확보한다.
 - focus-visible은 공용 Market Graphite ring 하나만 소유한다.
 - Motion은 선택 indicator와 짧은 상태 전환에만 사용한다. Breadcrumb 자체와 전체 목록을 이동시키지 않는다.
@@ -107,7 +109,7 @@
 ## 검증
 
 - UI Lab source 계약 테스트로 A/B/C 여섯 시안과 의미 구조를 고정한다.
-- desktop/mobile Playwright에서 실제 href, 현재 상태, disabled 경계, ellipsis, 숫자 이동, cursor loading을 확인한다.
+- desktop/mobile Playwright에서 URL 고정, 현재 상태, disabled 경계, ellipsis page picker, 숫자 이동, cursor loading을 확인한다.
 - 390px target 크기와 가로 overflow를 확인한다.
 - keyboard focus order, Enter 활성화, Axe 접근성을 확인한다.
 - 변경 파일 lint·format, web typecheck, `git diff --check`를 실행한다.
@@ -117,5 +119,5 @@
 
 - 이번 목업 단계에서 `shared/ui` 공개 컴포넌트를 만들지 않는다.
 - 제품 cursor API나 URL 계약을 바꾸지 않는다.
-- 무한 스크롤, jump-to-page 입력, page-size selector는 3C 기본 범위에 넣지 않는다.
+- 임의 숫자를 직접 입력하는 jump-to-page와 page-size selector는 3C 기본 범위에 넣지 않는다. 표시된 ellipsis 구간의 제한된 page picker만 제공한다.
 - 새 UI Provider나 별도 animation runtime을 추가하지 않는다.
