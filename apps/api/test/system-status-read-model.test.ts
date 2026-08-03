@@ -40,6 +40,9 @@ describe('system status read model', () => {
         if (sql.includes('migration_runs')) {
           return [];
         }
+        if (sql.includes('governance.coverage_ledger')) {
+          return [];
+        }
         throw new Error(`unexpected SQL: ${sql}`);
       },
     };
@@ -85,6 +88,7 @@ describe('pipeline job status', () => {
       async queryRows(sql) {
         if (sql.includes('migration_runs')) return rows;
         if (sql.includes('dataset_watermark')) return [];
+        if (sql.includes('governance.coverage_ledger')) return [];
         return [{ total: 0, linked: 0, clickable: 0 }];
       },
     };

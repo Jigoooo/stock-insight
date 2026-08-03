@@ -30,6 +30,18 @@ type PipelineJobRow = {
   stuck_since: string | Date | null;
 };
 
+type CoverageStateRow = {
+  fact_family: string;
+  state: string;
+  cells: number | string;
+};
+
+type CoverageGapRow = {
+  fact_family: string;
+  reason: string;
+  cells: number | string;
+};
+
 type CoverageRow = {
   total: number | string;
   linked: number | string;
@@ -121,6 +133,39 @@ const GRAPH_SOURCE_COVERAGE_SQL = `
   SELECT 0, 0, 0
   WHERE NOT EXISTS (SELECT 1 FROM latest_snapshot)
 `;
+
+// The ledger is append-only with a revision chain, so "current" is the highest
+// revision per coverage_key. Reading it without DISTINCT ON counts superseded
+// judgements and reports more cells than the universe has.
+const COVERAGE_SQL = `
+  WITH current AS (
+    SELECT DISTINCT ON (coverage_key)
+           coverage_key, predicate_or_fact_family, completeness_state
+    FROM governance.coverage_ledger
+    ORDER BY coverage_key, revision_no DESC
+  )
+  SELECT predicate_or_fact_family AS fact_family, completeness_state AS state,
+         count(*)::bigint AS cells
+  FROM current
+  GROUP BY 1, 2
+  ORDER BY 3 DESC`;
+
+// Reasons, not just counts: "the collector has not got there yet" and "the source
+// says there is no filing" are the same number and completely different problems.
+const COVERAGE_GAP_SQL = `
+  WITH current AS (
+    SELECT DISTINCT ON (coverage_key)
+           coverage_key, predicate_or_fact_family, gap_reason
+    FROM governance.coverage_ledger
+    ORDER BY coverage_key, revision_no DESC
+  )
+  SELECT predicate_or_fact_family AS fact_family, gap_reason AS reason,
+         count(*)::bigint AS cells
+  FROM current
+  WHERE gap_reason IS NOT NULL
+  GROUP BY 1, 2
+  ORDER BY 3 DESC
+  LIMIT 20`;
 
 // public.migration_runs is the pipeline job log despite its name — the schema
 // ledger lives in public.schema_migration.
@@ -235,6 +280,21 @@ function normalizeJobStatus(
   return null;
 }
 
+// The table CHECKs this set, so an unknown value means the ledger schema moved.
+// Failing loudly beats rendering a state the page has no label for.
+function normalizeCoverageState(value: string): SystemStatus['coverage'][number]['state'] {
+  if (
+    value === 'complete' ||
+    value === 'partial' ||
+    value === 'not_collected' ||
+    value === 'source_unavailable' ||
+    value === 'not_applicable'
+  ) {
+    return value;
+  }
+  throw new Error(`unknown coverage state: ${value}`);
+}
+
 function mapCoverage(row: CoverageRow | undefined): SystemStatus['sourceCoverage'] {
   const total = toCount(row?.total ?? 0);
   const linked = Math.min(toCount(row?.linked ?? 0), total);
@@ -253,6 +313,8 @@ export async function getSystemStatus(
   );
   const [graphCoverage] = await executor.queryRows<CoverageRow>(GRAPH_SOURCE_COVERAGE_SQL);
   const jobRows = await executor.queryRows<PipelineJobRow>(PIPELINE_JOB_SQL, [now.toISOString()]);
+  const coverageRows = await executor.queryRows<CoverageStateRow>(COVERAGE_SQL);
+  const coverageGapRows = await executor.queryRows<CoverageGapRow>(COVERAGE_GAP_SQL);
   const datasets = datasetRows.map((row) => ({
     domain: row.domain,
     datasetName: row.dataset_name,
@@ -269,6 +331,16 @@ export async function getSystemStatus(
     datasets,
     sourceCoverage: mapCoverage(publicationCoverage),
     graphSourceCoverage: mapCoverage(graphCoverage),
+    coverage: coverageRows.map((row) => ({
+      factFamily: row.fact_family,
+      state: normalizeCoverageState(row.state),
+      cells: toCount(row.cells),
+    })),
+    coverageGaps: coverageGapRows.map((row) => ({
+      factFamily: row.fact_family,
+      reason: row.reason,
+      cells: toCount(row.cells),
+    })),
     pipelineJobs: jobRows.map((row) => ({
       jobName: row.job_name,
       lastRunAt: toIso(row.last_run_at),

@@ -234,6 +234,17 @@ describe('research workspace v3 contracts', () => {
       ],
       sourceCoverage: { linked: 194, clickable: 67, total: 194 },
       graphSourceCoverage: { linked: 0, clickable: 0, total: 3416 },
+      coverage: [
+        { factFamily: 'market.financial_fact', state: 'not_collected', cells: 1862 },
+        { factFamily: 'market.financial_fact', state: 'complete', cells: 1397 },
+      ],
+      coverageGaps: [
+        {
+          factFamily: 'market.financial_fact',
+          reason: 'The collector cursor has not reached this issuer yet.',
+          cells: 1857,
+        },
+      ],
       pipelineJobs: [
         {
           jobName: 'stock-insight-analytics-wrapper',

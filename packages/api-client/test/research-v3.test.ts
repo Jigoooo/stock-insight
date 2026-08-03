@@ -106,6 +106,8 @@ const status: SystemStatus = {
   sourceCoverage: { linked: 0, clickable: 0, total: 0 },
   graphSourceCoverage: { linked: 0, clickable: 0, total: 0 },
   pipelineJobs: [],
+  coverage: [],
+  coverageGaps: [],
 };
 
 const history: DecisionHistoryPage = {

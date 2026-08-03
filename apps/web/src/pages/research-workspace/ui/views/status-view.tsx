@@ -37,6 +37,10 @@ export function StatusView({ data }: { data: SystemStatus }) {
     (job) => job.consecutiveFailures > 0 || job.stuckSince !== null,
   );
   const blindJobCount = data.pipelineJobs.filter((job) => !job.recordsFailures).length;
+  const coverageTotal = data.coverage.reduce((sum, row) => sum + row.cells, 0);
+  const coverageComplete = data.coverage.find((row) => row.state === 'complete')?.cells ?? 0;
+  // "We have not looked" — the one state that is neither data nor absence.
+  const coverageUnknown = data.coverage.find((row) => row.state === 'not_collected')?.cells ?? 0;
   const latestWatermark = data.datasets.reduce<string | null>((latest, dataset) => {
     if (!dataset.watermarkAt) return latest;
     return latest === null || dataset.watermarkAt > latest ? dataset.watermarkAt : latest;
@@ -204,6 +208,94 @@ export function StatusView({ data }: { data: SystemStatus }) {
           </div>
         )}
       </Panel>
+      <Panel aria-labelledby="status-coverage-title">
+        <PanelHeader>
+          <h2 id="status-coverage-title">수집 커버리지</h2>
+          <p>
+            자료가 <strong>없는 것</strong>과 아직 <strong>보지 않은 것</strong>을 구분해
+            공개합니다. 한 칸은 수집기가 시도해야 할 (기업, 기간, 보고서) 하나입니다.
+          </p>
+        </PanelHeader>
+        {coverageTotal === 0 ? (
+          <WorkspaceState
+            kind="empty"
+            title="커버리지 원장이 비어 있습니다"
+            description="수집 범위가 기록되면 확인한 칸과 아직 보지 않은 칸을 이곳에 표시합니다."
+          />
+        ) : (
+          <>
+            <PropertyList
+              className={ledgerStyles.statusProperties}
+              aria-label="수집 커버리지 요약"
+              items={[
+                {
+                  label: '확인한 칸',
+                  value: `${formatNumber(coverageComplete)} / ${formatNumber(coverageTotal)}`,
+                },
+                {
+                  label: '아직 보지 않은 칸',
+                  value:
+                    coverageUnknown === 0
+                      ? '없음'
+                      : `${formatNumber(coverageUnknown)}개 — 자료가 없다는 뜻이 아니라 아직 확인하지 못했다는 뜻입니다`,
+                },
+              ]}
+            />
+            <div className={styles.tableWrap}>
+              <DataTable caption="상태별 칸 수" className={styles.statusTable}>
+                <thead>
+                  <tr>
+                    <th scope="col">자료 영역</th>
+                    <th scope="col">상태</th>
+                    <th scope="col">칸 수</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.coverage.map((row) => (
+                    <tr key={`${row.factFamily}:${row.state}`}>
+                      <td>
+                        <strong>{row.factFamily}</strong>
+                      </td>
+                      <td>{coverageStateLabels[row.state]}</td>
+                      <td>{formatNumber(row.cells)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </DataTable>
+            </div>
+            {data.coverageGaps.length > 0 && (
+              <div className={styles.tableWrap}>
+                <DataTable caption="확인하지 못한 이유" className={styles.statusTable}>
+                  <thead>
+                    <tr>
+                      <th scope="col">이유</th>
+                      <th scope="col">칸 수</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.coverageGaps.map((gap) => (
+                      <tr key={`${gap.factFamily}:${gap.reason}`}>
+                        <td>{gap.reason}</td>
+                        <td>{formatNumber(gap.cells)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DataTable>
+              </div>
+            )}
+          </>
+        )}
+      </Panel>
     </>
   );
 }
+
+// The ledger's own vocabulary, said plainly. 'not_collected' is the one that has
+// to read as ignorance rather than absence, which is the reason this table exists.
+const coverageStateLabels: Record<SystemStatus['coverage'][number]['state'], string> = {
+  complete: '확인함',
+  partial: '일부만 확인',
+  not_collected: '아직 보지 않음',
+  source_unavailable: '원천에 자료 없음',
+  not_applicable: '해당 없음',
+};

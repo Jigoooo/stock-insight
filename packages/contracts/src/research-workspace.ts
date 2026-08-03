@@ -340,6 +340,28 @@ export const pipelineJobStatusSchema = z.object({
 
 export type PipelineJobStatus = z.infer<typeof pipelineJobStatusSchema>;
 
+// governance.coverage_ledger separates "there is nothing here" from "we never
+// looked" — the distinction nothing else in the system can express. A cell is one
+// (issuer, period, report) the collector is expected to attempt.
+export const coverageStateSchema = z.object({
+  factFamily: boundedText(200),
+  state: z.enum(['complete', 'partial', 'not_collected', 'source_unavailable', 'not_applicable']),
+  cells: countSchema,
+});
+
+export type CoverageState = z.infer<typeof coverageStateSchema>;
+
+// Why a cell is not covered, straight from the ledger's own gap_reason. Surfacing
+// the count without the reason would turn "the collector has not got there yet"
+// and "the source says there is no filing" into the same number.
+export const coverageGapSchema = z.object({
+  factFamily: boundedText(200),
+  reason: boundedText(600),
+  cells: countSchema,
+});
+
+export type CoverageGap = z.infer<typeof coverageGapSchema>;
+
 export const systemStatusSchema = z.object({
   generatedAt: dateTimeSchema,
   overall: canonicalAvailabilitySchema,
@@ -349,6 +371,8 @@ export const systemStatusSchema = z.object({
   // Scoped to jobs that ran recently, so one-off July migrations drop out on
   // their own rather than accumulating as permanently stale rows.
   pipelineJobs: z.array(pipelineJobStatusSchema).max(60),
+  coverage: z.array(coverageStateSchema).max(50),
+  coverageGaps: z.array(coverageGapSchema).max(20),
 });
 
 export type SystemStatus = z.infer<typeof systemStatusSchema>;
