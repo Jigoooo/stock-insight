@@ -1,14 +1,16 @@
 import { InputActionCatalog } from './input-action-catalog';
 import { NavigationTabsCatalog, type RouteTabId } from './navigation-tabs-catalog';
+import { SideNavigationCatalog, type SideRouteId } from './side-navigation-catalog';
 import styles from './ui-lab-page.module.css';
 
 const futureBatches = ['메뉴와 오버레이', '데이터와 피드백'];
 
 interface UiLabPageProps {
   initialRouteTab: RouteTabId;
+  initialSideRoute: SideRouteId;
 }
 
-export function UiLabPage({ initialRouteTab }: UiLabPageProps) {
+export function UiLabPage({ initialRouteTab, initialSideRoute }: UiLabPageProps) {
   return (
     <main className={styles.page} data-testid="ui-lab-page">
       <section className={styles.shell} aria-labelledby="ui-lab-title">
@@ -19,6 +21,10 @@ export function UiLabPage({ initialRouteTab }: UiLabPageProps) {
         </header>
         <InputActionCatalog />
         <NavigationTabsCatalog initialRouteTab={initialRouteTab} />
+        <SideNavigationCatalog
+          initialRouteTab={initialRouteTab}
+          initialSideRoute={initialSideRoute}
+        />
         <div className={styles.grid} aria-label="향후 배치">
           {futureBatches.map((batch, index) => (
             <article className={styles.placeholder} key={batch}>

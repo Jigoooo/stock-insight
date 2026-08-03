@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음
-- 다음 묶음: `3B Side Tab + Side List 목업 비교`
+- 현재 활성 묶음: `3B Side Tab + Side List 목업 비교`
+- 다음 묶음: `3C Breadcrumb + Pagination 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -23,34 +23,34 @@
 
 ## 전체 현황
 
-| 묶음 | 내용                                | 현재 상태 | 다음 행동                        |
-| ---- | ----------------------------------- | --------- | -------------------------------- |
-| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행 |
-| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행 |
-| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행 |
-| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행 |
-| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사           |
-| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사   |
-| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                   |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                   |
-| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                     |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                         |
+| ---- | ----------------------------------- | --------- | --------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행  |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행  |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행  |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행  |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사            |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사    |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                    |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                    |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                      |
 | 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교 |
-| 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
-| 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
-| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                  |
-| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                  |
-| 4B   | Popover                             | 대기      | UI Lab 3안 비교                  |
-| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                  |
-| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                  |
-| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                  |
-| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                  |
-| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                  |
-| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                  |
-| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현       |
-| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현          |
-| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현      |
-| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현          |
-| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결     |
+| 3B   | Side Tab + Side List                | 목업      | UI Lab 3안 비교                   |
+| 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                   |
+| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                   |
+| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                   |
+| 4B   | Popover                             | 대기      | UI Lab 3안 비교                   |
+| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                   |
+| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                   |
+| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                   |
+| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                   |
+| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                   |
+| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                   |
+| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현        |
+| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현           |
+| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현       |
+| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현           |
+| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결      |
 
 ## 완료 기록
 
@@ -172,6 +172,13 @@
 - 제품 적용: 오늘 화면의 인사이트 분류 탭을 `sliding-underline`과 공용 Motion highlight로 교체; Route Tabs는 현재 적합한 제품 사용처가 없어 가짜 연결을 만들지 않음
 - 검증: 공개 props fixture typecheck, 관련 Node 계약 15건, web typecheck, `git diff --check`
 - Codex 인앱 브라우저: desktop Route·Sliding 선택, URL 의미 분리, 승인된 variant 4종만 렌더링, 390px 전체 44px target·nowrap·가로 overflow 없음 확인
+
+### 2026-08-03 — 3B Side Tab + Side List 목업 기준 확정
+
+- 의미 계약: Side Tab은 같은 화면 내부의 패널 전환, Side List는 실제 경로 이동 링크로 구분
+- Side Tab은 `tablist`·`tab`·`tabpanel` 상태와 키보드 이동을 유지하며 URL을 바꾸지 않음
+- Side List는 실제 `href`와 `aria-current="page"`를 제공하고 modified click 기본 동작을 보존
+- 두 기능군은 UI Lab에서 각각 세 가지 시각 방향으로 비교한 뒤 승인된 variant만 공용화
 
 ## 실행 환경 메모
 
