@@ -1,10 +1,10 @@
 {
-  "capturedAt": "2026-08-03T04:52:12Z",
+  "capturedAt": "2026-08-03T07:44:05Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
       "note": "v1 impact paths",
-      "upstream": 44675,
+      "upstream": 45966,
       "view": 0,
       "ratio": 0,
       "error": null
@@ -12,9 +12,9 @@
     {
       "surface": "serving.relation_current_v1",
       "note": "evidence-gated relations",
-      "upstream": 8543,
+      "upstream": 8678,
       "view": 254,
-      "ratio": 0.0297,
+      "ratio": 0.0293,
       "error": null
     },
     {
@@ -36,9 +36,9 @@
     {
       "surface": "serving.forecast_scorecard_v1",
       "note": "calibration profiles",
-      "upstream": 80,
+      "upstream": 90,
       "view": 10,
-      "ratio": 0.125,
+      "ratio": 0.1111,
       "error": null
     },
     {
@@ -60,8 +60,8 @@
     {
       "surface": "serving.v_world_event_current_v1",
       "note": "world events",
-      "upstream": 3997,
-      "view": 3997,
+      "upstream": 4003,
+      "view": 4003,
       "ratio": 1,
       "error": null
     },
@@ -108,8 +108,8 @@
     {
       "surface": "serving.content_pack_item[impact_path]",
       "note": "v2 impact paths on the published snapshot",
-      "upstream": 9309,
-      "view": 9309,
+      "upstream": 9311,
+      "view": 9311,
       "ratio": 1,
       "error": null
     }
@@ -120,17 +120,17 @@
       "steps": [
         {
           "label": "knowledge.event",
-          "rows": 3997,
+          "rows": 4003,
           "error": null
         },
         {
           "label": "world.event (projected)",
-          "rows": 3997,
+          "rows": 4003,
           "error": null
         },
         {
           "label": "world.event_revision",
-          "rows": 3997,
+          "rows": 4003,
           "error": null
         },
         {
@@ -156,17 +156,17 @@
       "steps": [
         {
           "label": "graph_snapshot_edge",
-          "rows": 5244,
+          "rows": 5379,
           "error": null
         },
         {
           "label": "impact_path_v2 (sealed)",
-          "rows": 9309,
+          "rows": 9311,
           "error": null
         },
         {
           "label": "content_pack_item[impact_path]",
-          "rows": 9309,
+          "rows": 9311,
           "error": null
         },
         {
@@ -182,7 +182,7 @@
       "steps": [
         {
           "label": "knowledge.event",
-          "rows": 3997,
+          "rows": 4003,
           "error": null
         },
         {
@@ -203,17 +203,17 @@
       "steps": [
         {
           "label": "물어본 셀 (source_revision)",
-          "rows": 106,
+          "rows": 305,
           "error": null
         },
         {
           "label": "내용이 있던 셀",
-          "rows": 100,
+          "rows": 266,
           "error": null
         },
         {
           "label": "계보 붙은 financial_fact",
-          "rows": 799,
+          "rows": 1069,
           "error": null
         }
       ],
@@ -224,12 +224,12 @@
       "steps": [
         {
           "label": "knowledge.document",
-          "rows": 6061,
+          "rows": 6084,
           "error": null
         },
         {
           "label": "knowledge.claim",
-          "rows": 267,
+          "rows": 268,
           "error": null
         },
         {
@@ -244,15 +244,15 @@
   "contentPackItemKinds": [
     {
       "itemKind": "evidence",
-      "rows": 712231
+      "rows": 784198
     },
     {
       "itemKind": "relation",
-      "rows": 307241
+      "rows": 334722
     },
     {
       "itemKind": "impact_path",
-      "rows": 27591
+      "rows": 36902
     }
   ],
   "impactLinked": {
@@ -339,8 +339,8 @@
       },
       {
         "providerKey": "internal-etf-holdings-snapshot",
-        "lastFetchRun": "2026-08-02T17:44:12.248Z",
-        "lastSourceRevision": "2026-08-02T13:18:59.708Z",
+        "lastFetchRun": "2026-08-03T07:21:02.274Z",
+        "lastSourceRevision": "2026-08-03T07:21:02.269Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -367,8 +367,8 @@
       },
       {
         "providerKey": "opendart",
-        "lastFetchRun": "2026-08-03T04:31:47.531Z",
-        "lastSourceRevision": "2026-08-03T04:31:49.687Z",
+        "lastFetchRun": "2026-08-03T07:35:47.514Z",
+        "lastSourceRevision": "2026-08-03T07:36:56.820Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -381,8 +381,8 @@
       },
       {
         "providerKey": "rss-news-bundle",
-        "lastFetchRun": "2026-08-03T04:30:06.558Z",
-        "lastSourceRevision": "2026-08-03T04:30:08.476Z",
+        "lastFetchRun": "2026-08-03T07:30:46.498Z",
+        "lastSourceRevision": "2026-08-03T07:30:48.279Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -511,8 +511,8 @@
     "routedTables": [
       {
         "table": "market.financial_fact",
-        "total": 79153,
-        "withLineage": 799
+        "total": 79423,
+        "withLineage": 1069
       },
       {
         "table": "market.macro_vintage",
@@ -561,12 +561,12 @@
     {
       "family": "market.financial_fact",
       "state": "not_collected",
-      "cells": 1907
+      "cells": 1862
     },
     {
       "family": "market.financial_fact",
       "state": "complete",
-      "cells": 1367
+      "cells": 1397
     },
     {
       "family": "market.financial_fact",
@@ -576,24 +576,28 @@
     {
       "family": "market.financial_fact",
       "state": "source_unavailable",
-      "cells": 2
+      "cells": 17
     }
   ],
+  "unattributedEvents": {
+    "total": 4003,
+    "reachingNothing": 924
+  },
   "verification": [
     {
       "relation": "knowledge.claim",
       "state": "unverified",
-      "rows": 267
+      "rows": 268
     },
     {
       "relation": "knowledge.event",
       "state": "unverified",
-      "rows": 3997
+      "rows": 4003
     },
     {
       "relation": "knowledge.relation_revision[statistical]",
       "state": "accepted",
-      "rows": 18442
+      "rows": 18720
     },
     {
       "relation": "knowledge.relation_revision[statistical]",
@@ -644,8 +648,8 @@
     },
     {
       "jobName": "stock-insight-analytics-wrapper",
-      "lastSuccess": "2026-08-02T22:46:37.809Z",
-      "lastFailure": "2026-08-02T15:09:59.952Z",
+      "lastSuccess": "2026-08-03T07:22:24.411Z",
+      "lastFailure": "2026-08-03T06:50:55.662Z",
       "consecutiveFailures": 0
     },
     {
@@ -656,13 +660,13 @@
     },
     {
       "jobName": "stock-insight-core-identity-sync",
-      "lastSuccess": "2026-08-02T22:46:16.072Z",
+      "lastSuccess": "2026-08-03T07:20:48.345Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-core-identity-sync-stage",
-      "lastSuccess": "2026-08-02T22:46:18.015Z",
+      "lastSuccess": "2026-08-03T07:20:50.159Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -673,50 +677,56 @@
       "consecutiveFailures": 0
     },
     {
-      "jobName": "stock-insight-dart-financial-facts",
-      "lastSuccess": "2026-08-03T04:31:49.259Z",
+      "jobName": "stock-insight-dart-coverage-ledger",
+      "lastSuccess": "2026-08-03T07:37:10.659Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
+      "jobName": "stock-insight-dart-financial-facts",
+      "lastSuccess": "2026-08-03T04:31:49.259Z",
+      "lastFailure": null,
+      "consecutiveFailures": 1
+    },
+    {
       "jobName": "stock-insight-event-brief",
-      "lastSuccess": "2026-08-03T03:47:46.998Z",
+      "lastSuccess": "2026-08-03T05:46:56.548Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-event-entity-resolution",
-      "lastSuccess": "2026-08-03T03:47:43.178Z",
+      "lastSuccess": "2026-08-03T05:46:52.444Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-event-entity-resolution-stage",
-      "lastSuccess": "2026-08-03T03:47:44.888Z",
+      "lastSuccess": "2026-08-03T05:46:54.269Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feature-snapshot",
-      "lastSuccess": "2026-08-02T22:46:18.699Z",
+      "lastSuccess": "2026-08-03T07:20:50.761Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feature-snapshot-stage",
-      "lastSuccess": "2026-08-02T22:46:20.686Z",
+      "lastSuccess": "2026-08-03T07:20:52.675Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feed-build",
-      "lastSuccess": "2026-08-02T22:46:26.158Z",
+      "lastSuccess": "2026-08-03T07:20:58.027Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-feed-build-stage",
-      "lastSuccess": "2026-08-02T22:46:28.062Z",
+      "lastSuccess": "2026-08-03T07:20:59.897Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -734,43 +744,43 @@
     },
     {
       "jobName": "stock-insight-graph-inference",
-      "lastSuccess": "2026-08-02T22:46:21.918Z",
+      "lastSuccess": "2026-08-03T07:20:53.825Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-graph-inference-stage",
-      "lastSuccess": "2026-08-02T22:46:23.830Z",
+      "lastSuccess": "2026-08-03T07:20:55.762Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-knowledge-backlog",
-      "lastSuccess": "2026-08-03T03:47:47.094Z",
+      "lastSuccess": "2026-08-03T05:46:56.649Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-knowledge-document-sync",
-      "lastSuccess": "2026-08-03T03:47:29.660Z",
+      "lastSuccess": "2026-08-03T05:46:39.782Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-knowledge-document-sync-stage",
-      "lastSuccess": "2026-08-03T03:47:31.390Z",
+      "lastSuccess": "2026-08-03T05:46:41.625Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-knowledge-extraction-stage",
-      "lastSuccess": "2026-08-03T03:47:43.070Z",
+      "lastSuccess": "2026-08-03T05:46:52.326Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-knowledge-wrapper",
-      "lastSuccess": "2026-08-03T03:47:48.847Z",
+      "lastSuccess": "2026-08-03T05:46:58.497Z",
       "lastFailure": "2026-08-02T17:46:36.798Z",
       "consecutiveFailures": 0
     },
@@ -800,7 +810,7 @@
     },
     {
       "jobName": "stock-insight-outbox-delivery-stage",
-      "lastSuccess": "2026-08-02T22:46:35.260Z",
+      "lastSuccess": "2026-08-03T07:22:22.450Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -836,31 +846,31 @@
     },
     {
       "jobName": "stock-insight-probability-calibration",
-      "lastSuccess": "2026-08-02T22:46:28.262Z",
+      "lastSuccess": "2026-08-03T07:21:00.146Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-probability-calibration-stage",
-      "lastSuccess": "2026-08-02T22:46:30.223Z",
+      "lastSuccess": "2026-08-03T07:21:02.053Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-report-publish-stage",
-      "lastSuccess": "2026-08-02T22:46:25.962Z",
+      "lastSuccess": "2026-08-03T07:20:57.841Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-rss-news-ingest",
-      "lastSuccess": "2026-08-03T04:30:08.846Z",
+      "lastSuccess": "2026-08-03T07:30:48.674Z",
       "lastFailure": "2026-07-24T13:30:43.368Z",
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-schema-migrations",
-      "lastSuccess": "2026-08-03T04:48:12.595Z",
+      "lastSuccess": "2026-08-03T07:41:50.437Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -890,25 +900,25 @@
     },
     {
       "jobName": "stock-insight-v2-graph-publish-stage",
-      "lastSuccess": "2026-08-02T22:46:32.365Z",
+      "lastSuccess": "2026-08-03T07:21:57.181Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-v2-l5-publish-stage",
-      "lastSuccess": "2026-08-02T22:46:34.894Z",
+      "lastSuccess": "2026-08-03T07:22:20.186Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-world-event-sync",
-      "lastSuccess": "2026-08-03T03:47:45.049Z",
+      "lastSuccess": "2026-08-03T05:46:54.453Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
     {
       "jobName": "stock-insight-world-event-sync-stage",
-      "lastSuccess": "2026-08-03T03:47:46.793Z",
+      "lastSuccess": "2026-08-03T05:46:56.337Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },

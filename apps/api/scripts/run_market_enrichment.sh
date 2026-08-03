@@ -20,10 +20,28 @@ trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "
 pipeline_wait_for_network market-enrichment https://opendart.fss.or.kr 6 10 || exit $?
 cd "$ROOT"
 
-# Quota-safe resumable KR filing facts: five issuers per day, cursor in
-# ingestion.source_watermark; an unfinished issuer is retried after quota reset.
+# Quota-safe resumable KR filing facts, cursor in ingestion.source_watermark; an
+# unfinished issuer is retried after quota reset.
+#
+# 5 issuers/day meant 36 days for one pass over the 182-issuer universe, and the
+# coverage ledger put a number on it: 1,862 of 3,640 cells sit at not_collected
+# purely because the cursor has not arrived.
+#
+# 15 is chosen from the only quota evidence that exists, which is this job's own
+# quotaExhausted flag:
+#   100 requests/day  — ran six consecutive days, never tripped
+#   361 requests/day  — tripped (2026-08-03)
+# So the ceiling is above 100 and at or below 361; its exact value is not
+# published anywhere we can read and has not been measured. 15 issuers is 300
+# requests, under the observed trip point with headroom for the occasional
+# opendart-backfill run. That is a 3x speedup — a full pass in 12 days.
+#
+# Overshooting is not fatal: on status 020 the collector stops, reports 'partial'
+# and leaves the cursor on the unfinished issuer, so the next night resumes. The
+# limit is set below the wall anyway because a run that ends early every night
+# makes the pass rate unpredictable.
 DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
-  apps/api/src/ingest/run-dart-financial-facts.ts --from-year 2022 --limit 5 --apply
+  apps/api/src/ingest/run-dart-financial-facts.ts --from-year 2022 --limit 15 --apply
 
 # Must follow the DART step: the ledger judges the cells that were just fetched.
 # It appends a revision only where the computed state changed, so a steady day

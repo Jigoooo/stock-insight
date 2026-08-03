@@ -57,6 +57,7 @@ import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fac
 import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vintage_source_lineage.ts';
 import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_finra_source_registration.ts';
 import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_confirmation_reads_v2.ts';
+import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_event_projects_magnitude.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -738,6 +739,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: marketConfirmationReadsV2MigrationSql,
   },
+  {
+    id: '060_world_event_projects_magnitude',
+    description:
+      'Projects magnitude, magnitude_unit, story_id and published_at from serving.v_world_event_current_v1, which read them in a LATERAL and dropped them. surprise_score and source_revision_id stay unprojected because no producer writes them.',
+    tables: [],
+    sql: worldEventProjectsMagnitudeMigrationSql,
+  },
 ];
 
 export {
@@ -799,5 +807,6 @@ export {
   marketFactSourceLineageMigrationSql,
   macroVintageSourceLineageMigrationSql,
   marketConfirmationReadsV2MigrationSql,
+  worldEventProjectsMagnitudeMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

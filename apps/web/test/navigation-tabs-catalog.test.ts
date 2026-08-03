@@ -60,22 +60,11 @@ describe('UI Lab navigation tabs catalog', () => {
 
   it('keeps route navigation semantics separate from sliding tab state', async () => {
     const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
-    const route = await readFile(
-      new URL('../src/routes/[__ui-lab].tsx', import.meta.url),
-      'utf8',
-    );
+    const route = await readFile(new URL('../src/routes/[__ui-lab].tsx', import.meta.url), 'utf8');
     const page = await readUiLabSource('ui-lab-page.tsx');
     const routes = arrayDeclaration(catalog, 'routeItems');
-    const routeSection = sourceBlock(
-      catalog,
-      '<RouteTabs',
-      '</RouteTabs>',
-    );
-    const slidingSection = sourceBlock(
-      catalog,
-      '<Tabs\n                  fullWidth',
-      '</Tabs>',
-    );
+    const routeSection = sourceBlock(catalog, '<RouteTabs', '</RouteTabs>');
+    const slidingSection = sourceBlock(catalog, '<Tabs\n                  fullWidth', '</Tabs>');
 
     assert.match(catalog, /from '@\/shared\/ui\/tabs'/);
     assert.match(routeSection, /aria-label=\{`경로 탭 비교 · \$\{variant\.title\}`\}/);
@@ -180,10 +169,7 @@ describe('UI Lab navigation tabs catalog', () => {
   it('styles the rendered tab role from shared Tabs instead of the overwritten trigger slot', async () => {
     const css = await readSharedUiSource('tabs/tabs.module.css');
     const baseTriggerCss = balancedCssBlock(css, '.trigger');
-    const softInsetTriggerCss = balancedCssBlock(
-      css,
-      ".root[data-variant='soft-inset'] .trigger",
-    );
+    const softInsetTriggerCss = balancedCssBlock(css, ".root[data-variant='soft-inset'] .trigger");
     const underlineTriggerCss = balancedCssBlock(
       css,
       ".root[data-variant='sliding-underline'] .trigger",

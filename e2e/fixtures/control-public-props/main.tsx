@@ -13,13 +13,7 @@ import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
 import { Slider } from '@/shared/ui/slider';
 import { SplitButton } from '@/shared/ui/split-button';
 import { Switch } from '@/shared/ui/switch';
-import {
-  Tabs,
-  TabsHighlight,
-  TabsHighlightItem,
-  TabsList,
-  TabsTrigger,
-} from '@/shared/ui/tabs';
+import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
 const buttonDrag: DragEventHandler<HTMLButtonElement> = () => undefined;

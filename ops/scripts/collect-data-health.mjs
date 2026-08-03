@@ -370,6 +370,22 @@ const COVERAGE_SQL = `
   GROUP BY 1, 2
   ORDER BY 1, 3 DESC`;
 
+// Events we extracted and could not attach to any company. These are a coverage
+// fact, not a product surface: measured 2026-08-03, all 924 have zero entity
+// participants, so a page listing them would be showing extraction failures as
+// though they were market signals. Attaching them needs identifier evidence that
+// does not exist — the foreign-key joins are already exhausted — so the honest
+// place for the number is here, next to not_collected.
+const UNATTRIBUTED_EVENT_SQL = `
+  SELECT count(*)::bigint AS total,
+         count(*) FILTER (
+           WHERE NOT (event.metadata ? 'legacy_signal_id')
+             AND NOT EXISTS (
+               SELECT 1 FROM analytics.impact_path_v2 path
+                WHERE path.trigger_event_id = event.event_id AND path.status = 'sealed')
+         )::bigint AS reaching_nothing
+  FROM knowledge.event event`;
+
 // migration_runs is a pipeline job log despite the name (the schema ledger is
 // public.schema_migration). consecutive_failures counts back from the newest run
 // and stops at the first success, which is what "is it broken right now" means.
@@ -470,6 +486,7 @@ try {
   const factLineage = await client.query(FACT_LINEAGE_SQL);
   const verification = await client.query(VERIFICATION_SQL);
   const coverage = await client.query(COVERAGE_SQL);
+  const unattributed = await client.query(UNATTRIBUTED_EVENT_SQL);
   const pipeline = await client.query(PIPELINE_SQL);
   const capturedAt = await client.query(
     `SELECT to_char(transaction_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at`,
@@ -523,6 +540,10 @@ try {
       state: row.state,
       cells: Number(row.cells),
     })),
+    unattributedEvents: {
+      total: Number(unattributed.rows[0].total),
+      reachingNothing: Number(unattributed.rows[0].reaching_nothing),
+    },
     verification: verification.rows.map((row) => ({
       relation: row.relation,
       state: row.state,
@@ -630,6 +651,12 @@ function markdown(data) {
       `수집을 시도조차 못 한 셀 **${num(notCollected)} / ${num(total)}** (${pct(ratio(notCollected, total))}) — 관계가 없는 것이 아니라 모르는 것이다.`,
     );
   }
+
+  const orphan = data.unattributedEvents;
+  lines.push(
+    '',
+    `추출했지만 어떤 화면에도 닿지 않는 사건 **${num(orphan.reachingNothing)} / ${num(orphan.total)}** (${pct(ratio(orphan.reachingNothing, orphan.total))}) — 전부 엔티티가 붙지 않은 것이라, 잇는 데는 지금 없는 식별자 근거가 필요하다.`,
+  );
 
   lines.push('', '## Verification state', '');
   lines.push('| relation | state | rows |');
