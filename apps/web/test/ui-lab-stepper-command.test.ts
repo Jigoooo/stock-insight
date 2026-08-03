@@ -32,4 +32,38 @@ describe('UI Lab Stepper and CommandPalette catalog', () => {
     assert.match(catalog, /aria-current=\{state === 'current' \? 'step' : undefined\}/);
     assert.match(catalog, /onClick=\{\(\) => setActiveStep\(step\.id\)\}/);
   });
+
+  it('defines the keyboard-accessible CommandPalette A, B, and C source contract', async () => {
+    const catalog = await readCatalogSource();
+
+    assert.match(
+      catalog,
+      /type CommandVariant = 'compact-command' \| 'split-context' \| 'quick-actions'/,
+    );
+    for (const variant of ['compact-command', 'split-context', 'quick-actions']) {
+      assert.match(catalog, new RegExp(`id: '${variant}'`));
+    }
+
+    assert.match(
+      catalog,
+      /const \[openVariant, setOpenVariant\] = useState<CommandVariant \| null>/,
+    );
+    assert.match(catalog, /const \[query, setQuery\] = useState\(''\)/);
+    assert.match(catalog, /const \[activeIndex, setActiveIndex\] = useState\(0\)/);
+    assert.match(catalog, /const \[lastAction, setLastAction\] = useState<string \| null>\(null\)/);
+    assert.match(catalog, /window\.addEventListener\('keydown', handleGlobalKeyDown\)/);
+    assert.match(catalog, /window\.removeEventListener\('keydown', handleGlobalKeyDown\)/);
+    assert.match(catalog, /event\.metaKey \|\| event\.ctrlKey/);
+    assert.match(catalog, /event\.key\.toLowerCase\(\) === 'k'/);
+
+    assert.match(catalog, /role="combobox"/);
+    assert.match(catalog, /role="listbox"/);
+    assert.match(catalog, /role="option"/);
+    assert.match(catalog, /aria-activedescendant=/);
+    for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Escape']) {
+      assert.match(catalog, new RegExp(`case '${key}'`));
+    }
+    assert.match(catalog, /검색 결과가 없습니다\./);
+    assert.match(catalog, /setLastAction\(item\.label\)/);
+  });
 });
