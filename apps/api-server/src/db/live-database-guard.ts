@@ -79,12 +79,23 @@ const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
-    relation_privileges_digest: '1b9cf45e099b45e787c0ea5f762a4eaf6879704cb63922697f333f55e54f27a2',
+    // Re-pinned 2026-08-04 for migrations 062 and 063. Both moves were proven,
+    // not assumed: recomputing this array on the live database while excluding
+    // `analytics.market_topic_term` (063) and `serving.v_knowledge_event_current_v1`
+    // (062) reproduces the previous pin 1b9cf45e0…f27a2 exactly. Nothing else
+    // changed what the reader can reach.
+    relation_privileges_digest: 'c0d214162c7ee534f770e901833b86b8dd974bdcdd66defdb969d8fff09816a9',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    rls_contract_digest: 'a749fb6169804d7020ef6eadc0845cd4cd510696bea730349a4da1b6688192af',
+    // Re-pinned 2026-08-04. This array enumerates every table the reader can
+    // touch, so a new table moves it even when no policy changed — and that is
+    // the whole change here: excluding `analytics.market_topic_term` (063)
+    // reproduces the previous pin a749fb616…92af exactly. 062 added a view, and
+    // views are not in this array (relkind r/p only), which is why one migration
+    // moved this digest and two moved the relation one.
+    rls_contract_digest: 'b256639281823edd64ff04f7d83028075ae29956dbff410d2bf5332b9874bdbe',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
