@@ -54,6 +54,50 @@
   text-transform: uppercase;
 }
 
+.statusTabs {
+  margin-top: 34px;
+}
+
+.statusTabList {
+  min-height: 52px;
+}
+
+.statusTab {
+  min-height: 46px;
+  font-size: 13px;
+}
+
+.statusIntro {
+  display: grid;
+  max-width: 680px;
+  gap: 7px;
+  padding-top: 30px;
+}
+
+.statusIntro span {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.statusIntro h2,
+.statusIntro p {
+  margin: 0;
+}
+
+.statusIntro h2 {
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.statusIntro p {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));

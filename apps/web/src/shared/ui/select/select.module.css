@@ -34,6 +34,10 @@
   grid-column: 1 / -1;
 }
 
+.option > [data-slot='motion-visual'] {
+  min-height: 0;
+}
+
 .trigger:hover:not(:focus-visible):not(:disabled),
 .inputShell:hover:not(:focus-within):not([data-disabled='true']) {
   border-color: var(--color-border-strong);
@@ -134,6 +138,7 @@
 
 .option {
   display: grid;
+  box-sizing: border-box;
   grid-template-columns: minmax(0, 1fr) 18px;
   width: 100%;
   gap: 10px;

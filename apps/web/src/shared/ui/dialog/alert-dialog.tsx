@@ -5,7 +5,9 @@ import { AlertDialog as AlertDialogPrimitive } from 'radix-ui';
 import type { ComponentProps, HTMLAttributes } from 'react';
 
 import {
+  dialogExitTransition,
   dialogTransition,
+  dialogOverlayTransition,
   type DialogActionTone,
   type DialogComposition,
   type DialogSize,
@@ -65,13 +67,30 @@ export function AlertDialogContent({
   const { open } = useAlertDialogContext();
   const reducedMotion = useReducedMotion();
   const initial = reducedMotion ? false : { x: 72, opacity: 0 };
-  const exit = reducedMotion ? { opacity: 0 } : { x: 48, opacity: 0 };
+  const exit = reducedMotion
+    ? { opacity: 0, pointerEvents: 'none' as const, transition: { duration: 0 } }
+    : {
+        x: 24,
+        opacity: 0,
+        pointerEvents: 'none' as const,
+        transition: dialogExitTransition,
+      };
 
   return (
     <AnimatePresence>
       {open ? (
         <AlertDialogPrimitive.Portal forceMount>
-          <AlertDialogPrimitive.Overlay className={styles.overlay} data-slot="dialog-overlay" />
+          <AlertDialogPrimitive.Overlay asChild forceMount>
+            <motion.div
+              animate={{ opacity: 1 }}
+              className={styles.overlay}
+              data-motion-owner="motion"
+              data-slot="dialog-overlay"
+              exit={{ opacity: 0, pointerEvents: 'none' }}
+              initial={reducedMotion ? false : { opacity: 0 }}
+              transition={reducedMotion ? { duration: 0 } : dialogOverlayTransition}
+            />
+          </AlertDialogPrimitive.Overlay>
           <AlertDialogPrimitive.Content
             asChild
             forceMount

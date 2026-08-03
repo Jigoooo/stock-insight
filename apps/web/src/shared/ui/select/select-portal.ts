@@ -20,6 +20,7 @@ type CalculateSelectPopupPositionOptions = {
   anchor: SelectAnchorRect;
   gap?: number;
   margin?: number;
+  minimumWidth?: number;
   minimumPreferredSpace?: number;
   preferredMaxHeight?: number;
   viewportHeight: number;
@@ -30,6 +31,7 @@ export function calculateSelectPopupPosition({
   anchor,
   gap = 6,
   margin = 8,
+  minimumWidth = 0,
   minimumPreferredSpace = 160,
   preferredMaxHeight = 320,
   viewportHeight,
@@ -42,7 +44,10 @@ export function calculateSelectPopupPosition({
     availableBelow >= availableAbove
       ? 'bottom'
       : 'top';
-  const width = Math.min(anchor.width, Math.max(0, viewportWidth - margin * 2));
+  const width = Math.min(
+    Math.max(anchor.width, minimumWidth),
+    Math.max(0, viewportWidth - margin * 2),
+  );
   const left = Math.min(
     Math.max(anchor.left, margin),
     Math.max(margin, viewportWidth - width - margin),
@@ -62,7 +67,11 @@ export function calculateSelectPopupPosition({
   };
 }
 
-export function useSelectPortalPosition(anchorRef: RefObject<HTMLElement | null>, open: boolean) {
+export function useSelectPortalPosition(
+  anchorRef: RefObject<HTMLElement | null>,
+  open: boolean,
+  minimumWidth = 0,
+) {
   const [position, setPosition] = useState<SelectPopupPosition | null>(null);
 
   useEffect(() => {
@@ -80,6 +89,7 @@ export function useSelectPortalPosition(anchorRef: RefObject<HTMLElement | null>
             top: rect.top,
             width: rect.width,
           },
+          minimumWidth,
           viewportHeight: window.innerHeight,
           viewportWidth: window.innerWidth,
         }),
@@ -103,7 +113,7 @@ export function useSelectPortalPosition(anchorRef: RefObject<HTMLElement | null>
       window.removeEventListener('scroll', handleScroll, true);
       observer.disconnect();
     };
-  }, [anchorRef, open]);
+  }, [anchorRef, minimumWidth, open]);
 
   return position;
 }

@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 2px;
+  padding: 12px 14px;
   border: 0;
   border-radius: var(--radius-control);
   color: var(--color-text-primary);
@@ -38,7 +38,7 @@
     background-color var(--duration-fast) var(--ease-out);
 }
 
-.trigger:hover:not(:disabled) {
+.root[data-variant='surface-hover'] .trigger:hover:not(:disabled) {
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
 }
@@ -65,7 +65,7 @@
 }
 
 .contentInner {
-  padding: 0 2px 14px;
+  padding: 0 14px 14px;
   color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.55;
@@ -81,13 +81,25 @@
   font-size: 15px;
 }
 
+.root[data-variant='surface-hover'] {
+  display: grid;
+  gap: 3px;
+}
+
+.root[data-variant='surface-hover'] .item {
+  border-bottom: 0;
+}
+
+.root[data-variant='surface-hover'] .trigger {
+  min-height: 48px;
+}
+
 .root[data-variant='ledger'] {
   border-top: 1px solid var(--color-border-strong);
 }
 
 .root[data-variant='ledger'] .trigger {
   min-height: 40px;
-  padding-inline: 8px;
   font-variant-numeric: tabular-nums;
 }
 

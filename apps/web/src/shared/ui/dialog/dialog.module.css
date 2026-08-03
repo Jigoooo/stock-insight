@@ -3,7 +3,6 @@
   z-index: 80;
   inset: 0;
   background: color-mix(in srgb, var(--color-canvas) 42%, rgb(15 16 14 / 72%));
-  animation: dialog-overlay-in 160ms var(--ease-out) both;
 }
 
 .content {
@@ -118,8 +117,7 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 10px 20px;
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
-  background: var(--color-surface-subtle);
+  background: transparent;
 }
 
 .footer [data-slot='dialog-action'][data-tone='secondary'] {
@@ -180,12 +178,6 @@
   white-space: nowrap;
 }
 
-@keyframes dialog-overlay-in {
-  from {
-    opacity: 0;
-  }
-}
-
 @media (max-width: 520px) {
   .content {
     width: calc(100vw - 20px);
@@ -211,11 +203,5 @@
     width: 100%;
     border-left-width: 0;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .overlay {
-    animation-duration: 0.01ms;
   }
 }

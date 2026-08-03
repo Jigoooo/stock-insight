@@ -15,7 +15,7 @@ import {
   type AccordionTriggerProps as AccordionTriggerPrimitiveProps,
 } from '@/shared/ui/animate-ui/primitives/radix/accordion';
 
-export type AccordionVariant = 'editorial' | 'ledger' | 'index';
+export type AccordionVariant = 'editorial' | 'surface-hover' | 'ledger' | 'index';
 
 export type AccordionProps = AccordionPrimitiveProps & {
   variant?: AccordionVariant;

@@ -121,6 +121,15 @@ describe('select option behavior', () => {
     assert.equal(above.bottom, 86);
     assert.equal(above.top, undefined);
     assert.equal(above.maxHeight, 320);
+
+    const widened = portal.calculateSelectPopupPosition({
+      anchor: { bottom: 140, left: 350, top: 100, width: 28 },
+      minimumWidth: 120,
+      viewportHeight: 800,
+      viewportWidth: 390,
+    });
+    assert.equal(widened.width, 120);
+    assert.equal(widened.left, 262);
   });
 });
 

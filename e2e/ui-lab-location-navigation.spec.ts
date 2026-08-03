@@ -19,6 +19,109 @@ test.describe('UI Lab location navigation', () => {
     await expect(catalog).toHaveAttribute('data-page', '3');
   });
 
+  test('groups completed, active, and planned catalogs without changing the URL', async ({
+    page,
+  }) => {
+    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
+    await page.waitForLoadState('networkidle');
+    const initialUrl = page.url();
+
+    await expect(page.getByRole('tablist', { name: 'UI Lab 진행 상태' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Breadcrumb · Pagination' })).toBeVisible();
+
+    expect(page.url()).toBe(initialUrl);
+    for (const heading of [
+      'Input · Textarea',
+      'Button',
+      'Select · Combobox',
+      'Checkbox · Switch · ToggleGroup',
+      'Accordion · Card · Table',
+      'Dialog · AlertDialog · Toast',
+      '입력과 액션',
+      'Route Tabs · Sliding Tabs',
+      'Side Tab · Side List',
+      'Breadcrumb · Pagination',
+    ]) {
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+
+    await page.getByRole('tab', { name: '목업 진행 중' }).click();
+    expect(page.url()).toBe(initialUrl);
+    await expect(page.getByRole('heading', { name: 'Stepper · CommandPalette' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Breadcrumb · Pagination' })).toHaveCount(0);
+
+    await page.getByRole('tab', { name: '예정' }).click();
+    expect(page.url()).toBe(initialUrl);
+    await expect(page.getByRole('heading', { name: '다음 비교 묶음' })).toBeVisible();
+  });
+
+  test('supports quiet single and surfaced multiple Accordion variants with balanced insets', async ({
+    page,
+  }) => {
+    await page.goto('/__ui-lab');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: '완료' }).click();
+
+    const quietAccordion = page.getByRole('region', { name: '단일 열기 Accordion' });
+    const quietFirst = quietAccordion.getByRole('button', { name: '확인할 리스크' });
+    const quietSecond = quietAccordion.getByRole('button', { name: '연결된 근거' });
+    const quietBackground = await quietFirst.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    await quietFirst.hover();
+    await expect(quietFirst).toHaveCSS('background-color', quietBackground);
+    await quietSecond.click();
+    await expect(quietFirst).toHaveAttribute('aria-expanded', 'false');
+    await expect(quietSecond).toHaveAttribute('aria-expanded', 'true');
+
+    const surfacedAccordion = page.getByRole('region', { name: '복수 열기 Accordion' });
+    const surfacedFirst = surfacedAccordion.getByRole('button', { name: '확인할 리스크' });
+    const surfacedSecond = surfacedAccordion.getByRole('button', { name: '연결된 근거' });
+    const beforeHover = await surfacedFirst.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    await surfacedFirst.hover();
+    await expect(surfacedFirst).not.toHaveCSS('background-color', beforeHover);
+    await surfacedFirst.click();
+    await surfacedSecond.click();
+    await expect(surfacedFirst).toHaveAttribute('aria-expanded', 'true');
+    await expect(surfacedSecond).toHaveAttribute('aria-expanded', 'true');
+
+    const insets = await surfacedFirst.evaluate((element) => {
+      const chevron = element.querySelector('svg');
+      if (!chevron) return { leading: 0, trailing: 0 };
+      const triggerRect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        leading: Number.parseFloat(style.paddingLeft),
+        trailing: triggerRect.right - chevron.getBoundingClientRect().right,
+      };
+    });
+
+    expect(insets.leading).toBeGreaterThanOrEqual(12);
+    expect(insets.trailing).toBeGreaterThanOrEqual(12);
+  });
+
+  test('uses one close control for read-only Dialogs and explicit actions for AlertDialogs', async ({
+    page,
+  }) => {
+    await page.goto('/__ui-lab');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: '완료' }).click();
+
+    await page.getByRole('button', { name: 'Dialog 열기', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '근거 세부정보' });
+    await expect(dialog.getByRole('button', { name: '닫기', exact: true })).toHaveCount(1);
+    await expect(dialog.locator('[data-slot="dialog-footer"]')).toHaveCount(0);
+    await dialog.getByRole('button', { name: '닫기', exact: true }).click();
+
+    await page.getByRole('button', { name: 'AlertDialog 열기', exact: true }).click();
+    const alert = page.getByRole('alertdialog', { name: '선택을 초기화할까요?' });
+    await expect(alert.getByRole('button', { name: '닫기', exact: true })).toHaveCount(0);
+    await expect(alert.getByRole('button', { name: '취소', exact: true })).toBeVisible();
+    await expect(alert.getByRole('button', { name: '초기화', exact: true })).toBeVisible();
+  });
+
   test('changes all Breadcrumb previews locally without changing the URL', async ({ page }) => {
     await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
     await page.waitForLoadState('networkidle');

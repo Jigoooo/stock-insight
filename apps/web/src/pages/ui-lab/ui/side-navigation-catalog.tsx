@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 
@@ -95,11 +94,9 @@ interface SideNavigationCatalogProps {
   initialSideRoute: SideRouteId;
 }
 
-export function SideNavigationCatalog({
-  initialRouteTab,
-  initialSideRoute,
-}: SideNavigationCatalogProps) {
+export function SideNavigationCatalog({ initialSideRoute }: SideNavigationCatalogProps) {
   const [activePanel, setActivePanel] = useState<(typeof panelItems)[number]['id']>('summary');
+  const [activeRoute, setActiveRoute] = useState<SideRouteId>(initialSideRoute);
 
   return (
     <section className={styles.catalog} aria-labelledby="side-navigation-title">
@@ -108,7 +105,7 @@ export function SideNavigationCatalog({
           <span>Batch 3B · Side Navigation</span>
           <h2 id="side-navigation-title">Side Tab · Side List</h2>
         </div>
-        <p>패널 전환과 경로 이동을 나누고 같은 정보 밀도에서 표면 차이만 비교합니다.</p>
+        <p>패널 전환과 경로 선택을 나누고 같은 정보 밀도에서 표면 차이만 비교합니다.</p>
       </header>
 
       <section
@@ -177,14 +174,14 @@ export function SideNavigationCatalog({
         aria-labelledby="side-lists-title"
       >
         <header className={styles.comparisonHeading}>
-          <h3 id="side-lists-title">실제 경로 이동</h3>
-          <p>각 항목은 직접 열 수 있는 링크이며 현재 경로를 다시 진입해도 유지합니다.</p>
+          <h3 id="side-lists-title">경로 선택 모션</h3>
+          <p>목업에서는 URL을 바꾸지 않고 선택 면과 현재 경로 내용만 함께 전환합니다.</p>
         </header>
 
         <div className={styles.comparisonGrid}>
           {listVariants.map((variant) => {
             const currentRoute =
-              routeItems.find((item) => item.id === initialSideRoute) ?? routeItems[0];
+              routeItems.find((item) => item.id === activeRoute) ?? routeItems[0];
 
             return (
               <article className={styles.variantCard} data-variant={variant.id} key={variant.id}>
@@ -197,21 +194,17 @@ export function SideNavigationCatalog({
                   <div className={styles.sideListFrame}>
                     <SideList
                       aria-label={`경로 목록 · ${variant.title}`}
-                      value={initialSideRoute}
+                      value={activeRoute}
                       variant={variant.id}
                     >
                       {routeItems.map((item) => {
                         return (
-                          <SideListItem key={item.id} value={item.id}>
-                            <Link
-                              search={{
-                                'route-tab': initialRouteTab,
-                                'side-route': item.id,
-                              }}
-                              to="/__ui-lab"
-                            >
-                              {item.label}
-                            </Link>
+                          <SideListItem
+                            key={item.id}
+                            value={item.id}
+                            onClick={() => setActiveRoute(item.id)}
+                          >
+                            <button type="button">{item.label}</button>
                           </SideListItem>
                         );
                       })}
@@ -238,15 +231,7 @@ export function SideNavigationCatalog({
           <span>비활성 경로 상태</span>
           <SideList aria-label="Side List 비활성 상태" value="today" variant="quiet-rows">
             <SideListItem disabled value="disabled-route">
-              <Link
-                search={{
-                  'route-tab': initialRouteTab,
-                  'side-route': 'themes',
-                }}
-                to="/__ui-lab"
-              >
-                준비 중인 경로
-              </Link>
+              <button type="button">준비 중인 경로</button>
             </SideListItem>
           </SideList>
         </div>

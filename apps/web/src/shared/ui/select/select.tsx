@@ -39,6 +39,7 @@ export type SelectProps = {
   onValueChange?: (value: string) => void;
   options: readonly SelectOption[];
   placeholder?: string;
+  popupMinWidth?: number;
   value?: string;
 };
 
@@ -125,6 +126,7 @@ export function Select({
   onValueChange,
   options,
   placeholder = '선택하세요',
+  popupMinWidth = 0,
   value,
 }: SelectProps) {
   const generatedId = useId();
@@ -144,7 +146,7 @@ export function Select({
   const selectedOption = options.find((option) => option.value === selectedValue);
   const activeDescendant =
     open && activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
-  const popupPosition = useSelectPortalPosition(rootRef, open);
+  const popupPosition = useSelectPortalPosition(rootRef, open, popupMinWidth);
   const popupReady = popupPosition !== null;
 
   const closeListbox = () => setOpen(false);

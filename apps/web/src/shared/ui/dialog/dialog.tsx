@@ -29,6 +29,9 @@ export const dialogTransition = {
   damping: 25,
 } as const;
 
+export const dialogExitTransition = { duration: 0.08, ease: 'easeIn' } as const;
+export const dialogOverlayTransition = { duration: 0.1, ease: 'easeOut' } as const;
+
 export type DialogProps = ComponentProps<typeof DialogPrimitive.Root>;
 
 export function Dialog({ defaultOpen, onOpenChange, open, ...props }: DialogProps) {
@@ -85,7 +88,14 @@ export function DialogContent({
   const { open } = useDialogContext();
   const reducedMotion = useReducedMotion();
   const initial = reducedMotion ? false : { x: 72, opacity: 0 };
-  const exit = reducedMotion ? { opacity: 0 } : { x: 48, opacity: 0 };
+  const exit = reducedMotion
+    ? { opacity: 0, pointerEvents: 'none' as const, transition: { duration: 0 } }
+    : {
+        x: 24,
+        opacity: 0,
+        pointerEvents: 'none' as const,
+        transition: dialogExitTransition,
+      };
 
   const content = (
     <DialogPrimitive.Content asChild forceMount {...props}>
@@ -119,7 +129,17 @@ export function DialogContent({
         {open ? (
           <DialogPrimitive.Portal forceMount>
             {showOverlay ? (
-              <DialogPrimitive.Overlay className={styles.overlay} data-slot="dialog-overlay" />
+              <DialogPrimitive.Overlay asChild forceMount>
+                <motion.div
+                  animate={{ opacity: 1 }}
+                  className={styles.overlay}
+                  data-motion-owner="motion"
+                  data-slot="dialog-overlay"
+                  exit={{ opacity: 0, pointerEvents: 'none' }}
+                  initial={reducedMotion ? false : { opacity: 0 }}
+                  transition={reducedMotion ? { duration: 0 } : dialogOverlayTransition}
+                />
+              </DialogPrimitive.Overlay>
             ) : null}
             {content}
           </DialogPrimitive.Portal>

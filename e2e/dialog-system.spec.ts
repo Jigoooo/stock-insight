@@ -73,3 +73,78 @@ test('alert ignores outside interaction and Escape until an explicit action', as
   await alert.getByRole('button', { name: '취소' }).click();
   await expect(alert).toBeHidden();
 });
+
+test('removes Dialog and AlertDialog overlays promptly when closing', async ({ page }) => {
+  await page.goto(fixtureUrl);
+
+  await page.getByRole('button', { name: 'Form Dialog 열기' }).click();
+  const dialogOverlay = page.locator('[data-slot="dialog-overlay"]');
+  await expect(dialogOverlay).toBeVisible();
+  await page
+    .getByRole('dialog', { name: '리서치 설정' })
+    .getByRole('button', { name: '취소' })
+    .click();
+  await expect(dialogOverlay).toHaveCount(0, { timeout: 500 });
+
+  await page.getByRole('button', { name: 'Alert 열기' }).click();
+  const alertOverlay = page.locator('[data-slot="dialog-overlay"]');
+  await expect(alertOverlay).toBeVisible();
+  await page
+    .getByRole('alertdialog', { name: '기록을 삭제할까요?' })
+    .getByRole('button', { name: '취소' })
+    .click();
+  await expect(alertOverlay).toHaveCount(0, { timeout: 500 });
+});
+
+test('releases page scrolling promptly after Dialog and AlertDialog close', async ({ page }) => {
+  await page.goto(fixtureUrl);
+  await page.addStyleTag({
+    content: 'body { min-height: 220vh; place-items: start center; }',
+  });
+
+  for (const overlay of [
+    {
+      close: page
+        .getByRole('dialog', { name: '리서치 설정' })
+        .getByRole('button', { name: '취소' }),
+      open: page.getByRole('button', { name: 'Form Dialog 열기' }),
+    },
+    {
+      close: page
+        .getByRole('alertdialog', { name: '기록을 삭제할까요?' })
+        .getByRole('button', { name: '취소' }),
+      open: page.getByRole('button', { name: 'Alert 열기' }),
+    },
+  ]) {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await overlay.open.click();
+    await overlay.close.click();
+    await page.waitForTimeout(120);
+
+    const lockState = await page.evaluate(() => ({
+      bodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+      scrollLocked: document.body.hasAttribute('data-scroll-locked'),
+    }));
+    expect(lockState).toEqual({ bodyPointerEvents: 'auto', scrollLocked: false });
+
+    await page.mouse.wheel(0, 480);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  }
+});
+
+test('keeps Dialog action footers visually open without a dividing rule', async ({ page }) => {
+  await page.goto(fixtureUrl);
+  await page.getByRole('button', { name: 'Form Dialog 열기' }).click();
+
+  const footer = page
+    .getByRole('dialog', { name: '리서치 설정' })
+    .locator('[data-slot="dialog-footer"]');
+  await expect(footer).toHaveCSS('border-top-width', '0px');
+  await expect(footer).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+});

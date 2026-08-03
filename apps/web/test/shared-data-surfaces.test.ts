@@ -12,7 +12,10 @@ describe('shared data surfaces', () => {
       read('shared/ui/animate-ui/primitives/radix/accordion.tsx'),
     ]);
 
-    assert.match(source, /type AccordionVariant = 'editorial' \| 'ledger' \| 'index'/);
+    assert.match(
+      source,
+      /type AccordionVariant = 'editorial' \| 'surface-hover' \| 'ledger' \| 'index'/,
+    );
     assert.match(source, /data-variant=\{variant\}/);
     assert.match(primitive, /duration:\s*0\.22/);
     assert.match(primitive, /y:\s*4/);

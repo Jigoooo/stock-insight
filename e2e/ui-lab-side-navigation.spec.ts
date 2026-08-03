@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openCompletedCatalog(page: Page) {
+  await page.goto('/__ui-lab?route-tab=evidence&side-route=today');
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('tab', { name: '완료' }).click();
+}
 
 test.describe('UI Lab side navigation', () => {
   test('keeps Side Tab as panel state across three visual directions', async ({ page }) => {
-    await page.goto('/__ui-lab?route-tab=evidence');
+    await openCompletedCatalog(page);
 
     const catalog = page.locator('[data-catalog="side-tabs"]');
     await expect(catalog.locator('article')).toHaveCount(3);
@@ -29,47 +35,27 @@ test.describe('UI Lab side navigation', () => {
     expect(page.url()).toBe(beforeUrl);
   });
 
-  test('keeps Side List as route links across three visual directions', async ({ page }) => {
-    await page.addInitScript(() => {
-      const storageKey = 'ui-lab-side-list-document-loads';
-      const documentLoads = Number(window.sessionStorage.getItem(storageKey) ?? '0');
-
-      window.sessionStorage.setItem(storageKey, String(documentLoads + 1));
-    });
-    await page.goto('/__ui-lab?route-tab=evidence');
-
-    const hydrationProbe = page
-      .getByRole('tablist', { name: '패널 전환 · 세로 레일' })
-      .getByRole('tab', { name: '근거 기록' });
-    await expect(async () => {
-      await hydrationProbe.click({ timeout: 1_000 });
-      await expect(hydrationProbe).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
-    }).toPass({ timeout: 8_000, intervals: [100, 250, 500] });
+  test('keeps Side List as local selection across three visual directions', async ({ page }) => {
+    await openCompletedCatalog(page);
 
     const catalog = page.locator('[data-catalog="side-lists"]');
     await expect(catalog.locator('article')).toHaveCount(3);
 
     const navigation = catalog.getByRole('navigation', { name: '경로 목록 · 조용한 행' });
-    const holdings = navigation.getByRole('link', { name: '보유 종목' });
-    await expect(holdings).toHaveAttribute('href', /side-route=holdings/);
+    const holdings = navigation.getByRole('button', { name: '보유 종목' });
+    const beforeUrl = page.url();
     await holdings.click();
 
-    await expect(page).toHaveURL(/side-route=holdings/);
+    expect(page.url()).toBe(beforeUrl);
     await expect(holdings).toHaveAttribute('aria-current', 'page');
-    await expect
-      .poll(() =>
-        page.evaluate(() =>
-          Number(window.sessionStorage.getItem('ui-lab-side-list-document-loads') ?? '0'),
-        ),
-      )
-      .toBe(1);
+    await expect(catalog.getByText('보유 기업과 연결된 근거')).toHaveCount(3);
   });
 
   test('settles caller-supplied Side Tab motion immediately when reduced motion is requested', async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/__ui-lab?route-tab=evidence');
+    await openCompletedCatalog(page);
 
     const article = page.locator('[data-catalog="side-tabs"] article').first();
     const tablist = article.getByRole('tablist', { name: '패널 전환 · 세로 레일' });
@@ -134,18 +120,10 @@ test.describe('UI Lab side navigation', () => {
   });
 
   test('blocks disabled Side List links before child navigation runs', async ({ page }) => {
-    await page.goto('/__ui-lab?route-tab=evidence');
-
-    const hydrationProbe = page
-      .getByRole('tablist', { name: '패널 전환 · 세로 레일' })
-      .getByRole('tab', { name: '근거 기록' });
-    await expect(async () => {
-      await hydrationProbe.click({ timeout: 1_000 });
-      await expect(hydrationProbe).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
-    }).toPass({ timeout: 8_000, intervals: [100, 250, 500] });
+    await openCompletedCatalog(page);
 
     const navigation = page.getByRole('navigation', { name: 'Side List 비활성 상태' });
-    const disabledLink = navigation.getByRole('link', { name: '준비 중인 경로' });
+    const disabledLink = navigation.getByRole('button', { name: '준비 중인 경로' });
     const beforeUrl = page.url();
 
     await expect(disabledLink).toHaveAttribute('aria-disabled', 'true');
@@ -155,11 +133,11 @@ test.describe('UI Lab side navigation', () => {
   });
 
   test('keeps disabled Side List color and surface stable on hover', async ({ page }) => {
-    await page.goto('/__ui-lab?route-tab=evidence');
+    await openCompletedCatalog(page);
 
     const disabledLink = page
       .getByRole('navigation', { name: 'Side List 비활성 상태' })
-      .getByRole('link', { name: '준비 중인 경로' });
+      .getByRole('button', { name: '준비 중인 경로' });
     await expect(disabledLink).toHaveAttribute('aria-disabled', 'true');
 
     const before = await disabledLink.evaluate((element) => {
