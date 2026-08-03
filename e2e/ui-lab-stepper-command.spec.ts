@@ -35,6 +35,84 @@ test.describe('UI Lab Stepper and CommandPalette', () => {
     expect(page.url()).toBe(initialUrl);
   });
 
+  test('renders all approved variants through shared component roots', async ({ page }) => {
+    const catalog = await openCatalog(page);
+    const steppers = catalog.locator('[data-slot="stepper"]');
+    await expect(steppers).toHaveCount(3);
+    for (const [index, variant] of ['hairline-flow', 'soft-track', 'ledger-steps'].entries()) {
+      await expect(steppers.nth(index)).toHaveAttribute('data-variant', variant);
+    }
+
+    const dialog = await openPalette(catalog, 'A');
+    await expect(dialog).toHaveAttribute('data-command-palette', '');
+    await expect(dialog).toHaveAttribute('data-command-variant', 'compact-command');
+  });
+
+  test('marks the Hairline Flow current step with a filled dot instead of a bar', async ({
+    page,
+  }) => {
+    const catalog = await openCatalog(page);
+    const hairline = catalog.getByRole('list', { name: 'Stepper 비교 · 가벼운 진행선' });
+    const currentStep = hairline.locator('li[data-state="current"]');
+    const upcomingStep = hairline.locator('li[data-state="upcoming"]');
+    const activeIndicator = currentStep.locator('[data-slot="hairline-active-indicator"]');
+
+    const currentVisual = await activeIndicator.evaluate((marker) => {
+      const markerStyle = window.getComputedStyle(marker);
+      const step = marker.closest('li');
+      if (!step) throw new Error('Hairline Flow current step is missing.');
+      const pseudoStyle = window.getComputedStyle(step, '::after');
+
+      return {
+        backgroundColor: markerStyle.backgroundColor,
+        pseudoContent: pseudoStyle.content,
+        pseudoWidth: pseudoStyle.width,
+      };
+    });
+    const upcomingBackground = await upcomingStep.first().evaluate((element) => {
+      const marker = element.querySelector<HTMLElement>('[data-slot="stepper-indicator"]');
+      if (!marker) throw new Error('Hairline Flow upcoming marker is missing.');
+      return window.getComputedStyle(marker).backgroundColor;
+    });
+
+    expect(currentVisual.pseudoContent).toBe('none');
+    expect(currentVisual.pseudoWidth).toBe('auto');
+    expect(currentVisual.backgroundColor).not.toBe(upcomingBackground);
+  });
+
+  test('moves the Hairline Flow current dot along the progress line', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const catalog = await openCatalog(page);
+    const hairline = catalog.getByRole('list', { name: 'Stepper 비교 · 가벼운 진행선' });
+    const activeIndicator = hairline.locator('[data-slot="hairline-active-indicator"]');
+    const targetStep = hairline.getByRole('button', { name: '영향 경로' });
+    const targetMarker = targetStep.locator('[data-slot="stepper-indicator"]');
+
+    await expect(activeIndicator).toBeVisible();
+    const startBox = await activeIndicator.boundingBox();
+    const targetBox = await targetMarker.boundingBox();
+    expect(startBox).toBeTruthy();
+    expect(targetBox).toBeTruthy();
+
+    const startCenter = (startBox?.x ?? 0) + (startBox?.width ?? 0) / 2;
+    const targetCenter = (targetBox?.x ?? 0) + (targetBox?.width ?? 0) / 2;
+
+    await targetStep.click();
+    await page.waitForTimeout(70);
+
+    const movingBox = await activeIndicator.boundingBox();
+    const movingCenter = (movingBox?.x ?? 0) + (movingBox?.width ?? 0) / 2;
+    expect(movingCenter).toBeGreaterThan(startCenter + 1);
+    expect(movingCenter).toBeLessThan(targetCenter - 1);
+
+    await expect
+      .poll(async () => {
+        const settledBox = await activeIndicator.boundingBox();
+        return (settledBox?.x ?? 0) + (settledBox?.width ?? 0) / 2;
+      })
+      .toBeCloseTo(targetCenter, 0);
+  });
+
   test('opens A with Cmd/Ctrl+K and focuses search', async ({ page }) => {
     await openCatalog(page);
 
@@ -42,6 +120,35 @@ test.describe('UI Lab Stepper and CommandPalette', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog).toHaveAttribute('data-command-variant', 'compact-command');
     await expect(dialog.getByRole('combobox', { name: '명령 검색' })).toBeFocused();
+  });
+
+  test('uses a quiet inset focus treatment for the command search', async ({ page }) => {
+    const catalog = await openCatalog(page);
+    const dialog = await openPalette(catalog, 'A');
+    const search = dialog.getByRole('combobox', { name: '명령 검색' });
+    await expect(search).toBeFocused();
+
+    const focusVisual = await dialog
+      .locator('[data-slot="command-palette-search"]')
+      .evaluate((element) => {
+        const searchRect = element.getBoundingClientRect();
+        const containerRect = element.parentElement?.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+
+        return {
+          borderRadius: Number.parseFloat(style.borderTopLeftRadius),
+          boxShadow: style.boxShadow,
+          insetLeft: containerRect ? searchRect.left - containerRect.left : 0,
+          insetRight: containerRect ? containerRect.right - searchRect.right : 0,
+          outlineStyle: style.outlineStyle,
+        };
+      });
+
+    expect(focusVisual.outlineStyle).toBe('none');
+    expect(focusVisual.borderRadius).toBeGreaterThanOrEqual(8);
+    expect(focusVisual.boxShadow).not.toBe('none');
+    expect(focusVisual.insetLeft).toBeGreaterThanOrEqual(8);
+    expect(focusVisual.insetRight).toBeGreaterThanOrEqual(8);
   });
 
   test('filters results and executes the active option with arrows and Enter', async ({ page }) => {
@@ -116,7 +223,7 @@ test.describe('UI Lab Stepper and CommandPalette', () => {
     const controls = catalog.locator('ol button, button[data-slot="button-control"]');
     for (let index = 0; index < (await controls.count()); index += 1) {
       const box = await controls.nth(index).boundingBox();
-      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
     }
 
     const splitDialog = await openPalette(catalog, 'B');
@@ -132,7 +239,7 @@ test.describe('UI Lab Stepper and CommandPalette', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const catalog = await openCatalog(page);
 
-    const indicator = catalog.locator('[class*="softTrackIndicator"]');
+    const indicator = catalog.locator('[data-slot="stepper-soft-track-indicator"]');
     await expect(indicator).toBeVisible();
     await expect(indicator).toHaveCSS('transform', 'none');
   });

@@ -12,6 +12,7 @@ import {
 import { Button, IconButton } from '@/shared/ui/button';
 import { ButtonGroup } from '@/shared/ui/button-group';
 import { Calendar } from '@/shared/ui/calendar';
+import { CommandPalette } from '@/shared/ui/command-palette';
 import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
 import { Input } from '@/shared/ui/input';
@@ -45,6 +46,7 @@ import {
 } from '@/shared/ui/side-tabs';
 import { Slider } from '@/shared/ui/slider';
 import { SplitButton } from '@/shared/ui/split-button';
+import { Stepper } from '@/shared/ui/stepper';
 import { Switch } from '@/shared/ui/switch';
 import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
@@ -82,6 +84,34 @@ export const nativeControlPropsFixture = (
         Second action
       </Button>
     </ButtonGroup>
+    <Stepper
+      aria-label="Fixture research steps"
+      items={[
+        { label: 'Sources', value: 'sources' },
+        { description: 'Connect evidence', label: 'Evidence', value: 'evidence' },
+      ]}
+      onValueChange={() => undefined}
+      value="evidence"
+      variant="hairline-flow"
+    />
+    <CommandPalette
+      description="Find a fixture command"
+      items={[
+        {
+          description: 'Open the fixture research view',
+          group: 'Navigate',
+          keywords: ['fixture', 'research'],
+          label: 'Open research',
+          shortcut: ['G', 'R'],
+          value: 'open-research',
+        },
+      ]}
+      onOpenChange={() => undefined}
+      onSelect={() => undefined}
+      open={false}
+      title="Fixture commands"
+      variant="split-context"
+    />
     <SplitButton
       actions={[
         { label: 'Download', value: 'download' },

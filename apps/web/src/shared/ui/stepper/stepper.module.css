@@ -1,0 +1,253 @@
+.root {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.control {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  color: var(--stepper-text-tertiary, var(--color-text-tertiary));
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+button.control {
+  cursor: pointer;
+}
+
+button.control:focus-visible {
+  outline: 2px solid var(--stepper-focus, var(--color-focus));
+  outline-offset: 2px;
+}
+
+li[data-disabled='true'] .control {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.indicator {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: currentColor;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.copy strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.root li[data-state='completed'] .control {
+  color: var(--stepper-text-secondary, var(--color-text-secondary));
+}
+
+.root li[data-state='current'] .control {
+  color: var(--stepper-text-primary, var(--color-text-primary));
+}
+
+.root[data-variant='hairline-flow'] {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--stepper-count), minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.root[data-variant='hairline-flow']::before {
+  position: absolute;
+  top: 21px;
+  right: 12.5%;
+  left: 12.5%;
+  height: 1px;
+  background: var(--stepper-border, var(--color-border));
+  content: '';
+}
+
+.root[data-variant='hairline-flow'] li {
+  position: relative;
+  min-width: 0;
+}
+
+.root[data-variant='hairline-flow'] .control {
+  padding-inline: 3px;
+  text-align: center;
+}
+
+.root[data-variant='hairline-flow'] .content {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.root[data-variant='hairline-flow'] .indicator {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--stepper-border, var(--color-border));
+  border-radius: 50%;
+  background: var(--stepper-canvas, var(--color-canvas));
+}
+
+.root[data-variant='hairline-flow'] li[data-state='completed'] .indicator {
+  border-color: color-mix(
+    in srgb,
+    var(--stepper-text-primary, var(--color-text-primary)) 42%,
+    var(--stepper-border, var(--color-border))
+  );
+}
+
+.root[data-variant='hairline-flow'] li[data-state='current'] .indicator {
+  border-color: transparent;
+  background: var(--stepper-canvas, var(--color-canvas));
+}
+
+.hairlineActiveIndicator {
+  position: absolute;
+  z-index: 1;
+  inset: -1px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--stepper-text-primary, var(--color-text-primary));
+  border-radius: 50%;
+  color: var(--stepper-canvas, var(--color-canvas));
+  background: var(--stepper-text-primary, var(--color-text-primary));
+}
+
+.root[data-variant='soft-track'] {
+  display: grid;
+  grid-template-columns: repeat(var(--stepper-count), minmax(0, 1fr));
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--stepper-border, var(--color-border));
+  border-radius: var(--radius-md);
+  background: var(--stepper-surface-subtle, var(--color-surface-subtle));
+}
+
+.root[data-variant='soft-track'] li {
+  min-width: 0;
+}
+
+.root[data-variant='soft-track'] .control {
+  padding: 6px;
+  text-align: center;
+}
+
+.root[data-variant='soft-track'] .content {
+  justify-content: center;
+  gap: 6px;
+}
+
+.root[data-variant='soft-track'] .indicator {
+  width: 14px;
+}
+
+.softTrackIndicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--stepper-border, var(--color-border));
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: var(--stepper-surface, var(--color-surface));
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+
+.root[data-variant='ledger-steps'] {
+  display: grid;
+  border-top: 1px solid var(--stepper-border, var(--color-border));
+}
+
+.root[data-variant='ledger-steps'] li {
+  min-width: 0;
+  border-bottom: 1px solid var(--stepper-border, var(--color-border));
+}
+
+.root[data-variant='ledger-steps'] .control {
+  padding: 10px 0 10px 10px;
+  border-left: 2px solid transparent;
+}
+
+.root[data-variant='ledger-steps'] li[data-state='completed'] .control {
+  border-left-color: var(--stepper-border-strong, var(--color-border-strong));
+}
+
+.root[data-variant='ledger-steps'] li[data-state='current'] .control {
+  border-left-color: var(--stepper-text-primary, var(--color-text-primary));
+  background: var(--stepper-surface-subtle, var(--color-surface-subtle));
+}
+
+.root[data-variant='ledger-steps'] .content {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.root[data-variant='ledger-steps'] .indicator {
+  align-self: start;
+  width: 18px;
+  height: 18px;
+}
+
+.root[data-variant='ledger-steps'] .copy > span {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: var(--stepper-text-tertiary, var(--color-text-tertiary));
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.root[data-variant='ledger-steps'] small {
+  align-self: start;
+  padding-top: 2px;
+  color: var(--stepper-text-tertiary, var(--color-text-tertiary));
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.root[data-variant='ledger-steps'] li[data-state='current'] small {
+  color: var(--stepper-text-primary, var(--color-text-primary));
+}
+
+@media (max-width: 520px) {
+  .root[data-variant='hairline-flow'] .control,
+  .root[data-variant='soft-track'] .control {
+    padding-inline: 2px;
+  }
+
+  .root[data-variant='hairline-flow'] .copy strong,
+  .root[data-variant='soft-track'] .copy strong {
+    font-size: 10px;
+  }
+
+  .root[data-variant='soft-track'] .content {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+  }
+}

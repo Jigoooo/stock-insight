@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `3D Stepper + CommandPalette 목업 비교`
-- 다음 묶음: `4A DropdownMenu + ContextMenu 목업 비교`
+- 현재 활성 묶음: `4A DropdownMenu + ContextMenu 목업 비교`
+- 다음 묶음: `4B Popover 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -23,34 +23,34 @@
 
 ## 전체 현황
 
-| 묶음 | 내용                                | 현재 상태 | 다음 행동                             |
-| ---- | ----------------------------------- | --------- | ------------------------------------- |
-| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행      |
-| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행      |
-| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행      |
-| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행      |
-| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                |
-| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사        |
-| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                        |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                        |
-| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                          |
-| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교     |
-| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
-| 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
-| 3D   | Stepper + CommandPalette            | 목업      | UI Lab A/B/C 비교 후 사용자 승인      |
-| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                       |
-| 4B   | Popover                             | 대기      | UI Lab 3안 비교                       |
-| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                       |
-| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                       |
-| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                       |
-| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                       |
-| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                       |
-| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                       |
-| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현            |
-| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현               |
-| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현           |
-| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현               |
-| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결          |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                               |
+| ---- | ----------------------------------- | --------- | --------------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행        |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행        |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행        |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행        |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                  |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사          |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                          |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                          |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                            |
+| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교       |
+| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교    |
+| 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교   |
+| 3D   | Stepper + CommandPalette            | 검증 완료 | 4A DropdownMenu + ContextMenu 목업 비교 |
+| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                         |
+| 4B   | Popover                             | 대기      | UI Lab 3안 비교                         |
+| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                         |
+| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                         |
+| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                         |
+| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                         |
+| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                         |
+| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                         |
+| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현              |
+| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현                 |
+| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현             |
+| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현                 |
+| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결            |
 
 ## 완료 기록
 
@@ -241,9 +241,14 @@
 - CommandPalette A Compact Command, B Split Context, C Quick Actions는 공용 Dialog·Input·Button으로 구성하고 새 패키지를 추가하지 않음
 - `Cmd/Ctrl+K`, 검색, ArrowUp·ArrowDown, Enter, Escape, 빈 결과와 로컬 실행 결과를 지원함
 - B는 데스크톱 split preview와 모바일 단일 열을 제공하고 C는 최근 항목·빠른 액션 밀도로 압축함
-- 검증: Stepper·CommandPalette Node 계약 2건, web typecheck, 전용 Playwright 9건과 Axe 집중 검사 통과
-- Codex 인앱 브라우저 6110 단일 탭에서 Stepper 세 시안 동기화·URL 고정, A 검색·실행, B preview, C compact groups, Escape 종료 후 dialog 0건을 확인함
-- 다음 행동은 Codex 인앱 브라우저에서 A/B/C 시각과 상호작용을 비교한 뒤 사용자 승인을 받는 것임
+- 사용자 시각 피드백에 따라 Stepper A의 현재 단계를 가로 막대 대신 작은 채움 점으로 정리하고, 점이 hairline을 따라 spring으로 이동하도록 보완함. CommandPalette 검색 포커스는 좌우 inset·10px radius·1px 내부 링으로 낮춤
+- 사용자 시각 승인: Stepper A/B/C와 CommandPalette A/B/C를 모두 유지하기로 확정함
+- 승인된 여섯 시안을 `shared/ui/stepper`와 `shared/ui/command-palette` 공개 API로 공용화하고 UI Lab도 해당 공개 컴포넌트를 직접 사용하도록 전환함
+- 실제 제품의 pages·widgets·features·entities 사용처를 감사했으나 현재 적합한 Stepper·CommandPalette 사용처가 없어 제품 기능을 추가하지 않음
+- 검증: Stepper·CommandPalette Node 계약 2건, public props fixture, web typecheck, Oxfmt·Oxlint, 전용 Playwright 13건과 Axe 집중 검사 통과
+- Codex 인앱 브라우저 6110 단일 탭에서 공용 Stepper A/B/C 루트와 현재 단계 3개, CommandPalette A 포커스·검색·실행, B preview, C compact groups, Escape 종료와 URL 고정을 확인함
+- 같은 탭에서 Stepper A 채움 점의 단계 구분·이동 애니메이션과 CommandPalette의 둥근 1px 포커스 링을 시각 재확인함
+- 다음 행동은 4A DropdownMenu + ContextMenu A/B/C 목업 비교를 시작하는 것임
 
 ## 실행 환경 메모
 
