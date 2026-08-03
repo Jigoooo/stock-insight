@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from 'react';
 
 import styles from './navigation-tabs-catalog.module.css';
 
+import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
 import {
   Tabs,
   TabsContent,
@@ -47,12 +48,6 @@ const routeVariants = [
     title: '차분한 표면',
     description: '낮은 배경 대비와 작은 선택 면으로 경로 전환 영역을 분리합니다.',
   },
-  {
-    id: 'ledger',
-    label: 'C · Ledger',
-    title: '리서치 레저',
-    description: '좌측 기준선과 압축된 간격으로 데이터 문서에 가까운 밀도를 만듭니다.',
-  },
 ] as const;
 
 const slidingVariants = [
@@ -61,12 +56,6 @@ const slidingVariants = [
     label: 'A · Soft Inset',
     title: '소프트 인셋',
     description: '하나의 낮은 표면 안에서 선택된 화면을 부드러운 면으로 이동시킵니다.',
-  },
-  {
-    id: 'flush-segment',
-    label: 'B · Flush Segment',
-    title: '플러시 세그먼트',
-    description: '간격 없는 세그먼트와 선명한 경계로 비교 화면의 전환을 강조합니다.',
   },
   {
     id: 'sliding-underline',
@@ -109,8 +98,8 @@ export function NavigationTabsCatalog({ initialRouteTab }: NavigationTabsCatalog
           <h2 id="navigation-tabs-title">Route Tabs · Sliding Tabs</h2>
         </div>
         <p>
-          경로를 바꾸는 링크와 같은 화면의 내용을 전환하는 탭을 의미에 맞게 분리하고, 각각 세 가지
-          시각 방향으로 비교합니다.
+          경로를 바꾸는 링크와 같은 화면의 내용을 전환하는 탭을 의미에 맞게 분리하고, 승인된 두 가지
+          시각 방향을 공용 컴포넌트로 비교합니다.
         </p>
       </header>
 
@@ -133,18 +122,22 @@ export function NavigationTabsCatalog({ initialRouteTab }: NavigationTabsCatalog
               </header>
               <div className={styles.previewSurface}>
                 <div className={styles.routeFrame}>
-                  <nav aria-label={`경로 탭 비교 · ${variant.title}`}>
+                  <RouteTabs
+                    fullWidth
+                    aria-label={`경로 탭 비교 · ${variant.title}`}
+                    variant={variant.id}
+                  >
                     {routeItems.map((item) => (
-                      <a
+                      <RouteTab
+                        active={activeRoute === item.id}
                         href={item.href}
-                        aria-current={activeRoute === item.id ? 'page' : undefined}
                         key={item.id}
                         onClick={(event) => selectRoute(event, item)}
                       >
                         {item.label}
-                      </a>
+                      </RouteTab>
                     ))}
-                  </nav>
+                  </RouteTabs>
                   <div className={styles.routeSummary}>
                     <strong>{routeItems.find((item) => item.id === activeRoute)?.label}</strong>
                     <span>선택한 경로의 리서치 문서로 이동합니다.</span>
@@ -174,12 +167,14 @@ export function NavigationTabsCatalog({ initialRouteTab }: NavigationTabsCatalog
                 <p>{variant.description}</p>
               </header>
               <div className={styles.previewSurface}>
-                <Tabs value={activeView} onValueChange={setActiveView}>
-                  <TabsHighlight className={styles.slidingHighlight}>
-                    <TabsList
-                      className={styles.slidingList}
-                      aria-label={`화면 탭 비교 · ${variant.title}`}
-                    >
+                <Tabs
+                  fullWidth
+                  value={activeView}
+                  variant={variant.id}
+                  onValueChange={setActiveView}
+                >
+                  <TabsHighlight>
+                    <TabsList aria-label={`화면 탭 비교 · ${variant.title}`}>
                       {viewItems.map((item) => (
                         <TabsHighlightItem key={item.id} value={item.id}>
                           <TabsTrigger value={item.id}>{item.label}</TabsTrigger>

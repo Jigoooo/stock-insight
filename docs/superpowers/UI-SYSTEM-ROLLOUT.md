@@ -6,7 +6,7 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `3A Route Tabs + Sliding Tabs 목업 비교`
+- 현재 활성 묶음: 없음
 - 다음 묶음: `3B Side Tab + Side List 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
@@ -34,7 +34,7 @@
 | 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                   |
 | 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                   |
 | 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                     |
-| 3A   | Route Tabs + Sliding Tabs           | 목업      | 사용자 6안 비교·선택             |
+| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교 |
 | 3B   | Side Tab + Side List                | 대기      | UI Lab 3안 비교                  |
 | 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                  |
 | 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                  |
@@ -161,6 +161,17 @@
 - 3A 상태는 사용자 비교·선택 전까지 `목업`으로 유지
 - 검증: web typecheck, web format check, navigation tabs 계약 테스트 7건, `git diff --check`
 - Codex 인앱 브라우저: Route 직접 진입 query·`aria-current`, Sliding URL 유지·`aria-selected`, 390px 여섯 variant 44px target·nowrap·가로 overflow 없음 확인
+
+### 2026-08-03 — 3A Route Tabs + Sliding Tabs 승인·공용화 완료
+
+- 사용자 승인: Route Tabs는 A Hairline·B Quiet Surface, Sliding Tabs는 A Soft Inset·C Sliding Underline 유지
+- 제외: Route C Ledger, Sliding B Flush Segment
+- 공용 `RouteTabs`·`RouteTab` 공개 API 추가: `hairline|quiet-surface`, `fullWidth`, 링크·`aria-current="page"` 의미 보존
+- 공용 `Tabs` variant를 `soft-inset|sliding-underline`로 수렴하고 `fullWidth` API와 Motion highlight를 공용 소유권으로 이동
+- UI Lab의 페이지별 selected·focus·indicator CSS를 제거하고 선택된 네 variant를 공용 컴포넌트로 교체
+- 제품 적용: 오늘 화면의 인사이트 분류 탭을 `sliding-underline`과 공용 Motion highlight로 교체; Route Tabs는 현재 적합한 제품 사용처가 없어 가짜 연결을 만들지 않음
+- 검증: 공개 props fixture typecheck, 관련 Node 계약 15건, web typecheck, `git diff --check`
+- Codex 인앱 브라우저: desktop Route·Sliding 선택, URL 의미 분리, 승인된 variant 4종만 렌더링, 390px 전체 44px target·nowrap·가로 overflow 없음 확인
 
 ## 실행 환경 메모
 

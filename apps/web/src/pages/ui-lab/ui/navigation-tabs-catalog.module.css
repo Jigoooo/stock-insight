@@ -75,7 +75,7 @@
 
 .comparisonGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -116,33 +116,6 @@
   gap: 18px;
 }
 
-.routeFrame nav {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-}
-
-.routeFrame a {
-  position: relative;
-  display: inline-flex;
-  min-height: 40px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 12px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 620;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color 150ms var(--ease-out);
-}
-
-.routeFrame a:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
 .routeSummary,
 .tabContent {
   display: grid;
@@ -167,149 +140,12 @@
   line-height: 1.5;
 }
 
-.variantCard[data-variant='hairline'] .routeFrame nav {
-  gap: 18px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='hairline'] .routeFrame a {
-  padding-inline: 0;
-}
-
-.variantCard[data-variant='hairline'] .routeFrame a[aria-current='page'] {
-  color: var(--color-text-primary);
-}
-
-.variantCard[data-variant='hairline'] .routeFrame a[aria-current='page']::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  background: var(--color-text-primary);
-  content: '';
-}
-
-.variantCard[data-variant='quiet-surface'] .routeFrame nav {
-  width: fit-content;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='quiet-surface'] .routeFrame a {
-  min-height: 34px;
-  border-radius: calc(var(--radius-control) - 2px);
-}
-
-.variantCard[data-variant='quiet-surface'] .routeFrame a[aria-current='page'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-border) inset;
-}
-
-.variantCard[data-variant='ledger'] .routeFrame nav {
-  gap: 2px;
-  border-left: 2px solid var(--color-border-strong);
-  background: var(--color-surface);
-}
-
-.variantCard[data-variant='ledger'] .routeFrame a {
-  min-height: 36px;
-  border-right: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='ledger'] .routeFrame a[aria-current='page'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant] .slidingList {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(108px, 1fr));
-  width: 100%;
-  max-width: 100%;
-}
-
-.variantCard[data-variant] .slidingList .slidingHighlight {
-  inset: 0;
-  width: auto;
-  padding: 0;
-  border: 0;
-  box-shadow: none;
-}
-
-.slidingList > * {
-  min-width: 0;
-}
-
-.slidingList [role='tab'] {
-  width: 100%;
-}
-
 .tabContents {
   margin-top: 18px;
 }
 
 .tabContent {
   min-height: 104px;
-}
-
-.variantCard[data-variant='soft-inset'] .slidingList {
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='soft-inset'] .slidingList [role='tab'] {
-  border-radius: calc(var(--radius-control) - 2px);
-}
-
-.variantCard[data-variant='soft-inset'] .slidingList .slidingHighlight {
-  border: 1px solid var(--color-border);
-  border-radius: calc(var(--radius-control) - 2px);
-  background: var(--color-surface);
-}
-
-.variantCard[data-variant='flush-segment'] .slidingList {
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-}
-
-.variantCard[data-variant='flush-segment'] .slidingList > * + * {
-  border-left: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='flush-segment'] .slidingList .slidingHighlight {
-  border: 0;
-  border-radius: 0;
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='sliding-underline'] .slidingList {
-  border-bottom: 1px solid var(--color-border);
-  column-gap: 18px;
-}
-
-.variantCard[data-variant='sliding-underline'] .slidingList [role='tab'] {
-  min-height: 42px;
-  padding-inline: 0;
-}
-
-.variantCard[data-variant='sliding-underline'] .slidingList .slidingHighlight {
-  top: auto;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 2px;
-  border: 0;
-  border-radius: 0;
-  background: var(--color-text-primary);
 }
 
 @media (max-width: 980px) {
@@ -352,33 +188,5 @@
 
   .previewSurface {
     padding: 16px;
-  }
-
-  .routeFrame nav,
-  .slidingList {
-    min-height: 44px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: thin;
-  }
-
-  .routeFrame a {
-    min-height: 44px;
-  }
-
-  .variantCard[data-variant] .slidingList [role='tab'] {
-    min-height: 44px;
-  }
-
-  .variantCard[data-variant='quiet-surface'] .routeFrame a,
-  .variantCard[data-variant='ledger'] .routeFrame a {
-    min-height: 44px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .routeFrame a,
-  .slidingList [role='tab'] {
-    transition-duration: 0.01ms;
   }
 }

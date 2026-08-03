@@ -37,7 +37,8 @@ describe('shared state controls', () => {
     assert.match(textareaSource, /type TextareaVariant = 'plain' \| 'composer' \| 'editorial'/);
     assert.match(textareaSource, /variant\?: TextareaVariant/);
     assert.match(textareaSource, /footer\?: ReactNode/);
-    assert.match(tabsSource, /type TabsVariant = 'inset' \| 'hairline'/);
+    assert.match(tabsSource, /type TabsVariant = 'soft-inset' \| 'sliding-underline'/);
+    assert.match(tabsSource, /fullWidth\?: boolean/);
     assert.match(tabsSource, /data-variant=\{variant\}/);
   });
 });

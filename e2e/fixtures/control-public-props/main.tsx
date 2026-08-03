@@ -9,9 +9,17 @@ import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
 import { OTP } from '@/shared/ui/otp';
 import { RadioGroup } from '@/shared/ui/radio-group';
+import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
 import { Slider } from '@/shared/ui/slider';
 import { SplitButton } from '@/shared/ui/split-button';
 import { Switch } from '@/shared/ui/switch';
+import {
+  Tabs,
+  TabsHighlight,
+  TabsHighlightItem,
+  TabsList,
+  TabsTrigger,
+} from '@/shared/ui/tabs';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
 const buttonDrag: DragEventHandler<HTMLButtonElement> = () => undefined;
@@ -137,6 +145,42 @@ export const nativeControlPropsFixture = (
       onValueChange={() => undefined}
       value=""
     />
+    <RouteTabs aria-label="Research routes" variant="hairline">
+      <RouteTab active href="/overview">
+        Overview
+      </RouteTab>
+      <RouteTab href="/evidence">Evidence</RouteTab>
+    </RouteTabs>
+    <RouteTabs aria-label="Compact routes" variant="quiet-surface">
+      <RouteTab active href="/today">
+        Today
+      </RouteTab>
+      <RouteTab href="/history">History</RouteTab>
+    </RouteTabs>
+    <Tabs defaultValue="impact" fullWidth variant="soft-inset">
+      <TabsHighlight>
+        <TabsList aria-label="Impact views">
+          <TabsHighlightItem value="impact">
+            <TabsTrigger value="impact">Impact</TabsTrigger>
+          </TabsHighlightItem>
+          <TabsHighlightItem value="risks">
+            <TabsTrigger value="risks">Risks</TabsTrigger>
+          </TabsHighlightItem>
+        </TabsList>
+      </TabsHighlight>
+    </Tabs>
+    <Tabs defaultValue="market" variant="sliding-underline">
+      <TabsHighlight>
+        <TabsList aria-label="Market views">
+          <TabsHighlightItem value="market">
+            <TabsTrigger value="market">Market</TabsTrigger>
+          </TabsHighlightItem>
+          <TabsHighlightItem value="themes">
+            <TabsTrigger value="themes">Themes</TabsTrigger>
+          </TabsHighlightItem>
+        </TabsList>
+      </TabsHighlight>
+    </Tabs>
     <TextLink
       draggable
       href="/native-link"

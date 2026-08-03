@@ -5,6 +5,9 @@ import { describe, it } from 'node:test';
 const readUiLabSource = async (path: string) =>
   readFile(new URL(`../src/pages/ui-lab/ui/${path}`, import.meta.url), 'utf8');
 
+const readSharedUiSource = async (path: string) =>
+  readFile(new URL(`../src/shared/ui/${path}`, import.meta.url), 'utf8');
+
 function sourceBlock(source: string, start: string, end: string) {
   const startIndex = source.indexOf(start);
   const endIndex = source.indexOf(end, startIndex + start.length);
@@ -65,20 +68,20 @@ describe('UI Lab navigation tabs catalog', () => {
     const routes = arrayDeclaration(catalog, 'routeItems');
     const routeSection = sourceBlock(
       catalog,
-      '<nav aria-label={`경로 탭 비교 · ${variant.title}`}>',
-      '</nav>',
+      '<RouteTabs',
+      '</RouteTabs>',
     );
     const slidingSection = sourceBlock(
       catalog,
-      '<Tabs value={activeView} onValueChange={setActiveView}>',
+      '<Tabs\n                  fullWidth',
       '</Tabs>',
     );
 
     assert.match(catalog, /from '@\/shared\/ui\/tabs'/);
-    assert.match(routeSection, /<nav aria-label=\{`경로 탭 비교 · \$\{variant\.title\}`\}>/);
+    assert.match(routeSection, /aria-label=\{`경로 탭 비교 · \$\{variant\.title\}`\}/);
     assert.match(
       routeSection,
-      /(?:<a\b(?=[^>]*href=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>|<Link\b(?=[^>]*to=\{item\.href\})(?=[^>]*aria-current=\{activeRoute === item\.id \? 'page' : undefined\})[^>]*>)/,
+      /<RouteTab\b(?=[^>]*href=\{item\.href\})(?=[^>]*active=\{activeRoute === item\.id\})[^>]*>/,
     );
     for (const route of ['overview', 'evidence', 'timeline']) {
       assert.match(routes, new RegExp(`href: '/__ui-lab\\?route-tab=${route}'`));
@@ -90,7 +93,8 @@ describe('UI Lab navigation tabs catalog', () => {
       catalog,
       /window\.history\.replaceState\(window\.history\.state, '', item\.href\)/,
     );
-    assert.match(slidingSection, /<Tabs value=\{activeView\} onValueChange=\{setActiveView\}>/);
+    assert.match(slidingSection, /value=\{activeView\}/);
+    assert.match(slidingSection, /onValueChange=\{setActiveView\}/);
     assert.match(slidingSection, /<TabsHighlight/);
     assert.match(slidingSection, /aria-label=\{`화면 탭 비교 · \$\{variant\.title\}`\}/);
     assert.match(slidingSection, /<TabsTrigger[\s\S]*value=\{item\.id\}/);
@@ -119,17 +123,17 @@ describe('UI Lab navigation tabs catalog', () => {
     assert.match(selectRoute, /event\.preventDefault\(\)/);
   });
 
-  it('scopes all six visual variants to the correct navigation behavior', async () => {
+  it('scopes all four approved visual variants to the correct navigation behavior', async () => {
     const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
     const routeVariants = arrayDeclaration(catalog, 'routeVariants');
     const slidingVariants = arrayDeclaration(catalog, 'slidingVariants');
 
-    for (const variant of ['hairline', 'quiet-surface', 'ledger']) {
+    for (const variant of ['hairline', 'quiet-surface']) {
       assert.match(routeVariants, new RegExp(`id: '${variant}'`));
       assert.doesNotMatch(slidingVariants, new RegExp(`id: '${variant}'`));
     }
 
-    for (const variant of ['soft-inset', 'flush-segment', 'sliding-underline']) {
+    for (const variant of ['soft-inset', 'sliding-underline']) {
       assert.match(slidingVariants, new RegExp(`id: '${variant}'`));
       assert.doesNotMatch(routeVariants, new RegExp(`id: '${variant}'`));
     }
@@ -141,53 +145,63 @@ describe('UI Lab navigation tabs catalog', () => {
     );
   });
 
-  it('preserves the narrow-screen overflow contract', async () => {
-    const css = await readUiLabSource('navigation-tabs-catalog.module.css');
-    const mobileCss = balancedCssBlock(css, '@media (max-width: 520px)');
-    const slidingTargetCss = balancedCssBlock(
-      mobileCss,
-      ".variantCard[data-variant] .slidingList [role='tab']",
-    );
+  it('keeps only the approved Route and Sliding variants on shared components', async () => {
+    const catalog = await readUiLabSource('navigation-tabs-catalog.tsx');
+    const routeVariants = arrayDeclaration(catalog, 'routeVariants');
+    const slidingVariants = arrayDeclaration(catalog, 'slidingVariants');
 
-    assert.match(mobileCss, /overflow-x: auto/);
-    assert.match(mobileCss, /(?:flex-wrap|white-space): nowrap/);
-    assert.match(mobileCss, /min-height: 44px/);
-    assert.match(slidingTargetCss, /min-height: 44px/);
+    assert.match(catalog, /from '@\/shared\/ui\/route-tabs'/);
+    assert.match(catalog, /<RouteTabs[\s\S]*variant=\{variant\.id\}/);
+    assert.match(catalog, /<RouteTab[\s\S]*active=\{activeRoute === item\.id\}/);
+    assert.match(catalog, /<Tabs[\s\S]*fullWidth[\s\S]*variant=\{variant\.id\}/);
+    assert.match(routeVariants, /id: 'hairline'/);
+    assert.match(routeVariants, /id: 'quiet-surface'/);
+    assert.doesNotMatch(routeVariants, /id: 'ledger'/);
+    assert.match(slidingVariants, /id: 'soft-inset'/);
+    assert.match(slidingVariants, /id: 'sliding-underline'/);
+    assert.doesNotMatch(slidingVariants, /id: 'flush-segment'/);
   });
 
-  it('styles the rendered tab role instead of the overwritten trigger slot', async () => {
-    const css = await readUiLabSource('navigation-tabs-catalog.module.css');
-    const baseTriggerCss = balancedCssBlock(css, ".slidingList [role='tab']");
+  it('preserves the narrow-screen overflow contract', async () => {
+    const [routeCss, tabsCss] = await Promise.all([
+      readSharedUiSource('route-tabs/route-tabs.module.css'),
+      readSharedUiSource('tabs/tabs.module.css'),
+    ]);
+    const routeMobileCss = balancedCssBlock(routeCss, '@media (max-width: 520px)');
+    const tabsMobileCss = balancedCssBlock(tabsCss, '@media (max-width: 520px)');
+
+    assert.match(routeMobileCss, /overflow-x: auto/);
+    assert.match(routeMobileCss, /white-space: nowrap/);
+    assert.match(routeMobileCss, /min-height: 44px/);
+    assert.match(tabsMobileCss, /overflow-x: auto/);
+    assert.match(tabsMobileCss, /min-height: 44px/);
+  });
+
+  it('styles the rendered tab role from shared Tabs instead of the overwritten trigger slot', async () => {
+    const css = await readSharedUiSource('tabs/tabs.module.css');
+    const baseTriggerCss = balancedCssBlock(css, '.trigger');
     const softInsetTriggerCss = balancedCssBlock(
       css,
-      ".variantCard[data-variant='soft-inset'] .slidingList [role='tab']",
+      ".root[data-variant='soft-inset'] .trigger",
     );
     const underlineTriggerCss = balancedCssBlock(
       css,
-      ".variantCard[data-variant='sliding-underline'] .slidingList [role='tab']",
+      ".root[data-variant='sliding-underline'] .trigger",
     );
     const reducedMotionCss = balancedCssBlock(css, '@media (prefers-reduced-motion: reduce)');
 
     assert.match(baseTriggerCss, /width: 100%/);
     assert.match(softInsetTriggerCss, /border-radius:/);
     assert.match(underlineTriggerCss, /min-height: 42px/);
-    assert.match(reducedMotionCss, /\.slidingList \[role='tab'\]/);
+    assert.match(reducedMotionCss, /\.trigger/);
     assert.doesNotMatch(css, /\[data-slot='tabs-trigger'\]/);
   });
 
-  it('keeps the catalog layout and indicator stronger than shared tab defaults', async () => {
+  it('leaves selected and focus visuals to shared navigation components', async () => {
     const css = await readUiLabSource('navigation-tabs-catalog.module.css');
-    const listCss = balancedCssBlock(css, '.variantCard[data-variant] .slidingList');
-    const indicatorCss = balancedCssBlock(
-      css,
-      '.variantCard[data-variant] .slidingList .slidingHighlight',
-    );
 
-    assert.match(listCss, /display: grid/);
-    assert.match(listCss, /grid-template-columns: repeat\(3, minmax\(108px, 1fr\)\)/);
-    assert.match(indicatorCss, /width: auto/);
-    assert.match(indicatorCss, /padding: 0/);
-    assert.match(indicatorCss, /border: 0/);
-    assert.match(indicatorCss, /box-shadow: none/);
+    assert.doesNotMatch(css, /\[aria-current='page'\]/);
+    assert.doesNotMatch(css, /\[role='tab'\]/);
+    assert.doesNotMatch(css, /data-slot='motion-highlight'/);
   });
 });
