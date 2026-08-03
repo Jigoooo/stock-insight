@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: 없음
-- 다음 묶음: `3C Breadcrumb + Pagination 목업 비교`
+- 현재 활성 묶음: `3C Breadcrumb + Pagination 목업 비교`
+- 다음 묶음: `3D Stepper + CommandPalette 목업 비교`
 - 마지막 갱신: 2026-08-03
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -23,34 +23,34 @@
 
 ## 전체 현황
 
-| 묶음 | 내용                                | 현재 상태 | 다음 행동                            |
-| ---- | ----------------------------------- | --------- | ------------------------------------ |
-| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행     |
-| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행     |
-| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행     |
-| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행     |
-| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사               |
-| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사       |
-| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                       |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                       |
-| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                         |
-| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교    |
-| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교 |
-| 3C   | Breadcrumb + Pagination             | 대기      | UI Lab 3안 비교                      |
-| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                      |
-| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                      |
-| 4B   | Popover                             | 대기      | UI Lab 3안 비교                      |
-| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                      |
-| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                      |
-| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                      |
-| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                      |
-| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                      |
-| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                      |
-| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현           |
-| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현              |
-| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현          |
-| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현              |
-| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결         |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                              |
+| ---- | ----------------------------------- | --------- | -------------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행       |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행       |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행       |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행       |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                 |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사         |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                         |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                         |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                           |
+| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교      |
+| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교   |
+| 3C   | Breadcrumb + Pagination             | 목업      | 승인 설계 문서 검토 후 UI Lab 3안 구현 |
+| 3D   | Stepper + CommandPalette            | 대기      | UI Lab 3안 비교                        |
+| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                        |
+| 4B   | Popover                             | 대기      | UI Lab 3안 비교                        |
+| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                        |
+| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                        |
+| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                        |
+| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                        |
+| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                        |
+| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                        |
+| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현             |
+| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현                |
+| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현            |
+| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현                |
+| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결           |
 
 ## 완료 기록
 
