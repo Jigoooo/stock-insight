@@ -60,6 +60,7 @@ import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_c
 import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_event_projects_magnitude.ts';
 import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity_seed.ts';
 import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revision_identity.ts';
+import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic_vocabulary.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -762,6 +763,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: eventRevisionIdentityMigrationSql,
   },
+  {
+    id: '063_market_topic_vocabulary',
+    description:
+      'Seeds analytics.market_topic_term, the vocabulary that marks an event as market-wide news naming no company. A definition kept in a table so a wrong term is a row to delete rather than a deploy; never used to attach an event to a company.',
+    tables: [],
+    sql: marketTopicVocabularyMigrationSql,
+  },
 ];
 
 export {
@@ -826,5 +834,6 @@ export {
   worldEventProjectsMagnitudeMigrationSql,
   cryptoIdentitySeedMigrationSql,
   eventRevisionIdentityMigrationSql,
+  marketTopicVocabularyMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
