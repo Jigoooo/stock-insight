@@ -91,15 +91,15 @@ export function UiLabPage({
                 initialSideRoute={initialSideRoute}
               />
               <StepperCommandCatalog />
+              <MenuOverlayCatalog />
             </TabsContent>
 
             <TabsContent value="in-progress">
               <div className={styles.statusIntro}>
-                <span>In progress</span>
-                <h2>Menu & Overlay</h2>
-                <p>메뉴와 연결형·패널형 오버레이를 하나의 A/B/C 디자인 언어로 비교합니다.</p>
+                <span>Next</span>
+                <h2>Identity & Content</h2>
+                <p>다음 목업 묶음은 정체성과 콘텐츠 표현을 함께 비교합니다.</p>
               </div>
-              <MenuOverlayCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

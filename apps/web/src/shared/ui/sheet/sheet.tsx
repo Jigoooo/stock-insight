@@ -10,6 +10,7 @@ import styles from './sheet.module.css';
 import { getStrictContext } from '@/shared/lib/get-strict-context';
 import { useControlledState } from '@/shared/lib/use-controlled-state';
 import { cn } from '@/shared/lib/utils';
+import type { MenuOverlayVariant } from '@/shared/ui/menu-overlay';
 
 type SheetSide = 'top' | 'bottom' | 'left' | 'right';
 type SheetContextValue = { open: boolean };
@@ -49,6 +50,7 @@ export type SheetContentProps = Omit<
   showCloseButton?: boolean;
   side?: SheetSide;
   transition?: Transition;
+  variant?: MenuOverlayVariant;
 };
 
 const offscreenBySide: Record<SheetSide, { x?: string; y?: string; opacity: number }> = {
@@ -67,6 +69,7 @@ export function SheetContent({
   showCloseButton = true,
   side = 'right',
   transition = { type: 'spring', stiffness: 180, damping: 28 },
+  variant,
   ...props
 }: SheetContentProps) {
   const { open } = useSheetContext();
@@ -102,6 +105,7 @@ export function SheetContent({
               data-motion-owner="motion"
               data-side={side}
               data-slot="sheet-content"
+              data-variant={variant}
               exit={exit}
               initial={reducedMotion ? false : offscreenBySide[side]}
               transition={reducedMotion ? { duration: 0 } : transition}

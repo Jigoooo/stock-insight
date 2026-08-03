@@ -12,6 +12,7 @@ export * from './field';
 export * from './file-upload';
 export * from './input';
 export * from './link';
+export * from './menu-overlay';
 export * from './otp';
 export * from './radio-group';
 export * from './select';

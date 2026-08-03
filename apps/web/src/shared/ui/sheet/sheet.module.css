@@ -58,6 +58,15 @@
   border-radius: var(--radius-panel) var(--radius-panel) 0 0;
 }
 
+.content[data-variant='hairline'] {
+  box-shadow: none;
+}
+
+.content[data-variant='soft-surface'] {
+  border-color: color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: var(--color-surface-subtle);
+}
+
 .header {
   display: grid;
   gap: 4px;

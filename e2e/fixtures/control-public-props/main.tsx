@@ -17,6 +17,21 @@ import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/shared/ui/menu-overlay';
 import { OTP } from '@/shared/ui/otp';
 import {
   CursorPagination,
@@ -34,6 +49,7 @@ import {
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
 import { Select } from '@/shared/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/shared/ui/sheet';
 import { SideList, SideListItem } from '@/shared/ui/side-list';
 import {
   SideTabs,
@@ -112,6 +128,41 @@ export const nativeControlPropsFixture = (
       title="Fixture commands"
       variant="split-context"
     />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button">Open fixture menu</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent variant="hairline">
+        <DropdownMenuItem shortcut="Enter">Evidence</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>Archived</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <button type="button">Fixture context target</button>
+      </ContextMenuTrigger>
+      <ContextMenuContent variant="soft-surface">
+        <ContextMenuItem shortcut="I">Impact path</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled>Archived</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button">Open fixture popover</button>
+      </PopoverTrigger>
+      <PopoverContent variant="hairline">Fixture evidence</PopoverContent>
+    </Popover>
+    <Sheet>
+      <SheetTrigger asChild>
+        <button type="button">Open fixture sheet</button>
+      </SheetTrigger>
+      <SheetContent side="bottom" variant="soft-surface">
+        <SheetTitle>Fixture sheet</SheetTitle>
+        <SheetDescription>Fixture sheet description</SheetDescription>
+      </SheetContent>
+    </Sheet>
     <SplitButton
       actions={[
         { label: 'Download', value: 'download' },

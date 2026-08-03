@@ -4,9 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function openCatalog(page: Page) {
   await page.goto('/__ui-lab');
   await page.waitForLoadState('networkidle');
-  const inProgressTab = page.getByRole('tab', { name: '목업 진행 중' });
-  await inProgressTab.click();
-  await expect(inProgressTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: '완료' })).toHaveAttribute('aria-selected', 'true');
   const catalog = page.locator('[data-slot="menu-overlay-catalog"]');
   await expect(catalog).toBeVisible();
   return catalog;
@@ -16,6 +14,8 @@ test.describe('UI Lab Menu & Overlay', () => {
   test('opens the six surfaces and keeps menu actions local', async ({ page }) => {
     const catalog = await openCatalog(page);
     const initialUrl = page.url();
+    await expect(catalog.locator('article[data-variant]')).toHaveCount(2);
+    await expect(catalog.getByText('C · Compact Ledger', { exact: true })).toHaveCount(0);
 
     await catalog.getByRole('button', { name: 'DropdownMenu A 열기' }).click();
     await page.getByRole('menuitem', { name: '근거 보기' }).click();
@@ -25,14 +25,14 @@ test.describe('UI Lab Menu & Overlay', () => {
     await expect(page.getByRole('menu')).toHaveAttribute('data-variant', 'soft-surface');
     await page.keyboard.press('Escape');
 
-    await catalog.getByRole('button', { name: 'Popover C 열기' }).click();
+    await catalog.getByRole('button', { name: 'Popover B 열기' }).click();
     await expect(page.getByText('선택 근거', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
     for (const [kind, variant] of [
       ['Drawer A', 'hairline'],
       ['Sheet B', 'soft-surface'],
-      ['BottomSheet C', 'compact-ledger'],
+      ['BottomSheet A', 'hairline'],
     ] as const) {
       await catalog.getByRole('button', { name: `${kind} 열기`, exact: true }).click();
       const dialog = page.getByRole('dialog');
@@ -76,7 +76,7 @@ test.describe('UI Lab Menu & Overlay', () => {
       expect(Math.round(box?.height ?? 0)).toBeGreaterThanOrEqual(44);
     }
 
-    await catalog.getByRole('button', { name: 'BottomSheet C 열기' }).click();
+    await catalog.getByRole('button', { name: 'BottomSheet B 열기' }).click();
     const bottomSheet = page.getByRole('dialog');
     await expect(bottomSheet).toHaveAttribute('data-overlay-kind', 'bottom-sheet');
     await expect(bottomSheet).toHaveCSS('transform', 'none');

@@ -114,6 +114,7 @@ export function WorkspaceShell({
             side="left"
             showCloseButton={false}
             transition={reducedMotion ? { duration: 0 } : shellTransition}
+            variant="soft-surface"
             data-testid="workspace-sidebar"
             data-navigation-mode="mobile"
           >

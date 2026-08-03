@@ -1,9 +1,4 @@
 import { Archive, BookOpen, Copy, GitBranch, Info, Menu, MousePointer2 } from 'lucide-react';
-import {
-  ContextMenu as ContextMenuPrimitive,
-  DropdownMenu as DropdownMenuPrimitive,
-  Popover as PopoverPrimitive,
-} from 'radix-ui';
 import { Fragment, useState, type ReactElement } from 'react';
 
 import styles from './menu-overlay-catalog.module.css';
@@ -16,6 +11,21 @@ import {
 } from './menu-overlay-model';
 
 import { Button } from '@/shared/ui/button';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/shared/ui/menu-overlay';
 import {
   Sheet,
   SheetContent,
@@ -79,8 +89,8 @@ export function MenuOverlayCatalog(): ReactElement {
                   <small>동일 액션 공유</small>
                 </div>
 
-                <DropdownMenuPrimitive.Root modal={false}>
-                  <DropdownMenuPrimitive.Trigger asChild>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       aria-label={`DropdownMenu ${variantCode} 열기`}
                       className={styles.previewTrigger}
@@ -89,36 +99,26 @@ export function MenuOverlayCatalog(): ReactElement {
                       <Menu aria-hidden="true" size={16} />
                       DropdownMenu
                     </Button>
-                  </DropdownMenuPrimitive.Trigger>
-                  <DropdownMenuPrimitive.Portal>
-                    <DropdownMenuPrimitive.Content
-                      align="start"
-                      className={styles.menuContent}
-                      data-variant={variant.id}
-                      sideOffset={8}
-                    >
-                      {researchActions.map((action, index) => (
-                        <Fragment key={action.id}>
-                          {index === researchActions.length - 1 ? (
-                            <DropdownMenuPrimitive.Separator className={styles.separator} />
-                          ) : null}
-                          <DropdownMenuPrimitive.Item
-                            className={styles.menuItem}
-                            disabled={'disabled' in action && action.disabled}
-                            onSelect={() => runAction(action)}
-                          >
-                            <ActionIcon action={action} />
-                            <span>{action.label}</span>
-                            {action.shortcut ? <kbd>{action.shortcut}</kbd> : null}
-                          </DropdownMenuPrimitive.Item>
-                        </Fragment>
-                      ))}
-                    </DropdownMenuPrimitive.Content>
-                  </DropdownMenuPrimitive.Portal>
-                </DropdownMenuPrimitive.Root>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent variant={variant.id}>
+                    {researchActions.map((action, index) => (
+                      <Fragment key={action.id}>
+                        {index === researchActions.length - 1 ? <DropdownMenuSeparator /> : null}
+                        <DropdownMenuItem
+                          disabled={'disabled' in action && action.disabled}
+                          shortcut={action.shortcut || undefined}
+                          onSelect={() => runAction(action)}
+                        >
+                          <ActionIcon action={action} />
+                          <span>{action.label}</span>
+                        </DropdownMenuItem>
+                      </Fragment>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-                <ContextMenuPrimitive.Root modal={false}>
-                  <ContextMenuPrimitive.Trigger asChild>
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
                     <button
                       aria-label={`ContextMenu ${variantCode} 대상`}
                       className={styles.contextTarget}
@@ -128,34 +128,26 @@ export function MenuOverlayCatalog(): ReactElement {
                       <span>ContextMenu 대상</span>
                       <small>우클릭 · Shift+F10</small>
                     </button>
-                  </ContextMenuPrimitive.Trigger>
-                  <ContextMenuPrimitive.Portal>
-                    <ContextMenuPrimitive.Content
-                      className={styles.menuContent}
-                      data-variant={variant.id}
-                    >
-                      {researchActions.map((action, index) => (
-                        <Fragment key={action.id}>
-                          {index === researchActions.length - 1 ? (
-                            <ContextMenuPrimitive.Separator className={styles.separator} />
-                          ) : null}
-                          <ContextMenuPrimitive.Item
-                            className={styles.menuItem}
-                            disabled={'disabled' in action && action.disabled}
-                            onSelect={() => runAction(action)}
-                          >
-                            <ActionIcon action={action} />
-                            <span>{action.label}</span>
-                            {action.shortcut ? <kbd>{action.shortcut}</kbd> : null}
-                          </ContextMenuPrimitive.Item>
-                        </Fragment>
-                      ))}
-                    </ContextMenuPrimitive.Content>
-                  </ContextMenuPrimitive.Portal>
-                </ContextMenuPrimitive.Root>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent variant={variant.id}>
+                    {researchActions.map((action, index) => (
+                      <Fragment key={action.id}>
+                        {index === researchActions.length - 1 ? <ContextMenuSeparator /> : null}
+                        <ContextMenuItem
+                          disabled={'disabled' in action && action.disabled}
+                          shortcut={action.shortcut || undefined}
+                          onSelect={() => runAction(action)}
+                        >
+                          <ActionIcon action={action} />
+                          <span>{action.label}</span>
+                        </ContextMenuItem>
+                      </Fragment>
+                    ))}
+                  </ContextMenuContent>
+                </ContextMenu>
 
-                <PopoverPrimitive.Root>
-                  <PopoverPrimitive.Trigger asChild>
+                <Popover>
+                  <PopoverTrigger asChild>
                     <Button
                       aria-label={`Popover ${variantCode} 열기`}
                       className={styles.previewTrigger}
@@ -164,21 +156,15 @@ export function MenuOverlayCatalog(): ReactElement {
                       <Info aria-hidden="true" size={16} />
                       Popover
                     </Button>
-                  </PopoverPrimitive.Trigger>
-                  <PopoverPrimitive.Portal>
-                    <PopoverPrimitive.Content
-                      align="start"
-                      className={styles.popoverContent}
-                      data-variant={variant.id}
-                      sideOffset={8}
-                    >
-                      <span>선택 근거</span>
-                      <strong>삼성전자</strong>
-                      <p>최근 공시와 시장 변화를 같은 기준 시점으로 확인합니다.</p>
-                      <PopoverPrimitive.Arrow className={styles.popoverArrow} />
-                    </PopoverPrimitive.Content>
-                  </PopoverPrimitive.Portal>
-                </PopoverPrimitive.Root>
+                  </PopoverTrigger>
+                  <PopoverContent variant={variant.id}>
+                    <span className={styles.popoverLabel}>선택 근거</span>
+                    <strong className={styles.popoverTitle}>삼성전자</strong>
+                    <p className={styles.popoverCopy}>
+                      최근 공시와 시장 변화를 같은 기준 시점으로 확인합니다.
+                    </p>
+                  </PopoverContent>
+                </Popover>
               </section>
 
               <section className={styles.previewGroup} aria-label={`${variant.label} 패널 비교`}>
@@ -201,8 +187,8 @@ export function MenuOverlayCatalog(): ReactElement {
                       <SheetContent
                         className={styles.panelContent}
                         data-overlay-kind={panel.kind}
-                        data-variant={variant.id}
                         side={panel.side}
+                        variant={variant.id}
                       >
                         <SheetHeader>
                           <span className={styles.panelEyebrow}>{variant.label}</span>

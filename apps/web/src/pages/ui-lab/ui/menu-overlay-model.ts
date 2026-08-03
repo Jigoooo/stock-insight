@@ -1,18 +1,17 @@
 export const roadmapBatches = [
-  { state: '진행 중', title: 'Menu & Overlay' },
-  { state: '예정', title: 'Identity & Content' },
+  { state: '완료', title: 'Menu & Overlay' },
+  { state: '다음', title: 'Identity & Content' },
   { state: '예정', title: 'Data & Feedback' },
   { state: '예정', title: 'Charts End-to-End' },
 ] as const;
 
-export type MenuOverlayVariant = 'hairline' | 'soft-surface' | 'compact-ledger';
+export type MenuOverlayVariant = 'hairline' | 'soft-surface';
 type ResearchActionId = 'evidence' | 'impact' | 'copy-link' | 'archived';
 type PanelKind = 'drawer' | 'sheet' | 'bottom-sheet';
 
 export const menuOverlayVariants = [
   { id: 'hairline', label: 'A · Hairline', description: '얇은 경계와 최소 표면' },
   { id: 'soft-surface', label: 'B · Soft Surface', description: '낮은 배경과 그룹 면' },
-  { id: 'compact-ledger', label: 'C · Compact Ledger', description: '조밀한 행과 보조 정보' },
 ] as const satisfies ReadonlyArray<{
   id: MenuOverlayVariant;
   label: string;

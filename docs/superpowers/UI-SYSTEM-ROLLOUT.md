@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `4A Menu & Overlay 목업 비교`
-- 다음 묶음: `5A Identity & Content 목업 비교`
+- 현재 활성 묶음: `5A Identity & Content 목업 비교`
+- 다음 묶음: `5B Data & Feedback 목업 비교`
 - 마지막 갱신: 2026-08-04
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -38,7 +38,7 @@
 | 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
-| 4A   | Menu & Overlay                      | 목업      | 사용자 A/B/C 시각 승인                |
+| 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 대기      | UI Lab 통합 A/B/C 비교                |
 | 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
@@ -263,7 +263,15 @@
 - 사용자 피드백에 따라 A Hairline의 메뉴·Popover·trigger 라운드를 키우고, C Compact Ledger의 과도한 직각 표현과 BottomSheet 좌우 비대칭을 보정함
 - 공용 Sheet 종료를 Dialog 계열과 같은 계약으로 맞춰 overlay·content가 닫힘 즉시 포인터를 놓고 각각 100ms·80ms 안에 퇴장하도록 변경함
 - 회귀 계약은 닫힘 20ms 뒤 overlay `pointer-events: none`, 120ms 뒤 Portal·스크롤 잠금 제거, 390px BottomSheet 좌우 여백 대칭을 직접 검증함
-- 다음 행동은 사용자 승인 결과를 기록한 뒤 승인 variant만 `shared/ui`로 공용화하는 것임
+- 사용자는 여섯 표면 모두 A Hairline과 B Soft Surface를 채택하고 C Compact Ledger를 제외함
+- DropdownMenu·ContextMenu·Popover는 A/B variant를 제공하는 `shared/ui/menu-overlay` 공개 API로 공용화하고 UI Lab도 해당 공개 API를 사용하도록 전환함
+- Drawer·Sheet·BottomSheet는 기존 공용 Sheet에 A/B variant를 추가해 같은 디자인 언어와 빠른 종료 계약을 공유함
+- 실제 제품에서는 모바일 워크스페이스 내비게이션 Sheet에 B Soft Surface를 적용함
+- DropdownMenu·ContextMenu·Popover에는 현재 적합한 일반 제품 사용처가 없어 가짜 기능을 추가하지 않았으며, 특화된 SplitButton·DatePicker 계열의 내부 Radix 사용도 억지로 교체하지 않음
+- 승인된 Menu & Overlay 카탈로그는 UI Lab `완료` 탭으로 이동하고 예정 카드에서 5A Identity & Content를 `다음`으로 표시함
+- 공용화 검증: Menu & Overlay 모델·워크스페이스 오버레이 Node 계약 9건, public props fixture, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건 통과
+- Codex 인앱 브라우저 6110에서 완료 탭에 A/B 두 카드만 남고 C가 제거된 상태와 B Sheet의 실제 열림을 확인함
+- 다음 행동은 5A Identity & Content 통합 목업 비교를 시작하는 것임
 
 ## 실행 환경 메모
 

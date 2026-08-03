@@ -16,7 +16,7 @@ describe('Menu & Overlay model', () => {
     );
     assert.deepEqual(
       roadmapBatches.map((batch) => batch.state),
-      ['진행 중', '예정', '예정', '예정'],
+      ['완료', '다음', '예정', '예정'],
     );
   });
 
@@ -30,7 +30,7 @@ describe('Menu & Overlay model', () => {
     assert.equal(resolveResearchActionResult(archived), null);
     assert.deepEqual(
       menuOverlayVariants.map((variant) => variant.id),
-      ['hairline', 'soft-surface', 'compact-ledger'],
+      ['hairline', 'soft-surface'],
     );
   });
 });
