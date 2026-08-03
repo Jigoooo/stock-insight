@@ -18,7 +18,6 @@ import {
 } from '@/shared/ui/tabs';
 
 const futureBatches = [
-  'Stepper · CommandPalette',
   'DropdownMenu · ContextMenu · Popover',
   'Drawer · Sheet · BottomSheet',
   'Avatar · Badge · Status',
