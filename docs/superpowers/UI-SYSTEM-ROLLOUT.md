@@ -38,7 +38,7 @@
 | 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
-| 4A   | Menu & Overlay                      | 목업      | UI Lab 통합 A/B/C 구현                |
+| 4A   | Menu & Overlay                      | 목업      | 사용자 A/B/C 시각 승인                |
 | 5A   | Identity & Content                  | 대기      | UI Lab 통합 A/B/C 비교                |
 | 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
@@ -250,6 +250,17 @@
 - 목업은 URL과 실제 데이터를 변경하지 않고 UI Lab 로컬 결과만 표시함
 - 검증은 소스 계약 1~2건, 핵심 상호작용 1건, 모바일·감소 모션·Axe 통합 1건과 변경 범위 정적 검사로 제한함
 - 다음 행동은 승인된 4A 설계 문서를 검토한 뒤 구현 계획을 작성하는 것임
+
+### 2026-08-04 — 4A Menu & Overlay 목업 구현
+
+- A Hairline, B Soft Surface, C Compact Ledger를 DropdownMenu·ContextMenu·Popover·Drawer·Sheet·BottomSheet 여섯 표면에 같은 디자인 언어로 적용함
+- DropdownMenu와 ContextMenu는 일반 액션·아이콘·단축키·구분선·비활성 상태를 포함한 동일 리서치 액션 배열을 공유함
+- Drawer는 왼쪽, Sheet는 오른쪽, BottomSheet는 아래쪽에서 열리며 같은 선택 근거 내용을 표시함
+- 완료된 Stepper·CommandPalette 카탈로그는 `완료` 탭으로 이동하고 `예정` 카드는 네 통합 묶음으로 축소함
+- 메뉴 실행은 UI Lab 로컬 `aria-live` 결과만 갱신하며 기존 URL과 제품 데이터는 변경하지 않음
+- 검증: Menu & Overlay Node 모델 계약 2건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건과 Axe 집중 검사 통과
+- Codex 인앱 브라우저 6110에서 A/B/C 여섯 표면 렌더링, DropdownMenu A 실행 결과와 URL 고정을 확인하고 사용자 시각 승인 대기 상태로 전환함
+- 다음 행동은 사용자 승인 결과를 기록한 뒤 승인 variant만 `shared/ui`로 공용화하는 것임
 
 ## 실행 환경 메모
 
