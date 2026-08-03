@@ -6,7 +6,7 @@ async function readCatalogSource() {
   return readFile(
     new URL('../src/pages/ui-lab/ui/stepper-command-catalog.tsx', import.meta.url),
     'utf8',
-  ).catch(() => '');
+  );
 }
 
 describe('UI Lab Stepper and CommandPalette catalog', () => {
