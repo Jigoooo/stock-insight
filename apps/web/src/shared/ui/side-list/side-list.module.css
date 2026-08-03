@@ -9,6 +9,11 @@
   flex-direction: column;
 }
 
+.unavailableGuard {
+  display: block;
+  width: 100%;
+}
+
 .item {
   position: relative;
   z-index: 1;
@@ -33,12 +38,12 @@
     box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.item:hover,
+.item:not([aria-disabled='true']):hover,
 .item[aria-current='page'] {
   color: var(--side-list-color-current, var(--color-text-primary));
 }
 
-.item:not([data-static='true']):hover {
+.item:not([aria-disabled='true']):not([data-static='true']):hover {
   background: var(--side-list-hover-surface, transparent);
 }
 

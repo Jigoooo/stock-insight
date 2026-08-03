@@ -86,6 +86,10 @@ const listVariants = [
   },
 ] as const;
 
+const sideTabHighlightTransition = { type: 'spring', stiffness: 280, damping: 30 } as const;
+const sideTabContentTransition = { duration: 0.16, ease: 'easeOut' } as const;
+const sideTabContentsTransition = { type: 'spring', stiffness: 200, damping: 30 } as const;
+
 interface SideNavigationCatalogProps {
   initialRouteTab: RouteTabId;
   initialSideRoute: SideRouteId;
@@ -133,7 +137,7 @@ export function SideNavigationCatalog({
                     setActivePanel(value as (typeof panelItems)[number]['id'])
                   }
                 >
-                  <SideTabsHighlight>
+                  <SideTabsHighlight transition={sideTabHighlightTransition}>
                     <SideTabsList aria-label={`패널 전환 · ${variant.title}`}>
                       {panelItems.map((item) => (
                         <SideTabsHighlightItem key={item.id} value={item.id}>
@@ -143,9 +147,15 @@ export function SideNavigationCatalog({
                     </SideTabsList>
                   </SideTabsHighlight>
 
-                  <SideTabsContents>
+                  <SideTabsContents transition={sideTabContentsTransition}>
                     {panelItems.map((item) => (
-                      <SideTabsContent className={styles.panel} key={item.id} value={item.id}>
+                      <SideTabsContent
+                        className={styles.panel}
+                        data-height={item.id === 'company' ? 'tall' : undefined}
+                        key={item.id}
+                        transition={sideTabContentTransition}
+                        value={item.id}
+                      >
                         <div>
                           <span>현재 패널</span>
                           <strong>{item.title}</strong>
@@ -222,6 +232,23 @@ export function SideNavigationCatalog({
               </article>
             );
           })}
+        </div>
+
+        <div className={styles.stateExample}>
+          <span>비활성 경로 상태</span>
+          <SideList aria-label="Side List 비활성 상태" value="today" variant="quiet-rows">
+            <SideListItem disabled value="disabled-route">
+              <Link
+                search={{
+                  'route-tab': initialRouteTab,
+                  'side-route': 'themes',
+                }}
+                to="/__ui-lab"
+              >
+                준비 중인 경로
+              </Link>
+            </SideListItem>
+          </SideList>
         </div>
       </section>
     </section>

@@ -83,28 +83,39 @@ export function SideListItem({
   if (!context) throw new Error('SideListItem must be used within SideList');
 
   const unavailable = disabled || isStatic;
-  const handleClick = (event: MouseEvent<HTMLElement>) => {
-    if (unavailable) {
+  const item = (
+    <Slot.Root
+      {...props}
+      aria-busy={pending || props['aria-busy']}
+      aria-current={context.value === value ? 'page' : undefined}
+      aria-disabled={unavailable || props['aria-disabled']}
+      className={cn(styles.item, className)}
+      data-pending={pending || undefined}
+      data-static={isStatic || undefined}
+      onClick={unavailable ? undefined : onClick}
+    >
+      {children}
+    </Slot.Root>
+  );
+
+  if (unavailable) {
+    const blockChildInteraction = (event: MouseEvent<HTMLElement>) => {
       event.preventDefault();
-      return;
-    }
-    onClick?.(event);
-  };
+      event.stopPropagation();
+    };
+
+    return (
+      <HighlightItem asChild ref={ref as Ref<HTMLDivElement>} value={value}>
+        <span className={styles.unavailableGuard} onClickCapture={blockChildInteraction}>
+          {item}
+        </span>
+      </HighlightItem>
+    );
+  }
 
   return (
     <HighlightItem asChild ref={ref as Ref<HTMLDivElement>} value={value}>
-      <Slot.Root
-        {...props}
-        aria-busy={pending || props['aria-busy']}
-        aria-current={context.value === value ? 'page' : undefined}
-        aria-disabled={unavailable || props['aria-disabled']}
-        className={cn(styles.item, className)}
-        data-pending={pending || undefined}
-        data-static={isStatic || undefined}
-        onClick={handleClick}
-      >
-        {children}
-      </Slot.Root>
+      {item}
     </HighlightItem>
   );
 }

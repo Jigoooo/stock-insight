@@ -48,7 +48,7 @@ export function SideTabsHighlight({ className, transition, ...props }: SideTabsH
     <TabsHighlightPrimitive
       {...props}
       className={cn(styles.highlight, className)}
-      transition={transition ?? (reducedMotion ? { duration: 0 } : undefined)}
+      transition={reducedMotion ? { duration: 0 } : transition}
     />
   );
 }
@@ -84,7 +84,7 @@ export function SideTabsContent({ className, transition, ...props }: SideTabsCon
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: reducedMotion ? 0 : -2 }}
       transition={
-        transition ?? (reducedMotion ? { duration: 0 } : { duration: 0.16, ease: 'easeOut' })
+        reducedMotion ? { duration: 0 } : (transition ?? { duration: 0.16, ease: 'easeOut' })
       }
     />
   );
@@ -92,6 +92,14 @@ export function SideTabsContent({ className, transition, ...props }: SideTabsCon
 
 export type SideTabsContentsProps = TabsContentsPrimitiveProps;
 
-export function SideTabsContents({ className, ...props }: SideTabsContentsProps) {
-  return <TabsContentsPrimitive {...props} className={cn(styles.contents, className)} />;
+export function SideTabsContents({ className, transition, ...props }: SideTabsContentsProps) {
+  const reducedMotion = useReducedMotion();
+
+  return (
+    <TabsContentsPrimitive
+      {...props}
+      className={cn(styles.contents, className)}
+      transition={reducedMotion ? { duration: 0 } : transition}
+    />
+  );
 }
