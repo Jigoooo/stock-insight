@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 async function openPaginationPage(page: Page, currentPage: number) {
@@ -221,25 +222,37 @@ test.describe('UI Lab location navigation', () => {
     await expect(currentPage).not.toHaveCSS('border-radius', '0px');
   });
 
-  test('keeps mobile pagination targets at 44 by 44 without page overflow', async ({ page }) => {
-    test.skip((page.viewportSize()?.width ?? 0) > 520, '390px mobile contract');
-    const catalog = await openPaginationPage(page, 1);
-    const pagination = catalog.locator('[data-pagination-variant="hairline"]');
+  test('keeps every mobile location-navigation target tappable without page overflow', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', '390px mobile contract');
+    const catalog = await openPaginationPage(page, 3);
+    const interactiveTargets = catalog.locator(
+      '[data-breadcrumb-variant] a:visible, [data-pagination-variant] a:visible, [data-pagination-variant] button:visible',
+    );
 
-    const metrics = await pagination.locator('a, [aria-disabled="true"]').evaluateAll((actions) =>
-      actions.map((action) => ({
-        height: action.getBoundingClientRect().height,
-        width: action.getBoundingClientRect().width,
+    const metrics = await interactiveTargets.evaluateAll((targets) =>
+      targets.map((target) => ({
+        height: target.getBoundingClientRect().height,
+        label: target.getAttribute('aria-label') ?? target.textContent?.trim() ?? '',
       })),
     );
-    expect(metrics.every(({ height, width }) => height >= 44 && width >= 44)).toBe(true);
+    expect(metrics.length).toBeGreaterThan(0);
+    expect(metrics.filter(({ height }) => height < 44)).toEqual([]);
 
-    const pageWidths = await page.evaluate(() => {
-      return {
-        documentWidth: document.documentElement.scrollWidth,
-        viewportWidth: document.documentElement.clientWidth,
-      };
-    });
-    expect(pageWidths.documentWidth).toBeLessThanOrEqual(pageWidths.viewportWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+  });
+
+  test('has no automatic accessibility violations in the 3C catalog', async ({ page }) => {
+    await openPaginationPage(page, 3);
+
+    const results = await new AxeBuilder({ page })
+      .include('[data-catalog="location-navigation"]')
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });

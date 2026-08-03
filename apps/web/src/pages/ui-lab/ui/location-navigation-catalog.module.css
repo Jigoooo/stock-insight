@@ -138,7 +138,7 @@
 }
 
 .breadcrumbLink {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-decoration: none;
   text-underline-offset: 3px;
 }
@@ -170,7 +170,7 @@
 
 [data-breadcrumb-variant='soft-inset'] .breadcrumbCurrent {
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: var(--color-accent-soft);
 }
 
 [data-breadcrumb-variant='ledger'] .breadcrumbList {
@@ -217,7 +217,7 @@
   justify-content: center;
   gap: 6px;
   border: 0;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font: inherit;
   font-size: 11px;
   text-decoration: none;
@@ -262,7 +262,7 @@
 
 .paginationEllipsis {
   width: 20px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 
@@ -276,7 +276,7 @@
   inset: 2px;
   border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 64%, transparent);
+  background: var(--color-accent-soft);
 }
 
 .ledgerControls {
@@ -318,7 +318,7 @@
 
 .cursorStatus {
   min-width: 62px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-align: right;
 }
 
