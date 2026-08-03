@@ -38,7 +38,22 @@ test.describe('UI Lab Menu & Overlay', () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toHaveAttribute('data-variant', variant);
       await page.keyboard.press('Escape');
-      await expect(dialog).toBeHidden();
+      await page.waitForTimeout(20);
+      expect(
+        await page.evaluate(() => {
+          const overlay = document.querySelector('[data-slot="sheet-overlay"]');
+          return overlay ? getComputedStyle(overlay).pointerEvents : 'none';
+        }),
+      ).toBe('none');
+      await page.waitForTimeout(100);
+      await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
+      await expect(dialog).toHaveCount(0);
+      expect(
+        await page.evaluate(() => ({
+          bodyPointerEvents: getComputedStyle(document.body).pointerEvents,
+          scrollLocked: document.body.hasAttribute('data-scroll-locked'),
+        })),
+      ).toEqual({ bodyPointerEvents: 'auto', scrollLocked: false });
     }
 
     expect(page.url()).toBe(initialUrl);
@@ -65,6 +80,15 @@ test.describe('UI Lab Menu & Overlay', () => {
     const bottomSheet = page.getByRole('dialog');
     await expect(bottomSheet).toHaveAttribute('data-overlay-kind', 'bottom-sheet');
     await expect(bottomSheet).toHaveCSS('transform', 'none');
+    const bottomSheetBox = await bottomSheet.boundingBox();
+    const viewport = page.viewportSize();
+    expect(bottomSheetBox).toBeTruthy();
+    expect(viewport).toBeTruthy();
+    const leftGap = bottomSheetBox?.x ?? 0;
+    const rightGap =
+      (viewport?.width ?? 0) -
+      ((bottomSheetBox?.x ?? 0) + (bottomSheetBox?.width ?? viewport?.width ?? 0));
+    expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(1);
     await page.keyboard.press('Escape');
 
     const results = await new AxeBuilder({ page })

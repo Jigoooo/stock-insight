@@ -260,6 +260,9 @@
 - 메뉴 실행은 UI Lab 로컬 `aria-live` 결과만 갱신하며 기존 URL과 제품 데이터는 변경하지 않음
 - 검증: Menu & Overlay Node 모델 계약 2건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건과 Axe 집중 검사 통과
 - Codex 인앱 브라우저 6110에서 A/B/C 여섯 표면 렌더링, DropdownMenu A 실행 결과와 URL 고정을 확인하고 사용자 시각 승인 대기 상태로 전환함
+- 사용자 피드백에 따라 A Hairline의 메뉴·Popover·trigger 라운드를 키우고, C Compact Ledger의 과도한 직각 표현과 BottomSheet 좌우 비대칭을 보정함
+- 공용 Sheet 종료를 Dialog 계열과 같은 계약으로 맞춰 overlay·content가 닫힘 즉시 포인터를 놓고 각각 100ms·80ms 안에 퇴장하도록 변경함
+- 회귀 계약은 닫힘 20ms 뒤 overlay `pointer-events: none`, 120ms 뒤 Portal·스크롤 잠금 제거, 390px BottomSheet 좌우 여백 대칭을 직접 검증함
 - 다음 행동은 사용자 승인 결과를 기록한 뒤 승인 variant만 `shared/ui`로 공용화하는 것임
 
 ## 실행 환경 메모

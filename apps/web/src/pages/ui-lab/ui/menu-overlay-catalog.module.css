@@ -240,8 +240,19 @@
   box-shadow: none;
 }
 
+.menuContent[data-variant='hairline'],
+.popoverContent[data-variant='hairline'] {
+  border-radius: var(--radius-lg);
+}
+
 .variantCard[data-variant='hairline'] .previewGroup {
   background: var(--color-surface);
+}
+
+.variantCard[data-variant='hairline'] .previewTrigger[data-slot='button-control'],
+.variantCard[data-variant='hairline'] .panelTrigger[data-slot='button-control'],
+.variantCard[data-variant='hairline'] .contextTarget {
+  border-radius: var(--radius-lg);
 }
 
 .menuContent[data-variant='soft-surface'],
@@ -257,9 +268,8 @@
 }
 
 .menuContent[data-variant='compact-ledger'],
-.popoverContent[data-variant='compact-ledger'],
-.panelContent[data-variant='compact-ledger'] {
-  border-radius: 3px;
+.popoverContent[data-variant='compact-ledger'] {
+  border-radius: var(--radius-md);
 }
 
 .menuContent[data-variant='compact-ledger'] {
