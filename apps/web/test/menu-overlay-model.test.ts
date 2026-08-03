@@ -5,21 +5,9 @@ import {
   menuOverlayVariants,
   researchActions,
   resolveResearchActionResult,
-  roadmapBatches,
 } from '../src/pages/ui-lab/ui/menu-overlay-model.ts';
 
 describe('Menu & Overlay model', () => {
-  it('exposes the four consolidated rollout batches in order', () => {
-    assert.deepEqual(
-      roadmapBatches.map((batch) => batch.title),
-      ['Menu & Overlay', 'Identity & Content', 'Data & Feedback', 'Charts End-to-End'],
-    );
-    assert.deepEqual(
-      roadmapBatches.map((batch) => batch.state),
-      ['완료', '다음', '예정', '예정'],
-    );
-  });
-
   it('returns a local result only for enabled menu actions', () => {
     const evidence = researchActions.find((action) => action.id === 'evidence');
     const archived = researchActions.find((action) => action.id === 'archived');

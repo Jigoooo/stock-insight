@@ -1,6 +1,5 @@
 export const roadmapBatches = [
-  { state: '완료', title: 'Menu & Overlay' },
-  { state: '다음', title: 'Identity & Content' },
+  { state: '진행 중', title: 'Identity & Content' },
   { state: '예정', title: 'Data & Feedback' },
   { state: '예정', title: 'Charts End-to-End' },
 ] as const;
