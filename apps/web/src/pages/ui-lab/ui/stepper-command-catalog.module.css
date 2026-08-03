@@ -1,0 +1,393 @@
+.catalog {
+  display: grid;
+  gap: 36px;
+  margin-top: 48px;
+  padding-top: 36px;
+  border-top: 1px solid var(--color-border);
+}
+
+.catalogHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 440px);
+  align-items: end;
+  gap: 24px;
+}
+
+.catalogHeader span,
+.comparisonHeading > span,
+.variantCard > header > span,
+.ledger-steps small {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.catalogHeader h2,
+.catalogHeader p,
+.comparisonHeading h3,
+.comparisonHeading p,
+.variantCard h4,
+.variantCard p {
+  margin: 0;
+}
+
+.catalogHeader h2 {
+  margin-top: 6px;
+  font-size: 24px;
+  letter-spacing: -0.035em;
+}
+
+.catalogHeader p,
+.comparisonHeading p {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.comparison {
+  display: grid;
+  gap: 14px;
+}
+
+.comparisonHeading {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.comparisonHeading > span {
+  flex: none;
+}
+
+.comparisonHeading h3 {
+  font-size: 16px;
+}
+
+.comparisonHeading p {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.variantCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.variantCard > header {
+  min-height: 154px;
+  padding: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.variantCard h4 {
+  margin-top: 9px;
+  font-size: 15px;
+}
+
+.variantCard > header p {
+  margin-top: 7px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.previewSurface {
+  min-width: 0;
+  min-height: 270px;
+  padding: 18px;
+  background: var(--color-canvas);
+}
+
+.stepList {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepList button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stepList button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.stepContent {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.stepIndicator {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: currentColor;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepCopy {
+  min-width: 0;
+}
+
+.stepCopy strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.stepList li[data-state='completed'] button {
+  color: var(--color-text-secondary);
+}
+
+.stepList li[data-state='current'] button {
+  color: var(--color-text-primary);
+}
+
+.hairline-flow {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding-top: 14px;
+}
+
+.hairline-flow::before {
+  position: absolute;
+  top: 21px;
+  right: 12.5%;
+  left: 12.5%;
+  height: 1px;
+  background: var(--color-border);
+  content: '';
+}
+
+.hairline-flow li {
+  position: relative;
+  min-width: 0;
+}
+
+.hairline-flow button {
+  padding: 0 3px;
+  text-align: center;
+}
+
+.hairline-flow .stepContent {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.hairline-flow .stepIndicator {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-canvas);
+}
+
+.hairline-flow li[data-state='completed'] .stepIndicator,
+.hairline-flow li[data-state='current'] .stepIndicator {
+  border-color: color-mix(in srgb, var(--color-text-primary) 42%, var(--color-border));
+}
+
+.hairline-flow li[data-state='current']::after {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 22px;
+  height: 2px;
+  background: var(--color-text-primary);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.soft-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.soft-track li {
+  min-width: 0;
+}
+
+.soft-track button {
+  position: relative;
+  padding: 6px;
+  text-align: center;
+}
+
+.soft-track .stepContent {
+  justify-content: center;
+  gap: 6px;
+}
+
+.soft-track .stepIndicator {
+  width: 14px;
+}
+
+.softTrackIndicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-sm) - 1px);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+}
+
+.ledger-steps {
+  display: grid;
+  border-top: 1px solid var(--color-border);
+}
+
+.ledger-steps li {
+  min-width: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ledger-steps button {
+  padding: 10px 0 10px 10px;
+  border-left: 2px solid transparent;
+}
+
+.ledger-steps li[data-state='completed'] button {
+  border-left-color: var(--color-border-strong);
+}
+
+.ledger-steps li[data-state='current'] button {
+  border-left-color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.ledger-steps .stepContent {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.ledger-steps .stepIndicator {
+  align-self: start;
+  width: 18px;
+  height: 18px;
+}
+
+.ledger-steps .stepCopy > span {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  color: var(--color-text-tertiary);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.ledger-steps small {
+  align-self: start;
+  padding-top: 2px;
+  font-size: 8px;
+}
+
+.ledger-steps li[data-state='current'] small {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 1120px) {
+  .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .variantCard {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+  }
+
+  .variantCard > header {
+    border-right: 1px solid var(--color-border);
+    border-bottom: 0;
+  }
+
+  .previewSurface {
+    min-height: 210px;
+  }
+}
+
+@media (max-width: 680px) {
+  .catalogHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .variantCard {
+    grid-template-columns: 1fr;
+  }
+
+  .variantCard > header {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
+
+@media (max-width: 520px) {
+  .comparisonHeading {
+    display: grid;
+    gap: 6px;
+  }
+
+  .previewSurface {
+    padding: 14px;
+  }
+
+  .hairline-flow button,
+  .soft-track button {
+    padding-inline: 2px;
+  }
+
+  .hairline-flow .stepCopy strong,
+  .soft-track .stepCopy strong {
+    font-size: 10px;
+  }
+
+  .soft-track .stepContent {
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .softTrackIndicator {
+    transition: none;
+  }
+}
