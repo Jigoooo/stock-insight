@@ -4,6 +4,8 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { publicBlockTypeForVerification } from './truth-gate.ts';
 
+import { containsActionAdvice } from '../shared/action-advice.ts';
+
 // SET F / F-4: incremental event-brief trigger (Baseline §7.4/§14.5 skeleton).
 // Detects high-importance document-backed events in the last 24h and publishes
 // per-entity event briefs through the same atomic pointer mechanism
@@ -114,8 +116,16 @@ INSERT INTO public.migration_runs (
 ) VALUES ($1, $2, 'derived', 'completed', $3, $4, $5, $6, $7, NULL, $8::jsonb)
 `;
 
-const ACTION_ADVICE_PATTERN =
-  /(매수|매도|사세요|파세요|팔아라|사라|추격|익절|손절하세요|buy now|sell now|strong buy)/i;
+// The canonical gate, not a hand-rolled copy. Both of these files carried a
+// comment saying they reused the production action-advice wording while actually
+// running a cruder pattern that matched bare 매수/매도/추격/익절. That flagged
+// 644 of 4,003 events as advice, including every insider-transaction disclosure
+// ("삼성전기 임원 순매수 14,851,645주") and every circuit-breaker headline
+// ("코스닥 매도 사이드카 발동") — market facts this product exists to surface.
+// shared/action-advice.ts blocks 409: it still catches broker calls
+// ("HD현대중공업 iM증권 목표가 860000 Buy") and every imperative form, because it
+// matches 매수/매도 only when followed by 하세요·하라·추천·시점·타이밍·지시·신호,
+// and it strips disclaimer wording before testing.
 
 type EventRow = QueryResultRow & {
   event_id: string | number;
@@ -216,7 +226,7 @@ async function run(): Promise<void> {
       const event = entry.event;
       const scopeKey = event.target_key ?? 'global';
       const text = (event.summary_text ?? event.document_title ?? '').slice(0, 400);
-      if (ACTION_ADVICE_PATTERN.test(text)) continue; // hard gate
+      if (containsActionAdvice(text)) continue; // hard gate
       const payload = {
         title: `[속보] ${event.target_name ?? '시장'} — ${event.event_type}`,
         thesis: text,
