@@ -119,7 +119,14 @@ LEFT JOIN knowledge.document document
   ON document.document_id = collapsed.source_document_id
 LEFT JOIN ingestion.source source
   ON source.source_id = document.source_id
-ORDER BY collapsed.occurred_at DESC, collapsed.event_key DESC
+-- Ordered by the field the screen prints, not by occurred_at. Measured
+-- 2026-08-03: one of the 86 matches has published_at 10.8 hours away from
+-- occurred_at, which is enough to render the list visibly out of order if the
+-- two disagree. The DISTINCT ON above still picks its survivor by occurred_at —
+-- published_at is not joined yet at that point — but that only decides which of
+-- two identical summaries survives, not where the row lands.
+ORDER BY coalesce(document.published_at, collapsed.occurred_at) DESC,
+         collapsed.event_key DESC
 LIMIT ${MARKET_TOPIC_NEWS_LIMIT}
 `;
 

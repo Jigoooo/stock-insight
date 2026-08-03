@@ -4,6 +4,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 const routes = [
   '/workspace/today',
   '/workspace/radar',
+  '/workspace/market-topic-news',
   '/workspace/stocks',
   '/workspace/crypto',
   '/workspace/themes',

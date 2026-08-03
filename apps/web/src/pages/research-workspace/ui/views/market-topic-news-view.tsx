@@ -14,7 +14,10 @@ import {
   WorkspaceState,
 } from '@/shared/ui/workspace';
 
-import type { MarketTopicNewsPage } from '@stock-insight/contracts/research-workspace';
+import {
+  MARKET_TOPIC_NEWS_MAX_ITEMS,
+  type MarketTopicNewsPage,
+} from '@stock-insight/contracts/research-workspace';
 
 // Market-wide news: events that carry market vocabulary and name no company.
 //
@@ -30,6 +33,7 @@ export function MarketTopicNewsView({ data }: { data: MarketTopicNewsPage }) {
   const collapsedAway = data.items.reduce((sum, item) => sum + item.duplicateCount - 1, 0);
   const deadTerms = data.termCounts.filter((term) => term.events === 0);
   const linkedCount = data.items.filter((item) => item.url !== null).length;
+  const truncated = data.items.length >= MARKET_TOPIC_NEWS_MAX_ITEMS;
 
   return (
     <>
@@ -74,6 +78,17 @@ export function MarketTopicNewsView({ data }: { data: MarketTopicNewsPage }) {
                   ? '같은 본문이 겹친 것 없음'
                   : `${formatNumber(collapsedAway)}건은 본문이 같아 한 줄로 묶었습니다`,
             },
+            // Today the item list is short enough that the only gap is
+            // duplication. When it is not, saying nothing would read as
+            // "this is all of it" — so the cap says so itself.
+            ...(truncated
+              ? [
+                  {
+                    label: '잘린 목록',
+                    value: `최근 ${formatNumber(MARKET_TOPIC_NEWS_MAX_ITEMS)}건까지만 표시합니다 — 나머지는 화면에 없습니다`,
+                  },
+                ]
+              : []),
           ]}
         />
         {data.items.length === 0 ? (
