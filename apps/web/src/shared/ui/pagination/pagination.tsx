@@ -10,10 +10,15 @@ import {
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
-  type MouseEvent,
   type ReactNode,
 } from 'react';
 
+import {
+  composePaginationActionClick,
+  isPaginationActionDisabled,
+  paginationActionSemantics,
+  prepareSlottedPaginationAction,
+} from './pagination-availability';
 import styles from './pagination.module.css';
 
 import { cn } from '@/shared/lib/utils';
@@ -123,30 +128,51 @@ type PaginationDirectionProps = PaginationLinkProps & {
   label?: string;
 };
 
-function preventDisabledClick(
-  disabled: boolean,
-  onClick: PaginationLinkProps['onClick'],
-  event: MouseEvent<HTMLAnchorElement>,
-) {
-  if (disabled) {
-    event.preventDefault();
-    return;
-  }
-  onClick?.(event);
-}
-
 export const PaginationPrevious = forwardRef<HTMLAnchorElement, PaginationDirectionProps>(
   function PaginationPrevious(
-    { children, disabled = false, label = 'Previous page', onClick, ...props },
+    {
+      'aria-disabled': ariaDisabled,
+      asChild = false,
+      children,
+      className,
+      disabled = false,
+      label = 'Previous page',
+      onClick,
+      tabIndex,
+      ...props
+    },
     ref,
   ) {
+    const state = { ariaDisabled, disabled };
+    if (asChild) {
+      const slotted = prepareSlottedPaginationAction(children, state, onClick);
+      return (
+        <Slot.Root
+          {...props}
+          aria-disabled={slotted.semantics.ariaDisabled ?? ariaDisabled}
+          className={cn(styles.link, className)}
+          data-direction="previous"
+          data-slot="pagination-previous"
+          onClick={slotted.handleClick}
+          ref={ref}
+          tabIndex={slotted.semantics.tabIndex ?? tabIndex}
+        >
+          {slotted.slottedChild}
+        </Slot.Root>
+      );
+    }
+
+    const isDisabled = isPaginationActionDisabled(state);
+    const semantics = paginationActionSemantics(isDisabled, false);
     return (
       <PaginationLink
         {...props}
-        aria-disabled={disabled || props['aria-disabled']}
+        aria-disabled={semantics.ariaDisabled ?? ariaDisabled}
+        className={className}
         data-direction="previous"
-        onClick={(event) => preventDisabledClick(disabled, onClick, event)}
+        onClick={composePaginationActionClick({ disabled: isDisabled, onClick })}
         ref={ref}
+        tabIndex={semantics.tabIndex ?? tabIndex}
       >
         {children ?? (
           <>
@@ -161,16 +187,49 @@ export const PaginationPrevious = forwardRef<HTMLAnchorElement, PaginationDirect
 
 export const PaginationNext = forwardRef<HTMLAnchorElement, PaginationDirectionProps>(
   function PaginationNext(
-    { children, disabled = false, label = 'Next page', onClick, ...props },
+    {
+      'aria-disabled': ariaDisabled,
+      asChild = false,
+      children,
+      className,
+      disabled = false,
+      label = 'Next page',
+      onClick,
+      tabIndex,
+      ...props
+    },
     ref,
   ) {
+    const state = { ariaDisabled, disabled };
+    if (asChild) {
+      const slotted = prepareSlottedPaginationAction(children, state, onClick);
+      return (
+        <Slot.Root
+          {...props}
+          aria-disabled={slotted.semantics.ariaDisabled ?? ariaDisabled}
+          className={cn(styles.link, className)}
+          data-direction="next"
+          data-slot="pagination-next"
+          onClick={slotted.handleClick}
+          ref={ref}
+          tabIndex={slotted.semantics.tabIndex ?? tabIndex}
+        >
+          {slotted.slottedChild}
+        </Slot.Root>
+      );
+    }
+
+    const isDisabled = isPaginationActionDisabled(state);
+    const semantics = paginationActionSemantics(isDisabled, false);
     return (
       <PaginationLink
         {...props}
-        aria-disabled={disabled || props['aria-disabled']}
+        aria-disabled={semantics.ariaDisabled ?? ariaDisabled}
+        className={className}
         data-direction="next"
-        onClick={(event) => preventDisabledClick(disabled, onClick, event)}
+        onClick={composePaginationActionClick({ disabled: isDisabled, onClick })}
         ref={ref}
+        tabIndex={semantics.tabIndex ?? tabIndex}
       >
         {children ?? (
           <>
@@ -252,17 +311,54 @@ export type CursorPaginationActionProps = ButtonHTMLAttributes<HTMLButtonElement
 };
 
 export const CursorPaginationAction = forwardRef<HTMLButtonElement, CursorPaginationActionProps>(
-  function CursorPaginationAction({ asChild = false, className, type = 'button', ...props }, ref) {
-    const Comp = asChild ? Slot.Root : 'button';
+  function CursorPaginationAction(
+    {
+      'aria-disabled': ariaDisabled,
+      asChild = false,
+      children,
+      className,
+      disabled = false,
+      onClick,
+      tabIndex,
+      type = 'button',
+      ...props
+    },
+    ref,
+  ) {
+    const state = { ariaDisabled, disabled };
+    if (asChild) {
+      const slotted = prepareSlottedPaginationAction(children, state, onClick);
+      return (
+        <Slot.Root
+          {...props}
+          aria-disabled={slotted.semantics.ariaDisabled ?? ariaDisabled}
+          className={cn(styles.cursorAction, className)}
+          data-slot="cursor-pagination-action"
+          onClick={slotted.handleClick}
+          ref={ref}
+          tabIndex={slotted.semantics.tabIndex ?? tabIndex}
+        >
+          {slotted.slottedChild}
+        </Slot.Root>
+      );
+    }
 
+    const isDisabled = isPaginationActionDisabled(state);
+    const semantics = paginationActionSemantics(isDisabled, true);
     return (
-      <Comp
+      <button
         {...props}
+        aria-disabled={semantics.ariaDisabled ?? ariaDisabled}
         className={cn(styles.cursorAction, className)}
         data-slot="cursor-pagination-action"
+        disabled={semantics.nativeDisabled}
+        onClick={composePaginationActionClick({ disabled: isDisabled, onClick })}
         ref={ref}
-        {...(asChild ? {} : { type })}
-      />
+        tabIndex={semantics.tabIndex ?? tabIndex}
+        type={type}
+      >
+        {children}
+      </button>
     );
   },
 );

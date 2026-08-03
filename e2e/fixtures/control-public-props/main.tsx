@@ -208,8 +208,10 @@ export const nativeControlPropsFixture = (
     <Pagination aria-label="Fixture pages" variant="soft-inset">
       <PaginationList>
         <PaginationItem>
-          <PaginationPrevious asChild>
-            <button type="button">Previous</button>
+          <PaginationPrevious asChild disabled>
+            <a href="/page/0" onClick={() => undefined}>
+              Previous
+            </a>
           </PaginationPrevious>
         </PaginationItem>
         <PaginationItem>
@@ -230,15 +232,21 @@ export const nativeControlPropsFixture = (
           </PaginationEllipsis>
         </PaginationItem>
         <PaginationItem>
-          <PaginationNext href="/page/2">Next</PaginationNext>
+          <PaginationNext asChild aria-disabled="true">
+            <button onClick={() => undefined} type="button">
+              Next
+            </button>
+          </PaginationNext>
         </PaginationItem>
       </PaginationList>
       <PaginationStatus>01 / 12</PaginationStatus>
     </Pagination>
     <CursorPagination>
       <CursorPaginationMessage>More records are available.</CursorPaginationMessage>
-      <CursorPaginationAction asChild>
-        <a href="/cursor/next">Load more</a>
+      <CursorPaginationAction asChild disabled>
+        <a href="/cursor/next" onClick={() => undefined}>
+          Load more
+        </a>
       </CursorPaginationAction>
     </CursorPagination>
     <Tabs defaultValue="impact" fullWidth variant="soft-inset">
