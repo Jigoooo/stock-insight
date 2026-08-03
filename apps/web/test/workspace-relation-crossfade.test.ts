@@ -10,10 +10,12 @@ const themesUrl = new URL(
   '../src/pages/research-workspace/ui/views/themes-view.tsx',
   import.meta.url,
 );
-const cssUrl = new URL(
-  '../src/pages/research-workspace/ui/research-workspace-page.module.css',
-  import.meta.url,
-);
+// Row feedback moved out of the page stylesheet in 1edcf81 ("워크스페이스 제품 UI
+// 수렴") when tables became the shared DataTable/Table pair. The rule survived the
+// move intact; only this pointer was left behind, so the assertion below had been
+// matching an empty string and failing ever since. It reads the rule where it now
+// lives rather than restoring the duplicate the refactor deleted.
+const cssUrl = new URL('../src/shared/ui/table/table.module.css', import.meta.url);
 const statusUrl = new URL(
   '../src/pages/research-workspace/ui/views/status-view.tsx',
   import.meta.url,
@@ -62,8 +64,11 @@ describe('workspace relation crossfade', () => {
       readFile(cssUrl, 'utf8'),
       readFile(statusUrl, 'utf8'),
     ]);
-    const hoverRule = css.match(/\.tableWrap tbody tr:hover td\s*\{([^}]*)\}/)?.[1] ?? '';
+    const hoverRule = css.match(/\.row:hover[^{]*\{([^}]*)\}/)?.[1] ?? '';
 
+    // An empty match used to pass the doesNotMatch pair silently, so the rule has
+    // to be proven present before its contents are judged.
+    assert.notEqual(hoverRule.trim(), '', 'row hover feedback rule not found');
     assert.match(hoverRule, /background:/);
     assert.doesNotMatch(hoverRule, /transform|translate|scale/);
     assert.doesNotMatch(status, /NumberTicker|requestAnimationFrame|setInterval/);
