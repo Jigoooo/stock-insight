@@ -59,6 +59,7 @@ import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_fin
 import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_confirmation_reads_v2.ts';
 import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_event_projects_magnitude.ts';
 import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity_seed.ts';
+import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revision_identity.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -754,6 +755,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: cryptoIdentitySeedMigrationSql,
   },
+  {
+    id: '062_event_revision_identity',
+    description:
+      'Gives knowledge.event the (event_key, revision_no) identity every other observation table here already has, so a re-extraction supersedes rather than duplicates. Adds serving.v_knowledge_event_current_v1 as the single place consumers read current observations from.',
+    tables: [],
+    sql: eventRevisionIdentityMigrationSql,
+  },
 ];
 
 export {
@@ -817,5 +825,6 @@ export {
   marketConfirmationReadsV2MigrationSql,
   worldEventProjectsMagnitudeMigrationSql,
   cryptoIdentitySeedMigrationSql,
+  eventRevisionIdentityMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
