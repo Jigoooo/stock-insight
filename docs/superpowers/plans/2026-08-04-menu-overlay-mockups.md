@@ -19,7 +19,7 @@
 - Do not add menu checkbox items, radio items, submenus, packages, or an overlay provider.
 - Keep URL and product data unchanged; actions update only an `aria-live` UI Lab result.
 - Preserve Escape/outside-click dismissal, focus return, 390px no-overflow, 44px touch targets, and `prefers-reduced-motion`.
-- Mock verification is intentionally narrow: two Node source-contract tests, two Playwright tests, web typecheck, changed-file Oxfmt/Oxlint, and `git diff --check`.
+- Mock verification is intentionally narrow: two Node model-behavior tests, two Playwright tests, web typecheck, changed-file Oxfmt/Oxlint, and `git diff --check`.
 - Do not run the full repository test or build gate during this mockup plan.
 
 ---
@@ -28,8 +28,9 @@
 
 - Create `apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx`: owns variant metadata, shared action fixtures, local result state, Radix menu/popover markup, and Sheet presentations.
 - Create `apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css`: owns only the unapproved A/B/C catalog visuals and responsive/reduced-motion rules.
+- Create `apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts`: owns the four roadmap batches, three variant descriptors, shared research actions, and disabled-action result policy.
 - Modify `apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx`: moves 3D to completed, installs 4A in progress, and renders four roadmap cards.
-- Create `apps/web/test/ui-lab-menu-overlay.test.ts`: two narrow source-contract tests for page wiring and catalog scope.
+- Create `apps/web/test/menu-overlay-model.test.ts`: two narrow behavior tests for roadmap consolidation and menu action results.
 - Create `e2e/ui-lab-menu-overlay.spec.ts`: two browser tests covering the six surfaces and the mobile/reduced-motion/Axe contract.
 - Modify `docs/superpowers/UI-SYSTEM-ROLLOUT.md`: records mock implementation and focused verification without advancing to publicization.
 
@@ -40,44 +41,40 @@
 **Files:**
 
 - Modify: `apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx`
+- Create: `apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts`
 - Create: `apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx`
-- Test: `apps/web/test/ui-lab-menu-overlay.test.ts`
+- Test: `apps/web/test/menu-overlay-model.test.ts`
 
 **Interfaces:**
 
 - Consumes: existing `StepperCommandCatalog` and `TabsContent` composition.
-- Produces: exported `MenuOverlayCatalog(): ReactElement` catalog shell that Task 2 fills with interactive comparisons; `roadmapBatches` with exactly four entries.
+- Produces: exported `MenuOverlayCatalog(): ReactElement` catalog shell that Task 2 fills with interactive comparisons; exported `roadmapBatches` with exactly four entries.
 
 - [ ] **Step 1: Write the failing page-wiring contract**
 
-Create `apps/web/test/ui-lab-menu-overlay.test.ts` with the first test:
+Create `apps/web/test/menu-overlay-model.test.ts` with the first test:
 
 ```ts
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-async function readUiLabSource(path: string) {
-  return readFile(new URL(`../src/pages/ui-lab/ui/${path}`, import.meta.url), 'utf8');
-}
+import { roadmapBatches } from '../src/pages/ui-lab/ui/menu-overlay-model.ts';
 
-describe('UI Lab Menu & Overlay catalog', () => {
-  it('moves 3D to completed and exposes four consolidated roadmap cards', async () => {
-    const page = await readUiLabSource('ui-lab-page.tsx');
-
-    assert.match(page, /<StepperCommandCatalog \/>/);
-    assert.match(page, /<MenuOverlayCatalog \/>/);
-    assert.match(page, /<h2>Menu & Overlay<\/h2>/);
-
-    for (const title of [
+describe('Menu & Overlay model', () => {
+  it('exposes the four consolidated rollout batches in order', () => {
+    assert.deepEqual(
+      roadmapBatches.map((batch) => batch.title),
+      [
       'Menu & Overlay',
       'Identity & Content',
       'Data & Feedback',
       'Charts End-to-End',
-    ]) {
-      assert.match(page, new RegExp(`title: '${title}'`));
-    }
-    assert.equal(page.match(/title: '/g)?.length, 4);
+      ],
+    );
+    assert.deepEqual(
+      roadmapBatches.map((batch) => batch.state),
+      ['진행 중', '예정', '예정', '예정'],
+    );
   });
 });
 ```
@@ -88,17 +85,17 @@ Run:
 
 ```bash
 cd apps/web
-node --test test/ui-lab-menu-overlay.test.ts
+node --test test/menu-overlay-model.test.ts
 ```
 
-Expected: FAIL because `MenuOverlayCatalog` and the four object-based roadmap entries do not exist.
+Expected: FAIL because `menu-overlay-model.ts` does not exist.
 
 - [ ] **Step 3: Add the page wiring and minimal catalog boundary**
 
-In `ui-lab-page.tsx`, replace `futureBatches` with:
+Create `menu-overlay-model.ts` with:
 
 ```ts
-const roadmapBatches = [
+export const roadmapBatches = [
   { state: '진행 중', title: 'Menu & Overlay' },
   { state: '예정', title: 'Identity & Content' },
   { state: '예정', title: 'Data & Feedback' },
@@ -106,7 +103,7 @@ const roadmapBatches = [
 ] as const;
 ```
 
-Import `MenuOverlayCatalog`, render `StepperCommandCatalog` after `LocationNavigationCatalog` in the completed content, and replace the in-progress intro/catalog with:
+Import `roadmapBatches` and `MenuOverlayCatalog` in `ui-lab-page.tsx`, render `StepperCommandCatalog` after `LocationNavigationCatalog` in the completed content, and replace the in-progress intro/catalog with:
 
 ```tsx
 <div className={styles.statusIntro}>
@@ -140,7 +137,7 @@ Run:
 
 ```bash
 cd apps/web
-node --test test/ui-lab-menu-overlay.test.ts
+node --test test/menu-overlay-model.test.ts
 ```
 
 Expected: 1 test passes.
@@ -148,7 +145,7 @@ Expected: 1 test passes.
 - [ ] **Step 5: Commit the status-tab slice**
 
 ```bash
-git add apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/test/ui-lab-menu-overlay.test.ts
+git add apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/test/menu-overlay-model.test.ts
 git commit -m "feat(ui-lab): 통합 오버레이 묶음으로 전환"
 ```
 
@@ -159,39 +156,36 @@ git commit -m "feat(ui-lab): 통합 오버레이 묶음으로 전환"
 **Files:**
 
 - Modify: `apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx`
+- Modify: `apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts`
 - Create: `apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css`
-- Modify: `apps/web/test/ui-lab-menu-overlay.test.ts`
+- Modify: `apps/web/test/menu-overlay-model.test.ts`
 
 **Interfaces:**
 
-- Consumes: `Button`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetHeader`, `SheetTitle`, `SheetTrigger`; Radix `DropdownMenu`, `ContextMenu`, and `Popover` primitives.
-- Produces: `MenuOverlayVariant`, three variant cards, stable `data-slot` hooks, and one `data-slot="menu-overlay-result"` live result.
+- Consumes: `roadmapBatches` module boundary from Task 1; `Button`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetHeader`, `SheetTitle`, `SheetTrigger`; Radix `DropdownMenu`, `ContextMenu`, and `Popover` primitives.
+- Produces: `MenuOverlayVariant`, shared research actions, disabled-action result policy, three variant cards, stable `data-slot` hooks, and one `data-slot="menu-overlay-result"` live result.
 
 - [ ] **Step 1: Add the failing catalog-scope contract**
 
-Append this test to `ui-lab-menu-overlay.test.ts`:
+Append this test and imports to `menu-overlay-model.test.ts`:
 
 ```ts
-it('keeps all six surfaces page-owned and shares one menu action fixture', async () => {
-  const catalog = await readUiLabSource('menu-overlay-catalog.tsx');
+it('returns a local result only for enabled menu actions', () => {
+  const evidence = researchActions.find((action) => action.id === 'evidence');
+  const archived = researchActions.find((action) => action.id === 'archived');
 
-  assert.match(
-    catalog,
-    /export type MenuOverlayVariant = 'hairline' \| 'soft-surface' \| 'compact-ledger'/,
+  assert.ok(evidence);
+  assert.ok(archived);
+  assert.equal(resolveResearchActionResult(evidence), '근거 보기 실행됨');
+  assert.equal(resolveResearchActionResult(archived), null);
+  assert.deepEqual(
+    menuOverlayVariants.map((variant) => variant.id),
+    ['hairline', 'soft-surface', 'compact-ledger'],
   );
-  assert.match(catalog, /const researchActions = \[/);
-  assert.equal(catalog.match(/researchActions\.map/g)?.length, 2);
-
-  for (const primitive of ['DropdownMenu', 'ContextMenu', 'Popover']) {
-    assert.match(catalog, new RegExp(`${primitive}Primitive`));
-  }
-  for (const kind of ['drawer', 'sheet', 'bottom-sheet']) {
-    assert.match(catalog, new RegExp(`kind: '${kind}'`));
-  }
-
-  assert.doesNotMatch(catalog, /CheckboxItem|RadioItem|Sub/);
 });
 ```
+
+Import `menuOverlayVariants`, `researchActions`, and `resolveResearchActionResult` from the model.
 
 - [ ] **Step 2: Run the source contract and confirm RED**
 
@@ -199,27 +193,27 @@ Run:
 
 ```bash
 cd apps/web
-node --test test/ui-lab-menu-overlay.test.ts
+node --test test/menu-overlay-model.test.ts
 ```
 
 Expected: the first test passes and the new catalog-scope test fails.
 
 - [ ] **Step 3: Define the shared variants, actions, and panel presentations**
 
-Use these exact public-in-file types and fixtures in `menu-overlay-catalog.tsx`:
+Add these exact exported types, fixtures, and policy to `menu-overlay-model.ts`:
 
 ```tsx
 export type MenuOverlayVariant = 'hairline' | 'soft-surface' | 'compact-ledger';
 type ResearchActionId = 'evidence' | 'impact' | 'copy-link' | 'archived';
 type PanelKind = 'drawer' | 'sheet' | 'bottom-sheet';
 
-const variants = [
+export const menuOverlayVariants = [
   { id: 'hairline', label: 'A · Hairline', description: '얇은 경계와 최소 표면' },
   { id: 'soft-surface', label: 'B · Soft Surface', description: '낮은 배경과 그룹 면' },
   { id: 'compact-ledger', label: 'C · Compact Ledger', description: '조밀한 행과 보조 정보' },
 ] as const;
 
-const researchActions = [
+export const researchActions = [
   { id: 'evidence', label: '근거 보기', shortcut: 'Enter' },
   { id: 'impact', label: '영향 경로 확인', shortcut: 'I' },
   { id: 'copy-link', label: '링크 복사', shortcut: '⌘ C' },
@@ -231,11 +225,17 @@ const researchActions = [
   disabled?: boolean;
 }>;
 
-const panels = [
+export const panels = [
   { kind: 'drawer', label: 'Drawer', side: 'left' },
   { kind: 'sheet', label: 'Sheet', side: 'right' },
   { kind: 'bottom-sheet', label: 'BottomSheet', side: 'bottom' },
 ] as const;
+
+export type ResearchAction = (typeof researchActions)[number];
+
+export function resolveResearchActionResult(action: ResearchAction): string | null {
+  return action.disabled ? null : `${action.label} 실행됨`;
+}
 ```
 
 Use `BookOpen`, `GitBranch`, `Copy`, and `Archive` from `lucide-react` by mapping action IDs to icons. Keep the fixture data immutable and outside the component.
@@ -252,14 +252,14 @@ import {
 } from 'radix-ui';
 ```
 
-For each variant card:
+Import `menuOverlayVariants`, `panels`, `researchActions`, and `resolveResearchActionResult` into the catalog. For each variant card:
 
 - Render a DropdownMenu button and map `researchActions` once to `DropdownMenuPrimitive.Item`.
 - Render a focusable ContextMenu target and map the same `researchActions` once to `ContextMenuPrimitive.Item`.
 - Render a Popover button whose content shows `선택 근거`, `삼성전자`, and `최근 공시와 시장 변화를 같은 기준 시점으로 확인합니다.`
 - Render Drawer, Sheet, and BottomSheet buttons by mapping `panels`; use the existing Sheet runtime with each entry's `side`.
 - Set `data-variant={variant.id}` on every portalled content surface and `data-overlay-kind={panel.kind}` on Sheet content.
-- On enabled action selection, set `lastAction` to `${action.label} 실행됨`; disabled items must not call the setter.
+- On action selection, call `resolveResearchActionResult(action)` and update `lastAction` only when the result is non-null.
 - End the catalog with:
 
 ```tsx
@@ -289,11 +289,11 @@ Run:
 
 ```bash
 cd apps/web
-node --test test/ui-lab-menu-overlay.test.ts
+node --test test/menu-overlay-model.test.ts
 cd ../..
 pnpm --filter @stock-insight/web typecheck
-pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/ui-lab-menu-overlay.test.ts
-pnpm exec oxlint apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/ui-lab-menu-overlay.test.ts
+pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/menu-overlay-model.test.ts
+pnpm exec oxlint apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/menu-overlay-model.test.ts
 git diff --check
 ```
 
@@ -302,7 +302,7 @@ Expected: 2 Node tests and all static checks pass.
 - [ ] **Step 7: Commit the catalog slice**
 
 ```bash
-git add apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/test/ui-lab-menu-overlay.test.ts
+git add apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/test/menu-overlay-model.test.ts
 git commit -m "feat(ui-lab): 메뉴와 오버레이 통합 목업 추가"
 ```
 
@@ -424,8 +424,8 @@ Append a 4A mock implementation entry to `docs/superpowers/UI-SYSTEM-ROLLOUT.md`
 Then run:
 
 ```bash
-pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/ui-lab-menu-overlay.test.ts e2e/ui-lab-menu-overlay.spec.ts docs/superpowers/UI-SYSTEM-ROLLOUT.md
-pnpm exec oxlint apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/ui-lab-menu-overlay.test.ts e2e/ui-lab-menu-overlay.spec.ts
+pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/menu-overlay-model.test.ts e2e/ui-lab-menu-overlay.spec.ts docs/superpowers/UI-SYSTEM-ROLLOUT.md
+pnpm exec oxlint apps/web/src/pages/ui-lab/ui/menu-overlay-model.ts apps/web/src/pages/ui-lab/ui/menu-overlay-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx apps/web/test/menu-overlay-model.test.ts e2e/ui-lab-menu-overlay.spec.ts
 git diff --check
 ```
 

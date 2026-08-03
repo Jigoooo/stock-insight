@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { CompletedComponentsCatalog } from './completed-components-catalog';
 import { InputActionCatalog } from './input-action-catalog';
 import { LocationNavigationCatalog, type BreadcrumbPreviewId } from './location-navigation-catalog';
+import { MenuOverlayCatalog } from './menu-overlay-catalog';
+import { roadmapBatches } from './menu-overlay-model';
 import { NavigationTabsCatalog, type RouteTabId } from './navigation-tabs-catalog';
 import { SideNavigationCatalog, type SideRouteId } from './side-navigation-catalog';
 import { StepperCommandCatalog } from './stepper-command-catalog';
@@ -17,15 +19,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/shared/ui/tabs';
-
-const futureBatches = [
-  'DropdownMenu · ContextMenu · Popover',
-  'Drawer · Sheet · BottomSheet',
-  'Avatar · Badge · Status',
-  'List · Timeline · Carousel',
-  'DataGrid · Progress · Skeleton',
-  'ChartFrame · Market Tape · Evidence Band · Candle Ledger',
-];
 
 interface UiLabPageProps {
   initialBreadcrumb: BreadcrumbPreviewId;
@@ -97,15 +90,16 @@ export function UiLabPage({
                 initialRouteTab={initialRouteTab}
                 initialSideRoute={initialSideRoute}
               />
+              <StepperCommandCatalog />
             </TabsContent>
 
             <TabsContent value="in-progress">
               <div className={styles.statusIntro}>
                 <span>In progress</span>
-                <h2>Stepper · CommandPalette</h2>
-                <p>단계 진행과 빠른 명령 탐색을 세 가지 정보 밀도로 비교합니다.</p>
+                <h2>Menu & Overlay</h2>
+                <p>메뉴와 연결형·패널형 오버레이를 하나의 A/B/C 디자인 언어로 비교합니다.</p>
               </div>
-              <StepperCommandCatalog />
+              <MenuOverlayCatalog />
             </TabsContent>
 
             <TabsContent value="planned">
@@ -115,11 +109,11 @@ export function UiLabPage({
                 <p>현재 묶음 승인 후 순서대로 목업을 준비합니다.</p>
               </div>
               <div className={styles.grid} aria-label="향후 배치">
-                {futureBatches.map((batch, index) => (
-                  <article className={styles.placeholder} key={batch}>
+                {roadmapBatches.map((batch, index) => (
+                  <article className={styles.placeholder} key={batch.title}>
                     <span>{String(index + 1).padStart(2, '0')}</span>
-                    <strong>{batch}</strong>
-                    <small>향후 배치에서 시안을 비교합니다.</small>
+                    <strong>{batch.title}</strong>
+                    <small>{batch.state}</small>
                   </article>
                 ))}
               </div>
