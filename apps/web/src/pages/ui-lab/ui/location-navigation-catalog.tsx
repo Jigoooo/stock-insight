@@ -1,7 +1,7 @@
 import { BreadcrumbMockup, type BreadcrumbVariant } from './breadcrumb-mockup';
+import styles from './location-navigation-catalog.module.css';
 import type { RouteTabId } from './navigation-tabs-catalog';
 import type { SideRouteId } from './side-navigation-catalog';
-import styles from './location-navigation-catalog.module.css';
 
 export type BreadcrumbPreviewId = 'workspace' | 'stocks' | 'nvda' | 'evidence';
 

@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router';
 
 import type { BreadcrumbPreviewId } from './location-navigation-catalog';
+import styles from './location-navigation-catalog.module.css';
 import type { RouteTabId } from './navigation-tabs-catalog';
 import type { SideRouteId } from './side-navigation-catalog';
-import styles from './location-navigation-catalog.module.css';
 
 const breadcrumbItems = [
   { id: 'workspace', label: '워크스페이스' },
@@ -39,19 +39,8 @@ export function BreadcrumbMockup({ active, searchContext, variant }: BreadcrumbM
         {collapsedItems.map((item, index) => {
           const isCurrent = item.id === active;
 
-          return (
+          const pathItem = (
             <li className={styles.breadcrumbItem} key={item.id}>
-              {hasCollapsedItem && index === 1 ? (
-                <>
-                  <span className={styles.breadcrumbSeparator} aria-hidden="true">
-                    /
-                  </span>
-                  <span className={styles.breadcrumbEllipsis}>
-                    <span aria-hidden="true">…</span>
-                    <span className="sr-only">중간 경로 1개 생략</span>
-                  </span>
-                </>
-              ) : null}
               {index > 0 ? (
                 <span className={styles.breadcrumbSeparator} aria-hidden="true">
                   {variant === 'ledger' ? '/' : '›'}
@@ -77,6 +66,23 @@ export function BreadcrumbMockup({ active, searchContext, variant }: BreadcrumbM
               )}
             </li>
           );
+
+          if (hasCollapsedItem && index === 1) {
+            return [
+              <li className={styles.breadcrumbItem} key="collapsed-path">
+                <span className={styles.breadcrumbSeparator} aria-hidden="true">
+                  /
+                </span>
+                <span className={styles.breadcrumbEllipsis}>
+                  <span aria-hidden="true">…</span>
+                  <span className="sr-only">중간 경로 1개 생략</span>
+                </span>
+              </li>,
+              pathItem,
+            ];
+          }
+
+          return pathItem;
         })}
       </ol>
     </nav>
