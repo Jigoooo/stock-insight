@@ -149,12 +149,14 @@ const PIPELINE_JOB_SQL = `
   SELECT job_name,
          max(started_at) AS last_run_at,
          max(last_success_at) AS last_success_at,
-         max(started_at) FILTER (WHERE status = 'failed') AS last_failure_at,
+         max(started_at) FILTER (WHERE status IN ('failed', 'killed')) AS last_failure_at,
          max(status) FILTER (WHERE recency = 1) AS last_status,
          -- Runs since the most recent success. A job that has never succeeded in
          -- the window counts every failure it has.
+         -- 'killed' counts here too: a run that was cut off did not succeed, and
+         -- leaving it out would let a job that keeps getting killed read as idle.
          count(*) FILTER (
-           WHERE status = 'failed'
+           WHERE status IN ('failed', 'killed')
              AND (last_success_at IS NULL OR started_at > last_success_at)
          )::int AS consecutive_failures,
          -- Wrapper stages insert only on success (see pipeline_common.sh), so a
@@ -225,7 +227,8 @@ function normalizeJobStatus(
     value === 'success' ||
     value === 'partial' ||
     value === 'failed' ||
-    value === 'running'
+    value === 'running' ||
+    value === 'killed'
   ) {
     return value;
   }

@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight OHLCV daily incremental refresh
+
+[Timer]
+OnCalendar=*-*-* 07:10:00 Asia/Seoul
+RandomizedDelaySec=5min
+Persistent=true
+Unit=stock-insight-ohlcv.service
+
+[Install]
+WantedBy=timers.target

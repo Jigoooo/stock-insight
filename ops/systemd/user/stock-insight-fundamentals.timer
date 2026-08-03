@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight company fundamentals weekly refresh
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00 Asia/Seoul
+RandomizedDelaySec=10min
+Persistent=true
+Unit=stock-insight-fundamentals.service
+
+[Install]
+WantedBy=timers.target

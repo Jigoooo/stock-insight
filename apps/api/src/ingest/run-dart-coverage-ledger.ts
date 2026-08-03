@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { REPORT_CODES, periodEndFor } from './run-dart-financial-facts.ts';
@@ -69,8 +71,8 @@ GROUP BY 1
 `;
 
 const INSERT_MIGRATION_RUN_SQL = `
-INSERT INTO public.migration_runs (job_name, status, started_at, finished_at, details)
-VALUES ($1, $2, $3, now(), $4::jsonb)
+INSERT INTO public.migration_runs (run_id, job_name, status, started_at, finished_at, summary)
+VALUES ($1, $2, $3, $4, now(), $5::jsonb)
 `;
 
 // One statement so the universe, the observations and the previous revision are
@@ -346,6 +348,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(summary, null, 2));
 
     await client.query(INSERT_MIGRATION_RUN_SQL, [
+      `${JOB_NAME}-${randomUUID()}`,
       JOB_NAME,
       'completed',
       startedAt.toISOString(),

@@ -324,7 +324,10 @@ export const pipelineJobStatusSchema = z.object({
   // sync_daily_to_postgres writes 'success' and dart-financial-facts writes
   // 'partial' when the OpenDART quota runs out mid-run. Normalising them away
   // would give DART a failure streak on every quota-limited day.
-  lastStatus: z.enum(['completed', 'success', 'partial', 'failed', 'running']).nullable(),
+  // 'killed' is written by the reconciler for a run that died before it could
+  // record anything — distinct from 'failed', which means the wrapper ran its
+  // trap and reported honestly.
+  lastStatus: z.enum(['completed', 'success', 'partial', 'failed', 'running', 'killed']).nullable(),
   consecutiveFailures: countSchema,
   // Wrapper stages insert a row only when they succeed, so a failed or
   // no-longer-running stage writes nothing at all and its failure streak stays 0
