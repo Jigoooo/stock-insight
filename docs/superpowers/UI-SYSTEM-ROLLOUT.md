@@ -6,9 +6,9 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `4A DropdownMenu + ContextMenu 목업 비교`
-- 다음 묶음: `4B Popover 목업 비교`
-- 마지막 갱신: 2026-08-03
+- 현재 활성 묶음: `4A Menu & Overlay 목업 비교`
+- 다음 묶음: `5A Identity & Content 목업 비교`
+- 마지막 갱신: 2026-08-04
 - 실행 방식: 도메인 묶음별 end-to-end
 
 ## 상태값
@@ -23,34 +23,25 @@
 
 ## 전체 현황
 
-| 묶음 | 내용                                | 현재 상태 | 다음 행동                               |
-| ---- | ----------------------------------- | --------- | --------------------------------------- |
-| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행        |
-| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행        |
-| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행        |
-| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행        |
-| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                  |
-| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사          |
-| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                          |
-| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                          |
-| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                            |
-| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교       |
-| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교    |
-| 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교   |
-| 3D   | Stepper + CommandPalette            | 검증 완료 | 4A DropdownMenu + ContextMenu 목업 비교 |
-| 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                         |
-| 4B   | Popover                             | 대기      | UI Lab 3안 비교                         |
-| 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                         |
-| 5A   | Avatar + Badge + Status             | 대기      | UI Lab 3안 비교                         |
-| 5B   | List + Timeline + Carousel          | 대기      | UI Lab 3안 비교                         |
-| 5C   | Table + DataGrid 확장               | 대기      | UI Lab 3안 비교                         |
-| 5D   | Progress + Spinner                  | 대기      | UI Lab 3안 비교                         |
-| 5E   | Skeleton + Empty + Error + Loading  | 대기      | UI Lab 3안 비교                         |
-| 6A   | Chart core + ChartFrame             | 대기      | renderer-neutral 계약 구현              |
-| 6B   | Market Tape                         | 대기      | Bklit Area + Brush 구현                 |
-| 6C   | Evidence Band                       | 대기      | ComposedChart + marker 구현             |
-| 6D   | Candle Ledger                       | 대기      | Lightweight Charts 구현                 |
-| 6E   | 차트 갤러리·제품 연결               | 대기      | A/B/C 비교 후 Deep Dive 연결            |
+| 묶음 | 내용                                | 현재 상태 | 다음 행동                             |
+| ---- | ----------------------------------- | --------- | ------------------------------------- |
+| 1A   | RadioGroup + Slider                 | 검증 완료 | 제품 사용처 없음 확인; 1B로 진행      |
+| 1B   | Calendar + DatePicker + RangePicker | 검증 완료 | 제품 사용처 없음 확인; 1C로 진행      |
+| 1C   | FileUpload + Dropzone               | 검증 완료 | 제품 사용처 없음 확인; 1D로 진행      |
+| 1D   | OTP                                 | 검증 완료 | 제품 사용처 없음 확인; 1E로 진행      |
+| 1E   | ButtonGroup + SplitButton           | 검증 완료 | 2A 인증·관리자 폼 감사                |
+| 2A   | 인증·관리자 폼 수렴                 | 검증 완료 | 2B 워크스페이스 검색·선택 감사        |
+| 2B   | 워크스페이스 검색·선택 수렴         | 검증 완료 | 2C와 통합 검증                        |
+| 2C   | 워크스페이스 데이터·오버레이 수렴   | 검증 완료 | 2D와 통합 검증                        |
+| 2D   | 미사용 공용 컴포넌트 검증           | 검증 완료 | 3A 목업 비교                          |
+| 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교     |
+| 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
+| 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
+| 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
+| 4A   | Menu & Overlay                      | 목업      | UI Lab 통합 A/B/C 구현                |
+| 5A   | Identity & Content                  | 대기      | UI Lab 통합 A/B/C 비교                |
+| 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
+| 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
 ## 완료 기록
 
@@ -248,7 +239,17 @@
 - 검증: Stepper·CommandPalette Node 계약 2건, public props fixture, web typecheck, Oxfmt·Oxlint, 전용 Playwright 13건과 Axe 집중 검사 통과
 - Codex 인앱 브라우저 6110 단일 탭에서 공용 Stepper A/B/C 루트와 현재 단계 3개, CommandPalette A 포커스·검색·실행, B preview, C compact groups, Escape 종료와 URL 고정을 확인함
 - 같은 탭에서 Stepper A 채움 점의 단계 구분·이동 애니메이션과 CommandPalette의 둥근 1px 포커스 링을 시각 재확인함
-- 다음 행동은 4A DropdownMenu + ContextMenu A/B/C 목업 비교를 시작하는 것임
+- 다음 행동은 통합된 4A Menu & Overlay A/B/C 목업 비교를 시작하는 것임
+
+### 2026-08-04 — 남은 UI 묶음 재편과 4A 설계 승인
+
+- 목업 단위를 과도하게 세분화하지 않도록 남은 예정 항목을 `Menu & Overlay`, `Identity & Content`, `Data & Feedback`, `Charts End-to-End` 네 묶음으로 통합함
+- UI Lab `예정` 탭의 카드도 같은 네 묶음으로 축소하기로 확정함
+- 4A는 DropdownMenu·ContextMenu·Popover·Drawer·Sheet·BottomSheet를 하나의 통합 디자인 언어 A/B/C로 비교함
+- DropdownMenu와 ContextMenu는 동일한 리서치 액션을 공유하고, 메뉴형 checkbox·radio·submenu는 목업 범위에서 제외함
+- 목업은 URL과 실제 데이터를 변경하지 않고 UI Lab 로컬 결과만 표시함
+- 검증은 소스 계약 1~2건, 핵심 상호작용 1건, 모바일·감소 모션·Axe 통합 1건과 변경 범위 정적 검사로 제한함
+- 다음 행동은 승인된 4A 설계 문서를 검토한 뒤 구현 계획을 작성하는 것임
 
 ## 실행 환경 메모
 

@@ -100,87 +100,59 @@
 - Stepper
 - CommandPalette
 
-## 4. 메뉴·오버레이
+## 4. Menu & Overlay
 
-### 4A 메뉴
+### 4A 통합 메뉴·오버레이
 
 - DropdownMenu
 - ContextMenu
-
-### 4B 연결형 오버레이
-
 - Popover
-
-### 4C 측면·하단 패널
-
 - Drawer
 - Sheet
 - BottomSheet
 
-기존 Dialog/Sheet runtime을 재사용하며 별도 overlay provider를 추가하지 않는다.
+메뉴와 오버레이는 하나의 A/B/C 디자인 언어로 함께 비교한다. 기존 Dialog/Sheet runtime을
+재사용하며 별도 overlay provider를 추가하지 않는다.
 
-## 5. 데이터·콘텐츠·피드백
+## 5. 콘텐츠·데이터·피드백
 
-### 5A 신원·상태
+### 5A Identity & Content
 
 - Avatar
 - Badge
 - Status
-
-### 5B 순서형 콘텐츠
-
 - List
 - Timeline
 - Carousel
 
-### 5C 고밀도 데이터
+### 5B Data & Feedback
 
 - Table 확장
 - DataGrid
-
-### 5D 진행 상태
-
 - Progress
 - Spinner
-
-### 5E 대기·결과 상태
-
 - Skeleton
 - Empty
 - Error
 - Loading
 
-이미 공용 구현이 있는 Timeline, Badge, Skeleton, Feedback state도 목업 variant와 public API를 이
-단계에서 다시 정리한다.
+이미 공용 구현이 있는 Timeline, Badge, Skeleton, Feedback state도 통합 묶음 안에서 목업
+variant와 public API를 다시 정리한다.
 
-## 6. 차트
+## 6. Charts End-to-End
 
-### 6A 공용 기반
+### 6A 기반·차트·제품 연결 통합
 
 - renderer-neutral 시계열·캔들·거래량·marker 타입
 - adapter와 formatter
 - `ChartFrame`
+- Market Tape: Bklit AreaChart, ChartBrush, crosshair, tooltip
+- Evidence Band: Bklit ComposedChart, evidence marker와 근거 목록 양방향 연동
+- Candle Ledger: TradingView Lightweight Charts, candle, volume, zoom, pan, crosshair
+- A/B/C 상호작용 비교 갤러리와 선택 종목 Deep Dive 연결
 
-### 6B Market Tape
-
-- Bklit AreaChart
-- ChartBrush
-- crosshair와 tooltip
-
-### 6C Evidence Band
-
-- Bklit ComposedChart
-- evidence marker와 근거 목록 양방향 연동
-
-### 6D Candle Ledger
-
-- TradingView Lightweight Charts
-- candle, volume, zoom, pan, crosshair
-
-### 6E 갤러리·제품 연결
-
-- A/B/C 상호작용 비교 갤러리
-- 선택 종목 Deep Dive 연결
+2026-08-04부터 남은 예정 카탈로그는 위 네 묶음으로 실행한다. UI Lab `예정` 탭도 같은 네 개
+카드만 노출한다.
 
 ## 묶음 완료 조건
 
