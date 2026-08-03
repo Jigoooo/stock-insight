@@ -1,4 +1,5 @@
 import { InputActionCatalog } from './input-action-catalog';
+import { LocationNavigationCatalog, type BreadcrumbPreviewId } from './location-navigation-catalog';
 import { NavigationTabsCatalog, type RouteTabId } from './navigation-tabs-catalog';
 import { SideNavigationCatalog, type SideRouteId } from './side-navigation-catalog';
 import styles from './ui-lab-page.module.css';
@@ -6,11 +7,18 @@ import styles from './ui-lab-page.module.css';
 const futureBatches = ['메뉴와 오버레이', '데이터와 피드백'];
 
 interface UiLabPageProps {
+  initialBreadcrumb: BreadcrumbPreviewId;
+  initialPage: number;
   initialRouteTab: RouteTabId;
   initialSideRoute: SideRouteId;
 }
 
-export function UiLabPage({ initialRouteTab, initialSideRoute }: UiLabPageProps) {
+export function UiLabPage({
+  initialBreadcrumb,
+  initialPage,
+  initialRouteTab,
+  initialSideRoute,
+}: UiLabPageProps) {
   return (
     <main className={styles.page} data-testid="ui-lab-page">
       <section className={styles.shell} aria-labelledby="ui-lab-title">
@@ -22,6 +30,12 @@ export function UiLabPage({ initialRouteTab, initialSideRoute }: UiLabPageProps)
         <InputActionCatalog />
         <NavigationTabsCatalog initialRouteTab={initialRouteTab} />
         <SideNavigationCatalog
+          initialRouteTab={initialRouteTab}
+          initialSideRoute={initialSideRoute}
+        />
+        <LocationNavigationCatalog
+          initialBreadcrumb={initialBreadcrumb}
+          initialPage={initialPage}
           initialRouteTab={initialRouteTab}
           initialSideRoute={initialSideRoute}
         />
