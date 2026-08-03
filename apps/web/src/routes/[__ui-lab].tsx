@@ -1,7 +1,7 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 
-import { UiLabPage } from '@/pages/ui-lab/ui/ui-lab-page';
 import type { SideRouteId } from '@/pages/ui-lab/ui/side-navigation-catalog';
+import { UiLabPage } from '@/pages/ui-lab/ui/ui-lab-page';
 import { isDevSurfaceEnabled } from '@/shared/config/dev-surface-gate';
 
 const routeTabs = ['overview', 'evidence', 'timeline'] as const;
