@@ -55,6 +55,7 @@ import { adminInvitationControlMigrationSql } from './migrations/054_admin_invit
 import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_internal_only.ts';
 import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fact_source_lineage.ts';
 import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vintage_source_lineage.ts';
+import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_finra_source_registration.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -722,6 +723,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroVintageSourceLineageMigrationSql,
   },
+  {
+    id: '058_sec_finra_source_registration',
+    description:
+      'Registers SEC EDGAR and FINRA, which were collecting outside the source registry entirely, and adds the lineage column to market.short_volume_daily. FINRA carries an explicit unresolved-terms note.',
+    tables: [],
+    sql: secFinraSourceRegistrationMigrationSql,
+  },
 ];
 
 export {
@@ -782,4 +790,5 @@ export {
   impactV1InternalOnlyMigrationSql,
   marketFactSourceLineageMigrationSql,
   macroVintageSourceLineageMigrationSql,
+  secFinraSourceRegistrationMigrationSql,
 };

@@ -313,6 +313,11 @@ const FACT_LINEAGE_SQL = `
          count(*)::bigint,
          count(source_revision_id)::bigint
   FROM market.macro_vintage
+  UNION ALL
+  SELECT 'market.short_volume_daily',
+         count(*)::bigint,
+         count(source_revision_id)::bigint
+  FROM market.short_volume_daily
   ORDER BY 1`;
 
 const VERIFICATION_SQL = `

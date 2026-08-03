@@ -7,7 +7,15 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 // Amendments: same (concept, period_end, fiscal_period) under a different accession
 // insert as new rows; latest filed_at wins at read time.
 
+import {
+  CLOSE_FETCH_RUN_SQL,
+  OPEN_FETCH_RUN_SQL,
+  registerRawObjectWithRevision,
+  writeRawObject,
+} from './raw-object-store.ts';
+
 const JOB_NAME = 'stock-insight-sec-financial-facts';
+const PROVIDER_KEY = 'sec-edgar';
 const SEC_BASE = 'https://data.sec.gov/api/xbrl/companyfacts';
 const USER_AGENT = 'stock-insight research contact@jigooo.com';
 
@@ -34,8 +42,8 @@ const UPSERT_FACT_SQL = `
 INSERT INTO market.financial_fact (
   issuer_entity_id, concept, value, unit, currency, period_start, period_end,
   fiscal_year, fiscal_period, filing_ref, form, filed_at, available_at,
-  source_provider, metadata
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, 'sec-companyfacts', $13::jsonb)
+  source_provider, metadata, source_revision_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, 'sec-companyfacts', $13::jsonb, $14)
 ON CONFLICT (issuer_entity_id, concept, period_end, fiscal_period, filing_ref) DO NOTHING
 RETURNING fact_id
 `;
@@ -133,7 +141,37 @@ async function run(): Promise<void> {
       for (const tag of concept.us_gaap_tags) tagToConcept.set(tag, concept);
     }
 
+    // sec-edgar was fetching outside the source registry entirely; migration 058
+    // registered it. One companyfacts response covers one filer, so the CIK is the
+    // record whose content hash means "this filer's facts, unchanged".
+    const sourceRow = await client.query<{ source_id: number }>(
+      `SELECT source_id FROM ingestion.source WHERE provider_key = $1`,
+      [PROVIDER_KEY],
+    );
+    if (sourceRow.rows.length !== 1) {
+      throw new Error(
+        `expected exactly one ${PROVIDER_KEY} source, found ${sourceRow.rows.length}`,
+      );
+    }
+    const sourceId = Number(sourceRow.rows[0]!.source_id);
+
+    let fetchRunId: number | null = null;
+    if (apply) {
+      const runId = `${JOB_NAME}-${randomUUID()}`;
+      await client.query('BEGIN');
+      const opened = await client.query<{ fetch_run_id: string | number }>(OPEN_FETCH_RUN_SQL, [
+        PROVIDER_KEY,
+        runId,
+        `${PROVIDER_KEY}:${runId}`,
+        startedAt.toISOString(),
+      ]);
+      fetchRunId = Number(opened.rows[0]!.fetch_run_id);
+      await client.query('COMMIT');
+    }
+
     const targets = issuers.rows.slice(0, limit);
+    let revisionsRegistered = 0;
+    let revisionsReplayed = 0;
     let companiesFetched = 0;
     let companiesMissing = 0;
     let factsSeen = 0;
@@ -205,6 +243,27 @@ async function run(): Promise<void> {
       if (apply && rows.length > 0) {
         await client.query('BEGIN');
         await client.query("SELECT set_config('statement_timeout', '180s', true)");
+
+        // Preserve the payload before it is flattened into facts.
+        const fetchedAt = new Date().toISOString();
+        const raw = await writeRawObject({
+          providerKey: PROVIDER_KEY,
+          content: JSON.stringify(payload),
+          extension: 'json',
+          fetchedAt: new Date(fetchedAt),
+        });
+        const registered = await registerRawObjectWithRevision(client, {
+          fetchRunId: fetchRunId!,
+          sourceId,
+          providerRecordKey: `CIK${issuer.cik}`,
+          contentHash: raw.contentHash,
+          objectUri: raw.objectUri,
+          httpMeta: { endpoint: SEC_BASE, user_agent: USER_AGENT },
+          fetchedAt,
+        });
+        if (registered.replay) revisionsReplayed += 1;
+        else revisionsRegistered += 1;
+
         let insertedForCompany = 0;
         for (const row of rows) {
           const result = await client.query(UPSERT_FACT_SQL, [
@@ -221,6 +280,7 @@ async function run(): Promise<void> {
             row.form,
             row.filed,
             JSON.stringify({ cik: issuer.cik }),
+            registered.sourceRevisionId,
           ]);
           if ((result.rowCount ?? 0) > 0) insertedForCompany += 1;
         }
@@ -239,7 +299,22 @@ async function run(): Promise<void> {
       sinceYear,
       factsSeen,
       factsInserted,
+      revisionsRegistered,
+      revisionsReplayed,
     };
+    if (apply && fetchRunId !== null) {
+      await client.query(CLOSE_FETCH_RUN_SQL, [
+        fetchRunId,
+        new Date().toISOString(),
+        companiesMissing > 0 ? 'partial' : 'success',
+        factsSeen,
+        factsInserted,
+        factsSeen - factsInserted,
+        null,
+        new Date().toISOString(),
+        JSON.stringify(summary),
+      ]);
+    }
     if (!apply) {
       console.log(JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summary }, null, 2));
       return;
