@@ -81,6 +81,14 @@ pipeline_record_stage_success stock-insight-event-entity-resolution-stage "$RUN_
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-world-event-sync.ts --apply
 pipeline_record_stage_success stock-insight-world-event-sync-stage "$RUN_STARTED_AT" || exit $?
 
+# Claims sat at verified 0 / 271 not because verification was unsolved but because
+# nothing ran it: ops.verification_policy already defines what 'corroborated'
+# requires, transitionVerification() had only test callers, and every claim in the
+# table met the rule. Runs after extraction so new claims are judged the same day.
+# 'verified' needs a second independent document and is left to arrive on its own.
+DATABASE_URL="$DB_URL" node apps/api/src/knowledge/run-claim-corroboration.ts --apply
+pipeline_record_stage_success stock-insight-claim-corroboration-stage "$RUN_STARTED_AT" || exit $?
+
 DATABASE_URL="$DB_URL" node apps/api/src/publish/run-event-brief.ts --apply
 
 # B0: record the known backlog as an explicit gauge — never hidden by success.
@@ -112,10 +120,11 @@ SELECT CASE WHEN
      'stock-insight-knowledge-extraction-stage',
      'stock-insight-event-entity-resolution-stage',
      'stock-insight-world-event-sync-stage',
+     'stock-insight-claim-corroboration-stage',
      'stock-insight-event-brief'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 5
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 6
   AND (SELECT count(*) FROM knowledge.document) >= 2500
   -- The world plane must be a complete projection, not a partial one. A partial
   -- plane still reports 100% yield through its serving view, which is exactly how
