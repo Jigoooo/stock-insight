@@ -1,5 +1,14 @@
 import { createRef, type AnimationEventHandler, type DragEventHandler } from 'react';
 
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/shared/ui/breadcrumb';
 import { Button, IconButton } from '@/shared/ui/button';
 import { ButtonGroup } from '@/shared/ui/button-group';
 import { Calendar } from '@/shared/ui/calendar';
@@ -8,8 +17,22 @@ import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
 import { OTP } from '@/shared/ui/otp';
+import {
+  CursorPagination,
+  CursorPaginationAction,
+  CursorPaginationMessage,
+  Pagination,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationList,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationStatus,
+} from '@/shared/ui/pagination';
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
+import { Select } from '@/shared/ui/select';
 import { SideList, SideListItem } from '@/shared/ui/side-list';
 import {
   SideTabs,
@@ -161,6 +184,63 @@ export const nativeControlPropsFixture = (
       </RouteTab>
       <RouteTab href="/history">History</RouteTab>
     </RouteTabs>
+    <Breadcrumb aria-label="Fixture breadcrumb" variant="soft-inset">
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink href="/overview">Overview</BreadcrumbLink>
+          <BreadcrumbSeparator />
+        </BreadcrumbItem>
+        <BreadcrumbItem>
+          <BreadcrumbEllipsis />
+          <BreadcrumbSeparator />
+        </BreadcrumbItem>
+        <BreadcrumbItem>
+          <BreadcrumbLink asChild>
+            <button type="button">Evidence</button>
+          </BreadcrumbLink>
+          <BreadcrumbSeparator />
+        </BreadcrumbItem>
+        <BreadcrumbItem>
+          <BreadcrumbPage>Detail</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+    <Pagination aria-label="Fixture pages" variant="soft-inset">
+      <PaginationList>
+        <PaginationItem>
+          <PaginationPrevious asChild>
+            <button type="button">Previous</button>
+          </PaginationPrevious>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationLink asChild current>
+            <button type="button">1</button>
+          </PaginationLink>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationEllipsis>
+            <Select
+              aria-label="Jump to page"
+              onValueChange={() => undefined}
+              options={[{ label: 'Page 2', value: '2' }]}
+              placeholder="…"
+              popupMinWidth={120}
+              value=""
+            />
+          </PaginationEllipsis>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationNext href="/page/2">Next</PaginationNext>
+        </PaginationItem>
+      </PaginationList>
+      <PaginationStatus>01 / 12</PaginationStatus>
+    </Pagination>
+    <CursorPagination>
+      <CursorPaginationMessage>More records are available.</CursorPaginationMessage>
+      <CursorPaginationAction asChild>
+        <a href="/cursor/next">Load more</a>
+      </CursorPaginationAction>
+    </CursorPagination>
     <Tabs defaultValue="impact" fullWidth variant="soft-inset">
       <TabsHighlight>
         <TabsList aria-label="Impact views">

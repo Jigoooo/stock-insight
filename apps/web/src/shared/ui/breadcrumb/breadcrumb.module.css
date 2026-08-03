@@ -1,0 +1,112 @@
+.root {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.list {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+}
+
+.link,
+.page,
+.ellipsis {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 7px;
+}
+
+.link {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.link:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.page {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
+.separator {
+  display: inline-flex;
+  color: var(--color-text-tertiary);
+  opacity: 0.68;
+}
+
+.slash {
+  display: none;
+}
+
+.root[data-variant='hairline'] {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.root[data-variant='soft-inset'] .page {
+  margin-left: 5px;
+  border-radius: 8px;
+  background: var(--color-accent-soft);
+}
+
+.root[data-variant='ledger'] .list {
+  font-variant-numeric: tabular-nums;
+}
+
+.root[data-variant='ledger'] .chevron {
+  display: none;
+}
+
+.root[data-variant='ledger'] .slash {
+  display: inline;
+}
+
+.root[data-variant='ledger'] .page {
+  box-shadow: inset 0 -1px 0 var(--foreground);
+}
+
+@media (max-width: 520px) {
+  .link,
+  .page,
+  .ellipsis {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link,
+  .page {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
