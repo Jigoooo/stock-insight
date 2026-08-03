@@ -377,6 +377,67 @@ export const systemStatusSchema = z.object({
 
 export type SystemStatus = z.infer<typeof systemStatusSchema>;
 
+// News that names no company. An event reaches this surface by matching a term in
+// analytics.market_topic_term (migration 063) and by having no target_entity_id.
+//
+// matchedTerms is not decoration. The vocabulary is a definition somebody chose,
+// not a measurement, so the reader has to be able to see why an item is listed and
+// judge the term rather than trust it. An item without its matched terms would ask
+// for that trust, which is the one thing this surface must not do.
+const marketTopicTermSchema = z.object({
+  topic: boundedText(60),
+  term: boundedText(120),
+});
+
+export const marketTopicNewsItemSchema = z.object({
+  eventKey: boundedText(320),
+  summary: boundedText(2_000),
+  matchedTerms: z.array(marketTopicTermSchema).min(1).max(12),
+  occurredAt: dateTimeSchema,
+  publishedAt: dateTimeSchema.nullable(),
+  sourceName: boundedText(240).nullable(),
+  url: boundedText(2_048).nullable(),
+  // Three headlines account for ten of the 86 matches measured 2026-08-03 — the
+  // same Fed hold extracted four times under four event keys. They are collapsed
+  // onto one row, and the count says so rather than the collapse being silent.
+  duplicateCount: z.number().int().positive().max(1_000),
+});
+
+export type MarketTopicNewsItem = z.infer<typeof marketTopicNewsItemSchema>;
+
+export const marketTopicTermCountSchema = marketTopicTermSchema.extend({
+  events: countSchema,
+});
+
+export type MarketTopicTermCount = z.infer<typeof marketTopicTermCountSchema>;
+
+// Keep in step with MARKET_TOPIC_NEWS_LIMIT in the read model. A cap below what
+// the query can return turns corpus growth into a production parse failure.
+export const MARKET_TOPIC_NEWS_MAX_ITEMS = 100;
+
+export const marketTopicNewsPageSchema = z
+  .object({
+    generatedAt: dateTimeSchema,
+    availability: canonicalAvailabilitySchema,
+    // The three numbers that make the surface auditable: how many terms are in
+    // force, how big the pool they filter is, and how many they caught.
+    activeTermCount: countSchema,
+    unattributedTotal: countSchema,
+    matchedTotal: countSchema,
+    items: z.array(marketTopicNewsItemSchema).max(MARKET_TOPIC_NEWS_MAX_ITEMS),
+    termCounts: z.array(marketTopicTermCountSchema).max(200),
+  })
+  .superRefine(({ matchedTotal, unattributedTotal }, context) => {
+    if (matchedTotal > unattributedTotal) {
+      context.addIssue({
+        code: 'custom',
+        message: 'matchedTotal cannot exceed the unattributed pool it is drawn from',
+      });
+    }
+  });
+
+export type MarketTopicNewsPage = z.infer<typeof marketTopicNewsPageSchema>;
+
 export const decisionHistoryEntryTypeSchema = z.enum([
   'alert_review',
   'trade_note',

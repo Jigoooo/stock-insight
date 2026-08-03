@@ -66,6 +66,10 @@ export async function loadResearchStatus(userId: string) {
   return brainRequest('/v1/status', { scope: scopeFor(userId) });
 }
 
+export async function loadMarketTopicNews(userId: string) {
+  return brainRequest('/v1/market-topic-news', { scope: scopeFor(userId) });
+}
+
 export async function loadDecisionHistoryPage(
   userId: string,
   options: { cursor?: string; limit?: number },
@@ -283,6 +287,14 @@ export async function loadResearchWorkspaceView(
     case 'status': {
       const status = await loadResearchStatus(userId);
       activeSlice = { status, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
+      break;
+    }
+    case 'market-topic-news': {
+      const marketTopicNews = await loadMarketTopicNews(userId);
+      activeSlice = {
+        marketTopicNews,
+        view: options.view,
+      } as WithoutShell<ResearchWorkspaceViewPayload>;
       break;
     }
   }

@@ -45,9 +45,13 @@ describe('workspace active-view server loader', () => {
     const source = await readFile(modelUrl, 'utf8');
 
     assert.match(source, /workspaceViewInputSchema/);
+    // The exact accepted set, still pinned — a view id reaches the brain from the
+    // client, so this list widening by accident is the thing the test guards.
+    // Whitespace-tolerant because the list is long enough that the formatter
+    // breaks it across lines.
     assert.match(
       source,
-      /z\.enum\(\['today', 'radar', 'stocks', 'crypto', 'themes', 'research', 'history', 'status'\]\)/,
+      /z\.enum\(\[\s*'today',\s*'radar',\s*'stocks',\s*'crypto',\s*'themes',\s*'research',\s*'history',\s*'status',\s*'market-topic-news',\s*\]\)/,
     );
     assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
     assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);

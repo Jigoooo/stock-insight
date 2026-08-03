@@ -66,6 +66,11 @@ function createLazyWorkspaceViews() {
     history: lazy(() =>
       import('./views/history-view').then(({ HistoryView }) => ({ default: HistoryView })),
     ),
+    'market-topic-news': lazy(() =>
+      import('./views/market-topic-news-view').then(({ MarketTopicNewsView }) => ({
+        default: MarketTopicNewsView,
+      })),
+    ),
     radar: lazy(() =>
       import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
     ),
@@ -373,6 +378,7 @@ export function ResearchWorkspacePage({
   const [viewRetryKeys, setViewRetryKeys] = useState<Record<SectionId, number>>({
     crypto: 0,
     history: 0,
+    'market-topic-news': 0,
     radar: 0,
     research: 0,
     status: 0,
@@ -424,6 +430,7 @@ export function ResearchWorkspacePage({
   const {
     crypto: CryptoWorkspaceView,
     history: HistoryView,
+    'market-topic-news': MarketTopicNewsView,
     radar: RadarView,
     research: MyResearchView,
     status: StatusView,
@@ -888,6 +895,9 @@ export function ResearchWorkspacePage({
         />
       )}
       {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
+      {section === 'market-topic-news' && data.view === 'market-topic-news' && (
+        <MarketTopicNewsView data={data.marketTopicNews} />
+      )}
     </>
   );
 

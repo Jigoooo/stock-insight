@@ -6,6 +6,7 @@ import { apiError, firstParam } from '../common/http.ts';
 import {
   getDecisionHistory,
   getEntityRelationsWithV2Preference,
+  getMarketTopicNews,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
@@ -44,6 +45,15 @@ export class ResearchWorkspaceController {
   async getStatus() {
     const { withSnapshot } = researchContext();
     return withSnapshot((executor) => getSystemStatus(executor));
+  }
+
+  // Unscoped by nature: these events attach to no company, so there is nothing
+  // for a user scope to filter. It still runs through withSnapshot so the read
+  // stays inside the same READ ONLY transaction as every other surface.
+  @Get('market-topic-news')
+  async getMarketTopicNewsPage() {
+    const { withSnapshot } = researchContext();
+    return withSnapshot((executor) => getMarketTopicNews(executor));
   }
 
   @Get('themes')

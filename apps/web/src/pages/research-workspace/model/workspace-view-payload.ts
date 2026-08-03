@@ -11,6 +11,7 @@ import type {
 import type {
   DecisionHistoryPage,
   EntityRelationGraph,
+  MarketTopicNewsPage,
   MyResearchOverview,
   RadarSignalPage,
   ResearchFeedLaneId,
@@ -28,7 +29,8 @@ export type ResearchWorkspaceViewId =
   | 'themes'
   | 'research'
   | 'history'
-  | 'status';
+  | 'status'
+  | 'market-topic-news';
 
 export type ResearchWorkspaceViewOptions = {
   cursor?: string;
@@ -80,4 +82,9 @@ export type ResearchWorkspaceViewPayload =
       view: 'research';
     }
   | { history: DecisionHistoryPage; shell: ResearchWorkspaceShellSummary; view: 'history' }
-  | { shell: ResearchWorkspaceShellSummary; status: SystemStatus; view: 'status' };
+  | { shell: ResearchWorkspaceShellSummary; status: SystemStatus; view: 'status' }
+  | {
+      marketTopicNews: MarketTopicNewsPage;
+      shell: ResearchWorkspaceShellSummary;
+      view: 'market-topic-news';
+    };

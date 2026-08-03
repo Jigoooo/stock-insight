@@ -1,0 +1,154 @@
+.newsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.newsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.newsList > li:last-child {
+  border-bottom: 0;
+}
+
+.newsRow strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.newsRow small {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+/* The matched terms are the reason the row is on this page, so they read as
+   labelled data rather than as decoration on the headline. */
+.terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.terms li {
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.terms li b {
+  font-weight: 620;
+  color: var(--color-text-primary);
+}
+
+.rowMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  text-align: right;
+}
+
+.rowMeta a {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tableWrap {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+
+.deadTerm td {
+  color: var(--color-text-tertiary);
+}
+
+@media (max-width: 760px) {
+  .newsRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rowMeta {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  /* Same stacked-table treatment the status page uses, with this table's own
+     column names — reusing that page's class would print its labels here. */
+  .vocabularyTable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .vocabularyTable,
+  .vocabularyTable tbody,
+  .vocabularyTable tr {
+    display: block;
+  }
+
+  .vocabularyTable tr {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .vocabularyTable tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .vocabularyTable td:not([colspan]) {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 12px;
+    height: auto;
+    min-height: 34px;
+    padding: 7px 14px;
+    border: 0;
+    white-space: normal;
+  }
+
+  .vocabularyTable td:not([colspan])::before {
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    font-weight: 620;
+  }
+
+  .vocabularyTable td:nth-child(1)::before {
+    content: '주제';
+  }
+
+  .vocabularyTable td:nth-child(2)::before {
+    content: '용어';
+  }
+
+  .vocabularyTable td:nth-child(3)::before {
+    content: '걸린 사건';
+  }
+}

@@ -47,6 +47,7 @@ import { Route as AuthenticatedWorkspaceStocksRouteImport } from './routes/_auth
 import { Route as AuthenticatedWorkspaceStatusRouteImport } from './routes/_authenticated/workspace/status'
 import { Route as AuthenticatedWorkspaceResearchRouteImport } from './routes/_authenticated/workspace/research'
 import { Route as AuthenticatedWorkspaceRadarRouteImport } from './routes/_authenticated/workspace/radar'
+import { Route as AuthenticatedWorkspaceMarketTopicNewsRouteImport } from './routes/_authenticated/workspace/market-topic-news'
 import { Route as AuthenticatedWorkspaceHistoryRouteImport } from './routes/_authenticated/workspace/history'
 import { Route as AuthenticatedWorkspaceCryptoRouteImport } from './routes/_authenticated/workspace/crypto'
 import { Route as AuthenticatedAdminInvitationsRouteImport } from './routes/_authenticated/admin/invitations'
@@ -256,6 +257,12 @@ const AuthenticatedWorkspaceRadarRoute =
     path: '/radar',
     getParentRoute: () => AuthenticatedWorkspaceRoute,
   } as any)
+const AuthenticatedWorkspaceMarketTopicNewsRoute =
+  AuthenticatedWorkspaceMarketTopicNewsRouteImport.update({
+    id: '/market-topic-news',
+    path: '/market-topic-news',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
 const AuthenticatedWorkspaceHistoryRoute =
   AuthenticatedWorkspaceHistoryRouteImport.update({
     id: '/history',
@@ -340,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
   '/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/workspace/market-topic-news': typeof AuthenticatedWorkspaceMarketTopicNewsRoute
   '/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
   '/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
   '/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
@@ -389,6 +397,7 @@ export interface FileRoutesByTo {
   '/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
   '/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/workspace/market-topic-news': typeof AuthenticatedWorkspaceMarketTopicNewsRoute
   '/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
   '/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
   '/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
@@ -441,6 +450,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/invitations': typeof AuthenticatedAdminInvitationsRoute
   '/_authenticated/workspace/crypto': typeof AuthenticatedWorkspaceCryptoRoute
   '/_authenticated/workspace/history': typeof AuthenticatedWorkspaceHistoryRoute
+  '/_authenticated/workspace/market-topic-news': typeof AuthenticatedWorkspaceMarketTopicNewsRoute
   '/_authenticated/workspace/radar': typeof AuthenticatedWorkspaceRadarRoute
   '/_authenticated/workspace/research': typeof AuthenticatedWorkspaceResearchRoute
   '/_authenticated/workspace/status': typeof AuthenticatedWorkspaceStatusRoute
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/admin/invitations'
     | '/workspace/crypto'
     | '/workspace/history'
+    | '/workspace/market-topic-news'
     | '/workspace/radar'
     | '/workspace/research'
     | '/workspace/status'
@@ -542,6 +553,7 @@ export interface FileRouteTypes {
     | '/admin/invitations'
     | '/workspace/crypto'
     | '/workspace/history'
+    | '/workspace/market-topic-news'
     | '/workspace/radar'
     | '/workspace/research'
     | '/workspace/status'
@@ -593,6 +605,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/invitations'
     | '/_authenticated/workspace/crypto'
     | '/_authenticated/workspace/history'
+    | '/_authenticated/workspace/market-topic-news'
     | '/_authenticated/workspace/radar'
     | '/_authenticated/workspace/research'
     | '/_authenticated/workspace/status'
@@ -926,6 +939,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkspaceRadarRouteImport
       parentRoute: typeof AuthenticatedWorkspaceRoute
     }
+    '/_authenticated/workspace/market-topic-news': {
+      id: '/_authenticated/workspace/market-topic-news'
+      path: '/market-topic-news'
+      fullPath: '/workspace/market-topic-news'
+      preLoaderRoute: typeof AuthenticatedWorkspaceMarketTopicNewsRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
     '/_authenticated/workspace/history': {
       id: '/_authenticated/workspace/history'
       path: '/history'
@@ -1009,6 +1029,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedWorkspaceRouteChildren {
   AuthenticatedWorkspaceCryptoRoute: typeof AuthenticatedWorkspaceCryptoRoute
   AuthenticatedWorkspaceHistoryRoute: typeof AuthenticatedWorkspaceHistoryRoute
+  AuthenticatedWorkspaceMarketTopicNewsRoute: typeof AuthenticatedWorkspaceMarketTopicNewsRoute
   AuthenticatedWorkspaceRadarRoute: typeof AuthenticatedWorkspaceRadarRoute
   AuthenticatedWorkspaceResearchRoute: typeof AuthenticatedWorkspaceResearchRoute
   AuthenticatedWorkspaceStatusRoute: typeof AuthenticatedWorkspaceStatusRoute
@@ -1022,6 +1043,8 @@ const AuthenticatedWorkspaceRouteChildren: AuthenticatedWorkspaceRouteChildren =
   {
     AuthenticatedWorkspaceCryptoRoute: AuthenticatedWorkspaceCryptoRoute,
     AuthenticatedWorkspaceHistoryRoute: AuthenticatedWorkspaceHistoryRoute,
+    AuthenticatedWorkspaceMarketTopicNewsRoute:
+      AuthenticatedWorkspaceMarketTopicNewsRoute,
     AuthenticatedWorkspaceRadarRoute: AuthenticatedWorkspaceRadarRoute,
     AuthenticatedWorkspaceResearchRoute: AuthenticatedWorkspaceResearchRoute,
     AuthenticatedWorkspaceStatusRoute: AuthenticatedWorkspaceStatusRoute,

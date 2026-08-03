@@ -6,7 +6,8 @@ export type WorkspaceViewId =
   | 'themes'
   | 'research'
   | 'history'
-  | 'status';
+  | 'status'
+  | 'market-topic-news';
 
 export type WorkspaceViewCacheKey = {
   cursor: string | null;

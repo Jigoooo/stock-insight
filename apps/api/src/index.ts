@@ -87,6 +87,13 @@ export { getThemeResearchList } from './themes/read-model';
 export type { GetThemeResearchListOptions, ThemeResearchQueryExecutor } from './themes/read-model';
 export { getSystemStatus } from './status/read-model';
 export type { GetSystemStatusOptions, SystemStatusQueryExecutor } from './status/read-model';
+// Market-wide news from the knowledge graph. Not './market-news', which serves the
+// legacy public-schema feed — different tables, different id space.
+export { getMarketTopicNews } from './market-topic-news/read-model';
+export type {
+  GetMarketTopicNewsOptions,
+  MarketTopicNewsQueryExecutor,
+} from './market-topic-news/read-model';
 export { getResearchRecordDetail } from './workspace/record-detail';
 export type {
   GetResearchRecordDetailOptions,

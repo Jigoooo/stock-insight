@@ -7,12 +7,14 @@ import {
   History,
   LayoutDashboard,
   Network,
+  Newspaper,
   type LucideIcon,
 } from 'lucide-react';
 
 export const workspaceSectionIds = [
   'today',
   'radar',
+  'market-topic-news',
   'stocks',
   'crypto',
   'themes',
@@ -36,6 +38,12 @@ export type WorkspaceNavigationItem = {
 export const workspaceSections: readonly WorkspaceNavigationItem[] = [
   { id: 'today', label: '오늘', icon: LayoutDashboard, href: '/workspace/today' },
   { id: 'radar', label: '세계 레이더', icon: Activity, href: '/workspace/radar' },
+  {
+    id: 'market-topic-news',
+    label: '시장 전반',
+    icon: Newspaper,
+    href: '/workspace/market-topic-news',
+  },
   { id: 'stocks', label: '종목', icon: BarChart3, href: '/workspace/stocks' },
   { id: 'crypto', label: '크립토', icon: Bitcoin, href: '/workspace/crypto' },
   { id: 'themes', label: '테마·관계', icon: Network, href: '/workspace/themes' },
