@@ -11,13 +11,17 @@ test('analytics pipeline fails closed on stale OHLCV and preserves stage order',
   assert.match(pipeline, /job_name='stock-insight-ohlcv-wrapper'/);
   assert.match(pipeline, /finished_at >= now\(\) - interval '36 hours'/);
 
+  // v2 publishing sits ahead of report publishing since 2026-08-03 so a rejected
+  // report block cannot stop impact serving; feed building still trails report
+  // publishing because it reads content.report.
   const stages = [
     'run-feature-snapshot.ts',
     'run-graph-inference.ts',
+    'run-v2-graph-publish.ts',
+    'run-v2-analytics-publish.ts',
     'run-report-publish.ts',
     'run-feed-build.ts',
     'run-probability-calibration.ts',
-    'run-v2-graph-publish.ts',
   ].map((stage) => pipeline.indexOf(stage));
 
   assert.ok(stages.every((position) => position >= 0));

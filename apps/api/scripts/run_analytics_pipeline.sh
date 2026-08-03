@@ -55,16 +55,32 @@ DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --app
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
 pipeline_record_stage_success stock-insight-graph-inference-stage "$RUN_STARTED_AT" || exit $?
+# v2 impact publishing runs before report publishing on purpose.
+#
+# On 2026-08-03 a single news headline failed run-report-publish's action-advice
+# gate, and because report publishing sat earlier in the file, `set -e` took the
+# whole pipeline down with it — including every impact path the product serves.
+# One rejected report block stopped the graph.
+#
+# The two are independent, checked in both directions: report publishing reads
+# content.report_definition, knowledge.claim, knowledge.event and
+# latest_report_pointer; v2 publishing writes analytics.graph_* and
+# impact_path_*. Neither reads what the other writes. v2 publishing also does not
+# read analytics.calibration_profile or personalization.user_feed_item, so it is
+# safe ahead of those steps too.
+#
+# run-feed-build is the one later step that genuinely depends on report output —
+# it reads content.report — so it stays after report publishing.
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-v2-graph-publish.ts --apply
+pipeline_record_stage_success stock-insight-v2-graph-publish-stage "$RUN_STARTED_AT" || exit $?
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-v2-analytics-publish.ts --apply
+pipeline_record_stage_success stock-insight-v2-l5-publish-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/publish/run-report-publish.ts --apply
 pipeline_record_stage_success stock-insight-report-publish-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --apply
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
-DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-v2-graph-publish.ts --apply
-pipeline_record_stage_success stock-insight-v2-graph-publish-stage "$RUN_STARTED_AT" || exit $?
-DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-v2-analytics-publish.ts --apply
-pipeline_record_stage_success stock-insight-v2-l5-publish-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-outbox-delivery.ts --apply --loop
 pipeline_record_stage_success stock-insight-outbox-delivery-stage "$RUN_STARTED_AT" || exit $?
 

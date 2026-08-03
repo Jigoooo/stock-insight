@@ -186,11 +186,15 @@ test('analytics runs all nine stages in order with an adjacent receipt per comma
     ['run-core-identity-sync.ts', 'stock-insight-core-identity-sync-stage'],
     ['run-feature-snapshot.ts', 'stock-insight-feature-snapshot-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
+    // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected
+    // report block used to take every impact path down with it. The two are
+    // independent in both directions; run-feed-build reads content.report and so
+    // still follows it. See apps/api/test/analytics-pipeline-order.test.ts.
+    ['run-v2-graph-publish.ts', 'stock-insight-v2-graph-publish-stage'],
+    ['run-v2-analytics-publish.ts', 'stock-insight-v2-l5-publish-stage'],
     ['run-report-publish.ts', 'stock-insight-report-publish-stage'],
     ['run-feed-build.ts', 'stock-insight-feed-build-stage'],
     ['run-probability-calibration.ts', 'stock-insight-probability-calibration-stage'],
-    ['run-v2-graph-publish.ts', 'stock-insight-v2-graph-publish-stage'],
-    ['run-v2-analytics-publish.ts', 'stock-insight-v2-l5-publish-stage'],
     ['run-outbox-delivery.ts', 'stock-insight-outbox-delivery-stage'],
   ] as const;
   const stageLines = lines.filter((line) => /node apps\/api\/src\/.+\.ts/.test(line));
