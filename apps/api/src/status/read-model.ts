@@ -19,6 +19,17 @@ type DatasetRow = {
   analysis_revision: number | null;
 };
 
+type PipelineJobRow = {
+  job_name: string;
+  last_run_at: string | Date | null;
+  last_success_at: string | Date | null;
+  last_failure_at: string | Date | null;
+  last_status: string | null;
+  consecutive_failures: number | string | null;
+  records_failures: boolean;
+  stuck_since: string | Date | null;
+};
+
 type CoverageRow = {
   total: number | string;
   linked: number | string;
@@ -111,6 +122,51 @@ const GRAPH_SOURCE_COVERAGE_SQL = `
   WHERE NOT EXISTS (SELECT 1 FROM latest_snapshot)
 `;
 
+// public.migration_runs is the pipeline job log despite its name — the schema
+// ledger lives in public.schema_migration.
+//
+// Nothing has ever surfaced this. On 2026-08-01 the analytics pipeline failed
+// three scheduled runs in a row and the only trace was rows in this table that
+// no endpoint read. Two runs are still sitting at 'running' from 2026-07-26 and
+// 2026-07-27, hard-killed and never finished, and nothing anywhere notices.
+//
+// 'partial' counts as a success: dart-financial-facts writes it when the
+// OpenDART daily quota runs out mid-run, which is designed behaviour. Folding it
+// into failure would hand DART a failure streak on every quota-limited day.
+const PIPELINE_JOB_SQL = `
+  WITH recent AS (
+    SELECT job_name, status, started_at, finished_at
+    FROM public.migration_runs
+    WHERE started_at > $1::timestamptz - interval '14 days'
+  ),
+  ranked AS (
+    SELECT job_name, status, started_at, finished_at,
+           row_number() OVER (PARTITION BY job_name ORDER BY started_at DESC) AS recency,
+           max(started_at) FILTER (WHERE status IN ('completed', 'success', 'partial'))
+             OVER (PARTITION BY job_name) AS last_success_at
+    FROM recent
+  )
+  SELECT job_name,
+         max(started_at) AS last_run_at,
+         max(last_success_at) AS last_success_at,
+         max(started_at) FILTER (WHERE status = 'failed') AS last_failure_at,
+         max(status) FILTER (WHERE recency = 1) AS last_status,
+         -- Runs since the most recent success. A job that has never succeeded in
+         -- the window counts every failure it has.
+         count(*) FILTER (
+           WHERE status = 'failed'
+             AND (last_success_at IS NULL OR started_at > last_success_at)
+         )::int AS consecutive_failures,
+         -- Wrapper stages insert only on success (see pipeline_common.sh), so a
+         -- zero streak from them means "no record", not "no failure".
+         (job_name NOT LIKE '%-stage') AS records_failures,
+         min(started_at) FILTER (WHERE status = 'running' AND finished_at IS NULL) AS stuck_since
+  FROM ranked
+  GROUP BY job_name
+  ORDER BY consecutive_failures DESC, job_name ASC
+  LIMIT 60
+`;
+
 function toCount(value: number | string | null): number {
   const count = Number(value ?? 0);
   if (!Number.isSafeInteger(count) || count < 0)
@@ -158,6 +214,24 @@ function overallAvailability(
   return 'available';
 }
 
+// Unknown values become null rather than being coerced into a known state: an
+// invented status is worse than an absent one on a page whose whole job is to say
+// what is and is not known.
+function normalizeJobStatus(
+  value: string | null,
+): SystemStatus['pipelineJobs'][number]['lastStatus'] {
+  if (
+    value === 'completed' ||
+    value === 'success' ||
+    value === 'partial' ||
+    value === 'failed' ||
+    value === 'running'
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function mapCoverage(row: CoverageRow | undefined): SystemStatus['sourceCoverage'] {
   const total = toCount(row?.total ?? 0);
   const linked = Math.min(toCount(row?.linked ?? 0), total);
@@ -175,6 +249,7 @@ export async function getSystemStatus(
     PUBLICATION_SOURCE_COVERAGE_SQL,
   );
   const [graphCoverage] = await executor.queryRows<CoverageRow>(GRAPH_SOURCE_COVERAGE_SQL);
+  const jobRows = await executor.queryRows<PipelineJobRow>(PIPELINE_JOB_SQL, [now.toISOString()]);
   const datasets = datasetRows.map((row) => ({
     domain: row.domain,
     datasetName: row.dataset_name,
@@ -191,5 +266,15 @@ export async function getSystemStatus(
     datasets,
     sourceCoverage: mapCoverage(publicationCoverage),
     graphSourceCoverage: mapCoverage(graphCoverage),
+    pipelineJobs: jobRows.map((row) => ({
+      jobName: row.job_name,
+      lastRunAt: toIso(row.last_run_at),
+      lastSuccessAt: toIso(row.last_success_at),
+      lastFailureAt: toIso(row.last_failure_at),
+      lastStatus: normalizeJobStatus(row.last_status),
+      consecutiveFailures: toCount(row.consecutive_failures),
+      recordsFailures: row.records_failures,
+      stuckSince: toIso(row.stuck_since),
+    })),
   });
 }

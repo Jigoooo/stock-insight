@@ -234,6 +234,30 @@ describe('research workspace v3 contracts', () => {
       ],
       sourceCoverage: { linked: 194, clickable: 67, total: 194 },
       graphSourceCoverage: { linked: 0, clickable: 0, total: 3416 },
+      pipelineJobs: [
+        {
+          jobName: 'stock-insight-analytics-wrapper',
+          lastRunAt: '2026-08-01T14:04:00.000Z',
+          lastSuccessAt: '2026-07-31T22:47:00.000Z',
+          lastFailureAt: '2026-08-01T14:04:00.000Z',
+          lastStatus: 'failed',
+          consecutiveFailures: 3,
+          recordsFailures: true,
+          stuckSince: null,
+        },
+        {
+          // A wrapper stage only inserts on success, so a zero streak here means
+          // "nothing was recorded", not "nothing failed".
+          jobName: 'stock-insight-feed-build-stage',
+          lastRunAt: '2026-07-31T22:47:00.000Z',
+          lastSuccessAt: '2026-07-31T22:47:00.000Z',
+          lastFailureAt: null,
+          lastStatus: 'completed',
+          consecutiveFailures: 0,
+          recordsFailures: false,
+          stuckSince: null,
+        },
+      ],
     });
 
     assert.deepEqual(

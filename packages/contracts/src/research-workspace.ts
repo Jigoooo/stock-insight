@@ -315,12 +315,37 @@ export const datasetStatusSchema = z.object({
   analysisRevision: z.number().int().positive().nullable(),
 });
 
+export const pipelineJobStatusSchema = z.object({
+  jobName: boundedText(200),
+  lastRunAt: dateTimeSchema.nullable(),
+  lastSuccessAt: dateTimeSchema.nullable(),
+  lastFailureAt: dateTimeSchema.nullable(),
+  // Two vocabularies live in this column: most jobs write 'completed', while
+  // sync_daily_to_postgres writes 'success' and dart-financial-facts writes
+  // 'partial' when the OpenDART quota runs out mid-run. Normalising them away
+  // would give DART a failure streak on every quota-limited day.
+  lastStatus: z.enum(['completed', 'success', 'partial', 'failed', 'running']).nullable(),
+  consecutiveFailures: countSchema,
+  // Wrapper stages insert a row only when they succeed, so a failed or
+  // no-longer-running stage writes nothing at all and its failure streak stays 0
+  // forever. Without this flag a structurally-blind counter reads as health.
+  recordsFailures: z.boolean(),
+  // A run that was hard-killed leaves 'running' with no finished_at. Nothing else
+  // in the system notices; this is the only place a hang becomes visible.
+  stuckSince: dateTimeSchema.nullable(),
+});
+
+export type PipelineJobStatus = z.infer<typeof pipelineJobStatusSchema>;
+
 export const systemStatusSchema = z.object({
   generatedAt: dateTimeSchema,
   overall: canonicalAvailabilitySchema,
   datasets: z.array(datasetStatusSchema).max(100),
   sourceCoverage: sourceCoverageSchema,
   graphSourceCoverage: sourceCoverageSchema,
+  // Scoped to jobs that ran recently, so one-off July migrations drop out on
+  // their own rather than accumulating as permanently stale rows.
+  pipelineJobs: z.array(pipelineJobStatusSchema).max(60),
 });
 
 export type SystemStatus = z.infer<typeof systemStatusSchema>;

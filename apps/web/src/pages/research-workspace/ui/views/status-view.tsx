@@ -31,6 +31,12 @@ export function StatusView({ data }: { data: SystemStatus }) {
   const limitedDatasetCount = data.datasets.filter((dataset) =>
     ['collecting', 'stale', 'text_only'].includes(dataset.availability),
   ).length;
+  // A stuck run counts as needing attention on its own: it never reaches a status,
+  // so it would otherwise sit at zero failures forever while nothing runs.
+  const attentionJobs = data.pipelineJobs.filter(
+    (job) => job.consecutiveFailures > 0 || job.stuckSince !== null,
+  );
+  const blindJobCount = data.pipelineJobs.filter((job) => !job.recordsFailures).length;
   const latestWatermark = data.datasets.reduce<string | null>((latest, dataset) => {
     if (!dataset.watermarkAt) return latest;
     return latest === null || dataset.watermarkAt > latest ? dataset.watermarkAt : latest;
@@ -132,6 +138,72 @@ export function StatusView({ data }: { data: SystemStatus }) {
             </tbody>
           </DataTable>
         </div>
+      </Panel>
+      <Panel aria-labelledby="status-pipeline-title">
+        <PanelHeader>
+          <h2 id="status-pipeline-title">수집·분석 잡</h2>
+          <p>
+            최근 14일 안에 실행된 잡만 표시합니다. 연속 실패나 멈춘 실행이 있는 잡을 먼저 보여주고,
+            나머지는 아래 한 줄로 셉니다.
+          </p>
+        </PanelHeader>
+        <PropertyList
+          className={ledgerStyles.statusProperties}
+          aria-label="잡 상태 요약"
+          items={[
+            {
+              label: '실행 중인 잡',
+              value: `${data.pipelineJobs.length}개 (최근 14일)`,
+            },
+            {
+              label: '주의가 필요한 잡',
+              value:
+                attentionJobs.length === 0
+                  ? '연속 실패도 멈춘 실행도 없음'
+                  : `${attentionJobs.length}개`,
+            },
+            {
+              // A stage that fails writes no row at all, so its streak is 0 whether it
+              // is healthy or has stopped running. Saying so beats showing a green 0.
+              label: '실패를 기록하지 않는 잡',
+              value:
+                blindJobCount === 0
+                  ? '없음'
+                  : `${blindJobCount}개 — 성공했을 때만 기록하므로 연속 실패 0이 건강을 뜻하지 않습니다`,
+            },
+          ]}
+        />
+        {attentionJobs.length > 0 && (
+          <div className={styles.tableWrap}>
+            <DataTable caption="주의가 필요한 잡" className={styles.statusTable}>
+              <thead>
+                <tr>
+                  <th scope="col">잡</th>
+                  <th scope="col">최근 상태</th>
+                  <th scope="col">연속 실패</th>
+                  <th scope="col">마지막 성공</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attentionJobs.map((job) => (
+                  <tr key={job.jobName}>
+                    <td>
+                      <strong>{job.jobName}</strong>
+                      {job.stuckSince && (
+                        <small>
+                          {formatDate(job.stuckSince, true)}부터 실행 중 상태로 멈춰 있습니다
+                        </small>
+                      )}
+                    </td>
+                    <td>{job.lastStatus ?? '알 수 없음'}</td>
+                    <td>{formatNumber(job.consecutiveFailures)}</td>
+                    <td>{formatDate(job.lastSuccessAt, true)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+          </div>
+        )}
       </Panel>
     </>
   );
