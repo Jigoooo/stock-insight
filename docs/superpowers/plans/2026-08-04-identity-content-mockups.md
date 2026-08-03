@@ -234,16 +234,16 @@ In `completed-components-catalog.tsx`, replace the permanently pending Button wi
 type RefreshState = 'idle' | 'pending' | 'complete';
 
 const [refreshState, setRefreshState] = useState<RefreshState>('idle');
-const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-useEffect(() => () => {
-  if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-});
+useEffect(() => {
+  if (refreshState !== 'pending') return;
+  const refreshTimer = window.setTimeout(() => setRefreshState('complete'), 900);
+  return () => window.clearTimeout(refreshTimer);
+}, [refreshState]);
 
 function runRefresh() {
   if (refreshState === 'pending') return;
   setRefreshState('pending');
-  refreshTimerRef.current = setTimeout(() => setRefreshState('complete'), 900);
 }
 
 <Button

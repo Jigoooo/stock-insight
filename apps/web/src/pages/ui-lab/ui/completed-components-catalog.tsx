@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import styles from './completed-components-catalog.module.css';
 
@@ -65,9 +65,23 @@ const tableRows = [
   { key: '005930', name: '삼성전자', symbol: '005930', status: '업데이트' },
 ] as const;
 
+type RefreshState = 'idle' | 'pending' | 'complete';
+
 export function CompletedComponentsCatalog() {
   const [activeView, setActiveView] = useState('summary');
+  const [refreshState, setRefreshState] = useState<RefreshState>('idle');
   const [selectedCard, setSelectedCard] = useState(false);
+
+  useEffect(() => {
+    if (refreshState !== 'pending') return;
+    const refreshTimer = window.setTimeout(() => setRefreshState('complete'), 900);
+    return () => window.clearTimeout(refreshTimer);
+  }, [refreshState]);
+
+  const runRefresh = () => {
+    if (refreshState === 'pending') return;
+    setRefreshState('pending');
+  };
 
   return (
     <section className={styles.catalog} aria-labelledby="completed-components-title">
@@ -107,8 +121,13 @@ export function CompletedComponentsCatalog() {
             <Button variant="outline">다시 시도</Button>
             <Button variant="ghost">취소</Button>
             <Button variant="danger">삭제</Button>
-            <Button pending pendingLabel="불러오는 중">
-              새로고침
+            <Button
+              data-refresh-state={refreshState}
+              pending={refreshState === 'pending'}
+              pendingLabel="불러오는 중"
+              onClick={runRefresh}
+            >
+              {refreshState === 'complete' ? '새로고침 완료' : '새로고침'}
             </Button>
           </div>
         </section>

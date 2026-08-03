@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { CompletedComponentsCatalog } from './completed-components-catalog';
+import { IdentityContentCatalog } from './identity-content-catalog';
 import { InputActionCatalog } from './input-action-catalog';
 import { LocationNavigationCatalog, type BreadcrumbPreviewId } from './location-navigation-catalog';
 import { MenuOverlayCatalog } from './menu-overlay-catalog';
@@ -96,10 +97,11 @@ export function UiLabPage({
 
             <TabsContent value="in-progress">
               <div className={styles.statusIntro}>
-                <span>Next</span>
+                <span>In progress</span>
                 <h2>Identity & Content</h2>
-                <p>다음 목업 묶음은 정체성과 콘텐츠 표현을 함께 비교합니다.</p>
+                <p>여섯 컴포넌트를 나눠 각 역할에 맞는 A/B/C를 독립적으로 비교합니다.</p>
               </div>
+              <IdentityContentCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

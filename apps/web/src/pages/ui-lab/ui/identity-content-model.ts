@@ -1,10 +1,4 @@
-export type IdentityContentTabId =
-  | 'avatar'
-  | 'badge'
-  | 'status'
-  | 'list'
-  | 'timeline'
-  | 'carousel';
+export type IdentityContentTabId = 'avatar' | 'badge' | 'status' | 'list' | 'timeline' | 'carousel';
 
 export type ContentItemId = 'ai-infrastructure' | 'memory-cycle' | 'supply-risk';
 
@@ -105,5 +99,5 @@ export const contentItems = [
 export function getAdjacentContentId(currentId: ContentItemId, delta: -1 | 1): ContentItemId {
   const currentIndex = contentItems.findIndex((item) => item.id === currentId);
   const nextIndex = Math.max(0, Math.min(contentItems.length - 1, currentIndex + delta));
-  return contentItems[nextIndex].id;
+  return contentItems[nextIndex]?.id ?? currentId;
 }
