@@ -28,11 +28,22 @@
   color: var(--color-text-primary);
 }
 
+/* Secondary rather than tertiary throughout this file, at 12px.
+ *
+ * Measured 2026-08-04 with Axe on the production build: --color-text-tertiary
+ * (#7d8177) on --color-surface (#171815) in the market-graphite dark profile is
+ * 4.48:1, which misses WCAG AA by 0.02. The token is shared and every workspace
+ * view trips it, so this is not a defect of this page — but this page renders 79
+ * rows of source/time/link metadata and would have added 188 violations on its
+ * own. --color-text-secondary (#b8bbb2) is 9.16:1 on the same surface.
+ *
+ * Fixing the token itself belongs to whoever owns the profile; not adding to the
+ * pile belongs here. */
 .newsRow small {
   display: block;
   margin-top: 6px;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 /* The matched terms are the reason the row is on this page, so they read as
@@ -67,7 +78,7 @@
   align-items: flex-end;
   gap: 4px;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   text-align: right;
 }
 
@@ -82,8 +93,11 @@
   overflow-x: auto;
 }
 
+/* A dead term is de-emphasised by weight, not by a colour that fails contrast.
+ * It still has to be readable — it is the row a reader acts on. */
 .deadTerm td {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 @media (max-width: 760px) {
@@ -135,7 +149,7 @@
   }
 
   .vocabularyTable td:not([colspan])::before {
-    color: var(--color-text-tertiary);
+    color: var(--color-text-secondary);
     font-size: 12px;
     font-weight: 620;
   }
