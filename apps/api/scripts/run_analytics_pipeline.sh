@@ -81,6 +81,12 @@ DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --app
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
+# Needs prices and registered holdings, nothing else — independent of report and
+# impact publishing. personalization.portfolio_snapshot had readers and no writer
+# since it was created; registration itself was already visible because the stocks
+# read model selects user_positions directly.
+DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-portfolio-snapshot.ts --apply
+pipeline_record_stage_success stock-insight-portfolio-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-outbox-delivery.ts --apply --loop
 pipeline_record_stage_success stock-insight-outbox-delivery-stage "$RUN_STARTED_AT" || exit $?
 
@@ -97,10 +103,11 @@ SELECT CASE WHEN
      'stock-insight-probability-calibration-stage',
      'stock-insight-v2-graph-publish-stage',
      'stock-insight-v2-l5-publish-stage',
+     'stock-insight-portfolio-snapshot-stage',
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 9
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 10
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1

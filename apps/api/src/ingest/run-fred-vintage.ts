@@ -31,6 +31,14 @@ const CORE_SERIES = [
   'INDPRO', // industrial production
   'UMCSENT', // consumer sentiment
   'WALCL', // Fed balance sheet
+  // KRW per USD, daily. Added 2026-08-03 because portfolio snapshots have a
+  // single base_currency and a NOT NULL total_market_value, while holdings span
+  // KR/KRW and US/USD (194 and 135 priced securities). Without a collected rate
+  // the only ways to produce that total are to invent a rate or to refuse mixed
+  // portfolios. This arrives through the same contract layer as the rest of the
+  // series, so the rate carries a vintage — which is the only kind usable in a
+  // point-in-time snapshot.
+  'DEXKOUS', // KRW/USD spot
 ] as const;
 
 const UPSERT_VINTAGE_SQL = `
