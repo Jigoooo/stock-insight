@@ -135,6 +135,15 @@ async function defaultResolveCommand(name, env = process.env) {
   return undefined;
 }
 
+async function defaultSandboxPathIsReadable(path) {
+  try {
+    await access(path, fsConstants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function buildDatabaseUrl(role, port, applicationName) {
   const url = new URL(`postgresql://${role}@127.0.0.1:${port}/${DATABASE_NAME}`);
   url.searchParams.set('application_name', applicationName);
@@ -150,6 +159,7 @@ export async function prepareLiveDev({
   platform = process.platform,
   nodeExecutable = process.execPath,
   resolveCommand = (name) => defaultResolveCommand(name, env),
+  sandboxPathIsReadable = defaultSandboxPathIsReadable,
 } = {}) {
   if (platform === 'win32') throw new Error('Native Windows is not supported; run this inside WSL');
   const hostname = env.STOCK_INSIGHT_DB_TUNNEL_HOSTNAME?.trim() || LIVE_DB_HOSTNAME;
@@ -312,6 +322,8 @@ export async function prepareLiveDev({
     STOCK_INSIGHT_MUTATIONS_ENABLED: 'true',
     STOCK_INSIGHT_REMOTE_READ_ONLY: 'false',
     VITE_STOCK_INSIGHT_DATA_ENV: 'production-live',
+    ...(env.VITE_ENABLE_DEV_PREVIEW === '1' ? { VITE_ENABLE_DEV_PREVIEW: '1' } : {}),
+    ...(env.VITE_ENABLE_UI_LAB === '1' ? { VITE_ENABLE_UI_LAB: '1' } : {}),
   };
   delete webEnv.XDG_CONFIG_HOME;
   delete webEnv.XDG_DATA_HOME;
@@ -380,12 +392,9 @@ export async function prepareLiveDev({
     '/etc/passwd',
     '/etc/group',
   ]) {
-    try {
-      await access(candidate, fsConstants.R_OK);
+    if (await sandboxPathIsReadable(candidate)) {
       sandboxReadOnlyMounts.push('--ro-bind', candidate, candidate);
       sandboxMountedRoots.push(candidate);
-    } catch {
-      // Optional runtime paths vary between Linux distributions.
     }
   }
   // Every executable the launcher execs must exist inside the sandbox mount
@@ -971,6 +980,13 @@ export async function startLiveDev(
             psExecutable: listenerTools.ps,
           })
       : processGroupStillOwned);
+  const safelyOwnsProcessGroup = async (identity) => {
+    try {
+      return await ownsProcessGroupForPlatform(identity);
+    } catch {
+      return false;
+    }
+  };
   const verifyListener = ({ child, identity, port }) =>
     platform === 'darwin'
       ? verifyDarwinTcpListenerOwnedByProcessGroup({
@@ -1040,7 +1056,7 @@ export async function startLiveDev(
     for (const child of children) {
       const identity = identities.get(child);
       if (settled.has(child)) {
-        if (await ownsProcessGroupForPlatform(identity)) {
+        if (await safelyOwnsProcessGroup(identity)) {
           terminated =
             terminateOwnedProcessGroup(identity, signal, { platform, killProcess }) || terminated;
         }
@@ -1056,7 +1072,7 @@ export async function startLiveDev(
       forceTimer = undefined;
       for (const child of children) {
         const identity = identities.get(child);
-        if (await ownsProcessGroupForPlatform(identity)) {
+        if (await safelyOwnsProcessGroup(identity)) {
           terminateOwnedProcessGroup(identity, 'SIGKILL', { platform, killProcess });
         }
       }
@@ -1147,7 +1163,7 @@ export async function startLiveDev(
       schedule,
       cancelSchedule,
       identities,
-      ownsProcessGroup: ownsProcessGroupForPlatform,
+      ownsProcessGroup: safelyOwnsProcessGroup,
       onCleanup: prepared.cleanup,
     });
     return { tunnel, api, web };

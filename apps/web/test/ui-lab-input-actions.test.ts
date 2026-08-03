@@ -59,20 +59,21 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /'split-button': \['hairline', 'inset', 'rail'\]/);
   });
 
-  it('renders only the approved upload directions while preserving three-way comparisons elsewhere', async () => {
+  it('renders only approved two-way groups while preserving three-way comparisons elsewhere', async () => {
     const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
 
     assert.match(
       catalog,
       /activeCategory === 'upload'[\s\S]*directions\.filter\(\(\{ id \}\) => id !== 'rail'\)/,
     );
+    assert.match(catalog, /activeCategory === 'button-group'/);
     assert.match(catalog, /visibleDirections\.map\(\(defaultDirection\) =>/);
   });
 
   it('offers the approved calendar variants with compact rounded-square cells', async () => {
     const [catalog, styles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
-      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+      readSource('../src/shared/ui/calendar/calendar.module.css'),
     ]);
 
     assert.match(catalog, /A · Compact/);
@@ -82,138 +83,108 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(styles, /border-radius: 7px/);
   });
 
-  it('keeps the rail OTP focus feedback on the underline only', async () => {
-    const styles = await readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css');
-
-    assert.match(styles, /\.otp\[data-direction='rail'\] \.otpCells input:focus-visible/);
-    assert.match(styles, /border-bottom-color: var\(--color-text-primary\)/);
-    assert.match(styles, /outline: none/);
-  });
-
-  it('previews drop, single, multiple, selected, and removable upload states', async () => {
-    const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
-
-    assert.match(catalog, /type UploadMode = 'single' \| 'multiple'/);
-    assert.match(catalog, /type UploadDemoState = 'idle' \| 'dragging' \| 'selected'/);
-    assert.match(catalog, /onDragEnter=/);
-    assert.match(catalog, /onDrop=/);
-    assert.match(catalog, /multiple=\{mode === 'multiple'\}/);
-    assert.match(catalog, /aria-label="선택된 파일"/);
-    assert.match(catalog, /aria-label=\{`\$\{file\.name\} 삭제`\}/);
-  });
-
-  it('normalizes input and drop files through one append and validation contract', async () => {
-    const catalog = await readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx');
-    const uploadPreview = sourceBlock(catalog, 'function UploadPreview', 'function OtpPreview');
-    const updateModeHandler = sourceBlock(
-      uploadPreview,
-      'const updateMode',
-      'const updateDemoState',
-    );
-    const updateFilesHandler = sourceBlock(uploadPreview, 'const updateFiles', 'const removeFile');
-
-    assert.match(catalog, /const uploadMaxFileSize = 10 \* 1024 \* 1024/);
-    assert.match(catalog, /const acceptedUploadExtensions = new Set\(\['csv', 'xlsx', 'pdf'\]\)/);
-    assert.match(updateFilesHandler, /normalizeUploadFiles\(fileList, nextUploadId\)/);
-    assert.match(updateFilesHandler, /mode === 'single'/);
-    assert.match(updateFilesHandler, /current\.concat\(nextFiles\)/);
-    assert.match(updateModeHandler, /nextMode === 'single' \? current\.slice\(0, 1\) : current/);
-    assert.match(
-      uploadPreview,
-      /onDrop=\{\(event\) => \{[\s\S]*updateFiles\(event\.dataTransfer\.files\)/,
-    );
-    assert.match(
-      uploadPreview,
-      /onChange=\{\(event\) => \{[\s\S]*updateFiles\(event\.currentTarget\.files\);[\s\S]*event\.currentTarget\.value = ''/,
-    );
-  });
-
-  it('animates upload rows with alternating exits, pop-layout reflow, and reduced-motion feedback', async () => {
+  it('renders date controls through the shared public APIs instead of page-owned inputs', async () => {
     const [catalog, styles] = await Promise.all([
       readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
       readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
     ]);
+    const calendarPreview = sourceBlock(
+      catalog,
+      'function CalendarPreview',
+      'function DateRangePreview',
+    );
+    const dateRangePreview = sourceBlock(
+      catalog,
+      'function DateRangePreview',
+      'type UploadDemoState',
+    );
 
-    const motionConfig = sourceBlock(catalog, 'const uploadEnterEase', 'function formatFileSize');
+    assert.match(catalog, /from '@\/shared\/ui\/calendar'/);
+    assert.match(catalog, /from '@\/shared\/ui\/date-picker'/);
+    assert.match(calendarPreview, /<Calendar/);
+    assert.match(calendarPreview, /calendarVariantByDirection\[direction\]/);
+    assert.doesNotMatch(calendarPreview, /calendarDays\.map|<button/);
+    assert.match(dateRangePreview, /<DatePicker/);
+    assert.match(dateRangePreview, /<RangePicker/);
+    assert.doesNotMatch(dateRangePreview, /<button/);
+    assert.doesNotMatch(styles, /\.calendarGrid button/);
+    assert.doesNotMatch(styles, /\.dateFields button/);
+    assert.match(styles, /\.previewSurface button:not\(\[data-slot\]\):focus-visible/);
+    assert.doesNotMatch(styles, /\.previewSurface button:focus-visible/);
+  });
+
+  it('renders OTP states through the shared public API with rail-only underline focus', async () => {
+    const [catalog, pageStyles, sharedComponent, sharedStyles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+      readSource('../src/shared/ui/otp/otp.tsx'),
+      readSource('../src/shared/ui/otp/otp.module.css'),
+    ]);
+    const otpPreview = sourceBlock(catalog, 'function OtpPreview', 'function ButtonGroupPreview');
+
+    assert.match(catalog, /from '@\/shared\/ui\/otp'/);
+    assert.match(otpPreview, /<OTP/);
+    assert.match(otpPreview, /defaultValue="47"/);
+    assert.match(otpPreview, /variant=\{direction\}/);
+    assert.doesNotMatch(otpPreview, /<input|useRef|onKeyDown|onChange/);
+    assert.doesNotMatch(pageStyles, /\.otpCells|\.otp\[data-direction/);
+    assert.doesNotMatch(pageStyles, /\.previewSurface input:focus-visible/);
+    assert.match(sharedComponent, /data-slot="otp-input"/);
+    assert.match(sharedStyles, /\.root\[data-variant='rail'\] \.input:focus-visible/);
+    assert.match(sharedStyles, /border-bottom-color: var\(--color-text-primary\)/);
+    assert.match(sharedStyles, /outline: none/);
+    assert.match(sharedStyles, /box-shadow: none/);
+  });
+
+  it('renders approved action groups through the shared public APIs', async () => {
+    const [catalog, styles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+    ]);
+    const buttonGroupPreview = sourceBlock(
+      catalog,
+      'function ButtonGroupPreview',
+      'function SplitButtonPreview',
+    );
+    const splitButtonPreview = sourceBlock(
+      catalog,
+      'function SplitButtonPreview',
+      'function CategoryPreview',
+    );
+
+    assert.match(catalog, /from '@\/shared\/ui\/button-group'/);
+    assert.match(catalog, /from '@\/shared\/ui\/split-button'/);
+    assert.match(buttonGroupPreview, /<ButtonGroup/);
+    assert.doesNotMatch(buttonGroupPreview, /aria-pressed|<button/);
+    assert.match(splitButtonPreview, /<SplitButton/);
+    assert.match(splitButtonPreview, /variant=\{splitButtonVariantByDirection\[direction\]\}/);
+    assert.doesNotMatch(splitButtonPreview, /AnimatePresence|motion\.|role="menu"|<button/);
+    assert.doesNotMatch(styles, /\.buttonGroup\b|\.splitButton\b|\.splitMenu\b/);
+  });
+
+  it('renders file input states through the shared public API without page-owned drop logic', async () => {
+    const [catalog, pageStyles, sharedComponent, sharedStyles] = await Promise.all([
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.tsx'),
+      readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
+      readSource('../src/shared/ui/file-upload/file-upload.tsx'),
+      readSource('../src/shared/ui/file-upload/file-upload.module.css'),
+    ]);
     const uploadPreview = sourceBlock(catalog, 'function UploadPreview', 'function OtpPreview');
-    const removeFileHandler = sourceBlock(
-      uploadPreview,
-      'const removeFile',
-      'const handleFileListExitComplete',
-    );
-    const exitCompleteHandler = sourceBlock(
-      uploadPreview,
-      'const handleFileListExitComplete',
-      'const demoState',
-    );
-    const nativeFileInput = sourceBlock(uploadPreview, '<input', '/>');
-    const filePickerButton = sourceBlock(
-      uploadPreview,
-      '<button\n              ref={fileSelectRef}',
-      '</button>',
-    );
-    const presenceTag = sourceBlock(uploadPreview, '<AnimatePresence', '>');
-    const previewFocusRule = sourceBlock(styles, '.categoryNav button:focus-visible', '}');
-    const uploadStyles = sourceBlock(styles, '.uploadFileList {', '.visuallyHidden {');
-    const uploadListRule = sourceBlock(uploadStyles, '.uploadFileList {', '.uploadFileList li {');
 
-    assert.match(catalog, /useReducedMotion/);
-    assert.match(motionConfig, /\[0\.22, 1, 0\.36, 1\] as const/);
-    assert.match(motionConfig, /\[0\.4, 0, 1, 1\] as const/);
-    assert.match(presenceTag, /initial=\{false\}/);
-    assert.match(presenceTag, /mode="popLayout"/);
-    assert.match(presenceTag, /onExitComplete=\{handleFileListExitComplete\}/);
-    assert.match(uploadPreview, /<motion\.li/);
-    assert.match(uploadPreview, /<motion\.li[\s\S]*key=\{file\.id\}/);
-    assert.doesNotMatch(uploadPreview, /key=\{index\}/);
-    assert.match(uploadPreview, /layout=\{reducedMotion \? false : 'position'\}/);
-    assert.match(uploadPreview, /index % 2 === 0 \? -18 : 18/);
-    assert.match(uploadPreview, /duration: 0\.16/);
-    assert.match(uploadPreview, /delay: index \* 0\.028/);
-    assert.match(uploadPreview, /ease: uploadEnterEase/);
-    assert.match(uploadPreview, /duration: 0\.14, ease: uploadExitEase/);
-    assert.match(uploadPreview, /scale: 0\.985/);
-    assert.match(uploadPreview, /duration: 0\.24/);
-    assert.match(uploadPreview, /delay: index \* 0\.018/);
-    assert.match(
-      uploadPreview,
-      /reducedMotion\s*\? \{ opacity: 1, transition: \{ duration: 0\.1 \} \}/,
+    assert.match(catalog, /from '@\/shared\/ui\/file-upload'/);
+    assert.match(uploadPreview, /<FileUpload/);
+    assert.match(uploadPreview, /mode=\{mode\}/);
+    assert.match(uploadPreview, /files=\{files\}/);
+    assert.match(uploadPreview, /dragActive=\{dragActive\}/);
+    assert.doesNotMatch(uploadPreview, /onDrop=|onDragEnter=|type="file"|<motion\.li/);
+    assert.doesNotMatch(
+      pageStyles,
+      /\.upload\b|\.uploadPicker|\.uploadFileList|\.uploadDropFeedback/,
     );
-    assert.match(
-      uploadPreview,
-      /reducedMotion\s*\? \{ opacity: 0, transition: \{ duration: 0\.1 \} \}/,
-    );
-    assert.match(uploadPreview, /files\.length === 0 && !listExitPending/);
-    assert.match(
-      removeFileHandler,
-      /const remainingFiles = files\.filter[\s\S]*const nextFile = remainingFiles\[Math\.min\(index, remainingFiles\.length - 1\)\];[\s\S]*if \(nextFile\) \{[\s\S]*deleteButtonRefs\.current\[nextFile\.id\]\?\.focus\(\);[\s\S]*\} else \{[\s\S]*focusFileSelectAfterExit\.current = true;[\s\S]*setListExitPending\(true\);[\s\S]*\}[\s\S]*setFiles\(remainingFiles\);/,
-    );
-    assert.match(
-      exitCompleteHandler,
-      /setListExitPending\(false\);[\s\S]*if \(!focusFileSelectAfterExit\.current\) return;[\s\S]*focusFileSelectAfterExit\.current = false;[\s\S]*fileSelectRef\.current\?\.focus\(\);/,
-    );
-    assert.match(nativeFileInput, /ref=\{fileInputRef\}/);
-    assert.match(nativeFileInput, /type="file"/);
-    assert.match(nativeFileInput, /tabIndex=\{-1\}/);
-    assert.match(nativeFileInput, /aria-hidden="true"/);
-    assert.match(filePickerButton, /className=\{styles\.uploadPicker\}/);
-    assert.match(filePickerButton, /type="button"/);
-    assert.match(filePickerButton, /onClick=\{\(\) => fileInputRef\.current\?\.click\(\)\}/);
-    assert.match(filePickerButton, /\{files\.length > 0 \? '파일 다시 선택' : '파일 선택'\}/);
-    assert.match(previewFocusRule, /\.previewSurface button:focus-visible/);
-    assert.match(previewFocusRule, /outline: 2px solid var\(--color-focus\)/);
-    assert.match(uploadPreview, /deleteButtonRefs\.current\[file\.id\] = node/);
-    assert.match(uploadListRule, /position: relative/);
-    assert.doesNotMatch(uploadListRule, /animation:/);
-    assert.match(uploadStyles, /\.uploadFileList\[aria-hidden='true'\] \{[\s\S]*?display: none/);
-    assert.doesNotMatch(styles, /upload-file-enter/);
-    assert.match(styles, /@keyframes upload-drop-enter/);
-    const reducedMotionRule = styles.slice(
-      styles.indexOf('@media (prefers-reduced-motion: reduce)'),
-    );
-    assert.match(reducedMotionRule, /\.upload \{/);
-    assert.doesNotMatch(reducedMotionRule, /min-height/);
-    assert.match(reducedMotionRule, /border-color 160ms ease/);
+    assert.match(sharedComponent, /<AnimatePresence initial=\{false\} mode="popLayout"/);
+    assert.match(sharedComponent, /layout=\{reducedMotion \? false : 'position'\}/);
+    assert.match(sharedComponent, /index % 2 === 0 \? -18 : 18/);
+    assert.match(sharedStyles, /@media \(prefers-reduced-motion: reduce\)/);
   });
 
   it('keeps the mockups keyboard-operable and stateful', async () => {
@@ -222,9 +193,12 @@ describe('UI Lab input and action mockup batch', () => {
     assert.match(catalog, /aria-pressed=/);
     assert.match(catalog, /<RadioGroup/);
     assert.match(catalog, /<Slider/);
-    assert.match(catalog, /type="file"/);
-    assert.match(catalog, /aria-label=\{`OTP/);
-    assert.match(catalog, /aria-haspopup="menu"/);
+    assert.match(catalog, /<Calendar/);
+    assert.match(catalog, /<DatePicker/);
+    assert.match(catalog, /<RangePicker/);
+    assert.match(catalog, /<FileUpload/);
+    assert.match(catalog, /<OTP/);
+    assert.match(catalog, /<SplitButton/);
   });
 
   it('uses the canonical choice controls without retaining raw control ownership', async () => {
@@ -233,7 +207,11 @@ describe('UI Lab input and action mockup batch', () => {
       readSource('../src/pages/ui-lab/ui/input-action-catalog.module.css'),
     ]);
     const radioPreview = sourceBlock(catalog, 'function RadioPreview', 'function SliderPreview');
-    const sliderPreview = sourceBlock(catalog, 'function SliderPreview', 'const calendarDays');
+    const sliderPreview = sourceBlock(
+      catalog,
+      'function SliderPreview',
+      'function CalendarPreview',
+    );
 
     assert.match(
       catalog,

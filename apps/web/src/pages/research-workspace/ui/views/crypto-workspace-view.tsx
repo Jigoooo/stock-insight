@@ -87,15 +87,14 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
   return (
     <div className={styles.root} data-read-only="true" data-order-executable="false">
       <PageHeader
-        eyebrow="Crypto × Equity"
-        title="크립토·기업 연결 리서치"
-        description="크립토 고유 사건과 토크노믹스를 주식 기업·거시·지역 관계망에 연결한 조회 전용 화면입니다."
+        title="크립토 리서치"
+        description="크립토 사건과 기업·시장 관계를 확인합니다."
         asOf={data.knownAt}
       />
 
       <output className={styles.safetyBar}>
         <strong>조회 전용</strong>
-        <span>주문·지갑 연결·실시간 계정 연결이 없습니다.</span>
+        <span>주문·지갑 연결 없음</span>
       </output>
 
       <MetricStrip
@@ -112,17 +111,16 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
         <WorkspaceState
           kind="empty"
           title="데이터가 아직 없습니다"
-          description="검증된 크립토 identity와 기업 연결이 적재되면 이 화면에 표시됩니다."
+          description="검증된 크립토 식별 정보와 기업 연결이 준비되면 표시됩니다."
         />
       ) : (
         <div className={styles.contentGrid}>
           <Panel className={styles.assetPanel} aria-labelledby="crypto-assets-title">
             <PanelHeader className={styles.sectionHeader}>
-              <span>Canonical identity</span>
               <h2 id="crypto-assets-title">추적 자산</h2>
             </PanelHeader>
             {data.entities.length === 0 ? (
-              <p className={styles.emptyCopy}>표시할 자산 identity가 없습니다.</p>
+              <p className={styles.emptyCopy}>표시할 자산 식별 정보가 없습니다.</p>
             ) : (
               <StructuredList className={styles.assetList} aria-label="추적 자산 목록">
                 {data.entities.map((entity) => (
@@ -131,8 +129,8 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                       <strong>{entity.displayName}</strong>
                       <span>{entity.symbol ?? entity.entityKind}</span>
                     </div>
-                    <p>{entity.chainId ?? 'off-chain identity'}</p>
-                    <small>출처 revision {entity.sourceRevisionId}</small>
+                    <p>{entity.chainId ?? '체인 외 식별자'}</p>
+                    <small>출처 버전 {entity.sourceRevisionId}</small>
                   </li>
                 ))}
               </StructuredList>
@@ -144,7 +142,6 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
               className={styles.sectionHeader}
               meta={`검증 ${verifiedLinkCount}개 · 검토 중 ${proposedLinkCount}개`}
             >
-              <span>Cross-domain graph</span>
               <h2 id="crypto-company-links-title">기업 연결</h2>
             </PanelHeader>
             {data.companyLinks.length === 0 ? (
@@ -203,7 +200,7 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                           {link.epistemicConfidence !== null ? (
                             <small>신뢰 원계수 {link.epistemicConfidence}</small>
                           ) : null}
-                          <small>출처 revision {link.sourceRevisionId}</small>
+                          <small>출처 버전 {link.sourceRevisionId}</small>
                           <time dateTime={link.knownAt}>
                             기준 시각 {formatDate(link.knownAt, true)}
                           </time>
@@ -218,7 +215,6 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
 
           <Panel className={styles.eventPanel} aria-labelledby="crypto-events-title">
             <PanelHeader className={styles.sectionHeader}>
-              <span>Truth ledger</span>
               <h2 id="crypto-events-title">온체인 사건</h2>
             </PanelHeader>
             {data.events.length === 0 ? (
@@ -238,7 +234,7 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                     </div>
                     <p>{event.summary}</p>
                     <time dateTime={event.knownAt}>{formatDate(event.knownAt, true)}</time>
-                    <small>출처 revision {event.sourceRevisionId}</small>
+                    <small>출처 버전 {event.sourceRevisionId}</small>
                   </li>
                 ))}
               </Timeline>
@@ -247,7 +243,6 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
 
           <Panel className={styles.riskPanel} aria-labelledby="crypto-risk-title">
             <PanelHeader className={styles.sectionHeader}>
-              <span>Impact chain</span>
               <h2 id="crypto-risk-title">리스크 전파</h2>
             </PanelHeader>
             {data.riskExposures.length === 0 ? (
@@ -305,7 +300,7 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
                             </>
                           ),
                         },
-                        { label: '출처 revision', value: risk.sourceRevisionId },
+                        { label: '출처 버전', value: risk.sourceRevisionId },
                         {
                           label: '기준 시각',
                           value: (
@@ -324,7 +319,6 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
 
       <Panel className={styles.limitationsPanel} aria-labelledby="crypto-limitations-title">
         <PanelHeader className={styles.sectionHeader}>
-          <span>Read-only boundary</span>
           <h2 id="crypto-limitations-title">제약과 가용성</h2>
         </PanelHeader>
         <PropertyList
@@ -343,18 +337,6 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
             },
           ]}
         />
-        <div className={styles.availabilityStates}>
-          <WorkspaceState
-            kind="unavailable"
-            title="실시간 계정·지갑은 현재 사용할 수 없는 연결입니다"
-            description="이 화면은 봉인된 리서치 스냅샷만 표시하며 계정이나 지갑 잔액을 연결하지 않습니다."
-          />
-          <WorkspaceState
-            kind="unavailable"
-            title="주문 실행은 지원하지 않음"
-            description="표시된 관계와 리스크는 정보 확인용이며 주문이나 지갑 작업으로 이어지지 않습니다."
-          />
-        </div>
       </Panel>
     </div>
   );

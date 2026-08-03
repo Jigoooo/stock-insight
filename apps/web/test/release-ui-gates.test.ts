@@ -17,12 +17,11 @@ const workspaceAuthTeardownUrl = new URL(
 const playwrightConfigUrl = new URL('../../../playwright.config.ts', import.meta.url);
 const sourceRootUrl = new URL('../src/', import.meta.url);
 const productLayerNames = ['pages', 'widgets', 'features', 'entities'] as const;
-// pages/ui-lab is the dev-only control catalog behind VITE_ENABLE_UI_LAB
-// (routes/[__ui-lab].tsx throws notFound() outside it), so it ships no route
-// styles to a release build. It prototypes raw controls before they graduate to
-// shared/ui, which is exactly the state ownership this gate keeps out of real
-// routes — so the control-state rule below skips it on purpose.
-const devOnlySurfacePattern = /\/src\/pages\/ui-lab\//;
+// Both pages are dev-only visual surfaces whose routes fail closed unless their
+// explicit VITE_ENABLE_* flag is present. They may prototype raw controls before
+// those controls graduate to shared/ui, so the release route-state sweep excludes
+// them while retaining a non-empty assertion for the actual product surface.
+const developmentOnlyPageFragments = ['/pages/dev-preview/', '/pages/ui-lab/'] as const;
 
 async function readSourceTree(directory: URL): Promise<Array<{ path: string; source: string }>> {
   const sources: Array<{ path: string; source: string }> = [];
@@ -64,7 +63,11 @@ describe('release UI browser gates', () => {
     assert.match(toast, /swipeDirections=\{\['right', 'top'\]\}/);
     const routeStyles = layers
       .flat()
-      .filter(({ path }) => path.endsWith('.css') && !devOnlySurfacePattern.test(path));
+      .filter(
+        ({ path }) =>
+          path.endsWith('.css') &&
+          !developmentOnlyPageFragments.some((fragment) => path.includes(fragment)),
+      );
     assert.notEqual(routeStyles.length, 0, 'route style sweep matched no files');
     for (const { path, source } of routeStyles) {
       assert.doesNotMatch(

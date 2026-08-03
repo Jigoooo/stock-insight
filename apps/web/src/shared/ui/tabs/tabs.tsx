@@ -20,14 +20,27 @@ import {
   type TabsTriggerProps as TabsTriggerPrimitiveProps,
 } from '@/shared/ui/animate-ui/primitives/radix/tabs';
 
-export type TabsVariant = 'inset' | 'hairline';
+export type TabsVariant = 'soft-inset' | 'sliding-underline';
 
 export type TabsProps = TabsPrimitiveProps & {
+  fullWidth?: boolean;
   variant?: TabsVariant;
 };
 
-export function Tabs({ className, variant = 'inset', ...props }: TabsProps) {
-  return <TabsPrimitive className={cn(styles.root, className)} data-variant={variant} {...props} />;
+export function Tabs({
+  className,
+  fullWidth = false,
+  variant = 'soft-inset',
+  ...props
+}: TabsProps) {
+  return (
+    <TabsPrimitive
+      className={cn(styles.root, className)}
+      data-full-width={fullWidth || undefined}
+      data-variant={variant}
+      {...props}
+    />
+  );
 }
 
 export type TabsHighlightProps = TabsHighlightPrimitiveProps;

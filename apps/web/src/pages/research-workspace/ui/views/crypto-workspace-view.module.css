@@ -97,16 +97,6 @@
   margin-bottom: 16px;
 }
 
-.sectionHeader span {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--color-accent-strong);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 1.4;
-  letter-spacing: 0.04em;
-}
-
 .sectionHeader h2 {
   margin: 0;
   font-size: 20px;
@@ -324,27 +314,12 @@
   margin: 0 20px 20px;
 }
 
-.availabilityStates {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0 20px 20px;
-}
-
-.availabilityStates > div {
-  min-width: 0;
-}
-
 @media (max-width: 900px) {
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .contentGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .availabilityStates {
     grid-template-columns: 1fr;
   }
 

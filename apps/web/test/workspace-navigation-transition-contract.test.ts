@@ -60,7 +60,9 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /pendingLane=\{navigationIntent\.pendingLane/);
     assert.match(today, /pendingLane\?: ResearchFeedLaneId \| null/);
     assert.match(today, /data-pending=\{pendingLane === item\.lane \|\| undefined\}/);
-    assert.match(today, /<Tabs[\s\S]*?value=\{lane\}[\s\S]*?variant="hairline"/);
+    assert.match(today, /<Tabs[\s\S]*?value=\{lane\}[\s\S]*?variant="sliding-underline"/);
+    assert.match(today, /<TabsHighlight>/);
+    assert.match(today, /<TabsHighlightItem[\s\S]*?value=\{item\.lane\}/);
     assert.match(today, /activationMode="manual"/);
     assert.match(tabs, /<TabsPrimitive\.Root[\s\S]*?\{\.\.\.props\}/);
     assert.match(tabs, /<TabsPrimitive\.Trigger data-slot="tabs-trigger" \{\.\.\.props\}/);
@@ -77,7 +79,7 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /\.catch\([\s\S]*?type: 'settle'/);
   });
 
-  it('keeps section state on links and delegates lane selection visuals to hairline Tabs', async () => {
+  it('keeps section state on links and delegates lane selection visuals to shared Tabs', async () => {
     const [navigation, today, shellCss] = await Promise.all([
       readFile(navigationUrl, 'utf8'),
       readFile(todayUrl, 'utf8'),
@@ -87,8 +89,8 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(navigation, /className=\{styles\.navigationLink\}/);
     assert.match(shellCss, /\.navigationLink\[aria-current='page'\]/);
     assert.doesNotMatch(navigation, /navIndicator|activeSectionIndex/);
-    assert.match(today, /variant="hairline"/);
-    assert.doesNotMatch(today, /TabsHighlight|laneIndicator/);
+    assert.match(today, /variant="sliding-underline"/);
+    assert.doesNotMatch(today, /laneIndicator/);
     assert.doesNotMatch(today, /activeLaneIndex|translate|transform/);
   });
 });

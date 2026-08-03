@@ -1,20 +1,17 @@
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  FileText,
-  Link2,
-  Upload,
-  X,
-} from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useId, useRef, useState } from 'react';
+import { Download, FileText, Link2 } from 'lucide-react';
+import { useState } from 'react';
 
 import styles from './input-action-catalog.module.css';
 
+import { Button } from '@/shared/ui/button';
+import { ButtonGroup } from '@/shared/ui/button-group';
+import { Calendar, type CalendarVariant } from '@/shared/ui/calendar';
+import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
+import { FileUpload, type FileUploadFile, type FileUploadMode } from '@/shared/ui/file-upload';
+import { OTP } from '@/shared/ui/otp';
 import { RadioGroup, type RadioGroupVariant } from '@/shared/ui/radio-group';
 import { Slider, type SliderVariant } from '@/shared/ui/slider';
+import { SplitButton, type SplitButtonVariant } from '@/shared/ui/split-button';
 
 type DirectionId = RadioGroupVariant & SliderVariant;
 type CategoryId =
@@ -93,6 +90,12 @@ const calendarDirections = {
   },
 } as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
 
+const calendarVariantByDirection = {
+  hairline: 'compact',
+  inset: 'soft-inset',
+  rail: 'ledger',
+} as const satisfies Record<DirectionId, CalendarVariant>;
+
 const splitButtonDirections = {
   hairline: {
     label: 'A · Soft Join',
@@ -110,6 +113,12 @@ const splitButtonDirections = {
     description: '같은 그룹 안에서 두 버튼을 살짝 분리해 둥근 형태와 클릭 영역을 강조합니다.',
   },
 } as const satisfies Record<DirectionId, { label: string; title: string; description: string }>;
+
+const splitButtonVariantByDirection = {
+  hairline: 'solid',
+  inset: 'tonal',
+  rail: 'twin',
+} as const satisfies Record<DirectionId, SplitButtonVariant>;
 
 function RadioPreview({ direction }: { direction: DirectionId }) {
   return (
@@ -142,136 +151,55 @@ function SliderPreview({ direction }: { direction: DirectionId }) {
   );
 }
 
-const calendarDays = Array.from({ length: 28 }, (_, index) => index + 1);
-
 function CalendarPreview({ direction }: { direction: DirectionId }) {
-  const [selected, setSelected] = useState(12);
   return (
-    <div className={styles.calendar} data-direction={direction}>
-      <header>
-        <button type="button" aria-label="이전 달">
-          <ChevronLeft aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
-        <strong>2026년 8월</strong>
-        <button type="button" aria-label="다음 달">
-          <ChevronRight aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
-      </header>
-      <div className={styles.weekdays} aria-hidden="true">
-        {['월', '화', '수', '목', '금', '토', '일'].map((day) => (
-          <span key={day}>{day}</span>
-        ))}
-      </div>
-      <div className={styles.calendarGrid} aria-label="2026년 8월 날짜">
-        {calendarDays.map((day) => (
-          <button
-            key={day}
-            type="button"
-            aria-pressed={selected === day}
-            data-today={day === 2 || undefined}
-            onClick={() => setSelected(day)}
-          >
-            {day}
-          </button>
-        ))}
-      </div>
-    </div>
+    <Calendar
+      defaultMonth={new Date(2026, 7, 1)}
+      defaultValue={new Date(2026, 7, 12)}
+      variant={calendarVariantByDirection[direction]}
+    />
   );
 }
 
 function DateRangePreview({ direction }: { direction: DirectionId }) {
-  const [mode, setMode] = useState<'single' | 'range'>('range');
   return (
     <div className={styles.dateRange} data-direction={direction}>
-      <div className={styles.miniToggle} aria-label="날짜 선택 방식">
-        <button type="button" aria-pressed={mode === 'single'} onClick={() => setMode('single')}>
-          하루
-        </button>
-        <button type="button" aria-pressed={mode === 'range'} onClick={() => setMode('range')}>
-          기간
-        </button>
-      </div>
-      <div className={styles.dateFields}>
-        <button type="button">
-          <small>{mode === 'single' ? '기준일' : '시작일'}</small>
-          <strong>2026.08.02</strong>
-        </button>
-        {mode === 'range' && (
-          <>
-            <span aria-hidden="true">—</span>
-            <button type="button">
-              <small>종료일</small>
-              <strong>2026.08.16</strong>
-            </button>
-          </>
-        )}
-      </div>
-      <p>{mode === 'single' ? '해당 거래일의 근거만 표시' : '15일간의 변화와 근거를 함께 표시'}</p>
+      <DatePicker
+        calendarVariant={calendarVariantByDirection[direction]}
+        defaultValue={new Date(2026, 7, 2)}
+        label="기준일"
+        variant={direction}
+      />
+      <RangePicker
+        calendarVariant={calendarVariantByDirection[direction]}
+        defaultValue={{ from: new Date(2026, 7, 2), to: new Date(2026, 7, 16) }}
+        endLabel="종료일"
+        startLabel="시작일"
+        variant={direction}
+      />
+      <p>기준일 또는 기간을 선택해 변화와 근거를 함께 확인합니다.</p>
     </div>
   );
 }
 
-type UploadMode = 'single' | 'multiple';
 type UploadDemoState = 'idle' | 'dragging' | 'selected';
-type UploadPreviewFile = { id: string; name: string; size: string };
 
-const singleUploadSample: UploadPreviewFile[] = [
-  { id: 'portfolio', name: 'portfolio-2026-08.csv', size: '284 KB' },
+const singleUploadSample: FileUploadFile[] = [
+  { id: 'portfolio', name: 'portfolio-2026-08.csv', size: 284 * 1024 },
 ];
 
-const multipleUploadSamples: UploadPreviewFile[] = [
+const multipleUploadSamples: FileUploadFile[] = [
   ...singleUploadSample,
-  { id: 'earnings', name: 'earnings-notes.pdf', size: '1.8 MB' },
-  { id: 'watchlist', name: 'watchlist.xlsx', size: '632 KB' },
+  { id: 'earnings', name: 'earnings-notes.pdf', size: 1.8 * 1024 * 1024 },
+  { id: 'watchlist', name: 'watchlist.xlsx', size: 632 * 1024 },
 ];
-
-const uploadMaxFileSize = 10 * 1024 * 1024;
-const acceptedUploadExtensions = new Set(['csv', 'xlsx', 'pdf']);
-const uploadEnterEase = [0.22, 1, 0.36, 1] as const;
-const uploadExitEase = [0.4, 0, 1, 1] as const;
-
-function formatFileSize(size: number) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function normalizeUploadFiles(fileList: FileList, nextUploadId: () => string) {
-  return Array.from(fileList)
-    .filter((file) => {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      return (
-        extension !== undefined &&
-        acceptedUploadExtensions.has(extension) &&
-        file.size <= uploadMaxFileSize
-      );
-    })
-    .map((file) => ({
-      id: nextUploadId(),
-      name: file.name,
-      size: formatFileSize(file.size),
-    }));
-}
 
 function UploadPreview({ direction }: { direction: DirectionId }) {
-  const inputId = useId();
-  const reducedMotion = useReducedMotion();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileSelectRef = useRef<HTMLButtonElement>(null);
-  const deleteButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const focusFileSelectAfterExit = useRef(false);
-  const uploadIdSequence = useRef(0);
-  const [mode, setMode] = useState<UploadMode>('single');
-  const [files, setFiles] = useState<UploadPreviewFile[]>([]);
+  const [mode, setMode] = useState<FileUploadMode>('single');
+  const [files, setFiles] = useState<readonly FileUploadFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const [listExitPending, setListExitPending] = useState(false);
 
-  const nextUploadId = () => {
-    uploadIdSequence.current += 1;
-    return `${direction}-upload-${uploadIdSequence.current}`;
-  };
-
-  const updateMode = (nextMode: UploadMode) => {
+  const updateMode = (nextMode: FileUploadMode) => {
     setMode(nextMode);
     setFiles((current) => (nextMode === 'single' ? current.slice(0, 1) : current));
   };
@@ -279,46 +207,10 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
   const updateDemoState = (state: UploadDemoState) => {
     setDragActive(state === 'dragging');
     if (state === 'idle' || state === 'dragging') {
-      setListExitPending(files.length > 0);
       setFiles([]);
       return;
     }
-    setListExitPending(false);
     setFiles(mode === 'single' ? singleUploadSample : multipleUploadSamples);
-  };
-
-  const updateFiles = (fileList: FileList | null) => {
-    if (!fileList) return;
-    const nextFiles = normalizeUploadFiles(fileList, nextUploadId);
-    if (nextFiles.length > 0) {
-      setListExitPending(false);
-      setFiles((current) =>
-        mode === 'single' ? nextFiles.slice(0, 1) : current.concat(nextFiles),
-      );
-    }
-    setDragActive(false);
-  };
-
-  const removeFile = (file: UploadPreviewFile, index: number) => {
-    const remainingFiles = files.filter((item) => item.id !== file.id);
-    const nextFile = remainingFiles[Math.min(index, remainingFiles.length - 1)];
-
-    if (nextFile) {
-      deleteButtonRefs.current[nextFile.id]?.focus();
-    } else {
-      focusFileSelectAfterExit.current = true;
-      setListExitPending(true);
-    }
-
-    setFiles(remainingFiles);
-  };
-
-  const handleFileListExitComplete = () => {
-    setListExitPending(false);
-    if (!focusFileSelectAfterExit.current) return;
-
-    focusFileSelectAfterExit.current = false;
-    fileSelectRef.current?.focus();
   };
 
   const demoState: UploadDemoState = dragActive
@@ -366,258 +258,87 @@ function UploadPreview({ direction }: { direction: DirectionId }) {
         </div>
       </div>
 
-      <div
-        className={styles.upload}
-        data-direction={direction}
-        data-filled={files.length > 0 || undefined}
-        data-drag-active={dragActive || undefined}
-        onDragEnter={(event) => {
-          event.preventDefault();
-          setDragActive(true);
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-            setDragActive(false);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          updateFiles(event.dataTransfer.files);
-        }}
-      >
-        <input
-          ref={fileInputRef}
-          id={inputId}
-          className={styles.visuallyHidden}
-          type="file"
-          tabIndex={-1}
-          aria-hidden="true"
-          accept=".csv,.xlsx,.pdf"
-          multiple={mode === 'multiple'}
-          onChange={(event) => {
-            updateFiles(event.currentTarget.files);
-            event.currentTarget.value = '';
-          }}
-        />
-
-        {dragActive ? (
-          <div className={styles.uploadDropFeedback} aria-live="polite">
-            <Upload aria-hidden="true" size={20} strokeWidth={1.7} />
-            <strong>{files.length > 0 && mode === 'single' ? '놓아서 교체' : '놓아서 추가'}</strong>
-            <small>CSV, XLSX, PDF 파일을 여기에 놓으세요.</small>
-          </div>
-        ) : (
-          <>
-            <span className={styles.uploadIcon} aria-hidden="true">
-              <Upload size={17} strokeWidth={1.8} />
-            </span>
-            <strong>
-              {files.length > 0 ? `${files.length}개 파일 선택됨` : '리서치 파일 추가'}
-            </strong>
-            <small>
-              {files.length > 0
-                ? mode === 'single'
-                  ? '새 파일을 놓으면 현재 파일을 교체합니다.'
-                  : '파일을 더 놓거나 목록에서 개별 삭제할 수 있습니다.'
-                : '끌어다 놓거나 직접 선택 · CSV, XLSX, PDF · 최대 10MB'}
-            </small>
-            <button
-              ref={fileSelectRef}
-              className={styles.uploadPicker}
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {files.length > 0 ? '파일 다시 선택' : '파일 선택'}
-            </button>
-          </>
-        )}
-      </div>
-
-      <ul
-        className={styles.uploadFileList}
-        aria-label="선택된 파일"
-        aria-hidden={(files.length === 0 && !listExitPending) || undefined}
-      >
-        <AnimatePresence
-          initial={false}
-          mode="popLayout"
-          onExitComplete={handleFileListExitComplete}
-        >
-          {files.map((file, index) => {
-            const exitX = index % 2 === 0 ? -18 : 18;
-
-            return (
-              <motion.li
-                key={file.id}
-                layout={reducedMotion ? false : 'position'}
-                initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
-                animate={
-                  reducedMotion
-                    ? { opacity: 1, transition: { duration: 0.1 } }
-                    : {
-                        opacity: 1,
-                        x: 0,
-                        y: 0,
-                        scale: 1,
-                        transition: {
-                          duration: 0.16,
-                          delay: index * 0.028,
-                          ease: uploadEnterEase,
-                        },
-                      }
-                }
-                exit={
-                  reducedMotion
-                    ? { opacity: 0, transition: { duration: 0.1 } }
-                    : {
-                        opacity: 0,
-                        x: exitX,
-                        scale: 0.985,
-                        transition: { duration: 0.14, ease: uploadExitEase },
-                      }
-                }
-                transition={
-                  reducedMotion
-                    ? undefined
-                    : {
-                        layout: {
-                          type: 'spring',
-                          duration: 0.24,
-                          bounce: 0,
-                          delay: index * 0.018,
-                        },
-                      }
-                }
-              >
-                <span className={styles.uploadFileIcon} aria-hidden="true">
-                  <FileText size={15} strokeWidth={1.7} />
-                </span>
-                <span className={styles.uploadFileMeta}>
-                  <strong>{file.name}</strong>
-                  <small>{file.size} · 준비됨</small>
-                </span>
-                <button
-                  ref={(node) => {
-                    deleteButtonRefs.current[file.id] = node;
-                  }}
-                  type="button"
-                  aria-label={`${file.name} 삭제`}
-                  onClick={() => removeFile(file, index)}
-                >
-                  <X aria-hidden="true" size={14} strokeWidth={1.8} />
-                </button>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-      </ul>
+      <FileUpload
+        dragActive={dragActive}
+        files={files}
+        mode={mode}
+        onDragActiveChange={setDragActive}
+        onFilesChange={setFiles}
+        variant={direction === 'inset' ? 'inset' : 'hairline'}
+      />
     </div>
   );
 }
 
 function OtpPreview({ direction }: { direction: DirectionId }) {
-  const otpPositions = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'] as const;
-  const [digits, setDigits] = useState(['4', '7', '', '', '', '']);
-  const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
   return (
-    <div className={styles.otp} data-direction={direction}>
-      <div className={styles.controlHeading}>
-        <strong>확인 코드</strong>
-        <small>02:41</small>
-      </div>
-      <div className={styles.otpCells}>
-        {digits.map((digit, index) => (
-          <input
-            key={otpPositions[index]}
-            ref={(node) => {
-              inputsRef.current[index] = node;
-            }}
-            aria-label={`OTP ${index + 1}번째 자리`}
-            inputMode="numeric"
-            maxLength={1}
-            value={digit}
-            onChange={(event) => {
-              const nextDigit = event.currentTarget.value.replace(/\D/g, '').slice(-1);
-              setDigits((current) =>
-                current.map((item, itemIndex) => (itemIndex === index ? nextDigit : item)),
-              );
-              if (nextDigit) inputsRef.current[index + 1]?.focus();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Backspace' && !digit) inputsRef.current[index - 1]?.focus();
-            }}
-          />
-        ))}
-      </div>
-      <p aria-live="polite">
-        {digits.every(Boolean) ? '코드 입력 완료' : '나머지 숫자를 입력하세요.'}
-      </p>
-    </div>
+    <OTP
+      completeText="코드 입력 완료"
+      defaultValue="47"
+      description="나머지 숫자를 입력하세요."
+      label="확인 코드"
+      meta="02:41"
+      variant={direction}
+    />
   );
 }
 
 function ButtonGroupPreview({ direction }: { direction: DirectionId }) {
-  const [period, setPeriod] = useState('1M');
   return (
     <div className={styles.buttonPreview} data-direction={direction}>
-      <div className={styles.buttonGroup} aria-label="차트 기간">
-        {['1D', '1W', '1M', '1Y'].map((value) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={period === value}
-            onClick={() => setPeriod(value)}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
+      <ButtonGroup
+        fullWidth
+        aria-label="리포트 작업"
+        variant={direction === 'inset' ? 'inset' : 'hairline'}
+      >
+        <Button size="sm" variant="outline">
+          저장
+        </Button>
+        <Button size="sm" variant="outline">
+          복사
+        </Button>
+        <Button size="sm" variant="outline">
+          내보내기
+        </Button>
+      </ButtonGroup>
     </div>
   );
 }
 
 function SplitButtonPreview({ direction }: { direction: DirectionId }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [result, setResult] = useState('아직 실행한 액션이 없습니다.');
+
   return (
     <div className={styles.splitPreview} data-direction={direction}>
       <p>화살표 영역을 눌러 보조 액션을 확인하세요.</p>
-      <div className={styles.splitButton} data-direction={direction}>
-        <button className={styles.splitPrimary} type="button">
+      <SplitButton
+        actions={[
+          {
+            value: 'pdf',
+            label: 'PDF로 저장',
+            icon: <Download aria-hidden="true" size={15} strokeWidth={1.8} />,
+          },
+          {
+            value: 'link',
+            label: '링크 복사',
+            icon: <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />,
+          },
+        ]}
+        onActionSelect={(value) =>
+          setResult(value === 'pdf' ? 'PDF 저장을 선택했습니다.' : '링크 복사를 선택했습니다.')
+        }
+        onClick={() => setResult('기본 저장을 실행했습니다.')}
+        triggerLabel="리포트 저장 옵션"
+        variant={splitButtonVariantByDirection[direction]}
+      >
+        <>
           <FileText aria-hidden="true" size={15} strokeWidth={1.8} />
           <span>리포트 저장</span>
-        </button>
-        <button
-          className={styles.splitTrigger}
-          type="button"
-          aria-label="리포트 저장 옵션"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((current) => !current)}
-        >
-          <ChevronDown aria-hidden="true" size={15} strokeWidth={1.8} />
-        </button>
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              className={styles.splitMenu}
-              role="menu"
-              initial={{ opacity: 0, y: -4, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -3, scale: 0.99 }}
-              transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
-                <Download aria-hidden="true" size={15} strokeWidth={1.8} />
-                <span>PDF로 저장</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
-                <Link2 aria-hidden="true" size={15} strokeWidth={1.8} />
-                <span>링크 복사</span>
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+        </>
+      </SplitButton>
+      <p aria-live="polite" data-slot="split-button-result">
+        {result}
+      </p>
     </div>
   );
 }
@@ -643,7 +364,9 @@ export function InputActionCatalog() {
   const [activeCategory, setActiveCategory] = useState<CategoryId>('radio');
   const activeLabel = categories.find(({ id }) => id === activeCategory)?.label;
   const visibleDirections =
-    activeCategory === 'upload' ? directions.filter(({ id }) => id !== 'rail') : directions;
+    activeCategory === 'upload' || activeCategory === 'button-group'
+      ? directions.filter(({ id }) => id !== 'rail')
+      : directions;
 
   return (
     <section className={styles.catalog} aria-labelledby="input-action-title">
@@ -653,8 +376,8 @@ export function InputActionCatalog() {
           <h2 id="input-action-title">입력과 액션</h2>
         </div>
         <p>
-          확정된 시안은 상황별 variant 후보로 함께 보존합니다. SplitButton은 별도 비교 후 공용
-          컴포넌트 설계에 반영합니다.
+          확정된 시안은 상황별 variant로 함께 보존하며, 공용 컴포넌트와 실제 제품 사용처를 같은
+          계약으로 검증합니다.
         </p>
       </header>
 

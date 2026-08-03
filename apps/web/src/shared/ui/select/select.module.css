@@ -30,6 +30,10 @@
   cursor: pointer;
 }
 
+:where(.trigger, .option) > [data-slot='motion-visual'] {
+  grid-column: 1 / -1;
+}
+
 .trigger:hover:not(:focus-visible):not(:disabled),
 .inputShell:hover:not(:focus-within):not([data-disabled='true']) {
   border-color: var(--color-border-strong);
@@ -110,9 +114,9 @@
 }
 
 .listbox {
-  position: absolute;
-  z-index: 40;
-  inset: calc(100% + 6px) 0 auto;
+  position: fixed;
+  z-index: 90;
+  inset: auto;
   display: grid;
   max-height: min(320px, 45vh);
   gap: 2px;
@@ -122,6 +126,10 @@
   border-radius: calc(var(--radius-control) + 2px);
   background: var(--color-surface-raised, var(--color-surface));
   box-shadow: var(--shadow-panel);
+}
+
+.portalRegion {
+  display: contents;
 }
 
 .option {
@@ -145,11 +153,11 @@
     background-color var(--duration-fast) var(--ease-out);
 }
 
-.root[data-density='compact'] .option {
+.listbox[data-density='compact'] .option {
   min-height: 38px;
 }
 
-.root[data-density='descriptive'] .option {
+.listbox[data-density='descriptive'] .option {
   min-height: 51px;
   padding-block: 8px;
 }
@@ -196,10 +204,18 @@
 }
 
 .optionCheck {
+  display: inline-grid;
   width: 16px;
   height: 16px;
+  place-items: center;
   justify-self: center;
   color: var(--color-text-primary);
+}
+
+.optionCheck svg {
+  display: block;
+  width: 15px;
+  height: 15px;
 }
 
 .empty {

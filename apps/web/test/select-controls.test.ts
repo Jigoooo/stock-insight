@@ -91,6 +91,37 @@ describe('select option behavior', () => {
     assert.equal(controller.resolveSelectableValue(options[2], 'one'), 'three');
     assert.equal(controller.resolveSelectableValue(options[1], 'one'), 'one');
   });
+
+  it('positions popup content outside clipping parents and flips near the viewport edge', async () => {
+    const portal = await import('../src/shared/ui/select/select-portal.ts').catch(() => null);
+    assert.ok(portal, 'select portal positioning must exist');
+    if (!portal) return;
+
+    const below = portal.calculateSelectPopupPosition({
+      anchor: { bottom: 140, left: 24, top: 100, width: 220 },
+      viewportHeight: 800,
+      viewportWidth: 1200,
+    });
+    assert.deepEqual(below, {
+      bottom: undefined,
+      left: 24,
+      maxHeight: 320,
+      placement: 'bottom',
+      top: 146,
+      width: 220,
+    });
+
+    const above = portal.calculateSelectPopupPosition({
+      anchor: { bottom: 760, left: 340, top: 720, width: 180 },
+      viewportHeight: 800,
+      viewportWidth: 390,
+    });
+    assert.equal(above.placement, 'top');
+    assert.equal(above.left, 202);
+    assert.equal(above.bottom, 86);
+    assert.equal(above.top, undefined);
+    assert.equal(above.maxHeight, 320);
+  });
 });
 
 describe('SelectBox and Combobox structure', () => {
@@ -110,6 +141,15 @@ describe('SelectBox and Combobox structure', () => {
     assert.match(selectSource, /data-selected=\{selected\}/);
     assert.match(selectSource, /data-highlighted=\{highlighted\}/);
     assert.match(selectSource, /data-disabled=\{option\.disabled \|\| undefined\}/);
+    assert.match(selectSource, /createPortal\(/);
+    assert.match(selectSource, /listboxRef\.current\?\.contains/);
+    assert.match(comboboxSource, /createPortal\(/);
+    assert.match(comboboxSource, /listboxRef\.current\?\.contains/);
+    assert.match(selectCss, /\.listbox\s*\{[\s\S]*?position:\s*fixed/);
+    assert.match(
+      selectCss,
+      /:where\(\.trigger, \.option\)\s*>\s*\[data-slot='motion-visual'\][\s\S]*?grid-column:\s*1\s*\/\s*-1/,
+    );
     assert.match(selectCss, /gap:\s*2px/);
     assert.match(selectCss, /\[data-density='compact'\][\s\S]*min-height:\s*38px/);
     assert.match(selectCss, /\[data-density='descriptive'\][\s\S]*min-height:\s*51px/);

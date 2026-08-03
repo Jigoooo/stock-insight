@@ -13,7 +13,7 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import {
   AvailabilityNotice,
   MetricStrip,
@@ -71,9 +71,8 @@ export function TodayView({
   return (
     <>
       <PageHeader
-        eyebrow={formatDate(data.meta.generatedAt)}
         title="오늘 봐야 할 변화"
-        description="중요도와 개인 연결도를 분리해, 영향 경로와 근거 수준을 함께 보여줍니다."
+        description="중요도·개인 연결·근거 수준을 함께 확인합니다."
         asOf={data.meta.contentSnapshot.analysisCutoffAt}
       />
       <AvailabilityNotice availability={data.meta.freshness} />
@@ -90,27 +89,35 @@ export function TodayView({
         <PanelHeader
           meta={`${data.meta.sourceCoverage.clickable}/${data.meta.sourceCoverage.total} 출처 연결`}
         >
-          <h2>시장 인텔리전스</h2>
-          <p>각 레코드는 하나의 분류에만 노출됩니다.</p>
+          <h2>시장 변화</h2>
         </PanelHeader>
-        <Tabs value={lane} variant="hairline" onValueChange={onLaneChange} activationMode="manual">
-          <TabsList className={styles.laneTabs} aria-label="인사이트 분류">
-            {data.lanes.map((item) => (
-              <TabsTrigger
-                key={item.lane}
-                id={`lane-tab-${item.lane}`}
-                type="button"
-                value={item.lane}
-                className={styles.laneTab}
-                data-pending={pendingLane === item.lane || undefined}
-                aria-busy={pendingLane === item.lane || undefined}
-                aria-controls="research-feed-panel"
-                disabled={!interactive}
-              >
-                {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs
+          fullWidth
+          value={lane}
+          variant="sliding-underline"
+          onValueChange={onLaneChange}
+          activationMode="manual"
+        >
+          <TabsHighlight>
+            <TabsList className={styles.laneTabs} aria-label="인사이트 분류">
+              {data.lanes.map((item) => (
+                <TabsHighlightItem key={item.lane} value={item.lane}>
+                  <TabsTrigger
+                    id={`lane-tab-${item.lane}`}
+                    type="button"
+                    value={item.lane}
+                    className={styles.laneTab}
+                    data-pending={pendingLane === item.lane || undefined}
+                    aria-busy={pendingLane === item.lane || undefined}
+                    aria-controls="research-feed-panel"
+                    disabled={!interactive}
+                  >
+                    {laneLabels[item.lane]} <small>{item.scopeTotal}</small>
+                  </TabsTrigger>
+                </TabsHighlightItem>
+              ))}
+            </TabsList>
+          </TabsHighlight>
         </Tabs>
         <div
           ref={feedRef}

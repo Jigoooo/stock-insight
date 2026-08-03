@@ -106,14 +106,6 @@
   letter-spacing: -0.02em;
 }
 
-.brand div span {
-  color: var(--color-on-chrome-secondary);
-  font-size: 10px;
-  font-weight: 580;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .navigation {
   display: grid;
   gap: 4px;
@@ -231,23 +223,13 @@
   white-space: nowrap;
 }
 
-.crumbs strong,
-.crumbs span {
+.crumbs strong {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .crumbs strong {
   font-weight: 680;
-}
-
-.crumbs span {
-  color: var(--color-text-tertiary);
-}
-
-.crumbs svg {
-  width: 13px;
-  color: var(--color-border-strong);
 }
 
 .navigationStatus {
@@ -314,6 +296,8 @@
 }
 
 .mobileLogout {
+  width: fit-content !important;
+  justify-self: start;
   padding-inline: 12px;
 }
 
@@ -343,8 +327,6 @@
 }
 
 @media (max-width: 1040px) {
-  .crumbs span,
-  .crumbs svg,
   .contextualActions .actionLabel {
     display: none;
   }

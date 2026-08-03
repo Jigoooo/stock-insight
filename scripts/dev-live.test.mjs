@@ -59,8 +59,10 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
       DATABASE_WRITE_URL: 'postgresql://must-not-pass:secret@elsewhere/db',
       CLOUDFLARE_TUNNEL_TOKEN: 'must-not-pass',
       STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET: 'must-not-pass',
+      VITE_ENABLE_DEV_PREVIEW: '1',
     },
     resolveCommand: (name) => `/usr/bin/${name}`,
+    sandboxPathIsReadable: async () => true,
   });
 
   assert.equal(prepared.tunnelCommand.executable, '/usr/bin/bwrap');
@@ -95,6 +97,9 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
   assert.equal(prepared.webEnv.STOCK_INSIGHT_REMOTE_READ_ONLY, 'false');
   assert.equal(prepared.apiEnv.STOCK_INSIGHT_LIVE_DATABASE_EXPECTED, 'true');
   assert.equal(prepared.webEnv.VITE_STOCK_INSIGHT_DATA_ENV, 'production-live');
+  assert.equal(prepared.webEnv.VITE_ENABLE_DEV_PREVIEW, '1');
+  assert.equal(prepared.apiEnv.VITE_ENABLE_DEV_PREVIEW, undefined);
+  assert.equal(prepared.tunnelEnv.VITE_ENABLE_DEV_PREVIEW, undefined);
   for (const childEnv of [prepared.tunnelEnv, prepared.apiEnv, prepared.webEnv]) {
     assert.equal(childEnv.CLOUDFLARE_TUNNEL_TOKEN, undefined);
     assert.equal(childEnv.STOCK_INSIGHT_BRAIN_ACCESS_CLIENT_SECRET, undefined);
@@ -140,6 +145,34 @@ test('prepareLiveDev builds a password-free local tunnel environment for the exi
   );
   assert.ok(prepared.webCommand.args.includes('/run/stock-insight-live-web/session.secret'));
   assert.ok(!prepared.webCommand.args.includes(join(secretDir, 'pgpass')));
+  await prepared.cleanup();
+});
+
+test('prepareLiveDev derives Linux runtime mounts from the injected filesystem probe', async () => {
+  const { homeDir } = await createSecretFixture();
+  const prepared = await prepareLiveDev({
+    homeDir,
+    nodeExecutable: '/sandbox/node',
+    platform: 'linux',
+    env: {
+      HOME: homeDir,
+      PATH: '/sandbox/bin',
+    },
+    resolveCommand: (name) => `/sandbox/bin/${name}`,
+    sandboxPathIsReadable: async (path) => path === '/lib',
+  });
+  const hasReadOnlyBind = (command, path) =>
+    command.args.some(
+      (value, index) =>
+        value === path &&
+        command.args[index - 1] === path &&
+        command.args[index - 2] === '--ro-bind',
+    );
+
+  for (const command of [prepared.tunnelCommand, prepared.webCommand]) {
+    assert.equal(hasReadOnlyBind(command, '/lib'), true);
+    assert.equal(hasReadOnlyBind(command, '/usr'), false);
+  }
   await prepared.cleanup();
 });
 
@@ -997,6 +1030,37 @@ test('startLiveDev tears down the tunnel when readiness fails before workspace s
 
   assert.equal(apiStarted, false);
   assert.deepEqual(kills, [[-4001, 'SIGTERM']]);
+});
+
+test('startLiveDev contains force-kill ownership probe failures during startup teardown', async () => {
+  const tunnel = new FakeProcess(4051);
+  const timers = [];
+
+  await assert.rejects(
+    startLiveDev(
+      { tunnelPort: 55432 },
+      {
+        spawnTunnel: () => tunnel,
+        waitUntilReady: async () => {
+          throw new Error('readiness failed');
+        },
+        captureIdentity: async (pid) => ({ pid, processGroupId: pid, startTime: '1' }),
+        ownsProcessGroup: async () => {
+          throw new Error('ownership probe failed');
+        },
+        platform: 'linux',
+        killProcess: () => {},
+        schedule: (callback) => {
+          timers.push(callback);
+          return timers.length;
+        },
+      },
+    ),
+    /readiness failed/,
+  );
+
+  assert.equal(timers.length, 1);
+  await assert.doesNotReject(timers[0]);
 });
 
 test('startLiveDev rejects a listener not owned by the spawned tunnel before API credentials load', async () => {

@@ -279,7 +279,7 @@ test.describe('authenticated workspace visual matrix', () => {
   test('captures Stocks selected row and deep dive', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/stocks');
-    const stockRegion = page.getByLabel('종목 커버리지 표 가로 스크롤 영역');
+    const stockRegion = page.getByLabel('종목 현황 표 가로 스크롤 영역');
     const stock = stockRegion.getByRole('radio').first();
     await skipAfterCanonicalAbsence({
       canonicalTitle: '조건에 맞는 종목이 없습니다',

@@ -55,16 +55,15 @@ export function ThemesView({
   return (
     <>
       <PageHeader
-        eyebrow="관계 지도"
         title="테마·관계"
-        description="확인된 관계만 모아, 신호 시점과 관계 확인 시점을 나누어 보여줍니다."
+        description="확인된 관계만 표시합니다."
         asOf={data.graphKnownThroughAt}
       />
       <AvailabilityNotice availability={data.availability} />
       <div className={styles.split}>
         <Panel>
           <PanelHeader>
-            <h2>테마 묶음</h2>
+            <h2>테마</h2>
             <p>
               {data.items.length}개 · {availabilityLabels[data.availability]}
             </p>

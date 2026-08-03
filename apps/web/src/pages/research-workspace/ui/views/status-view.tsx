@@ -45,9 +45,8 @@ export function StatusView({ data }: { data: SystemStatus }) {
   return (
     <>
       <PageHeader
-        eyebrow="데이터 운영"
         title="데이터 상태"
-        description="데이터가 언제까지 확인됐는지와 출처 연결 수준을 공개합니다."
+        description="확인 시각과 출처 연결 상태를 보여줍니다."
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.overall} />

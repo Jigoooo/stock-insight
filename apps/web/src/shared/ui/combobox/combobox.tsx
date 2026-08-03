@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import comboStyles from './combobox.module.css';
 
@@ -29,6 +30,7 @@ import {
   type SelectOption,
   type SelectOptionFilter,
 } from '@/shared/ui/select/select-controller';
+import { useSelectPortalPosition } from '@/shared/ui/select/select-portal';
 import selectStyles from '@/shared/ui/select/select.module.css';
 
 export type ComboboxProps = {
@@ -85,6 +87,7 @@ export function Combobox({
   const rootRef = useRef<HTMLDivElement>(null);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [internalQuery, setInternalQuery] = useState(initialQuery);
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -101,6 +104,8 @@ export function Combobox({
     open && activeIndex >= 0 && filteredOptions[activeIndex]
       ? `${listboxId}-option-${activeIndex}`
       : undefined;
+  const popupPosition = useSelectPortalPosition(rootRef, open);
+  const popupReady = popupPosition !== null;
 
   const closeListbox = () => setOpen(false);
 
@@ -131,7 +136,11 @@ export function Combobox({
   useEffect(() => {
     if (!open) return;
     const dismiss = (event: PointerEvent) => {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target) &&
+        !listboxRef.current?.contains(event.target)
+      ) {
         closeListbox();
       }
     };
@@ -156,7 +165,7 @@ export function Combobox({
   useEffect(() => {
     if (!open || activeIndex < 0) return;
     optionRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex, open]);
+  }, [activeIndex, open, popupReady]);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const nextQuery = event.currentTarget.value;
@@ -279,54 +288,85 @@ export function Combobox({
           </MotionButton>
         ) : null}
       </div>
-      <PresenceRegion
-        aria-label={ariaLabel}
-        aria-labelledby={ariaLabelledby}
-        className={selectStyles.listbox}
-        data-slot="select-listbox"
-        exit={{ opacity: 0, scale: 0.985, y: -3 }}
-        id={listboxId}
-        initial={{ opacity: 0, scale: 0.985, y: -3 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        presenceKey={listboxId}
-        present={open}
-        role="listbox"
-        transition={{
-          duration: reducedMotion ? 0 : optionCloseDurationMs / 1_000,
-          ease: 'easeOut',
-        }}
-      >
-        {filteredOptions.length === 0 ? (
-          <div
-            aria-disabled="true"
-            aria-selected="false"
-            className={selectStyles.empty}
-            data-slot="select-option"
-            role="option"
-            tabIndex={-1}
-          >
-            {emptyMessage}
-          </div>
-        ) : (
-          filteredOptions.map((option, index) => (
-            <SelectOptionItem
-              ref={(element) => {
-                optionRefs.current[index] = element;
-              }}
-              key={option.value}
-              highlighted={index === activeIndex}
-              id={`${listboxId}-option-${index}`}
-              onHighlight={() => {
-                if (!option.disabled) setActiveIndex(index);
-              }}
-              onPointerDown={keepInputFocus}
-              onSelect={() => selectIndex(index)}
-              option={option}
-              selected={option.value === selectedValue}
-            />
-          ))
-        )}
-      </PresenceRegion>
+      {typeof document !== 'undefined' && popupPosition
+        ? createPortal(
+            <div
+              aria-label={open && !ariaLabelledby ? `${ariaLabel ?? '선택'} 옵션` : undefined}
+              aria-labelledby={open ? ariaLabelledby : undefined}
+              className={selectStyles.portalRegion}
+              data-slot="select-portal-region"
+              role={open ? 'region' : undefined}
+            >
+              <PresenceRegion
+                ref={listboxRef}
+                aria-label={ariaLabel}
+                aria-labelledby={ariaLabelledby}
+                className={selectStyles.listbox}
+                data-density={density}
+                data-placement={popupPosition.placement}
+                data-slot="select-listbox"
+                exit={{
+                  opacity: 0,
+                  scale: 0.985,
+                  y: popupPosition.placement === 'top' ? 3 : -3,
+                }}
+                id={listboxId}
+                initial={{
+                  opacity: 0,
+                  scale: 0.985,
+                  y: popupPosition.placement === 'top' ? 3 : -3,
+                }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                presenceKey={listboxId}
+                present={open}
+                role="listbox"
+                style={{
+                  bottom: popupPosition.bottom,
+                  left: popupPosition.left,
+                  maxHeight: popupPosition.maxHeight,
+                  top: popupPosition.top,
+                  width: popupPosition.width,
+                }}
+                transition={{
+                  duration: reducedMotion ? 0 : optionCloseDurationMs / 1_000,
+                  ease: 'easeOut',
+                }}
+              >
+                {filteredOptions.length === 0 ? (
+                  <div
+                    aria-disabled="true"
+                    aria-selected="false"
+                    className={selectStyles.empty}
+                    data-slot="select-option"
+                    role="option"
+                    tabIndex={-1}
+                  >
+                    {emptyMessage}
+                  </div>
+                ) : (
+                  filteredOptions.map((option, index) => (
+                    <SelectOptionItem
+                      ref={(element) => {
+                        optionRefs.current[index] = element;
+                      }}
+                      key={option.value}
+                      highlighted={index === activeIndex}
+                      id={`${listboxId}-option-${index}`}
+                      onHighlight={() => {
+                        if (!option.disabled) setActiveIndex(index);
+                      }}
+                      onPointerDown={keepInputFocus}
+                      onSelect={() => selectIndex(index)}
+                      option={option}
+                      selected={option.value === selectedValue}
+                    />
+                  ))
+                )}
+              </PresenceRegion>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -78,6 +78,24 @@ test.describe('UI Lab FileUpload', () => {
     await expect(rows.nth(1)).toContainText('watchlist.xlsx');
   });
 
+  test('moves focus to the adjacent remove control and returns it to the picker after the final exit', async ({
+    page,
+  }) => {
+    const firstCard = await firstUploadCard(page);
+    await firstCard.getByRole('button', { name: '다중' }).click();
+    await firstCard.getByRole('button', { name: '선택', exact: true }).click();
+
+    await firstCard.getByRole('button', { name: 'portfolio-2026-08.csv 삭제' }).click();
+    await expect(firstCard.getByRole('button', { name: 'earnings-notes.pdf 삭제' })).toBeFocused();
+
+    await firstCard.getByRole('button', { name: 'earnings-notes.pdf 삭제' }).click();
+    await expect(firstCard.getByRole('button', { name: 'watchlist.xlsx 삭제' })).toBeFocused();
+
+    await firstCard.getByRole('button', { name: 'watchlist.xlsx 삭제' }).click();
+    await expect(firstCard.getByRole('button', { name: '파일 선택' })).toBeFocused();
+    await expect(firstCard.getByRole('listitem')).toHaveCount(0);
+  });
+
   test('appends valid input and dropped files while preserving state across mode changes and rejection', async ({
     page,
   }) => {

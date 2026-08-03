@@ -56,13 +56,13 @@ describe('P6-6 crypto read-only workspace vertical', () => {
   it('renders company links, events, risk, and explicit empty/read-only states without controls', async () => {
     const view = await read('pages/research-workspace/ui/views/crypto-workspace-view.tsx');
     for (const label of [
-      '크립토·기업 연결',
+      '크립토 리서치',
       '추적 자산',
       '기업 연결',
       '온체인 사건',
       '리스크 전파',
       '조회 전용',
-      '출처 revision',
+      '출처 버전',
       '기준 시각',
       '데이터가 아직 없습니다',
       '검증',
@@ -86,8 +86,8 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     assert.match(view, /aria-label="크립토 리서치 제약"/);
     assert.match(view, /label: '실시간 계정·지갑'/);
     assert.match(view, /label: '주문 실행'/);
-    assert.match(view, /kind="unavailable"[\s\S]*?현재 사용할 수 없는/);
-    assert.match(view, /kind="unavailable"[\s\S]*?지원하지 않음/);
+    assert.doesNotMatch(view, /kind="unavailable"/);
+    assert.match(view, /주문·지갑 연결 없음/);
     assert.match(view, /data-read-only="true"/);
     assert.match(view, /data-order-executable="false"/);
     assert.doesNotMatch(

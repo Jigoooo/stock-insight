@@ -89,6 +89,23 @@ describe('development-only visual surface routes', () => {
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
 
+  it('previews the real administrator form with local actions and no authenticated loader', async () => {
+    const [previewPage, previewRoute] = await Promise.all([
+      readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/routes/[__dev-preview].tsx'),
+    ]);
+
+    assert.match(previewRoute, /validateSearch:/);
+    assert.match(previewRoute, /Route\.useSearch\(\)/);
+    assert.match(previewPage, /<AdminInvitationPage/);
+    assert.match(previewPage, /issueInvitationAction=\{issuePreviewInvitation\}/);
+    assert.match(previewPage, /revokeInvitationAction=\{revokePreviewInvitation\}/);
+    assert.match(previewPage, /logoutAction=\{previewLogout\}/);
+    assert.doesNotMatch(previewPage, /admin-invitations\/model|auth-functions/);
+    assert.doesNotMatch(previewPage, /await\s+(?:issueInvitation|revokeInvitation|logout)\(/);
+    assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
+  });
+
   it('renders preview navigation without authenticated route links', async () => {
     const navigation = await readSource(
       '../src/widgets/workspace-shell/ui/workspace-navigation.tsx',

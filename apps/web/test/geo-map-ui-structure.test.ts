@@ -40,7 +40,7 @@ describe('P3-WD geo map UI contract', () => {
     assert.match(mapSource, /data-testid="geo-map-canvas"/);
     assert.match(mapSource, /data-testid="geo-fallback-row"/);
     assert.match(mapSource, /<DataTable/);
-    assert.match(mapSource, /caption="지도 표시 위치의 도형, 정밀도와 원천 revision"/);
+    assert.match(mapSource, /caption="지도 표시 위치의 도형, 정밀도와 원천 버전"/);
     assert.match(mapSource, /evidenceLocator\.sourceRevisionId/);
     assert.match(mapSource, /evidenceLocator\.geoEntityRevisionId/);
     assert.match(mapSource, /summarizeGeometryForEvidence\(feature\.geometry\)/);

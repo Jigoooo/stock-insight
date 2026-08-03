@@ -120,6 +120,6 @@ describe('Deep Dive rendered feedback accessibility', () => {
     assert.equal((html.match(/data-slot="accordion-trigger"/g) ?? []).length, 12);
     assert.doesNotMatch(html, /<svg/);
     assert.match(html, /aria-expanded="true"/);
-    assert.match(html, /Deep Dive 속성/);
+    assert.match(html, /종목 상세 속성/);
   });
 });

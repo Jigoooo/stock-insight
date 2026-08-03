@@ -84,15 +84,10 @@
   padding: 0 24px 24px;
 }
 
-.pendingMessage,
-.successMessage {
-  display: block;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-}
-
-.successMessage {
-  color: var(--color-positive);
+.outputPresence,
+.secretPresence {
+  min-width: 0;
+  width: 100%;
 }
 
 .outputState,

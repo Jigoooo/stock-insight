@@ -1,11 +1,4 @@
-import {
-  ChevronRight,
-  LoaderCircle,
-  LogOut,
-  Menu,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from 'lucide-react';
+import { LoaderCircle, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import styles from './workspace-shell.module.css';
@@ -82,8 +75,6 @@ export function WorkspaceTopbar({
 
       <div className={styles.crumbs}>
         <strong>{sectionLabel}</strong>
-        <ChevronRight aria-hidden="true" />
-        <span>리서치 워크스페이스</span>
       </div>
 
       <output
@@ -100,7 +91,7 @@ export function WorkspaceTopbar({
       {mode !== 'mobile' ? (
         <div className={styles.contextualActions}>
           {contextualActions}
-          {onLogout ? <WorkspaceLogoutAction onLogout={onLogout} /> : null}
+          {onLogout ? <WorkspaceLogoutAction compact onLogout={onLogout} /> : null}
         </div>
       ) : null}
     </header>
@@ -109,11 +100,28 @@ export function WorkspaceTopbar({
 
 export function WorkspaceLogoutAction({
   className,
+  compact = false,
   onLogout,
 }: {
   className?: string;
+  compact?: boolean;
   onLogout: () => void;
 }) {
+  if (compact) {
+    return (
+      <IconButton
+        className={className}
+        type="button"
+        motion="quiet"
+        variant="ghost"
+        aria-label="로그아웃"
+        onClick={onLogout}
+      >
+        <LogOut aria-hidden="true" />
+      </IconButton>
+    );
+  }
+
   return (
     <Button
       className={className}

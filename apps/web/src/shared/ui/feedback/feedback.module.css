@@ -2,6 +2,59 @@
   min-width: 0;
 }
 
+.inlineFeedback {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.inlineFeedback[data-density='compact'] {
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.inlineFeedback[data-reserve-space='true'] {
+  min-height: 36px;
+}
+
+.inlineFeedback[data-tone='pending'] {
+  color: var(--color-text-tertiary);
+}
+
+.inlineFeedback[data-tone='error'] {
+  color: var(--color-risk);
+}
+
+.inlineFeedback[data-tone='success'] {
+  color: var(--color-positive);
+}
+
+.inlineFeedbackAnnouncement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.inlineFeedbackVisual {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inlineFeedbackVisual {
+    transform: none !important;
+  }
+}
+
 .statusBadge {
   display: inline-flex;
   min-height: 24px;

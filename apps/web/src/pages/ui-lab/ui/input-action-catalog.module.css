@@ -51,8 +51,7 @@
 }
 
 .categoryNav button,
-.miniToggle button,
-.buttonGroup button {
+.miniToggle button {
   min-height: 34px;
   flex: none;
   padding-inline: 12px;
@@ -71,16 +70,14 @@
 }
 
 .categoryNav button[aria-pressed='true'],
-.miniToggle button[aria-pressed='true'],
-.buttonGroup button[aria-pressed='true'] {
+.miniToggle button[aria-pressed='true'] {
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: 0 0 0 1px var(--color-border) inset;
 }
 
 .categoryNav button:focus-visible,
-.previewSurface button:focus-visible,
-.previewSurface input:focus-visible {
+.previewSurface button:not([data-slot]):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -172,160 +169,12 @@
 }
 
 .dateRange,
-.otp,
 .buttonPreview {
   display: grid;
   gap: 18px;
 }
 
-.controlHeading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.controlHeading label,
-.controlHeading strong {
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 680;
-}
-
-.controlHeading output,
-.controlHeading small {
-  color: var(--color-text-tertiary);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.calendar {
-  --calendar-cell-size: 30px;
-  --calendar-cell-height: 30px;
-  --calendar-cell-gap: 1px;
-
-  width: fit-content;
-  max-width: 100%;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-}
-
-.calendar[data-direction='hairline'] {
-  border-color: var(--color-border);
-}
-
-.calendar[data-direction='inset'] {
-  --calendar-cell-size: 32px;
-  --calendar-cell-height: 32px;
-  --calendar-cell-gap: 2px;
-
-  background: var(--color-surface-subtle);
-}
-
-.calendar[data-direction='rail'] {
-  --calendar-cell-size: 30px;
-  --calendar-cell-height: 28px;
-  --calendar-cell-gap: 1px;
-
-  border-color: var(--color-border-strong);
-  border-radius: 9px;
-}
-
-.calendar > header {
-  min-height: 46px;
-  display: grid;
-  grid-template-columns: 32px 1fr 32px;
-  place-items: center;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.calendar > header strong {
-  font-size: 12px;
-}
-
-.calendar > header button,
-.calendarGrid button {
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.calendar > header button {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-sm);
-}
-
-.weekdays,
-.calendarGrid {
-  display: grid;
-  grid-template-columns: repeat(7, var(--calendar-cell-size));
-  justify-content: center;
-}
-
-.weekdays {
-  padding: 8px 8px 0;
-}
-
-.weekdays span {
-  color: var(--color-text-tertiary);
-  font-size: 9px;
-  text-align: center;
-}
-
-.calendarGrid {
-  gap: var(--calendar-cell-gap);
-  padding: 6px 8px 10px;
-}
-
-.calendarGrid button {
-  width: var(--calendar-cell-size);
-  height: var(--calendar-cell-height);
-  border-radius: 7px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
-.calendarGrid button[data-today='true'] {
-  text-decoration: underline;
-  text-decoration-color: var(--color-border-strong);
-  text-underline-offset: 4px;
-}
-
-.calendar[data-direction='hairline'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-canvas);
-  background: var(--color-text-primary);
-}
-
-.calendar[data-direction='inset'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-border-strong) inset;
-}
-
-.calendar[data-direction='rail'] .calendarGrid button {
-  border-radius: 6px;
-}
-
-.calendar[data-direction='rail'] .calendarGrid button[aria-pressed='true'] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-  box-shadow: 0 0 0 1px var(--color-text-secondary) inset;
-}
-
-.calendarGrid button:hover:not([aria-pressed='true']) {
-  background: var(--color-surface-subtle);
-}
-
-.miniToggle,
-.buttonGroup {
+.miniToggle {
   display: flex;
   padding: 3px;
   border: 1px solid var(--color-border);
@@ -333,58 +182,19 @@
   background: var(--color-surface-subtle);
 }
 
-.miniToggle button,
-.buttonGroup button {
+.miniToggle button {
   min-width: 0;
   flex: 1;
 }
 
-.dateFields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-}
-
-.dateFields button {
-  min-width: 0;
-  min-height: 58px;
-  display: grid;
-  justify-items: start;
-  gap: 5px;
-  padding: 10px 12px;
-  color: var(--color-text-primary);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font: inherit;
-  cursor: pointer;
-}
-
-.dateFields small,
 .dateRange p {
   color: var(--color-text-tertiary);
   font-size: 10px;
 }
 
-.dateFields strong {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-
 .dateRange p {
   margin: 0;
   line-height: 1.55;
-}
-
-.dateRange[data-direction='inset'] .dateFields button {
-  border-color: transparent;
-  background: var(--color-surface-subtle);
-}
-
-.dateRange[data-direction='rail'] .dateFields button {
-  border-width: 0 0 1px;
-  border-radius: 0;
 }
 
 .uploadPreview {
@@ -434,241 +244,8 @@
   box-shadow: 0 0 0 1px var(--color-border) inset;
 }
 
-.upload {
-  position: relative;
-  min-height: 170px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  padding: 24px;
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  text-align: center;
-  transition:
-    min-height 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.upload[data-direction='inset'] {
-  border-style: solid;
-  background: var(--color-surface-subtle);
-}
-
-.upload[data-direction='rail'] {
-  place-items: start;
-  border-width: 0 0 0 3px;
-  border-style: solid;
-  border-radius: 0;
-  text-align: left;
-}
-
-.upload[data-filled='true'] {
-  border-color: var(--color-text-secondary);
-  border-style: solid;
-  min-height: 148px;
-  background: var(--color-surface-subtle);
-}
-
-.upload[data-drag-active='true'] {
-  border-color: var(--color-text-primary);
-  border-style: solid;
-  background: var(--color-surface-subtle);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 16%, transparent) inset;
-}
-
-.uploadIcon {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  color: var(--color-text-primary);
-}
-
-.uploadDropFeedback {
-  display: grid;
-  place-items: center;
-  gap: 7px;
-  color: var(--color-text-primary);
-  animation: upload-drop-enter 160ms ease-out both;
-}
-
-.uploadDropFeedback small {
-  color: var(--color-text-tertiary);
-  font-size: 10px;
-}
-
-.upload strong {
-  font-size: 12px;
-}
-
-.upload small {
-  color: var(--color-text-tertiary);
-  font-size: 10px;
-  line-height: 1.5;
-}
-
-.uploadPicker {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  margin-top: 8px;
-  padding-inline: 14px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.uploadFileList {
-  position: relative;
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.uploadFileList[aria-hidden='true'] {
-  display: none;
-}
-
-.uploadFileList li {
-  min-width: 0;
-  min-height: 46px;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 30px;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 9px;
-  background: var(--color-surface);
-}
-
-.uploadFileIcon {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 7px;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-subtle);
-}
-
-.uploadFileMeta {
-  min-width: 0;
-}
-
-.uploadFileMeta strong,
-.uploadFileMeta small {
-  display: block;
-}
-
-.uploadFileMeta strong {
-  overflow: hidden;
-  color: var(--color-text-primary);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.uploadFileMeta small {
-  margin-top: 2px;
-  color: var(--color-text-tertiary);
-  font-size: 9px;
-}
-
-.uploadFileList button {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 7px;
-  color: var(--color-text-tertiary);
-  background: transparent;
-  cursor: pointer;
-}
-
-.uploadFileList button:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-}
-
-.visuallyHidden {
-  width: 1px;
-  height: 1px;
-  position: absolute;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.otpCells {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.otpCells input {
-  width: 100%;
-  aspect-ratio: 0.82;
-  min-width: 0;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  background: transparent;
-  font: inherit;
-  font-size: 16px;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.otp[data-direction='inset'] .otpCells input {
-  border-color: transparent;
-  background: var(--color-surface-subtle);
-}
-
-.otp[data-direction='rail'] .otpCells input {
-  border-width: 0 0 2px;
-  border-radius: 0;
-}
-
-.otp[data-direction='rail'] .otpCells input:focus-visible {
-  border-bottom-color: var(--color-text-primary);
-  outline: none;
-  box-shadow: none;
-}
-
-.otp p {
-  margin: 0;
-  color: var(--color-text-tertiary);
-  font-size: 10px;
-}
-
 .buttonPreview {
   align-content: start;
-}
-
-.buttonPreview[data-direction='hairline'] .buttonGroup {
-  border-radius: 0;
-}
-
-.buttonPreview[data-direction='inset'] {
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
 }
 
 .buttonPreview[data-direction='rail'] {
@@ -689,146 +266,6 @@
   line-height: 1.5;
 }
 
-.splitButton {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 12px;
-  background: var(--color-text-primary);
-  box-shadow: 0 6px 18px rgb(20 22 20 / 8%);
-}
-
-.splitButton > button {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 0;
-  color: var(--color-canvas);
-  background: var(--color-text-primary);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 640;
-  cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    transform 120ms ease;
-}
-
-.splitButton > button:active {
-  transform: scale(0.985);
-}
-
-.splitButton > button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 28%, transparent) inset;
-}
-
-.splitPrimary {
-  border-radius: 11px 0 0 11px !important;
-}
-
-.splitTrigger {
-  border-radius: 0 11px 11px 0 !important;
-}
-
-.splitButton[data-direction='hairline'] .splitTrigger {
-  border-left: 1px solid color-mix(in srgb, var(--color-canvas) 22%, transparent);
-}
-
-.splitButton[data-direction='hairline'] > button:hover {
-  background: color-mix(in srgb, var(--color-text-primary) 91%, var(--color-canvas));
-}
-
-.splitButton[data-direction='inset'] {
-  border-color: var(--color-border);
-  background: var(--color-surface);
-  box-shadow: 0 5px 16px rgb(20 22 20 / 6%);
-}
-
-.splitButton[data-direction='inset'] > button {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.splitButton[data-direction='inset'] .splitTrigger {
-  margin: 3px;
-  border-radius: 9px !important;
-  background: var(--color-surface-subtle);
-}
-
-.splitButton[data-direction='inset'] > button:hover {
-  background: var(--color-surface-subtle);
-}
-
-.splitButton[data-direction='rail'] {
-  grid-template-columns: minmax(0, 1fr) 44px;
-  gap: 5px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.splitButton[data-direction='rail'] > button {
-  border: 1px solid var(--color-border-strong);
-  border-radius: 12px !important;
-}
-
-.splitButton[data-direction='rail'] .splitTrigger {
-  color: var(--color-text-primary);
-  background: var(--color-surface);
-}
-
-.splitButton[data-direction='rail'] > button:hover {
-  filter: brightness(0.96);
-}
-
-.splitMenu {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 6px);
-  right: 0;
-  left: 0;
-  display: grid;
-  gap: 2px;
-  padding: 6px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface-raised, var(--color-surface));
-  box-shadow: var(--shadow-panel);
-  transform-origin: top right;
-}
-
-.splitMenu button {
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding-inline: 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  font-size: 11px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.splitMenu button svg {
-  flex: none;
-  color: var(--color-text-tertiary);
-}
-
-.splitMenu button:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-}
-
 @keyframes catalog-enter {
   from {
     opacity: 0;
@@ -837,17 +274,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes upload-drop-enter {
-  from {
-    opacity: 0;
-    transform: translateY(3px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
@@ -893,33 +319,10 @@
     min-height: 44px;
     font-size: 11px;
   }
-
-  .uploadPicker {
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 11px;
-  }
-
-  .uploadFileList li {
-    grid-template-columns: 30px minmax(0, 1fr) 44px;
-  }
-
-  .uploadFileList button {
-    width: 44px;
-    height: 44px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .previewSurface,
-  .uploadDropFeedback {
+  .previewSurface {
     animation: none;
-  }
-
-  .upload {
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      box-shadow 160ms ease;
   }
 }

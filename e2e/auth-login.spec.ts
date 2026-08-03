@@ -917,7 +917,7 @@ test.describe('private workspace authentication', () => {
     await page.goto('/login');
     const usernameField = page.getByLabel('사용자 이름');
     const submit = page.getByRole('button', { name: '로그인', exact: true });
-    const announcement = page.locator('[data-auth-feedback-announcement]');
+    const announcement = page.locator('[data-slot="inline-feedback-announcement"]');
     await page.waitForTimeout(300);
     await announcement.evaluate((element) => {
       const samples: string[] = [];
@@ -939,7 +939,7 @@ test.describe('private workspace authentication', () => {
 
     await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
     await expect(page.getByRole('alert')).toHaveCount(1);
-    await expect(page.locator('[data-auth-feedback-visual]')).toHaveCount(1);
+    await expect(page.locator('[data-slot="inline-feedback-visual"]')).toHaveCount(1);
     await page.mouse.move(0, 0);
     await expect
       .poll(() => submit.evaluate((element) => getComputedStyle(element).transform))
@@ -969,7 +969,7 @@ test.describe('private workspace authentication', () => {
   test('removes feedback translation when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/login');
-    await page.locator('[data-auth-feedback-announcement]').evaluate((announcement) => {
+    await page.locator('[data-slot="inline-feedback-announcement"]').evaluate((announcement) => {
       const slot = announcement.parentElement;
       if (!slot) throw new Error('feedback slot is missing');
       const samples: Array<{
@@ -980,7 +980,7 @@ test.describe('private workspace authentication', () => {
       }> = [];
       const capture = (phase: string) => {
         const visuals = Array.from(
-          slot.querySelectorAll<HTMLElement>('[data-auth-feedback-visual]'),
+          slot.querySelectorAll<HTMLElement>('[data-slot="inline-feedback-visual"]'),
         );
         const visualTexts = visuals.map((visual) => visual.textContent?.trim() ?? '');
         for (const visual of visuals) {
@@ -1006,7 +1006,7 @@ test.describe('private workspace authentication', () => {
     await page.getByRole('button', { name: '로그인', exact: true }).click();
 
     await expect(page.getByRole('alert')).toContainText('아이디 또는 비밀번호');
-    const visualFeedback = page.locator('[data-auth-feedback-visual]');
+    const visualFeedback = page.locator('[data-slot="inline-feedback-visual"]');
     await expect(visualFeedback).toHaveCount(1);
     await expect
       .poll(() => visualFeedback.evaluate((element) => getComputedStyle(element).transform))

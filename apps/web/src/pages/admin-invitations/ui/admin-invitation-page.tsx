@@ -9,8 +9,10 @@ import { workspaceSections } from '@/features/workspace-navigation';
 import { logout } from '@/pages/auth/model/auth-functions';
 import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitations';
 import { Button } from '@/shared/ui/button';
+import { InlineFeedbackRegion } from '@/shared/ui/feedback';
 import { Field, FieldLabel } from '@/shared/ui/field';
 import { Input } from '@/shared/ui/input';
+import { PresenceRegion } from '@/shared/ui/motion';
 import { Select, type SelectOption } from '@/shared/ui/select';
 import { notify } from '@/shared/ui/toast';
 import {
@@ -24,9 +26,24 @@ import {
 import { WorkspaceShell } from '@/widgets/workspace-shell';
 
 type AdminInvitationPageProps = {
+  accountRole: Extract<AccountRole, 'owner' | 'admin'>;
   initialInvitations: AdminInvitation[];
-  role: Extract<AccountRole, 'owner' | 'admin'>;
+  issueInvitationAction?: IssueInvitationAction;
+  logoutAction?: LogoutAction;
+  revokeInvitationAction?: RevokeInvitationAction;
 };
+
+export type IssueInvitationAction = (
+  ...args: Parameters<typeof issueInvitation>
+) => ReturnType<typeof issueInvitation>;
+
+export type RevokeInvitationAction = (
+  ...args: Parameters<typeof revokeInvitation>
+) => ReturnType<typeof revokeInvitation>;
+
+export type LogoutAction = (...args: Parameters<typeof logout>) => ReturnType<typeof logout>;
+
+type PendingAction = { kind: 'issue' } | { kind: 'revoke'; invitationId: string };
 
 const statusLabels: Record<AdminInvitation['status'], string> = {
   active: '사용 가능',
@@ -58,13 +75,20 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-export function AdminInvitationPage({ initialInvitations, role }: AdminInvitationPageProps) {
+export function AdminInvitationPage({
+  accountRole,
+  initialInvitations,
+  issueInvitationAction = issueInvitation,
+  logoutAction = logout,
+  revokeInvitationAction = revokeInvitation,
+}: AdminInvitationPageProps) {
   const [invitations, setInvitations] = useState(initialInvitations);
   const [revealedCode, setRevealedCode] = useState<string>();
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string>();
   const [statusMessage, setStatusMessage] = useState<string>();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction>();
   const [pending, startTransition] = useTransition();
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
 
@@ -76,9 +100,10 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
     setStatusMessage(undefined);
     setRevealedCode(undefined);
     setCopied(false);
+    setPendingAction({ kind: 'issue' });
     startTransition(async () => {
       try {
-        const result = await issueInvitation({
+        const result = await issueInvitationAction({
           data: {
             label: String(values.get('label') ?? ''),
             maxUses: Number(values.get('maxUses') ?? 1),
@@ -99,6 +124,8 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
       } catch {
         setError(transportError);
         void notify.error('요청을 완료하지 못했습니다', { description: transportError });
+      } finally {
+        setPendingAction(undefined);
       }
     });
   };
@@ -106,9 +133,10 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
   const handleRevoke = (invitationId: string, label: string) => {
     setError(undefined);
     setStatusMessage(undefined);
+    setPendingAction({ kind: 'revoke', invitationId });
     startTransition(async () => {
       try {
-        const result = await revokeInvitation({
+        const result = await revokeInvitationAction({
           data: { invitationId, reason: '관리자 화면에서 발급 취소' },
         });
         if (!result.ok) {
@@ -136,6 +164,8 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
       } catch {
         setError(transportError);
         void notify.error('요청을 완료하지 못했습니다', { description: transportError });
+      } finally {
+        setPendingAction(undefined);
       }
     });
   };
@@ -144,7 +174,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      const result = await logout();
+      const result = await logoutAction();
       if (result.ok) window.location.assign('/login');
     } finally {
       setLoggingOut(false);
@@ -175,7 +205,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             className={styles.panelHeader}
             meta={
               <span className={styles.roleBadge}>
-                <ShieldCheck aria-hidden="true" /> {role === 'owner' ? 'Owner' : 'Admin'}
+                <ShieldCheck aria-hidden="true" /> {accountRole === 'owner' ? 'Owner' : 'Admin'}
               </span>
             }
           >
@@ -183,10 +213,11 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
             <h2 id="issue-heading">새 가입 코드 발급</h2>
           </PanelHeader>
 
-          <form className={styles.form} onSubmit={handleIssue}>
-            <Field className={styles.formField}>
+          <form className={styles.form} onSubmit={handleIssue} aria-busy={pending}>
+            <Field className={styles.formField} data-disabled={pending || undefined}>
               <FieldLabel htmlFor="invitation-label">메모</FieldLabel>
               <Input
+                disabled={pending}
                 id="invitation-label"
                 name="label"
                 minLength={1}
@@ -195,51 +226,73 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                 placeholder="예: 김지구 초대"
               />
             </Field>
-            <Field className={styles.formField}>
+            <Field className={styles.formField} data-disabled={pending || undefined}>
               <FieldLabel id="max-uses-label">사용 가능 횟수</FieldLabel>
               <Select
                 aria-labelledby="max-uses-label"
                 defaultValue="1"
+                disabled={pending}
                 name="maxUses"
                 options={maxUsesOptions}
               />
             </Field>
-            <Field className={styles.formField}>
+            <Field className={styles.formField} data-disabled={pending || undefined}>
               <FieldLabel id="expiration-label">유효 기간</FieldLabel>
               <Select
                 aria-labelledby="expiration-label"
                 defaultValue="24"
+                disabled={pending}
                 name="expiresInHours"
                 options={expirationOptions}
               />
             </Field>
             <Button
               className={styles.issueButton}
-              disabled={pending}
+              pending={pendingAction?.kind === 'issue' && pending}
+              pendingLabel="발급 중"
               type="submit"
               variant="primary"
             >
-              <UserPlus aria-hidden="true" /> {pending ? '처리 중' : '코드 발급'}
+              <UserPlus aria-hidden="true" /> 코드 발급
             </Button>
           </form>
 
           <div className={styles.status} data-testid="admin-invitation-status">
-            {pending ? (
-              <output className={styles.pendingMessage} aria-live="polite">
-                요청을 처리하고 있습니다.
-              </output>
-            ) : null}
-            {error ? (
+            <InlineFeedbackRegion
+              state={
+                pending
+                  ? { key: 'pending', message: '요청을 처리하고 있습니다.' }
+                  : statusMessage
+                    ? { key: 'success', message: statusMessage }
+                    : { key: 'idle' }
+              }
+            />
+            <PresenceRegion
+              className={styles.outputPresence}
+              presenceKey="admin-invitation-error"
+              present={Boolean(error)}
+              initial={{ opacity: 0, y: 2 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -2 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+            >
               <WorkspaceState
                 announcement="inherit"
                 className={styles.outputState}
                 kind="error"
                 title="요청을 완료하지 못했습니다"
-                description={error}
+                description={error ?? ''}
               />
-            ) : null}
-            {statusMessage ? <span className={styles.successMessage}>{statusMessage}</span> : null}
-            {revealedCode ? (
+            </PresenceRegion>
+            <PresenceRegion
+              className={styles.secretPresence}
+              presenceKey="admin-invitation-code"
+              present={Boolean(revealedCode)}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -3 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            >
               <DetailSurface
                 className={styles.secretSurface}
                 aria-label="한 번만 표시되는 가입 코드"
@@ -249,13 +302,13 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                     <strong>이 코드는 지금 한 번만 표시됩니다.</strong>
                     <p>안전한 채널로 전달한 뒤 이 화면에 보관하지 마세요.</p>
                   </div>
-                  <code>{revealedCode}</code>
+                  <code>{revealedCode ?? ''}</code>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={() => {
                       void navigator.clipboard
-                        .writeText(revealedCode)
+                        .writeText(revealedCode ?? '')
                         .then(() => {
                           setCopied(true);
                           void notify.success('가입 코드를 복사했습니다', {
@@ -277,7 +330,7 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                   </Button>
                 </div>
               </DetailSurface>
-            ) : null}
+            </PresenceRegion>
           </div>
         </Panel>
 
@@ -342,6 +395,12 @@ export function AdminInvitationPage({ initialInvitations, role }: AdminInvitatio
                           size="sm"
                           variant="ghost"
                           disabled={pending}
+                          pending={
+                            pendingAction?.kind === 'revoke' &&
+                            pendingAction?.invitationId === invitation.invitationId &&
+                            pending
+                          }
+                          pendingLabel="폐기 중"
                           aria-label={`${invitation.label} 코드 폐기`}
                           onClick={() => handleRevoke(invitation.invitationId, invitation.label)}
                         >

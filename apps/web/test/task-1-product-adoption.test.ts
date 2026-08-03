@@ -105,8 +105,8 @@ describe('Task 1 product shared UI adoption', () => {
     }
     assert.match(admin, /<div[\s\S]*?data-testid="admin-invitation-status"/);
     assert.doesNotMatch(admin, /<output[\s\S]*?data-testid="admin-invitation-status"/);
-    assert.equal((admin.match(/aria-live="polite"/g) ?? []).length, 1);
-    assert.match(admin, /<output[^>]*pendingMessage[^>]*aria-live="polite"/);
+    assert.match(admin, /<InlineFeedbackRegion/);
+    assert.doesNotMatch(admin, /<output\b/);
     assert.match(admin, /<WorkspaceState[\s\S]*?announcement="inherit"[\s\S]*?kind="error"/);
   });
 

@@ -17,6 +17,7 @@ import {
   transitionRelationDrag,
 } from '@/pages/research-workspace/model/relation-sigma-runtime';
 import { Button, IconButton } from '@/shared/ui/button';
+import { ButtonGroup } from '@/shared/ui/button-group';
 import { Combobox } from '@/shared/ui/combobox';
 import { ErrorState } from '@/shared/ui/feedback';
 import { useMotionPreferences } from '@/shared/ui/motion';
@@ -481,21 +482,22 @@ export function RelationSigmaGraph({
         {liveMessage}
       </output>
 
-      <div
+      <ButtonGroup
         className={styles.graphControls}
         aria-label="관계 지도 카메라 제어"
         data-testid="relation-graph-controls"
+        variant="inset"
       >
         <IconButton aria-label="확대" motion="quiet" onClick={() => zoom(0.72)}>
-          <Plus aria-hidden="true" />
+          <Plus aria-hidden="true" size={16} />
         </IconButton>
         <IconButton aria-label="축소" motion="quiet" onClick={() => zoom(1.38)}>
-          <Minus aria-hidden="true" />
+          <Minus aria-hidden="true" size={16} />
         </IconButton>
         <IconButton aria-label="관계 지도 원위치" motion="quiet" onClick={resetCamera}>
-          <RotateCcw aria-hidden="true" />
+          <RotateCcw aria-hidden="true" size={16} />
         </IconButton>
-      </div>
+      </ButtonGroup>
 
       <nav className={styles.graphNodeList} aria-label="관계 노드 목록">
         {source.nodes.map((node) => (

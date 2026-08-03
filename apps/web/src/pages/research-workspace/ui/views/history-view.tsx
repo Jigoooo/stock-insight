@@ -37,9 +37,8 @@ export function HistoryView({
   return (
     <>
       <PageHeader
-        eyebrow="판단 기록"
         title="판단 이력"
-        description="내가 남긴 판단과 다시 살펴볼 일정을 시간순으로 확인합니다."
+        description="기록한 판단과 다음 검토 일정을 시간순으로 확인합니다."
         asOf={data.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />

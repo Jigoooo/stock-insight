@@ -117,16 +117,15 @@ export function StocksView({
   return (
     <>
       <PageHeader
-        eyebrow="종목 리서치"
         title="종목"
-        description="관심·보유 여부와 분석 준비 상태를 한 표에서 확인합니다."
+        description="보유·관심 종목과 분석 상태를 확인합니다."
         asOf={data.meta.generatedAt}
       />
       <AvailabilityNotice availability={data.availability} />
       <div className={stockStyles.stocksWorkspace}>
         <Panel data-pending={pending || undefined} aria-busy={pending || undefined}>
           <PanelHeader>
-            <h2>종목 커버리지</h2>
+            <h2>종목 현황</h2>
             <p aria-live="polite">
               {pending
                 ? '검색 결과를 갱신하고 있습니다'
@@ -138,7 +137,7 @@ export function StocksView({
           </p>
           <div className={stockStyles.tableWrap}>
             <DataTable
-              caption="종목 커버리지"
+              caption="종목 현황"
               captionClassName={styles.srOnly}
               className={stockStyles.stockTable}
               selectionMode="single"
@@ -149,7 +148,7 @@ export function StocksView({
               }}
               containerProps={{
                 'aria-describedby': 'stock-table-scroll-hint',
-                'aria-label': '종목 커버리지 표 가로 스크롤 영역',
+                'aria-label': '종목 현황 표 가로 스크롤 영역',
                 tabIndex: 0,
               }}
             >

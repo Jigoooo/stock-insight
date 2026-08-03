@@ -54,128 +54,9 @@
   white-space: nowrap;
 }
 
-.tableWrap {
-  min-width: 0;
-}
-
-.stocksWorkspace {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(560px, 1.35fr) minmax(360px, 0.85fr);
-  grid-template-areas: 'table detail';
-  align-items: start;
-  gap: 18px;
-}
-
-.stocksWorkspace > [data-workspace-panel],
-.deepDiveRegion {
-  min-width: 0;
-}
-
-.stocksWorkspace > [data-workspace-panel] {
-  grid-area: table;
-}
-
-.deepDiveRegion {
-  grid-area: detail;
-  scroll-margin-top: 84px;
-}
-
-.deepDiveRegion:focus {
-  outline: none;
-}
-
-.deepDiveRegion:focus-visible {
-  border-radius: var(--radius-lg);
-  box-shadow: 0 0 0 3px var(--color-focus) inset;
-}
-
-[data-workspace-panel][data-pending='true'] .tableWrap {
-  opacity: 0.72;
-}
-
-.tableWrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.tableWrap th {
-  height: 44px;
-  padding: 0 16px;
-  color: var(--color-text-tertiary);
-  background: var(--color-surface-subtle);
-  border-bottom: 1px solid var(--color-border);
-  font-size: 12px;
-  font-weight: 650;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.tableWrap td {
-  height: 62px;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.deferredTableRow {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 62px;
-}
-
-.tableWrap tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.tableWrap td:has([data-kind]) {
-  height: auto;
-  padding: 0;
-  white-space: normal;
-}
-
-.tableWrap td strong {
-  display: block;
-  color: var(--color-text-primary);
-  font-size: 12px;
-}
-
-.tableWrap td small {
-  display: block;
-  margin-top: 4px;
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-
-.positive {
-  color: var(--color-positive) !important;
-}
-
-.negative {
-  color: var(--color-risk) !important;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .tableWrap tbody tr:hover td {
-    background: var(--color-surface-subtle);
-  }
-}
-
 @media (max-width: 1240px) {
   .content {
     padding-inline: 28px;
-  }
-
-  .stocksWorkspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'detail'
-      'table';
-  }
-
-  .deepDiveRegion[data-state='idle'] {
-    display: none;
   }
 }
 
@@ -199,10 +80,6 @@
 }
 
 @media (max-width: 420px) {
-  .deepDiveRegion {
-    scroll-margin-top: 124px;
-  }
-
   .search {
     width: 100%;
     grid-column: 1/-1;
@@ -211,81 +88,6 @@
 
   .content {
     padding: 24px 12px 48px;
-  }
-
-  .stockTable thead {
-    width: 1px;
-    height: 1px;
-    position: absolute;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .stockTable,
-  .stockTable tbody,
-  .stockTable tr {
-    display: block;
-  }
-
-  .stockTable tr {
-    padding: 10px 0;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .deferredTableRow {
-    contain-intrinsic-size: auto 246px;
-  }
-
-  .stockTable tbody tr:last-child {
-    border-bottom: 0;
-  }
-
-  .stockTable td:not([colspan]) {
-    height: auto;
-    min-height: 34px;
-    display: grid;
-    grid-template-columns: 88px minmax(0, 1fr);
-    align-items: baseline;
-    gap: 12px;
-    padding: 7px 14px;
-    border: 0;
-    white-space: normal;
-  }
-
-  .stockTable td:not([colspan])::before {
-    color: var(--color-text-tertiary);
-    font-size: 12px;
-    font-weight: 620;
-  }
-
-  .stockTable td:nth-child(1)::before {
-    content: '종목';
-  }
-
-  .stockTable td:nth-child(2)::before {
-    content: '시장';
-  }
-
-  .stockTable td:nth-child(3)::before {
-    content: '현재 상태';
-  }
-
-  .stockTable td:nth-child(4)::before {
-    content: '최근 가격';
-  }
-
-  .stockTable td:nth-child(5)::before {
-    content: '변화율';
-  }
-
-  .stockTable td:nth-child(6)::before {
-    content: '분석 시각';
-  }
-
-  .stockTable td:not([colspan]) > span {
-    min-width: 0;
   }
 
   .statusTable thead {

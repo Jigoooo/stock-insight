@@ -1,0 +1,202 @@
+import { useState, type MouseEvent } from 'react';
+
+import styles from './navigation-tabs-catalog.module.css';
+
+import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
+import {
+  Tabs,
+  TabsContent,
+  TabsContents,
+  TabsHighlight,
+  TabsHighlightItem,
+  TabsList,
+  TabsTrigger,
+} from '@/shared/ui/tabs';
+
+const routeItems = [
+  { id: 'overview', label: '개요', href: '/__ui-lab?route-tab=overview' },
+  { id: 'evidence', label: '근거', href: '/__ui-lab?route-tab=evidence' },
+  { id: 'timeline', label: '타임라인', href: '/__ui-lab?route-tab=timeline' },
+] as const;
+
+export type RouteTabId = (typeof routeItems)[number]['id'];
+
+const viewItems = [
+  { id: 'impact', label: '영향 경로', summary: '뉴스에서 기업까지 이어지는 영향 경로를 봅니다.' },
+  {
+    id: 'themes',
+    label: '연결 테마',
+    summary: '보유 종목과 맞닿은 테마를 한 화면에서 비교합니다.',
+  },
+  {
+    id: 'risks',
+    label: '확인할 리스크',
+    summary: '판단 전에 다시 확인할 변수와 근거를 정리합니다.',
+  },
+] as const;
+
+const routeVariants = [
+  {
+    id: 'hairline',
+    label: 'A · Hairline',
+    title: '가벼운 경계선',
+    description: '페이지 구조를 방해하지 않는 얇은 하단선으로 현재 경로를 표시합니다.',
+  },
+  {
+    id: 'quiet-surface',
+    label: 'B · Quiet Surface',
+    title: '차분한 표면',
+    description: '낮은 배경 대비와 작은 선택 면으로 경로 전환 영역을 분리합니다.',
+  },
+] as const;
+
+const slidingVariants = [
+  {
+    id: 'soft-inset',
+    label: 'A · Soft Inset',
+    title: '소프트 인셋',
+    description: '하나의 낮은 표면 안에서 선택된 화면을 부드러운 면으로 이동시킵니다.',
+  },
+  {
+    id: 'sliding-underline',
+    label: 'C · Sliding Underline',
+    title: '슬라이딩 언더라인',
+    description: '텍스트 흐름은 유지하고 얇은 선택선만 화면 사이를 이동시킵니다.',
+  },
+] as const;
+
+interface NavigationTabsCatalogProps {
+  initialRouteTab: RouteTabId;
+}
+
+export function NavigationTabsCatalog({ initialRouteTab }: NavigationTabsCatalogProps) {
+  const [activeRoute, setActiveRoute] = useState<RouteTabId>(initialRouteTab);
+  const [activeView, setActiveView] = useState('impact');
+
+  const selectRoute = (event: MouseEvent<HTMLAnchorElement>, item: (typeof routeItems)[number]) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      (event.currentTarget.target && event.currentTarget.target !== '_self')
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    window.history.replaceState(window.history.state, '', item.href);
+    setActiveRoute(item.id);
+  };
+
+  return (
+    <section className={styles.catalog} aria-labelledby="navigation-tabs-title">
+      <header className={styles.catalogHeader}>
+        <div>
+          <span>Batch 3A · Navigation Tabs</span>
+          <h2 id="navigation-tabs-title">Route Tabs · Sliding Tabs</h2>
+        </div>
+        <p>
+          경로를 바꾸는 링크와 같은 화면의 내용을 전환하는 탭을 의미에 맞게 분리하고, 승인된 두 가지
+          시각 방향을 공용 컴포넌트로 비교합니다.
+        </p>
+      </header>
+
+      <section className={styles.comparison} aria-labelledby="route-tabs-title">
+        <header className={styles.comparisonHeading}>
+          <span>01 · Route Tabs</span>
+          <div>
+            <h3 id="route-tabs-title">경로 내비게이션</h3>
+            <p>링크와 현재 페이지 의미를 유지하는 전역·로컬 경로 탭입니다.</p>
+          </div>
+        </header>
+
+        <div className={styles.comparisonGrid}>
+          {routeVariants.map((variant) => (
+            <article className={styles.variantCard} data-variant={variant.id} key={variant.id}>
+              <header>
+                <span>{variant.label}</span>
+                <h4>{variant.title}</h4>
+                <p>{variant.description}</p>
+              </header>
+              <div className={styles.previewSurface}>
+                <div className={styles.routeFrame}>
+                  <RouteTabs
+                    fullWidth
+                    aria-label={`경로 탭 비교 · ${variant.title}`}
+                    variant={variant.id}
+                  >
+                    {routeItems.map((item) => (
+                      <RouteTab
+                        active={activeRoute === item.id}
+                        href={item.href}
+                        key={item.id}
+                        onClick={(event) => selectRoute(event, item)}
+                      >
+                        {item.label}
+                      </RouteTab>
+                    ))}
+                  </RouteTabs>
+                  <div className={styles.routeSummary}>
+                    <strong>{routeItems.find((item) => item.id === activeRoute)?.label}</strong>
+                    <span>선택한 경로의 리서치 문서로 이동합니다.</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.comparison} aria-labelledby="sliding-tabs-title">
+        <header className={styles.comparisonHeading}>
+          <span>02 · Sliding Tabs</span>
+          <div>
+            <h3 id="sliding-tabs-title">화면 내 콘텐츠 전환</h3>
+            <p>URL 이동 없이 같은 맥락의 보기만 바꾸는 상태 기반 탭입니다.</p>
+          </div>
+        </header>
+
+        <div className={styles.comparisonGrid}>
+          {slidingVariants.map((variant) => (
+            <article className={styles.variantCard} data-variant={variant.id} key={variant.id}>
+              <header>
+                <span>{variant.label}</span>
+                <h4>{variant.title}</h4>
+                <p>{variant.description}</p>
+              </header>
+              <div className={styles.previewSurface}>
+                <Tabs
+                  fullWidth
+                  value={activeView}
+                  variant={variant.id}
+                  onValueChange={setActiveView}
+                >
+                  <TabsHighlight>
+                    <TabsList aria-label={`화면 탭 비교 · ${variant.title}`}>
+                      {viewItems.map((item) => (
+                        <TabsHighlightItem key={item.id} value={item.id}>
+                          <TabsTrigger value={item.id}>{item.label}</TabsTrigger>
+                        </TabsHighlightItem>
+                      ))}
+                    </TabsList>
+                  </TabsHighlight>
+                  <TabsContents className={styles.tabContents}>
+                    {viewItems.map((item) => (
+                      <TabsContent className={styles.tabContent} key={item.id} value={item.id}>
+                        <span>현재 보기</span>
+                        <strong>{item.label}</strong>
+                        <p>{item.summary}</p>
+                      </TabsContent>
+                    ))}
+                  </TabsContents>
+                </Tabs>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
