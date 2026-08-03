@@ -22,7 +22,21 @@ test.describe('UI Lab side navigation', () => {
   });
 
   test('keeps Side List as route links across three visual directions', async ({ page }) => {
+    await page.addInitScript(() => {
+      const storageKey = 'ui-lab-side-list-document-loads';
+      const documentLoads = Number(window.sessionStorage.getItem(storageKey) ?? '0');
+
+      window.sessionStorage.setItem(storageKey, String(documentLoads + 1));
+    });
     await page.goto('/__ui-lab?route-tab=evidence');
+
+    const hydrationProbe = page
+      .getByRole('tablist', { name: '패널 전환 · 세로 레일' })
+      .getByRole('tab', { name: '근거 기록' });
+    await expect(async () => {
+      await hydrationProbe.click({ timeout: 1_000 });
+      await expect(hydrationProbe).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
+    }).toPass({ timeout: 8_000, intervals: [100, 250, 500] });
 
     const catalog = page.locator('[data-catalog="side-lists"]');
     await expect(catalog.locator('article')).toHaveCount(3);
@@ -34,5 +48,12 @@ test.describe('UI Lab side navigation', () => {
 
     await expect(page).toHaveURL(/side-route=holdings/);
     await expect(holdings).toHaveAttribute('aria-current', 'page');
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Number(window.sessionStorage.getItem('ui-lab-side-list-document-loads') ?? '0'),
+        ),
+      )
+      .toBe(1);
   });
 });

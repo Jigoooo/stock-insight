@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
@@ -196,20 +197,42 @@ export function SideNavigationCatalog({
                     <nav className={styles.sideList} aria-label={`경로 목록 · ${variant.title}`}>
                       {routeItems.map((item) => {
                         const current = item.id === initialSideRoute;
-                        const href = `/__ui-lab?route-tab=${initialRouteTab}&side-route=${item.id}`;
 
                         return (
-                          <a aria-current={current ? 'page' : undefined} href={href} key={item.id}>
+                          <Link
+                            aria-current={current ? 'page' : undefined}
+                            key={item.id}
+                            search={{
+                              'route-tab': initialRouteTab,
+                              'side-route': item.id,
+                            }}
+                            to="/__ui-lab"
+                          >
+                            {current ? (
+                              <motion.span
+                                aria-hidden="true"
+                                className={styles.routeIndicator}
+                                data-slot="side-list-indicator"
+                                layoutId={`side-list-indicator-${variant.id}`}
+                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+                              />
+                            ) : null}
                             <span>{item.label}</span>
-                          </a>
+                          </Link>
                         );
                       })}
                     </nav>
-                    <div className={styles.routePanel}>
+                    <motion.div
+                      animate={{ opacity: 1, y: 0 }}
+                      className={styles.routePanel}
+                      initial={{ opacity: 0, y: 3 }}
+                      key={`${variant.id}-${currentRoute.id}`}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
+                    >
                       <span>현재 경로</span>
                       <strong>{currentRoute.label}</strong>
                       <p>{currentRoute.summary}</p>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
               </article>
