@@ -1,4 +1,7 @@
 .catalog {
+  --color-text-secondary: color-mix(in srgb, var(--color-text-primary) 84%, var(--color-surface));
+  --color-text-tertiary: color-mix(in srgb, var(--color-text-primary) 82%, var(--color-surface));
+
   display: grid;
   gap: 36px;
   margin-top: 48px;
@@ -115,8 +118,9 @@
   place-items: center;
 }
 
-.commandTrigger {
+.commandTrigger[data-slot='button-control'] {
   width: min(100%, 250px);
+  min-height: 44px;
   justify-content: stretch;
 }
 

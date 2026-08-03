@@ -5,6 +5,7 @@ import { InputActionCatalog } from './input-action-catalog';
 import { LocationNavigationCatalog, type BreadcrumbPreviewId } from './location-navigation-catalog';
 import { NavigationTabsCatalog, type RouteTabId } from './navigation-tabs-catalog';
 import { SideNavigationCatalog, type SideRouteId } from './side-navigation-catalog';
+import { StepperCommandCatalog } from './stepper-command-catalog';
 import styles from './ui-lab-page.module.css';
 
 import {
@@ -102,8 +103,9 @@ export function UiLabPage({
               <div className={styles.statusIntro}>
                 <span>In progress</span>
                 <h2>Stepper · CommandPalette</h2>
-                <p>다음 A/B/C 목업 비교 기준을 정리하고 있습니다.</p>
+                <p>단계 진행과 빠른 명령 탐색을 세 가지 정보 밀도로 비교합니다.</p>
               </div>
+              <StepperCommandCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

@@ -37,7 +37,7 @@
 | 3A   | Route Tabs + Sliding Tabs           | 검증 완료 | 3B Side Tab + Side List 목업 비교     |
 | 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
-| 3D   | Stepper + CommandPalette            | 목업      | A/B/C 설계 승인 후 UI Lab 비교        |
+| 3D   | Stepper + CommandPalette            | 목업      | UI Lab A/B/C 비교 후 사용자 승인      |
 | 4A   | DropdownMenu + ContextMenu          | 대기      | UI Lab 3안 비교                       |
 | 4B   | Popover                             | 대기      | UI Lab 3안 비교                       |
 | 4C   | Drawer + Sheet + BottomSheet        | 대기      | UI Lab 3안 비교                       |
@@ -234,6 +234,16 @@
 - 공용 Select option의 Motion visual `min-height` 상속을 끊어 `compact`의 선언 높이와 실제 높이를 38px로 일치
 - Codex 인앱 브라우저 6110 단일 탭에서 완료 카탈로그 전체 노출, Side List URL 고정, Dialog overlay opacity 0, Accordion single/multiple과 좌우 여백 확인
 - 후속 검증: Dialog 종료 120ms 후 Portal·overlay·scroll lock 0, ellipsis에서 8페이지 선택 시 URL 고정·세 시안 상태 동기화, Breadcrumb B 간격 확인
+
+### 2026-08-03 — 3D Stepper + CommandPalette 목업 구현
+
+- Stepper A Hairline Flow, B Soft Track, C Ledger Steps는 하나의 로컬 단계 상태를 공유하며 URL을 변경하지 않음
+- CommandPalette A Compact Command, B Split Context, C Quick Actions는 공용 Dialog·Input·Button으로 구성하고 새 패키지를 추가하지 않음
+- `Cmd/Ctrl+K`, 검색, ArrowUp·ArrowDown, Enter, Escape, 빈 결과와 로컬 실행 결과를 지원함
+- B는 데스크톱 split preview와 모바일 단일 열을 제공하고 C는 최근 항목·빠른 액션 밀도로 압축함
+- 검증: Stepper·CommandPalette Node 계약 2건, web typecheck, 전용 Playwright 9건과 Axe 집중 검사 통과
+- Codex 인앱 브라우저 6110 단일 탭에서 Stepper 세 시안 동기화·URL 고정, A 검색·실행, B preview, C compact groups, Escape 종료 후 dialog 0건을 확인함
+- 다음 행동은 Codex 인앱 브라우저에서 A/B/C 시각과 상호작용을 비교한 뒤 사용자 승인을 받는 것임
 
 ## 실행 환경 메모
 
