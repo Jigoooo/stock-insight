@@ -1,4 +1,20 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function openPaginationPage(page: Page, currentPage: number) {
+  await page.goto(
+    `/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=${currentPage}`,
+  );
+  await page.waitForLoadState('networkidle');
+  return page.locator('[data-catalog="location-navigation"]');
+}
+
+function expectSearchValues(page: Page, expectedPage: string) {
+  const searchParams = new URL(page.url()).searchParams;
+  expect(searchParams.get('route-tab')).toBe('evidence');
+  expect(searchParams.get('side-route')).toBe('today');
+  expect(searchParams.get('breadcrumb')).toBe('evidence');
+  expect(searchParams.get('page')).toBe(expectedPage);
+}
 
 test.describe('UI Lab location navigation', () => {
   test('normalizes invalid preview state and renders the 3C catalog', async ({ page }) => {
@@ -12,6 +28,7 @@ test.describe('UI Lab location navigation', () => {
 
   test('renders three semantic Breadcrumb variants with real links', async ({ page }) => {
     await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
+    await page.waitForLoadState('networkidle');
 
     const catalog = page.locator('[data-catalog="location-navigation"]');
     const variants = catalog.locator('nav[data-breadcrumb-variant]');
@@ -45,10 +62,7 @@ test.describe('UI Lab location navigation', () => {
   });
 
   test('moves numeric pages and separates cursor state from page totals', async ({ page }) => {
-    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
-    await page.waitForLoadState('networkidle');
-
-    const catalog = page.locator('[data-catalog="location-navigation"]');
+    const catalog = await openPaginationPage(page, 3);
     await expect(catalog.locator('[data-pagination-variant]')).toHaveCount(3);
     await catalog
       .locator('[data-pagination-variant="hairline"]')
@@ -57,44 +71,151 @@ test.describe('UI Lab location navigation', () => {
     await expect(page).toHaveURL(/page=4/);
     await expect(catalog).toHaveAttribute('data-page', '4');
 
-    const searchParams = new URL(page.url()).searchParams;
-    expect(searchParams.get('route-tab')).toBe('evidence');
-    expect(searchParams.get('side-route')).toBe('today');
-    expect(searchParams.get('breadcrumb')).toBe('evidence');
-    expect(searchParams.get('page')).toBe('4');
+    expectSearchValues(page, '4');
 
     const cursor = page.locator('[data-cursor-preview]');
     const cursorAction = cursor.getByRole('button', { name: '다음 기록' });
     await cursorAction.click();
-    await expect(cursorAction).toBeDisabled();
-    await expect(cursorAction).toHaveCSS('cursor', 'default');
-    await expect(cursor.getByText('불러오는 중')).toBeVisible();
-    await expect(cursor.getByText('마지막 기록')).toBeVisible();
+    await Promise.all([
+      expect(cursorAction).toBeDisabled(),
+      expect(cursorAction).toHaveCSS('cursor', 'default'),
+      expect(cursorAction.locator('[data-cursor-spinner]')).toBeVisible(),
+      expect(cursorAction.getByText('불러오는 중', { exact: true })).toBeVisible(),
+      expect(cursor.locator('[aria-live="polite"]')).toHaveText('불러오는 중'),
+    ]);
+    await expect(cursor.locator('[aria-live="polite"]')).toHaveText('마지막 기록');
     await expect(cursor).not.toContainText('/ 12');
   });
 
-  test('keeps pagination boundaries inert and the page within the viewport', async ({ page }) => {
-    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=1');
+  test('renders compact ledger controls separately from cursor state', async ({ page }) => {
+    const catalog = await openPaginationPage(page, 3);
+    const ledger = catalog.locator('[data-pagination-variant="ledger"]');
+    const ledgerNavigation = ledger.getByRole('navigation');
 
-    const catalog = page.locator('[data-catalog="location-navigation"]');
-    const previousActions = catalog.getByRole('link', { name: '이전 페이지' });
-    const disabledPreviousActions = catalog.locator(
-      '[data-pagination-variant] [aria-disabled="true"][aria-label="이전 페이지"]',
+    await expect(ledgerNavigation.locator('[data-pagination-page]')).toHaveCount(0);
+    await expect(ledgerNavigation.getByRole('link', { name: '이전 페이지' })).toHaveCount(1);
+    await expect(ledgerNavigation.getByText('03 / 12', { exact: true })).toHaveCount(1);
+    await expect(ledgerNavigation.getByRole('link', { name: '다음 페이지' })).toHaveCount(1);
+    await expect(ledgerNavigation.locator('[data-cursor-preview]')).toHaveCount(0);
+    await expect(ledger.locator('[data-cursor-preview]')).toHaveCount(1);
+    await expect(ledger.locator('[data-cursor-preview]')).not.toContainText('/ 12');
+  });
+
+  for (const { currentPage, expectedPages } of [
+    { currentPage: 3, expectedPages: ['1', '2', '3', '4', '12'] },
+    { currentPage: 4, expectedPages: ['1', '3', '4', '5', '12'] },
+    { currentPage: 9, expectedPages: ['1', '8', '9', '10', '12'] },
+    { currentPage: 10, expectedPages: ['1', '9', '10', '11', '12'] },
+  ]) {
+    test(`keeps the numeric page window stable at page ${currentPage}`, async ({ page }) => {
+      const catalog = await openPaginationPage(page, currentPage);
+      const hairline = catalog.locator('[data-pagination-variant="hairline"]');
+
+      expect(
+        await hairline
+          .locator('[data-pagination-page]')
+          .evaluateAll((links) => links.map((link) => link.getAttribute('data-pagination-page'))),
+      ).toEqual(expectedPages);
+      await expect(hairline.locator(`[data-pagination-page="${currentPage}"]`)).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+  }
+
+  for (const { currentPage, actionName } of [
+    { currentPage: 1, actionName: '이전 페이지' },
+    { currentPage: 12, actionName: '다음 페이지' },
+  ]) {
+    test(`keeps the ${actionName} boundary inert at page ${currentPage}`, async ({ page }) => {
+      const catalog = await openPaginationPage(page, currentPage);
+
+      for (const variant of ['hairline', 'soft-inset', 'ledger']) {
+        const preview = catalog.locator(`[data-pagination-variant="${variant}"]`);
+        await expect(preview.getByRole('link', { name: actionName })).toHaveCount(0);
+        const boundary = preview.locator(`[aria-disabled="true"][aria-label="${actionName}"]`);
+        await expect(boundary).toHaveCount(1);
+        await expect(boundary).toHaveAttribute('tabindex', '-1');
+      }
+    });
+  }
+
+  for (const { actionName, expectedPage, variant } of [
+    { actionName: '이전 페이지', expectedPage: '3', variant: 'hairline' },
+    { actionName: '다음 페이지', expectedPage: '5', variant: 'hairline' },
+    { actionName: '이전 페이지', expectedPage: '3', variant: 'ledger' },
+    { actionName: '다음 페이지', expectedPage: '5', variant: 'ledger' },
+  ]) {
+    test(`preserves all search values through ${variant} ${actionName}`, async ({ page }) => {
+      const catalog = await openPaginationPage(page, 4);
+      const preview = catalog.locator(`[data-pagination-variant="${variant}"]`);
+
+      await preview.getByRole('link', { name: actionName }).click();
+      await expect(page).toHaveURL(new RegExp(`page=${expectedPage}`));
+      expectSearchValues(page, expectedPage);
+    });
+  }
+
+  test('moves pagination with keyboard focus and Enter', async ({ page }) => {
+    const catalog = await openPaginationPage(page, 3);
+    const nextAction = catalog
+      .locator('[data-pagination-variant="hairline"]')
+      .getByRole('link', { name: '다음 페이지' });
+
+    await nextAction.focus();
+    await expect(nextAction).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/page=4/);
+    expectSearchValues(page, '4');
+  });
+
+  test('removes indicator motion when reduced motion is requested', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const catalog = await openPaginationPage(page, 3);
+    const indicator = catalog
+      .locator('[data-pagination-variant="soft-inset"] [aria-current="page"]')
+      .locator('[data-pagination-indicator]');
+
+    await expect(indicator).toHaveCount(1);
+    const transitionDuration = await indicator.evaluate((element) =>
+      Number.parseFloat(window.getComputedStyle(element).transitionDuration),
     );
-    await expect(previousActions).toHaveCount(0);
-    await expect(disabledPreviousActions).toHaveCount(3);
+    expect(transitionDuration).toBeLessThanOrEqual(0.001);
+    await expect(indicator).toHaveCSS('transform', 'none');
+  });
 
-    const metrics = await page.evaluate(() => {
-      const action = document.querySelector<HTMLElement>('[data-pagination-variant] a');
+  test('renders the hairline current page as a bordered rounded rectangle', async ({ page }) => {
+    const catalog = await openPaginationPage(page, 3);
+    const currentPage = catalog.locator(
+      '[data-pagination-variant="hairline"] [aria-current="page"]',
+    );
+
+    await expect(currentPage).toHaveCSS('border-top-width', '1px');
+    await expect(currentPage).toHaveCSS('border-right-width', '1px');
+    await expect(currentPage).toHaveCSS('border-bottom-width', '1px');
+    await expect(currentPage).toHaveCSS('border-left-width', '1px');
+    await expect(currentPage).not.toHaveCSS('border-radius', '0px');
+  });
+
+  test('keeps mobile pagination targets at 44 by 44 without page overflow', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 520, '390px mobile contract');
+    const catalog = await openPaginationPage(page, 1);
+    const pagination = catalog.locator('[data-pagination-variant="hairline"]');
+
+    const metrics = await pagination.locator('a, [aria-disabled="true"]').evaluateAll((actions) =>
+      actions.map((action) => ({
+        height: action.getBoundingClientRect().height,
+        width: action.getBoundingClientRect().width,
+      })),
+    );
+    expect(metrics.every(({ height, width }) => height >= 44 && width >= 44)).toBe(true);
+
+    const pageWidths = await page.evaluate(() => {
       return {
-        actionHeight: action?.getBoundingClientRect().height ?? 0,
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
       };
     });
-    expect(metrics.actionHeight).toBeGreaterThanOrEqual(
-      (page.viewportSize()?.width ?? 0) <= 520 ? 44 : 32,
-    );
-    expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+    expect(pageWidths.documentWidth).toBeLessThanOrEqual(pageWidths.viewportWidth);
   });
 });
