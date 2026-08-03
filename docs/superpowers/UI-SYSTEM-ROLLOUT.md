@@ -39,7 +39,7 @@
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
-| 5A   | Identity & Content                  | 대기      | UI Lab 통합 A/B/C 비교                |
+| 5A   | Identity & Content                  | 승인      | 구현 계획 작성 후 UI Lab 목업         |
 | 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
@@ -272,6 +272,17 @@
 - 공용화 검증: Menu & Overlay 모델·워크스페이스 오버레이 Node 계약 9건, public props fixture, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건 통과
 - Codex 인앱 브라우저 6110에서 완료 탭에 A/B 두 카드만 남고 C가 제거된 상태와 B Sheet의 실제 열림을 확인함
 - 다음 행동은 5A Identity & Content 통합 목업 비교를 시작하는 것임
+
+### 2026-08-04 — 5A Identity & Content 목업 설계 승인
+
+- Avatar, Badge, Status, List, Timeline, Carousel을 하나의 공통 디자인 언어로 묶지 않고 컴포넌트별 독립 A/B/C로 비교함
+- UI Lab 내부 상단 수평 탭으로 여섯 컴포넌트를 나누고 선택한 컴포넌트의 A/B/C만 표시함
+- List, Timeline, Carousel은 동일한 데모 데이터와 현재 선택 상태를 세 시안이 공유함
+- 390px 수평 탭 스크롤, 44px 터치 영역, 키보드, 감소 모션, Axe 계약을 목업 단계부터 포함함
+- 완료된 Menu & Overlay는 `예정` 카드에서 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 카드만 남김
+- 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
+- 설계 문서: `docs/superpowers/specs/2026-08-04-identity-content-mockups-design.md`
+- 다음 행동은 승인된 설계를 구현 계획으로 구체화하는 것임
 
 ## 실행 환경 메모
 
