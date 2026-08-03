@@ -1,0 +1,962 @@
+{
+  "capturedAt": "2026-08-03T14:19:30Z",
+  "servingYield": [
+    {
+      "surface": "serving.impact_summary_v1",
+      "note": "v1 impact paths",
+      "upstream": 45966,
+      "view": 0,
+      "ratio": 0,
+      "error": null
+    },
+    {
+      "surface": "serving.relation_current_v1",
+      "note": "evidence-gated relations",
+      "upstream": 8678,
+      "view": 254,
+      "ratio": 0.0293,
+      "error": null
+    },
+    {
+      "surface": "serving.latest_feature_snapshot_v1",
+      "note": "latest per asset — a ratio near 1 is correct here",
+      "upstream": 253,
+      "view": 253,
+      "ratio": 1,
+      "error": null
+    },
+    {
+      "surface": "serving.market_confirmation_v1",
+      "note": "impact is LEFT JOINed — see impactLinked",
+      "upstream": 253,
+      "view": 253,
+      "ratio": 1,
+      "error": null
+    },
+    {
+      "surface": "serving.forecast_scorecard_v1",
+      "note": "calibration profiles",
+      "upstream": 90,
+      "view": 10,
+      "ratio": 0.1111,
+      "error": null
+    },
+    {
+      "surface": "serving.probability_scorecard_v1",
+      "note": "probability snapshots",
+      "upstream": 23,
+      "view": 3,
+      "ratio": 0.1304,
+      "error": null
+    },
+    {
+      "surface": "serving.v_truth_assertion_pit_v1",
+      "note": "truth kernel assertions",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "serving.v_world_event_current_v1",
+      "note": "world events",
+      "upstream": 4040,
+      "view": 4040,
+      "ratio": 1,
+      "error": null
+    },
+    {
+      "surface": "serving.v_geo_entity_exposure_v1",
+      "note": "geo plane",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "crypto_serving.entity_revision",
+      "note": "crypto plane",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "crypto_serving.event_revision",
+      "note": "crypto plane",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "crypto_serving.core_relation_revision",
+      "note": "crypto plane",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "crypto_serving.risk_exposure_revision",
+      "note": "crypto plane",
+      "upstream": 0,
+      "view": 0,
+      "ratio": null,
+      "error": null
+    },
+    {
+      "surface": "serving.content_pack_item[impact_path]",
+      "note": "v2 impact paths on the published snapshot",
+      "upstream": 9311,
+      "view": 9311,
+      "ratio": 1,
+      "error": null
+    }
+  ],
+  "chains": [
+    {
+      "name": "world model → 포트폴리오 노출",
+      "steps": [
+        {
+          "label": "knowledge.event",
+          "rows": 4040,
+          "error": null
+        },
+        {
+          "label": "world.event (projected)",
+          "rows": 4040,
+          "error": null
+        },
+        {
+          "label": "world.event_revision",
+          "rows": 4040,
+          "error": null
+        },
+        {
+          "label": "analytics.impact_shock",
+          "rows": 0,
+          "error": null
+        },
+        {
+          "label": "impact_exposure_revision (sealed)",
+          "rows": 0,
+          "error": null
+        },
+        {
+          "label": "portfolio_lot_snapshot",
+          "rows": 0,
+          "error": null
+        }
+      ],
+      "brokenAt": "analytics.impact_shock"
+    },
+    {
+      "name": "v2 임팩트 → 제품",
+      "steps": [
+        {
+          "label": "graph_snapshot_edge",
+          "rows": 5379,
+          "error": null
+        },
+        {
+          "label": "impact_path_v2 (sealed)",
+          "rows": 9311,
+          "error": null
+        },
+        {
+          "label": "content_pack_item[impact_path]",
+          "rows": 9311,
+          "error": null
+        },
+        {
+          "label": "impact_brief 팩 (servable)",
+          "rows": 262,
+          "error": null
+        }
+      ],
+      "brokenAt": null
+    },
+    {
+      "name": "사건 귀속 → 월드 참여자",
+      "steps": [
+        {
+          "label": "knowledge.event",
+          "rows": 4040,
+          "error": null
+        },
+        {
+          "label": "엔티티 붙은 사건",
+          "rows": 3106,
+          "error": null
+        },
+        {
+          "label": "world.event_participant",
+          "rows": 3082,
+          "error": null
+        }
+      ],
+      "brokenAt": null
+    },
+    {
+      "name": "DART 수집 → 계보 붙은 사실",
+      "steps": [
+        {
+          "label": "물어본 셀 (source_revision)",
+          "rows": 305,
+          "error": null
+        },
+        {
+          "label": "내용이 있던 셀",
+          "rows": 266,
+          "error": null
+        },
+        {
+          "label": "계보 붙은 financial_fact",
+          "rows": 1069,
+          "error": null
+        }
+      ],
+      "brokenAt": null
+    },
+    {
+      "name": "지식 추출 → 검증된 주장",
+      "steps": [
+        {
+          "label": "knowledge.document",
+          "rows": 6236,
+          "error": null
+        },
+        {
+          "label": "knowledge.claim",
+          "rows": 274,
+          "error": null
+        },
+        {
+          "label": "claim (verified)",
+          "rows": 0,
+          "error": null
+        }
+      ],
+      "brokenAt": "claim (verified)"
+    }
+  ],
+  "contentPackItemKinds": [
+    {
+      "itemKind": "evidence",
+      "rows": 1000099
+    },
+    {
+      "itemKind": "relation",
+      "rows": 417165
+    },
+    {
+      "itemKind": "impact_path",
+      "rows": 64835
+    }
+  ],
+  "impactLinked": {
+    "surface": "serving.market_confirmation_v1",
+    "rows": 253,
+    "withImpactPath": 212,
+    "servablePacks": 262
+  },
+  "collection": {
+    "registeredSources": 34,
+    "activeWindowHours": 48,
+    "activeSources": 6,
+    "sourcesUsingContractLayer": 7,
+    "sources": [
+      {
+        "providerKey": "alternative-me",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "bok-ecos",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "briefing-markdown",
+        "lastFetchRun": "2026-07-24T13:20:33.085Z",
+        "lastSourceRevision": "2026-07-24T13:20:33.085Z",
+        "activeRecently": false,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "coingecko",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "coingecko-global",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "crypto-candidate",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "env",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "finra",
+        "lastFetchRun": "2026-08-03T03:56:06.030Z",
+        "lastSourceRevision": "2026-08-03T03:56:07.793Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "fred",
+        "lastFetchRun": "2026-08-03T09:20:21.940Z",
+        "lastSourceRevision": "2026-08-03T09:20:29.869Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "internal-company-profile-snapshot",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "internal-etf-holdings-snapshot",
+        "lastFetchRun": "2026-08-03T09:44:51.199Z",
+        "lastSourceRevision": "2026-08-03T07:21:02.269Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "internal-industry-classification-snapshot",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "kdi-eiec-policy-materials",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "ny-fed",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "opendart",
+        "lastFetchRun": "2026-08-03T07:35:47.514Z",
+        "lastSourceRevision": "2026-08-03T07:36:56.820Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "pykrx",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss-news-bundle",
+        "lastFetchRun": "2026-08-03T14:00:51.729Z",
+        "lastSourceRevision": "2026-08-03T14:00:54.511Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "rss:cnbc-markets",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:economist-finance",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:ft-opinion",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:marketwatch",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:nyt-opinion",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:yahoo-finance",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:매경-사설-칼럼",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:매일경제",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:연합뉴스-경제",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:연합인포맥스",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:조선-경제사설",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "rss:한경-사설-칼럼",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "sec-edgar",
+        "lastFetchRun": "2026-08-03T03:55:13.225Z",
+        "lastSourceRevision": "2026-08-03T03:55:15.074Z",
+        "activeRecently": true,
+        "usesContractLayer": true
+      },
+      {
+        "providerKey": "stock-candidate",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "treasury-fiscaldata",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "yfinance",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      },
+      {
+        "providerKey": "yfinance-error",
+        "lastFetchRun": null,
+        "lastSourceRevision": null,
+        "activeRecently": false,
+        "usesContractLayer": false
+      }
+    ]
+  },
+  "marketLineage": {
+    "routedTables": [
+      {
+        "table": "market.financial_fact",
+        "total": 79423,
+        "withLineage": 1069
+      },
+      {
+        "table": "market.macro_vintage",
+        "total": 55244,
+        "withLineage": 22731
+      },
+      {
+        "table": "market.short_volume_daily",
+        "total": 5291,
+        "withLineage": 0
+      }
+    ],
+    "tables": [
+      {
+        "table": "market.corporate_action",
+        "hasLineageColumn": false
+      },
+      {
+        "table": "market.financial_concept",
+        "hasLineageColumn": false
+      },
+      {
+        "table": "market.financial_fact",
+        "hasLineageColumn": true
+      },
+      {
+        "table": "market.macro_vintage",
+        "hasLineageColumn": true
+      },
+      {
+        "table": "market.short_volume_daily",
+        "hasLineageColumn": true
+      },
+      {
+        "table": "market.split_adjustment_factor",
+        "hasLineageColumn": false
+      },
+      {
+        "table": "market.trading_calendar",
+        "hasLineageColumn": false
+      }
+    ],
+    "tablesWithLineageColumn": 3
+  },
+  "coverage": [
+    {
+      "family": "market.financial_fact",
+      "state": "not_collected",
+      "cells": 1862
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "complete",
+      "cells": 1397
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "not_applicable",
+      "cells": 364
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "source_unavailable",
+      "cells": 17
+    }
+  ],
+  "unattributedEvents": {
+    "total": 4040,
+    "reachingNothing": 961
+  },
+  "verification": [
+    {
+      "relation": "knowledge.claim",
+      "state": "corroborated",
+      "rows": 274
+    },
+    {
+      "relation": "knowledge.event",
+      "state": "unverified",
+      "rows": 4040
+    },
+    {
+      "relation": "knowledge.relation_revision[statistical]",
+      "state": "accepted",
+      "rows": 18720
+    },
+    {
+      "relation": "knowledge.relation_revision[statistical]",
+      "state": "quarantined_unverified",
+      "rows": 1161
+    },
+    {
+      "relation": "knowledge.relation_revision[structural]",
+      "state": "quarantined_unverified",
+      "rows": 2151
+    },
+    {
+      "relation": "knowledge.relation_revision[structural]",
+      "state": "accepted",
+      "rows": 627
+    }
+  ],
+  "pipeline": [
+    {
+      "jobName": "db-schema:028_undirected_impact_step_guard",
+      "lastSuccess": "2026-07-20T03:28:17.590Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "db-schema:029_core_identity_gap_backfill",
+      "lastSuccess": "2026-07-20T03:46:38.868Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "p0-7-source-contract-approval",
+      "lastSuccess": "2026-07-20T06:18:10.672Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "p0-8-registry-seed",
+      "lastSuccess": "2026-07-20T03:56:38.175Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "schema-migration-017",
+      "lastSuccess": "2026-07-18T13:59:11.674Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-analytics-wrapper",
+      "lastSuccess": "2026-08-03T09:46:17.498Z",
+      "lastFailure": "2026-08-03T08:44:13.045Z",
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-backend-db-v2-core",
+      "lastSuccess": "2026-07-19T03:39:32.112Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-claim-corroboration",
+      "lastSuccess": "2026-08-03T13:45:36.344Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-claim-corroboration-stage",
+      "lastSuccess": "2026-08-03T13:45:38.300Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-core-identity-sync",
+      "lastSuccess": "2026-08-03T09:44:45.606Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-core-identity-sync-stage",
+      "lastSuccess": "2026-08-03T09:44:45.287Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-corporate-actions",
+      "lastSuccess": "2026-08-01T20:29:18.359Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-dart-coverage-ledger",
+      "lastSuccess": "2026-08-03T07:37:10.659Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-dart-financial-facts",
+      "lastSuccess": "2026-08-03T04:31:49.259Z",
+      "lastFailure": null,
+      "consecutiveFailures": 1
+    },
+    {
+      "jobName": "stock-insight-event-brief",
+      "lastSuccess": "2026-08-03T13:45:35.551Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-event-entity-resolution",
+      "lastSuccess": "2026-08-03T13:45:32.011Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-event-entity-resolution-stage",
+      "lastSuccess": "2026-08-03T13:45:33.991Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-event-text-attribution",
+      "lastSuccess": "2026-08-03T14:07:58.273Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-feature-snapshot",
+      "lastSuccess": "2026-08-03T09:44:45.843Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-feature-snapshot-stage",
+      "lastSuccess": "2026-08-03T09:44:47.789Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-feed-build",
+      "lastSuccess": "2026-08-03T09:46:09.342Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-feed-build-stage",
+      "lastSuccess": "2026-08-03T09:46:11.354Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-finra-short-volume",
+      "lastSuccess": "2026-08-03T03:56:08.189Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-fred-vintage",
+      "lastSuccess": "2026-08-03T09:20:30.346Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-graph-inference",
+      "lastSuccess": "2026-08-03T09:44:49.030Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-graph-inference-stage",
+      "lastSuccess": "2026-08-03T09:44:51.011Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-knowledge-backlog",
+      "lastSuccess": "2026-08-03T13:45:35.651Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-knowledge-document-sync",
+      "lastSuccess": "2026-08-03T13:45:13.807Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-knowledge-document-sync-stage",
+      "lastSuccess": "2026-08-03T13:45:15.881Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-knowledge-extraction-stage",
+      "lastSuccess": "2026-08-03T13:45:31.898Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-knowledge-wrapper",
+      "lastSuccess": "2026-08-03T13:45:37.653Z",
+      "lastFailure": "2026-08-03T09:47:21.255Z",
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-market-enrichment-wrapper",
+      "lastSuccess": "2026-08-02T20:24:00.957Z",
+      "lastFailure": "2026-07-25T20:45:20.862Z",
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-ohlcv-exchange-repair",
+      "lastSuccess": "2026-07-17T18:10:19.361Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-ohlcv-wrapper",
+      "lastSuccess": "2026-08-02T22:12:26.107Z",
+      "lastFailure": "2026-07-26T22:12:17.872Z",
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-opendart-backfill",
+      "lastSuccess": "2026-08-01T18:33:22.503Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-outbox-delivery-stage",
+      "lastSuccess": "2026-08-03T09:46:15.465Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-phase10-learning-pipeline",
+      "lastSuccess": "2026-07-07T04:03:30.135Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-phase11-alert-ledger",
+      "lastSuccess": "2026-07-07T04:14:29.426Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-phase12-decision-journal",
+      "lastSuccess": "2026-07-07T04:21:03.473Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-phase35-backfill",
+      "lastSuccess": "2026-07-06T17:25:07.521Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-phase4-company-metrics",
+      "lastSuccess": "2026-07-06T17:39:54.509Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-portfolio-snapshot-stage",
+      "lastSuccess": "2026-08-03T09:46:15.682Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-probability-calibration",
+      "lastSuccess": "2026-08-03T09:46:11.517Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-probability-calibration-stage",
+      "lastSuccess": "2026-08-03T09:46:13.502Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-report-publish-stage",
+      "lastSuccess": "2026-08-03T09:46:09.160Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-rss-news-ingest",
+      "lastSuccess": "2026-08-03T14:00:54.831Z",
+      "lastFailure": "2026-07-24T13:30:43.368Z",
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-schema-migrations",
+      "lastSuccess": "2026-08-03T14:13:31.589Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-sec-edgar-backfill",
+      "lastSuccess": "2026-08-02T13:14:23.035Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-sec-edgar-backfill-cache-fallback",
+      "lastSuccess": "2026-07-25T00:43:41.808Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-sec-financial-facts",
+      "lastSuccess": "2026-08-03T03:55:16.199Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-split-factors",
+      "lastSuccess": "2026-08-02T20:23:58.958Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-v2-graph-publish-stage",
+      "lastSuccess": "2026-08-03T09:45:43.706Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-v2-l5-publish-stage",
+      "lastSuccess": "2026-08-03T09:46:06.966Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-world-event-sync",
+      "lastSuccess": "2026-08-03T13:45:34.188Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-world-event-sync-stage",
+      "lastSuccess": "2026-08-03T13:45:36.194Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "stock-insight-yfinance-ohlcv",
+      "lastSuccess": "2026-08-02T22:12:23.123Z",
+      "lastFailure": null,
+      "consecutiveFailures": 0
+    },
+    {
+      "jobName": "sync_daily_to_postgres",
+      "lastSuccess": "2026-08-03T13:10:33.139Z",
+      "lastFailure": "2026-07-25T23:50:39.587Z",
+      "consecutiveFailures": 0
+    }
+  ]
+}

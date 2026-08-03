@@ -1,5 +1,6 @@
 [Unit]
 Description=Stock Insight feature, graph, report, feed and calibration pipeline
+OnFailure=stock-insight-pipeline-alert@%n.service
 
 StartLimitIntervalSec=1h
 StartLimitBurst=3

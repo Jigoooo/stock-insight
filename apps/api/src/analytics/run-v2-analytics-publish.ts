@@ -7,6 +7,11 @@ import type { SnapshotEdgeInput } from './graph-snapshot.ts';
 import { buildImpactPaths, type ImpactPathEdge } from './impact-path-builder.ts';
 import { planPriceCorrelations, type PriceObservation } from './price-correlation.ts';
 import { planRelationMeasurements } from './relation-measurement.ts';
+import type { ContentPackSourceItem } from '../relations/content-pack-builder.ts';
+import {
+  CONTENT_PACK_MAX_ITEMS,
+  publishContentPacks,
+} from '../relations/content-pack-publisher.ts';
 
 // P0-3 — L5 analytics producer (roadmap §4 P0-3).
 // Fills the three empty L5 tables against the LATEST SEALED snapshot:
@@ -22,6 +27,10 @@ const APPLY = process.argv.includes('--apply');
 const REHEARSE = process.argv.includes('--rehearse');
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const RULE_VERSION = 'impact-v2-r1';
+const RELEASE_COMMIT = 'f2ec673';
+// Matches the relation packs' window: both are rebuilt by the same nightly run,
+// so a shorter window here would make impact go stale while relations stayed fresh.
+const IMPACT_PACK_FRESHNESS_HOURS = 36;
 const HOP_DECAY = 0.7;
 const MAX_HOPS = 2;
 const MAX_PATHS_PER_EVENT = 20;
@@ -30,8 +39,30 @@ const MIN_COMMUNITY_SIZE = 2;
 const CORRELATION_WINDOW_DAYS = 45;
 const MIN_OVERLAPPING_RETURNS = 10;
 const MEASUREMENT_MODEL_VERSION = 'pearson-returns-v1';
-const EVENT_LOOKBACK_DAYS = 14;
+// The freshness decay (half-life 14 days) already attenuates old events smoothly.
+// A hard 14-day window on top of it is a second, cruder cut at exactly the point
+// where the curve is still near half strength: a 14-day-old event counts in full,
+// a 15-day-old one counts zero. Measured, the strongest event just outside the old
+// window scores 0.467 — not marginal, just past an arbitrary cliff.
+//
+// Overridable so the window can be measured rather than guessed at.
+const EVENT_LOOKBACK_DAYS = (() => {
+  const raw = process.env.STOCK_INSIGHT_EVENT_LOOKBACK_DAYS?.trim();
+  if (!raw) return 45;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 365) {
+    throw new Error('STOCK_INSIGHT_EVENT_LOOKBACK_DAYS must be an integer between 1 and 365');
+  }
+  return parsed;
+})();
+// EVENT_LIMIT binds from ~30 days on, so beyond that the window stops mattering
+// and "the most recent 500 events" is the real control. 45 keeps the window from
+// being the binding constraint at lower event rates without pretending a wider
+// number would admit more.
 const EVENT_LIMIT = 500;
+// How many rows are loaded before ranking. The window already bounds the pool to
+// a few thousand, so this only guards against a pathological backfill.
+const EVENT_CANDIDATE_CEILING = 20_000;
 const FRESHNESS_HALF_LIFE_DAYS = 14;
 
 const EVENT_TYPE_BOOST: Record<string, number> = {
@@ -173,6 +204,89 @@ async function loadStockEntityIds(client: Client): Promise<Set<number>> {
   return new Set(result.rows.map((row) => numeric(row.entity_id, 'stockEntityId')));
 }
 
+/**
+ * Display names for the entities an impact path can start from.
+ *
+ * Without this an impact item can only say "one relation away", which does not
+ * tell the reader anything they can act on as research — naming the company the
+ * event actually happened at is the difference between a number and a lead.
+ * Bounded by the snapshot's entity count, so one query up front is enough.
+ */
+async function loadEntityNames(
+  client: Client,
+  entityIds: readonly number[],
+): Promise<Map<number, { name: string; entityKey: string | null }>> {
+  if (entityIds.length === 0) return new Map();
+  const result = await client.query<
+    QueryResultRow & {
+      entity_id: string | number;
+      canonical_name: string;
+      entity_key: string | null;
+    }
+  >(
+    `SELECT entity.entity_id, entity.canonical_name, identifier.identifier_value AS entity_key
+     FROM core.entity entity
+     LEFT JOIN core.entity_identifier identifier
+       ON identifier.entity_id = entity.entity_id
+      AND identifier.identifier_type = 'INTERNAL_KEY'
+     WHERE entity.entity_id = ANY($1::bigint[])`,
+    [entityIds],
+  );
+  return new Map(
+    result.rows.map((row) => [
+      numeric(row.entity_id, 'entityId'),
+      { name: row.canonical_name, entityKey: row.entity_key },
+    ]),
+  );
+}
+
+/**
+ * Rank candidate events by the strength the scorer will actually use.
+ *
+ * EVENT_LIMIT is a compute budget, and the rule that spends it matters as soon as
+ * it binds. It used to spend it on the most RECENT events. When event attribution
+ * doubled the candidate pool with lower-strength types (insider_trade, sec_8k,
+ * policy_event), recency handed 210 of the 500 slots to them and displaced
+ * stronger events — paths fell 9,312 to 5,527 and 35 holdings lost their impact
+ * brief. Adding information made coverage worse.
+ *
+ * The ranking uses eventStrength/freshness directly rather than a SQL copy of the
+ * boost table: two formulas that must agree are two formulas that drift, which is
+ * exactly how the impact serving gate went stale for two weeks.
+ */
+export function rankEventsByStrength(
+  events: readonly EventRow[],
+  asOf: string,
+  limit: number,
+  connectedEntityIds: ReadonlySet<number>,
+): EventRow[] {
+  return (
+    events
+      // An event whose entity has no edge in the snapshot cannot produce a path:
+      // the walk starts there and has nowhere to go. Measured after event
+      // attribution landed, 1,431 of 2,866 candidates were in exactly that state —
+      // every newly attributed one — and they took 210 of the 500 slots, displacing
+      // events that could have produced paths. This is a structural precondition,
+      // not a ranking preference.
+      .filter((event) => connectedEntityIds.has(Number(event.target_entity_id)))
+      .map((event) => ({
+        event,
+        strength: eventStrength(event) * freshness(toIso(event.occurred_at), asOf),
+      }))
+      // Deterministic: equal strength falls back to recency then id, so a replay
+      // selects the same set.
+      .sort(
+        (left, right) =>
+          right.strength - left.strength ||
+          new Date(toIso(right.event.occurred_at)).getTime() -
+            new Date(toIso(left.event.occurred_at)).getTime() ||
+          Number(right.event.event_id) - Number(left.event.event_id),
+      )
+      .slice(0, limit)
+      .map((entry) => entry.event)
+  );
+}
+
 async function loadRecentEvents(client: Client, asOf: string): Promise<EventRow[]> {
   const result = await client.query<EventRow>(
     `SELECT event.event_id, event.event_type, event.target_entity_id,
@@ -185,7 +299,9 @@ async function loadRecentEvents(client: Client, asOf: string): Promise<EventRow[
        AND coalesce(event.occurred_at, event.created_at) <= $1::timestamptz
      ORDER BY coalesce(event.occurred_at, event.created_at) DESC, event.event_id DESC
      LIMIT $3`,
-    [asOf, EVENT_LOOKBACK_DAYS, EVENT_LIMIT],
+    // The SQL bound is a safety ceiling on how much is loaded, not the selection
+    // rule; the window already bounds this to a few thousand rows.
+    [asOf, EVENT_LOOKBACK_DAYS, EVENT_CANDIDATE_CEILING],
   );
   return result.rows;
 }
@@ -242,7 +358,19 @@ async function main(): Promise<void> {
     const { pathEdges, communityEdges } = await loadSnapshotEdges(client, snapshot.graphSnapshotId);
     if (pathEdges.length === 0) throw new Error('sealed snapshot has no edges');
     const stockEntityIds = await loadStockEntityIds(client);
-    const events = await loadRecentEvents(client, snapshot.asOf);
+    const candidateEvents = await loadRecentEvents(client, snapshot.asOf);
+    // The edges are already in memory; the connected set costs nothing extra.
+    const connectedEntityIds = new Set<number>();
+    for (const edge of pathEdges) {
+      connectedEntityIds.add(edge.subjectEntityId);
+      connectedEntityIds.add(edge.objectEntityId);
+    }
+    const events = rankEventsByStrength(
+      candidateEvents,
+      snapshot.asOf,
+      EVENT_LIMIT,
+      connectedEntityIds,
+    );
 
     // ── impact paths ─────────────────────────────────────────────────────────
     const inferenceRunId = `${RULE_VERSION}:snapshot-${snapshot.graphSnapshotId}`;
@@ -377,6 +505,15 @@ async function main(): Promise<void> {
 
       let insertedPaths = 0;
       let insertedSteps = 0;
+      // Sealed paths, grouped by the holding they land on, so they can be
+      // published as impact_brief packs below. Content packs are digest-sealed and
+      // immutable once published, so the relation packs the graph publisher wrote
+      // earlier in this pipeline cannot be reopened to carry these — this
+      // publisher has to write its own packs.
+      const impactItemsByTargetEntity = new Map<number, ContentPackSourceItem[]>();
+      const sourceNames = await loadEntityNames(client, [
+        ...new Set(pathsByEvent.flatMap(({ paths }) => paths.map((p) => p.sourceEntityId))),
+      ]);
       for (const { event, paths } of pathsByEvent) {
         // One row per (event, target): builder already returns the best-first
         // ordering; keep only the strongest path per target under the natural
@@ -443,8 +580,73 @@ async function main(): Promise<void> {
           if (sealed.rowCount !== 1) {
             throw new Error(`impact path ${impactPathId} seal failed`);
           }
+          const targetItems = impactItemsByTargetEntity.get(path.targetEntityId) ?? [];
+          targetItems.push({
+            itemKind: 'impact_path',
+            impactPathV2Id: impactPathId,
+            displayPayload: {
+              impact: {
+                triggerEventId: path.eventId,
+                sourceEntityId: path.sourceEntityId,
+                targetEntityId: path.targetEntityId,
+                eventType: event.event_type,
+                // Absent only if the entity vanished between path building and
+                // this lookup; the reader treats a missing name as unknown rather
+                // than inventing one.
+                sourceName: sourceNames.get(path.sourceEntityId)?.name ?? null,
+                sourceEntityKey: sourceNames.get(path.sourceEntityId)?.entityKey ?? null,
+                hopCount: path.hopCount,
+                pathScore: Math.min(1, Math.max(0, path.pathScore)),
+                // Same wording as the path's own explanation. This is what the
+                // product renders, and the read-only contract applies to it.
+                note: 'industrial linkage strength; never a price prediction',
+              },
+            },
+            // Higher score serves first. Scores are 0..1, so scaling keeps the
+            // rank an integer without collapsing near-ties.
+            rank: Math.round(Math.min(1, Math.max(0, path.pathScore)) * 1000),
+          });
+          impactItemsByTargetEntity.set(path.targetEntityId, targetItems);
         }
       }
+
+      // Publish the sealed paths as impact_brief packs. Until now nothing ever
+      // produced this pack kind: the paths were sealed nightly and then reached no
+      // serving surface at all, because the only pack producer emits `relation`
+      // and `evidence` items. The read path (getServableContentPack) already
+      // takes packKind as a parameter and the freshness view does not filter by
+      // kind, so this is the missing producer, not a new serving contract.
+      const impactPacks = [...impactItemsByTargetEntity.entries()]
+        .map(([entityId, sourceItems]) => ({
+          entityId,
+          label: `impact:${entityId}`,
+          // Ordering is not cosmetic here: the pack cap truncates, so the weakest
+          // links must be the ones dropped.
+          sourceItems: [...sourceItems]
+            .sort((left, right) => right.rank - left.rank)
+            .slice(0, CONTENT_PACK_MAX_ITEMS),
+        }))
+        .sort((left, right) => left.entityId - right.entityId);
+      const truncatedPacks = impactPacks.filter(
+        (pack) =>
+          (impactItemsByTargetEntity.get(pack.entityId)?.length ?? 0) > pack.sourceItems.length,
+      ).length;
+      const publishedImpact =
+        impactPacks.length > 0
+          ? await publishContentPacks(client, impactPacks, {
+              packKind: 'impact_brief',
+              graphSnapshotId: snapshot.graphSnapshotId,
+              builderVersion: RULE_VERSION,
+              builtAt: new Date(snapshot.knownAt),
+              freshnessHours: IMPACT_PACK_FRESHNESS_HOURS,
+              createdBy: 'stock-insight-v2-analytics-publisher',
+              metadataSource: 'canonical_v2_impact',
+              releaseCommit: RELEASE_COMMIT,
+              // The graph publisher owns snapshot lifecycle; this one only adds
+              // packs to the snapshot it already sealed.
+              supersedeOrphanSnapshots: false,
+            })
+          : { packIds: [], itemCount: 0 };
 
       let insertedCommunities = 0;
       let insertedMembers = 0;
@@ -522,6 +724,9 @@ async function main(): Promise<void> {
             insertedCommunities,
             insertedMembers,
             insertedMeasurements,
+            impactPacks: publishedImpact.packIds.length,
+            impactPackItems: publishedImpact.itemCount,
+            impactPacksTruncated: truncatedPacks,
           }),
         );
         return;
@@ -537,6 +742,9 @@ async function main(): Promise<void> {
           insertedCommunities,
           insertedMembers,
           insertedMeasurements,
+          impactPacks: publishedImpact.packIds.length,
+          impactPackItems: publishedImpact.itemCount,
+          impactPacksTruncated: truncatedPacks,
         }),
       );
     } catch (error) {
@@ -548,7 +756,11 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+// Importing this module for its pure event-ranking helper must not open a
+// connection, run the publisher, or fail on a missing DATABASE_URL.
+if (process.argv[1]?.endsWith('run-v2-analytics-publish.ts')) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

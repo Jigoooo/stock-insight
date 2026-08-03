@@ -19,6 +19,29 @@ type DatasetRow = {
   analysis_revision: number | null;
 };
 
+type PipelineJobRow = {
+  job_name: string;
+  last_run_at: string | Date | null;
+  last_success_at: string | Date | null;
+  last_failure_at: string | Date | null;
+  last_status: string | null;
+  consecutive_failures: number | string | null;
+  records_failures: boolean;
+  stuck_since: string | Date | null;
+};
+
+type CoverageStateRow = {
+  fact_family: string;
+  state: string;
+  cells: number | string;
+};
+
+type CoverageGapRow = {
+  fact_family: string;
+  reason: string;
+  cells: number | string;
+};
+
 type CoverageRow = {
   total: number | string;
   linked: number | string;
@@ -111,6 +134,86 @@ const GRAPH_SOURCE_COVERAGE_SQL = `
   WHERE NOT EXISTS (SELECT 1 FROM latest_snapshot)
 `;
 
+// The ledger is append-only with a revision chain, so "current" is the highest
+// revision per coverage_key. Reading it without DISTINCT ON counts superseded
+// judgements and reports more cells than the universe has.
+const COVERAGE_SQL = `
+  WITH current AS (
+    SELECT DISTINCT ON (coverage_key)
+           coverage_key, predicate_or_fact_family, completeness_state
+    FROM governance.coverage_ledger
+    ORDER BY coverage_key, revision_no DESC
+  )
+  SELECT predicate_or_fact_family AS fact_family, completeness_state AS state,
+         count(*)::bigint AS cells
+  FROM current
+  GROUP BY 1, 2
+  ORDER BY 3 DESC`;
+
+// Reasons, not just counts: "the collector has not got there yet" and "the source
+// says there is no filing" are the same number and completely different problems.
+const COVERAGE_GAP_SQL = `
+  WITH current AS (
+    SELECT DISTINCT ON (coverage_key)
+           coverage_key, predicate_or_fact_family, gap_reason
+    FROM governance.coverage_ledger
+    ORDER BY coverage_key, revision_no DESC
+  )
+  SELECT predicate_or_fact_family AS fact_family, gap_reason AS reason,
+         count(*)::bigint AS cells
+  FROM current
+  WHERE gap_reason IS NOT NULL
+  GROUP BY 1, 2
+  ORDER BY 3 DESC
+  LIMIT 20`;
+
+// public.migration_runs is the pipeline job log despite its name — the schema
+// ledger lives in public.schema_migration.
+//
+// Nothing has ever surfaced this. On 2026-08-01 the analytics pipeline failed
+// three scheduled runs in a row and the only trace was rows in this table that
+// no endpoint read. Two runs are still sitting at 'running' from 2026-07-26 and
+// 2026-07-27, hard-killed and never finished, and nothing anywhere notices.
+//
+// 'partial' counts as a success: dart-financial-facts writes it when the
+// OpenDART daily quota runs out mid-run, which is designed behaviour. Folding it
+// into failure would hand DART a failure streak on every quota-limited day.
+const PIPELINE_JOB_SQL = `
+  WITH recent AS (
+    SELECT job_name, status, started_at, finished_at
+    FROM public.migration_runs
+    WHERE started_at > $1::timestamptz - interval '14 days'
+  ),
+  ranked AS (
+    SELECT job_name, status, started_at, finished_at,
+           row_number() OVER (PARTITION BY job_name ORDER BY started_at DESC) AS recency,
+           max(started_at) FILTER (WHERE status IN ('completed', 'success', 'partial'))
+             OVER (PARTITION BY job_name) AS last_success_at
+    FROM recent
+  )
+  SELECT job_name,
+         max(started_at) AS last_run_at,
+         max(last_success_at) AS last_success_at,
+         max(started_at) FILTER (WHERE status IN ('failed', 'killed')) AS last_failure_at,
+         max(status) FILTER (WHERE recency = 1) AS last_status,
+         -- Runs since the most recent success. A job that has never succeeded in
+         -- the window counts every failure it has.
+         -- 'killed' counts here too: a run that was cut off did not succeed, and
+         -- leaving it out would let a job that keeps getting killed read as idle.
+         count(*) FILTER (
+           WHERE status IN ('failed', 'killed')
+             AND (last_success_at IS NULL OR started_at > last_success_at)
+         )::int AS consecutive_failures,
+         -- Wrapper stages insert only on success (see pipeline_common.sh), so a
+         -- zero streak from them means "no record", not "no failure".
+         (job_name NOT LIKE '%-stage') AS records_failures,
+         min(started_at) FILTER (WHERE status = 'running' AND finished_at IS NULL) AS stuck_since
+  FROM ranked
+  GROUP BY job_name
+  ORDER BY consecutive_failures DESC, job_name ASC
+  LIMIT 60
+`;
+
 function toCount(value: number | string | null): number {
   const count = Number(value ?? 0);
   if (!Number.isSafeInteger(count) || count < 0)
@@ -158,6 +261,40 @@ function overallAvailability(
   return 'available';
 }
 
+// Unknown values become null rather than being coerced into a known state: an
+// invented status is worse than an absent one on a page whose whole job is to say
+// what is and is not known.
+function normalizeJobStatus(
+  value: string | null,
+): SystemStatus['pipelineJobs'][number]['lastStatus'] {
+  if (
+    value === 'completed' ||
+    value === 'success' ||
+    value === 'partial' ||
+    value === 'failed' ||
+    value === 'running' ||
+    value === 'killed'
+  ) {
+    return value;
+  }
+  return null;
+}
+
+// The table CHECKs this set, so an unknown value means the ledger schema moved.
+// Failing loudly beats rendering a state the page has no label for.
+function normalizeCoverageState(value: string): SystemStatus['coverage'][number]['state'] {
+  if (
+    value === 'complete' ||
+    value === 'partial' ||
+    value === 'not_collected' ||
+    value === 'source_unavailable' ||
+    value === 'not_applicable'
+  ) {
+    return value;
+  }
+  throw new Error(`unknown coverage state: ${value}`);
+}
+
 function mapCoverage(row: CoverageRow | undefined): SystemStatus['sourceCoverage'] {
   const total = toCount(row?.total ?? 0);
   const linked = Math.min(toCount(row?.linked ?? 0), total);
@@ -175,6 +312,9 @@ export async function getSystemStatus(
     PUBLICATION_SOURCE_COVERAGE_SQL,
   );
   const [graphCoverage] = await executor.queryRows<CoverageRow>(GRAPH_SOURCE_COVERAGE_SQL);
+  const jobRows = await executor.queryRows<PipelineJobRow>(PIPELINE_JOB_SQL, [now.toISOString()]);
+  const coverageRows = await executor.queryRows<CoverageStateRow>(COVERAGE_SQL);
+  const coverageGapRows = await executor.queryRows<CoverageGapRow>(COVERAGE_GAP_SQL);
   const datasets = datasetRows.map((row) => ({
     domain: row.domain,
     datasetName: row.dataset_name,
@@ -191,5 +331,25 @@ export async function getSystemStatus(
     datasets,
     sourceCoverage: mapCoverage(publicationCoverage),
     graphSourceCoverage: mapCoverage(graphCoverage),
+    coverage: coverageRows.map((row) => ({
+      factFamily: row.fact_family,
+      state: normalizeCoverageState(row.state),
+      cells: toCount(row.cells),
+    })),
+    coverageGaps: coverageGapRows.map((row) => ({
+      factFamily: row.fact_family,
+      reason: row.reason,
+      cells: toCount(row.cells),
+    })),
+    pipelineJobs: jobRows.map((row) => ({
+      jobName: row.job_name,
+      lastRunAt: toIso(row.last_run_at),
+      lastSuccessAt: toIso(row.last_success_at),
+      lastFailureAt: toIso(row.last_failure_at),
+      lastStatus: normalizeJobStatus(row.last_status),
+      consecutiveFailures: toCount(row.consecutive_failures),
+      recordsFailures: row.records_failures,
+      stuckSince: toIso(row.stuck_since),
+    })),
   });
 }

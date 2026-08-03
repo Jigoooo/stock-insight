@@ -179,18 +179,26 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all nine stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all ten stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
     ['run-core-identity-sync.ts', 'stock-insight-core-identity-sync-stage'],
     ['run-feature-snapshot.ts', 'stock-insight-feature-snapshot-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
+    // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected
+    // report block used to take every impact path down with it. The two are
+    // independent in both directions; run-feed-build reads content.report and so
+    // still follows it. See apps/api/test/analytics-pipeline-order.test.ts.
+    ['run-v2-graph-publish.ts', 'stock-insight-v2-graph-publish-stage'],
+    ['run-v2-analytics-publish.ts', 'stock-insight-v2-l5-publish-stage'],
     ['run-report-publish.ts', 'stock-insight-report-publish-stage'],
     ['run-feed-build.ts', 'stock-insight-feed-build-stage'],
     ['run-probability-calibration.ts', 'stock-insight-probability-calibration-stage'],
-    ['run-v2-graph-publish.ts', 'stock-insight-v2-graph-publish-stage'],
-    ['run-v2-analytics-publish.ts', 'stock-insight-v2-l5-publish-stage'],
+    // Added 2026-08-03: personalization.portfolio_snapshot had readers and no
+    // writer. It needs only prices and registered holdings, so it sits late and
+    // depends on neither report nor impact publishing.
+    ['run-portfolio-snapshot.ts', 'stock-insight-portfolio-snapshot-stage'],
     ['run-outbox-delivery.ts', 'stock-insight-outbox-delivery-stage'],
   ] as const;
   const stageLines = lines.filter((line) => /node apps\/api\/src\/.+\.ts/.test(line));
@@ -206,5 +214,5 @@ test('analytics runs all nine stages in order with an adjacent receipt per comma
       new RegExp(`^pipeline_record_stage_success ${receipt} `),
     );
   }
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 9/);
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 10/);
 });

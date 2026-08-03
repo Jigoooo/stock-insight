@@ -81,6 +81,7 @@ export function StocksView({
         : await loadStockDeepDiveData(entityKey, {
             loadDetail: (key) => api.stockDetail(key),
             loadRelation: (key) => api.entityRelations(key, 2),
+            loadImpactBrief: (key) => api.impactBrief(key),
           });
       if (!requestGateRef.current.isCurrent(sequence)) return;
       setRelation(result.relation);

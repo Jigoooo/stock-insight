@@ -6,7 +6,15 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 // NOT short interest — stored with venue-coverage caveat (see table COMMENT).
 // Only symbols in our US universe are kept to bound row growth.
 
+import {
+  CLOSE_FETCH_RUN_SQL,
+  OPEN_FETCH_RUN_SQL,
+  registerRawObjectWithRevision,
+  writeRawObject,
+} from './raw-object-store.ts';
+
 const JOB_NAME = 'stock-insight-finra-short-volume';
+const PROVIDER_KEY = 'finra';
 const FINRA_CDN = 'https://cdn.finra.org/equity/regsho/daily';
 
 const US_UNIVERSE_SQL = `
@@ -15,8 +23,9 @@ SELECT ticker FROM core.v_security_universe WHERE market = 'US'
 
 const UPSERT_SHORT_SQL = `
 INSERT INTO market.short_volume_daily (
-  trade_date, symbol, short_volume, short_exempt_volume, total_volume, market_codes, available_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+  trade_date, symbol, short_volume, short_exempt_volume, total_volume, market_codes, available_at,
+  source_revision_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (trade_date, symbol) DO NOTHING
 RETURNING symbol
 `;
@@ -95,6 +104,36 @@ async function run(): Promise<void> {
     let rowsRead = 0;
     let rowsMatched = 0;
     let rowsInserted = 0;
+    let revisionsRegistered = 0;
+    let revisionsReplayed = 0;
+
+    // finra was fetching outside the source registry entirely; migration 058
+    // registered it, with the unresolved-terms note on its policy row. One CDN
+    // file covers one trading day, so the date is the record.
+    const sourceRow = await client.query<{ source_id: number }>(
+      `SELECT source_id FROM ingestion.source WHERE provider_key = $1`,
+      [PROVIDER_KEY],
+    );
+    if (sourceRow.rows.length !== 1) {
+      throw new Error(
+        `expected exactly one ${PROVIDER_KEY} source, found ${sourceRow.rows.length}`,
+      );
+    }
+    const sourceId = Number(sourceRow.rows[0]!.source_id);
+
+    let fetchRunId: number | null = null;
+    if (apply) {
+      const runId = `${JOB_NAME}-${randomUUID()}`;
+      await client.query('BEGIN');
+      const opened = await client.query<{ fetch_run_id: string | number }>(OPEN_FETCH_RUN_SQL, [
+        PROVIDER_KEY,
+        runId,
+        `${PROVIDER_KEY}:${runId}`,
+        startedAt.toISOString(),
+      ]);
+      fetchRunId = Number(opened.rows[0]!.fetch_run_id);
+      await client.query('COMMIT');
+    }
 
     for (const yyyymmdd of tradingDatesBack(days)) {
       const body = await fetchDay(yyyymmdd);
@@ -130,8 +169,35 @@ async function run(): Promise<void> {
       if (apply && matched.length > 0) {
         await client.query('BEGIN');
         await client.query("SELECT set_config('statement_timeout', '120s', true)");
+
+        // The whole day's file is the payload, kept before it is filtered down to
+        // the US universe — the hash has to describe what FINRA published, not the
+        // subset we chose to keep.
+        const fetchedAt = new Date().toISOString();
+        const raw = await writeRawObject({
+          providerKey: PROVIDER_KEY,
+          content: body,
+          extension: 'txt',
+          fetchedAt: new Date(fetchedAt),
+        });
+        const registered = await registerRawObjectWithRevision(client, {
+          fetchRunId: fetchRunId!,
+          sourceId,
+          providerRecordKey: `regsho-daily:${yyyymmdd}`,
+          contentHash: raw.contentHash,
+          objectUri: raw.objectUri,
+          httpMeta: { endpoint: FINRA_CDN, trade_date: yyyymmdd },
+          fetchedAt,
+        });
+        if (registered.replay) revisionsReplayed += 1;
+        else revisionsRegistered += 1;
+
         for (const row of matched) {
-          const result = await client.query(UPSERT_SHORT_SQL, [...row, startedAt.toISOString()]);
+          const result = await client.query(UPSERT_SHORT_SQL, [
+            ...row,
+            startedAt.toISOString(),
+            registered.sourceRevisionId,
+          ]);
           if ((result.rowCount ?? 0) > 0) rowsInserted += 1;
         }
         await client.query('COMMIT');
@@ -143,11 +209,26 @@ async function run(): Promise<void> {
       requestedDays: days,
       daysFetched,
       daysMissing,
+      revisionsRegistered,
+      revisionsReplayed,
       universe: wanted.size,
       rowsRead,
       rowsMatched,
       rowsInserted,
     };
+    if (apply && fetchRunId !== null) {
+      await client.query(CLOSE_FETCH_RUN_SQL, [
+        fetchRunId,
+        new Date().toISOString(),
+        daysMissing > 0 ? 'partial' : 'success',
+        rowsRead,
+        rowsInserted,
+        rowsRead - rowsInserted,
+        null,
+        new Date().toISOString(),
+        JSON.stringify(summary),
+      ]);
+    }
     if (!apply) {
       console.log(JSON.stringify({ mode: 'dry-run', readOnly: true, audit: summary }, null, 2));
       return;

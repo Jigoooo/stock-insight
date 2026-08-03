@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
 
+# Every guarded call in the wrappers has the shape `pipeline_foo ... || exit $?`.
+# Bash does not run the ERR trap for a command on the left of `||` — that is
+# specified behaviour, not a bug — so the wrappers' `trap ... ERR` never fires on
+# the failures that actually happen, `$BASH_COMMAND` is never captured, and every
+# failed run recorded a bare `wrapper_failed` with no clue which step died.
+# (`set -E`/errtrace does NOT help: it controls whether the trap fires *inside*
+# functions, not whether `||` suppresses it. Verified both ways.)
+#
+# So each step announces itself here instead. pipeline_finish_wrapper_attempt
+# falls back to this when the ERR trap gave it nothing, which is precisely the
+# guarded-call case. An unguarded failure still reports its own command, since
+# there the ERR trap does fire and wins.
+PIPELINE_CURRENT_STEP=""
+
+pipeline_begin_step() {
+  PIPELINE_CURRENT_STEP="$1"
+}
+
 pipeline_runtime_root() {
   local root="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
   if [[ ! -d "$root" || -L "$root" || "$(stat -c '%u' "$root")" != "$(id -u)" ]]; then
@@ -12,6 +30,7 @@ pipeline_runtime_root() {
 pipeline_acquire_lock() {
   local name="$1"
   local root lock_dir lock
+  pipeline_begin_step "lock:$name"
   root="$(pipeline_runtime_root)" || return $?
   lock_dir="$root/stock-insight"
   install -d -m 700 "$lock_dir" || return 73
@@ -30,6 +49,7 @@ pipeline_wait_for_network() {
   local attempts="${3:-6}"
   local delay_seconds="${4:-10}"
   local attempt
+  pipeline_begin_step "network:$label"
   for ((attempt = 1; attempt <= attempts; attempt += 1)); do
     if curl --silent --show-error --connect-timeout 3 --max-time 5 --output /dev/null "$url"; then
       return 0
@@ -44,6 +64,7 @@ pipeline_require_db_assertion() {
   local label="$1"
   local sql="$2"
   local result
+  pipeline_begin_step "db-assertion:$label"
   if ! result="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -At -c "$sql")"; then
     echo "$label DB readback query failed" >&2
     return 70
@@ -55,6 +76,7 @@ pipeline_require_db_assertion() {
 }
 
 pipeline_db_now() {
+  pipeline_begin_step "db-clock"
   local result
   if ! result="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -qAt -c 'SELECT clock_timestamp()')"; then
     echo "database clock read failed" >&2
@@ -126,6 +148,7 @@ pipeline_resolve_provenance() {
 pipeline_record_stage_success() {
   local job_name="$1"
   local started_at="$2"
+  pipeline_begin_step "stage:$job_name"
   # P0-9: stage attempts carry code identity (commit) + config hash so any
   # output row is traceable to the exact code/config that produced it.
   pipeline_resolve_provenance "$job_name" || return $?
@@ -167,6 +190,7 @@ pipeline_start_wrapper_attempt() {
   local job_name="$1"
   local started_at="$2"
   local attempt_token attempt_token_hash run_id
+  pipeline_begin_step "wrapper-start:$job_name"
   pipeline_resolve_provenance "$job_name" || return $?
   if ! attempt_token="$(openssl rand -hex 32)" || [[ ! "$attempt_token" =~ ^[0-9a-f]{64}$ ]]; then
     echo "$job_name wrapper attempt token generation failed" >&2
@@ -232,6 +256,13 @@ pipeline_finish_wrapper_attempt() {
     echo "invalid wrapper attempt status: $status" >&2
     return 64
   fi
+  # The ERR trap only supplies $3 for unguarded failures; every `pipeline_foo ||
+  # exit $?` call bypasses it (see the note at the top of this file), so fall back
+  # to the step that was in flight. That fallback is exactly the guarded case, so
+  # it is never stale when it is used.
+  if [[ -z "$failed_command" ]]; then
+    failed_command="${PIPELINE_CURRENT_STEP:-}"
+  fi
   if [[ -n "$failed_command" ]]; then
     # Keep it single-line and bounded: this lands in a text column that operators
     # read at a glance, and the command can be arbitrarily long.
@@ -240,6 +271,7 @@ pipeline_finish_wrapper_attempt() {
   finish_token="${PIPELINE_WRAPPER_ATTEMPT_TOKEN:-}"
   if [[ "$run_id" != "${PIPELINE_WRAPPER_ATTEMPT_ID:-}" ||
         ! "$finish_token" =~ ^[0-9a-f]{64}$ ]]; then
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt capability is unavailable" >&2
     return 70
   fi
@@ -290,10 +322,16 @@ WHERE run_id = :'wrapper_run_id'
 RETURNING 1;
 SQL
 )"; then
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt update failed" >&2
     return 70
   fi
   if [[ "$result" != "1" ]]; then
+    # Reached when the completion UPDATE matched no row. The usual cause is the
+    # provenance guard: the source tree hash recorded at start no longer matches,
+    # i.e. the working tree changed while the pipeline ran. Naming this step keeps
+    # the audit row from blaming whatever stage happened to run last.
+    PIPELINE_CURRENT_STEP="wrapper-finish:$status"
     echo "$run_id wrapper attempt update affected an unexpected row count" >&2
     return 70
   fi

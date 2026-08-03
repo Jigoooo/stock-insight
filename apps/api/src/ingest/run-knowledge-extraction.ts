@@ -5,6 +5,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { reconcileClaimType, verifyAssertionSemantics } from './assertion-semantics.ts';
 import {
+  buildEventKey,
   buildRevisionEventDedupeKey,
   normalizeSourceRevision,
 } from './knowledge-revision-contract.ts';
@@ -195,8 +196,9 @@ const INSERT_EVENT_SQL = `
 WITH inserted AS (
   INSERT INTO knowledge.event (
     event_type, target_entity_id, occurred_at, announced_at, magnitude, magnitude_unit,
-    verification_status, dedupe_key, source_document_id, summary_text, extraction_run_id, metadata
-  ) VALUES ($1, $2, $3, $4, $5, $6, 'unverified', $7, $8, $9, $10, $11::jsonb)
+    verification_status, dedupe_key, source_document_id, summary_text, extraction_run_id, metadata,
+    event_key, revision_no
+  ) VALUES ($1, $2, $3, $4, $5, $6, 'unverified', $7, $8, $9, $10, $11::jsonb, $12, $13)
   ON CONFLICT (dedupe_key) DO NOTHING
   RETURNING event_id
 ), resolved AS (
@@ -658,6 +660,14 @@ async function run(): Promise<void> {
           eventType: event.event_type,
           targetMention: event.target_mention,
         });
+        // Written as columns rather than left inside dedupe_key: migration 062 made
+        // (event_key, revision_no) the identity, and a re-extraction has to be
+        // recognisable as superseding rather than as a second fact.
+        const eventKey = buildEventKey({
+          documentId: event.document_id,
+          eventType: event.event_type,
+          targetMention: event.target_mention,
+        });
         const inserted = await client.query<QueryResultRow & { event_id: number }>(
           INSERT_EVENT_SQL,
           [
@@ -677,6 +687,8 @@ async function run(): Promise<void> {
               model,
               resolved: targetId !== null,
             }),
+            eventKey,
+            revisionNo,
           ],
         );
         const eventId = inserted.rows[0]?.event_id;

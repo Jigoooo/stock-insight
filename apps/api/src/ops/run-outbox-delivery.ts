@@ -26,6 +26,9 @@ import {
 
 const APPLY = process.argv.includes('--apply');
 const LOOP = process.argv.includes('--loop');
+// Long enough to cover a delivery seeded in the same second the loop drains,
+// short enough that a delivery parked by retry backoff still fails the run.
+const MAX_WAIT_FOR_DUE_MS = 15_000;
 const DATABASE_URL = process.env.DATABASE_URL?.trim();
 const BATCH_SIZE = 200;
 const LEASE_SECONDS = 120;
@@ -123,6 +126,7 @@ async function main(): Promise<void> {
     }
 
     const totals = { seeded: 0, delivered: 0, retried: 0, dead: 0, batches: 0 };
+    let waitedForDueMs = 0;
     for (;;) {
       if (terminated) break;
       totals.seeded += await seedMissingDeliveries(client);
@@ -139,7 +143,29 @@ async function main(): Promise<void> {
         limit: BATCH_SIZE,
         leaseSeconds: LEASE_SECONDS,
       });
-      if (batch.length === 0) break;
+      if (batch.length === 0) {
+        // Nothing is due right now. That is not the same as drained: a delivery
+        // seeded moments ago can have not_before a fraction of a second in the
+        // future, and breaking here makes the job throw on a backlog that clears
+        // itself on the next run. On 2026-08-03 exactly two deliveries became due
+        // one second after the pipeline had already failed on them.
+        //
+        // Waiting is bounded so a genuinely stuck delivery still fails the job
+        // rather than holding the pipeline open.
+        if (!LOOP || waitedForDueMs >= MAX_WAIT_FOR_DUE_MS) break;
+        const nextDue = await client.query<QueryResultRow & { wait_ms: string | number | null }>(
+          `SELECT ceil(extract(epoch FROM (min(not_before) - now())) * 1000) AS wait_ms
+             FROM ops.outbox_delivery
+            WHERE destination = $1 AND status = 'pending' AND not_before > now()`,
+          [DESTINATION],
+        );
+        const waitMs = Number(nextDue.rows[0]?.wait_ms ?? 0);
+        if (!Number.isFinite(waitMs) || waitMs <= 0) break;
+        const sleepMs = Math.min(waitMs + 250, MAX_WAIT_FOR_DUE_MS - waitedForDueMs);
+        waitedForDueMs += sleepMs;
+        await new Promise((resolve) => setTimeout(resolve, sleepMs));
+        continue;
+      }
       totals.batches += 1;
       let index = 0;
       for (; index < batch.length; index += 1) {
@@ -191,6 +217,7 @@ async function main(): Promise<void> {
         unresolvedDead,
         unresolvedUndelivered,
         ...totals,
+        waitedForDueMs,
       }),
     );
     if (terminated || unresolvedUndelivered > 0) {

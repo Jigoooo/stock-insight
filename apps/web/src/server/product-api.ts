@@ -30,6 +30,16 @@ export async function loadImpactSummaries(
   });
 }
 
+// Serves the v2 impact plane through impact_brief content packs. Unlike
+// loadImpactSummaries above, entityKey is required: a pack belongs to one holding
+// and carries the digest that makes a rendered claim traceable.
+export async function loadImpactBrief(userId: string, entityKey: string) {
+  return brainRequest('/v1/impact/brief', {
+    scope: scopeFor(userId),
+    query: { entityKey },
+  });
+}
+
 export async function loadMarketConfirmations(
   userId: string,
   options: { entityKey?: string; limit?: number },

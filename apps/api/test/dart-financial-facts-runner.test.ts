@@ -9,10 +9,13 @@ const runnerSource = readFileSync(
 
 test('quarterly OpenDART runner advances only on success or explicit no-data', () => {
   assert.match(runnerSource, /if \(status === '020'\)[\s\S]*?break outer/);
-  assert.match(runnerSource, /if \(status === '013'\) continue/);
+  // '013' (no filing) is still a tolerated outcome rather than a throw, but it no
+  // longer skips ahead of the recording: absence is now written down, because the
+  // coverage ledger cannot otherwise tell it apart from never having asked.
+  assert.match(runnerSource, /status !== '000' && status !== '013'/);
   assert.match(
     runnerSource,
-    /if \(status !== '000'\) \{\s*throw new Error\(`OpenDART API status \$\{status\}`\);\s*\}/,
+    /if \(status !== '000' && status !== '013'\) \{\s*throw new Error\(`OpenDART API status \$\{status\}`\);\s*\}/,
   );
   assert.doesNotMatch(runnerSource, /if \(status !== '000'\) continue/);
 });

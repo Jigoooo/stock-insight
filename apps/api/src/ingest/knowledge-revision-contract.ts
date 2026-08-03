@@ -45,6 +45,29 @@ export function buildRevisionEventDedupeKey(input: {
   return `extract-v2:${input.documentId}:r${revisionNo}:${eventType}:${targetMention}`;
 }
 
+// The same identity with the revision removed: what the observed fact is, as
+// opposed to which extraction of it this row is. Migration 062 backfilled
+// knowledge.event.event_key by stripping ':r{n}' out of existing dedupe keys, so
+// this must normalise exactly as buildRevisionEventDedupeKey does or new rows will
+// not line up with the ones already stored.
+export function buildEventKey(input: {
+  documentId: number;
+  eventType: string;
+  targetMention: string;
+}): string {
+  const eventType = input.eventType.trim().toLowerCase();
+  const targetMention = input.targetMention.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
+  if (
+    !Number.isSafeInteger(input.documentId) ||
+    input.documentId < 1 ||
+    !eventType ||
+    !targetMention
+  ) {
+    throw new Error('event identity is incomplete');
+  }
+  return `extract-v2:${input.documentId}:${eventType}:${targetMention}`;
+}
+
 export function assertKnowledgeSyncComplete(plan: KnowledgeSyncPlan): void {
   const unresolved = (['unpromoted', 'revision_drift', 'chunks_missing'] as const)
     .map((key) => [key, plan[key]] as const)

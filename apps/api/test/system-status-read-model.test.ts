@@ -37,6 +37,12 @@ describe('system status read model', () => {
           assert.doesNotMatch(sql, /current_temporal_graph_edge/);
           return [{ total: 3416, linked: 1280, clickable: 420 }];
         }
+        if (sql.includes('migration_runs')) {
+          return [];
+        }
+        if (sql.includes('governance.coverage_ledger')) {
+          return [];
+        }
         throw new Error(`unexpected SQL: ${sql}`);
       },
     };
@@ -71,5 +77,79 @@ describe('system status read model', () => {
       clickable: 420,
       total: 3416,
     });
+  });
+});
+
+describe('pipeline job status', () => {
+  // On 2026-08-01 the analytics pipeline failed three scheduled runs in a row and
+  // the only trace was rows in public.migration_runs that no endpoint read.
+  function executorWith(rows: Array<Record<string, unknown>>): SystemStatusQueryExecutor {
+    return {
+      async queryRows(sql) {
+        if (sql.includes('migration_runs')) return rows;
+        if (sql.includes('dataset_watermark')) return [];
+        if (sql.includes('governance.coverage_ledger')) return [];
+        return [{ total: 0, linked: 0, clickable: 0 }];
+      },
+    };
+  }
+
+  const base = {
+    job_name: 'j',
+    last_run_at: '2026-08-01T14:04:00.000Z',
+    last_success_at: null,
+    last_failure_at: '2026-08-01T14:04:00.000Z',
+    last_status: 'failed',
+    consecutive_failures: 3,
+    records_failures: true,
+    stuck_since: null,
+  };
+
+  it('carries the failure streak and the job name through', async () => {
+    const status = await getSystemStatus(executorWith([base]));
+    assert.equal(status.pipelineJobs.length, 1);
+    assert.equal(status.pipelineJobs[0]?.consecutiveFailures, 3);
+    assert.equal(status.pipelineJobs[0]?.lastStatus, 'failed');
+  });
+
+  it('keeps both success vocabularies instead of normalising them', async () => {
+    // sync_daily_to_postgres writes 'success' while everything else writes
+    // 'completed'. Collapsing them would misreport one of the two.
+    const status = await getSystemStatus(
+      executorWith([{ ...base, last_status: 'success', consecutive_failures: 0 }]),
+    );
+    assert.equal(status.pipelineJobs[0]?.lastStatus, 'success');
+  });
+
+  it('keeps partial distinct from failed', async () => {
+    // dart-financial-facts writes 'partial' when the OpenDART quota runs out
+    // mid-run. That is designed behaviour, not a failure.
+    const status = await getSystemStatus(
+      executorWith([{ ...base, last_status: 'partial', consecutive_failures: 0 }]),
+    );
+    assert.equal(status.pipelineJobs[0]?.lastStatus, 'partial');
+  });
+
+  it('does not invent a status for an unknown value', async () => {
+    const status = await getSystemStatus(executorWith([{ ...base, last_status: 'weird' }]));
+    assert.equal(status.pipelineJobs[0]?.lastStatus, null);
+  });
+
+  it('marks jobs that cannot record their own failures', async () => {
+    // Wrapper stages insert only on success, so a zero streak from one means "no
+    // record kept", not "nothing went wrong".
+    const status = await getSystemStatus(
+      executorWith([{ ...base, records_failures: false, consecutive_failures: 0 }]),
+    );
+    assert.equal(status.pipelineJobs[0]?.recordsFailures, false);
+  });
+
+  it('surfaces a run that was killed while still marked running', async () => {
+    // Two such rows have been sitting in the table since 2026-07-26 and
+    // 2026-07-27 with nothing anywhere noticing.
+    const status = await getSystemStatus(
+      executorWith([{ ...base, last_status: 'running', stuck_since: '2026-07-26T08:45:33.000Z' }]),
+    );
+    assert.equal(status.pipelineJobs[0]?.stuckSince, '2026-07-26T08:45:33.000Z');
   });
 });

@@ -52,6 +52,15 @@ import { cryptoServingViewsMigrationSql } from './migrations/051_crypto_serving_
 import { personalizationReaderSurfaceHardeningMigrationSql } from './migrations/052_personalization_reader_surface_hardening.ts';
 import { cryptoServingAppReaderGrantMigrationSql } from './migrations/053_crypto_serving_app_reader_grant.ts';
 import { adminInvitationControlMigrationSql } from './migrations/054_admin_invitation_control.ts';
+import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_internal_only.ts';
+import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fact_source_lineage.ts';
+import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vintage_source_lineage.ts';
+import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_finra_source_registration.ts';
+import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_confirmation_reads_v2.ts';
+import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_event_projects_magnitude.ts';
+import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity_seed.ts';
+import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revision_identity.ts';
+import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic_vocabulary.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -697,6 +706,70 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: ['app_account_roles', 'app_invitations', 'app_invitation_consumptions'],
     sql: adminInvitationControlMigrationSql,
   },
+  {
+    id: '055_impact_v1_internal_only',
+    description:
+      'Declares the v1 impact plane internal-only: serving.impact_summary_v1 is structurally empty since migration 023 and the servable plane is impact_path_v2 via impact_brief content packs.',
+    // Comment-only: it creates no objects, so it claims none.
+    tables: [],
+    sql: impactV1InternalOnlyMigrationSql,
+  },
+  {
+    id: '056_market_fact_source_lineage',
+    description:
+      'Adds source_revision_id to market.financial_fact so a fact can be traced to the payload it came from; none of the seven market.* tables had anywhere to record lineage.',
+    tables: [],
+    sql: marketFactSourceLineageMigrationSql,
+  },
+  {
+    id: '057_macro_vintage_source_lineage',
+    description:
+      'Adds source_revision_id to market.macro_vintage so a PIT vintage can be audited against the fetch that produced it.',
+    tables: [],
+    sql: macroVintageSourceLineageMigrationSql,
+  },
+  {
+    id: '058_sec_finra_source_registration',
+    description:
+      'Registers SEC EDGAR and FINRA, which were collecting outside the source registry entirely, and adds the lineage column to market.short_volume_daily. FINRA carries an explicit unresolved-terms note.',
+    tables: [],
+    sql: secFinraSourceRegistrationMigrationSql,
+  },
+  {
+    id: '059_market_confirmation_reads_v2',
+    description:
+      'Points serving.market_confirmation_v1 at a new serving.impact_summary_v2 built from servable impact packs. Its industry_link_strength and path_count were structurally 0/NULL for all 253 rows because the v1 plane they read is empty by construction.',
+    tables: [],
+    sql: marketConfirmationReadsV2MigrationSql,
+  },
+  {
+    id: '060_world_event_projects_magnitude',
+    description:
+      'Projects magnitude, magnitude_unit, story_id and published_at from serving.v_world_event_current_v1, which read them in a LATERAL and dropped them. surprise_score and source_revision_id stay unprojected because no producer writes them.',
+    tables: [],
+    sql: worldEventProjectsMagnitudeMigrationSql,
+  },
+  {
+    id: '061_crypto_identity_seed',
+    description:
+      'Seeds crypto_identity.entity with CAIP-2/CAIP-19 identities for 7 of the 14 tracked tickers, every value read from a published spec or vendor platform metadata. The remaining 7 await their namespace references being read rather than guessed.',
+    tables: [],
+    sql: cryptoIdentitySeedMigrationSql,
+  },
+  {
+    id: '062_event_revision_identity',
+    description:
+      'Gives knowledge.event the (event_key, revision_no) identity every other observation table here already has, so a re-extraction supersedes rather than duplicates. Adds serving.v_knowledge_event_current_v1 as the single place consumers read current observations from.',
+    tables: [],
+    sql: eventRevisionIdentityMigrationSql,
+  },
+  {
+    id: '063_market_topic_vocabulary',
+    description:
+      'Seeds analytics.market_topic_term, the vocabulary that marks an event as market-wide news naming no company. A definition kept in a table so a wrong term is a row to delete rather than a deploy; never used to attach an event to a company.',
+    tables: [],
+    sql: marketTopicVocabularyMigrationSql,
+  },
 ];
 
 export {
@@ -754,4 +827,13 @@ export {
   personalizationReaderSurfaceHardeningMigrationSql,
   cryptoServingAppReaderGrantMigrationSql,
   adminInvitationControlMigrationSql,
+  impactV1InternalOnlyMigrationSql,
+  marketFactSourceLineageMigrationSql,
+  macroVintageSourceLineageMigrationSql,
+  marketConfirmationReadsV2MigrationSql,
+  worldEventProjectsMagnitudeMigrationSql,
+  cryptoIdentitySeedMigrationSql,
+  eventRevisionIdentityMigrationSql,
+  marketTopicVocabularyMigrationSql,
+  secFinraSourceRegistrationMigrationSql,
 };

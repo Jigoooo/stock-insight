@@ -5,6 +5,7 @@ import {
   marketNewsResponseSchema,
   meBootstrapResponseSchema,
   portfolioDigestResponseSchema,
+  impactBriefResponseSchema,
   stockDetailResponseSchema,
   stockListResponseSchema,
   type DashboardResponse,
@@ -17,6 +18,7 @@ import {
   type MarketNewsResponse,
   type MeBootstrapResponse,
   type PortfolioDigestResponse,
+  type ImpactBriefResponse,
   type StockDetailResponse,
   type StockListQuery,
   type StockListResponse,
@@ -309,6 +311,12 @@ export function createApiClient(options: ApiClientOptions = {}) {
       const response = await fetcher(buildUrl('/api/my-research'));
       if (!response.ok) throw new Error(`My Research failed with ${response.status}`);
       return myResearchOverviewSchema.parse(await response.json());
+    },
+    // The v2 impact plane, served per holding as an impact_brief content pack.
+    async impactBrief(entityKey: string): Promise<ImpactBriefResponse> {
+      const response = await fetcher(buildUrl('/api/v1/impact/brief', { entityKey }));
+      if (!response.ok) throw new Error(`Impact brief failed with ${response.status}`);
+      return impactBriefResponseSchema.parse(await response.json());
     },
     async entityRelations(entityKey: string, depth = 1): Promise<EntityRelationGraph> {
       const response = await fetcher(

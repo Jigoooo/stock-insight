@@ -1,0 +1,19 @@
+[Unit]
+# Records a pipeline unit failure where a human can find it.
+#
+# Separate from research-app-logical-backup-alert@ on purpose: that unit tags its
+# journal lines `research-app-logical-backup`, and a pipeline failure landing under
+# a backup tag is unfindable by the one thing that makes a journald-only alert
+# usable, which is grepping the tag.
+#
+# This is the raw trace, not the surface. The surface is /v1/status, which reads
+# public.migration_runs — including the rows the reconciler closes when a run is
+# killed before it can report. Look here when you are already at a terminal and
+# want the unit's own output:
+#   journalctl --user -t stock-insight-pipeline
+#   journalctl --user -u <failed unit>
+Description=Record a failed Stock Insight pipeline unit
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-cat -t stock-insight-pipeline -p err /usr/bin/printf "PIPELINE_FAILURE unit=%i inspect=journalctl --user -u %i"

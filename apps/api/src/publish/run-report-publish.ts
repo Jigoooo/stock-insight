@@ -5,6 +5,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { publicBlockTypeForVerification } from './truth-gate.ts';
 import { buildKnowledgeSnapshotId } from '../ingest/knowledge-revision-contract.ts';
+import { containsActionAdvice } from '../shared/action-advice.ts';
 
 // SET D / D-6: report publishing skeleton with atomic pointer switch.
 // Seeds daily_market_stock definition v1, builds an evidence-first structured
@@ -147,9 +148,16 @@ const CLOSE_RUN_SQL = `
 UPDATE content.report_run SET status = $2, finished_at = now() WHERE report_run_id = $1
 `;
 
-// Reuse the production action-advice gate wording (advice text must never publish).
-const ACTION_ADVICE_PATTERN =
-  /(매수|매도|사세요|파세요|팔아라|사라|추격|익절|손절하세요|buy now|sell now|strong buy)/i;
+// The canonical gate, not a hand-rolled copy. Both of these files carried a
+// comment saying they reused the production action-advice wording while actually
+// running a cruder pattern that matched bare 매수/매도/추격/익절. That flagged
+// 644 of 4,003 events as advice, including every insider-transaction disclosure
+// ("삼성전기 임원 순매수 14,851,645주") and every circuit-breaker headline
+// ("코스닥 매도 사이드카 발동") — market facts this product exists to surface.
+// shared/action-advice.ts blocks 409: it still catches broker calls
+// ("HD현대중공업 iM증권 목표가 860000 Buy") and every imperative form, because it
+// matches 매수/매도 only when followed by 하세요·하라·추천·시점·타이밍·지시·신호,
+// and it strips disclaimer wording before testing.
 
 type EventRow = QueryResultRow & {
   event_id: string | number;
@@ -205,7 +213,7 @@ function validateBlocks(blocks: ReportBlock[]): string[] {
     if (['fact', 'reported_claim'].includes(block.block_type) && block.citation_ids.length === 0) {
       failures.push(`${block.block_id}: fact-type block without citation`);
     }
-    if (ACTION_ADVICE_PATTERN.test(block.text)) {
+    if (containsActionAdvice(block.text)) {
       failures.push(`${block.block_id}: action-advice wording`);
     }
   }

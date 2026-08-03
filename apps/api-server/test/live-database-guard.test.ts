@@ -8,7 +8,7 @@ const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
-    relation_privileges_digest: 'c3abb62eb9a02f4516ef57580f1e752bfbd1d81f811f18a589096d846ea5b280',
+    relation_privileges_digest: '1b9cf45e099b45e787c0ea5f762a4eaf6879704cb63922697f333f55e54f27a2',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',

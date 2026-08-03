@@ -579,9 +579,7 @@ test.describe('v3 research workspace candidate', () => {
         await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
         expect(
           await page.evaluate(() => {
-            const table = document.querySelector(
-              '[aria-label="종목 현황 표 가로 스크롤 영역"]',
-            );
+            const table = document.querySelector('[aria-label="종목 현황 표 가로 스크롤 영역"]');
             const detail = document.querySelector('[data-testid="stock-deep-dive-region"]');
             return Boolean(table && detail && table.compareDocumentPosition(detail) & 4);
           }),

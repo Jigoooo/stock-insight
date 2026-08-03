@@ -11,7 +11,10 @@
       "kind": "sql",
       "description": "Zero published reports may contain a fact block whose backing event is not verified. Counts fact blocks inside published report payloads joined to their evidence events.",
       "sql": "SELECT count(*) FROM content.report report JOIN content.report_evidence evidence ON evidence.report_id = report.report_id AND evidence.evidence_type = 'event' JOIN knowledge.event event ON event.event_id = evidence.evidence_id CROSS JOIN LATERAL jsonb_path_query(report.report_payload, '$.sections[*].blocks[*] ? (@.block_type == \"fact\")') AS fact_block WHERE report.status = 'published' AND report.published_at >= (SELECT applied_at FROM ops.truth_gate_policy WHERE policy_key = 'b0_product_truth_stop_line') AND event.verification_status <> 'verified'",
-      "threshold": { "operator": "==", "value": 0 },
+      "threshold": {
+        "operator": "==",
+        "value": 0
+      },
       "null_policy": "error",
       "fail_closed": true
     },
@@ -25,11 +28,26 @@
       "fail_closed": true
     },
     {
-      "id": "b0-sourceless-impact-exposure-zero",
+      "id": "b0-impact-v1-stays-unserved",
       "kind": "sql",
-      "description": "The serving impact surface exposes exactly the evidence-backed path set: sum(path_count) equals the count of unexpired paths whose every edge has immutable relation evidence (empty-edge paths excluded). Any mismatch means unbacked exposure or dropped backed paths.",
-      "sql": "SELECT abs(coalesce((SELECT sum(path_count) FROM serving.impact_summary_v1), 0) - (SELECT count(*) FROM analytics.impact_path path JOIN core.v_security_universe universe ON universe.security_entity_id = path.target_entity_id WHERE path.expires_at > now() AND cardinality(path.path_edges) > 0 AND NOT EXISTS (SELECT 1 FROM unnest(path.path_edges) AS edge(relation_id) WHERE NOT EXISTS (SELECT 1 FROM knowledge.relation_evidence evidence WHERE evidence.relation_id = edge.relation_id))))",
-      "threshold": { "operator": "==", "value": 0 },
+      "description": "serving.impact_summary_v1 is deprecated and internal-only (migration 055). Its edge gate requires ISSUED_BY relations while analytics.impact_path only ever contains non-ISSUED_BY predicates, so any non-zero row count here means the gate was relaxed and sourceless impact claims are being exposed. Replaces b0-sourceless-impact-exposure-zero, which recomputed its expected value with migration 018's formula against knowledge.relation_evidence — a table with 0 rows — pinning the right-hand side at 0 and making the comparison unable to detect any mismatch.",
+      "sql": "SELECT count(*) FROM serving.impact_summary_v1",
+      "threshold": {
+        "operator": "==",
+        "value": 0
+      },
+      "null_policy": "error",
+      "fail_closed": true
+    },
+    {
+      "id": "b0-impact-brief-covers-sealed-paths",
+      "kind": "sql",
+      "description": "Every sealed impact path on the snapshot backing the published packs must reach the serving surface as an impact_path pack item. This is the coverage gate the v1 gate could never be: it read 1,719 vs 0 before the impact_brief publisher existed.",
+      "sql": "SELECT abs((SELECT count(*) FROM analytics.impact_path_v2 path WHERE path.status='sealed' AND path.graph_snapshot_id IN (SELECT graph_snapshot_id FROM serving.content_pack WHERE status='published')) - (SELECT count(*) FROM serving.content_pack_item WHERE item_kind='impact_path'))",
+      "threshold": {
+        "operator": "==",
+        "value": 0
+      },
       "null_policy": "error",
       "fail_closed": true
     },
@@ -47,7 +65,10 @@
       "kind": "sql",
       "description": "Zero pending documents outside the explicit allowlist (news in-flight, disclosure surfaced-B4-backlog). Non-extraction source types must be explicitly skipped with a reason.",
       "sql": "SELECT count(*) FROM knowledge.document WHERE processing_status = 'pending' AND source_type NOT IN ('news', 'disclosure')",
-      "threshold": { "operator": "==", "value": 0 },
+      "threshold": {
+        "operator": "==",
+        "value": 0
+      },
       "null_policy": "error",
       "fail_closed": true
     }

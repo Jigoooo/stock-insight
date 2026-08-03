@@ -101,6 +101,7 @@ export type {
 export {
   getCalibrationScorecard,
   getFeatureSnapshots,
+  getImpactBrief,
   getImpactSummaries,
   getLatestReports,
   getMarketConfirmations,
