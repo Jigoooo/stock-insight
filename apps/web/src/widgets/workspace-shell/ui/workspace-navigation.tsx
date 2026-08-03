@@ -7,7 +7,14 @@ import type {
   WorkspaceNavigationMode,
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
+import { SideList, SideListItem, type SideListVariant } from '@/shared/ui/side-list';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
+
+const sideListVariantByMode: Record<WorkspaceNavigationMode, SideListVariant> = {
+  expanded: 'quiet-rows',
+  mobile: 'soft-surface',
+  compact: 'compact-rail',
+};
 
 type WorkspaceNavigationProps = {
   activeSection: WorkspaceSectionId | 'admin-invitations';
@@ -29,7 +36,12 @@ export function WorkspaceNavigation({
   pending,
 }: WorkspaceNavigationProps) {
   return (
-    <nav className={styles.navigation} aria-label="리서치 워크스페이스">
+    <SideList
+      aria-label="리서치 워크스페이스"
+      className={styles.navigation}
+      value={activeSection}
+      variant={sideListVariantByMode[mode]}
+    >
       {items.map((item) => {
         const Icon = item.icon;
         const content = (
@@ -41,34 +53,40 @@ export function WorkspaceNavigation({
         );
         const navigationItem =
           navigationMode === 'static' ? (
-            <span
+            <SideListItem
               key={item.id}
               className={styles.navigationLink}
-              data-static="true"
-              data-testid={`workspace-nav-${item.id}`}
-              aria-current={activeSection === item.id ? 'page' : undefined}
-              aria-disabled="true"
-              aria-label={mode === 'compact' ? item.label : undefined}
+              disabled
+              static
+              value={item.id}
             >
-              {content}
-            </span>
+              <span
+                aria-disabled="true"
+                aria-label={mode === 'compact' ? item.label : undefined}
+                data-testid={`workspace-nav-${item.id}`}
+              >
+                {content}
+              </span>
+            </SideListItem>
           ) : (
-            <Link
+            <SideListItem
               key={item.id}
               className={styles.navigationLink}
-              to={item.href}
-              preload="intent"
-              data-testid={`workspace-nav-${item.id}`}
-              data-pending={pending === item.id || undefined}
-              aria-busy={pending === item.id || undefined}
-              aria-current={activeSection === item.id ? 'page' : undefined}
-              aria-label={mode === 'compact' ? item.label : undefined}
-              onFocus={() => onPrefetch?.(item.id)}
-              onPointerEnter={() => onPrefetch?.(item.id)}
-              onClick={() => onNavigate?.(item.id)}
+              pending={pending === item.id}
+              value={item.id}
             >
-              {content}
-            </Link>
+              <Link
+                aria-label={mode === 'compact' ? item.label : undefined}
+                data-testid={`workspace-nav-${item.id}`}
+                onClick={() => onNavigate?.(item.id)}
+                onFocus={() => onPrefetch?.(item.id)}
+                onPointerEnter={() => onPrefetch?.(item.id)}
+                preload="intent"
+                to={item.href}
+              >
+                {content}
+              </Link>
+            </SideListItem>
           );
 
         if (mode !== 'compact') return navigationItem;
@@ -82,6 +100,6 @@ export function WorkspaceNavigation({
           </Tooltip>
         );
       })}
-    </nav>
+    </SideList>
   );
 }

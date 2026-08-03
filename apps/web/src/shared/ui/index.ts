@@ -15,6 +15,8 @@ export * from './otp';
 export * from './radio-group';
 export * from './select';
 export * from './slider';
+export * from './side-list';
+export * from './side-tabs';
 export * from './split-button';
 export * from './switch';
 export * from './table';

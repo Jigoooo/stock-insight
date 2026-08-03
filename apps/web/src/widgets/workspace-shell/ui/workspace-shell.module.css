@@ -110,24 +110,31 @@
   display: grid;
   gap: 4px;
   padding-top: 18px;
+  --side-list-border: transparent;
+  --side-list-color: var(--color-on-chrome-secondary);
+  --side-list-color-current: var(--color-on-chrome);
+  --side-list-current-surface: color-mix(
+    in srgb,
+    var(--color-chrome-raised) 84%,
+    var(--color-accent) 16%
+  );
+  --side-list-current-shadow: 0 8px 22px color-mix(in srgb, var(--color-chrome) 56%, transparent);
+  --side-list-disabled-opacity: 1;
+  --side-list-focus: color-mix(in srgb, var(--color-on-chrome) 28%, transparent);
+  --side-list-icon: var(--color-on-chrome-tertiary);
+  --side-list-icon-current: var(--color-accent);
+  --side-list-hover-surface: color-mix(in srgb, var(--color-chrome-raised) 78%, transparent);
+  --side-list-indicator: var(--color-accent);
+  --side-list-pending: color-mix(in srgb, var(--color-accent) 70%, transparent);
+  --side-list-surface: color-mix(in srgb, var(--color-chrome-raised) 54%, transparent);
 }
 
 .navigationLink {
-  width: 100%;
-  min-height: 44px;
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) auto;
-  align-items: center;
   gap: 9px;
   padding: 0 9px;
   border-radius: var(--radius-control);
-  color: var(--color-on-chrome-secondary);
-  text-decoration: none;
-  outline: none;
-}
-
-.navigationLink:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-on-chrome) 28%, transparent);
 }
 
 [data-navigation-mode='compact'] .navigationLink {
@@ -140,28 +147,9 @@
   display: none;
 }
 
-.navigationLink[aria-current='page'] {
-  color: var(--color-on-chrome);
-  background: color-mix(in srgb, var(--color-chrome-raised) 84%, var(--color-accent) 16%);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--color-chrome) 56%, transparent);
-}
-
-.navigationLink[data-static='true'] {
-  cursor: default;
-}
-
-.navigationLink[data-pending='true'] {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 70%, transparent) inset;
-}
-
 .navigationLink svg {
   width: 17px;
   height: 17px;
-  color: var(--color-on-chrome-tertiary);
-}
-
-.navigationLink[aria-current='page'] svg {
-  color: var(--color-accent);
 }
 
 .navigationLink span {
@@ -316,13 +304,6 @@
 @keyframes workspaceNavigationSpin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .navigationLink:not([data-static='true']):hover {
-    color: var(--color-on-chrome);
-    background: color-mix(in srgb, var(--color-chrome-raised) 78%, transparent);
   }
 }
 

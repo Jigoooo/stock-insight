@@ -1,11 +1,19 @@
 import { Link } from '@tanstack/react-router';
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import { Tabs as TabsPrimitive } from 'radix-ui';
-
-import styles from './side-navigation-catalog.module.css';
 
 import type { RouteTabId } from './navigation-tabs-catalog';
+import styles from './side-navigation-catalog.module.css';
+import { SideList, SideListItem } from '@/shared/ui/side-list';
+import {
+  SideTabs,
+  SideTabsContent,
+  SideTabsContents,
+  SideTabsHighlight,
+  SideTabsHighlightItem,
+  SideTabsList,
+  SideTabsTrigger,
+} from '@/shared/ui/side-tabs';
 
 const panelItems = [
   {
@@ -118,52 +126,35 @@ export function SideNavigationCatalog({
                 <p>{variant.description}</p>
               </header>
               <div className={styles.previewSurface}>
-                <TabsPrimitive.Root
-                  className={styles.sideTabFrame}
-                  orientation="vertical"
+                <SideTabs
                   value={activePanel}
+                  variant={variant.id}
                   onValueChange={(value) =>
                     setActivePanel(value as (typeof panelItems)[number]['id'])
                   }
                 >
-                  <TabsPrimitive.List
-                    className={styles.sideTabList}
-                    aria-label={`패널 전환 · ${variant.title}`}
-                  >
-                    {panelItems.map((item) => (
-                      <TabsPrimitive.Trigger
-                        className={styles.sideTab}
-                        key={item.id}
-                        value={item.id}
-                      >
-                        {activePanel === item.id ? (
-                          <motion.span
-                            aria-hidden="true"
-                            className={styles.activeIndicator}
-                            layoutId={`side-tab-indicator-${variant.id}`}
-                            transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-                          />
-                        ) : null}
-                        <span>{item.label}</span>
-                      </TabsPrimitive.Trigger>
-                    ))}
-                  </TabsPrimitive.List>
+                  <SideTabsHighlight>
+                    <SideTabsList aria-label={`패널 전환 · ${variant.title}`}>
+                      {panelItems.map((item) => (
+                        <SideTabsHighlightItem key={item.id} value={item.id}>
+                          <SideTabsTrigger value={item.id}>{item.label}</SideTabsTrigger>
+                        </SideTabsHighlightItem>
+                      ))}
+                    </SideTabsList>
+                  </SideTabsHighlight>
 
-                  {panelItems.map((item) => (
-                    <TabsPrimitive.Content className={styles.panel} key={item.id} value={item.id}>
-                      <motion.div
-                        key={`${variant.id}-${item.id}`}
-                        initial={{ opacity: 0, y: 3 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.16, ease: 'easeOut' }}
-                      >
-                        <span>현재 패널</span>
-                        <strong>{item.title}</strong>
-                        <p>{item.body}</p>
-                      </motion.div>
-                    </TabsPrimitive.Content>
-                  ))}
-                </TabsPrimitive.Root>
+                  <SideTabsContents>
+                    {panelItems.map((item) => (
+                      <SideTabsContent className={styles.panel} key={item.id} value={item.id}>
+                        <div>
+                          <span>현재 패널</span>
+                          <strong>{item.title}</strong>
+                          <p>{item.body}</p>
+                        </div>
+                      </SideTabsContent>
+                    ))}
+                  </SideTabsContents>
+                </SideTabs>
               </div>
             </article>
           ))}
@@ -194,34 +185,27 @@ export function SideNavigationCatalog({
                 </header>
                 <div className={styles.previewSurface}>
                   <div className={styles.sideListFrame}>
-                    <nav className={styles.sideList} aria-label={`경로 목록 · ${variant.title}`}>
+                    <SideList
+                      aria-label={`경로 목록 · ${variant.title}`}
+                      value={initialSideRoute}
+                      variant={variant.id}
+                    >
                       {routeItems.map((item) => {
-                        const current = item.id === initialSideRoute;
-
                         return (
-                          <Link
-                            aria-current={current ? 'page' : undefined}
-                            key={item.id}
-                            search={{
-                              'route-tab': initialRouteTab,
-                              'side-route': item.id,
-                            }}
-                            to="/__ui-lab"
-                          >
-                            {current ? (
-                              <motion.span
-                                aria-hidden="true"
-                                className={styles.routeIndicator}
-                                data-slot="side-list-indicator"
-                                layoutId={`side-list-indicator-${variant.id}`}
-                                transition={{ type: 'spring', stiffness: 260, damping: 28 }}
-                              />
-                            ) : null}
-                            <span>{item.label}</span>
-                          </Link>
+                          <SideListItem key={item.id} value={item.id}>
+                            <Link
+                              search={{
+                                'route-tab': initialRouteTab,
+                                'side-route': item.id,
+                              }}
+                              to="/__ui-lab"
+                            >
+                              {item.label}
+                            </Link>
+                          </SideListItem>
                         );
                       })}
-                    </nav>
+                    </SideList>
                     <motion.div
                       animate={{ opacity: 1, y: 0 }}
                       className={styles.routePanel}

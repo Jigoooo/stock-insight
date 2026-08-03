@@ -10,16 +10,20 @@ import { TextLink } from '@/shared/ui/link';
 import { OTP } from '@/shared/ui/otp';
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
+import { SideList, SideListItem } from '@/shared/ui/side-list';
+import {
+  SideTabs,
+  SideTabsContent,
+  SideTabsContents,
+  SideTabsHighlight,
+  SideTabsHighlightItem,
+  SideTabsList,
+  SideTabsTrigger,
+} from '@/shared/ui/side-tabs';
 import { Slider } from '@/shared/ui/slider';
 import { SplitButton } from '@/shared/ui/split-button';
 import { Switch } from '@/shared/ui/switch';
-import {
-  Tabs,
-  TabsHighlight,
-  TabsHighlightItem,
-  TabsList,
-  TabsTrigger,
-} from '@/shared/ui/tabs';
+import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { ToggleGroup } from '@/shared/ui/toggle-group';
 
 const buttonDrag: DragEventHandler<HTMLButtonElement> = () => undefined;
@@ -181,6 +185,39 @@ export const nativeControlPropsFixture = (
         </TabsList>
       </TabsHighlight>
     </Tabs>
+    {(['hairline-rail', 'soft-inset', 'framed-stack'] as const).map((variant) => (
+      <SideTabs defaultValue="summary" key={variant} variant={variant}>
+        <SideTabsHighlight>
+          <SideTabsList aria-label={`${variant} panels`}>
+            <SideTabsHighlightItem value="summary">
+              <SideTabsTrigger value="summary">Summary</SideTabsTrigger>
+            </SideTabsHighlightItem>
+            <SideTabsHighlightItem value="evidence">
+              <SideTabsTrigger disabled value="evidence">
+                Evidence
+              </SideTabsTrigger>
+            </SideTabsHighlightItem>
+          </SideTabsList>
+        </SideTabsHighlight>
+        <SideTabsContents>
+          <SideTabsContent value="summary">Summary content</SideTabsContent>
+          <SideTabsContent value="evidence">Evidence content</SideTabsContent>
+        </SideTabsContents>
+      </SideTabs>
+    ))}
+    {(['quiet-rows', 'soft-surface', 'compact-rail'] as const).map((variant) => (
+      <SideList aria-label={`${variant} routes`} key={variant} value="overview" variant={variant}>
+        <SideListItem value="overview">
+          <a href="/overview">Overview</a>
+        </SideListItem>
+        <SideListItem pending value="evidence">
+          <a href="/evidence">Evidence</a>
+        </SideListItem>
+        <SideListItem disabled static value="archive">
+          <span>Archive</span>
+        </SideListItem>
+      </SideList>
+    ))}
     <TextLink
       draggable
       href="/native-link"

@@ -55,8 +55,8 @@ describe('workspace authoritative navigation transition', () => {
     ]);
 
     assert.match(page, /useReducer\(\s*reduceWorkspaceNavigationIntent/);
-    assert.match(navigation, /pending === item\.id/);
-    assert.match(navigation, /aria-current=\{activeSection === item\.id \? 'page' : undefined\}/);
+    assert.match(navigation, /pending=\{pending === item\.id\}/);
+    assert.match(navigation, /<SideList[\s\S]*?value=\{activeSection\}/);
     assert.match(page, /pendingLane=\{navigationIntent\.pendingLane/);
     assert.match(today, /pendingLane\?: ResearchFeedLaneId \| null/);
     assert.match(today, /data-pending=\{pendingLane === item\.lane \|\| undefined\}/);
@@ -79,15 +79,21 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(page, /\.catch\([\s\S]*?type: 'settle'/);
   });
 
-  it('keeps section state on links and delegates lane selection visuals to shared Tabs', async () => {
+  it('delegates route and lane selection visuals to shared navigation controls', async () => {
     const [navigation, today, shellCss] = await Promise.all([
       readFile(navigationUrl, 'utf8'),
       readFile(todayUrl, 'utf8'),
       readFile(shellCssUrl, 'utf8'),
     ]);
 
-    assert.match(navigation, /className=\{styles\.navigationLink\}/);
-    assert.match(shellCss, /\.navigationLink\[aria-current='page'\]/);
+    assert.match(navigation, /<SideList/);
+    assert.match(navigation, /expanded: 'quiet-rows'/);
+    assert.match(navigation, /mobile: 'soft-surface'/);
+    assert.match(navigation, /compact: 'compact-rail'/);
+    assert.match(navigation, /<SideListItem/);
+    assert.doesNotMatch(shellCss, /\.navigationLink\[aria-current='page'\]/);
+    assert.doesNotMatch(shellCss, /\.navigationLink:focus-visible/);
+    assert.doesNotMatch(shellCss, /\.navigationLink\[data-pending='true'\]/);
     assert.doesNotMatch(navigation, /navIndicator|activeSectionIndex/);
     assert.match(today, /variant="sliding-underline"/);
     assert.doesNotMatch(today, /laneIndicator/);

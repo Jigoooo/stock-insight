@@ -179,7 +179,7 @@ describe('v3 research workspace structure', () => {
     assert.match(workspace, /function WorkspaceTopbar/);
     assert.match(page, /data-testid="workspace-content"/);
     assert.match(page, /data-testid=\{`workspace-nav-\$\{item\.id\}`\}/);
-    assert.match(page, /aria-current=\{activeSection === item\.id \? 'page' : undefined\}/);
+    assert.match(page, /<SideList[\s\S]*?value=\{activeSection\}/);
     assert.match(page, /navigationSequence=\{navigationIntent\.sequence\}/);
     assert.match(page, /viewKey=\{section\}/);
     assert.doesNotMatch(page, /const sections:\s*Array/);

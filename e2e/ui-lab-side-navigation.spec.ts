@@ -9,7 +9,15 @@ test.describe('UI Lab side navigation', () => {
 
     const tablist = catalog.getByRole('tablist', { name: '패널 전환 · 세로 레일' });
     const beforeUrl = page.url();
+    const summaryTab = tablist.getByRole('tab', { name: '리서치 요약' });
+    const evidenceTab = tablist.getByRole('tab', { name: '근거 기록' });
     const companyTab = tablist.getByRole('tab', { name: '기업 메모' });
+
+    await expect(async () => {
+      await summaryTab.focus();
+      await page.keyboard.press('ArrowDown');
+      await expect(evidenceTab).toBeFocused({ timeout: 1_000 });
+    }).toPass({ timeout: 8_000, intervals: [100, 250, 500] });
 
     await expect(async () => {
       await companyTab.click({ timeout: 1_000 });

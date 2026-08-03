@@ -110,68 +110,11 @@
   background: var(--color-canvas);
 }
 
-.sideTabFrame,
 .sideListFrame {
   display: grid;
   grid-template-columns: minmax(138px, 0.36fr) minmax(0, 1fr);
   min-height: 156px;
   gap: 18px;
-}
-
-.sideTabList,
-.sideList {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-self: start;
-}
-
-.sideTab,
-.sideList a {
-  position: relative;
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  padding: 0 12px;
-  border: 0;
-  color: var(--color-text-secondary);
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 610;
-  text-align: left;
-  text-decoration: none;
-  outline: none;
-  cursor: pointer;
-  transition:
-    color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.sideTab > span:last-child,
-.sideList a > span:last-child {
-  position: relative;
-  z-index: 1;
-}
-
-.sideTab:hover,
-.sideList a:hover,
-.sideTab[data-state='active'],
-.sideList a[aria-current='page'] {
-  color: var(--color-text-primary);
-}
-
-.sideTab:focus-visible,
-.sideList a:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
-}
-
-.activeIndicator,
-.routeIndicator {
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
 }
 
 .panel,
@@ -203,97 +146,6 @@
   font-size: 11px;
 }
 
-.variantCard[data-variant='hairline-rail'] .sideTabList {
-  border-right: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='hairline-rail'] .activeIndicator {
-  top: 7px;
-  right: -1px;
-  bottom: 7px;
-  width: 2px;
-  background: var(--color-text-primary);
-}
-
-.variantCard[data-variant='soft-inset'] .sideTabList {
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='soft-inset'] .sideTab {
-  border-radius: calc(var(--radius-control) - 2px);
-}
-
-.variantCard[data-variant='soft-inset'] .activeIndicator {
-  inset: 0;
-  border: 1px solid var(--color-border);
-  border-radius: calc(var(--radius-control) - 2px);
-  background: var(--color-surface);
-}
-
-.variantCard[data-variant='framed-stack'] .sideTabList {
-  overflow: hidden;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-}
-
-.variantCard[data-variant='framed-stack'] .sideTab + .sideTab {
-  border-top: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='framed-stack'] .activeIndicator {
-  inset: 0;
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='quiet-rows'] .sideList a {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='quiet-rows'] .routeIndicator {
-  inset: 0;
-  background: color-mix(in srgb, var(--color-surface-subtle) 62%, transparent);
-}
-
-.variantCard[data-variant='soft-surface'] .sideList {
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
-}
-
-.variantCard[data-variant='soft-surface'] .sideList a {
-  border-radius: calc(var(--radius-control) - 2px);
-}
-
-.variantCard[data-variant='soft-surface'] .routeIndicator {
-  inset: 0;
-  border-radius: calc(var(--radius-control) - 2px);
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-border) inset;
-}
-
-.variantCard[data-variant='compact-rail'] .sideList {
-  border-left: 1px solid var(--color-border);
-}
-
-.variantCard[data-variant='compact-rail'] .sideList a {
-  min-height: 40px;
-  padding-left: 14px;
-}
-
-.variantCard[data-variant='compact-rail'] .routeIndicator {
-  top: 7px;
-  bottom: 7px;
-  left: -1px;
-  width: 2px;
-  background: var(--color-text-primary);
-}
-
 @media (max-width: 680px) {
   .variantCard {
     grid-template-columns: 1fr;
@@ -316,29 +168,13 @@
     padding: 14px;
   }
 
-  .sideTabFrame,
   .sideListFrame {
     grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr);
     gap: 12px;
   }
 
-  .sideTab,
-  .sideList a,
-  .variantCard[data-variant='compact-rail'] .sideList a {
-    min-height: 44px;
-    padding-inline: 10px;
-    font-size: 11.5px;
-  }
-
   .panel > div,
   .routePanel {
     padding: 14px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sideTab,
-  .sideList a {
-    transition-duration: 0.01ms !important;
   }
 }
