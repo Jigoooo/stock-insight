@@ -172,8 +172,9 @@ test.describe('UI Lab location navigation', () => {
   test('removes indicator motion when reduced motion is requested', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const catalog = await openPaginationPage(page, 3);
-    const indicator = catalog
-      .locator('[data-pagination-variant="soft-inset"] [aria-current="page"]')
+    const softInset = catalog.locator('[data-pagination-variant="soft-inset"]');
+    const indicator = softInset
+      .locator('[aria-current="page"]')
       .locator('[data-pagination-indicator]');
 
     await expect(indicator).toHaveCount(1);
@@ -182,6 +183,29 @@ test.describe('UI Lab location navigation', () => {
     );
     expect(transitionDuration).toBeLessThanOrEqual(0.001);
     await expect(indicator).toHaveCSS('transform', 'none');
+
+    await softInset.getByRole('link', { name: '4페이지' }).click();
+    const relocatedIndicator = softInset
+      .locator('[aria-current="page"]')
+      .locator('[data-pagination-indicator]');
+    const motionState = await relocatedIndicator.evaluate(async (element) => {
+      const transforms = [window.getComputedStyle(element).transform];
+      for (let frame = 0; frame < 4; frame += 1) {
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        transforms.push(window.getComputedStyle(element).transform);
+      }
+      return {
+        hasRunningAnimation: element
+          .getAnimations({ subtree: true })
+          .some((animation) => animation.playState === 'running'),
+        transforms,
+      };
+    });
+
+    await expect(page).toHaveURL(/page=4/);
+    await expect(catalog).toHaveAttribute('data-page', '4');
+    expect(motionState.hasRunningAnimation).toBe(false);
+    expect(motionState.transforms).toEqual(['none', 'none', 'none', 'none', 'none']);
   });
 
   test('renders the hairline current page as a bordered rounded rectangle', async ({ page }) => {
