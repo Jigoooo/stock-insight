@@ -1,24 +1,31 @@
-import { Link } from '@tanstack/react-router';
-import { motion, useReducedMotion } from 'motion/react';
 import { useState } from 'react';
 
-import type { BreadcrumbPreviewId } from './location-navigation-catalog';
 import styles from './location-navigation-catalog.module.css';
-import type { RouteTabId } from './navigation-tabs-catalog';
-import type { SideRouteId } from './side-navigation-catalog';
 
-export type PaginationVariant = 'hairline' | 'soft-inset' | 'ledger';
+import {
+  CursorPagination,
+  CursorPaginationAction,
+  CursorPaginationMessage,
+  Pagination,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationList,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationStatus,
+  type PaginationVariant as SharedPaginationVariant,
+} from '@/shared/ui/pagination';
+import { Select } from '@/shared/ui/select';
+
+export type PaginationVariant = SharedPaginationVariant;
 
 type CursorPreviewState = 'idle' | 'loading' | 'complete';
 type PageWindowItem = number | 'ellipsis' | 'ellipsis-end';
 
 interface PaginationMockupProps {
   currentPage: number;
-  searchContext: {
-    breadcrumb: BreadcrumbPreviewId;
-    routeTab: RouteTabId;
-    sideRoute: SideRouteId;
-  };
+  onPageChange: (page: number) => void;
   variant: PaginationVariant;
 }
 
@@ -32,16 +39,24 @@ function pageWindow(currentPage: number): readonly PageWindowItem[] {
   return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis-end', totalPages];
 }
 
-export function PaginationMockup({ currentPage, searchContext, variant }: PaginationMockupProps) {
-  const reducedMotion = useReducedMotion();
-  const [cursorState, setCursorState] = useState<CursorPreviewState>('idle');
+function omittedPages(items: readonly PageWindowItem[], index: number): readonly number[] {
+  const previousPage = items
+    .slice(0, index)
+    .reverse()
+    .find((item): item is number => typeof item === 'number');
+  const nextPage = items.slice(index + 1).find((item): item is number => typeof item === 'number');
 
-  const searchForPage = (page: number) => ({
-    'route-tab': searchContext.routeTab,
-    'side-route': searchContext.sideRoute,
-    breadcrumb: searchContext.breadcrumb,
-    page,
-  });
+  if (previousPage === undefined || nextPage === undefined) return [];
+
+  return Array.from(
+    { length: nextPage - previousPage - 1 },
+    (_, offset) => previousPage + offset + 1,
+  );
+}
+
+export function PaginationMockup({ currentPage, onPageChange, variant }: PaginationMockupProps) {
+  const [cursorState, setCursorState] = useState<CursorPreviewState>('idle');
+  const visiblePages = pageWindow(currentPage);
 
   async function loadCursorPreview() {
     if (cursorState !== 'idle') return;
@@ -52,169 +67,114 @@ export function PaginationMockup({ currentPage, searchContext, variant }: Pagina
 
   return (
     <div className={styles.paginationFixture} data-pagination-variant={variant}>
-      <nav className={styles.paginationViewport} aria-label={`Pagination 비교 · ${variant}`}>
-        {variant === 'ledger' ? (
-          <div className={styles.ledgerControls}>
-            {currentPage === 1 ? (
-              <span
-                className={styles.paginationAction}
-                aria-disabled="true"
+      <Pagination aria-label={`Pagination 비교 · ${variant}`} variant={variant}>
+        <PaginationList>
+          <PaginationItem>
+            <PaginationPrevious asChild disabled={currentPage === 1}>
+              <button
                 aria-label="이전 페이지"
-                tabIndex={-1}
+                onClick={() => onPageChange(currentPage - 1)}
+                type="button"
               >
                 <span aria-hidden="true">←</span>
-              </span>
-            ) : (
-              <Link
-                className={styles.paginationAction}
-                search={searchForPage(currentPage - 1)}
-                to="/__ui-lab"
-              >
-                <span aria-hidden="true">←</span>
-                <span className="sr-only">이전 페이지</span>
-              </Link>
-            )}
-            <span
-              className={styles.ledgerPosition}
-              aria-label={`현재 ${currentPage}페이지, 전체 ${totalPages}페이지`}
-              aria-current="page"
-            >
-              {String(currentPage).padStart(2, '0')} / {totalPages}
-            </span>
-            {currentPage === totalPages ? (
-              <span
-                className={styles.paginationAction}
-                aria-disabled="true"
-                aria-label="다음 페이지"
-                tabIndex={-1}
-              >
-                <span aria-hidden="true">→</span>
-              </span>
-            ) : (
-              <Link
-                className={styles.paginationAction}
-                search={searchForPage(currentPage + 1)}
-                to="/__ui-lab"
-              >
-                <span className="sr-only">다음 페이지</span>
-                <span aria-hidden="true">→</span>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <ol className={styles.paginationList}>
-            <li>
-              {currentPage === 1 ? (
-                <span
-                  className={styles.paginationAction}
-                  aria-disabled="true"
-                  aria-label="이전 페이지"
-                  tabIndex={-1}
-                >
-                  <span aria-hidden="true">←</span>
-                </span>
-              ) : (
-                <Link
-                  className={styles.paginationAction}
-                  search={searchForPage(currentPage - 1)}
-                  to="/__ui-lab"
-                >
-                  <span aria-hidden="true">←</span>
-                  <span className="sr-only">이전 페이지</span>
-                </Link>
-              )}
-            </li>
+              </button>
+            </PaginationPrevious>
+          </PaginationItem>
 
-            {pageWindow(currentPage).map((item) => {
+          {variant === 'ledger' ? (
+            <PaginationItem>
+              <PaginationStatus
+                aria-current="page"
+                aria-label={`현재 ${currentPage}페이지, 전체 ${totalPages}페이지`}
+              >
+                {String(currentPage).padStart(2, '0')} / {totalPages}
+              </PaginationStatus>
+            </PaginationItem>
+          ) : (
+            visiblePages.map((item, index) => {
               if (typeof item !== 'number') {
+                const hiddenPages = omittedPages(visiblePages, index);
+                const firstHiddenPage = hiddenPages.at(0);
+                const lastHiddenPage = hiddenPages.at(-1);
+                const pageOptions = hiddenPages.map((page) => ({
+                  label: `${page}페이지`,
+                  value: String(page),
+                }));
+
                 return (
-                  <li className={styles.paginationEllipsis} key={item} aria-hidden="true">
-                    …
-                  </li>
+                  <PaginationItem key={item}>
+                    <PaginationEllipsis>
+                      <Select
+                        aria-label={`${firstHiddenPage}~${lastHiddenPage}페이지 바로 이동`}
+                        onValueChange={(value) => {
+                          const nextPage = Number(value);
+                          if (Number.isInteger(nextPage)) onPageChange(nextPage);
+                        }}
+                        options={pageOptions}
+                        placeholder="…"
+                        popupMinWidth={120}
+                        value=""
+                      />
+                    </PaginationEllipsis>
+                  </PaginationItem>
                 );
               }
 
-              const isCurrent = item === currentPage;
               return (
-                <li key={item}>
-                  <Link
-                    className={styles.paginationLink}
-                    aria-current={isCurrent ? 'page' : undefined}
-                    aria-label={`${item}페이지`}
-                    data-pagination-page={item}
-                    search={searchForPage(item)}
-                    to="/__ui-lab"
-                  >
-                    {variant === 'soft-inset' && isCurrent ? (
-                      <motion.span
-                        className={styles.paginationIndicator}
-                        aria-hidden="true"
-                        data-pagination-indicator
-                        layoutId="pagination-soft-inset-indicator"
-                        transition={
-                          reducedMotion
-                            ? { duration: 0 }
-                            : { type: 'spring', stiffness: 320, damping: 32 }
-                        }
-                      />
-                    ) : null}
-                    <span className={styles.paginationNumber}>{String(item).padStart(2, '0')}</span>
-                  </Link>
-                </li>
+                <PaginationItem key={item}>
+                  <PaginationLink asChild current={item === currentPage}>
+                    <button
+                      aria-label={`${item}페이지`}
+                      data-pagination-page={item}
+                      onClick={() => onPageChange(item)}
+                      type="button"
+                    >
+                      <span className={styles.paginationNumber}>
+                        {String(item).padStart(2, '0')}
+                      </span>
+                    </button>
+                  </PaginationLink>
+                </PaginationItem>
               );
-            })}
+            })
+          )}
 
-            <li>
-              {currentPage === totalPages ? (
-                <span
-                  className={styles.paginationAction}
-                  aria-disabled="true"
-                  aria-label="다음 페이지"
-                  tabIndex={-1}
-                >
-                  <span aria-hidden="true">→</span>
-                </span>
-              ) : (
-                <Link
-                  className={styles.paginationAction}
-                  search={searchForPage(currentPage + 1)}
-                  to="/__ui-lab"
-                >
-                  <span className="sr-only">다음 페이지</span>
-                  <span aria-hidden="true">→</span>
-                </Link>
-              )}
-            </li>
-          </ol>
-        )}
-      </nav>
-
-      {variant === 'ledger' ? (
-        <div className={styles.cursorRow}>
-          <div className={styles.cursorPreview} data-cursor-preview>
-            <span className={styles.cursorStatus} aria-live="polite">
-              {cursorState === 'idle'
-                ? '다음 기록 준비'
-                : cursorState === 'loading'
-                  ? '불러오는 중'
-                  : '마지막 기록'}
-            </span>
-            {cursorState !== 'complete' ? (
+          <PaginationItem>
+            <PaginationNext asChild disabled={currentPage === totalPages}>
               <button
-                className={styles.cursorAction}
-                aria-label="다음 기록"
-                disabled={cursorState === 'loading'}
-                onClick={loadCursorPreview}
+                aria-label="다음 페이지"
+                onClick={() => onPageChange(currentPage + 1)}
                 type="button"
               >
-                {cursorState === 'loading' ? (
-                  <span className={styles.cursorSpinner} aria-hidden="true" data-cursor-spinner />
-                ) : null}
-                {cursorState === 'loading' ? '불러오는 중' : '다음 기록'}
+                <span aria-hidden="true">→</span>
               </button>
-            ) : null}
-          </div>
-        </div>
+            </PaginationNext>
+          </PaginationItem>
+        </PaginationList>
+      </Pagination>
+
+      {variant === 'ledger' ? (
+        <CursorPagination data-cursor-preview>
+          <CursorPaginationMessage aria-live="polite">
+            {cursorState === 'idle'
+              ? '다음 기록 준비'
+              : cursorState === 'loading'
+                ? '불러오는 중'
+                : '마지막 기록'}
+          </CursorPaginationMessage>
+          {cursorState !== 'complete' ? (
+            <CursorPaginationAction
+              aria-label="다음 기록"
+              disabled={cursorState === 'loading'}
+              onClick={loadCursorPreview}
+            >
+              {cursorState === 'loading' ? (
+                <span className={styles.cursorSpinner} aria-hidden="true" data-cursor-spinner />
+              ) : null}
+              {cursorState === 'loading' ? '불러오는 중' : '다음 기록'}
+            </CursorPaginationAction>
+          ) : null}
+        </CursorPagination>
       ) : null}
     </div>
   );

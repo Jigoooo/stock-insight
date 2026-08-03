@@ -1,9 +1,15 @@
-import { Link } from '@tanstack/react-router';
-
 import type { BreadcrumbPreviewId } from './location-navigation-catalog';
-import styles from './location-navigation-catalog.module.css';
-import type { RouteTabId } from './navigation-tabs-catalog';
-import type { SideRouteId } from './side-navigation-catalog';
+
+import {
+  Breadcrumb,
+  BreadcrumbEllipsis,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+  type BreadcrumbVariant as SharedBreadcrumbVariant,
+} from '@/shared/ui/breadcrumb';
 
 const breadcrumbItems = [
   { id: 'workspace', label: '워크스페이스' },
@@ -12,19 +18,15 @@ const breadcrumbItems = [
   { id: 'evidence', label: '근거 기록' },
 ] as const;
 
-export type BreadcrumbVariant = 'hairline' | 'soft-inset' | 'ledger';
+export type BreadcrumbVariant = SharedBreadcrumbVariant;
 
 export interface BreadcrumbMockupProps {
   active: BreadcrumbPreviewId;
+  onSelect: (item: BreadcrumbPreviewId) => void;
   variant: BreadcrumbVariant;
-  searchContext: {
-    page: number;
-    routeTab: RouteTabId;
-    sideRoute: SideRouteId;
-  };
 }
 
-export function BreadcrumbMockup({ active, searchContext, variant }: BreadcrumbMockupProps) {
+export function BreadcrumbMockup({ active, onSelect, variant }: BreadcrumbMockupProps) {
   const activeIndex = breadcrumbItems.findIndex((item) => item.id === active);
   const visibleItems = breadcrumbItems.slice(0, activeIndex + 1);
   const collapsedItems =
@@ -34,57 +36,42 @@ export function BreadcrumbMockup({ active, searchContext, variant }: BreadcrumbM
   const hasCollapsedItem = collapsedItems.length !== visibleItems.length;
 
   return (
-    <nav aria-label={`Breadcrumb 비교 · ${variant}`} data-breadcrumb-variant={variant}>
-      <ol className={styles.breadcrumbList}>
+    <Breadcrumb
+      aria-label={`Breadcrumb 비교 · ${variant}`}
+      data-breadcrumb-variant={variant}
+      variant={variant}
+    >
+      <BreadcrumbList>
         {collapsedItems.map((item, index) => {
           const isCurrent = item.id === active;
-
           const pathItem = (
-            <li className={styles.breadcrumbItem} key={item.id}>
-              {index > 0 ? (
-                <span className={styles.breadcrumbSeparator} aria-hidden="true">
-                  {variant === 'ledger' ? '/' : '›'}
-                </span>
-              ) : null}
+            <BreadcrumbItem key={item.id}>
+              {index > 0 ? <BreadcrumbSeparator /> : null}
               {isCurrent ? (
-                <span className={styles.breadcrumbCurrent} aria-current="page">
-                  {item.label}
-                </span>
+                <BreadcrumbPage>{item.label}</BreadcrumbPage>
               ) : (
-                <Link
-                  className={styles.breadcrumbLink}
-                  search={{
-                    'route-tab': searchContext.routeTab,
-                    'side-route': searchContext.sideRoute,
-                    breadcrumb: item.id,
-                    page: searchContext.page,
-                  }}
-                  to="/__ui-lab"
-                >
-                  {item.label}
-                </Link>
+                <BreadcrumbLink asChild>
+                  <button onClick={() => onSelect(item.id)} type="button">
+                    {item.label}
+                  </button>
+                </BreadcrumbLink>
               )}
-            </li>
+            </BreadcrumbItem>
           );
 
           if (hasCollapsedItem && index === 1) {
             return [
-              <li className={styles.breadcrumbItem} key="collapsed-path">
-                <span className={styles.breadcrumbSeparator} aria-hidden="true">
-                  /
-                </span>
-                <span className={styles.breadcrumbEllipsis}>
-                  <span aria-hidden="true">…</span>
-                  <span className="sr-only">중간 경로 1개 생략</span>
-                </span>
-              </li>,
+              <BreadcrumbItem key="collapsed-path">
+                <BreadcrumbSeparator />
+                <BreadcrumbEllipsis label="중간 경로 1개 생략" />
+              </BreadcrumbItem>,
               pathItem,
             ];
           }
 
           return pathItem;
         })}
-      </ol>
-    </nav>
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }

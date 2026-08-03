@@ -12,7 +12,11 @@ import {
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
-import { Button } from '@/shared/ui/button';
+import {
+  CursorPagination,
+  CursorPaginationAction,
+  CursorPaginationMessage,
+} from '@/shared/ui/pagination';
 import {
   AvailabilityNotice,
   PageHeader,
@@ -52,13 +56,13 @@ export function HistoryView({
         </PanelHeader>
         <HistoryRows items={data.items} />
         {(data.nextCursor || pageState !== 'ready') && (
-          <div className={styles.feedPager}>
+          <CursorPagination>
             {pageState === 'error' && (
-              <span role="alert">다음 판단 기록을 불러오지 못했습니다.</span>
+              <CursorPaginationMessage role="alert">
+                다음 판단 기록을 불러오지 못했습니다.
+              </CursorPaginationMessage>
             )}
-            <Button
-              type="button"
-              motion="quiet"
+            <CursorPaginationAction
               data-testid="history-load-more"
               disabled={!interactive || pageState === 'loading' || !data.nextCursor}
               onClick={onLoadMore}
@@ -68,8 +72,8 @@ export function HistoryView({
                 : pageState === 'error'
                   ? '다시 시도'
                   : '더 보기'}
-            </Button>
-          </div>
+            </CursorPaginationAction>
+          </CursorPagination>
         )}
       </Panel>
     </>

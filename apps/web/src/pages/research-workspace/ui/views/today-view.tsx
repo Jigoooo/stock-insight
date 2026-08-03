@@ -13,6 +13,11 @@ import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/button';
+import {
+  CursorPagination,
+  CursorPaginationAction,
+  CursorPaginationMessage,
+} from '@/shared/ui/pagination';
 import { Tabs, TabsHighlight, TabsHighlightItem, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import {
   AvailabilityNotice,
@@ -164,17 +169,17 @@ export function TodayView({
           )}
         </div>
         {(nextCursor || cursorLoading || cursorError) && (
-          <div className={styles.feedPager}>
-            {cursorError && <span>다음 페이지를 불러오지 못했습니다.</span>}
-            <Button
-              type="button"
-              motion="quiet"
+          <CursorPagination>
+            {cursorError && (
+              <CursorPaginationMessage>다음 페이지를 불러오지 못했습니다.</CursorPaginationMessage>
+            )}
+            <CursorPaginationAction
               disabled={!interactive || cursorLoading || !nextCursor}
               onClick={onLoadMore}
             >
               {cursorLoading ? '불러오는 중' : cursorError ? '다시 시도' : '다음 변화 더 보기'}
-            </Button>
-          </div>
+            </CursorPaginationAction>
+          </CursorPagination>
         )}
       </Panel>
     </>

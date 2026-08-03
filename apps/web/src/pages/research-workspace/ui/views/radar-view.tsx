@@ -12,7 +12,11 @@ import {
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
-import { Button } from '@/shared/ui/button';
+import {
+  CursorPagination,
+  CursorPaginationAction,
+  CursorPaginationMessage,
+} from '@/shared/ui/pagination';
 import { PageHeader, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
@@ -93,13 +97,13 @@ export function RadarView({
         }
         footer={
           data.nextCursor || pageState !== 'ready' ? (
-            <div className={styles.feedPager}>
+            <CursorPagination>
               {pageState === 'error' && (
-                <span role="alert">다음 시장 신호를 불러오지 못했습니다.</span>
+                <CursorPaginationMessage role="alert">
+                  다음 시장 신호를 불러오지 못했습니다.
+                </CursorPaginationMessage>
               )}
-              <Button
-                type="button"
-                motion="quiet"
+              <CursorPaginationAction
                 data-testid="radar-load-more"
                 disabled={!interactive || pageState === 'loading' || !data.nextCursor}
                 onClick={onLoadMore}
@@ -109,8 +113,8 @@ export function RadarView({
                   : pageState === 'error'
                     ? '다시 시도'
                     : '더 보기'}
-              </Button>
-            </div>
+              </CursorPaginationAction>
+            </CursorPagination>
           ) : null
         }
       />

@@ -44,37 +44,6 @@
   min-width: 0;
 }
 
-.feedPager {
-  min-height: 58px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 20px;
-  border-top: 1px solid var(--color-border);
-}
-
-.feedPager span {
-  color: var(--color-risk);
-  font-size: 12px;
-}
-
-.feedPager button {
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-  font-size: 12px;
-  font-weight: 620;
-}
-
-.feedPager button:disabled {
-  opacity: 0.52;
-  cursor: wait;
-}
-
 .feedRow {
   width: 100%;
   min-height: 112px;
@@ -230,12 +199,6 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .feedPager button:hover:not(:disabled) {
-    color: var(--color-accent-strong);
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-hover);
-  }
-
   .feedRow:hover:not([aria-current='true']) {
     background: var(--color-surface-subtle);
   }
@@ -317,16 +280,6 @@
 
   .feedRow .rowMeta {
     flex-wrap: wrap;
-  }
-
-  .feedPager {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 12px 14px;
-  }
-
-  .feedPager button {
-    min-height: 44px;
   }
 }
 .statusProperties {
