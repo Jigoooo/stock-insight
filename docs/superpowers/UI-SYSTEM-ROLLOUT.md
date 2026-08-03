@@ -39,7 +39,7 @@
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
-| 5A   | Identity & Content                  | 승인      | 구현 계획 작성 후 UI Lab 목업         |
+| 5A   | Identity & Content                  | 목업      | 컴포넌트별 A/B/C 사용자 시각 승인     |
 | 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
@@ -282,7 +282,19 @@
 - 완료된 Menu & Overlay는 `예정` 카드에서 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 카드만 남김
 - 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
 - 설계 문서: `docs/superpowers/specs/2026-08-04-identity-content-mockups-design.md`
-- 다음 행동은 승인된 설계를 구현 계획으로 구체화하는 것임
+- 구현 계획: `docs/superpowers/plans/2026-08-04-identity-content-mockups.md`
+
+### 2026-08-04 — 5A Identity & Content 목업 구현
+
+- UI Lab `목업 진행 중` 탭에 Avatar, Badge, Status, List, Timeline, Carousel 여섯 수평 탭을 추가하고 각 컴포넌트의 독립 A/B/C 시안을 구현함
+- List, Timeline, Carousel은 세 시안이 같은 현재 선택 상태를 공유하며 탭을 옮겨도 선택이 유지됨
+- `예정` 카드는 완료된 Menu & Overlay를 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 묶음만 표시함
+- `완료` 탭의 Button 데모는 하나의 `새로고침` 액션이 `불러오는 중`에서 `새로고침 완료`로 전환되고 다시 실행되는 반복 상태를 제공함
+- 개발 모드 effect 재실행이 클릭 핸들러에서 만든 타이머를 취소하던 문제를 확인하고, pending 상태를 구독하는 effect가 타이머의 생성과 정리를 함께 소유하도록 보정함
+- 390px 수평 탭 스크롤, 44px 터치 영역, 키보드 탭 전환, 감소 모션, Axe 접근성을 전용 Playwright 계약에 포함함
+- Node 모델 계약 3건, 전용 Playwright 2건, web typecheck와 변경 파일 정적 검사를 사용하며 전체 테스트·빌드는 실행하지 않음
+- Codex 인앱 브라우저 6110에서 여섯 컴포넌트 탭, List·Timeline 공유 선택, 반복 새로고침 상태 전환을 확인함
+- 다음 행동은 여섯 컴포넌트 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
 
 ## 실행 환경 메모
 
