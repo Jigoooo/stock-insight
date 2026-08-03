@@ -43,4 +43,58 @@ test.describe('UI Lab location navigation', () => {
     expect(searchParams.get('breadcrumb')).toBe('nvda');
     expect(searchParams.get('page')).toBe('3');
   });
+
+  test('moves numeric pages and separates cursor state from page totals', async ({ page }) => {
+    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
+    await page.waitForLoadState('networkidle');
+
+    const catalog = page.locator('[data-catalog="location-navigation"]');
+    await expect(catalog.locator('[data-pagination-variant]')).toHaveCount(3);
+    await catalog
+      .locator('[data-pagination-variant="hairline"]')
+      .getByRole('link', { name: '4페이지' })
+      .click();
+    await expect(page).toHaveURL(/page=4/);
+    await expect(catalog).toHaveAttribute('data-page', '4');
+
+    const searchParams = new URL(page.url()).searchParams;
+    expect(searchParams.get('route-tab')).toBe('evidence');
+    expect(searchParams.get('side-route')).toBe('today');
+    expect(searchParams.get('breadcrumb')).toBe('evidence');
+    expect(searchParams.get('page')).toBe('4');
+
+    const cursor = page.locator('[data-cursor-preview]');
+    const cursorAction = cursor.getByRole('button', { name: '다음 기록' });
+    await cursorAction.click();
+    await expect(cursorAction).toBeDisabled();
+    await expect(cursorAction).toHaveCSS('cursor', 'default');
+    await expect(cursor.getByText('불러오는 중')).toBeVisible();
+    await expect(cursor.getByText('마지막 기록')).toBeVisible();
+    await expect(cursor).not.toContainText('/ 12');
+  });
+
+  test('keeps pagination boundaries inert and the page within the viewport', async ({ page }) => {
+    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=1');
+
+    const catalog = page.locator('[data-catalog="location-navigation"]');
+    const previousActions = catalog.getByRole('link', { name: '이전 페이지' });
+    const disabledPreviousActions = catalog.locator(
+      '[data-pagination-variant] [aria-disabled="true"][aria-label="이전 페이지"]',
+    );
+    await expect(previousActions).toHaveCount(0);
+    await expect(disabledPreviousActions).toHaveCount(3);
+
+    const metrics = await page.evaluate(() => {
+      const action = document.querySelector<HTMLElement>('[data-pagination-variant] a');
+      return {
+        actionHeight: action?.getBoundingClientRect().height ?? 0,
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(metrics.actionHeight).toBeGreaterThanOrEqual(
+      (page.viewportSize()?.width ?? 0) <= 520 ? 44 : 32,
+    );
+    expect(metrics.documentWidth).toBeLessThanOrEqual(metrics.viewportWidth);
+  });
 });
