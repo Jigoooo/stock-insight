@@ -6,7 +6,8 @@ const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.ur
 
 describe('location navigation shared UI adoption', () => {
   it('builds the UI Lab breadcrumb and pagination previews from public compositions', async () => {
-    const [breadcrumb, pagination, styles] = await Promise.all([
+    const [catalog, breadcrumb, pagination, styles] = await Promise.all([
+      read('pages/ui-lab/ui/location-navigation-catalog.tsx'),
       read('pages/ui-lab/ui/breadcrumb-mockup.tsx'),
       read('pages/ui-lab/ui/pagination-mockup.tsx'),
       read('pages/ui-lab/ui/location-navigation-catalog.module.css'),
@@ -55,6 +56,23 @@ describe('location navigation shared UI adoption', () => {
     ]) {
       assert.doesNotMatch(styles, new RegExp(`\\.${removedStateSelector}\\b`));
     }
+
+    assert.match(
+      catalog,
+      /const \[activeBreadcrumb, setActiveBreadcrumb\] = useState\(initialBreadcrumb\)/,
+    );
+    assert.match(catalog, /const \[activePage, setActivePage\] = useState\(initialPage\)/);
+    assert.match(catalog, /data-breadcrumb=\{activeBreadcrumb\}/);
+    assert.match(catalog, /data-page=\{activePage\}/);
+    assert.match(
+      catalog,
+      /<BreadcrumbMockup[\s\S]*?active=\{activeBreadcrumb\}[\s\S]*?onSelect=\{setActiveBreadcrumb\}/,
+    );
+    assert.match(
+      catalog,
+      /<PaginationMockup[\s\S]*?currentPage=\{activePage\}[\s\S]*?onPageChange=\{setActivePage\}/,
+    );
+    assert.doesNotMatch(catalog, /searchContext=/);
   });
 
   it('uses shared cursor pagination without changing product cursor contracts', async () => {

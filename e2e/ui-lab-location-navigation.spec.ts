@@ -9,14 +9,6 @@ async function openPaginationPage(page: Page, currentPage: number) {
   return page.locator('[data-catalog="location-navigation"]');
 }
 
-function expectSearchValues(page: Page, expectedPage: string) {
-  const searchParams = new URL(page.url()).searchParams;
-  expect(searchParams.get('route-tab')).toBe('evidence');
-  expect(searchParams.get('side-route')).toBe('today');
-  expect(searchParams.get('breadcrumb')).toBe('evidence');
-  expect(searchParams.get('page')).toBe(expectedPage);
-}
-
 test.describe('UI Lab location navigation', () => {
   test('normalizes invalid preview state and renders the 3C catalog', async ({ page }) => {
     await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=invalid&page=99');
@@ -27,9 +19,10 @@ test.describe('UI Lab location navigation', () => {
     await expect(catalog).toHaveAttribute('data-page', '3');
   });
 
-  test('renders three semantic Breadcrumb variants with real links', async ({ page }) => {
+  test('changes all Breadcrumb previews locally without changing the URL', async ({ page }) => {
     await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
     await page.waitForLoadState('networkidle');
+    const initialUrl = page.url();
 
     const catalog = page.locator('[data-catalog="location-navigation"]');
     const variants = catalog.locator('nav[data-breadcrumb-variant]');
@@ -48,31 +41,45 @@ test.describe('UI Lab location navigation', () => {
     await expect(collapsedItem).toContainText('…');
     await expect(collapsedItem.getByRole('link')).toHaveCount(0);
 
-    const nvdaLink = catalog
+    const nvdaControl = catalog
       .locator('[data-breadcrumb-variant="hairline"]')
-      .getByRole('link', { name: 'NVDA' });
-    await expect(nvdaLink).toHaveAttribute('href', /breadcrumb=nvda/);
-    await nvdaLink.click();
-    await expect(page).toHaveURL(/breadcrumb=nvda/);
+      .getByRole('button', { name: 'NVDA' });
+    await nvdaControl.click();
 
-    const searchParams = new URL(page.url()).searchParams;
-    expect(searchParams.get('route-tab')).toBe('evidence');
-    expect(searchParams.get('side-route')).toBe('today');
-    expect(searchParams.get('breadcrumb')).toBe('nvda');
-    expect(searchParams.get('page')).toBe('3');
+    expect(page.url()).toBe(initialUrl);
+    await expect(catalog).toHaveAttribute('data-breadcrumb', 'nvda');
+    await expect(variants.locator('[aria-current="page"]')).toHaveCount(3);
+    await expect(variants.locator('[aria-current="page"]')).toHaveText(['NVDA', 'NVDA', 'NVDA']);
+    await expect(variants.getByRole('link')).toHaveCount(0);
+  });
+
+  test('keeps the Soft Current separator clear of the selected surface', async ({ page }) => {
+    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
+    await page.waitForLoadState('networkidle');
+
+    const softInsetCurrent = page.locator(
+      '[data-breadcrumb-variant="soft-inset"] [aria-current="page"]',
+    );
+    const gap = await softInsetCurrent.locator('xpath=..').evaluate((item) => {
+      const current = item.querySelector('[aria-current="page"]');
+      const separator = item.querySelector('[aria-hidden="true"]');
+      if (!current || !separator) return 0;
+      return current.getBoundingClientRect().left - separator.getBoundingClientRect().right;
+    });
+
+    expect(gap).toBeGreaterThanOrEqual(6);
   });
 
   test('moves numeric pages and separates cursor state from page totals', async ({ page }) => {
     const catalog = await openPaginationPage(page, 3);
+    const initialUrl = page.url();
     await expect(catalog.locator('[data-pagination-variant]')).toHaveCount(3);
     await catalog
       .locator('[data-pagination-variant="hairline"]')
-      .getByRole('link', { name: '4페이지' })
+      .getByRole('button', { name: '4페이지' })
       .click();
-    await expect(page).toHaveURL(/page=4/);
     await expect(catalog).toHaveAttribute('data-page', '4');
-
-    expectSearchValues(page, '4');
+    expect(page.url()).toBe(initialUrl);
 
     const cursor = page.locator('[data-cursor-preview]');
     const cursorAction = cursor.getByRole('button', { name: '다음 기록' });
@@ -88,15 +95,41 @@ test.describe('UI Lab location navigation', () => {
     await expect(cursor).not.toContainText('/ 12');
   });
 
+  test('jumps directly to an omitted page from the ellipsis picker', async ({ page }) => {
+    const catalog = await openPaginationPage(page, 3);
+    const initialUrl = page.url();
+    const hairline = catalog.locator('[data-pagination-variant="hairline"]');
+    const omittedPages = hairline.getByRole('combobox', { name: '5~11페이지 바로 이동' });
+
+    await omittedPages.click();
+    const pagePicker = page.locator('[data-slot="select-listbox"]');
+    await expect(pagePicker).toBeVisible();
+    await expect(pagePicker).toHaveCSS('position', 'fixed');
+    expect(
+      await pagePicker
+        .getByRole('option')
+        .first()
+        .evaluate((option) => option.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(40);
+    await pagePicker.getByRole('option', { name: '8페이지' }).click();
+
+    await expect(catalog).toHaveAttribute('data-page', '8');
+    await expect(hairline.getByRole('button', { name: '8페이지' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(page.url()).toBe(initialUrl);
+  });
+
   test('renders compact ledger controls separately from cursor state', async ({ page }) => {
     const catalog = await openPaginationPage(page, 3);
     const ledger = catalog.locator('[data-pagination-variant="ledger"]');
     const ledgerNavigation = ledger.getByRole('navigation');
 
     await expect(ledgerNavigation.locator('[data-pagination-page]')).toHaveCount(0);
-    await expect(ledgerNavigation.getByRole('link', { name: '이전 페이지' })).toHaveCount(1);
+    await expect(ledgerNavigation.getByRole('button', { name: '이전 페이지' })).toHaveCount(1);
     await expect(ledgerNavigation.getByText('03 / 12', { exact: true })).toHaveCount(1);
-    await expect(ledgerNavigation.getByRole('link', { name: '다음 페이지' })).toHaveCount(1);
+    await expect(ledgerNavigation.getByRole('button', { name: '다음 페이지' })).toHaveCount(1);
     await expect(ledgerNavigation.locator('[data-cursor-preview]')).toHaveCount(0);
     await expect(ledger.locator('[data-cursor-preview]')).toHaveCount(1);
     await expect(ledger.locator('[data-cursor-preview]')).not.toContainText('/ 12');
@@ -133,10 +166,9 @@ test.describe('UI Lab location navigation', () => {
 
       for (const variant of ['hairline', 'soft-inset', 'ledger']) {
         const preview = catalog.locator(`[data-pagination-variant="${variant}"]`);
-        await expect(preview.getByRole('link', { name: actionName })).toHaveCount(0);
-        const boundary = preview.locator(`[aria-disabled="true"][aria-label="${actionName}"]`);
+        const boundary = preview.getByRole('button', { name: actionName });
         await expect(boundary).toHaveCount(1);
-        await expect(boundary).toHaveAttribute('tabindex', '-1');
+        await expect(boundary).toBeDisabled();
       }
     });
   }
@@ -147,13 +179,14 @@ test.describe('UI Lab location navigation', () => {
     { actionName: '이전 페이지', expectedPage: '3', variant: 'ledger' },
     { actionName: '다음 페이지', expectedPage: '5', variant: 'ledger' },
   ]) {
-    test(`preserves all search values through ${variant} ${actionName}`, async ({ page }) => {
+    test(`keeps the URL fixed through ${variant} ${actionName}`, async ({ page }) => {
       const catalog = await openPaginationPage(page, 4);
+      const initialUrl = page.url();
       const preview = catalog.locator(`[data-pagination-variant="${variant}"]`);
 
-      await preview.getByRole('link', { name: actionName }).click();
-      await expect(page).toHaveURL(new RegExp(`page=${expectedPage}`));
-      expectSearchValues(page, expectedPage);
+      await preview.getByRole('button', { name: actionName }).click();
+      await expect(catalog).toHaveAttribute('data-page', expectedPage);
+      expect(page.url()).toBe(initialUrl);
     });
   }
 
@@ -161,13 +194,14 @@ test.describe('UI Lab location navigation', () => {
     const catalog = await openPaginationPage(page, 3);
     const nextAction = catalog
       .locator('[data-pagination-variant="hairline"]')
-      .getByRole('link', { name: '다음 페이지' });
+      .getByRole('button', { name: '다음 페이지' });
+    const initialUrl = page.url();
 
     await nextAction.focus();
     await expect(nextAction).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/page=4/);
-    expectSearchValues(page, '4');
+    await expect(catalog).toHaveAttribute('data-page', '4');
+    expect(page.url()).toBe(initialUrl);
   });
 
   test('removes indicator motion when reduced motion is requested', async ({ page }) => {
@@ -176,7 +210,7 @@ test.describe('UI Lab location navigation', () => {
     const softInset = catalog.locator('[data-pagination-variant="soft-inset"]');
     const indicator = softInset
       .locator('[aria-current="page"]')
-      .locator('[data-pagination-indicator]');
+      .locator('[data-slot="pagination-indicator"]');
 
     await expect(indicator).toHaveCount(1);
     const transitionDuration = await indicator.evaluate((element) =>
@@ -185,10 +219,10 @@ test.describe('UI Lab location navigation', () => {
     expect(transitionDuration).toBeLessThanOrEqual(0.001);
     await expect(indicator).toHaveCSS('transform', 'none');
 
-    await softInset.getByRole('link', { name: '4페이지' }).click();
+    await softInset.getByRole('button', { name: '4페이지' }).click();
     const relocatedIndicator = softInset
       .locator('[aria-current="page"]')
-      .locator('[data-pagination-indicator]');
+      .locator('[data-slot="pagination-indicator"]');
     const motionState = await relocatedIndicator.evaluate(async (element) => {
       const transforms = [window.getComputedStyle(element).transform];
       for (let frame = 0; frame < 4; frame += 1) {
@@ -203,7 +237,6 @@ test.describe('UI Lab location navigation', () => {
       };
     });
 
-    await expect(page).toHaveURL(/page=4/);
     await expect(catalog).toHaveAttribute('data-page', '4');
     expect(motionState.hasRunningAnimation).toBe(false);
     expect(motionState.transforms).toEqual(['none', 'none', 'none', 'none', 'none']);
@@ -228,7 +261,7 @@ test.describe('UI Lab location navigation', () => {
     test.skip(testInfo.project.name !== 'mobile', '390px mobile contract');
     const catalog = await openPaginationPage(page, 3);
     const interactiveTargets = catalog.locator(
-      '[data-breadcrumb-variant] a:visible, [data-pagination-variant] a:visible, [data-pagination-variant] button:visible',
+      '[data-breadcrumb-variant] button:visible, [data-pagination-variant] button:visible',
     );
 
     const metrics = await interactiveTargets.evaluateAll((targets) =>

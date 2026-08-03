@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { BreadcrumbMockup, type BreadcrumbVariant } from './breadcrumb-mockup';
 import styles from './location-navigation-catalog.module.css';
 import type { RouteTabId } from './navigation-tabs-catalog';
@@ -72,13 +74,16 @@ export function LocationNavigationCatalog({
   initialRouteTab,
   initialSideRoute,
 }: LocationNavigationCatalogProps) {
+  const [activeBreadcrumb, setActiveBreadcrumb] = useState(initialBreadcrumb);
+  const [activePage, setActivePage] = useState(initialPage);
+
   return (
     <section
       className={styles.catalog}
       aria-labelledby="location-navigation-title"
-      data-breadcrumb={initialBreadcrumb}
+      data-breadcrumb={activeBreadcrumb}
       data-catalog="location-navigation"
-      data-page={initialPage}
+      data-page={activePage}
       data-route-tab={initialRouteTab}
       data-side-route={initialSideRoute}
     >
@@ -87,7 +92,7 @@ export function LocationNavigationCatalog({
           <span>Batch 3C · Location Navigation</span>
           <h2 id="location-navigation-title">Breadcrumb · Pagination</h2>
         </div>
-        <p>현재 위치와 데이터 탐색 범위를 실제 URL 의미를 보존하는 세 가지 방향으로 비교합니다.</p>
+        <p>현재 위치와 데이터 탐색 범위를 화면 이동 없이 선택해 세 가지 방향으로 비교합니다.</p>
       </header>
 
       <section className={styles.comparison} aria-labelledby="breadcrumb-title">
@@ -95,7 +100,7 @@ export function LocationNavigationCatalog({
           <span>01 · Breadcrumb</span>
           <div>
             <h3 id="breadcrumb-title">계층형 현재 위치</h3>
-            <p>이전 항목은 실제 링크이고 마지막 항목은 현재 페이지로만 표시합니다.</p>
+            <p>항목을 선택하면 세 시안의 현재 위치가 같은 화면에서 함께 바뀝니다.</p>
           </div>
         </header>
 
@@ -109,12 +114,8 @@ export function LocationNavigationCatalog({
               </header>
               <div className={styles.previewSurface}>
                 <BreadcrumbMockup
-                  active={initialBreadcrumb}
-                  searchContext={{
-                    page: initialPage,
-                    routeTab: initialRouteTab,
-                    sideRoute: initialSideRoute,
-                  }}
+                  active={activeBreadcrumb}
+                  onSelect={setActiveBreadcrumb}
                   variant={variant.id}
                 />
               </div>
@@ -142,12 +143,8 @@ export function LocationNavigationCatalog({
               </header>
               <div className={styles.previewSurface}>
                 <PaginationMockup
-                  currentPage={initialPage}
-                  searchContext={{
-                    breadcrumb: initialBreadcrumb,
-                    routeTab: initialRouteTab,
-                    sideRoute: initialSideRoute,
-                  }}
+                  currentPage={activePage}
+                  onPageChange={setActivePage}
                   variant={variant.id}
                 />
               </div>

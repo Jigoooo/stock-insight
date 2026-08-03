@@ -196,6 +196,22 @@
 - Codex 인앱 브라우저 단일 탭에서 Side Tab 클릭·키보드 전환, Side List SPA 경로·선택 indicator, 실제 워크스페이스 확장 210px·축소 68px·선택 상태·가로 overflow 0을 확인
 - 검증: 공개 props fixture, web typecheck, 관련 Node 34건, design hard 17건, Playwright desktop/mobile 10건, 소유 파일 lint·format, `git diff --check`
 
+### 2026-08-03 — 3C Breadcrumb + Pagination 사용자 승인
+
+- Breadcrumb: A Hairline Trail, B Soft Current, C Compact Ledger 모두 유지
+- Pagination: A Hairline Pages, B Soft Inset Track, C Compact Ledger 모두 유지
+- Pagination mode 경계는 `pages|compact|cursor`로 유지하며 cursor에 존재하지 않는 전체 페이지 수를 만들지 않음
+- Codex 인앱 브라우저 A/B/C 비교 후 여섯 시안 모두 사용자 승인 완료
+- 다음 행동: 승인 variant를 `shared/ui` 공개 API로 공용화하고 실제 제품 사용처를 감사
+- 제품 Breadcrumb 감사: 현재 화면에는 보이는 계층 경로를 소유하는 사용처가 없어 `no suitable product breadcrumb use yet`으로 기록하며 가짜 제품 Breadcrumb를 추가하지 않음
+
+### 2026-08-03 — 3C Breadcrumb + Pagination 공용화·제품 감사
+
+- 공용 `Breadcrumb`와 `Pagination`은 승인된 `hairline|soft-inset|ledger` variant와 semantic anatomy를 공개함
+- UI Lab A/B/C는 공용 API를 사용하며 query를 변경하지 않는 로컬 상태로 세 시안을 동기화하고 Select 생략 페이지 이동과 38px compact option 계약을 유지함
+- Today·Radar·History의 기존 opaque cursor footer는 공용 `CursorPagination` composition으로 교체하며 handler·label·loading·error·disabled·retry·test id를 보존하고 숫자 전체 페이지 수를 만들지 않음
+- 제품 Breadcrumb는 보이는 계층 경로 소유자가 없어 `no suitable product breadcrumb use yet`으로 감사 완료했으며 가짜 hierarchy를 추가하지 않음
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
