@@ -6,7 +6,7 @@
 
 **Architecture:** Add one UI Lab catalog composed from focused Breadcrumb and Pagination mockup renderers. The UI Lab route owns validated preview search state (`breadcrumb`, `page`) so every link has a real URL, while cursor loading remains local fixture state. Visual state stays in UI Lab CSS until the user approves variants; Motion is limited to the B pagination selection indicator and short cursor status transitions.
 
-**Tech Stack:** React 19, TanStack Router Link/search validation, Motion 12 through `motion/react`, CSS Modules, Node test runner, Playwright, Axe.
+**Tech Stack:** React 19, TanStack Router Link/search validation, Motion 12 through `motion/react`, CSS Modules, Playwright, Axe.
 
 ## Global Constraints
 
@@ -21,6 +21,7 @@
 - Reduced motion removes layout/transform interpolation while keeping essential color and opacity feedback.
 - No provider, dependency, product loader, authentication, cursor API, or product information architecture changes.
 - Browser review uses the existing Codex in-app browser tab only.
+- User resolution on 2026-08-03: behavior tests govern this bundle. Do not add source-regex tests for the catalog; every TDD red step must exercise the rendered UI Lab route through Playwright.
 
 ---
 
@@ -32,7 +33,6 @@
 - Create `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css`: catalog layout and mockup-only visual states.
 - Modify `apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx`: mount the 3C catalog and pass validated preview state.
 - Modify `apps/web/src/routes/[__ui-lab].tsx`: validate `breadcrumb` and `page`, preserve existing query contracts, and pass the values to `UiLabPage`.
-- Create `apps/web/test/location-navigation-catalog.test.ts`: source/semantic/motion boundary contracts.
 - Create `e2e/ui-lab-location-navigation.spec.ts`: desktop/mobile interaction, accessibility, reduced-motion, and overflow coverage.
 - Modify `docs/superpowers/UI-SYSTEM-ROLLOUT.md`: record mockup availability and browser/test evidence after implementation.
 
@@ -45,7 +45,7 @@
 - Create: `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx`
 - Modify: `apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx`
 - Modify: `apps/web/src/routes/[__ui-lab].tsx`
-- Create: `apps/web/test/location-navigation-catalog.test.ts`
+- Create: `e2e/ui-lab-location-navigation.spec.ts`
 
 **Interfaces:**
 
@@ -53,33 +53,24 @@
 - Produces: `LocationNavigationCatalogProps` with `initialBreadcrumb`, `initialPage`, `initialRouteTab`, and `initialSideRoute`.
 - Consumes: existing `RouteTabId` and `SideRouteId` UI Lab query types.
 
-- [ ] **Step 1: Write the failing catalog wiring test**
+- [ ] **Step 1: Write the failing catalog behavior test**
 
 ```ts
-describe('UI Lab location navigation catalog', () => {
-  it('validates and passes location navigation preview state', async () => {
-    const route = await readFile(new URL('../src/routes/[__ui-lab].tsx', import.meta.url), 'utf8');
-    const page = await readUiLabSource('ui-lab-page.tsx');
+test.describe('UI Lab location navigation', () => {
+  test('normalizes invalid preview state and renders the 3C catalog', async ({ page }) => {
+    await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=invalid&page=99');
 
-    assert.match(
-      route,
-      /const breadcrumbPreviews = \['workspace', 'stocks', 'nvda', 'evidence'\] as const/,
-    );
-    assert.match(
-      route,
-      /breadcrumb: isBreadcrumbPreview\(search\.breadcrumb\) \? search\.breadcrumb : 'evidence'/,
-    );
-    assert.match(route, /page: isPageNumber\(search\.page\) \? search\.page : 3/);
-    assert.match(page, /<LocationNavigationCatalog/);
-    assert.match(page, /initialBreadcrumb=\{initialBreadcrumb\}/);
-    assert.match(page, /initialPage=\{initialPage\}/);
+    const catalog = page.locator('[data-catalog="location-navigation"]');
+    await expect(page.getByRole('heading', { name: 'Breadcrumb · Pagination' })).toBeVisible();
+    await expect(catalog).toHaveAttribute('data-breadcrumb', 'evidence');
+    await expect(catalog).toHaveAttribute('data-page', '3');
   });
 });
 ```
 
 - [ ] **Step 2: Run the test and confirm red**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "normalizes invalid preview state"`
 
 Expected: FAIL because the test and catalog/query contracts do not exist yet.
 
@@ -127,7 +118,7 @@ export function LocationNavigationCatalog(props: LocationNavigationCatalogProps)
 
 - [ ] **Step 5: Run the targeted test and typecheck**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "normalizes invalid preview state"`
 
 Expected: PASS.
 
@@ -138,7 +129,7 @@ Expected: exit 0.
 - [ ] **Step 6: Commit Task 1**
 
 ```bash
-git add apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' apps/web/test/location-navigation-catalog.test.ts
+git add apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' e2e/ui-lab-location-navigation.spec.ts
 git commit -m "feat(ui-lab): 3C 위치 탐색 카탈로그 연결"
 ```
 
@@ -151,7 +142,7 @@ git commit -m "feat(ui-lab): 3C 위치 탐색 카탈로그 연결"
 - Create: `apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx`
 - Create: `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css`
 - Modify: `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx`
-- Modify: `apps/web/test/location-navigation-catalog.test.ts`
+- Modify: `e2e/ui-lab-location-navigation.spec.ts`
 
 **Interfaces:**
 
@@ -159,29 +150,28 @@ git commit -m "feat(ui-lab): 3C 위치 탐색 카탈로그 연결"
 - Produces: `BreadcrumbMockupProps` with `active`, `variant`, and `searchContext`.
 - Produces: `BreadcrumbVariant = 'hairline' | 'soft-inset' | 'ledger'`.
 
-- [ ] **Step 1: Add failing Breadcrumb semantic tests**
+- [ ] **Step 1: Add a failing Breadcrumb behavior test**
 
 ```ts
-it('renders three Breadcrumb directions with real links and one current page', async () => {
-  const source = await readUiLabSource('breadcrumb-mockup.tsx');
-  const catalog = await readUiLabSource('location-navigation-catalog.tsx');
+test('renders three semantic Breadcrumb variants with real links', async ({ page }) => {
+  await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
 
-  for (const variant of ['hairline', 'soft-inset', 'ledger']) {
-    assert.match(catalog, new RegExp(`id: '${variant}'`));
-  }
+  const catalog = page.locator('[data-catalog="location-navigation"]');
+  await expect(catalog.locator('[data-breadcrumb-variant]')).toHaveCount(3);
+  await expect(catalog.locator('[data-breadcrumb-variant] [aria-current="page"]')).toHaveCount(3);
 
-  assert.match(source, /<nav[^>]*aria-label=\{`현재 위치 · \$\{title\}`\}/);
-  assert.match(source, /<ol/);
-  assert.match(source, /<Link[\s\S]*to="\/__ui-lab"/);
-  assert.match(source, /aria-current="page"/);
-  assert.match(source, /중간 경로 1개 생략/);
-  assert.doesNotMatch(source, /href="#"/);
+  const nvdaLink = catalog
+    .locator('[data-breadcrumb-variant="hairline"]')
+    .getByRole('link', { name: 'NVDA' });
+  await expect(nvdaLink).toHaveAttribute('href', /breadcrumb=nvda/);
+  await nvdaLink.click();
+  await expect(page).toHaveURL(/breadcrumb=nvda/);
 });
 ```
 
 - [ ] **Step 2: Run and confirm red**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "three semantic Breadcrumb variants"`
 
 Expected: FAIL because `breadcrumb-mockup.tsx` and variant rendering do not exist.
 
@@ -240,7 +230,7 @@ Do not add scale or translate effects to Breadcrumb items.
 
 - [ ] **Step 5: Run targeted test, typecheck, and formatter**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "three semantic Breadcrumb variants"`
 
 Expected: PASS.
 
@@ -248,14 +238,14 @@ Run: `pnpm --filter @stock-insight/web typecheck`
 
 Expected: exit 0.
 
-Run: `pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css apps/web/test/location-navigation-catalog.test.ts`
+Run: `pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css e2e/ui-lab-location-navigation.spec.ts`
 
 Expected: all files formatted.
 
 - [ ] **Step 6: Commit Task 2**
 
 ```bash
-git add apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css apps/web/test/location-navigation-catalog.test.ts
+git add apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css e2e/ui-lab-location-navigation.spec.ts
 git commit -m "feat(ui-lab): Breadcrumb 3안 비교 추가"
 ```
 
@@ -268,7 +258,7 @@ git commit -m "feat(ui-lab): Breadcrumb 3안 비교 추가"
 - Create: `apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx`
 - Modify: `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx`
 - Modify: `apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css`
-- Modify: `apps/web/test/location-navigation-catalog.test.ts`
+- Modify: `e2e/ui-lab-location-navigation.spec.ts`
 
 **Interfaces:**
 
@@ -276,27 +266,31 @@ git commit -m "feat(ui-lab): Breadcrumb 3안 비교 추가"
 - Produces: `PaginationVariant = 'hairline' | 'soft-inset' | 'ledger'`.
 - Produces: local `CursorPreviewState = 'idle' | 'loading' | 'complete'` for the C fixture only.
 
-- [ ] **Step 1: Add failing Pagination behavior tests**
+- [ ] **Step 1: Add a failing Pagination behavior test**
 
 ```ts
-it('separates numeric page links from the cursor preview', async () => {
-  const source = await readUiLabSource('pagination-mockup.tsx');
+test('moves numeric pages and separates cursor state from page totals', async ({ page }) => {
+  await page.goto('/__ui-lab?route-tab=evidence&side-route=today&breadcrumb=evidence&page=3');
 
-  assert.match(source, /type PaginationVariant = 'hairline' \| 'soft-inset' \| 'ledger'/);
-  assert.match(source, /aria-label=\{`페이지 탐색 · \$\{title\}`\}/);
-  assert.match(source, /aria-current=\{page === currentPage \? 'page' : undefined\}/);
-  assert.match(source, /layoutId="pagination-soft-inset-indicator"/);
-  assert.match(source, /useReducedMotion\(\)/);
-  assert.match(source, /type CursorPreviewState = 'idle' \| 'loading' \| 'complete'/);
-  assert.match(source, /불러오는 중/);
-  assert.match(source, /마지막 기록/);
-  assert.doesNotMatch(source, /cursor.*12|12.*cursor/);
+  const catalog = page.locator('[data-catalog="location-navigation"]');
+  await expect(catalog.locator('[data-pagination-variant]')).toHaveCount(3);
+  await catalog
+    .locator('[data-pagination-variant="hairline"]')
+    .getByRole('link', { name: '4페이지' })
+    .click();
+  await expect(page).toHaveURL(/page=4/);
+
+  const cursor = page.locator('[data-cursor-preview]');
+  await cursor.getByRole('button', { name: '다음 기록' }).click();
+  await expect(cursor.getByText('불러오는 중')).toBeVisible();
+  await expect(cursor.getByText('마지막 기록')).toBeVisible();
+  await expect(cursor).not.toContainText('/ 12');
 });
 ```
 
 - [ ] **Step 2: Run and confirm red**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "moves numeric pages"`
 
 Expected: FAIL because `pagination-mockup.tsx` does not exist.
 
@@ -381,7 +375,7 @@ At 390px the numeric list scrolls internally if needed; the page itself must not
 
 - [ ] **Step 7: Run targeted verification**
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts`
+Run: `PLAYWRIGHT_PORT=6195 pnpm exec playwright test e2e/ui-lab-location-navigation.spec.ts --project=desktop --workers=1 --grep "moves numeric pages"`
 
 Expected: PASS.
 
@@ -389,14 +383,14 @@ Run: `pnpm --filter @stock-insight/web typecheck`
 
 Expected: exit 0.
 
-Run: `pnpm exec oxlint apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/test/location-navigation-catalog.test.ts`
+Run: `pnpm exec oxlint apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx e2e/ui-lab-location-navigation.spec.ts`
 
 Expected: 0 warnings/errors.
 
 - [ ] **Step 8: Commit Task 3**
 
 ```bash
-git add apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css apps/web/test/location-navigation-catalog.test.ts
+git add apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css e2e/ui-lab-location-navigation.spec.ts
 git commit -m "feat(ui-lab): Pagination 3안과 cursor 상태 추가"
 ```
 
@@ -406,7 +400,7 @@ git commit -m "feat(ui-lab): Pagination 3안과 cursor 상태 추가"
 
 **Files:**
 
-- Create: `e2e/ui-lab-location-navigation.spec.ts`
+- Modify: `e2e/ui-lab-location-navigation.spec.ts`
 - Modify only if a browser failure identifies a product bug: files owned by Tasks 1-3.
 
 **Interfaces:**
@@ -519,11 +513,11 @@ Record:
 
 Run: `pnpm --filter @stock-insight/web typecheck`
 
-Run: `cd apps/web && node --test test/location-navigation-catalog.test.ts test/navigation-tabs-catalog.test.ts`
+Run: `cd apps/web && node --test test/navigation-tabs-catalog.test.ts`
 
-Run: `pnpm exec oxlint apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' apps/web/test/location-navigation-catalog.test.ts e2e/ui-lab-location-navigation.spec.ts`
+Run: `pnpm exec oxlint apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' e2e/ui-lab-location-navigation.spec.ts`
 
-Run: `pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' apps/web/test/location-navigation-catalog.test.ts e2e/ui-lab-location-navigation.spec.ts docs/superpowers/UI-SYSTEM-ROLLOUT.md`
+Run: `pnpm exec oxfmt --check apps/web/src/pages/ui-lab/ui/location-navigation-catalog.tsx apps/web/src/pages/ui-lab/ui/breadcrumb-mockup.tsx apps/web/src/pages/ui-lab/ui/pagination-mockup.tsx apps/web/src/pages/ui-lab/ui/location-navigation-catalog.module.css apps/web/src/pages/ui-lab/ui/ui-lab-page.tsx 'apps/web/src/routes/[__ui-lab].tsx' e2e/ui-lab-location-navigation.spec.ts docs/superpowers/UI-SYSTEM-ROLLOUT.md`
 
 Run: `git diff --check`
 
