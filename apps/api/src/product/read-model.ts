@@ -49,11 +49,15 @@ ORDER BY feature.market, feature.ticker
 LIMIT $2::int
 `;
 
+// Reads impact_summary_v2 as of migration 059. The v1 summary is empty by
+// construction — its gate requires ISSUED_BY edges that the v1 path producer
+// never emits — so this endpoint returned an empty list on every call since
+// 2026-07-19 without ever erroring.
 const IMPACT_SQL = `
 SELECT ident.identifier_value AS entity_key,
        impact.market, impact.ticker, impact.path_count, impact.max_path_score,
        impact.avg_path_score, impact.event_types, impact.computed_at
-FROM serving.impact_summary_v1 impact
+FROM serving.impact_summary_v2 impact
 JOIN core.entity_identifier ident
   ON ident.entity_id = impact.asset_entity_id
  AND ident.identifier_type = 'INTERNAL_KEY'

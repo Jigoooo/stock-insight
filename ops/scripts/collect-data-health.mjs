@@ -269,9 +269,20 @@ const CONTENT_PACK_ITEM_KINDS_SQL = `
 // A LEFT JOIN hides an empty right side behind a healthy row count. This asks the
 // question the row count cannot: of the rows the product actually renders, how
 // many carry an impact link at all?
+// Serving rows, not rendered rows. market_confirmation_v1 is exposed through
+// /v1/confirmation, which apps/web proxies verbatim; no page renders
+// industry_link_strength or path_count. Reporting this under "reaching the
+// product" would repeat the v_world_event_current_v1 mistake: a true number
+// under a name that promises more than it measures.
+//
+// servablePacks travels with it because the summary is scoped to servable packs:
+// if those expire, path_count silently COALESCEs back toward 0 and would read as
+// a coverage collapse rather than a freshness problem.
 const IMPACT_LINKED_SQL = `
   SELECT count(*)::bigint AS total,
-         count(path_count)::bigint AS impact_linked
+         count(path_count)::bigint AS impact_linked,
+         (SELECT count(*)::bigint FROM serving.v_relation_graph_freshness
+           WHERE servable = true AND pack_kind = 'impact_brief') AS servable_packs
   FROM serving.market_confirmation_v1`;
 
 // "Is this source actually collecting, and does it go through the contract
@@ -486,6 +497,7 @@ try {
       surface: 'serving.market_confirmation_v1',
       rows: Number(impactLinked.rows[0].total),
       withImpactPath: Number(impactLinked.rows[0].impact_linked),
+      servablePacks: Number(impactLinked.rows[0].servable_packs),
     },
     collection: {
       registeredSources: sourceRows.length,
@@ -575,9 +587,13 @@ function markdown(data) {
   for (const row of data.contentPackItemKinds) lines.push(`| ${row.itemKind} | ${num(row.rows)} |`);
 
   const linked = data.impactLinked;
-  lines.push('', '## Impact reaching the product', '');
+  lines.push('', '## Impact on the serving row', '');
   lines.push(
-    `\`${linked.surface}\` ${num(linked.rows)}행 중 임팩트 경로가 붙은 행 **${num(linked.withImpactPath)}** (${pct(ratio(linked.withImpactPath, linked.rows))})`,
+    `\`${linked.surface}\` ${num(linked.rows)}행 중 임팩트 경로가 붙은 행 **${num(linked.withImpactPath)}** (${pct(ratio(linked.withImpactPath, linked.rows))}) · servable impact 팩 ${num(linked.servablePacks)}개`,
+  );
+  lines.push(
+    '',
+    '서빙 행 기준이다. `/v1/confirmation`은 이 컬럼들을 내보내지만 화면에 그리는 곳은 아직 없다.',
   );
 
   lines.push('', '## Collection', '');

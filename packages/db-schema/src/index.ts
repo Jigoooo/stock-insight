@@ -56,6 +56,7 @@ import { impactV1InternalOnlyMigrationSql } from './migrations/055_impact_v1_int
 import { marketFactSourceLineageMigrationSql } from './migrations/056_market_fact_source_lineage.ts';
 import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vintage_source_lineage.ts';
 import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_finra_source_registration.ts';
+import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_confirmation_reads_v2.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -730,6 +731,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: secFinraSourceRegistrationMigrationSql,
   },
+  {
+    id: '059_market_confirmation_reads_v2',
+    description:
+      'Points serving.market_confirmation_v1 at a new serving.impact_summary_v2 built from servable impact packs. Its industry_link_strength and path_count were structurally 0/NULL for all 253 rows because the v1 plane they read is empty by construction.',
+    tables: [],
+    sql: marketConfirmationReadsV2MigrationSql,
+  },
 ];
 
 export {
@@ -790,5 +798,6 @@ export {
   impactV1InternalOnlyMigrationSql,
   marketFactSourceLineageMigrationSql,
   macroVintageSourceLineageMigrationSql,
+  marketConfirmationReadsV2MigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

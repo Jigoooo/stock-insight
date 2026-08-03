@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-03T04:39:56Z",
+  "capturedAt": "2026-08-03T04:52:12Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -258,7 +258,8 @@
   "impactLinked": {
     "surface": "serving.market_confirmation_v1",
     "rows": 253,
-    "withImpactPath": 0
+    "withImpactPath": 212,
+    "servablePacks": 262
   },
   "collection": {
     "registeredSources": 34,
@@ -859,7 +860,7 @@
     },
     {
       "jobName": "stock-insight-schema-migrations",
-      "lastSuccess": "2026-08-03T03:53:47.895Z",
+      "lastSuccess": "2026-08-03T04:48:12.595Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
