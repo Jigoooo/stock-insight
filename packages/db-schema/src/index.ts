@@ -58,6 +58,7 @@ import { macroVintageSourceLineageMigrationSql } from './migrations/057_macro_vi
 import { secFinraSourceRegistrationMigrationSql } from './migrations/058_sec_finra_source_registration.ts';
 import { marketConfirmationReadsV2MigrationSql } from './migrations/059_market_confirmation_reads_v2.ts';
 import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_event_projects_magnitude.ts';
+import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity_seed.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -746,6 +747,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: worldEventProjectsMagnitudeMigrationSql,
   },
+  {
+    id: '061_crypto_identity_seed',
+    description:
+      'Seeds crypto_identity.entity with CAIP-2/CAIP-19 identities for 7 of the 14 tracked tickers, every value read from a published spec or vendor platform metadata. The remaining 7 await their namespace references being read rather than guessed.',
+    tables: [],
+    sql: cryptoIdentitySeedMigrationSql,
+  },
 ];
 
 export {
@@ -808,5 +816,6 @@ export {
   macroVintageSourceLineageMigrationSql,
   marketConfirmationReadsV2MigrationSql,
   worldEventProjectsMagnitudeMigrationSql,
+  cryptoIdentitySeedMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
