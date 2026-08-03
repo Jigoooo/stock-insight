@@ -219,15 +219,29 @@ const CHAINS = [
     // claims. A routed collector only stamps rows it newly inserts, so this ratio
     // starts near zero and climbs as the collector runs — measuring it stops the
     // wiring from being mistaken for the outcome.
+    // Three legs, not two. Empty OpenDART responses now register a revision, so
+    // the revision count measures "asked", not "got data". Left as one hop it
+    // would fall toward 0% as absence gets recorded properly — a metric reading a
+    // collapse where the opposite happened. The ask/hit split is also the more
+    // useful number: it says how much of what we fetch actually carries facts.
     name: 'DART 수집 → 계보 붙은 사실',
     steps: [
       {
-        label: 'opendart source_revision',
+        label: '물어본 셀 (source_revision)',
         sql: `SELECT count(*) FROM ingestion.source_revision revision
               JOIN ingestion.source_record_identity identity
                 ON identity.source_record_identity_id = revision.source_record_identity_id
               JOIN ingestion.source source ON source.source_id = identity.source_id
               WHERE source.provider_key = 'opendart'`,
+      },
+      {
+        label: '내용이 있던 셀',
+        sql: `SELECT count(*) FROM ingestion.source_revision revision
+              JOIN ingestion.source_record_identity identity
+                ON identity.source_record_identity_id = revision.source_record_identity_id
+              JOIN ingestion.source source ON source.source_id = identity.source_id
+              WHERE source.provider_key = 'opendart'
+                AND revision.payload_metadata -> 'http_meta' ->> 'status' IS DISTINCT FROM '013'`,
       },
       {
         label: '계보 붙은 financial_fact',
@@ -331,6 +345,20 @@ const VERIFICATION_SQL = `
     FROM knowledge.relation_revision GROUP BY 1, 2
   ORDER BY 1, 3 DESC`;
 
+// The coverage ledger is append-only with a revision chain, so "current" means
+// the highest revision per coverage_key. Reading it without DISTINCT ON would
+// count superseded judgements and make coverage look larger than the universe.
+const COVERAGE_SQL = `
+  SELECT predicate_or_fact_family AS family, completeness_state AS state, count(*)::bigint AS cells
+  FROM (
+    SELECT DISTINCT ON (coverage_key)
+           coverage_key, predicate_or_fact_family, completeness_state
+    FROM governance.coverage_ledger
+    ORDER BY coverage_key, revision_no DESC
+  ) current
+  GROUP BY 1, 2
+  ORDER BY 1, 3 DESC`;
+
 // migration_runs is a pipeline job log despite the name (the schema ledger is
 // public.schema_migration). consecutive_failures counts back from the newest run
 // and stops at the first success, which is what "is it broken right now" means.
@@ -430,6 +458,7 @@ try {
   const marketLineage = await client.query(MARKET_LINEAGE_SQL);
   const factLineage = await client.query(FACT_LINEAGE_SQL);
   const verification = await client.query(VERIFICATION_SQL);
+  const coverage = await client.query(COVERAGE_SQL);
   const pipeline = await client.query(PIPELINE_SQL);
   const capturedAt = await client.query(
     `SELECT to_char(transaction_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at`,
@@ -477,6 +506,11 @@ try {
       })),
       tablesWithLineageColumn: marketLineage.rows.filter((row) => row.has_lineage_column).length,
     },
+    coverage: coverage.rows.map((row) => ({
+      family: row.family,
+      state: row.state,
+      cells: Number(row.cells),
+    })),
     verification: verification.rows.map((row) => ({
       relation: row.relation,
       state: row.state,
@@ -559,6 +593,25 @@ function markdown(data) {
   for (const routed of data.marketLineage.routedTables) {
     lines.push(
       `- 출처가 붙은 \`${routed.table}\` **${num(routed.withLineage)} / ${num(routed.total)}** (${pct(ratio(routed.withLineage, routed.total))})`,
+    );
+  }
+
+  lines.push('', '## Coverage ledger', '');
+  if (data.coverage.length === 0) {
+    lines.push('원장이 비어 있음 — "없음"과 "모름"을 구분할 근거가 없다.');
+  } else {
+    lines.push('| fact family | state | cells |');
+    lines.push('| --- | --- | ---: |');
+    for (const row of data.coverage) {
+      lines.push(`| \`${row.family}\` | ${row.state} | ${num(row.cells)} |`);
+    }
+    const notCollected = data.coverage
+      .filter((row) => row.state === 'not_collected')
+      .reduce((sum, row) => sum + row.cells, 0);
+    const total = data.coverage.reduce((sum, row) => sum + row.cells, 0);
+    lines.push(
+      '',
+      `수집을 시도조차 못 한 셀 **${num(notCollected)} / ${num(total)}** (${pct(ratio(notCollected, total))}) — 관계가 없는 것이 아니라 모르는 것이다.`,
     );
   }
 

@@ -25,6 +25,12 @@ cd "$ROOT"
 DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
   apps/api/src/ingest/run-dart-financial-facts.ts --from-year 2022 --limit 5 --apply
 
+# Must follow the DART step: the ledger judges the cells that were just fetched.
+# It appends a revision only where the computed state changed, so a steady day
+# writes nothing and the ledger stays a change log rather than a daily dump.
+DATABASE_URL="$DB_URL" node \
+  apps/api/src/ingest/run-dart-coverage-ledger.ts --apply
+
 # US filing facts are idempotent and accession-keyed.
 DATABASE_URL="$DB_URL" node \
   apps/api/src/ingest/run-sec-financial-facts.ts --since-year 2020 --limit 200 --apply

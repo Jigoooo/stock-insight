@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-03T03:58:02Z",
+  "capturedAt": "2026-08-03T04:39:56Z",
   "servingYield": [
     {
       "surface": "serving.impact_summary_v1",
@@ -202,8 +202,13 @@
       "name": "DART 수집 → 계보 붙은 사실",
       "steps": [
         {
-          "label": "opendart source_revision",
-          "rows": 96,
+          "label": "물어본 셀 (source_revision)",
+          "rows": 106,
+          "error": null
+        },
+        {
+          "label": "내용이 있던 셀",
+          "rows": 100,
           "error": null
         },
         {
@@ -361,8 +366,8 @@
       },
       {
         "providerKey": "opendart",
-        "lastFetchRun": "2026-08-02T20:20:38.571Z",
-        "lastSourceRevision": "2026-08-02T20:21:04.179Z",
+        "lastFetchRun": "2026-08-03T04:31:47.531Z",
+        "lastSourceRevision": "2026-08-03T04:31:49.687Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -375,8 +380,8 @@
       },
       {
         "providerKey": "rss-news-bundle",
-        "lastFetchRun": "2026-08-03T03:30:41.907Z",
-        "lastSourceRevision": "2026-08-03T03:30:44.029Z",
+        "lastFetchRun": "2026-08-03T04:30:06.558Z",
+        "lastSourceRevision": "2026-08-03T04:30:08.476Z",
         "activeRecently": true,
         "usesContractLayer": true
       },
@@ -551,6 +556,28 @@
     ],
     "tablesWithLineageColumn": 3
   },
+  "coverage": [
+    {
+      "family": "market.financial_fact",
+      "state": "not_collected",
+      "cells": 1907
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "complete",
+      "cells": 1367
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "not_applicable",
+      "cells": 364
+    },
+    {
+      "family": "market.financial_fact",
+      "state": "source_unavailable",
+      "cells": 2
+    }
+  ],
   "verification": [
     {
       "relation": "knowledge.claim",
@@ -646,7 +673,7 @@
     },
     {
       "jobName": "stock-insight-dart-financial-facts",
-      "lastSuccess": "2026-08-02T20:21:04.884Z",
+      "lastSuccess": "2026-08-03T04:31:49.259Z",
       "lastFailure": null,
       "consecutiveFailures": 0
     },
@@ -826,7 +853,7 @@
     },
     {
       "jobName": "stock-insight-rss-news-ingest",
-      "lastSuccess": "2026-08-03T03:30:44.382Z",
+      "lastSuccess": "2026-08-03T04:30:08.846Z",
       "lastFailure": "2026-07-24T13:30:43.368Z",
       "consecutiveFailures": 0
     },

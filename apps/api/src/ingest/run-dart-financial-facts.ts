@@ -18,7 +18,10 @@ const PROVIDER_KEY = 'opendart';
 const DART_BASE = 'https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json';
 
 // reprt_code: 11013 Q1, 11012 half(Q2), 11014 Q3, 11011 annual(FY)
-const REPORT_CODES: Array<{ code: string; period: 'Q1' | 'H1' | 'Q3' | 'FY' }> = [
+// Exported so the coverage ledger joins on the same mapping the collector fetched
+// with. Re-deriving it there would silently produce observed=0 everywhere, which
+// reads exactly like a real coverage gap.
+export const REPORT_CODES: Array<{ code: string; period: 'Q1' | 'H1' | 'Q3' | 'FY' }> = [
   { code: '11013', period: 'Q1' },
   { code: '11012', period: 'H1' },
   { code: '11014', period: 'Q3' },
@@ -147,7 +150,11 @@ function parseAmount(raw: string | undefined): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function periodEndFor(year: number, period: 'Q1' | 'H1' | 'Q3' | 'FY', _fiscalClose = 12): string {
+export function periodEndFor(
+  year: number,
+  period: 'Q1' | 'H1' | 'Q3' | 'FY',
+  _fiscalClose = 12,
+): string {
   // Standard Dec-close assumption; non-Dec closers keep metadata flag.
   if (period === 'Q1') return `${year}-03-31`;
   if (period === 'H1') return `${year}-06-30`;
@@ -234,6 +241,10 @@ async function run(): Promise<void> {
     let revisionsReplayed = 0;
     let factsSeen = 0;
     let factsInserted = 0;
+    // Counted apart from revisionsRegistered: once empty responses are recorded,
+    // a rising revision count no longer means rising data. Without this split the
+    // collection metric would read growth where none happened.
+    let emptyObservations = 0;
     let issuersCompleted = 0;
 
     outer: for (const issuer of targets) {
@@ -247,15 +258,20 @@ async function run(): Promise<void> {
             issuerComplete = false;
             break outer;
           }
-          if (status === '013') continue; // No data for that issuer/period.
-          if (status !== '000') {
+          // '013' means OpenDART holds no filing for this issuer/period. That is
+          // an observation, not a non-event: it is the difference between "the
+          // company did not file" and "we never asked". This used to `continue`,
+          // which left both cases looking identical in the database — and that
+          // distinction is the entire reason governance.coverage_ledger exists.
+          if (status !== '000' && status !== '013') {
             throw new Error(`OpenDART API status ${status}`);
           }
-          const matched = rows.filter(
-            (row) => row.account_id && accountToConcept.has(row.account_id),
-          );
+          const matched =
+            status === '000'
+              ? rows.filter((row) => row.account_id && accountToConcept.has(row.account_id))
+              : [];
           factsSeen += matched.length;
-          if (apply && matched.length > 0) {
+          if (apply) {
             await client.query('BEGIN');
             await client.query("SELECT set_config('statement_timeout', '120s', true)");
 
@@ -268,6 +284,11 @@ async function run(): Promise<void> {
             // whose content hash means anything. registerRawObjectWithRevision
             // dedupes on the hash, so an unchanged refetch replays instead of
             // appending a revision.
+            //
+            // Empty responses are registered too. A '013' body is a real thing
+            // the source said, and its revision is what lets the coverage ledger
+            // report "asked, nothing there" instead of collapsing it into
+            // "never asked".
             const fetchedAt = new Date().toISOString();
             const raw = await writeRawObject({
               providerKey: PROVIDER_KEY,
@@ -286,6 +307,7 @@ async function run(): Promise<void> {
             });
             if (registered.replay) revisionsReplayed += 1;
             else revisionsRegistered += 1;
+            if (status === '013') emptyObservations += 1;
 
             for (const row of matched) {
               const value = parseAmount(row.thstrm_amount);
@@ -326,6 +348,7 @@ async function run(): Promise<void> {
       fromYear,
       toYear,
       requests,
+      emptyObservations,
       factsSeen,
       factsInserted,
       revisionsRegistered,
@@ -393,4 +416,8 @@ async function run(): Promise<void> {
   }
 }
 
-await run();
+// Guarded because REPORT_CODES is imported by the coverage ledger. Without this,
+// importing the mapping would fire a live OpenDART collection run.
+if (process.argv[1]?.endsWith('run-dart-financial-facts.ts')) {
+  await run();
+}
