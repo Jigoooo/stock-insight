@@ -61,6 +61,7 @@ import { worldEventProjectsMagnitudeMigrationSql } from './migrations/060_world_
 import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity_seed.ts';
 import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revision_identity.ts';
 import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic_vocabulary.ts';
+import { feedLabelEventTargetsMigrationSql } from './migrations/064_feed_label_event_targets.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -770,6 +771,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: marketTopicVocabularyMigrationSql,
   },
+  {
+    id: '064_feed_label_event_targets',
+    description:
+      'Clears collection-feed labels (us_insider_buys, us_corporate_events, gl_major_event, crypto_regulation) out of knowledge.event.target_entity_id. 1,478 events claimed to have reached a company when they had only reached the name of the feed they arrived on; they were also invisible to the text-attribution pass while the column was occupied. The attributed count drops from 3,099 to about 1,621 — a correction, not a regression.',
+    tables: [],
+    sql: feedLabelEventTargetsMigrationSql,
+  },
 ];
 
 export {
@@ -835,5 +843,6 @@ export {
   cryptoIdentitySeedMigrationSql,
   eventRevisionIdentityMigrationSql,
   marketTopicVocabularyMigrationSql,
+  feedLabelEventTargetsMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

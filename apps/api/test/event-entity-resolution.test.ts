@@ -19,15 +19,91 @@ const migration = readFileSync(
   new URL('../../../packages/db-schema/src/migrations/012_knowledge_backfill.ts', import.meta.url),
   'utf8',
 );
+const backfill = readFileSync(
+  new URL(
+    '../../../packages/db-schema/src/migrations/064_feed_label_event_targets.ts',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const attribution = readFileSync(
+  new URL('../src/ingest/run-event-text-attribution.ts', import.meta.url),
+  'utf8',
+);
 
 test('a run that leaves resolvable events behind is a failure', () => {
   // Events with no identifier chain stay unlinked forever and that is correct —
   // they would need entity extraction from news text. What must never remain is
   // an event this pass COULD have resolved.
-  assert.equal(residualFailure({ unlinked: 889, unlinkedWithDocument: 889, resolvable: 0 }), null);
+  assert.equal(
+    residualFailure({
+      unlinked: 889,
+      unlinkedWithDocument: 889,
+      resolvable: 0,
+      declinedFeedLabel: 0,
+    }),
+    null,
+  );
   assert.match(
-    residualFailure({ unlinked: 2405, unlinkedWithDocument: 889, resolvable: 1516 }) ?? '',
+    residualFailure({
+      unlinked: 2405,
+      unlinkedWithDocument: 889,
+      resolvable: 1516,
+      declinedFeedLabel: 0,
+    }) ?? '',
     /left 1516 resolvable events unlinked/,
+  );
+  // A declined feed label is not a residual failure. The event stays unlinked on
+  // purpose, and treating that as a fault would push the pass back toward
+  // accepting a feed name as an answer.
+  assert.equal(
+    residualFailure({
+      unlinked: 2385,
+      unlinkedWithDocument: 889,
+      resolvable: 0,
+      declinedFeedLabel: 1478,
+    }),
+    null,
+  );
+});
+
+// A collection-feed label is not a company. Measured 2026-08-04, 1,478 events
+// pointed at entities of legacy type 'macro' — us_insider_buys,
+// us_corporate_events, gl_major_event, crypto_regulation — so "SEC 8-K JOHNSON &
+// JOHNSON" claimed to have reached a company when it had reached the name of the
+// feed it arrived on. The legacy chain offers nothing better: the signal's
+// raw_json is empty, so there is no ticker in the payload either.
+//
+// This is a contract, not a comment. The previous version of this rule WAS a
+// comment and the pass shipped anyway.
+test('a feed label is never accepted as an event target', () => {
+  assert.match(
+    runner,
+    /legacy_entity\.entity_type <> 'macro'/,
+    'the resolvable set must exclude collection-feed labels',
+  );
+  assert.match(
+    runner,
+    /legacy_entity\.entity_type = 'macro'/,
+    'declined rows must be selected so the reason can be recorded',
+  );
+  // Declining silently would leave "why is this unattributed" answerable only by
+  // re-walking the legacy chain.
+  assert.match(runner, /'declined_reason', 'feed_label_target'/);
+  assert.match(runner, /'feed_label'/);
+});
+
+test('the backfill records what it replaced, using the one reversal field', () => {
+  // Two ways to reverse a target move would mean neither is trustworthy. The
+  // text-attribution pass already writes previous_target_entity_id; the backfill
+  // writes the same field rather than inventing a second one.
+  assert.match(backfill, /previous_target_entity_id/);
+  assert.match(backfill, /SET target_entity_id = NULL/);
+  assert.match(backfill, /legacy_entity\.entity_type = 'macro'/);
+  assert.match(
+    attribution,
+    /previous_target_entity_id/,
+    'the attribution pass must keep using the same reversal field',
   );
 });
 

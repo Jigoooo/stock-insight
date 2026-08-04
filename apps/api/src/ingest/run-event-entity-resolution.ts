@@ -37,8 +37,20 @@ function databaseUrl(): string {
 
 // Only NULL -> value. An event that already names an entity is never rewritten:
 // this pass fills a gap, it does not adjudicate existing links.
-const RESOLVABLE_SQL = `
-SELECT event.event_id, identifier.entity_id
+//
+// The type filter is the correction made 2026-08-04. This pass followed the
+// legacy chain faithfully and landed 1,478 events on entities of type 'macro' —
+// us_insider_buys, us_corporate_events, gl_major_event, crypto_regulation. Those
+// are the names of collection feeds, not things a headline is about: "SEC 8-K
+// JOHNSON & JOHNSON" was attributed to us_corporate_events.
+//
+// The legacy signal carries nothing better. signal.entity_id points at the macro
+// row and signal.raw_json is empty, so there is no ticker hiding in the payload.
+// The bug was never the mapping — it was accepting a feed label as an answer.
+// A feed label in the target column makes "reached a company" false, and the
+// event becomes invisible to run-event-text-attribution.ts, which is the pass
+// that could actually resolve it from the headline.
+const FEED_LABEL_JOIN = `
 FROM knowledge.event event
 JOIN public.market_signals signal
   ON signal.id = (event.metadata->>'legacy_signal_id')::bigint
@@ -48,6 +60,21 @@ JOIN core.entity_identifier identifier
  AND identifier.identifier_value = legacy_entity.entity_key
 WHERE event.target_entity_id IS NULL
   AND event.metadata->>'provenance' = 'legacy_no_document'
+`;
+
+const RESOLVABLE_SQL = `
+SELECT event.event_id, identifier.entity_id
+${FEED_LABEL_JOIN}
+  AND legacy_entity.entity_type <> 'macro'
+`;
+
+// Declined, not silently skipped. The event stays unattributed — which is the
+// truth — but the feed it came from is recorded, so "why is this unattributed"
+// is answerable from the row instead of being re-derived from the legacy chain.
+const DECLINED_SQL = `
+SELECT event.event_id, legacy_entity.entity_key
+${FEED_LABEL_JOIN}
+  AND legacy_entity.entity_type = 'macro'
 `;
 
 const UPDATE_SQL = `
@@ -64,12 +91,28 @@ WHERE event.event_id = resolved.event_id
   AND event.target_entity_id IS NULL
 `;
 
+const MARK_DECLINED_SQL = `
+UPDATE knowledge.event AS event
+SET metadata = event.metadata || jsonb_build_object(
+      'feed_label', declined.entity_key,
+      'entity_resolution', jsonb_build_object(
+        'policy', 'legacy-signal-identifier-v1',
+        'declined_reason', 'feed_label_target',
+        'resolved_at', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+      )
+    )
+FROM (${DECLINED_SQL}) AS declined
+WHERE event.event_id = declined.event_id
+  AND event.metadata->'entity_resolution'->>'declined_reason' IS DISTINCT FROM 'feed_label_target'
+`;
+
 const COUNTS_SQL = `
 SELECT
   (SELECT count(*) FROM knowledge.event WHERE target_entity_id IS NULL)::bigint AS unlinked,
   (SELECT count(*) FROM knowledge.event
      WHERE target_entity_id IS NULL AND source_document_id IS NOT NULL)::bigint AS unlinked_with_document,
-  (SELECT count(*) FROM (${RESOLVABLE_SQL}) resolvable)::bigint AS resolvable
+  (SELECT count(*) FROM (${RESOLVABLE_SQL}) resolvable)::bigint AS resolvable,
+  (SELECT count(*) FROM (${DECLINED_SQL}) declined)::bigint AS declined_feed_label
 `;
 
 const INSERT_RUN_SQL = `
@@ -87,6 +130,8 @@ export type EventEntityCounts = {
   unlinked: number;
   unlinkedWithDocument: number;
   resolvable: number;
+  /** Legacy signals whose only entity is a collection-feed label. Never a target. */
+  declinedFeedLabel: number;
 };
 
 /**
@@ -107,12 +152,14 @@ async function readCounts(client: PoolClient): Promise<EventEntityCounts> {
     unlinked: string;
     unlinked_with_document: string;
     resolvable: string;
+    declined_feed_label: string;
   }>(COUNTS_SQL);
   const row = result.rows[0]!;
   return {
     unlinked: Number(row.unlinked),
     unlinkedWithDocument: Number(row.unlinked_with_document),
     resolvable: Number(row.resolvable),
+    declinedFeedLabel: Number(row.declined_feed_label),
   };
 }
 
@@ -150,6 +197,9 @@ async function run(): Promise<void> {
     }
 
     const updated = await client.query(UPDATE_SQL);
+    // Runs after the resolve so the two sets cannot overlap: a row is either
+    // resolvable or declined, never both.
+    const declined = await client.query(MARK_DECLINED_SQL);
     const after = await readCounts(client);
     const failure = residualFailure(after);
     if (failure) throw new Error(failure);
@@ -157,6 +207,10 @@ async function run(): Promise<void> {
     const summary = {
       mode: 'apply',
       resolved: updated.rowCount ?? 0,
+      // Counted separately from `resolved`. These stayed unattributed on purpose:
+      // the only entity the legacy chain offers is a feed label, and putting one
+      // in the target column would make "reached a company" false.
+      declinedFeedLabel: declined.rowCount ?? 0,
       unlinkedBefore: before.unlinked,
       unlinkedAfter: after.unlinked,
       unlinkedWithDocument: after.unlinkedWithDocument,
