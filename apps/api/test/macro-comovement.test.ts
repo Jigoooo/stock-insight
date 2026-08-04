@@ -138,9 +138,12 @@ describe('macro co-movement model', () => {
   it('documents every series it declines to measure', () => {
     const measured = Object.keys(MACRO_SERIES_TRANSFORMS);
     const excluded = Object.keys(MACRO_SERIES_EXCLUSIONS);
-    // 065 registered 13 series; each is either measured or has a stated reason.
-    assert.equal(measured.length + excluded.length, 13);
-    assert.equal(new Set([...measured, ...excluded]).size, 13);
+    // 065 registered 13 series and 067 added fred:DCOILWTICO for the energy
+    // topic. Each of the 14 is either measured or carries a stated reason — the
+    // count is asserted so a series cannot be added to one map and forgotten in
+    // the other, which is how a series ends up silently unmeasured.
+    assert.equal(measured.length + excluded.length, 14);
+    assert.equal(new Set([...measured, ...excluded]).size, 14);
     for (const reason of Object.values(MACRO_SERIES_EXCLUSIONS)) {
       assert.ok(reason.length > 20, 'an exclusion must say why, not just that');
     }

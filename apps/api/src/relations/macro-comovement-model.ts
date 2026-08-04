@@ -82,6 +82,8 @@ export const MACRO_SERIES_TRANSFORMS: Readonly<Record<string, 'level_difference'
     // for yields.
     'fred:WALCL': 'log_return',
     'fred:ICSA': 'log_return',
+    // Daily. A price level, so a log return — the same treatment as DEXKOUS.
+    'fred:DCOILWTICO': 'log_return',
   });
 
 /**
@@ -102,6 +104,7 @@ export const MACRO_SERIES_FREQUENCY: Readonly<Record<string, 'daily' | 'weekly'>
   'fred:DEXKOUS': 'daily',
   'fred:WALCL': 'weekly',
   'fred:ICSA': 'weekly',
+  'fred:DCOILWTICO': 'daily',
 });
 
 /** How far back a resampled grid may reach for the last close at or before a date. */

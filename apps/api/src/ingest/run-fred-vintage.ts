@@ -39,6 +39,13 @@ const CORE_SERIES = [
   // series, so the rate carries a vintage — which is the only kind usable in a
   // point-in-time snapshot.
   'DEXKOUS', // KRW/USD spot
+  // Crude oil, daily. Added 2026-08-05 for the market-vocabulary `energy` topic:
+  // 12 unattributed macro events match 유가/원유 and had no series to reach, so
+  // they could not touch the graph at all. WTI is daily, which is what the
+  // co-movement model can align without resampling — the monthly trade-balance
+  // series that would cover the `trade` topic is not, and is left out for that
+  // reason rather than forgotten.
+  'DCOILWTICO', // WTI crude spot
 ] as const;
 
 const UPSERT_VINTAGE_SQL = `

@@ -64,6 +64,7 @@ import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic
 import { feedLabelEventTargetsMigrationSql } from './migrations/064_feed_label_event_targets.ts';
 import { macroSeriesEntitiesMigrationSql } from './migrations/065_macro_series_entities.ts';
 import { macroComovementOntologyMigrationSql } from './migrations/066_macro_comovement_ontology.ts';
+import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_energy.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -794,6 +795,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroComovementOntologyMigrationSql,
   },
+  {
+    id: '067_macro_series_energy',
+    description:
+      "Maps fred:DCOILWTICO to the 'energy' market-news topic and gives it a core.entity identity, so the 12 unattributed macro events matching 유가/원유 have a series to reach. Measured 2026-08-05: energy had 0 series mapped, so those events could not touch the graph regardless of attribution design. trade (37 events) is left uncovered because FRED's trade-balance series are monthly/quarterly and fall below the model's 60-observation minimum; market (23) because correlating every stock with an index is beta, not information.",
+    tables: [],
+    sql: macroSeriesEnergyMigrationSql,
+  },
 ];
 
 export {
@@ -862,5 +870,6 @@ export {
   feedLabelEventTargetsMigrationSql,
   macroSeriesEntitiesMigrationSql,
   macroComovementOntologyMigrationSql,
+  macroSeriesEnergyMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
