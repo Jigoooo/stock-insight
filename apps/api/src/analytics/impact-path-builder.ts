@@ -202,5 +202,63 @@ export function buildImpactPaths(
       a.sourceEntityId - b.sourceEntityId ||
       a.eventId - b.eventId,
   );
-  return results.slice(0, options.maxPathsPerEvent);
+
+  // Spend the per-event budget across KINDS of connection, not just the highest
+  // scores.
+  //
+  // Taking the top N by score alone let one predicate own every slot: measured
+  // 2026-08-05, 502 of 655 events produced paths that all used a single
+  // predicate, and only 2 events reached three. A UAL event has 68
+  // SAME_ETF_BASKET edges at a flat 0.800 against 2 MACRO_COMOVEMENT at 0.391,
+  // so all 20 paths said "same ETF" and the macro edge — the one that explains
+  // something the other 19 do not — was never reachable.
+  //
+  // This does NOT touch confidence. Confidence stays a measurement; only the
+  // selection becomes diversity-aware, so nothing is promoted above its evidence.
+  // Within a predicate the order is unchanged, so the best ETF path is still the
+  // first ETF path.
+  const predicateByEdgeId = new Map(
+    [...edges].map((edge) => [edge.graphSnapshotEdgeId, edge.predicate] as const),
+  );
+  const signatureOf = (path: ImpactPath): string =>
+    [
+      ...new Set(
+        path.steps.map((step) => predicateByEdgeId.get(step.graphSnapshotEdgeId) ?? 'unknown'),
+      ),
+    ]
+      .sort()
+      .join('+');
+  const bySignature = new Map<string, ImpactPath[]>();
+  for (const path of results) {
+    const bucket = bySignature.get(signatureOf(path));
+    if (bucket) bucket.push(path);
+    else bySignature.set(signatureOf(path), [path]);
+  }
+  // Insertion order follows the sorted results, so the group holding the single
+  // best path is visited first and a tie between groups is broken the same way
+  // on a replay.
+  const groups = [...bySignature.values()];
+  const selected: ImpactPath[] = [];
+  for (let round = 0; selected.length < options.maxPathsPerEvent; round += 1) {
+    let tookAny = false;
+    for (const group of groups) {
+      if (selected.length >= options.maxPathsPerEvent) break;
+      const path = group[round];
+      if (path === undefined) continue;
+      selected.push(path);
+      tookAny = true;
+    }
+    if (!tookAny) break;
+  }
+  // Re-sort so the returned order is still score-ranked; only the membership of
+  // the set changed, not how it is presented.
+  return selected.sort(
+    (a, b) =>
+      b.pathScore - a.pathScore ||
+      a.hopCount - b.hopCount ||
+      compareStepIds(a, b) ||
+      a.targetEntityId - b.targetEntityId ||
+      a.sourceEntityId - b.sourceEntityId ||
+      a.eventId - b.eventId,
+  );
 }
