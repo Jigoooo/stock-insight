@@ -101,6 +101,148 @@
   font-size: 12px;
 }
 
+.tablePreview,
+.tableViewport {
+  min-width: 0;
+}
+
+.tableViewport {
+  max-width: 100%;
+  overflow: auto;
+}
+
+.previewTable {
+  min-width: 660px;
+  font-size: 12px;
+}
+
+.sortButton,
+.expandButton {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sortButton {
+  min-height: 34px;
+  padding: 0 7px;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-weight: 700;
+}
+
+.sortButton:hover,
+.sortButton:focus-visible {
+  background: var(--color-surface-hover);
+}
+
+.numericCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tickerCell {
+  color: var(--color-text-primary);
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  white-space: nowrap;
+}
+
+.tableStatus[data-status='검토 완료'] {
+  color: var(--color-success-text);
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+}
+
+.expandCell {
+  width: 48px;
+}
+
+.expandButton {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.expandButton:hover,
+.expandButton:focus-visible {
+  color: var(--color-accent-text);
+  background: var(--color-accent-soft);
+}
+
+.expandButton svg {
+  width: 15px;
+  height: 15px;
+}
+
+.evidenceRow td {
+  padding: 0 !important;
+  background: var(--color-surface-subtle);
+}
+
+.evidenceDetail {
+  display: grid;
+  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px 13px 54px;
+  color: var(--color-text-secondary);
+}
+
+.evidenceDetail strong {
+  color: var(--color-text-primary);
+}
+
+.evidenceDetail p {
+  margin: 0;
+}
+
+.evidenceDetail time {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tableSummary {
+  color: var(--color-text-secondary);
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.variantCard[data-variant='sticky-surface'] .tableViewport {
+  max-height: 280px;
+}
+
+.variantCard[data-variant='sticky-surface'] .previewTableHeader {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  background: var(--color-surface);
+  box-shadow: 0 1px 0 var(--color-border);
+}
+
+.variantCard[data-variant='compact-ledger'] .previewTable :is(th, td) {
+  padding-block: 8px;
+}
+
+.variantCard[data-variant='compact-ledger'] .previewTable {
+  font-size: 11px;
+}
+
 .liveRegion {
   position: absolute;
   width: 1px;
@@ -143,6 +285,17 @@
 
   .componentTab {
     min-height: 44px;
+  }
+
+  .sortButton,
+  .expandButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .evidenceDetail {
+    grid-template-columns: 1fr;
+    padding-left: 16px;
   }
 }
 

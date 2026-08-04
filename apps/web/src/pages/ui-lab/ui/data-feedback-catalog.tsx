@@ -2,11 +2,14 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 
 import styles from './data-feedback-catalog.module.css';
 import {
+  createDataRows,
   dataFeedbackTabs,
   dataFeedbackVariants,
   type DataFeedbackTabId,
   type DataFeedbackVariant,
+  type SortState,
 } from './data-feedback-model';
+import { DataFeedbackTablePreview } from './data-feedback-table-preview';
 
 import {
   Tabs,
@@ -40,6 +43,10 @@ export function VariantCard({
 
 export function DataFeedbackCatalog(): ReactElement {
   const [activeTab, setActiveTab] = useState<DataFeedbackTabId>('table');
+  const [tableRows] = useState(() => createDataRows(6));
+  const [tableSort, setTableSort] = useState<SortState>({ key: 'ticker', direction: 'none' });
+  const [selectedTableIds, setSelectedTableIds] = useState<readonly string[]>([]);
+  const [expandedTableId, setExpandedTableId] = useState<string>();
 
   return (
     <section
@@ -86,7 +93,20 @@ export function DataFeedbackCatalog(): ReactElement {
               <div className={styles.variantGrid}>
                 {dataFeedbackVariants[tab.id].map((variant) => (
                   <VariantCard component={tab.id} variant={variant} key={variant.id}>
-                    <div className={styles.previewPlaceholder}>상호작용 목업 구현 중</div>
+                    {tab.id === 'table' ? (
+                      <DataFeedbackTablePreview
+                        expandedId={expandedTableId}
+                        rows={tableRows}
+                        selectedIds={selectedTableIds}
+                        sort={tableSort}
+                        variantId={variant.id}
+                        onExpandedIdChange={setExpandedTableId}
+                        onSelectedIdsChange={setSelectedTableIds}
+                        onSortChange={setTableSort}
+                      />
+                    ) : (
+                      <div className={styles.previewPlaceholder}>상호작용 목업 구현 중</div>
+                    )}
                   </VariantCard>
                 ))}
               </div>
