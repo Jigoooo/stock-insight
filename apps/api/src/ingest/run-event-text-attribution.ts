@@ -70,11 +70,25 @@ ticker AS (
 -- Current revisions only. Migration 062 made a re-extraction supersede rather
 -- than duplicate; attaching a company to a superseded observation would put the
 -- same headline on its page more than once.
+--
+-- Two kinds of candidate, and the second one is why this job was widened.
+--
+-- Unattributed events are the original case. But 1,302 events measured
+-- 2026-08-04 are attributed to a Metric pseudo-entity — us_insider_buys,
+-- us_corporate_events, gl_major_event — which are the names of collection feeds,
+-- not things a headline is about. All 258 gl_major_event rows are SpaceX stories.
+-- Those events were invisible here because they already had a target, so the
+-- IS NULL filter skipped them: a wrong answer hid the question.
+--
+-- The matching rules below are unchanged. This widens what is asked, not what
+-- counts as a match — a Metric target is treated as "not yet attributed", which
+-- is what it actually is.
 candidate AS (
-  SELECT event.event_id, event.summary_text
+  SELECT event.event_id, event.summary_text, event.target_entity_id
   FROM serving.v_knowledge_event_current_v1 event
-  WHERE event.target_entity_id IS NULL
-    AND event.summary_text IS NOT NULL
+  LEFT JOIN core.entity target ON target.entity_id = event.target_entity_id
+  WHERE event.summary_text IS NOT NULL
+    AND (event.target_entity_id IS NULL OR target.entity_type = 'Metric')
 ),
 hit AS (
   SELECT candidate.event_id, company_name.entity_id, company_name.name AS term, 'name' AS kind
@@ -87,19 +101,27 @@ hit AS (
   FROM candidate
   JOIN ticker ON candidate.summary_text ~ ('\\y' || ticker.symbol || '\\y')
 )
-SELECT event_id,
-       min(entity_id) AS entity_id,
-       min(term) AS term,
-       min(kind) AS kind,
-       count(DISTINCT entity_id) AS entity_matches
+SELECT hit.event_id,
+       min(hit.entity_id) AS entity_id,
+       min(hit.term) AS term,
+       min(hit.kind) AS kind,
+       count(DISTINCT hit.entity_id) AS entity_matches,
+       -- Carried so the write can be guarded against the value it was read at,
+       -- and so a wrong move is reversible from the row itself.
+       min(candidate.target_entity_id) AS previous_target_entity_id
 FROM hit
-GROUP BY event_id
-ORDER BY event_id
+JOIN candidate ON candidate.event_id = hit.event_id
+GROUP BY hit.event_id
+ORDER BY hit.event_id
 `;
 
 // Ambiguity is not resolved by picking one. An event naming two companies is a
 // different kind of event, and guessing which one it is about would be exactly
 // the invention this job avoids.
+// The guard is now "still what we read", not "still null". Widening the candidate
+// set to Metric-targeted events means this can overwrite a target, so the write
+// must not clobber a value that changed under it — and the value it replaces is
+// recorded, so a wrong move is reversible from the row rather than re-derived.
 const UPDATE_SQL = `
 UPDATE knowledge.event AS event
 SET target_entity_id = $2::bigint,
@@ -108,11 +130,12 @@ SET target_entity_id = $2::bigint,
         'policy', $3::text,
         'matched_term', $4::text,
         'matched_kind', $5::text,
+        'previous_target_entity_id', $6::bigint,
         'resolved_at', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
       )
     )
 WHERE event.event_id = $1::bigint
-  AND event.target_entity_id IS NULL
+  AND event.target_entity_id IS NOT DISTINCT FROM $6::bigint
 RETURNING event_id
 `;
 
@@ -127,6 +150,7 @@ type HitRow = QueryResultRow & {
   term: string;
   kind: string;
   entity_matches: string | number;
+  previous_target_entity_id: string | number | null;
 };
 
 export type AttributionDecision =
@@ -163,6 +187,7 @@ async function main(): Promise<void> {
           POLICY,
           entry.decision.term,
           entry.decision.kind,
+          entry.row.previous_target_entity_id,
         ]);
         attached += result.rowCount ?? 0;
       }
@@ -185,6 +210,14 @@ async function main(): Promise<void> {
       ambiguousSkipped: ambiguous,
       byKind,
       attached,
+      // Two different things happen now and a single total hides which. A fresh
+      // attribution fills a hole; a move takes an event off a collection-feed
+      // label it never belonged to. The second is the reason this job was widened.
+      attachableFromNull: attachable.filter((entry) => entry.row.previous_target_entity_id === null)
+        .length,
+      attachableFromMetricLabel: attachable.filter(
+        (entry) => entry.row.previous_target_entity_id !== null,
+      ).length,
       sample: attachable.slice(0, 10).map((entry) => ({
         eventId: Number(entry.row.event_id),
         term: entry.row.term,
