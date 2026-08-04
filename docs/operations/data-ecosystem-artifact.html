@@ -366,13 +366,18 @@
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">관측 2026-08-04 01:35 KST · 라이브 DB · e989889 배포 직후</div>
+    <div class="eyebrow">관측 2026-08-05 00:00 KST · 라이브 DB · 프로덕션 e989889 · DB 는 065 까지</div>
     <h1>Stock Insight 데이터 생태계</h1>
     <p class="lede">
-      모든 수치는 라이브 DB 조회다. 손으로 고쳐 쓴 숫자는 없다. 이번 판은 두 가지가
-      달라졌다 — 시장 전반 뉴스 화면이 배포됐고, <strong>관계 그래프가 실제로 무엇을
-      밟는지</strong>를 처음으로 쟀다. 후자가 이 문서에서 가장 중요한 부분이다.
-      표면별 수율만 보면 건강해 보이는 시스템이, 경로가 밟는 술어를 열면 다르게 읽힌다.
+      모든 수치는 라이브 DB 조회다. 손으로 고쳐 쓴 숫자는 없다. 이번 판에서
+      <strong>가장 큰 변화는 귀속 수가 3,099에서 1,635로 떨어진 것이고, 그건 퇴행이
+      아니라 정정이다</strong> — 1,478건이 <code>us_insider_buys</code> 같은 수집 피드
+      이름을 타깃으로 갖고 "종목에 닿았다"고 세어지고 있었다. 그 착시가 걷히자 지배적인
+      손실 지점도 옮겨갔다: 그래프 연결이 아니라 귀속 자체다.
+      <br><br>
+      함께: 거시 계열 13개가 엔티티를 얻었고, 거시–종목 동행을 재는 술어
+      <code>MACRO_COMOVEMENT</code> 가 코드로 완성됐다(드라이런 18엣지, <strong>프로덕션
+      미적용</strong>).
     </p>
   </header>
 
@@ -384,33 +389,47 @@
         <span class="verdict-a">벗어났지만, 벗어난 곳이 인과가 아니라 유사도다</span>
         <p>
           임팩트 경로가 실제로 밟는 술어는 셋뿐이다 —
-          <code>SAME_ETF_BASKET</code> 66,825회, <code>PRODUCT_SIMILARITY</code> 36,303회,
-          <code>CLASSIFIED_AS</code> 4,914회. 즉 "같은 ETF에 들어 있다", "제품이 비슷하다",
+          <code>SAME_ETF_BASKET</code> 72,467회, <code>PRODUCT_SIMILARITY</code> 39,735회,
+          <code>CLASSIFIED_AS</code> 5,270회. 즉 "같은 ETF에 들어 있다", "제품이 비슷하다",
           "같은 분류에 속한다"뿐이다.
           <code>SUPPLY_CHAIN</code>·<code>OWNS</code>·<code>AFFECTS</code>·<code>EXPOSES</code>
           같은 인과 술어는 <strong>단 한 번도 밟히지 않는다</strong>. 전부 증거 부족으로
           격리돼 스냅샷에 들어가지 못한다.
+          <br><br>
+          네 번째가 곧 붙는다 — <code>MACRO_COMOVEMENT</code> 18엣지. 다만 그것도
+          <strong>인과가 아니다.</strong> 잰 것은 "함께 움직였다" 하나이고, ETF·유사도와
+          같은 층위다. 이름을 <code>AFFECTS</code>·<code>EXPOSES</code> 로 짓지 않은 이유가
+          그것이다.
         </p>
       </div>
       <div class="verdict">
         <span class="verdict-q">Q. 타고 · 타고 · 타고 의 다중 홉이 되는가</span>
         <span class="verdict-a">2홉까지. 3홉 이상은 0건이고, 2홉도 인과가 아니다</span>
         <p>
-          봉인된 경로 105,585개 중 1홉이 103,128개(97.7%), 2홉이 2,457개,
+          봉인된 경로 114,837개 중 1홉이 112,202개(97.7%), 2홉이 2,635개,
           <strong>3홉 이상은 0개</strong>다. 게다가 2홉 경로가 쓰는 술어는
           <code>CLASSIFIED_AS</code> 하나뿐 — <code>A → 분류 ← B</code> 형태의 공통 소속이지
           <code>A가 B에 영향을 주고 B가 C에 영향을 준다</code>가 아니다. 다중 홉 배관은
           있는데, 밟을 인과 엣지가 없다.
+          <br><br>
+          <code>MACRO_COMOVEMENT</code> 가 들어가면 <strong>종목A → 거시계열 → 종목B</strong>
+          라는 새 2홉 모양이 생긴다(경로 빌더에서 종목이 아닌 노드는 종단이 아니다).
+          <em>예측이고, apply 전에는 확인할 수 없다.</em>
         </p>
       </div>
       <div class="verdict">
         <span class="verdict-q">Q. 종목 이름이 없어도 사건·흐름에서 도달하는가</span>
-        <span class="verdict-a">아니다. 기업이 붙지 않은 사건이 만든 경로는 0건이다</span>
+        <span class="verdict-a">아니다. 그리고 못 닿는 사건이 907에서 2,462로 늘었다</span>
         <p>
-          현재 관측 4,006건 중 907건에 기업이 붙지 않았고, 그 907건이 만든 임팩트 경로는
-          <strong>정확히 0개</strong>다. 사건은 먼저 <code>target_entity_id</code>를 얻어야만
-          그래프를 걷기 시작할 수 있다. 이번에 배포한 시장 전반 뉴스 화면은 그 907건 중
-          어휘에 걸린 것들을 <em>보여주기는</em> 하지만, 어떤 종목에도 잇지 않는다.
+          현재 관측 4,097건 중 <strong>2,462건</strong>에 기업이 붙지 않았고, 그 2,462건이
+          만든 임팩트 경로는 <strong>정확히 0개</strong>다. 늘어난 이유는 상황이 나빠져서가
+          아니라 <strong>피드 이름을 종목으로 세던 1,478건이 정직하게 미귀속으로
+          돌아왔기</strong> 때문이다.
+          <br><br>
+          거시 엣지가 이걸 풀지는 <strong>못한다.</strong> 사건은 먼저
+          <code>target_entity_id</code> 를 얻어야 걷기 시작하는데, 시장 어휘에 걸린 127건은
+          여전히 타깃이 없다. 어휘 사건을 거시 Metric 엔티티에 귀속시키는 단계가 따로
+          필요하다.
         </p>
       </div>
     </div>
@@ -454,53 +473,57 @@
 flowchart TB
 
   subgraph S1["1 · 수집"]
-    RSSDOC["source_documents · rss_news<br/>4,152건 중 entity_key <b>7건 (0.2%)</b>"]
-    STKDOC["source_documents · stock_research<br/>5,461건 중 entity_key 3,785 (69%)"]
-    MACRO["market.macro_vintage<br/>55,244행 · 13계열 · 매일 갱신"]
-    COV["coverage_ledger 3,640셀<br/>미수집 1,862 · 커서 111 / 182"]
+    RSSDOC["source_documents · rss_news<br/>4,338건 중 entity_key <b>7건 (0.2%)</b>"]
+    STKDOC["source_documents · stock_research<br/>5,477건 중 entity_key 3,789 (69%)"]
+    MACRO["market.macro_vintage<br/>55,775행 · 13계열 · 매일 갱신"]
+    COV["coverage_ledger 3,955셀<br/>미수집 1,907 · 완료 1,613"]
   end
 
   subgraph S2["2 · 지식"]
-    EVENT["knowledge.event 4,006<br/>귀속 3,099 · 미귀속 907"]
-    CLAIM["knowledge.claim<br/>corroborated 274 · verified 0"]
+    EVENT["knowledge.event 4,097<br/>귀속 1,635 · <b>미귀속 2,462</b>"]
+    CLAIM["knowledge.claim<br/>corroborated 292 · verified 0"]
   end
 
-  subgraph SDEAD["귀속됐지만 이어지지 않는 곳 — 1,421건"]
-    FEED["피드 · 버킷 라벨 <b>1,302건 (92%)</b><br/>us_insider_buys 417 · us_corporate_events 417<br/>gl_major_event 258 · crypto_regulation 210<br/>회사를 지목하는데 피드 이름에 붙었다"]
-    NARR["진짜 내러티브 <b>94건</b><br/>tariffs 33 · ai_capex 32 · semiconductor 29<br/>그래프 엣지 0개"]
+  subgraph SFIX["정정된 것 — 피드 라벨 1,478건"]
+    FEED["Metric 타깃 <b>1,478 → 0</b><br/>us_insider_buys · us_corporate_events<br/>gl_major_event · crypto_regulation<br/>피드 이름을 종목으로 세던 것을 되돌렸다"]
+  end
+
+  subgraph SDEAD["붙었는데 이어질 곳이 없는 곳"]
+    NARR["내러티브 엔티티 4개<br/>tariffs · ai_capex · semiconductor · gl_major_event<br/><b>붙은 사건 94 → 0</b> · 그래프 엣지 0"]
   end
 
   subgraph S3["3 · 관계 — 여기가 좁다"]
-    ACC["accepted 19,347<br/>SAME_ETF_BASKET · PRODUCT_SIMILARITY<br/>ISSUED_BY · CLASSIFIED_AS"]
+    ACC["accepted 21,836<br/>SAME_ETF_BASKET 14,619 · PRODUCT_SIMILARITY 6,590<br/>ISSUED_BY 508 · CLASSIFIED_AS 119"]
     QUAR["격리 3,312<br/>AFFECTS 616 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · SUPPLY_CHAIN 169"]
+    MACROREL["MACRO_COMOVEMENT<br/>정책 ✓ 온톨로지 ✓ 빌더 ✓ 배선 ✓<br/><b>드라이런 18 accepted · 미적용</b>"]
     SUPPLY["SUPPLIES · CUSTOMER_OF<br/>정책 ✓ 빌더 ✓ 테이블 ✓<br/><b>데이터 0행</b>"]
     THEME["theme_membership 396<br/>전부 adjacent · 근거 93% 격리"]
     SNAP["graph_snapshot_edge<br/>연결 엔티티 651"]
   end
 
   subgraph S4["4 · 임팩트 · 서빙"]
-    IP2["impact_path_v2 105,585 봉인<br/>1홉 103,128 · 2홉 2,457 · <b>3홉+ 0</b>"]
-    ITEM["content_pack_item 9,311 · 수율 100%"]
-    CONF["market_confirmation_v1<br/>253행 · 임팩트 연결 212"]
+    IP2["impact_path_v2 114,837 봉인<br/>1홉 112,202 · 2홉 2,635 · <b>3홉+ 0</b>"]
+    ITEM["content_pack 317 · 아이템 94,768"]
+    CONF["market_confirmation_v1<br/>화면 미연결"]
   end
 
   subgraph S5["5 · 제품"]
-    UI["종목 심층 화면<br/>도달 종목 270 / 331"]
-    MNEWS["시장 전반 뉴스 화면<br/>어휘 34개 · 매칭 88 · 표시 79"]
+    UI["종목 심층 화면<br/>도달 종목 317 / 325"]
+    MNEWS["시장 전반 뉴스 화면<br/>어휘 34개 · 매칭 <b>127</b>"]
     SHOCK["impact_shock 0<br/>exposure 0 · lot_snapshot 0"]
   end
 
   STKDOC ==>|"키가 있어 귀속된다"| EVENT
-  RSSDOC ==>|"키가 없다 → 미귀속 907"| EVENT
-  RSSDOC -.->|"본문만 남아 피드 라벨로 떨어진다"| FEED
-  EVENT ==>|"미귀속 907 중 어휘 88"| MNEWS
-  MNEWS x--x|"어떤 종목에도 붙지 않는다"| UI
-  EVENT -->|"귀속 3,099"| SNAP
+  RSSDOC ==>|"키가 없다 → 미귀속"| EVENT
+  FEED ==>|"타깃을 비웠다 → 미귀속으로 정정"| EVENT
+  EVENT ==>|"미귀속 2,462 중 어휘 127"| MNEWS
+  MNEWS x--x|"타깃이 없어 걷기를 시작 못 한다"| UI
+  EVENT -->|"귀속 1,635"| SNAP
   EVENT --> CLAIM
   CLAIM -.->|"문서 2건 요건 미달"| QUAR
-  FEED x--x|"기존 규칙으로 구제 13건뿐"| SNAP
   NARR x--x|"잇는 술어가 없다"| SNAP
-  MACRO x--x|"Metric 엔티티에 엣지 0"| NARR
+  MACRO ==>|"13계열이 엔티티를 얻었다"| MACROREL
+  MACROREL -.->|"066 적용 + apply 하면 18엣지"| SNAP
   ACC ==>|"유사도 엣지만 통과"| SNAP
   QUAR x--x|"인과 엣지는 스냅샷에 못 들어간다"| SNAP
   SUPPLY -.->|"공시 수집만 붙이면 산다"| SNAP
@@ -519,10 +542,10 @@ flowchart TB
   classDef dead fill:#ffffff,stroke:#a83a2b,stroke-width:2px,stroke-dasharray:5 3,color:#4a1710
   classDef ready fill:#fdf3e0,stroke:#9a6b16,stroke-width:2px,color:#5c3f08
 
-  class STKDOC,MACRO,COV,EVENT,ACC,SNAP,IP2,ITEM,UI,MNEWS flow
+  class STKDOC,MACRO,COV,EVENT,ACC,SNAP,IP2,ITEM,UI,MNEWS,FEED flow
   class QUAR,CLAIM,CONF,RSSDOC block
-  class FEED,NARR,THEME dead
-  class SUPPLY ready
+  class NARR,THEME dead
+  class SUPPLY,MACROREL ready
   class SHOCK dormant
       </pre>
     </div>
@@ -544,10 +567,11 @@ flowchart TB
           </tr>
         </thead>
         <tbody>
-          <tr><td><strong>SAME_ETF_BASKET</strong></td><td>통계</td><td class="n">12,130</td><td class="n">26</td><td>1홉 · 66,825회</td></tr>
-          <tr><td><strong>PRODUCT_SIMILARITY</strong></td><td>통계</td><td class="n">6,590</td><td class="n">0</td><td>1홉 · 36,303회</td></tr>
-          <tr><td><strong>CLASSIFIED_AS</strong></td><td>구조</td><td class="n">119</td><td class="n">0</td><td>2홉 · 4,914회</td></tr>
+          <tr><td><strong>SAME_ETF_BASKET</strong></td><td>통계</td><td class="n">14,619</td><td class="n">26</td><td>1홉 · 72,467회</td></tr>
+          <tr><td><strong>PRODUCT_SIMILARITY</strong></td><td>통계</td><td class="n">6,590</td><td class="n">0</td><td>1홉 · 39,735회</td></tr>
+          <tr><td><strong>CLASSIFIED_AS</strong></td><td>구조</td><td class="n">119</td><td class="n">0</td><td>2홉 · 5,270회</td></tr>
           <tr><td><strong>ISSUED_BY</strong></td><td>구조</td><td class="n">508</td><td class="n">0</td><td>정체성 전용</td></tr>
+          <tr><td><strong>MACRO_COMOVEMENT</strong> <span class="chip dormant-s">신규</span></td><td>통계</td><td class="n">0</td><td class="n">0</td><td>드라이런 18 · 미적용</td></tr>
           <tr><td>COMMON_OWNER</td><td>통계</td><td class="n">0</td><td class="n">1,062</td><td>—</td></tr>
           <tr><td>AFFECTS</td><td>구조</td><td class="n">0</td><td class="n">616</td><td>—</td></tr>
           <tr><td>SAME_INDUSTRY</td><td>구조</td><td class="n">0</td><td class="n">418</td><td>—</td></tr>
@@ -567,40 +591,47 @@ flowchart TB
   <section>
     <h2>사건이 임팩트가 되기까지 — 어디서 얼마나 잃는가</h2>
     <p class="lede" style="margin-top:0">
-      귀속만으로는 부족하다. 걷기 시작할 엔티티가 그래프에 엣지를 갖고 있어야 한다.
-      <strong>지배적인 손실은 예산이 아니라 이 연결 조건이다.</strong>
+      <strong>지난 판에서 지목했던 손실 지점이 사라졌다.</strong> 45일 창의 연결 손실은
+      1,421건이었고 "가장 큰 손실"로 표시했는데, 지금은 <strong>25건</strong>이다.
+      고쳐서가 아니라 <em>그 1,421건의 대부분이 애초에 귀속이 아니었기 때문</em>이다 —
+      피드 이름에 붙어 있었을 뿐이다. 타깃을 비우자 손실이 아니라 미귀속으로 재분류됐다.
+      <br><br>
+      즉 병목은 그래프 연결에서 <strong>귀속 자체</strong>로 옮겨갔다. 귀속만 되면
+      거의 다 걷는다.
     </p>
     <div class="stage">
       <div class="rows">
         <div class="row flow-s">
           <div class="surface">현재 관측 <small>knowledge.event 의 현재 리비전</small></div>
-          <div class="yield">4,006</div><span class="chip flow-s">전체</span>
+          <div class="yield">4,097</div><span class="chip flow-s">전체</span>
         </div>
         <div class="row block-s">
           <div class="surface">기업이 붙지 않음
-            <small>이 중 88건이 시장 어휘에 걸려 새 화면에 나온다. 나머지는 지역 행정·쇼핑 프로모션이라 안 보이는 게 맞다</small>
+            <small>이 중 127건이 시장 어휘에 걸려 시장 전반 뉴스 화면에 나온다. <strong>여기가 지금의 병목이다</strong> — 907에서 늘어난 것은 피드 라벨 1,478건이 정직하게 이쪽으로 돌아왔기 때문이다</small>
           </div>
-          <div class="yield">−907</div><span class="chip block-s">경로 0</span>
+          <div class="yield">−2,462</div><span class="chip block-s">가장 큰 손실</span>
         </div>
         <div class="row flow-s">
           <div class="surface">45일 창 안의 귀속 사건 <small>빌더가 후보로 읽는 범위</small></div>
-          <div class="yield">2,873</div><span class="chip flow-s">후보</span>
+          <div class="yield">1,484</div><span class="chip flow-s">후보</span>
         </div>
-        <div class="row block-s">
+        <div class="row dormant-s">
           <div class="surface">엔티티가 그래프에 엣지 없음
-            <small>여기서 49%를 잃는다. policy_event 623건이 전부 여기 걸린다 — 붙은 엔티티 5개가 모두 Metric 노드이고 엣지가 0개다</small>
+            <small>1,421 → 25. <code>policy_event</code> 623건이 여기 걸려 있었는데, 그것들은 이제 귀속 자체가 없어 이 단계에 오지 않는다</small>
           </div>
-          <div class="yield">−1,421</div><span class="chip block-s">가장 큰 손실</span>
+          <div class="yield">−25</div><span class="chip dormant-s">1.7%</span>
         </div>
         <div class="row dormant-s">
           <div class="surface">실행당 예산 <code>EVENT_LIMIT</code>
-            <small>1,452개 후보에 500 슬롯. 실행이 누적되며 605건까지 올라왔다 — 예산은 두 번째 제약이다</small>
+            <small>1,459개 후보에 500 슬롯. 실행이 누적되며 채워진다 — 예산은 두 번째 제약이다</small>
           </div>
           <div class="yield">500 / 회</div><span class="chip dormant-s">누적 완화</span>
         </div>
         <div class="row flow-s">
-          <div class="surface">실제로 경로를 만든 사건</div>
-          <div class="yield">605</div><span class="chip flow-s">15%</span>
+          <div class="surface">실제로 경로를 만든 사건
+            <small><code>impact_path_v2</code> 의 고유 trigger 사건. 여러 실행에 걸쳐 누적되므로 실행당 예산 500을 넘을 수 있다</small>
+          </div>
+          <div class="yield">635</div><span class="chip flow-s">귀속의 39%</span>
         </div>
       </div>
     </div>
@@ -614,24 +645,31 @@ flowchart TB
           <tr><th>사건 유형</th><th class="n">귀속</th><th class="n">엔티티 연결</th><th class="n">고유 엔티티</th><th class="n">경로 생성</th></tr>
         </thead>
         <tbody>
-          <tr><td><strong>insider_trade</strong></td><td class="n">1,004</td><td class="n">568</td><td class="n">39</td><td class="n">168</td></tr>
           <tr><td><strong>analyst</strong></td><td class="n">882</td><td class="n">882</td><td class="n">147</td><td class="n">325</td></tr>
-          <tr><td><strong>policy_event</strong></td><td class="n">623</td><td class="n">0</td><td class="n">5</td><td class="n">0</td></tr>
-          <tr><td><strong>sec_8k</strong></td><td class="n">462</td><td class="n">5</td><td class="n">10</td><td class="n">4</td></tr>
-          <tr><td>earnings</td><td class="n">66</td><td class="n">66</td><td class="n">26</td><td class="n">55</td></tr>
-          <tr><td>product_launch</td><td class="n">21</td><td class="n">21</td><td class="n">16</td><td class="n">15</td></tr>
-          <tr><td>ma_deal</td><td class="n">17</td><td class="n">17</td><td class="n">11</td><td class="n">10</td></tr>
-          <tr><td>capex_increase</td><td class="n">11</td><td class="n">11</td><td class="n">6</td><td class="n">9</td></tr>
-          <tr><td>legal_action · supply_disruption · buyback_dividend · ipo_listing</td><td class="n">13</td><td class="n">13</td><td class="n">12</td><td class="n">12</td></tr>
+          <tr><td><strong>insider_trade</strong></td><td class="n">573</td><td class="n">573</td><td class="n">40</td><td class="n">168</td></tr>
+          <tr><td>earnings</td><td class="n">75</td><td class="n">75</td><td class="n">29</td><td class="n">68</td></tr>
+          <tr><td><strong>sec_8k</strong></td><td class="n">38</td><td class="n">13</td><td class="n">17</td><td class="n">4</td></tr>
+          <tr><td>product_launch</td><td class="n">25</td><td class="n">25</td><td class="n">18</td><td class="n">21</td></tr>
+          <tr><td>ma_deal</td><td class="n">17</td><td class="n">17</td><td class="n">11</td><td class="n">17</td></tr>
+          <tr><td>capex_increase</td><td class="n">12</td><td class="n">12</td><td class="n">7</td><td class="n">12</td></tr>
+          <tr><td>legal_action · supply_disruption · buyback_dividend · ipo_listing</td><td class="n">13</td><td class="n">13</td><td class="n">12</td><td class="n">13</td></tr>
+          <tr><td><strong>policy_event</strong></td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td></tr>
           <tr><td><strong>macro_shock · regulation</strong></td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td></tr>
         </tbody>
       </table>
     </div>
     <p class="lede">
-      마지막 줄이 중요하다. <code>macro_shock</code>과 <code>regulation</code>은 분류
-      체계에는 있는데 <strong>사건이 한 건도 추출된 적이 없다</strong>. 금리·물가 같은
-      거시 사건이 들어올 자리가 비어 있고, 그래서 거시 뉴스는 <code>policy_event</code>로
-      떨어져 Metric 노드에서 멈춘다.
+      <strong><code>policy_event</code> 이 623에서 0이 됐다.</strong> 사건이 사라진 게
+      아니라 타깃이 사라졌다 — 623건 전부가 <code>gl_major_event</code>·
+      <code>crypto_regulation</code> 같은 <em>수집 피드 이름</em>에 붙어 있었고, 그건
+      귀속이 아니었다. 지금은 미귀속 2,462건 안에 들어 있다.
+      <br><br>
+      <code>macro_shock</code>과 <code>regulation</code>은 여전히 0이다. 분류 체계에는
+      있는데 <strong>사건이 한 건도 추출된 적이 없다</strong>. 거시 사건이 들어올 자리가
+      비어 있는 것은 그대로다.
+      <br><br>
+      나머지 줄에서 읽을 것: <strong>귀속만 되면 거의 다 연결된다.</strong>
+      <code>sec_8k</code> 만 38 중 13으로 예외다.
     </p>
   </section>
 
@@ -644,6 +682,30 @@ flowchart TB
       순서는 <strong>값싼 것부터</strong>다.
     </p>
     <ol class="steps">
+      <li class="decide">
+        <span class="s-kind">확인 대기 · 코드는 끝났다</span>
+        <span class="s-title">MACRO_COMOVEMENT 를 프로덕션에 반영한다</span>
+        <div class="s-body">
+          거시 계열과 종목이 <strong>함께 움직였는지</strong>를 재는 통계 술어. 정책 ·
+          온톨로지(마이그레이션 066) · 모델 · 빌더 · 배선이 전부 끝났고
+          <strong>드라이런에서 18후보 전부 accepted</strong> 됐다. 남은 것은 프로덕션
+          쓰기 둘 — 066 적용과 <code>--apply</code> 실행이다.
+          <br><br>
+          18쌍이 말이 되는지가 이게 배관이 아니라 측정이라는 증거다:
+          TLT(20년+ 국채 ETF) ↔ 10년물 금리 <strong>−0.902</strong>, 달러 ETF ↔ 단기금리
+          +0.450, 홈디포·프로로지스는 금리 음, 에너지는 금리 양, 금은 금리 음.
+          <br><br>
+          <strong>13계열 중 3계열만 잰다.</strong> 나머지 열은 관측일이 거래일과 겹치는지를
+          먼저 재서 뺐다 — <code>ICSA</code> 는 주간 기준일이 토요일이라
+          <strong>260일 중 0일</strong>이 겹치고, 월간 8종은 월 변화를 하루치 주가
+          수익률과 맞대는 빈도 불일치다. 그냥 넣었으면 빌더가 "정상 동작" 하면서
+          열 계열분을 조용히 버렸을 것이다.
+          <br><br>
+          <em>얻지 못하는 것</em>: 인과. 그리고 <strong>미귀속 사건의 경로도 안 생긴다</strong> —
+          사건은 타깃이 있어야 걷기 시작하는데 어휘에 걸린 127건은 여전히 타깃이 없다.
+        </div>
+        <div class="s-close">닫는 관측 — Metric 엔티티를 지나는 스냅샷 엣지가 0을 벗어나고, <strong>경로가 밟는 술어 목록에 MACRO_COMOVEMENT 가 등장</strong>한다. 앞의 하나만 움직이면 엣지는 생겼는데 경로가 안 쓰는 것이다</div>
+      </li>
       <li class="collect">
         <span class="s-kind">수집 · 배관은 이미 다 있다</span>
         <span class="s-title">공급망 공시를 수집한다 — 인과 술어를 얻는 유일한 길</span>
@@ -666,22 +728,23 @@ flowchart TB
         <div class="s-close">닫는 관측 — firm_supply_relation 이 0을 벗어나고, <strong>경로가 밟는 술어 목록에 SUPPLIES 가 등장</strong>한다. 후자까지 가야 실제로 산 것이다</div>
       </li>
       <li>
-        <span class="s-kind">배선 · 값싸다</span>
-        <span class="s-title">텍스트 귀속을 피드 라벨 엔티티까지 넓힌다</span>
+        <span class="s-kind">배선 · 다음 단계</span>
+        <span class="s-title">시장 어휘 사건을 거시 Metric 엔티티에 귀속시킨다</span>
         <div class="s-body">
-          <code>run-event-text-attribution.ts</code> 는 <code>target_entity_id IS NULL</code>
-          인 것만 본다. 피드 라벨(<code>us_insider_buys</code> 등)에 붙은 1,302건은
-          <strong>틀린 타깃을 이미 갖고 있어서</strong> 시야에 안 들어온다.
+          <strong>미귀속 사건이 어디에도 못 닿는 상태를 여는 유일한 길이다.</strong>
+          어휘에 걸린 127건은 <code>rates</code>·<code>inflation</code> 같은 주제를
+          이미 알고 있고, <code>analytics.macro_series_topic</code> 이 그 주제를 FRED
+          계열에 잇는다. 그리고 계열은 이제 엔티티다. <strong>재료가 다 있다.</strong>
           <br><br>
-          <strong>방법</strong> 대상 조건에 "타깃이 Metric 타입 피드 라벨인 경우"를 더한다.
-          매칭 규칙(이름 4자 이상 단일 매치 / 티커 3자 이상 경계)은 <strong>바꾸지
-          않는다</strong> — 규칙 완화가 아니라 대상 확대다. 같이 할 것: 추출기가 애초에
-          이 라벨들을 타깃으로 쓰지 않게 막아야 재발하지 않는다.
+          <strong>왜 지금 안 했는가</strong> 거시 상관 2·3·4단계의 범위가 아니었다.
+          이건 귀속 규칙을 바꾸는 일이고, "종목을 못 찾으면 주제에 붙인다"는 판단이
+          필요하다 — 그 판단은 사용자 몫이다.
           <br><br>
-          <em>기대치를 낮춰 적는다</em>: 기존 규칙으로 구제되는 것은 <strong>13건</strong>이다.
-          나머지가 지목하는 회사가 <code>core.entity</code> 에 없다.
+          <em>앞선 판의 이 자리에 있던 항목</em>(피드 라벨 1,302건 재귀속)은
+          <strong>다르게 해결됐다.</strong> 재귀속이 아니라 타깃을 비우는 쪽을 택했고,
+          1,478건이 미귀속으로 정정됐다. 텍스트 귀속 대상 확대로 구제된 것은 17건이다.
         </div>
-        <div class="s-close">닫는 관측 — 피드 라벨에 붙은 사건 수가 줄고, 45일 창의 연결 손실 1,421 이 그만큼 줄어든다</div>
+        <div class="s-close">닫는 관측 — 미귀속 사건이 만든 임팩트 경로가 0을 벗어난다. 이 관측은 <strong>거시 상관 단계로는 안 움직인다</strong> — 그걸 성공 조건으로 걸어 뒀던 것이 앞선 계획의 오판이다</div>
       </li>
       <li class="decide">
         <span class="s-kind">결정 · 화면 쪽 조건</span>
@@ -696,7 +759,7 @@ flowchart TB
           화면 쪽 조건 — <code>market:코스닥</code> 단독 매칭 + 상장·공모 어휘 동시 등장 —
           으로 거른다. 어휘를 안 건드리는 것이 요점이다.
         </div>
-        <div class="s-close">닫는 관측 — 표시 79줄에서 상장 공시가 빠지고, 용어별 건수 표의 코스닥·나스닥 수는 그대로다</div>
+        <div class="s-close">닫는 관측 — 표시 목록에서 상장 공시가 빠지고, 용어별 건수 표의 코스닥·나스닥 수는 그대로다. 둘 다 움직이면 어휘를 건드린 것이다</div>
       </li>
       <li class="decide">
         <span class="s-kind">결정 · 미착수</span>
@@ -714,9 +777,9 @@ flowchart TB
         <span class="s-kind">시간 · 고칠 코드가 없다</span>
         <span class="s-title">커버리지는 기다리면 닫힌다</span>
         <div class="s-body">
-          미수집 1,592셀 중 <strong>1,587건이 "커서가 아직 도달하지 않음"</strong>이다.
-          실패가 아니라 밀린 것이다. 커서는 182곳 중 111곳까지 왔고, 하루 15곳씩
-          <strong>약 5일</strong>이면 한 바퀴가 끝난다.
+          미수집 <strong>1,907</strong>셀의 대부분이 "커서가 아직 도달하지 않음"이다.
+          실패가 아니라 밀린 것이다. 원장은 3,955셀로 자랐고(완료 1,613 · 해당없음 364 ·
+          출처없음 71), 커서가 도는 동안 새 발행사·새 기간이 계속 열린다.
           <br><br>
           한도는 OpenDART 가 <code>status 020</code> 을 반환할 때만 켜지고, 잡 기록으로
           재면 (300, 361] 사이다. <code>--limit</code> 은 요청 수가 아니라 발행사 수이며
@@ -737,10 +800,11 @@ flowchart TB
           <div class="surface">노출 술어(EXPOSES)를 만들어 거시 노드를 잇는다
             <small><code>EXPOSES</code> 는 정책 표에 없다. 근거로 쓰려던
             <code>etf_holdings.sector</code> 는 고유값 0이고, 산업 분류는 이미 소진됐다
-            (해석 종목 119 = CLASSIFIED_AS 119). 게다가 진짜 내러티브는 94건뿐이라
-            완벽하게 만들어도 사거리가 94다</small>
+            (해석 종목 119 = CLASSIFIED_AS 119). 사거리는 진짜 내러티브 94건뿐이었는데,
+            마이그레이션 064 가 macro 시그널에서 온 Metric 타깃을 전부 비우면서
+            <strong>그 94건도 0이 됐다</strong> — 기각 근거가 더 강해졌다</small>
           </div>
-          <div class="yield">사거리 94건</div><span class="chip block-s">기각</span>
+          <div class="yield">사거리 94 → 0</div><span class="chip block-s">기각</span>
         </div>
         <div class="row block-s">
           <div class="surface">ownership 빌더를 배선한다
@@ -755,7 +819,7 @@ flowchart TB
           <div class="surface">유니버스를 넓힌다
             <small>내가 제안했고 내가 반증했다. 뉴스 문서가 지목하는 종목 54개가
             <strong>전부 이미 유니버스 안</strong>이다. 진짜 격차는 유니버스 크기가 아니라
-            <code>rss_news</code> 문서의 키 부재다 — 4,152건 중 7건만 갖고 있다</small>
+            <code>rss_news</code> 문서의 키 부재다 — 4,338건 중 7건만 갖고 있다</small>
           </div>
           <div class="yield">수요 0</div><span class="chip block-s">철회</span>
         </div>
@@ -779,7 +843,7 @@ flowchart TB
         <div class="rows">
           <div class="row block-s">
             <div class="surface">월드 모델 → 포트폴리오 노출
-              <small>world.event_revision 4,046 → <strong>impact_shock 0</strong> → exposure 0 → lot_snapshot 0.
+              <small>world.event_revision 4,142 → <strong>impact_shock 0</strong> → exposure 0 → lot_snapshot 0.
               sign·materiality·economic_magnitude 를 지어내야 채워지므로 비운 채 둔다</small>
             </div>
             <div class="yield">impact_shock 에서 끊김</div>
@@ -787,7 +851,7 @@ flowchart TB
           </div>
           <div class="row block-s">
             <div class="surface">지식 추출 → 검증된 주장
-              <small>document 6,255 → claim 274(corroborated) → <strong>verified 0</strong>.
+              <small>document 6,578 → claim 292(전부 corroborated) → <strong>verified 0</strong>.
               문서 2건 요건을 못 채운다. 검증 기준이 이 저장소에 정의된 적이 없다</small>
             </div>
             <div class="yield">verified 에서 끊김</div>
@@ -795,21 +859,29 @@ flowchart TB
           </div>
           <div class="row block-s">
             <div class="surface">시장 전반 뉴스 → 종목
-              <small>새 화면이 88건을 보여주지만 어떤 종목에도 잇지 않는다. 공급망 수집이나 귀속 확대가 풀려야 이 사슬이 생긴다</small>
+              <small>화면이 127건을 보여주지만 어떤 종목에도 잇지 않는다. 거시 엣지가 생겨도 이 사슬은 안 생긴다 — 사건에 타깃이 없어 걷기를 시작하지 못한다. 어휘 사건을 거시 Metric 에 귀속시켜야 열린다</small>
             </div>
             <div class="yield">경로 0</div>
-            <span class="chip block-s">신규</span>
+            <span class="chip block-s">88 → 127</span>
+          </div>
+          <div class="row block-s">
+            <div class="surface">거시 시계열 → 그래프
+              <small>macro_vintage 55,775행 · 13계열이 엔티티를 얻었고 술어도 생겼다.
+              <strong>066 적용과 apply 가 남았다</strong> — 그때 Metric 엣지가 0에서 18이 된다</small>
+            </div>
+            <div class="yield">적용 대기</div>
+            <span class="chip dormant-s">코드 완료</span>
           </div>
           <div class="row flow-s">
             <div class="surface">v2 임팩트 → 제품
-              <small>graph_snapshot_edge 5,379 → impact_path_v2 → content_pack_item 9,311 → impact_brief 262</small>
+              <small>graph_snapshot_edge 83,298 → impact_path_v2 114,837 → content_pack 317 · 아이템 94,768 → 도달 종목 317 / 325</small>
             </div>
             <div class="yield">끊긴 곳 없음</div>
             <span class="chip flow-s">흐름</span>
           </div>
           <div class="row flow-s">
             <div class="surface">사건 귀속 → 월드 참여자
-              <small>event 4,046 → 엔티티 붙은 사건 3,106 → world.event_participant 3,106</small>
+              <small>world.event_revision 4,142 → world.event_participant 3,133</small>
             </div>
             <div class="yield">끊긴 곳 없음</div>
             <span class="chip flow-s">흐름</span>
@@ -821,16 +893,24 @@ flowchart TB
 
   <footer>
     <p>
-      숫자가 움직인 것에 대해 — 시장 어휘 매칭은 <span class="num">83 → 86 → 89 → 88</span>
-      로 움직였고 <strong>매번 이유가 다르다</strong>. 83→86 은 매칭 규칙이 대소문자
-      무시로 바뀐 것, 86→89 는 코퍼스가 자란 것(사건 4,000 → 4,006),
-      89→88 은 오탐 용어 <code>수출입</code> 을 지운 것이다. 규칙 변경·코퍼스 성장·
-      정의 수정 셋을 같은 것으로 읽지 말 것. 현재 활성 용어는 34개다.
+      숫자가 움직인 것에 대해 — 시장 어휘 매칭은
+      <span class="num">83 → 86 → 89 → 88 → 127</span> 로 움직였고
+      <strong>매번 이유가 다르다</strong>. 83→86 은 매칭 규칙이 대소문자 무시로 바뀐 것,
+      86→89 는 코퍼스가 자란 것, 89→88 은 오탐 용어 <code>수출입</code> 을 지운 것,
+      <strong>88→127 은 피드 라벨 정정으로 미귀속 모집단이 907에서 2,462로 늘어난 것</strong>
+      이다. 규칙 변경 · 코퍼스 성장 · 정의 수정 · 모집단 변경 넷을 같은 것으로 읽지 말 것.
+      현재 활성 용어는 34개다.
+    </p>
+    <p>
+      마찬가지로 <strong>귀속 3,099 → 1,635 는 퇴행이 아니라 정정</strong>이고,
+      <strong>45일 창 연결 손실 1,421 → 25 는 개선이 아니라 재분류</strong>다.
+      같은 사건들이 손실 항목에서 미귀속 항목으로 옮겨 앉았을 뿐이다.
+      한쪽만 보면 둘 다 오해하게 된다.
     </p>
     <p>
       관측 도구 <code>ops/scripts/collect-data-health.mjs</code> ·
       소유권 지도 <code>docs/operations/database-ownership.md</code> ·
-      인수인계 <code>docs/plan/handoff-2026-08-03.md</code>.
+      인수인계 <code>docs/plan/handoff-2026-08-05.md</code>.
       이 DB 는 네 프로젝트가 공유한다 — 남의 테이블을 우리가 버린 것으로 읽지 말 것.
     </p>
   </footer>
