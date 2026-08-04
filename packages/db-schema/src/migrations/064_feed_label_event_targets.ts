@@ -40,10 +40,14 @@ SET target_entity_id = NULL,
                                     'YYYY-MM-DD"T"HH24:MI:SS"Z"')
            )
     )
+-- core.entity is a bare FROM item, not a JOIN. In UPDATE ... FROM, a JOIN's ON
+-- clause may not reference the table being updated, so the correlation to
+-- event.target_entity_id has to live in WHERE.
 FROM public.market_signals signal
-JOIN public.entities legacy_entity ON legacy_entity.id = signal.entity_id
-JOIN core.entity target ON target.entity_id = event.target_entity_id
+JOIN public.entities legacy_entity ON legacy_entity.id = signal.entity_id,
+     core.entity target
 WHERE signal.id = (event.metadata->>'legacy_signal_id')::bigint
+  AND target.entity_id = event.target_entity_id
   AND legacy_entity.entity_type = 'macro'
   -- Clear only rows still sitting on the feed label. Without this join the
   -- filter is "came from a macro signal", which is 1,491 rows — 13 more than the
