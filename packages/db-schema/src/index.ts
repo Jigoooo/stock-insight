@@ -62,6 +62,7 @@ import { cryptoIdentitySeedMigrationSql } from './migrations/061_crypto_identity
 import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revision_identity.ts';
 import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic_vocabulary.ts';
 import { feedLabelEventTargetsMigrationSql } from './migrations/064_feed_label_event_targets.ts';
+import { macroSeriesEntitiesMigrationSql } from './migrations/065_macro_series_entities.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -778,6 +779,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: feedLabelEventTargetsMigrationSql,
   },
+  {
+    id: '065_macro_series_entities',
+    description:
+      'Gives the 13 FRED series in market.macro_vintage a core.entity identity and a FRED_SERIES identifier, plus analytics.macro_series_topic mapping each series to a market-news topic. 55,775 rows of macro data have never reached the graph because a relation needs both endpoints to be entities and no series had one. Creates identity only — it asserts no relationship to any company.',
+    tables: [],
+    sql: macroSeriesEntitiesMigrationSql,
+  },
 ];
 
 export {
@@ -844,5 +852,6 @@ export {
   eventRevisionIdentityMigrationSql,
   marketTopicVocabularyMigrationSql,
   feedLabelEventTargetsMigrationSql,
+  macroSeriesEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
