@@ -10,6 +10,7 @@ export * from './date-picker';
 export * from './feedback';
 export * from './field';
 export * from './file-upload';
+export * from './identity-content';
 export * from './input';
 export * from './link';
 export * from './menu-overlay';

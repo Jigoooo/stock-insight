@@ -95,9 +95,3 @@ export const contentItems = [
   source: string;
   time: string;
 }>;
-
-export function getAdjacentContentId(currentId: ContentItemId, delta: -1 | 1): ContentItemId {
-  const currentIndex = contentItems.findIndex((item) => item.id === currentId);
-  const nextIndex = Math.max(0, Math.min(contentItems.length - 1, currentIndex + delta));
-  return contentItems[nextIndex]?.id ?? currentId;
-}

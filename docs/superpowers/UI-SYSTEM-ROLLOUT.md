@@ -6,8 +6,8 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `5A Identity & Content 목업 비교`
-- 다음 묶음: `5B Data & Feedback 목업 비교`
+- 현재 활성 묶음: `5B Data & Feedback 목업 비교`
+- 다음 묶음: `6A Charts End-to-End`
 - 마지막 갱신: 2026-08-04
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -39,8 +39,8 @@
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
-| 5A   | Identity & Content                  | 목업      | 컴포넌트별 A/B/C 사용자 시각 승인     |
-| 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
+| 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
+| 5B   | Data & Feedback                     | 목업      | UI Lab 통합 A/B/C 비교                |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
 ## 완료 기록
@@ -296,6 +296,18 @@
 - Node 모델 계약 3건, 전용 Playwright 2건, web typecheck와 변경 파일 정적 검사를 사용하며 전체 테스트·빌드는 실행하지 않음
 - Codex 인앱 브라우저 6110에서 여섯 컴포넌트 탭, List·Timeline 공유 선택과 Carousel 방향 전환 모션, 반복 새로고침 상태 전환을 확인함
 - 다음 행동은 여섯 컴포넌트 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
+
+### 2026-08-04 — 5A Identity & Content 승인·공용화 완료
+
+- 사용자 승인: Avatar, Badge, Status, List, Timeline, Carousel의 A/B/C를 모두 유지함
+- `shared/ui/identity-content` 공개 API로 여섯 컴포넌트와 각 variant를 공용화하고, UI Lab의 페이지 소유 렌더링·선택 모션·Carousel 스택 전환을 공개 컴포넌트로 교체함
+- List·Timeline·Carousel은 controlled `value`와 `onValueChange`를 통해 동일한 선택 상태를 공유하며, Carousel은 방향에 따라 이전·다음 카드가 겹치는 전환과 감소 모션 즉시 전환을 공용 계약으로 소유함
+- 실제 제품 적용: 관리자 가입 코드 화면의 Owner/Admin 역할과 초대 상태를 `IdentityBadge`의 `soft-fill|dot-label` variant로 교체함
+- 제품 사용처 감사: Avatar, StatusIndicator, ContentList, ContentTimeline, Carousel은 현재 적합한 사용처가 없어 가짜 제품 기능을 추가하지 않음. 기존 workspace Timeline과 종목 상세 StatusBadge는 의미가 달라 유지함
+- UI Lab 카탈로그는 `완료` 탭으로 이동하고 현재 묶음을 5B Data & Feedback으로 전환했으며, `예정` 카드는 Data & Feedback과 Charts End-to-End 두 개만 남김
+- 검증: Identity & Content 모델 Node 1건, Menu & Overlay 회귀 Node 1건, public props fixture, web typecheck, 관리자 초대 관련 Node 계약, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건과 Axe 집중 검사
+- Codex 인앱 브라우저 6110에서 여섯 컴포넌트별 A/B/C 공개 루트, List·Timeline의 선택 상태 3개 동기화, Carousel 전환 중 카드 2개 겹침과 종료 후 1개 복귀를 확인함
+- 다음 행동은 5B Data & Feedback 통합 A/B/C 목업 비교를 시작하는 것임
 
 ## 실행 환경 메모
 

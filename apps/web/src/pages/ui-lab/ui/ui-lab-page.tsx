@@ -93,15 +93,15 @@ export function UiLabPage({
               />
               <StepperCommandCatalog />
               <MenuOverlayCatalog />
+              <IdentityContentCatalog />
             </TabsContent>
 
             <TabsContent value="in-progress">
               <div className={styles.statusIntro}>
                 <span>In progress</span>
-                <h2>Identity & Content</h2>
-                <p>여섯 컴포넌트를 나눠 각 역할에 맞는 A/B/C를 독립적으로 비교합니다.</p>
+                <h2>Data & Feedback</h2>
+                <p>다음 공용화 묶음의 비교 목업을 준비합니다.</p>
               </div>
-              <IdentityContentCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

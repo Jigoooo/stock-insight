@@ -1,20 +1,9 @@
-import {
-  Building2,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  CircleDot,
-  Clock3,
-  LoaderCircle,
-  UserRound,
-} from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { Building2, Check, Clock3, LoaderCircle, UserRound } from 'lucide-react';
+import type { ReactElement, ReactNode } from 'react';
 
 import styles from './identity-content-catalog.module.css';
 import {
   contentItems,
-  getAdjacentContentId,
   identityContentVariants,
   identitySamples,
   statusSamples,
@@ -23,7 +12,15 @@ import {
   type IdentityContentVariant,
 } from './identity-content-model';
 
-import { Badge } from '@/shared/ui/badge';
+import {
+  Avatar,
+  Carousel,
+  ContentList,
+  ContentTimeline,
+  IdentityBadge,
+  StatusIndicator,
+  type IdentityTone,
+} from '@/shared/ui/identity-content';
 
 type PreviewProps = {
   selectedId: ContentItemId;
@@ -32,37 +29,6 @@ type PreviewProps = {
 
 type IdentityContentPreviewsProps = PreviewProps & {
   component: IdentityContentTabId;
-};
-
-type CarouselDirection = 'idle' | 'forward' | 'backward';
-
-type CarouselMotionContext = {
-  direction: CarouselDirection;
-  reducedMotion: boolean;
-};
-
-const carouselContentVariants = {
-  enter: ({ direction, reducedMotion }: CarouselMotionContext) => ({
-    opacity: reducedMotion ? 1 : 0,
-    scale: reducedMotion ? 1 : 0.985,
-    x: reducedMotion ? 0 : direction === 'forward' ? 18 : direction === 'backward' ? -18 : 0,
-    zIndex: 2,
-  }),
-  center: {
-    opacity: 1,
-    scale: 1,
-    x: 0,
-    zIndex: 2,
-  },
-  exit: ({ direction, reducedMotion }: CarouselMotionContext) => ({
-    opacity: reducedMotion ? 0 : 0.42,
-    scale: reducedMotion ? 1 : 0.97,
-    transition: reducedMotion
-      ? { duration: 0 }
-      : { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
-    x: reducedMotion ? 0 : direction === 'forward' ? -11 : direction === 'backward' ? 11 : 0,
-    zIndex: 1,
-  }),
 };
 
 function VariantCard({
@@ -94,31 +60,24 @@ function AvatarPreviews() {
     <PreviewGrid>
       {identityContentVariants.avatar.map((variant) => (
         <VariantCard component="avatar" variant={variant} key={variant.id}>
-          <div className={styles.avatarList} data-avatar-variant={variant.id}>
+          <div className={styles.previewStack}>
             {identitySamples.map((identity) => (
-              <div
-                aria-label={`${identity.name} 정체성`}
-                className={styles.identity}
-                key={identity.id}
-              >
-                <span className={styles.avatar} data-identity={identity.id}>
-                  {variant.id === 'soft-portrait' ? (
+              <Avatar
+                initials={identity.initials}
+                meta={identity.meta}
+                name={identity.name}
+                variant={variant.id}
+                visual={
+                  variant.id === 'soft-portrait' ? (
                     identity.id === 'user' ? (
                       <UserRound aria-hidden="true" size={20} />
                     ) : (
                       <Building2 aria-hidden="true" size={20} />
                     )
-                  ) : (
-                    identity.initials
-                  )}
-                </span>
-                {variant.id === 'identity-pair' ? (
-                  <span className={styles.identityCopy}>
-                    <strong>{identity.name}</strong>
-                    <small>{identity.meta}</small>
-                  </span>
-                ) : null}
-              </div>
+                  ) : undefined
+                }
+                key={identity.id}
+              />
             ))}
           </div>
         </VariantCard>
@@ -127,28 +86,22 @@ function AvatarPreviews() {
   );
 }
 
+function resolveTone(tone: (typeof statusSamples)[number]['tone']): IdentityTone {
+  if (tone === 'success') return 'positive';
+  if (tone === 'warning') return 'pending';
+  return 'neutral';
+}
+
 function BadgePreviews() {
   return (
     <PreviewGrid>
       {identityContentVariants.badge.map((variant) => (
         <VariantCard component="badge" variant={variant} key={variant.id}>
-          <div className={styles.badgeList} data-badge-variant={variant.id}>
+          <div className={styles.previewStack}>
             {statusSamples.map((status) => (
-              <Badge
-                className={styles.statusBadge}
-                data-tone={status.tone}
-                variant={
-                  variant.id === 'hairline-tag'
-                    ? 'outline'
-                    : variant.id === 'soft-fill'
-                      ? 'secondary'
-                      : 'ghost'
-                }
-                key={status.id}
-              >
-                {variant.id === 'dot-label' ? <span className={styles.statusDot} /> : null}
+              <IdentityBadge tone={resolveTone(status.tone)} variant={variant.id} key={status.id}>
                 {status.label}
-              </Badge>
+              </IdentityBadge>
             ))}
           </div>
         </VariantCard>
@@ -168,17 +121,16 @@ function StatusPreviews() {
     <PreviewGrid>
       {identityContentVariants.status.map((variant) => (
         <VariantCard component="status" variant={variant} key={variant.id}>
-          <div className={styles.statusList} data-status-variant={variant.id}>
+          <div className={styles.previewStack}>
             {statusSamples.map((status) => (
-              <div className={styles.statusItem} data-tone={status.tone} key={status.id}>
-                <span className={styles.statusIcon}>
-                  <StatusIcon statusId={status.id} />
-                </span>
-                <span>
-                  <strong>{status.label}</strong>
-                  <small>{status.description}</small>
-                </span>
-              </div>
+              <StatusIndicator
+                description={status.description}
+                icon={<StatusIcon statusId={status.id} />}
+                label={status.label}
+                tone={resolveTone(status.tone)}
+                variant={variant.id}
+                key={status.id}
+              />
             ))}
           </div>
         </VariantCard>
@@ -187,60 +139,19 @@ function StatusPreviews() {
   );
 }
 
-function ContentButton({
-  compact = false,
-  item,
-  selectedId,
-  onSelect,
-}: PreviewProps & {
-  compact?: boolean;
-  item: (typeof contentItems)[number];
-}) {
-  const selected = selectedId === item.id;
-
-  return (
-    <button
-      aria-current={selected ? 'true' : undefined}
-      aria-label={`${item.title} 선택`}
-      className={styles.contentButton}
-      data-compact={compact || undefined}
-      type="button"
-      onClick={() => onSelect(item.id)}
-    >
-      <span className={styles.contentMarker} aria-hidden="true">
-        {selected ? <Check size={13} /> : <CircleDot size={13} />}
-      </span>
-      <span className={styles.contentCopy}>
-        <small>{item.eyebrow}</small>
-        <strong>{item.title}</strong>
-        {!compact ? <span>{item.description}</span> : null}
-      </span>
-      <span className={styles.contentMeta}>
-        <time>{item.time}</time>
-        <small>{item.source}</small>
-      </span>
-    </button>
-  );
-}
-
 function ListPreviews(props: PreviewProps) {
   return (
     <PreviewGrid>
       {identityContentVariants.list.map((variant) => (
         <VariantCard component="list" variant={variant} key={variant.id}>
-          <div className={styles.contentList} data-list-variant={variant.id}>
-            {contentItems.map((item) => (
-              <ContentButton
-                {...props}
-                compact={variant.id === 'ledger-list'}
-                item={item}
-                key={item.id}
-              />
-            ))}
-            <button className={styles.disabledRow} disabled type="button">
-              보관된 리서치 · 준비 중
-            </button>
-          </div>
+          <ContentList
+            aria-label={`${variant.label} 콘텐츠 목록`}
+            disabledLabel="보관된 리서치 · 준비 중"
+            items={contentItems}
+            onValueChange={props.onSelect}
+            value={props.selectedId}
+            variant={variant.id}
+          />
         </VariantCard>
       ))}
     </PreviewGrid>
@@ -252,30 +163,13 @@ function TimelinePreviews(props: PreviewProps) {
     <PreviewGrid>
       {identityContentVariants.timeline.map((variant) => (
         <VariantCard component="timeline" variant={variant} key={variant.id}>
-          <ol className={styles.timeline} data-timeline-variant={variant.id}>
-            {contentItems.map((item) => {
-              const selected = props.selectedId === item.id;
-              return (
-                <li key={item.id}>
-                  <button
-                    aria-current={selected ? 'true' : undefined}
-                    aria-label={`${item.title} 선택`}
-                    type="button"
-                    onClick={() => props.onSelect(item.id)}
-                  >
-                    <span className={styles.timelinePoint} aria-hidden="true" />
-                    <time>{item.time}</time>
-                    <span className={styles.timelineCopy}>
-                      <strong>{item.title}</strong>
-                      <small>
-                        {variant.id === 'compact-ledger' ? item.source : item.description}
-                      </small>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+          <ContentTimeline
+            aria-label={`${variant.label} 콘텐츠 타임라인`}
+            items={contentItems}
+            onValueChange={props.onSelect}
+            value={props.selectedId}
+            variant={variant.id}
+          />
         </VariantCard>
       ))}
     </PreviewGrid>
@@ -283,89 +177,17 @@ function TimelinePreviews(props: PreviewProps) {
 }
 
 function CarouselPreviews(props: PreviewProps) {
-  const selectedIndex = contentItems.findIndex((item) => item.id === props.selectedId);
-  const selectedItem = contentItems[selectedIndex] ?? contentItems[0];
-  const [direction, setDirection] = useState<CarouselDirection>('idle');
-  const reducedMotion = Boolean(useReducedMotion());
-  const atStart = selectedIndex <= 0;
-  const atEnd = selectedIndex >= contentItems.length - 1;
-  const motionContext = { direction, reducedMotion } satisfies CarouselMotionContext;
-
-  const selectItem = (nextId: ContentItemId) => {
-    const nextIndex = contentItems.findIndex((item) => item.id === nextId);
-    setDirection(
-      nextIndex === selectedIndex ? 'idle' : nextIndex > selectedIndex ? 'forward' : 'backward',
-    );
-    props.onSelect(nextId);
-  };
-
   return (
     <PreviewGrid>
       {identityContentVariants.carousel.map((variant) => (
         <VariantCard component="carousel" variant={variant} key={variant.id}>
-          <div
-            aria-live="polite"
-            className={styles.carousel}
-            data-carousel-variant={variant.id}
-            data-selected-id={selectedItem.id}
-          >
-            <div className={styles.carouselStage}>
-              <AnimatePresence custom={motionContext} initial={false} mode="sync">
-                <motion.div
-                  animate="center"
-                  className={styles.carouselStageContent}
-                  custom={motionContext}
-                  data-carousel-content
-                  data-direction={direction}
-                  data-motion-owner="motion"
-                  exit="exit"
-                  initial="enter"
-                  key={selectedItem.id}
-                  transition={
-                    reducedMotion ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
-                  }
-                  variants={carouselContentVariants}
-                >
-                  <span>{selectedItem.eyebrow}</span>
-                  <strong>{selectedItem.title}</strong>
-                  <p>{selectedItem.description}</p>
-                  <small>{selectedItem.source}</small>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            <div className={styles.carouselControls}>
-              <button
-                aria-label="이전 콘텐츠"
-                disabled={atStart}
-                type="button"
-                onClick={() => selectItem(getAdjacentContentId(selectedItem.id, -1))}
-              >
-                <ChevronLeft aria-hidden="true" size={17} />
-              </button>
-              <div className={styles.carouselSelectors}>
-                {contentItems.map((item, index) => (
-                  <button
-                    aria-current={item.id === props.selectedId ? 'true' : undefined}
-                    aria-label={`${item.title} 선택`}
-                    data-index={index + 1}
-                    type="button"
-                    onClick={() => selectItem(item.id)}
-                    key={item.id}
-                  >
-                    {variant.id === 'filmstrip' ? item.eyebrow : String(index + 1).padStart(2, '0')}
-                  </button>
-                ))}
-              </div>
-              <button
-                aria-label="다음 콘텐츠"
-                disabled={atEnd}
-                type="button"
-                onClick={() => selectItem(getAdjacentContentId(selectedItem.id, 1))}
-              >
-                <ChevronRight aria-hidden="true" size={17} />
-              </button>
-            </div>
-          </div>
+          <Carousel
+            aria-label={`${variant.label} 콘텐츠 캐러셀`}
+            items={contentItems}
+            onValueChange={props.onSelect}
+            value={props.selectedId}
+            variant={variant.id}
+          />
         </VariantCard>
       ))}
     </PreviewGrid>

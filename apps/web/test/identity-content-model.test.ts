@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  contentItems,
-  getAdjacentContentId,
   identityContentTabs,
   identityContentVariants,
 } from '../src/pages/ui-lab/ui/identity-content-model.ts';
@@ -22,21 +20,9 @@ describe('Identity & Content model', () => {
     assert.deepEqual(
       roadmapBatches.map(({ state, title }) => [state, title]),
       [
-        ['진행 중', 'Identity & Content'],
-        ['예정', 'Data & Feedback'],
+        ['진행 중', 'Data & Feedback'],
         ['예정', 'Charts End-to-End'],
       ],
     );
-  });
-
-  it('moves shared content selection one item at a time and stops at the boundaries', () => {
-    assert.deepEqual(
-      contentItems.map((item) => item.id),
-      ['ai-infrastructure', 'memory-cycle', 'supply-risk'],
-    );
-    assert.equal(getAdjacentContentId('ai-infrastructure', -1), 'ai-infrastructure');
-    assert.equal(getAdjacentContentId('ai-infrastructure', 1), 'memory-cycle');
-    assert.equal(getAdjacentContentId('memory-cycle', 1), 'supply-risk');
-    assert.equal(getAdjacentContentId('supply-risk', 1), 'supply-risk');
   });
 });

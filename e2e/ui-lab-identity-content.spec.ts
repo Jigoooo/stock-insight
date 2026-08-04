@@ -2,9 +2,9 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
 async function openIdentityContentCatalog(page: Page) {
-  const inProgressTab = page.getByRole('tab', { name: '목업 진행 중', exact: true });
-  await inProgressTab.click();
-  await expect(inProgressTab).toHaveAttribute('aria-selected', 'true');
+  const completedTab = page.getByRole('tab', { name: '완료', exact: true });
+  await completedTab.click();
+  await expect(completedTab).toHaveAttribute('aria-selected', 'true');
   const catalog = page.locator('[data-slot="identity-content-catalog"]');
   await expect(catalog).toBeVisible();
   return catalog;
@@ -79,7 +79,8 @@ test.describe('UI Lab Identity & Content', () => {
 
     await page.getByRole('tab', { name: '예정', exact: true }).click();
     const planned = page.locator('[aria-label="향후 배치"]');
-    await expect(planned.locator('article')).toHaveCount(3);
+    await expect(planned.locator('article')).toHaveCount(2);
+    await expect(planned.getByText('Identity & Content', { exact: true })).toHaveCount(0);
     await expect(planned.getByText('Menu & Overlay', { exact: true })).toHaveCount(0);
     expect(page.url()).toBe(initialUrl);
   });
