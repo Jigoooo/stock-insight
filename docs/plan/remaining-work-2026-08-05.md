@@ -228,7 +228,53 @@ fred:WALCL     주간(수요일)       겹침 258/261 (98.9%)      → 주간 �
 기준으로는 4.84 로 통과하므로 이번에는 건드리지 않았다 — 건드리면 tertiary 와
 간격이 무너진다. `surface-muted` 를 본문 배경으로 쓰기 시작하면 그때 다시 봐야 한다.
 
-### F2. 모바일 가로 오버플로 9px — 원인 미특정
+### F0. ⚠ 시각 게이트를 단독 실행하면 **낡은 빌드**를 잰다
+
+`scripts/e2e-server-launcher.mjs` 의 `web-production` 모드는
+`apps/web/.output/server/index.mjs` 를 **그냥 실행한다 — 빌드하지 않는다.**
+신선도 검사도 없다.
+
+`verify:release` 는 `pnpm build` 가 `test:workspace:visual:production` 앞에 있어서
+괜찮다. 하지만 **handoff-2026-08-03 의 재현 레시피는 빌드를 포함하지 않는다.**
+그 레시피대로 돌리면 `.output` 에 남아 있는 아무 시점의 코드나 측정된다.
+
+실제로 당했다. 2026-08-05 에 대비 토큰을 고치고 게이트를 세 번 돌려 "24 passed ·
+0 failed" 를 얻었는데, `.output` 이 **08-04 00:55** 자였다. 즉 그 세 번은 전부
+어제 CSS 를 잰 것이고 **내 수정을 검증한 적이 없었다.** Axe 위반 상세에
+`fgColor: #7d8177`(고치기 전 값)이 찍혀 있는 것을 보고 알았다.
+
+**재현 레시피에 빌드를 넣어야 한다:**
+
+```bash
+pnpm --filter @stock-insight/web build   # ← 이게 빠져 있었다
+PLAYWRIGHT_USE_PRODUCTION_BUILD=1 … npx playwright test e2e/workspace-visual.spec.ts
+```
+
+더 나은 고침은 런처가 `.output` 이 소스보다 오래됐으면 실패하게 하는 것이다.
+**미착수** — 이번에 발견만 했다.
+
+이 항목이 F1·F2 의 모든 측정을 무효화했으므로, 그 둘의 수치는 재빌드 후 값으로만
+믿을 것.
+
+### F2. 모바일 가로 오버플로 — **원인 규명됨 (2026-08-05)**
+
+핸드오프는 "390px 에서 scrollWidth 399 · 원인 요소 미특정 · UI 범위" 라고 적었다.
+**UI 결함이 아니라 측정 시점 문제였다.**
+
+`/workspace/today` 에서 120ms 간격으로 scrollWidth 를 샘플링하면:
+
+```
+t=1219ms  scrollWidth 398   ← 여기서 잰다
+t=1346ms  scrollWidth 390
+t=1474ms 이후 전부 390       오른쪽으로 넘치는 요소 0개
+```
+
+`assertNoHorizontalOverflow` 가 `gotoAuthenticatedRoute` 직후 **한 번만** 읽어서
+마운트 중인 프레임을 잡고 있었다. 안정될 때까지 폴링하도록 고쳤다.
+
+**다만 첫 페인트의 8px 초과는 실재한다.** 관용치를 넓히는 쪽을 택하지 않은 이유가
+그것이다 — 그러면 측정 결함과 실제 초과를 한꺼번에 덮는다. 사용자에게 로드 순간
+가로 스크롤이 잠깐 보일 수 있고, **그건 별도 항목으로 남긴다. 미해결.**
 
 390px 에서 `scrollWidth 399`. 원인 요소를 특정하지 못했고 UI 범위라 쫓지 않았다.
 다른 라우트가 대비에서 먼저 실패해 오버플로 단계까지 가지 못했으므로, F1 이

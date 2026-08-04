@@ -140,11 +140,36 @@ async function assertShellMode(page: Page, shell: 'expanded' | 'compact' | 'mobi
   await expect(page.getByRole('button', { name: '메뉴 열기' })).toHaveCount(0);
 }
 
+/**
+ * Assert the SETTLED layout does not scroll horizontally.
+ *
+ * This used to read scrollWidth once, immediately after navigation. At 390px
+ * that measured the page mid-mount and failed all 10 routes: sampled every
+ * 120ms on /workspace/today, scrollWidth is 398 at t=1219ms and 390 from
+ * t=1346ms onward, with zero right-overflowing elements once settled. The
+ * assertion was reporting a frame, not a layout.
+ *
+ * Polling for a stable value is the fix for the measurement. It is NOT a fix
+ * for the transient itself — an 8px overshoot at first paint is still real and
+ * still tracked (docs/plan/remaining-work-2026-08-05.md F2). Widening the
+ * tolerance instead would have hidden both.
+ */
 async function assertNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
+  const read = async () =>
+    page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+  let overflow = await read();
+  // Two consecutive identical readings across an animation frame boundary, so a
+  // value sampled mid-transition is never the one asserted on.
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    if (overflow.scrollWidth <= overflow.clientWidth + 1) break;
+    await page.waitForTimeout(120);
+    const next = await read();
+    if (next.scrollWidth === overflow.scrollWidth) break;
+    overflow = next;
+  }
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
 }
 
