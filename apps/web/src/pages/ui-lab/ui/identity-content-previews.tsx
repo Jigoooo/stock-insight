@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   UserRound,
 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 
 import styles from './identity-content-catalog.module.css';
@@ -31,6 +32,37 @@ type PreviewProps = {
 
 type IdentityContentPreviewsProps = PreviewProps & {
   component: IdentityContentTabId;
+};
+
+type CarouselDirection = 'idle' | 'forward' | 'backward';
+
+type CarouselMotionContext = {
+  direction: CarouselDirection;
+  reducedMotion: boolean;
+};
+
+const carouselContentVariants = {
+  enter: ({ direction, reducedMotion }: CarouselMotionContext) => ({
+    opacity: reducedMotion ? 1 : 0,
+    scale: reducedMotion ? 1 : 0.985,
+    x: reducedMotion ? 0 : direction === 'forward' ? 18 : direction === 'backward' ? -18 : 0,
+    zIndex: 2,
+  }),
+  center: {
+    opacity: 1,
+    scale: 1,
+    x: 0,
+    zIndex: 2,
+  },
+  exit: ({ direction, reducedMotion }: CarouselMotionContext) => ({
+    opacity: reducedMotion ? 0 : 0.42,
+    scale: reducedMotion ? 1 : 0.97,
+    transition: reducedMotion
+      ? { duration: 0 }
+      : { duration: 0.22, ease: [0.22, 1, 0.36, 1] as const },
+    x: reducedMotion ? 0 : direction === 'forward' ? -11 : direction === 'backward' ? 11 : 0,
+    zIndex: 1,
+  }),
 };
 
 function VariantCard({
@@ -253,9 +285,11 @@ function TimelinePreviews(props: PreviewProps) {
 function CarouselPreviews(props: PreviewProps) {
   const selectedIndex = contentItems.findIndex((item) => item.id === props.selectedId);
   const selectedItem = contentItems[selectedIndex] ?? contentItems[0];
-  const [direction, setDirection] = useState<'idle' | 'forward' | 'backward'>('idle');
+  const [direction, setDirection] = useState<CarouselDirection>('idle');
+  const reducedMotion = Boolean(useReducedMotion());
   const atStart = selectedIndex <= 0;
   const atEnd = selectedIndex >= contentItems.length - 1;
+  const motionContext = { direction, reducedMotion } satisfies CarouselMotionContext;
 
   const selectItem = (nextId: ContentItemId) => {
     const nextIndex = contentItems.findIndex((item) => item.id === nextId);
@@ -276,17 +310,28 @@ function CarouselPreviews(props: PreviewProps) {
             data-selected-id={selectedItem.id}
           >
             <div className={styles.carouselStage}>
-              <div
-                className={styles.carouselStageContent}
-                data-carousel-content
-                data-direction={direction}
-                key={selectedItem.id}
-              >
-                <span>{selectedItem.eyebrow}</span>
-                <strong>{selectedItem.title}</strong>
-                <p>{selectedItem.description}</p>
-                <small>{selectedItem.source}</small>
-              </div>
+              <AnimatePresence custom={motionContext} initial={false} mode="sync">
+                <motion.div
+                  animate="center"
+                  className={styles.carouselStageContent}
+                  custom={motionContext}
+                  data-carousel-content
+                  data-direction={direction}
+                  data-motion-owner="motion"
+                  exit="exit"
+                  initial="enter"
+                  key={selectedItem.id}
+                  transition={
+                    reducedMotion ? { duration: 0 } : { duration: 0.3, ease: [0.22, 1, 0.36, 1] }
+                  }
+                  variants={carouselContentVariants}
+                >
+                  <span>{selectedItem.eyebrow}</span>
+                  <strong>{selectedItem.title}</strong>
+                  <p>{selectedItem.description}</p>
+                  <small>{selectedItem.source}</small>
+                </motion.div>
+              </AnimatePresence>
             </div>
             <div className={styles.carouselControls}>
               <button

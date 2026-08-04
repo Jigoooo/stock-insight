@@ -59,16 +59,19 @@ test.describe('UI Lab Identity & Content', () => {
     ).toContain('identity-timeline-select');
 
     await catalog.getByRole('tab', { name: 'Carousel', exact: true }).click();
+    const firstCarousel = catalog.locator('article[data-component="carousel"]').first();
     await catalog
       .getByRole('button', { name: '공급망 제약 재점검 선택', exact: true })
       .first()
       .click();
+    expect(await firstCarousel.locator('[data-carousel-content]').count()).toBe(2);
+    await expect(firstCarousel.locator('[data-carousel-content]')).toHaveCount(1, {
+      timeout: 1_000,
+    });
     await expect(catalog.locator('article[data-component="carousel"]')).toHaveCount(3);
     const carouselContent = catalog.locator('[data-carousel-content]').first();
     await expect(carouselContent).toHaveAttribute('data-direction', 'forward');
-    expect(
-      await carouselContent.evaluate((element) => getComputedStyle(element).animationName),
-    ).toContain('identity-carousel-content-enter');
+    await expect(carouselContent).toHaveAttribute('data-motion-owner', 'motion');
     await expect(catalog.getByRole('button', { name: '다음 콘텐츠' })).toHaveCount(3);
     for (const nextButton of await catalog.getByRole('button', { name: '다음 콘텐츠' }).all()) {
       await expect(nextButton).toBeDisabled();

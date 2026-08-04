@@ -288,7 +288,7 @@
 
 - UI Lab `목업 진행 중` 탭에 Avatar, Badge, Status, List, Timeline, Carousel 여섯 수평 탭을 추가하고 각 컴포넌트의 독립 A/B/C 시안을 구현함
 - List, Timeline, Carousel은 세 시안이 같은 현재 선택 상태를 공유하며 탭을 옮겨도 선택이 유지됨
-- 사용자 피드백에 따라 List는 선택 행·마커 안착, Timeline은 현재 행·포인트 연결, Carousel은 탐색 방향에 맞춘 좌우 콘텐츠 교체 모션을 추가하고 감소 모션에서는 즉시 전환하도록 유지함
+- 사용자 피드백에 따라 List는 선택 행·마커 안착, Timeline은 현재 행·포인트 연결, Carousel은 이전·다음 카드가 잠시 겹치며 탐색 방향으로 포개지는 스택 전환을 추가하고 감소 모션에서는 즉시 전환하도록 유지함
 - `예정` 카드는 완료된 Menu & Overlay를 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 묶음만 표시함
 - `완료` 탭의 Button 데모는 하나의 `새로고침` 액션이 `불러오는 중`에서 `새로고침 완료`로 전환되고 다시 실행되는 반복 상태를 제공함
 - 개발 모드 effect 재실행이 클릭 핸들러에서 만든 타이머를 취소하던 문제를 확인하고, pending 상태를 구독하는 effect가 타이머의 생성과 정리를 함께 소유하도록 보정함
