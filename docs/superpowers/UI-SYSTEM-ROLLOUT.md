@@ -309,6 +309,18 @@
 - Codex 인앱 브라우저 6110에서 여섯 컴포넌트별 A/B/C 공개 루트, List·Timeline의 선택 상태 3개 동기화, Carousel 전환 중 카드 2개 겹침과 종료 후 1개 복귀를 확인함
 - 다음 행동은 5B Data & Feedback 통합 A/B/C 목업 비교를 시작하는 것임
 
+### 2026-08-04 — 5B Data & Feedback 목업 설계 승인
+
+- Table 확장, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading을 각각 수평 탭으로 나누고 컴포넌트별 독립 A/B/C를 비교함
+- Table은 정렬·선택·행 펼침, DataGrid는 정렬·선택·셀 편집·열 리사이즈·1,000행 실제 가상 스크롤을 세 시안 모두 제공함
+- DataGrid A/B/C는 데이터, 정렬, 선택, 편집 결과, 열 너비를 공유하며 URL과 실제 제품 데이터는 변경하지 않음
+- 새 table·virtualization 패키지 없이 UI Lab 경계의 고정 행 높이 virtualizer를 사용함
+- Progress와 Loading은 완료 후 다시 실행 가능하며 Spinner·Skeleton 모션은 감소 모션에서 정적 상태로 대체함
+- 목업 단계에서는 기존 Table·Skeleton·Feedback 공개 API와 제품 사용처를 변경하지 않음
+- 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
+- 설계 문서: `docs/superpowers/specs/2026-08-04-data-feedback-mockups-design.md`
+- 다음 행동은 승인된 설계의 구현 계획을 작성하는 것임
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
