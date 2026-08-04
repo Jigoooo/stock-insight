@@ -8,15 +8,16 @@ const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
-    // Kept in step with EXPECTED_CATALOG_DIGESTS in the guard. Moved 2026-08-04
-    // by migrations 062 (serving.v_knowledge_event_current_v1) and 063
+    // Kept in step with EXPECTED_CATALOG_DIGESTS in the guard. Moved 2026-08-05
+    // by migration 065 (analytics.macro_series_topic); before that, 2026-08-04 by
+    // 062 (serving.v_knowledge_event_current_v1) and 063
     // (analytics.market_topic_term).
-    relation_privileges_digest: 'c0d214162c7ee534f770e901833b86b8dd974bdcdd66defdb969d8fff09816a9',
+    relation_privileges_digest: 'f3a18fadeefa4bf742db17b5f0b6b3a6ca497dae6be9d4bc30792f90c55ef822',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    rls_contract_digest: 'b256639281823edd64ff04f7d83028075ae29956dbff410d2bf5332b9874bdbe',
+    rls_contract_digest: '71956bd4706e6c7e9322ffafbf4d20e643feb5d3ab35f636a8dc87bbc196a09d',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },

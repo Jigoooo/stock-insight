@@ -10,7 +10,13 @@
   --color-on-chrome-tertiary: #92958c;
   --color-text-primary: #20211f;
   --color-text-secondary: #656760;
-  --color-text-tertiary: #6f716a;
+  /* 4.18:1 against --color-surface-subtle at 12px, under the 4.5 WCAG AA needs.
+     Every workspace route failed the visual gate on this one token, and the
+     failure predates the routes it was blamed on. #696a64 is the smallest step
+     that clears it (4.61:1 worst case across canvas/surface/surface-subtle).
+     It stays below --color-text-secondary (4.84:1), so tertiary is still the
+     dimmer of the two — the hierarchy survives, with less room than before. */
+  --color-text-tertiary: #696a64;
   --color-border: #d8d9d3;
   --color-border-strong: #bfc1b9;
   --color-accent: #343632;
@@ -175,7 +181,10 @@
     --color-chrome-raised: #1b1d19;
     --color-text-primary: #f2f2ed;
     --color-text-secondary: #b8bbb2;
-    --color-text-tertiary: #7d8177;
+    /* Same fix as the light block: 4.26:1 worst case, needs 4.5. #83877d gives
+       4.62:1. Secondary sits at 8.71:1 here, so dark keeps a wide gap between
+       the two levels — only light mode had to be tightened. */
+    --color-text-tertiary: #83877d;
     --color-border: #353830;
     --color-border-strong: #606459;
     --color-accent: #d6d8d1;

@@ -79,23 +79,27 @@ const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
-    // Re-pinned 2026-08-04 for migrations 062 and 063. Both moves were proven,
-    // not assumed: recomputing this array on the live database while excluding
-    // `analytics.market_topic_term` (063) and `serving.v_knowledge_event_current_v1`
-    // (062) reproduces the previous pin 1b9cf45e0…f27a2 exactly. Nothing else
-    // changed what the reader can reach.
-    relation_privileges_digest: 'c0d214162c7ee534f770e901833b86b8dd974bdcdd66defdb969d8fff09816a9',
+    // Re-pinned 2026-08-05 for migration 065, by the same proof as the 062/063
+    // re-pin below it: recomputing this array on the live database as the reader
+    // while excluding `analytics.macro_series_topic` reproduces the previous pin
+    // c0d214162…816a9 byte for byte, out of 773 entries. One table, one entry,
+    // nothing else moved.
+    //
+    // 066 was checked separately and does NOT move this digest — it only inserts
+    // a row into knowledge.predicate_ontology_revision, and the live value was
+    // identical before and after applying it. So the drift that was sitting here
+    // unresolved belonged entirely to 065.
+    relation_privileges_digest: 'f3a18fadeefa4bf742db17b5f0b6b3a6ca497dae6be9d4bc30792f90c55ef822',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    // Re-pinned 2026-08-04. This array enumerates every table the reader can
-    // touch, so a new table moves it even when no policy changed — and that is
-    // the whole change here: excluding `analytics.market_topic_term` (063)
-    // reproduces the previous pin a749fb616…92af exactly. 062 added a view, and
-    // views are not in this array (relkind r/p only), which is why one migration
-    // moved this digest and two moved the relation one.
-    rls_contract_digest: 'b256639281823edd64ff04f7d83028075ae29956dbff410d2bf5332b9874bdbe',
+    // Re-pinned 2026-08-05 for migration 065, same proof: excluding
+    // `analytics.macro_series_topic` reproduces the previous pin b25663928…4bdbe
+    // exactly. 065 also inserted rows into core.entity and core.entity_identifier,
+    // and neither moved anything here — this array is about which tables exist and
+    // what policies they carry, not what is in them.
+    rls_contract_digest: '71956bd4706e6c7e9322ffafbf4d20e643feb5d3ab35f636a8dc87bbc196a09d',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
