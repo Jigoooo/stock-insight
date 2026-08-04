@@ -1,0 +1,837 @@
+<title>Stock Insight 데이터 생태계</title>
+
+<style>
+  :root {
+    --paper: #eef1f4;
+    --panel: #ffffff;
+    --ink: #12171d;
+    --ink-2: #4a545f;
+    --ink-3: #6b757f;
+    --rule: #d3dae1;
+    --rule-soft: #e4e9ee;
+    --accent: #0f6f6c;
+    --flow: #2c6f52;
+    --flow-bg: #dfeee6;
+    --block: #a83a2b;
+    --block-bg: #f8e2de;
+    --dormant: #6f7885;
+    --dormant-bg: #e6eaee;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, monospace;
+    --sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", "Segoe UI", Roboto, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0d1216;
+      --panel: #151c22;
+      --ink: #e6ecf1;
+      --ink-2: #a6b2be;
+      --ink-3: #8d98a4;
+      --rule: #27313a;
+      --rule-soft: #1e262d;
+      --accent: #4fb3ac;
+      --flow: #63b98c;
+      --flow-bg: #172c22;
+      --block: #e08272;
+      --block-bg: #331915;
+      --dormant: #99a3af;
+      --dormant-bg: #1c242b;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0d1216;
+    --panel: #151c22;
+    --ink: #e6ecf1;
+    --ink-2: #a6b2be;
+    --ink-3: #8d98a4;
+    --rule: #27313a;
+    --rule-soft: #1e262d;
+    --accent: #4fb3ac;
+    --flow: #63b98c;
+    --flow-bg: #172c22;
+    --block: #e08272;
+    --block-bg: #331915;
+    --dormant: #99a3af;
+    --dormant-bg: #1c242b;
+  }
+
+  :root[data-theme="light"] {
+    --paper: #eef1f4;
+    --panel: #ffffff;
+    --ink: #12171d;
+    --ink-2: #4a545f;
+    --ink-3: #6b757f;
+    --rule: #d3dae1;
+    --rule-soft: #e4e9ee;
+    --accent: #0f6f6c;
+    --flow: #2c6f52;
+    --flow-bg: #dfeee6;
+    --block: #a83a2b;
+    --block-bg: #f8e2de;
+    --dormant: #6f7885;
+    --dormant-bg: #e6eaee;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  h1 {
+    font-size: clamp(1.7rem, 4vw, 2.35rem);
+    font-weight: 620;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0.35rem 0 0;
+  }
+
+  .lede {
+    color: var(--ink-2);
+    max-width: 46rem;
+    margin-top: 0.75rem;
+  }
+
+  h2 {
+    font-size: 1.05rem;
+    font-weight: 640;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.9rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+
+  .num {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .verdict {
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--block);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .verdict.good { border-left-color: var(--flow); }
+
+  .verdict-q {
+    font-size: 0.78rem;
+    font-family: var(--mono);
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+  }
+
+  .verdict-a { font-size: 1rem; font-weight: 620; letter-spacing: -0.01em; }
+  .verdict p { margin: 0; font-size: 0.88rem; color: var(--ink-2); }
+
+  .verdicts { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .diagram {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    padding: 1.25rem 0.75rem;
+    overflow-x: auto;
+  }
+
+  .diagram pre.mermaid {
+    margin: 0;
+    text-align: center;
+    background: transparent;
+    min-width: 20rem;
+  }
+
+  .flow { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .stage {
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .stage-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.7rem 1rem;
+    background: var(--rule-soft);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .stage-name { font-weight: 620; font-size: 0.95rem; }
+  .stage-note { font-size: 0.78rem; color: var(--ink-3); }
+
+  .rows { display: flex; flex-direction: column; }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--rule-soft);
+    border-left: 3px solid transparent;
+  }
+
+  .row:first-child { border-top: 0; }
+  .row.flow-s { border-left-color: var(--flow); }
+  .row.block-s { border-left-color: var(--block); }
+  .row.dormant-s { border-left-color: var(--dormant); }
+
+  @media (max-width: 34rem) {
+    .row { grid-template-columns: minmax(0, 1fr); gap: 0.35rem; }
+  }
+
+  .surface {
+    font-family: var(--mono);
+    font-size: 0.83rem;
+    overflow-wrap: anywhere;
+  }
+
+  .surface small {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    margin-top: 0.1rem;
+    line-height: 1.5;
+  }
+
+  .yield {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  .chip {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    padding: 0.18rem 0.5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+    justify-self: start;
+  }
+
+  .chip.flow-s { background: var(--flow-bg); color: var(--flow); }
+  .chip.block-s { background: var(--block-bg); color: var(--block); }
+  .chip.dormant-s { background: var(--dormant-bg); color: var(--dormant); }
+
+  .connector { text-align: center; color: var(--ink-3); font-size: 0.9rem; line-height: 1; }
+
+  .tableWrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.83rem;
+    min-width: 34rem;
+  }
+
+  th {
+    text-align: left;
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 700;
+    padding: 0 0.85rem 0.5rem 0;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.55rem 0.85rem 0.55rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    color: var(--ink-2);
+  }
+
+  td.n {
+    text-align: right;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+
+  td strong { color: var(--ink); font-weight: 620; }
+  tr:last-child td { border-bottom: 0; }
+
+  ol.steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    counter-reset: s;
+  }
+
+  ol.steps li {
+    counter-increment: s;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 0.85rem 1rem 0.85rem 2.6rem;
+    position: relative;
+  }
+
+  ol.steps li::before {
+    content: counter(s);
+    position: absolute;
+    left: 1rem;
+    top: 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--ink-3);
+  }
+
+  ol.steps li.decide { border-left-color: var(--block); }
+  ol.steps li.collect { border-left-color: var(--dormant); }
+
+  .s-title { font-weight: 620; font-size: 0.93rem; }
+  .s-body { font-size: 0.86rem; color: var(--ink-2); margin-top: 0.25rem; }
+  .s-close {
+    font-size: 0.8rem;
+    color: var(--ink-3);
+    margin-top: 0.4rem;
+    font-family: var(--mono);
+    border-top: 1px dashed var(--rule);
+    padding-top: 0.4rem;
+  }
+
+  .s-kind {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.07em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 0.15rem;
+  }
+
+  ol.steps li.decide .s-kind { color: var(--block); }
+  ol.steps li.collect .s-kind { color: var(--dormant); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+  }
+
+  footer p { margin: 0 0 0.4rem; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--rule-soft);
+    padding: 0.08em 0.32em;
+    border-radius: 2px;
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">관측 2026-08-04 01:35 KST · 라이브 DB · e989889 배포 직후</div>
+    <h1>Stock Insight 데이터 생태계</h1>
+    <p class="lede">
+      모든 수치는 라이브 DB 조회다. 손으로 고쳐 쓴 숫자는 없다. 이번 판은 두 가지가
+      달라졌다 — 시장 전반 뉴스 화면이 배포됐고, <strong>관계 그래프가 실제로 무엇을
+      밟는지</strong>를 처음으로 쟀다. 후자가 이 문서에서 가장 중요한 부분이다.
+      표면별 수율만 보면 건강해 보이는 시스템이, 경로가 밟는 술어를 열면 다르게 읽힌다.
+    </p>
+  </header>
+
+  <section>
+    <h2>세 가지 질문에 대한 답</h2>
+    <div class="verdicts">
+      <div class="verdict">
+        <span class="verdict-q">Q. 단순 종목명 매칭을 벗어났는가</span>
+        <span class="verdict-a">벗어났지만, 벗어난 곳이 인과가 아니라 유사도다</span>
+        <p>
+          임팩트 경로가 실제로 밟는 술어는 셋뿐이다 —
+          <code>SAME_ETF_BASKET</code> 66,825회, <code>PRODUCT_SIMILARITY</code> 36,303회,
+          <code>CLASSIFIED_AS</code> 4,914회. 즉 "같은 ETF에 들어 있다", "제품이 비슷하다",
+          "같은 분류에 속한다"뿐이다.
+          <code>SUPPLY_CHAIN</code>·<code>OWNS</code>·<code>AFFECTS</code>·<code>EXPOSES</code>
+          같은 인과 술어는 <strong>단 한 번도 밟히지 않는다</strong>. 전부 증거 부족으로
+          격리돼 스냅샷에 들어가지 못한다.
+        </p>
+      </div>
+      <div class="verdict">
+        <span class="verdict-q">Q. 타고 · 타고 · 타고 의 다중 홉이 되는가</span>
+        <span class="verdict-a">2홉까지. 3홉 이상은 0건이고, 2홉도 인과가 아니다</span>
+        <p>
+          봉인된 경로 105,585개 중 1홉이 103,128개(97.7%), 2홉이 2,457개,
+          <strong>3홉 이상은 0개</strong>다. 게다가 2홉 경로가 쓰는 술어는
+          <code>CLASSIFIED_AS</code> 하나뿐 — <code>A → 분류 ← B</code> 형태의 공통 소속이지
+          <code>A가 B에 영향을 주고 B가 C에 영향을 준다</code>가 아니다. 다중 홉 배관은
+          있는데, 밟을 인과 엣지가 없다.
+        </p>
+      </div>
+      <div class="verdict">
+        <span class="verdict-q">Q. 종목 이름이 없어도 사건·흐름에서 도달하는가</span>
+        <span class="verdict-a">아니다. 기업이 붙지 않은 사건이 만든 경로는 0건이다</span>
+        <p>
+          현재 관측 4,006건 중 907건에 기업이 붙지 않았고, 그 907건이 만든 임팩트 경로는
+          <strong>정확히 0개</strong>다. 사건은 먼저 <code>target_entity_id</code>를 얻어야만
+          그래프를 걷기 시작할 수 있다. 이번에 배포한 시장 전반 뉴스 화면은 그 907건 중
+          어휘에 걸린 것들을 <em>보여주기는</em> 하지만, 어떤 종목에도 잇지 않는다.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>생태계 그래프</h2>
+    <p class="lede" style="margin-top:0">
+      막힌 곳을 한 가지 빨강으로 칠하면 "다 고장났다"로 읽힌다. 실제로는 성격이 네
+      가지이고, <strong>고치는 방법이 각각 다르다.</strong> 색과 선 모양이 그 구분이다.
+    </p>
+    <div class="tableWrap" style="margin-bottom:1rem">
+      <table>
+        <thead><tr><th>표시</th><th>뜻</th><th>고치는 방법</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong style="color:var(--block)">■ 빨강 채움</strong></td>
+            <td>상류는 있는데 하류로 못 감</td>
+            <td>기준·화면 등 <strong>결정</strong>이 있어야 풀린다</td>
+          </tr>
+          <tr>
+            <td><strong style="color:var(--block)">▢ 빨강 점선 테두리</strong></td>
+            <td>붙었는데 이어질 곳이 없음</td>
+            <td>근거를 지어내야 해서 <strong>지금은 못 푼다</strong></td>
+          </tr>
+          <tr>
+            <td><strong style="color:#9a6b16">▢ 주황 테두리</strong></td>
+            <td>배관은 다 있고 데이터만 없음</td>
+            <td><strong>수집만 붙이면 산다</strong> — 가장 값싼 항목</td>
+          </tr>
+          <tr>
+            <td><strong style="color:var(--block)">⨯ 교차선</strong></td>
+            <td>구조적으로 막힘</td>
+            <td>vs <strong>⇢ 점선</strong> = 이어질 수는 있는데 비어 있음</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TB
+
+  subgraph S1["1 · 수집"]
+    RSSDOC["source_documents · rss_news<br/>4,152건 중 entity_key <b>7건 (0.2%)</b>"]
+    STKDOC["source_documents · stock_research<br/>5,461건 중 entity_key 3,785 (69%)"]
+    MACRO["market.macro_vintage<br/>55,244행 · 13계열 · 매일 갱신"]
+    COV["coverage_ledger 3,640셀<br/>미수집 1,862 · 커서 111 / 182"]
+  end
+
+  subgraph S2["2 · 지식"]
+    EVENT["knowledge.event 4,006<br/>귀속 3,099 · 미귀속 907"]
+    CLAIM["knowledge.claim<br/>corroborated 274 · verified 0"]
+  end
+
+  subgraph SDEAD["귀속됐지만 이어지지 않는 곳 — 1,421건"]
+    FEED["피드 · 버킷 라벨 <b>1,302건 (92%)</b><br/>us_insider_buys 417 · us_corporate_events 417<br/>gl_major_event 258 · crypto_regulation 210<br/>회사를 지목하는데 피드 이름에 붙었다"]
+    NARR["진짜 내러티브 <b>94건</b><br/>tariffs 33 · ai_capex 32 · semiconductor 29<br/>그래프 엣지 0개"]
+  end
+
+  subgraph S3["3 · 관계 — 여기가 좁다"]
+    ACC["accepted 19,347<br/>SAME_ETF_BASKET · PRODUCT_SIMILARITY<br/>ISSUED_BY · CLASSIFIED_AS"]
+    QUAR["격리 3,312<br/>AFFECTS 616 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · SUPPLY_CHAIN 169"]
+    SUPPLY["SUPPLIES · CUSTOMER_OF<br/>정책 ✓ 빌더 ✓ 테이블 ✓<br/><b>데이터 0행</b>"]
+    THEME["theme_membership 396<br/>전부 adjacent · 근거 93% 격리"]
+    SNAP["graph_snapshot_edge<br/>연결 엔티티 651"]
+  end
+
+  subgraph S4["4 · 임팩트 · 서빙"]
+    IP2["impact_path_v2 105,585 봉인<br/>1홉 103,128 · 2홉 2,457 · <b>3홉+ 0</b>"]
+    ITEM["content_pack_item 9,311 · 수율 100%"]
+    CONF["market_confirmation_v1<br/>253행 · 임팩트 연결 212"]
+  end
+
+  subgraph S5["5 · 제품"]
+    UI["종목 심층 화면<br/>도달 종목 270 / 331"]
+    MNEWS["시장 전반 뉴스 화면<br/>어휘 34개 · 매칭 88 · 표시 79"]
+    SHOCK["impact_shock 0<br/>exposure 0 · lot_snapshot 0"]
+  end
+
+  STKDOC ==>|"키가 있어 귀속된다"| EVENT
+  RSSDOC ==>|"키가 없다 → 미귀속 907"| EVENT
+  RSSDOC -.->|"본문만 남아 피드 라벨로 떨어진다"| FEED
+  EVENT ==>|"미귀속 907 중 어휘 88"| MNEWS
+  MNEWS x--x|"어떤 종목에도 붙지 않는다"| UI
+  EVENT -->|"귀속 3,099"| SNAP
+  EVENT --> CLAIM
+  CLAIM -.->|"문서 2건 요건 미달"| QUAR
+  FEED x--x|"기존 규칙으로 구제 13건뿐"| SNAP
+  NARR x--x|"잇는 술어가 없다"| SNAP
+  MACRO x--x|"Metric 엔티티에 엣지 0"| NARR
+  ACC ==>|"유사도 엣지만 통과"| SNAP
+  QUAR x--x|"인과 엣지는 스냅샷에 못 들어간다"| SNAP
+  SUPPLY -.->|"공시 수집만 붙이면 산다"| SNAP
+  THEME -.->|"근거 370/396 격리"| SNAP
+  SNAP ==> IP2
+  IP2 ==> ITEM
+  ITEM ==> UI
+  ITEM --> CONF
+  CONF -.->|"화면 미연결"| UI
+  IP2 -.->|"보유 조인 없음"| SHOCK
+  COV -.->|"커서가 도달하면 채워진다"| EVENT
+
+  classDef flow fill:#d7ece0,stroke:#2c6f52,stroke-width:1.5px,color:#123021
+  classDef block fill:#f6ded9,stroke:#a83a2b,stroke-width:1.5px,color:#4a1710
+  classDef dormant fill:#e3e8ed,stroke:#7b8695,stroke-width:1.2px,color:#2b3239
+  classDef dead fill:#ffffff,stroke:#a83a2b,stroke-width:2px,stroke-dasharray:5 3,color:#4a1710
+  classDef ready fill:#fdf3e0,stroke:#9a6b16,stroke-width:2px,color:#5c3f08
+
+  class STKDOC,MACRO,COV,EVENT,ACC,SNAP,IP2,ITEM,UI,MNEWS flow
+  class QUAR,CLAIM,CONF,RSSDOC block
+  class FEED,NARR,THEME dead
+  class SUPPLY ready
+  class SHOCK dormant
+      </pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>관계 그래프의 실제 폭</h2>
+    <p class="lede" style="margin-top:0">
+      술어별로 갈라 보면 통과한 것과 격리된 것의 성격이 정확히 나뉜다.
+      <strong>통과한 것은 전부 "같이 움직인다" 계열이고, 격리된 것은 전부 "무엇이 무엇을
+      한다" 계열이다.</strong> 격리는 버그가 아니라 증거 게이트가 맞게 작동한 결과지만,
+      결과적으로 그래프에는 인과가 하나도 남지 않았다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>술어</th><th>종류</th><th class="n">통과</th><th class="n">격리</th><th>경로가 밟는가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>SAME_ETF_BASKET</strong></td><td>통계</td><td class="n">12,130</td><td class="n">26</td><td>1홉 · 66,825회</td></tr>
+          <tr><td><strong>PRODUCT_SIMILARITY</strong></td><td>통계</td><td class="n">6,590</td><td class="n">0</td><td>1홉 · 36,303회</td></tr>
+          <tr><td><strong>CLASSIFIED_AS</strong></td><td>구조</td><td class="n">119</td><td class="n">0</td><td>2홉 · 4,914회</td></tr>
+          <tr><td><strong>ISSUED_BY</strong></td><td>구조</td><td class="n">508</td><td class="n">0</td><td>정체성 전용</td></tr>
+          <tr><td>COMMON_OWNER</td><td>통계</td><td class="n">0</td><td class="n">1,062</td><td>—</td></tr>
+          <tr><td>AFFECTS</td><td>구조</td><td class="n">0</td><td class="n">616</td><td>—</td></tr>
+          <tr><td>SAME_INDUSTRY</td><td>구조</td><td class="n">0</td><td class="n">418</td><td>—</td></tr>
+          <tr><td>SAME_THEME</td><td>구조</td><td class="n">0</td><td class="n">410</td><td>—</td></tr>
+          <tr><td>PEER_OF</td><td>구조</td><td class="n">0</td><td class="n">174</td><td>—</td></tr>
+          <tr><td>SUPPLY_CHAIN</td><td>구조</td><td class="n">0</td><td class="n">169</td><td>—</td></tr>
+          <tr><td>ROLLS_UP</td><td>구조</td><td class="n">0</td><td class="n">129</td><td>—</td></tr>
+          <tr><td>EXPOSES</td><td>구조</td><td class="n">0</td><td class="n">107</td><td>—</td></tr>
+          <tr><td>NEWS_COMENTION</td><td>통계</td><td class="n">0</td><td class="n">68</td><td>—</td></tr>
+          <tr><td>OWNS</td><td>구조</td><td class="n">0</td><td class="n">64</td><td>—</td></tr>
+          <tr><td>ACCELERATES · DECELERATES · DIVERGENCE</td><td>통계</td><td class="n">0</td><td class="n">30</td><td>생산자 없음</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>사건이 임팩트가 되기까지 — 어디서 얼마나 잃는가</h2>
+    <p class="lede" style="margin-top:0">
+      귀속만으로는 부족하다. 걷기 시작할 엔티티가 그래프에 엣지를 갖고 있어야 한다.
+      <strong>지배적인 손실은 예산이 아니라 이 연결 조건이다.</strong>
+    </p>
+    <div class="stage">
+      <div class="rows">
+        <div class="row flow-s">
+          <div class="surface">현재 관측 <small>knowledge.event 의 현재 리비전</small></div>
+          <div class="yield">4,006</div><span class="chip flow-s">전체</span>
+        </div>
+        <div class="row block-s">
+          <div class="surface">기업이 붙지 않음
+            <small>이 중 88건이 시장 어휘에 걸려 새 화면에 나온다. 나머지는 지역 행정·쇼핑 프로모션이라 안 보이는 게 맞다</small>
+          </div>
+          <div class="yield">−907</div><span class="chip block-s">경로 0</span>
+        </div>
+        <div class="row flow-s">
+          <div class="surface">45일 창 안의 귀속 사건 <small>빌더가 후보로 읽는 범위</small></div>
+          <div class="yield">2,873</div><span class="chip flow-s">후보</span>
+        </div>
+        <div class="row block-s">
+          <div class="surface">엔티티가 그래프에 엣지 없음
+            <small>여기서 49%를 잃는다. policy_event 623건이 전부 여기 걸린다 — 붙은 엔티티 5개가 모두 Metric 노드이고 엣지가 0개다</small>
+          </div>
+          <div class="yield">−1,421</div><span class="chip block-s">가장 큰 손실</span>
+        </div>
+        <div class="row dormant-s">
+          <div class="surface">실행당 예산 <code>EVENT_LIMIT</code>
+            <small>1,452개 후보에 500 슬롯. 실행이 누적되며 605건까지 올라왔다 — 예산은 두 번째 제약이다</small>
+          </div>
+          <div class="yield">500 / 회</div><span class="chip dormant-s">누적 완화</span>
+        </div>
+        <div class="row flow-s">
+          <div class="surface">실제로 경로를 만든 사건</div>
+          <div class="yield">605</div><span class="chip flow-s">15%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>사건 유형별 — 무엇이 살고 무엇이 죽는가</h2>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr><th>사건 유형</th><th class="n">귀속</th><th class="n">엔티티 연결</th><th class="n">고유 엔티티</th><th class="n">경로 생성</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>insider_trade</strong></td><td class="n">1,004</td><td class="n">568</td><td class="n">39</td><td class="n">168</td></tr>
+          <tr><td><strong>analyst</strong></td><td class="n">882</td><td class="n">882</td><td class="n">147</td><td class="n">325</td></tr>
+          <tr><td><strong>policy_event</strong></td><td class="n">623</td><td class="n">0</td><td class="n">5</td><td class="n">0</td></tr>
+          <tr><td><strong>sec_8k</strong></td><td class="n">462</td><td class="n">5</td><td class="n">10</td><td class="n">4</td></tr>
+          <tr><td>earnings</td><td class="n">66</td><td class="n">66</td><td class="n">26</td><td class="n">55</td></tr>
+          <tr><td>product_launch</td><td class="n">21</td><td class="n">21</td><td class="n">16</td><td class="n">15</td></tr>
+          <tr><td>ma_deal</td><td class="n">17</td><td class="n">17</td><td class="n">11</td><td class="n">10</td></tr>
+          <tr><td>capex_increase</td><td class="n">11</td><td class="n">11</td><td class="n">6</td><td class="n">9</td></tr>
+          <tr><td>legal_action · supply_disruption · buyback_dividend · ipo_listing</td><td class="n">13</td><td class="n">13</td><td class="n">12</td><td class="n">12</td></tr>
+          <tr><td><strong>macro_shock · regulation</strong></td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede">
+      마지막 줄이 중요하다. <code>macro_shock</code>과 <code>regulation</code>은 분류
+      체계에는 있는데 <strong>사건이 한 건도 추출된 적이 없다</strong>. 금리·물가 같은
+      거시 사건이 들어올 자리가 비어 있고, 그래서 거시 뉴스는 <code>policy_event</code>로
+      떨어져 Metric 노드에서 멈춘다.
+    </p>
+  </section>
+
+  <section>
+    <h2>완성하려면 — 무엇을 어떻게</h2>
+    <p class="lede" style="margin-top:0">
+      2026-08-04 에 로드맵 여섯 항목을 전부 시도했고, <strong>다섯이 측정에서 죽었다.</strong>
+      "잇기만 하면 된다"고 본 것들이 근거가 없거나 이득이 0이었다. 아래는 그 시도 뒤에
+      남은 것이고, 죽은 가설도 함께 적는다 — 다음 사람이 같은 것을 다시 세우지 않도록.
+      순서는 <strong>값싼 것부터</strong>다.
+    </p>
+    <ol class="steps">
+      <li class="collect">
+        <span class="s-kind">수집 · 배관은 이미 다 있다</span>
+        <span class="s-title">공급망 공시를 수집한다 — 인과 술어를 얻는 유일한 길</span>
+        <div class="s-body">
+          <code>SUPPLIES</code>·<code>CUSTOMER_OF</code> 는 정책(<code>promotionEligible
+          true</code>, 최소 리비전 1)·빌더(<code>builders/supply-chain.ts</code>)·테이블
+          (<code>analytics.firm_supply_relation</code>)이 <strong>전부 갖춰져 있고 데이터만
+          0행</strong>이다. 빌더는 <code>absenceSemantics: unknown_not_disclosed</code> 라
+          <strong>공시가 없으면 아무것도 만들지 않는다</strong> — 지어내기가 구조적으로
+          막혀 있어서, 이 저장소가 거부해온 종류의 추론이 아니다.
+          <br><br>
+          <strong>방법</strong> ① SEC 10-K 주요 고객 공시와 DART 매출처 공시의 수집
+          가능성·파싱 난이도를 먼저 잰다(둘 다 아직 미확인) → ② 소스를 계약 계층에
+          등록해 <code>source_revision</code> 을 얻는다 → ③ <code>firm_supply_relation</code>
+          에 적재 → ④ 빌더에 호출자를 붙인다(ownership 배선과 같은 형태).
+          <br><br>
+          <em>후보가 아닌 것</em>: <code>watchlist.customers</code> 8행은 Discord 사용자
+          목록이고 research-common 소유다. 이름만 겹친다.
+        </div>
+        <div class="s-close">닫는 관측 — firm_supply_relation 이 0을 벗어나고, <strong>경로가 밟는 술어 목록에 SUPPLIES 가 등장</strong>한다. 후자까지 가야 실제로 산 것이다</div>
+      </li>
+      <li>
+        <span class="s-kind">배선 · 값싸다</span>
+        <span class="s-title">텍스트 귀속을 피드 라벨 엔티티까지 넓힌다</span>
+        <div class="s-body">
+          <code>run-event-text-attribution.ts</code> 는 <code>target_entity_id IS NULL</code>
+          인 것만 본다. 피드 라벨(<code>us_insider_buys</code> 등)에 붙은 1,302건은
+          <strong>틀린 타깃을 이미 갖고 있어서</strong> 시야에 안 들어온다.
+          <br><br>
+          <strong>방법</strong> 대상 조건에 "타깃이 Metric 타입 피드 라벨인 경우"를 더한다.
+          매칭 규칙(이름 4자 이상 단일 매치 / 티커 3자 이상 경계)은 <strong>바꾸지
+          않는다</strong> — 규칙 완화가 아니라 대상 확대다. 같이 할 것: 추출기가 애초에
+          이 라벨들을 타깃으로 쓰지 않게 막아야 재발하지 않는다.
+          <br><br>
+          <em>기대치를 낮춰 적는다</em>: 기존 규칙으로 구제되는 것은 <strong>13건</strong>이다.
+          나머지가 지목하는 회사가 <code>core.entity</code> 에 없다.
+        </div>
+        <div class="s-close">닫는 관측 — 피드 라벨에 붙은 사건 수가 줄고, 45일 창의 연결 손실 1,421 이 그만큼 줄어든다</div>
+      </li>
+      <li class="decide">
+        <span class="s-kind">결정 · 화면 쪽 조건</span>
+        <span class="s-title">상장 공시를 시장 뉴스에서 걸러낼 것인가</span>
+        <div class="s-body">
+          어휘 오탐 중 <code>수출입</code> 은 지웠다(끌어오던 2건이 모두 오탐).
+          <strong><code>금리</code>·<code>물가</code> 는 지우면 안 된다</strong> — 지우면
+          "Fed 금리 동결에도 매파 신호"와 "7월 물가 2.8%↑" 같은 진짜 거시 뉴스를 잃는다.
+          <br><br>
+          남은 오탐은 코스닥·나스닥 상장 공시 11건인데, 그 두 용어는 서킷브레이커·지수
+          급락도 끌어오므로 삭제할 수 없다. <strong>방법</strong> 어휘 테이블이 아니라
+          화면 쪽 조건 — <code>market:코스닥</code> 단독 매칭 + 상장·공모 어휘 동시 등장 —
+          으로 거른다. 어휘를 안 건드리는 것이 요점이다.
+        </div>
+        <div class="s-close">닫는 관측 — 표시 79줄에서 상장 공시가 빠지고, 용어별 건수 표의 코스닥·나스닥 수는 그대로다</div>
+      </li>
+      <li class="decide">
+        <span class="s-kind">결정 · 미착수</span>
+        <span class="s-title">크립토 평면을 가동하거나 탭을 숨긴다</span>
+        <div class="s-body">
+          <code>crypto_serving.*</code> 4종이 전부 0행이라 탭이 빈 화면을 낸다. CAIP-2
+          식별자는 7 / 14 만 검증됐고 나머지 7개(TRX·XRP·NEAR·SUI·DOGE·HYPE·ADA)는
+          <strong>각 네임스페이스 규격에서 읽어야 한다 — 기억으로 적으면 안 된다.</strong>
+          다만 Binance 파생 데이터가 이미 crypto-research 를 통해 매일 들어온다.
+          새 벤더가 정말 필요한지가 먼저다.
+        </div>
+        <div class="s-close">닫는 관측 — crypto_serving 뷰 4종이 0을 벗어나거나, 탭이 사라진다</div>
+      </li>
+      <li class="collect">
+        <span class="s-kind">시간 · 고칠 코드가 없다</span>
+        <span class="s-title">커버리지는 기다리면 닫힌다</span>
+        <div class="s-body">
+          미수집 1,592셀 중 <strong>1,587건이 "커서가 아직 도달하지 않음"</strong>이다.
+          실패가 아니라 밀린 것이다. 커서는 182곳 중 111곳까지 왔고, 하루 15곳씩
+          <strong>약 5일</strong>이면 한 바퀴가 끝난다.
+          <br><br>
+          한도는 OpenDART 가 <code>status 020</code> 을 반환할 때만 켜지고, 잡 기록으로
+          재면 (300, 361] 사이다. <code>--limit</code> 은 요청 수가 아니라 발행사 수이며
+          발행사당 20요청(5년 × 4보고서)은 줄일 수 없다. 하루 15 → 17곳으로 올리면
+          이득 13%에 <code>partial</code> 흔적을 남길 위험이라 하지 않는다.
+        </div>
+        <div class="s-close">닫는 관측 — nextOffset 이 182에 도달하고 "커서 미도달" 사유가 0이 된다</div>
+      </li>
+    </ol>
+
+    <div class="stage" style="margin-top:1.25rem">
+      <div class="stage-head">
+        <span class="stage-name">측정에서 죽은 가설 — 다시 세우지 말 것</span>
+        <span class="stage-note">2026-08-04</span>
+      </div>
+      <div class="rows">
+        <div class="row block-s">
+          <div class="surface">노출 술어(EXPOSES)를 만들어 거시 노드를 잇는다
+            <small><code>EXPOSES</code> 는 정책 표에 없다. 근거로 쓰려던
+            <code>etf_holdings.sector</code> 는 고유값 0이고, 산업 분류는 이미 소진됐다
+            (해석 종목 119 = CLASSIFIED_AS 119). 게다가 진짜 내러티브는 94건뿐이라
+            완벽하게 만들어도 사거리가 94다</small>
+          </div>
+          <div class="yield">사거리 94건</div><span class="chip block-s">기각</span>
+        </div>
+        <div class="row block-s">
+          <div class="surface">ownership 빌더를 배선한다
+            <small>구현하고 드라이런까지 했다. 예측과 정확히 일치했지만(HELD_BY 210 ·
+            COMMON_OWNER 401) <strong>연결 증가가 0</strong>이었다 — 401쌍이 전부 이미
+            SAME_ETF_BASKET 이 잇는 쌍이고, ETF 보유 종목 100개가 전부 이미 그래프에 있다.
+            institutional_holdings 를 더해도 종목 76개가 전부 이미 있어 같다. 되돌렸다</small>
+          </div>
+          <div class="yield">새 연결 0</div><span class="chip block-s">되돌림</span>
+        </div>
+        <div class="row block-s">
+          <div class="surface">유니버스를 넓힌다
+            <small>내가 제안했고 내가 반증했다. 뉴스 문서가 지목하는 종목 54개가
+            <strong>전부 이미 유니버스 안</strong>이다. 진짜 격차는 유니버스 크기가 아니라
+            <code>rss_news</code> 문서의 키 부재다 — 4,152건 중 7건만 갖고 있다</small>
+          </div>
+          <div class="yield">수요 0</div><span class="chip block-s">철회</span>
+        </div>
+        <div class="row dormant-s">
+          <div class="surface">FINRA 계보 0이 결함이다
+            <small>의심했고 시간순으로 반증했다. 계보 코드는 커밋 <code>38a545b</code>
+            (08-03 12:58)에 들어왔고 마지막 실제 삽입은 08-03 05:23 이다. 그 뒤 삽입이
+            0인 것도 정상 — 최신 거래일 07-31(금) 이후 주말과 T+1 지연이라 새 거래일이
+            없다. 새 거래일이 오는 첫 실행에서 0을 벗어난다</small>
+          </div>
+          <div class="yield">정상</div><span class="chip dormant-s">반증됨</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>여전히 끊겨 있는 사슬</h2>
+    <div class="flow">
+      <div class="stage">
+        <div class="rows">
+          <div class="row block-s">
+            <div class="surface">월드 모델 → 포트폴리오 노출
+              <small>world.event_revision 4,046 → <strong>impact_shock 0</strong> → exposure 0 → lot_snapshot 0.
+              sign·materiality·economic_magnitude 를 지어내야 채워지므로 비운 채 둔다</small>
+            </div>
+            <div class="yield">impact_shock 에서 끊김</div>
+            <span class="chip block-s">의도적 보류</span>
+          </div>
+          <div class="row block-s">
+            <div class="surface">지식 추출 → 검증된 주장
+              <small>document 6,255 → claim 274(corroborated) → <strong>verified 0</strong>.
+              문서 2건 요건을 못 채운다. 검증 기준이 이 저장소에 정의된 적이 없다</small>
+            </div>
+            <div class="yield">verified 에서 끊김</div>
+            <span class="chip block-s">기준 미정</span>
+          </div>
+          <div class="row block-s">
+            <div class="surface">시장 전반 뉴스 → 종목
+              <small>새 화면이 88건을 보여주지만 어떤 종목에도 잇지 않는다. 공급망 수집이나 귀속 확대가 풀려야 이 사슬이 생긴다</small>
+            </div>
+            <div class="yield">경로 0</div>
+            <span class="chip block-s">신규</span>
+          </div>
+          <div class="row flow-s">
+            <div class="surface">v2 임팩트 → 제품
+              <small>graph_snapshot_edge 5,379 → impact_path_v2 → content_pack_item 9,311 → impact_brief 262</small>
+            </div>
+            <div class="yield">끊긴 곳 없음</div>
+            <span class="chip flow-s">흐름</span>
+          </div>
+          <div class="row flow-s">
+            <div class="surface">사건 귀속 → 월드 참여자
+              <small>event 4,046 → 엔티티 붙은 사건 3,106 → world.event_participant 3,106</small>
+            </div>
+            <div class="yield">끊긴 곳 없음</div>
+            <span class="chip flow-s">흐름</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      숫자가 움직인 것에 대해 — 시장 어휘 매칭은 <span class="num">83 → 86 → 89 → 88</span>
+      로 움직였고 <strong>매번 이유가 다르다</strong>. 83→86 은 매칭 규칙이 대소문자
+      무시로 바뀐 것, 86→89 는 코퍼스가 자란 것(사건 4,000 → 4,006),
+      89→88 은 오탐 용어 <code>수출입</code> 을 지운 것이다. 규칙 변경·코퍼스 성장·
+      정의 수정 셋을 같은 것으로 읽지 말 것. 현재 활성 용어는 34개다.
+    </p>
+    <p>
+      관측 도구 <code>ops/scripts/collect-data-health.mjs</code> ·
+      소유권 지도 <code>docs/operations/database-ownership.md</code> ·
+      인수인계 <code>docs/plan/handoff-2026-08-03.md</code>.
+      이 DB 는 네 프로젝트가 공유한다 — 남의 테이블을 우리가 버린 것으로 읽지 말 것.
+    </p>
+  </footer>
+</div>
