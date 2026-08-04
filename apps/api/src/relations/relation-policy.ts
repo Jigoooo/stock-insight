@@ -51,6 +51,31 @@ export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
     absenceSemantics: 'unknown_not_disclosed',
   },
   {
+    // A macro series and a stock whose daily moves tracked each other over a
+    // measured window. Same layer as PRODUCT_SIMILARITY and SAME_ETF_BASKET:
+    // statistical, undirected, NOT causal. The name says co-movement and nothing
+    // more on purpose — AFFECTS/EXPOSES would claim a direction the measurement
+    // does not contain.
+    //
+    // minSourceRevisions 2: the number comes from two windows, the macro series
+    // window and the stock price window, and each is registered as its own
+    // immutable revision. One of them alone cannot produce the correlation.
+    //
+    // superhubDegreeCap 40 is a backstop, not the working limit. 13 series over
+    // 330 stocks would make a single series a 330-degree hub, so the model caps
+    // itself at 25 stocks per series (macro-comovement-model.ts). The policy cap
+    // sits above that: it should never fire, and if it does the model changed
+    // without this row being reconsidered. Note the cap REJECTS rather than
+    // trims, so a cap below the model's own limit would discard everything.
+    predicate: 'MACRO_COMOVEMENT',
+    relationClass: 'association',
+    minSourceRevisions: 2,
+    requiresModelConfig: true,
+    superhubDegreeCap: 40,
+    promotionEligible: true,
+    absenceSemantics: 'unknown_not_disclosed',
+  },
+  {
     predicate: 'SUPPLIES',
     relationClass: 'exposure',
     minSourceRevisions: 1,

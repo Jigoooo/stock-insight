@@ -63,6 +63,7 @@ import { eventRevisionIdentityMigrationSql } from './migrations/062_event_revisi
 import { marketTopicVocabularyMigrationSql } from './migrations/063_market_topic_vocabulary.ts';
 import { feedLabelEventTargetsMigrationSql } from './migrations/064_feed_label_event_targets.ts';
 import { macroSeriesEntitiesMigrationSql } from './migrations/065_macro_series_entities.ts';
+import { macroComovementOntologyMigrationSql } from './migrations/066_macro_comovement_ontology.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -786,6 +787,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroSeriesEntitiesMigrationSql,
   },
+  {
+    id: '066_macro_comovement_ontology',
+    description:
+      'Approves the MACRO_COMOVEMENT predicate so the macro correlation builder can produce accepted relations between a FRED series entity and a stock. Statistical association only, undirected, model-config bound — it asserts co-movement over a stated window and no direction, mechanism or cause. effective_from is 2000-01-01 because the accepted-revision guard requires it to precede a candidate valid_from derived from the observation window.',
+    tables: [],
+    sql: macroComovementOntologyMigrationSql,
+  },
 ];
 
 export {
@@ -853,5 +861,6 @@ export {
   marketTopicVocabularyMigrationSql,
   feedLabelEventTargetsMigrationSql,
   macroSeriesEntitiesMigrationSql,
+  macroComovementOntologyMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

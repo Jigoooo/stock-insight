@@ -17,6 +17,7 @@ const BUILDER_PREDICATES = [
   'COMMON_OWNER',
   'SAME_ETF_BASKET',
   'NEWS_COMENTION',
+  'MACRO_COMOVEMENT',
 ] as const;
 
 describe('B6 relation builder policy revision', () => {
@@ -65,6 +66,54 @@ describe('B6 relation builder policy revision', () => {
     });
     assert.equal(withoutModel.decision, 'quarantined_unverified');
     assert.ok(withoutModel.reasons.includes('missing_model_config'));
+  });
+
+  it('treats macro co-movement as a statistical association, never a causal one', () => {
+    const policy = getRelationBuilderPolicy('MACRO_COMOVEMENT');
+    // The point of the whole predicate: a correlation is an association. If this
+    // ever becomes 'causal' or 'exposure' the name stops matching the claim.
+    assert.equal(policy.relationClass, 'association');
+    assert.equal(policy.requiresModelConfig, true);
+    // Two windows produce the number — the macro series and the stock prices.
+    assert.ok(policy.minSourceRevisions >= 2);
+    assert.ok(
+      policy.superhubDegreeCap !== null && policy.superhubDegreeCap > 0,
+      'a series correlated with every stock would be an unbounded hub',
+    );
+
+    const withoutModel = evaluateRelationCandidate({
+      predicate: 'MACRO_COMOVEMENT',
+      distinctSourceRevisionIds: [31, 32],
+      hasModelConfigEvidence: false,
+      subjectDegree: 3,
+      objectDegree: 3,
+    });
+    assert.equal(withoutModel.decision, 'quarantined_unverified');
+    assert.ok(withoutModel.reasons.includes('missing_model_config'));
+
+    // One window is not two. A correlation cited against only the macro side
+    // would be unre-runnable from its own evidence.
+    const oneWindow = evaluateRelationCandidate({
+      predicate: 'MACRO_COMOVEMENT',
+      distinctSourceRevisionIds: [31, 31],
+      hasModelConfigEvidence: true,
+      subjectDegree: 3,
+      objectDegree: 3,
+    });
+    assert.equal(oneWindow.decision, 'quarantined_unverified');
+    assert.ok(oneWindow.reasons.includes('insufficient_source_revisions'));
+  });
+
+  it('keeps the macro model degree cap strictly below the policy backstop', async () => {
+    // The policy cap REJECTS rather than trims, so a model that emitted more
+    // pairs per series than the policy allows would silently discard all of them.
+    const { MACRO_COMOVEMENT_MODEL_CONFIG } =
+      await import('../src/relations/macro-comovement-model.ts');
+    const policy = getRelationBuilderPolicy('MACRO_COMOVEMENT');
+    assert.ok(
+      MACRO_COMOVEMENT_MODEL_CONFIG.seriesDegreeCap < (policy.superhubDegreeCap ?? 0),
+      'model seriesDegreeCap must stay under the policy superhubDegreeCap',
+    );
   });
 
   it('caps ETF/universal-owner superhubs with a finite degree cap', () => {

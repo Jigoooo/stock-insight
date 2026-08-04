@@ -17,12 +17,24 @@ import {
   type EtfBasketObservation,
 } from '../relations/builders/etf-overlap.ts';
 import {
+  buildMacroComovementCandidates,
+  type MacroComovementObservation,
+} from '../relations/builders/macro-comovement.ts';
+import {
   buildOfficialSectorCandidates,
   type OfficialSectorObservation,
 } from '../relations/builders/official-sector.ts';
 import { buildProductSimilarityCandidates } from '../relations/builders/product-similarity.ts';
 import { type ContentPackSourceItem } from '../relations/content-pack-builder.ts';
 import { publishContentPacks } from '../relations/content-pack-publisher.ts';
+import {
+  MACRO_COMOVEMENT_MODEL_CONFIG,
+  MACRO_SERIES_TRANSFORMS,
+  planMacroComovementPairs,
+  type MacroComovementPlan,
+  type MacroSeriesWindow,
+  type StockPriceWindow,
+} from '../relations/macro-comovement-model.ts';
 import {
   buildProductSimilarityObservations,
   type ProductSimilarityProfile,
@@ -77,6 +89,8 @@ const RELEASE_COMMIT = 'f2ec673';
 const ETF_PROVIDER = 'internal-etf-holdings-snapshot';
 const SECTOR_PROVIDER = 'internal-industry-classification-snapshot';
 const PROFILE_PROVIDER = 'internal-company-profile-snapshot';
+const MACRO_SERIES_PROVIDER = 'internal-macro-series-window-snapshot';
+const STOCK_PRICE_PROVIDER = 'internal-stock-price-window-snapshot';
 
 type EtfHoldingRow = QueryResultRow & {
   etf_ticker: string;
@@ -114,6 +128,19 @@ type CompanyProfileRow = QueryResultRow & {
   captured_at: Date | string;
 };
 
+type MacroSeriesWindowRow = QueryResultRow & {
+  series_key: string;
+  observation_date: string;
+  value: number;
+  series_entity_id: string | number;
+};
+
+type StockPriceWindowRow = QueryResultRow & {
+  security_entity_id: string | number;
+  bar_date: string;
+  close: number;
+};
+
 type ManifestEntry = { providerKey: string; ref: RawObjectRef; fetchedAt: Date };
 
 type SourceDefinition = {
@@ -140,6 +167,30 @@ const PROFILE_SOURCE: SourceDefinition = {
   displayName: 'Immutable company profile summary snapshot from transitional serving data',
   sourceTable: 'public.company_profiles',
   requiredFields: ['entity_key', 'summary_text', 'source_refs_json', 'captured_at'],
+};
+// The two windows behind a MACRO_COMOVEMENT number. They exist because the
+// accepted-revision guard (migration 024) wants an immutable source revision
+// bound to the payload, and neither input can supply one on its own:
+// market.macro_vintage carries source_revision_id on only part of its rows
+// (10,691 of 22,059 for DGS10, measured 2026-08-04), and market_ts.ohlcv has no
+// lineage column at all — it belongs to research-common and we only read it.
+// Registering the exact window that produced the correlation is what makes the
+// number re-runnable; citing a partial set of upstream revisions would describe
+// the input as something other than what was used.
+const MACRO_SERIES_SOURCE: SourceDefinition = {
+  providerKey: MACRO_SERIES_PROVIDER,
+  displayName: 'Immutable point-in-time macro series window used by the co-movement model',
+  sourceTable: 'market.macro_vintage',
+  requiredFields: ['series_key', 'observation_date', 'vintage_date', 'value', 'available_at'],
+};
+const STOCK_PRICE_SOURCE: SourceDefinition = {
+  providerKey: STOCK_PRICE_PROVIDER,
+  displayName: 'Immutable daily close window used by the co-movement model',
+  // Owned by research-common (docs/operations/database-ownership.md). Read only:
+  // this job never writes to market_ts.*, and verify-table-ownership.sh would
+  // fail if it did.
+  sourceTable: 'market_ts.ohlcv',
+  requiredFields: ['symbol', 'exchange', 'domain', 'timeframe', 'ts', 'close'],
 };
 
 const LATEST_ETF_HOLDINGS_SQL = `
@@ -208,6 +259,71 @@ WHERE nullif(profile.summary_text,'') IS NOT NULL
 ORDER BY profile.entity_key
 `;
 
+// Point-in-time macro series window.
+//
+// market.macro_vintage holds every (observation_date, vintage_date) pair, so one
+// observation date has many values as FRED revises it. DISTINCT ON picks the
+// greatest vintage_date among those whose available_at is at or before the run
+// cutoff — i.e. the newest value that WAS knowable then. Taking the newest value
+// outright would feed the model a revision published after the fact and make the
+// correlation look better than anything that could have been computed at the
+// time. The rule is repeated verbatim in MACRO_COMOVEMENT_MODEL_CONFIG so a
+// re-run is checkable against the row it produced.
+const MACRO_SERIES_WINDOW_SQL = `
+WITH pit AS (
+  SELECT DISTINCT ON (vintage.series_key, vintage.observation_date)
+         vintage.series_key,
+         vintage.observation_date::text AS observation_date,
+         vintage.value::float8 AS value
+  FROM market.macro_vintage vintage
+  WHERE vintage.series_key = ANY($3::text[])
+    AND vintage.value IS NOT NULL
+    AND vintage.available_at <= $1::timestamptz
+    AND vintage.observation_date >= ($1::timestamptz - make_interval(days => $2))::date
+    AND vintage.observation_date <= $1::timestamptz::date
+  ORDER BY vintage.series_key, vintage.observation_date,
+           vintage.vintage_date DESC, vintage.available_at DESC
+)
+SELECT pit.series_key, pit.observation_date, pit.value,
+       identifier.entity_id AS series_entity_id
+FROM pit
+JOIN core.entity_identifier identifier
+  ON identifier.identifier_type = 'FRED_SERIES'
+ AND identifier.identifier_value = pit.series_key
+ AND identifier.valid_to IS NULL
+JOIN core.entity series_entity
+  ON series_entity.entity_id = identifier.entity_id
+ AND series_entity.entity_type = 'Metric'
+ORDER BY pit.series_key, pit.observation_date
+`;
+
+// Daily closes for the same window, keyed by the canonical Stock entity.
+//
+// core.v_security_universe is the mapping the rest of the pipeline uses
+// (run-feature-snapshot.ts) — ticker + market to security_entity_id. Joining any
+// other way risks the public.entities / core.entity id-space confusion that has
+// produced wrong results twice in this repository.
+//
+// close, not adj_close: adj_close is null on all 298,754 stock 1D rows and
+// adjustment_version is empty on all of them (measured 2026-08-04). close is
+// already split-adjusted at the source.
+const STOCK_PRICE_WINDOW_SQL = `
+SELECT DISTINCT ON (universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date)
+       universe.security_entity_id,
+       ((bar.ts AT TIME ZONE 'UTC')::date)::text AS bar_date,
+       bar.close::float8 AS close
+FROM market_ts.ohlcv bar
+JOIN core.v_security_universe universe
+  ON universe.ticker = regexp_replace(upper(bar.symbol), '\\.(KS|KQ)$', '')
+ AND universe.market = CASE WHEN bar.exchange IN ('KOSPI','KOSDAQ') THEN 'KR' ELSE 'US' END
+WHERE bar.domain = 'stock'
+  AND bar.timeframe = '1D'
+  AND bar.close > 0
+  AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
+  AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
+ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
+`;
+
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -267,6 +383,267 @@ async function loadInputs(client: Client): Promise<{
   if (missingProfile)
     throw new Error(`company profile lacks canonical core entity: ${missingProfile.entity_key}`);
   return { holdings: holdings.rows, sectors: sectors.rows, profiles: profiles.rows };
+}
+
+/**
+ * Load both sides of the co-movement window.
+ *
+ * Returns empty arrays rather than throwing when a side is missing. The other
+ * three builders throw on empty input because their absence means the transitional
+ * serving tables broke; this one is additive to a pipeline that already works, and
+ * failing the whole publish because a macro collector was late would trade a
+ * working graph for a missing one. The run summary reports the counts, so an empty
+ * side is visible rather than silent.
+ */
+async function loadMacroComovementInputs(
+  client: Client,
+  asOf: string,
+): Promise<{ seriesWindows: MacroSeriesWindow[]; stockWindows: StockPriceWindow[] }> {
+  const includedSeries = Object.keys(MACRO_SERIES_TRANSFORMS).sort();
+  const windowDays = MACRO_COMOVEMENT_MODEL_CONFIG.windowDays;
+  const seriesRows = await client.query<MacroSeriesWindowRow>(MACRO_SERIES_WINDOW_SQL, [
+    asOf,
+    windowDays,
+    includedSeries,
+  ]);
+  const seriesByKey = new Map<string, MacroSeriesWindow>();
+  for (const row of seriesRows.rows) {
+    const existing = seriesByKey.get(row.series_key);
+    const window = existing ?? {
+      seriesKey: row.series_key,
+      seriesEntityId: numeric(row.series_entity_id, 'seriesEntityId'),
+      observations: [] as Array<{ date: string; value: number }>,
+    };
+    (window.observations as Array<{ date: string; value: number }>).push({
+      date: row.observation_date,
+      value: row.value,
+    });
+    seriesByKey.set(row.series_key, window);
+  }
+
+  const priceRows = await client.query<StockPriceWindowRow>(STOCK_PRICE_WINDOW_SQL, [
+    asOf,
+    windowDays,
+  ]);
+  const stockByEntity = new Map<number, StockPriceWindow>();
+  for (const row of priceRows.rows) {
+    const stockEntityId = numeric(row.security_entity_id, 'stockEntityId');
+    const existing = stockByEntity.get(stockEntityId);
+    const window = existing ?? {
+      stockEntityId,
+      observations: [] as Array<{ date: string; close: number }>,
+    };
+    (window.observations as Array<{ date: string; close: number }>).push({
+      date: row.bar_date,
+      close: row.close,
+    });
+    stockByEntity.set(stockEntityId, window);
+  }
+
+  return {
+    seriesWindows: [...seriesByKey.values()].sort((left, right) =>
+      left.seriesKey.localeCompare(right.seriesKey),
+    ),
+    stockWindows: [...stockByEntity.values()].sort(
+      (left, right) => left.stockEntityId - right.stockEntityId,
+    ),
+  };
+}
+
+/**
+ * Register one immutable revision per window that a surviving pair actually used,
+ * then turn the pairs into builder observations.
+ *
+ * Only the endpoints that produced a candidate get a raw object. Minting one for
+ * all 325 stocks every day would write roughly a gigabyte a year of price windows
+ * that no relation ever cites; the ~13 that a candidate depends on are exactly the
+ * provenance the ledger asks for. The trade is recorded here rather than left to
+ * be inferred: a pair that fell below the threshold leaves a count in the run
+ * summary, not a raw object.
+ */
+async function materializeMacroComovementSources(
+  client: Client,
+  plan: MacroComovementPlan,
+  windows: {
+    seriesWindows: readonly MacroSeriesWindow[];
+    stockWindows: readonly StockPriceWindow[];
+  },
+  naturalRunKey: string,
+  token: number,
+  capturedAt: string,
+): Promise<{
+  observations: MacroComovementObservation[];
+  manifests: ManifestEntry[];
+  replayedRawObjects: number;
+}> {
+  const manifests: ManifestEntry[] = [];
+  let replayedRawObjects = 0;
+  if (plan.pairs.length === 0) return { observations: [], manifests, replayedRawObjects };
+
+  const capturedDate = new Date(capturedAt);
+  await ensureSource(client, MACRO_SERIES_SOURCE, capturedAt);
+  await ensureSource(client, STOCK_PRICE_SOURCE, capturedAt);
+
+  const usedSeriesKeys = [...new Set(plan.pairs.map((pair) => pair.seriesKey))].sort();
+  const usedStockEntityIds = [...new Set(plan.pairs.map((pair) => pair.stockEntityId))].sort(
+    (left, right) => left - right,
+  );
+  const seriesByKey = new Map(windows.seriesWindows.map((window) => [window.seriesKey, window]));
+  const stockByEntity = new Map(
+    windows.stockWindows.map((window) => [window.stockEntityId, window]),
+  );
+
+  const macroRun = await openFetchRun(
+    client,
+    MACRO_SERIES_PROVIDER,
+    naturalRunKey,
+    token,
+    capturedAt,
+  );
+  const seriesRevisions = new Map<string, { sourceRevisionId: number; availableAt: string }>();
+  let macroWritten = 0;
+  for (const seriesKey of usedSeriesKeys) {
+    const window = seriesByKey.get(seriesKey);
+    if (window === undefined) throw new Error(`macro series window missing for ${seriesKey}`);
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      provider: MACRO_SERIES_PROVIDER,
+      seriesKey,
+      seriesEntityId: window.seriesEntityId,
+      vintageSelection: MACRO_COMOVEMENT_MODEL_CONFIG.vintageSelection,
+      transform: MACRO_SERIES_TRANSFORMS[seriesKey],
+      windowDays: MACRO_COMOVEMENT_MODEL_CONFIG.windowDays,
+      asOf: capturedAt,
+      observations: window.observations.map((row) => ({ date: row.date, value: row.value })),
+    });
+    const raw = await writeRawObject({
+      providerKey: MACRO_SERIES_PROVIDER,
+      content: payload,
+      extension: 'json',
+      fetchedAt: capturedDate,
+    });
+    const registered = await registerRawObjectWithRevision(client as unknown as PoolClient, {
+      fetchRunId: macroRun.fetchRunId,
+      sourceId: macroRun.sourceId,
+      providerRecordKey: `macro-series:${seriesKey}`,
+      contentHash: raw.contentHash,
+      objectUri: raw.objectUri,
+      httpMeta: {
+        bytes: raw.bytes,
+        kind: 'macro_series_window',
+        source_table: MACRO_SERIES_SOURCE.sourceTable,
+      },
+      fetchedAt: capturedAt,
+    });
+    if (registered.rawInserted) {
+      manifests.push({ providerKey: MACRO_SERIES_PROVIDER, ref: raw, fetchedAt: capturedDate });
+      macroWritten += 1;
+    } else {
+      replayedRawObjects += 1;
+    }
+    seriesRevisions.set(seriesKey, {
+      sourceRevisionId: registered.sourceRevisionId,
+      availableAt: registered.sourceAvailableAt,
+    });
+  }
+  await closeFetchRun(
+    client,
+    macroRun.fetchRunId,
+    capturedAt,
+    windows.seriesWindows.length,
+    macroWritten,
+    usedSeriesKeys.length - macroWritten,
+    { seriesLoaded: windows.seriesWindows.length, seriesUsed: usedSeriesKeys.length },
+  );
+
+  const priceRun = await openFetchRun(
+    client,
+    STOCK_PRICE_PROVIDER,
+    naturalRunKey,
+    token,
+    capturedAt,
+  );
+  const stockRevisions = new Map<number, { sourceRevisionId: number; availableAt: string }>();
+  let priceWritten = 0;
+  for (const stockEntityId of usedStockEntityIds) {
+    const window = stockByEntity.get(stockEntityId);
+    if (window === undefined) throw new Error(`stock price window missing for ${stockEntityId}`);
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      provider: STOCK_PRICE_PROVIDER,
+      stockEntityId,
+      priceField: MACRO_COMOVEMENT_MODEL_CONFIG.stockPriceField,
+      transform: MACRO_COMOVEMENT_MODEL_CONFIG.stockTransform,
+      windowDays: MACRO_COMOVEMENT_MODEL_CONFIG.windowDays,
+      asOf: capturedAt,
+      observations: window.observations.map((row) => ({ date: row.date, close: row.close })),
+    });
+    const raw = await writeRawObject({
+      providerKey: STOCK_PRICE_PROVIDER,
+      content: payload,
+      extension: 'json',
+      fetchedAt: capturedDate,
+    });
+    const registered = await registerRawObjectWithRevision(client as unknown as PoolClient, {
+      fetchRunId: priceRun.fetchRunId,
+      sourceId: priceRun.sourceId,
+      providerRecordKey: `stock-prices:${stockEntityId}`,
+      contentHash: raw.contentHash,
+      objectUri: raw.objectUri,
+      httpMeta: {
+        bytes: raw.bytes,
+        kind: 'stock_price_window',
+        source_table: STOCK_PRICE_SOURCE.sourceTable,
+      },
+      fetchedAt: capturedAt,
+    });
+    if (registered.rawInserted) {
+      manifests.push({ providerKey: STOCK_PRICE_PROVIDER, ref: raw, fetchedAt: capturedDate });
+      priceWritten += 1;
+    } else {
+      replayedRawObjects += 1;
+    }
+    stockRevisions.set(stockEntityId, {
+      sourceRevisionId: registered.sourceRevisionId,
+      availableAt: registered.sourceAvailableAt,
+    });
+  }
+  await closeFetchRun(
+    client,
+    priceRun.fetchRunId,
+    capturedAt,
+    windows.stockWindows.length,
+    priceWritten,
+    usedStockEntityIds.length - priceWritten,
+    { stocksLoaded: windows.stockWindows.length, stocksUsed: usedStockEntityIds.length },
+  );
+
+  const observations: MacroComovementObservation[] = plan.pairs.map((pair) => {
+    const series = seriesRevisions.get(pair.seriesKey)!;
+    const stock = stockRevisions.get(pair.stockEntityId)!;
+    const availableAt =
+      new Date(series.availableAt).getTime() >= new Date(stock.availableAt).getTime()
+        ? series.availableAt
+        : stock.availableAt;
+    return {
+      seriesEntityId: pair.seriesEntityId,
+      stockEntityId: pair.stockEntityId,
+      seriesKey: pair.seriesKey,
+      correlation: pair.correlation,
+      overlappingObservations: pair.overlappingObservations,
+      windowStartDate: pair.firstObservedDate,
+      windowEndDate: pair.lastObservedDate,
+      modelConfig: plan.modelConfig,
+      sourceRevisionIds: [series.sourceRevisionId, stock.sourceRevisionId],
+      availableAt,
+      // The correlation is a statement about a window, so it becomes true at the
+      // last date that contributed to it — not at the moment the job happened to
+      // run.
+      validFrom: `${pair.lastObservedDate}T00:00:00.000Z`,
+    };
+  });
+
+  return { observations, manifests, replayedRawObjects };
 }
 
 async function ensureSource(
@@ -990,7 +1367,44 @@ async function dryRun(client: Client): Promise<void> {
       buildProductSimilarityObservations(productProfiles),
       { asOf: cutoff },
     );
-    const candidates = [...etf.candidates, ...sectors, ...products.candidates];
+    // Real entity ids and real windows; only the source revision ids are stand-ins,
+    // because minting them is a write. That keeps the dry run's candidate count
+    // the number apply will produce rather than an estimate of it.
+    const macroWindows = await loadMacroComovementInputs(client, cutoff);
+    const macroPlan = planMacroComovementPairs(
+      macroWindows.seriesWindows,
+      macroWindows.stockWindows,
+    );
+    const fakeSeriesRevisions = new Map(
+      [...new Set(macroPlan.pairs.map((pair) => pair.seriesKey))]
+        .sort()
+        .map((seriesKey, index) => [seriesKey, 90_000_000 + index] as const),
+    );
+    const fakeStockRevisions = new Map(
+      [...new Set(macroPlan.pairs.map((pair) => pair.stockEntityId))]
+        .sort((left, right) => left - right)
+        .map((stockEntityId, index) => [stockEntityId, 91_000_000 + index] as const),
+    );
+    const macro = buildMacroComovementCandidates(
+      macroPlan.pairs.map((pair) => ({
+        seriesEntityId: pair.seriesEntityId,
+        stockEntityId: pair.stockEntityId,
+        seriesKey: pair.seriesKey,
+        correlation: pair.correlation,
+        overlappingObservations: pair.overlappingObservations,
+        windowStartDate: pair.firstObservedDate,
+        windowEndDate: pair.lastObservedDate,
+        modelConfig: macroPlan.modelConfig,
+        sourceRevisionIds: [
+          fakeSeriesRevisions.get(pair.seriesKey)!,
+          fakeStockRevisions.get(pair.stockEntityId)!,
+        ],
+        availableAt: cutoff,
+        validFrom: `${pair.lastObservedDate}T00:00:00.000Z`,
+      })),
+      { asOf: cutoff },
+    );
+    const candidates = [...etf.candidates, ...sectors, ...products.candidates, ...macro.candidates];
     const projectionEdges: RelationGraphProjectionEdge[] = candidates.map((candidate, index) => ({
       relationRevisionId: 50_000_000 + index,
       relationIdentityId: 60_000_000 + index,
@@ -1002,7 +1416,9 @@ async function dryRun(client: Client): Promise<void> {
           ? 1
           : candidate.predicate === 'PRODUCT_SIMILARITY'
             ? Number(candidate.metadata['similarityScore'])
-            : 0.8,
+            : candidate.predicate === 'MACRO_COMOVEMENT'
+              ? Math.abs(Number(candidate.metadata['correlation']))
+              : 0.8,
       evidenceIds: candidate.evidence.map(
         (_, evidenceIndex) => 70_000_000 + index * 100 + evidenceIndex,
       ),
@@ -1056,6 +1472,17 @@ async function dryRun(client: Client): Promise<void> {
         etfCandidates: etf.candidates.length,
         sectorCandidates: sectors.length,
         productCandidates: products.candidates.length,
+        macroComovement: {
+          seriesLoaded: macroWindows.seriesWindows.length,
+          stocksLoaded: macroWindows.stockWindows.length,
+          ...macroPlan.diagnostics,
+          candidates: macro.candidates.length,
+          accepted: macro.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          quarantined: macro.candidates.filter(
+            (row) => row.targetRevisionStatus === 'quarantined_unverified',
+          ).length,
+        },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
         projectedDepth2Edges: projections.reduce((sum, row) => sum + row.depth2.edges.length, 0),
@@ -1134,6 +1561,23 @@ async function apply(client: Client): Promise<void> {
       buildProductSimilarityObservations(materialized.productProfiles),
       { asOf: capturedAt },
     );
+    const macroWindows = await loadMacroComovementInputs(client, capturedAt);
+    const macroPlan = planMacroComovementPairs(
+      macroWindows.seriesWindows,
+      macroWindows.stockWindows,
+    );
+    const macroMaterialized = await materializeMacroComovementSources(
+      client,
+      macroPlan,
+      macroWindows,
+      naturalRunKey,
+      token,
+      capturedAt,
+    );
+    manifests.push(...macroMaterialized.manifests);
+    const macroBuilt = buildMacroComovementCandidates(macroMaterialized.observations, {
+      asOf: capturedAt,
+    });
     if (etfBuilt.exclusions.length > 0) {
       throw new Error(`ETF superhub exclusions require review: ${etfBuilt.exclusions.length}`);
     }
@@ -1154,6 +1598,17 @@ async function apply(client: Client): Promise<void> {
       {
         predicateOntologyRevisionIds: ontologyIds,
         confidence: (candidate) => Number(candidate.metadata['similarityScore']),
+      },
+    );
+    // Confidence takes the magnitude; the sign lives in metadata.correlation.
+    // A -0.9 relation is as strong an observation as a +0.9 one, and folding the
+    // sign into confidence would rank "moved opposite" as near-worthless.
+    const macroPersisted = await persistRelationCandidates(
+      client as unknown as PoolClient,
+      macroBuilt.candidates,
+      {
+        predicateOntologyRevisionIds: ontologyIds,
+        confidence: (candidate) => Math.abs(Number(candidate.metadata['correlation'])),
       },
     );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
@@ -1217,17 +1672,35 @@ async function apply(client: Client): Promise<void> {
         sectorCandidates: sectorBuilt.length,
         etfCandidates: etfBuilt.candidates.length,
         productCandidates: productBuilt.candidates.length,
+        // Split, not totalled. One number cannot distinguish "the builder found
+        // nothing" from "it found plenty and the gate quarantined all of it",
+        // and those call for opposite next steps.
+        macroComovement: {
+          seriesLoaded: macroWindows.seriesWindows.length,
+          stocksLoaded: macroWindows.stockWindows.length,
+          ...macroPlan.diagnostics,
+          candidates: macroBuilt.candidates.length,
+          accepted: macroBuilt.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          quarantined: macroBuilt.candidates.filter(
+            (row) => row.targetRevisionStatus === 'quarantined_unverified',
+          ).length,
+          inserted: macroPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
+          replayed: macroPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,
           ...etfPersisted.persisted,
           ...productPersisted.persisted,
+          ...macroPersisted.persisted,
         ].filter((row) => row.outcome === 'inserted').length,
         replayedRelationRevisions: [
           ...sectorPersisted.persisted,
           ...etfPersisted.persisted,
           ...productPersisted.persisted,
+          ...macroPersisted.persisted,
         ].filter((row) => row.outcome === 'replayed').length,
-        replayedRawObjects: materialized.replayedRawObjects,
+        replayedRawObjects: materialized.replayedRawObjects + macroMaterialized.replayedRawObjects,
       }),
     );
   } catch (error) {
