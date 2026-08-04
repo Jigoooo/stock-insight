@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { CompletedComponentsCatalog } from './completed-components-catalog';
+import { DataFeedbackCatalog } from './data-feedback-catalog';
 import { IdentityContentCatalog } from './identity-content-catalog';
 import { InputActionCatalog } from './input-action-catalog';
 import { LocationNavigationCatalog, type BreadcrumbPreviewId } from './location-navigation-catalog';
@@ -102,6 +103,7 @@ export function UiLabPage({
                 <h2>Data & Feedback</h2>
                 <p>다음 공용화 묶음의 비교 목업을 준비합니다.</p>
               </div>
+              <DataFeedbackCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

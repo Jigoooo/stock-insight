@@ -1,0 +1,157 @@
+.catalog {
+  min-width: 0;
+  margin-top: 56px;
+  padding-top: 30px;
+  border-top: 1px solid var(--color-border);
+}
+
+.catalogHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1.1fr);
+  align-items: end;
+  gap: 28px;
+}
+
+.catalogHeader span,
+.variantHeader span {
+  color: var(--color-text-primary);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.catalogHeader h2,
+.catalogHeader p,
+.variantHeader p {
+  margin: 0;
+}
+
+.catalogHeader h2 {
+  margin-top: 9px;
+  font-size: clamp(22px, 3vw, 30px);
+  letter-spacing: -0.04em;
+}
+
+.catalogHeader p,
+.variantHeader p {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.componentTabs {
+  margin-top: 28px;
+}
+
+.componentTabViewport {
+  min-width: 0;
+}
+
+.componentTabList {
+  width: 100% !important;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.componentTabList::-webkit-scrollbar {
+  display: none;
+}
+
+.componentTab {
+  min-width: 104px;
+}
+
+.variantGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.variantCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.variantHeader {
+  min-height: 96px;
+  padding: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.variantHeader p {
+  margin-top: 9px;
+}
+
+.preview {
+  min-height: 330px;
+  padding: 16px;
+  background: var(--color-canvas);
+}
+
+.previewPlaceholder {
+  display: grid;
+  min-height: 298px;
+  place-items: center;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.liveRegion {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .variantGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .preview {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .catalogHeader {
+    grid-template-columns: 1fr;
+  }
+
+  .componentTabList {
+    display: flex !important;
+  }
+
+  .componentTab {
+    min-width: 96px;
+  }
+}
+
+@media (max-width: 390px) {
+  .variantHeader,
+  .preview {
+    padding-inline: 13px;
+  }
+
+  .componentTab {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog *,
+  .catalog *::before,
+  .catalog *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

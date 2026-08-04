@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import {
@@ -11,7 +12,7 @@ import {
 } from '../src/pages/ui-lab/ui/data-feedback-model.ts';
 
 describe('Data & Feedback model', () => {
-  it('keeps eight independent A/B/C comparisons and deterministic grid rows', () => {
+  it('keeps eight independent A/B/C comparisons and connects them to the active mockup tab', async () => {
     assert.deepEqual(
       dataFeedbackTabs.map(({ id }) => id),
       ['table', 'data-grid', 'progress', 'spinner', 'skeleton', 'empty', 'error', 'loading'],
@@ -25,6 +26,15 @@ describe('Data & Feedback model', () => {
 
     assert.equal(rows.length, 1_000);
     assert.deepEqual(createDataRows(3), rows.slice(0, 3));
+
+    const pageSource = await readFile(
+      new URL('../src/pages/ui-lab/ui/ui-lab-page.tsx', import.meta.url),
+      'utf8',
+    );
+
+    assert.match(pageSource, /import \{ DataFeedbackCatalog \}/);
+    assert.match(pageSource, /<TabsContent value="in-progress">[\s\S]*?<DataFeedbackCatalog \/>/);
+    assert.match(pageSource, /<TabsContent value="completed">[\s\S]*?<IdentityContentCatalog \/>/);
   });
 
   it('sorts, edits, and virtualizes without mutating source rows', () => {
