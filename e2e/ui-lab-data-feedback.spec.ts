@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 test.describe('UI Lab Data & Feedback', () => {
@@ -35,5 +36,38 @@ test.describe('UI Lab Data & Feedback', () => {
     });
     await expect(firstGrid.locator('[role="row"][aria-rowindex="201"]')).toBeVisible();
     expect(page.url()).toBe(initialUrl);
+  });
+
+  test('contains all state variants on mobile with reduced motion and accessible feedback', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/__ui-lab');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('tab', { name: '목업 진행 중', exact: true }).click();
+    const catalog = page.locator('[data-slot="data-feedback-catalog"]');
+
+    await expect(catalog.getByRole('tab')).toHaveCount(8);
+    for (const name of ['Progress', 'Spinner', 'Skeleton', 'Empty', 'Error', 'Loading']) {
+      await catalog.getByRole('tab', { name, exact: true }).click();
+      await expect(catalog.locator('article[data-component]')).toHaveCount(3);
+    }
+
+    await catalog.getByRole('button', { name: '다시 불러오기' }).first().click();
+    await expect(catalog.getByText('불러오는 중', { exact: true })).toHaveCount(3);
+    await expect(catalog.getByText('불러오기 완료', { exact: true })).toHaveCount(3, {
+      timeout: 2_000,
+    });
+
+    const moving = catalog.locator('[data-motion-indicator]').first();
+    expect(await moving.evaluate((element) => getComputedStyle(element).animationPlayState)).toBe(
+      'paused',
+    );
+
+    const results = await new AxeBuilder({ page })
+      .include('[data-slot="data-feedback-catalog"]')
+      .analyze();
+    expect(results.violations).toEqual([]);
   });
 });

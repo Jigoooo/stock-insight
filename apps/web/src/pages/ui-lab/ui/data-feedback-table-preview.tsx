@@ -137,7 +137,9 @@ function TableRows({
     <>
       <TableRow rowKey={row.id} selectionLabel={`${row.company} 선택`}>
         <TableCell className={styles.tickerCell}>{row.ticker}</TableCell>
-        <TableCell>{isCompact ? row.company.replace('삼성바이오로직스', '삼성바이오') : row.company}</TableCell>
+        <TableCell>
+          {isCompact ? row.company.replace('삼성바이오로직스', '삼성바이오') : row.company}
+        </TableCell>
         <TableCell className={styles.numericCell}>{row.score}</TableCell>
         <TableCell>
           <span className={styles.tableStatus} data-status={row.status}>

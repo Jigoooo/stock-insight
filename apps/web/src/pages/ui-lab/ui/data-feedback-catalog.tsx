@@ -1,10 +1,7 @@
-import { useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 
 import styles from './data-feedback-catalog.module.css';
-import {
-  DataFeedbackGridPreview,
-  initialDataGridWidths,
-} from './data-feedback-grid-preview';
+import { DataFeedbackGridPreview, initialDataGridWidths } from './data-feedback-grid-preview';
 import {
   createDataRows,
   dataFeedbackTabs,
@@ -14,6 +11,11 @@ import {
   type DataColumnKey,
   type SortState,
 } from './data-feedback-model';
+import {
+  DataFeedbackStatePreview,
+  type LoadingState,
+  type RecoveryState,
+} from './data-feedback-state-previews';
 import { DataFeedbackTablePreview } from './data-feedback-table-preview';
 
 import {
@@ -57,6 +59,30 @@ export function DataFeedbackCatalog(): ReactElement {
   const [selectedGridIds, setSelectedGridIds] = useState<readonly string[]>([]);
   const [columnWidths, setColumnWidths] =
     useState<Record<DataColumnKey, number>>(initialDataGridWidths);
+  const progressSteps = [0, 36, 68, 100] as const;
+  const [progressIndex, setProgressIndex] = useState(0);
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
+  const [recoveryState, setRecoveryState] = useState<RecoveryState>('idle');
+  const [politeMessage, setPoliteMessage] = useState('');
+  const [assertiveMessage, setAssertiveMessage] = useState('');
+
+  useEffect(() => {
+    if (loadingState !== 'pending') return;
+    const timeout = window.setTimeout(() => {
+      setLoadingState('complete');
+      setPoliteMessage('리서치 데이터 불러오기를 완료했습니다');
+    }, 900);
+    return () => window.clearTimeout(timeout);
+  }, [loadingState]);
+
+  useEffect(() => {
+    if (recoveryState !== 'retrying') return;
+    const timeout = window.setTimeout(() => {
+      setRecoveryState('recovered');
+      setAssertiveMessage('데이터 연결이 복구됨');
+    }, 650);
+    return () => window.clearTimeout(timeout);
+  }, [recoveryState]);
 
   return (
     <section
@@ -69,10 +95,7 @@ export function DataFeedbackCatalog(): ReactElement {
           <span>06 · Data & Feedback</span>
           <h2 id="data-feedback-title">데이터 상태와 피드백을 따로 비교</h2>
         </div>
-        <p>
-          정렬·선택·편집 규칙은 공유하고, 각 컴포넌트의 A/B/C 표현을 독립적으로
-          확인합니다.
-        </p>
+        <p>정렬·선택·편집 규칙은 공유하고, 각 컴포넌트의 A/B/C 표현을 독립적으로 확인합니다.</p>
       </header>
 
       <Tabs
@@ -127,7 +150,28 @@ export function DataFeedbackCatalog(): ReactElement {
                         onSortChange={setGridSort}
                       />
                     ) : (
-                      <div className={styles.previewPlaceholder}>상호작용 목업 구현 중</div>
+                      <DataFeedbackStatePreview
+                        component={tab.id}
+                        loadingState={loadingState}
+                        progress={progressSteps[progressIndex]!}
+                        recoveryState={recoveryState}
+                        statusMessage={politeMessage}
+                        variantId={variant.id}
+                        onAdvanceProgress={() => {
+                          const nextIndex = (progressIndex + 1) % progressSteps.length;
+                          setProgressIndex(nextIndex);
+                          setPoliteMessage(`진행률 ${progressSteps[nextIndex]}%`);
+                        }}
+                        onClearEmpty={() => setPoliteMessage('필터 초기화됨')}
+                        onRetryError={() => {
+                          setRecoveryState('retrying');
+                          setAssertiveMessage('데이터 연결 다시 시도 중');
+                        }}
+                        onStartLoading={() => {
+                          setLoadingState('pending');
+                          setPoliteMessage('리서치 데이터 불러오기를 시작했습니다');
+                        }}
+                      />
                     )}
                   </VariantCard>
                 ))}
@@ -137,7 +181,12 @@ export function DataFeedbackCatalog(): ReactElement {
         </TabsContents>
       </Tabs>
 
-      <p className={styles.liveRegion} aria-live="polite" data-slot="data-feedback-status" />
+      <p className={styles.liveRegion} aria-live="polite" data-slot="data-feedback-status">
+        {politeMessage}
+      </p>
+      <p className={styles.liveRegion} data-slot="data-feedback-alert" role="alert">
+        {assertiveMessage}
+      </p>
     </section>
   );
 }

@@ -239,9 +239,7 @@ export function DataFeedbackGridPreview({
               sort={sort}
               width={columnWidths[column]}
               onSortChange={(key) => onSortChange(nextSort(sort, key))}
-              onWidthChange={(width) =>
-                onColumnWidthsChange({ ...columnWidths, [column]: width })
-              }
+              onWidthChange={(width) => onColumnWidthsChange({ ...columnWidths, [column]: width })}
             />
           ))}
         </div>
@@ -276,8 +274,7 @@ export function DataFeedbackGridPreview({
                     />
                   </div>
                   {focusableColumns.map((column) => {
-                    const editing =
-                      editingCell?.rowId === row.id && editingCell.column === column;
+                    const editing = editingCell?.rowId === row.id && editingCell.column === column;
                     const active = activeCell.rowId === row.id && activeCell.column === column;
 
                     return (
@@ -372,9 +369,9 @@ function GridColumnHeader({
   sort: SortState;
   width: number;
 }) {
-  const dragRef = useRef<
-    { pointerId: number; startWidth: number; startX: number } | undefined
-  >(undefined);
+  const dragRef = useRef<{ pointerId: number; startWidth: number; startX: number } | undefined>(
+    undefined,
+  );
   const labels: Record<DataColumnKey, string> = {
     ticker: '종목',
     company: '기업',
@@ -402,11 +399,7 @@ function GridColumnHeader({
       data-column={column}
       role="columnheader"
     >
-      <button
-        className={styles.gridSortButton}
-        type="button"
-        onClick={() => onSortChange(column)}
-      >
+      <button className={styles.gridSortButton} type="button" onClick={() => onSortChange(column)}>
         {labels[column]} 정렬
       </button>
       <div

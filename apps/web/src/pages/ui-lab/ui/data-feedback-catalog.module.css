@@ -101,6 +101,323 @@
   font-size: 12px;
 }
 
+.statePreview,
+.spinnerPreview,
+.skeletonPreview,
+.emptyPreview,
+.errorPreview,
+.loadingPreview {
+  min-height: 298px;
+}
+
+.statePreview,
+.spinnerPreview,
+.emptyPreview,
+.errorPreview,
+.loadingPreview {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 14px;
+}
+
+.statePreview p,
+.spinnerPreview p,
+.emptyPreview p,
+.errorPreview p,
+.loadingPreview p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.progressCopy {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.progressCopy strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 260ms ease;
+}
+
+.variantCard[data-variant='hairline-progress'] .progressTrack {
+  height: 2px;
+  border-radius: 0;
+}
+
+.variantCard[data-variant='soft-meter'] .progressTrack {
+  height: 12px;
+  padding: 2px;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+
+.segmentedProgress {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.segmentedProgress span {
+  height: 7px;
+  border-radius: 2px;
+  background: var(--color-surface-subtle);
+}
+
+.segmentedProgress span[data-complete] {
+  background: var(--color-accent);
+}
+
+.spinnerPreview {
+  justify-items: center;
+  text-align: center;
+}
+
+.spinnerVisual {
+  position: relative;
+  width: 54px;
+  height: 54px;
+}
+
+.variantCard[data-variant='orbit'] .spinnerVisual {
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: data-feedback-spin 780ms linear infinite;
+}
+
+.variantCard[data-variant='orbit'] .spinnerVisual span {
+  display: none;
+}
+
+.variantCard[data-variant='three-dot'] .spinnerVisual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.variantCard[data-variant='three-dot'] .spinnerVisual span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: data-feedback-dot 900ms ease-in-out infinite;
+}
+
+.variantCard[data-variant='three-dot'] .spinnerVisual span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.variantCard[data-variant='three-dot'] .spinnerVisual span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.variantCard[data-variant='signal-sweep'] .spinnerVisual {
+  width: 72px;
+  height: 22px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border-strong);
+}
+
+.variantCard[data-variant='signal-sweep'] .spinnerVisual::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 20px;
+  height: 2px;
+  background: var(--color-accent);
+  content: '';
+  animation: data-feedback-sweep 1.1s ease-in-out infinite alternate;
+}
+
+.variantCard[data-variant='signal-sweep'] .spinnerVisual span {
+  display: none;
+}
+
+.skeletonPreview {
+  display: grid;
+  align-content: center;
+}
+
+.skeletonVisual {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  min-height: 220px;
+  align-content: center;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+}
+
+.skeletonVisual span {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-surface-subtle);
+}
+
+.skeletonEyebrow {
+  width: 28%;
+  height: 8px !important;
+}
+
+.skeletonTitle {
+  width: 72%;
+  height: 22px !important;
+}
+
+.skeletonLineShort {
+  width: 58%;
+}
+
+.variantCard[data-variant='shimmer-surface'] .skeletonVisual span {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-subtle) 20%,
+    var(--color-surface) 50%,
+    var(--color-surface-subtle) 80%
+  );
+  background-size: 220% 100%;
+  animation: data-feedback-shimmer 1.5s linear infinite;
+}
+
+.variantCard[data-variant='ledger-rows'] .skeletonVisual {
+  gap: 0;
+  padding: 0;
+  border-radius: 2px;
+}
+
+.variantCard[data-variant='ledger-rows'] .skeletonVisual span {
+  width: 100%;
+  height: 44px !important;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+}
+
+.emptyPreview > svg,
+.errorIcon,
+.loadingVisual {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  padding: 10px;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+}
+
+.emptyPreview small {
+  color: var(--color-success-text);
+}
+
+.variantCard[data-variant='inline-empty'] .emptyPreview,
+.variantCard[data-variant='inline-critical'] .errorPreview {
+  min-height: 0;
+  margin-top: 108px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 12px;
+  border-block: 1px solid var(--color-border);
+}
+
+.variantCard[data-variant='inline-empty'] .emptyPreview > svg,
+.variantCard[data-variant='inline-critical'] .errorIcon {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+}
+
+.errorIcon {
+  color: var(--color-danger-text);
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
+}
+
+.errorPreview[data-recovered] .errorIcon {
+  color: var(--color-success-text);
+  background: color-mix(in srgb, var(--color-success) 9%, var(--color-surface));
+}
+
+.loadingVisual {
+  color: var(--color-accent-text);
+  animation: data-feedback-breathe 1.2s ease-in-out infinite alternate;
+}
+
+.loadingVisual svg {
+  width: 20px;
+  height: 20px;
+}
+
+.loadingPreview[data-loading-state='complete'] .loadingVisual {
+  color: var(--color-success-text);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+@keyframes data-feedback-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes data-feedback-dot {
+  50% {
+    opacity: 0.35;
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes data-feedback-sweep {
+  to {
+    transform: translateX(52px);
+  }
+}
+
+@keyframes data-feedback-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@keyframes data-feedback-breathe {
+  to {
+    opacity: 0.52;
+    transform: scale(0.92);
+  }
+}
+
 .tablePreview,
 .tableViewport {
   min-width: 0;
@@ -371,7 +688,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.variantCard[data-variant='dense-matrix'] :is(.dataGridCell, .dataGridHeaderCell)[data-column='ticker'] {
+.variantCard[data-variant='dense-matrix']
+  :is(.dataGridCell, .dataGridHeaderCell)[data-column='ticker'] {
   position: sticky;
   z-index: 3;
   left: 48px;
@@ -485,6 +803,10 @@
     display: flex !important;
   }
 
+  .componentTabList > * {
+    flex: 0 0 auto;
+  }
+
   .componentTab {
     min-width: 96px;
   }
@@ -510,6 +832,19 @@
     grid-template-columns: 1fr;
     padding-left: 16px;
   }
+
+  .statePreview button,
+  .emptyPreview button,
+  .errorPreview button,
+  .loadingPreview button {
+    min-height: 44px;
+  }
+
+  .variantCard[data-variant='inline-empty'] .emptyPreview,
+  .variantCard[data-variant='inline-critical'] .errorPreview {
+    grid-template-columns: 1fr;
+    margin-top: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -519,5 +854,11 @@
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .catalog [data-motion-indicator],
+  .catalog [data-motion-indicator]::before,
+  .catalog [data-motion-indicator]::after {
+    animation-play-state: paused !important;
   }
 }
