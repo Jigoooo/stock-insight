@@ -1370,6 +1370,7 @@ async function dryRun(client: Client): Promise<void> {
     // Real entity ids and real windows; only the source revision ids are stand-ins,
     // because minting them is a write. That keeps the dry run's candidate count
     // the number apply will produce rather than an estimate of it.
+    const dryRunOntologyIds = await approvedOntologyIds(client);
     const macroWindows = await loadMacroComovementInputs(client, cutoff);
     const macroPlan = planMacroComovementPairs(
       macroWindows.seriesWindows,
@@ -1473,6 +1474,10 @@ async function dryRun(client: Client): Promise<void> {
         sectorCandidates: sectors.length,
         productCandidates: products.candidates.length,
         macroComovement: {
+          // Read-only check of the same condition apply guards on, so a dry run
+          // answers "would apply actually persist these?" and not just "does the
+          // model produce them?".
+          ontologyApproved: dryRunOntologyIds['MACRO_COMOVEMENT'] !== undefined,
           seriesLoaded: macroWindows.seriesWindows.length,
           stocksLoaded: macroWindows.stockWindows.length,
           ...macroPlan.diagnostics,
@@ -1561,7 +1566,28 @@ async function apply(client: Client): Promise<void> {
       buildProductSimilarityObservations(materialized.productProfiles),
       { asOf: capturedAt },
     );
-    const macroWindows = await loadMacroComovementInputs(client, capturedAt);
+    if (etfBuilt.exclusions.length > 0) {
+      throw new Error(`ETF superhub exclusions require review: ${etfBuilt.exclusions.length}`);
+    }
+    const ontologyIds = await approvedOntologyIds(client);
+
+    // The macro stage is skipped whole until migration 066 approves the
+    // predicate. This is not defensive style — it is load-bearing. This whole
+    // function runs inside ONE transaction that also builds the graph snapshot
+    // and publishes the content packs, and persistRelationCandidates THROWS
+    // ("no approved predicate ontology revision id configured") rather than
+    // quarantining when a predicate has no approved ontology row. Without this
+    // guard, deploying the builder before applying 066 takes down the entire
+    // daily publish, not just the macro edges.
+    //
+    // The order matters too: the check comes before materializeMacroComovementSources,
+    // so a skipped run writes no raw objects and opens no fetch run for candidates
+    // that could not have been persisted anyway.
+    const macroOntologyRevisionId = ontologyIds['MACRO_COMOVEMENT'] ?? 0;
+    const macroReady = Number.isSafeInteger(macroOntologyRevisionId) && macroOntologyRevisionId > 0;
+    const macroWindows = macroReady
+      ? await loadMacroComovementInputs(client, capturedAt)
+      : { seriesWindows: [], stockWindows: [] };
     const macroPlan = planMacroComovementPairs(
       macroWindows.seriesWindows,
       macroWindows.stockWindows,
@@ -1578,10 +1604,6 @@ async function apply(client: Client): Promise<void> {
     const macroBuilt = buildMacroComovementCandidates(macroMaterialized.observations, {
       asOf: capturedAt,
     });
-    if (etfBuilt.exclusions.length > 0) {
-      throw new Error(`ETF superhub exclusions require review: ${etfBuilt.exclusions.length}`);
-    }
-    const ontologyIds = await approvedOntologyIds(client);
     const sectorPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
       sectorBuilt,
@@ -1676,6 +1698,9 @@ async function apply(client: Client): Promise<void> {
         // nothing" from "it found plenty and the gate quarantined all of it",
         // and those call for opposite next steps.
         macroComovement: {
+          // Loud, not silent: a skipped stage must be readable in the run log, or
+          // "0 edges" gets misread as "the builder found nothing".
+          skipped: macroReady ? null : 'ontology_not_approved_migration_066_pending',
           seriesLoaded: macroWindows.seriesWindows.length,
           stocksLoaded: macroWindows.stockWindows.length,
           ...macroPlan.diagnostics,

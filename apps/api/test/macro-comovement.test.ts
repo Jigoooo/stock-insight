@@ -195,6 +195,22 @@ describe('macro co-movement builder', () => {
     assert.equal(built.candidates.length, 0);
   });
 
+  it('produces nothing at all from empty windows — the skip path must not throw', () => {
+    // Load-bearing. run-v2-graph-publish skips the macro stage by handing in
+    // empty windows when migration 066 has not approved the predicate yet. That
+    // whole publish is ONE transaction, and persistRelationCandidates THROWS on a
+    // predicate with no approved ontology row rather than quarantining it — so if
+    // this chain produced even one candidate while unapproved, the daily publish
+    // would roll back entirely. Empty in, empty out, no exception.
+    const plan = planMacroComovementPairs([], []);
+    assert.deepEqual(plan.pairs, []);
+    assert.equal(plan.diagnostics.seriesConsidered, 0);
+    assert.equal(plan.diagnostics.stocksConsidered, 0);
+    const built = buildMacroComovementCandidates([], { asOf: '2026-08-04T00:00:00.000Z' });
+    assert.deepEqual(built.candidates, []);
+    assert.deepEqual(built.exclusions, []);
+  });
+
   it('rejects a correlation outside [-1,1] rather than clamping it', () => {
     assert.throws(
       () =>
