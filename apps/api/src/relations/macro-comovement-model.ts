@@ -77,34 +77,84 @@ export const MACRO_SERIES_TRANSFORMS: Readonly<Record<string, 'level_difference'
     'fred:DGS10': 'level_difference',
     'fred:DGS2': 'level_difference',
     'fred:DEXKOUS': 'log_return',
+    // Weekly. Both are levels (a dollar balance, a claim count), so a log return
+    // is the change — same reasoning as DEXKOUS, not the level difference used
+    // for yields.
+    'fred:WALCL': 'log_return',
+    'fred:ICSA': 'log_return',
   });
 
 /**
- * The ten series measured 2026-08-04 and left out of this first cut, with the
- * number that excluded each. Kept in code rather than only in a document so the
- * reason is next to the decision.
+ * How often each series publishes, which decides how the stock side is aligned.
  *
- * The measurement: how many of a series' observation dates since 2021-08 fall on
- * a day that also has a US 1D stock bar. planPriceCorrelations-style alignment
- * intersects on exact dates, so a series that never lands on a trading day
- * contributes nothing, and one that lands monthly contributes a monthly change
- * compared against a single day's stock return — a frequency mismatch that would
- * produce a number without producing a meaning.
+ * A weekly series compared against a one-day stock return is a frequency
+ * mismatch — it correlates a week of macro movement with a single session. The
+ * fix is to put both sides on the series' own grid: the stock's change between
+ * consecutive series observation dates.
+ *
+ * This is what admits ICSA at all. Its week-ending dates are Saturdays, so 0 of
+ * 260 fall on a trading day and exact-date alignment produced nothing; resampled
+ * to the series grid, all 260 are usable (measured 2026-08-05).
+ */
+export const MACRO_SERIES_FREQUENCY: Readonly<Record<string, 'daily' | 'weekly'>> = Object.freeze({
+  'fred:DGS10': 'daily',
+  'fred:DGS2': 'daily',
+  'fred:DEXKOUS': 'daily',
+  'fred:WALCL': 'weekly',
+  'fred:ICSA': 'weekly',
+});
+
+/** How far back a resampled grid may reach for the last close at or before a date. */
+const WEEKLY_RESAMPLE_LOOKBACK_DAYS = 6;
+
+/**
+ * Window length per frequency, because a window is only meaningful in units of
+ * the series' own observations.
+ *
+ * 365 days is ~250 points for a daily series and ~52 for a weekly one. 52 is
+ * below minOverlappingObservations of 60, so weekly series loaded, computed, and
+ * produced zero pairs — the builder reported seriesLoaded 5 and 18 candidates,
+ * exactly as if the two new series did not exist. Measured 2026-08-05, and it is
+ * the same trap the monthly series are held back by.
+ *
+ * 1095 days gives a weekly series ~156 points. That is a wider window than the
+ * daily one and spans more than one rate regime, which is a real cost — but a
+ * correlation computed from 51 points has a confidence interval wide enough to
+ * be useless, and quietly emitting nothing is worse than either.
+ */
+export const MACRO_WINDOW_DAYS_BY_FREQUENCY: Readonly<Record<'daily' | 'weekly', number>> =
+  Object.freeze({ daily: 365, weekly: 1095 });
+
+/**
+ * The eight series still left out, with the number that excludes each.
+ *
+ * This was ten. WALCL and ICSA moved into the measured set once the stock side
+ * could be resampled onto a weekly grid — ICSA especially, which exact-date
+ * alignment scored at 0 of 260 usable dates and grid alignment scores at 260.
+ *
+ * Kept in code rather than only in a document so the reason sits next to the
+ * decision, and so a series cannot quietly reappear without someone deleting
+ * the sentence that says why it left.
  */
 export const MACRO_SERIES_EXCLUSIONS: Readonly<Record<string, string>> = Object.freeze({
-  'fred:ICSA':
-    'weekly, week-ending Saturday: 0 of 260 observation dates fall on a trading day (measured 2026-08-04)',
-  'fred:WALCL':
-    'weekly (Wednesday): 258 of 261 dates are trading days, but a week-over-week change against a one-day stock return is a frequency mismatch; needs a weekly-resampled stock series',
-  'fred:CPIAUCSL':
-    'monthly: 38 of 59 dates usable, a monthly change against a one-day stock return',
-  'fred:PCEPI': 'monthly: 38 of 59 dates usable, same frequency mismatch',
-  'fred:FEDFUNDS': 'monthly: 39 of 60 dates usable, same frequency mismatch',
-  'fred:UNRATE': 'monthly: 38 of 59 dates usable, same frequency mismatch',
-  'fred:PAYEMS': 'monthly: 38 of 59 dates usable, same frequency mismatch',
-  'fred:INDPRO': 'monthly: 38 of 59 dates usable, same frequency mismatch',
-  'fred:RSAFS': 'monthly: 38 of 59 dates usable, same frequency mismatch',
-  'fred:UMCSENT': 'monthly: 38 of 59 dates usable, same frequency mismatch',
+  // The eight monthly series, all blocked by the same number. Resampling them to
+  // a monthly grid is mechanically the same as the weekly path above, and it is
+  // deliberately NOT done: over the ~5-year overlap each yields 57-59 monthly
+  // observations (measured 2026-08-05), which is below
+  // minOverlappingObservations of 60. They would produce zero pairs and the
+  // builder would look like it had worked.
+  //
+  // Lowering the threshold for monthly series is a statistical judgement about
+  // how few points may carry a correlation, not a config tweak, so it is left
+  // for someone to decide with the numbers in hand rather than slipped in here.
+  'fred:CPIAUCSL': 'monthly: 57 resampled observations, below the 60 minimum',
+  'fred:PCEPI': 'monthly: 58 resampled observations, below the 60 minimum',
+  'fred:FEDFUNDS': 'monthly: 59 resampled observations, below the 60 minimum',
+  'fred:UNRATE': 'monthly: 57 resampled observations, below the 60 minimum',
+  'fred:PAYEMS': 'monthly: 58 resampled observations, below the 60 minimum',
+  'fred:INDPRO': 'monthly: 58 resampled observations, below the 60 minimum',
+  'fred:RSAFS': 'monthly: 58 resampled observations, below the 60 minimum',
+  'fred:UMCSENT': 'monthly: 58 resampled observations, below the 60 minimum',
 });
 
 export const MACRO_COMOVEMENT_MODEL_CONFIG = Object.freeze({
@@ -114,6 +164,9 @@ export const MACRO_COMOVEMENT_MODEL_CONFIG = Object.freeze({
   // a wide enough confidence interval to be noise. 365 gives ~247 for US stocks
   // and ~233 for KR (measured 2026-08-04) while staying inside one rate regime.
   windowDays: 365,
+  // Per-frequency, because 365 days of a weekly series is only ~52 points.
+  // See MACRO_WINDOW_DAYS_BY_FREQUENCY.
+  windowDaysByFrequency: { daily: 365, weekly: 1095 },
   // Below this the pair is skipped, never estimated from what little there is.
   minOverlappingObservations: 60,
   // |r| >= 0.25. Measured across the three included series over a 365-day window
@@ -183,6 +236,40 @@ function toChanges(
   return changes;
 }
 
+/**
+ * Put a daily stock series onto a weekly series' own observation grid.
+ *
+ * For each series date, take the last close at or before it, reaching back at
+ * most WEEKLY_RESAMPLE_LOOKBACK_DAYS. The result is the stock's value at the
+ * same instants the macro series is sampled, so the change computed from it
+ * spans the same interval the macro change does.
+ *
+ * A date with no close inside the lookback is dropped rather than carried
+ * forward from further back — a stale price would invent a week of flat return.
+ */
+function resampleToGrid(
+  points: ReadonlyArray<{ date: string; value: number }>,
+  grid: readonly string[],
+): Array<{ date: string; value: number }> {
+  const sorted = [...points].sort((left, right) => (left.date < right.date ? -1 : 1));
+  const out: Array<{ date: string; value: number }> = [];
+  let cursor = 0;
+  let latest: { date: string; value: number } | null = null;
+  for (const target of [...grid].sort()) {
+    while (cursor < sorted.length && sorted[cursor]!.date <= target) {
+      latest = sorted[cursor]!;
+      cursor += 1;
+    }
+    if (latest === null) continue;
+    const ageDays =
+      (Date.parse(`${target}T00:00:00.000Z`) - Date.parse(`${latest.date}T00:00:00.000Z`)) /
+      86_400_000;
+    if (ageDays > WEEKLY_RESAMPLE_LOOKBACK_DAYS) continue;
+    out.push({ date: target, value: latest.value });
+  }
+  return out;
+}
+
 function pearson(left: readonly number[], right: readonly number[]): number | null {
   const count = left.length;
   if (count < 2) return null;
@@ -214,8 +301,27 @@ export function planMacroComovementPairs(
   seriesWindows: readonly MacroSeriesWindow[],
   stockWindows: readonly StockPriceWindow[],
 ): MacroComovementPlan {
+  // The window is anchored on the latest observation present, not on the clock,
+  // so a replay of the same inputs produces the same window.
+  const allDates = [
+    ...seriesWindows.flatMap((w) => w.observations.map((o) => o.date)),
+    ...stockWindows.flatMap((w) => w.observations.map((o) => o.date)),
+  ];
+  const anchorDate = allDates.length > 0 ? allDates.reduce((a, b) => (a >= b ? a : b)) : null;
+  const boundTo = <T extends { date: string }>(rows: readonly T[], days: number): T[] => {
+    if (anchorDate === null) return [...rows];
+    const floor = new Date(Date.parse(`${anchorDate}T00:00:00.000Z`) - days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    return rows.filter((row) => row.date >= floor);
+  };
+
   const seenSeries = new Set<string>();
-  const seriesChanges: Array<{ window: MacroSeriesWindow; changes: Map<string, number> }> = [];
+  const seriesChanges: Array<{
+    window: MacroSeriesWindow;
+    frequency: 'daily' | 'weekly';
+    changes: Map<string, number>;
+  }> = [];
   for (const window of [...seriesWindows].sort((left, right) =>
     left.seriesKey < right.seriesKey ? -1 : left.seriesKey > right.seriesKey ? 1 : 0,
   )) {
@@ -224,6 +330,10 @@ export function planMacroComovementPairs(
       throw new Error(`duplicate macro series window: ${window.seriesKey}`);
     }
     seenSeries.add(window.seriesKey);
+    const frequency = MACRO_SERIES_FREQUENCY[window.seriesKey];
+    if (frequency === undefined) {
+      throw new Error(`no declared frequency for macro series ${window.seriesKey}`);
+    }
     const transform = MACRO_SERIES_TRANSFORMS[window.seriesKey];
     if (transform === undefined) {
       // Fail closed. A series with no declared transform is a series nobody
@@ -236,8 +346,12 @@ export function planMacroComovementPairs(
     }
     seriesChanges.push({
       window,
+      frequency,
       changes: toChanges(
-        window.observations.map((row) => ({ date: row.date, value: row.value })),
+        boundTo(window.observations, MACRO_WINDOW_DAYS_BY_FREQUENCY[frequency]).map((row) => ({
+          date: row.date,
+          value: row.value,
+        })),
         transform,
         `macro series ${window.seriesKey}`,
       ),
@@ -245,7 +359,13 @@ export function planMacroComovementPairs(
   }
 
   const seenStocks = new Set<number>();
-  const stockChanges: Array<{ stockEntityId: number; changes: Map<string, number> }> = [];
+  // Raw points are kept because a weekly series needs the stock resampled onto
+  // ITS grid — the change series differs per series frequency, so it cannot be
+  // computed once up front.
+  const stockPoints: Array<{
+    stockEntityId: number;
+    points: Array<{ date: string; value: number }>;
+  }> = [];
   for (const window of [...stockWindows].sort(
     (left, right) => left.stockEntityId - right.stockEntityId,
   )) {
@@ -254,30 +374,56 @@ export function planMacroComovementPairs(
       throw new Error(`duplicate stock price window: ${window.stockEntityId}`);
     }
     seenStocks.add(window.stockEntityId);
-    stockChanges.push({
+    stockPoints.push({
       stockEntityId: window.stockEntityId,
-      changes: toChanges(
-        window.observations.map((row) => ({ date: row.date, value: row.close })),
-        'log_return',
-        `stock ${window.stockEntityId}`,
-      ),
+      points: window.observations.map((row) => ({ date: row.date, value: row.close })),
     });
+  }
+  const dailyStockChanges = stockPoints.map((entry) => ({
+    stockEntityId: entry.stockEntityId,
+    changes: toChanges(
+      boundTo(entry.points, MACRO_WINDOW_DAYS_BY_FREQUENCY.daily),
+      'log_return',
+      `stock ${entry.stockEntityId}`,
+    ),
+  }));
+  const weeklyStockChangesBySeries = new Map<
+    string,
+    Array<{ stockEntityId: number; changes: Map<string, number> }>
+  >();
+  for (const series of seriesChanges) {
+    if (series.frequency !== 'weekly') continue;
+    const grid = boundTo(series.window.observations, MACRO_WINDOW_DAYS_BY_FREQUENCY.weekly).map(
+      (row) => row.date,
+    );
+    weeklyStockChangesBySeries.set(
+      series.window.seriesKey,
+      stockPoints.map((entry) => ({
+        stockEntityId: entry.stockEntityId,
+        changes: toChanges(
+          resampleToGrid(entry.points, grid),
+          'log_return',
+          `stock ${entry.stockEntityId} on ${series.window.seriesKey} grid`,
+        ),
+      })),
+    );
   }
 
   const corpusDigest = createHash('sha256')
     .update(
       JSON.stringify({
         series: seriesChanges.map((entry) => [entry.window.seriesKey, entry.changes.size]),
-        stocks: stockChanges.map((entry) => [entry.stockEntityId, entry.changes.size]),
+        stocks: dailyStockChanges.map((entry) => [entry.stockEntityId, entry.changes.size]),
       }),
     )
     .digest('hex');
   const modelConfig = {
     ...MACRO_COMOVEMENT_MODEL_CONFIG,
     includedSeries: seriesChanges.map((entry) => entry.window.seriesKey),
+    seriesFrequencies: MACRO_SERIES_FREQUENCY,
     excludedSeries: MACRO_SERIES_EXCLUSIONS,
     corpusSeriesCount: seriesChanges.length,
-    corpusStockCount: stockChanges.length,
+    corpusStockCount: dailyStockChanges.length,
     corpusDigest,
   };
 
@@ -287,8 +433,12 @@ export function planMacroComovementPairs(
   const pairs: MacroComovementPair[] = [];
 
   for (const series of seriesChanges) {
+    // A weekly series is paired against the stock resampled onto its own grid,
+    // so both sides measure the same interval. A daily series uses the stock's
+    // daily changes unchanged.
+    const stockSide = weeklyStockChangesBySeries.get(series.window.seriesKey) ?? dailyStockChanges;
     const scored: MacroComovementPair[] = [];
-    for (const stock of stockChanges) {
+    for (const stock of stockSide) {
       const overlappingDates = [...series.changes.keys()]
         .filter((date) => stock.changes.has(date))
         .sort();
@@ -340,7 +490,7 @@ export function planMacroComovementPairs(
     modelConfig,
     diagnostics: {
       seriesConsidered: seriesChanges.length,
-      stocksConsidered: stockChanges.length,
+      stocksConsidered: dailyStockChanges.length,
       pairsWithEnoughOverlap,
       pairsOverThreshold,
       pairsDroppedByDegreeCap,

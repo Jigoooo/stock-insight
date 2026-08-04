@@ -30,6 +30,7 @@ import { publishContentPacks } from '../relations/content-pack-publisher.ts';
 import {
   MACRO_COMOVEMENT_MODEL_CONFIG,
   MACRO_SERIES_TRANSFORMS,
+  MACRO_WINDOW_DAYS_BY_FREQUENCY,
   planMacroComovementPairs,
   type MacroComovementPlan,
   type MacroSeriesWindow,
@@ -400,7 +401,11 @@ async function loadMacroComovementInputs(
   asOf: string,
 ): Promise<{ seriesWindows: MacroSeriesWindow[]; stockWindows: StockPriceWindow[] }> {
   const includedSeries = Object.keys(MACRO_SERIES_TRANSFORMS).sort();
-  const windowDays = MACRO_COMOVEMENT_MODEL_CONFIG.windowDays;
+  // Load the widest window any frequency needs; the model trims each series to
+  // its own. Loading only the daily 365 left the weekly series with ~52 points,
+  // under the 60 minimum, and they produced nothing while still reporting as
+  // loaded.
+  const windowDays = Math.max(...Object.values(MACRO_WINDOW_DAYS_BY_FREQUENCY));
   const seriesRows = await client.query<MacroSeriesWindowRow>(MACRO_SERIES_WINDOW_SQL, [
     asOf,
     windowDays,

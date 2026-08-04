@@ -5,6 +5,7 @@ import { buildMacroComovementCandidates } from '../src/relations/builders/macro-
 import {
   MACRO_COMOVEMENT_MODEL_CONFIG,
   MACRO_SERIES_EXCLUSIONS,
+  MACRO_SERIES_FREQUENCY,
   MACRO_SERIES_TRANSFORMS,
   planMacroComovementPairs,
   type MacroSeriesWindow,
@@ -104,11 +105,19 @@ describe('macro co-movement model', () => {
     }
   });
 
-  it('refuses a series whose transform nobody declared', () => {
+  it('refuses a series nobody declared a frequency or a transform for', () => {
+    // Both are fail-closed gates and either is enough to stop the series. The
+    // frequency check runs first because alignment is decided before the change
+    // formula is; assert the message names one of them rather than pinning the
+    // order, which is not the property worth protecting.
     assert.throws(
       () => planMacroComovementPairs([seriesWindow('fred:MADEUP', 5099, yieldLevels)], []),
-      /no declared transform/i,
+      /no declared (frequency|transform)/i,
     );
+    // And specifically: a series can never fall through to a default. Every
+    // measured series appears in both maps, checked in the exclusions test.
+    assert.equal(MACRO_SERIES_FREQUENCY['fred:MADEUP'], undefined);
+    assert.equal(MACRO_SERIES_TRANSFORMS['fred:MADEUP'], undefined);
   });
 
   it('caps a series that correlates with everything', () => {
@@ -135,6 +144,55 @@ describe('macro co-movement model', () => {
     for (const reason of Object.values(MACRO_SERIES_EXCLUSIONS)) {
       assert.ok(reason.length > 20, 'an exclusion must say why, not just that');
     }
+    // Every measured series must declare a frequency — the alignment depends on
+    // it, and a missing entry would silently fall through to daily.
+    for (const seriesKey of measured) {
+      assert.ok(MACRO_SERIES_FREQUENCY[seriesKey], `${seriesKey} must declare a frequency`);
+    }
+  });
+
+  it('aligns a weekly series to its own grid instead of dropping it', () => {
+    // ICSA's shape: week-ending dates that never fall on a trading day. Under
+    // exact-date matching this pair is invisible; on the series grid it is a
+    // clean -1 because the stock is built to move inversely week over week.
+    const weekEnds: string[] = [];
+    const cursor = new Date('2025-01-04T00:00:00.000Z'); // a Saturday
+    while (weekEnds.length < 70) {
+      weekEnds.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+    }
+    const claims = weekEnds.map((_, i) => 200_000 * Math.exp(Math.sin(i / 4) * 0.05));
+    const series: MacroSeriesWindow = {
+      seriesKey: 'fred:ICSA',
+      seriesEntityId: 5010,
+      observations: weekEnds.map((date, i) => ({ date, value: claims[i]! })),
+    };
+    // Daily bars on business days only — none land on a Saturday.
+    const bars: Array<{ date: string; close: number }> = [];
+    const day = new Date('2025-01-01T00:00:00.000Z');
+    let index = 0;
+    while (day <= new Date(weekEnds.at(-1)!)) {
+      const dow = day.getUTCDay();
+      if (dow !== 0 && dow !== 6) {
+        const iso = day.toISOString().slice(0, 10);
+        const week = weekEnds.findIndex((w) => w >= iso);
+        bars.push({ date: iso, close: 100 / (claims[week === -1 ? 0 : week]! / 200_000) });
+        index += 1;
+      }
+      day.setUTCDate(day.getUTCDate() + 1);
+    }
+    assert.ok(index > 200, 'fixture should produce a full daily series');
+    assert.ok(
+      bars.every((b) => ![0, 6].includes(new Date(`${b.date}T00:00:00Z`).getUTCDay())),
+      'no bar may fall on a weekend — that is the condition being tested',
+    );
+    const plan = planMacroComovementPairs([series], [{ stockEntityId: 9500, observations: bars }]);
+    assert.equal(plan.pairs.length, 1, 'weekly series must produce a pair via grid alignment');
+    assert.ok(
+      Math.abs(plan.pairs[0]!.correlation) > 0.9,
+      `expected a strong inverse relationship, got ${plan.pairs[0]!.correlation}`,
+    );
+    assert.ok(plan.pairs[0]!.overlappingObservations >= 60);
   });
 });
 
