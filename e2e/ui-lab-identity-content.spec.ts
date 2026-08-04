@@ -40,11 +40,23 @@ test.describe('UI Lab Identity & Content', () => {
     await expect(
       catalog.locator('article[data-component="list"] [aria-current="true"]'),
     ).toHaveCount(3);
+    const selectedListRow = catalog
+      .locator('article[data-component="list"] [aria-current="true"]')
+      .first();
+    expect(
+      await selectedListRow.evaluate((element) => getComputedStyle(element).animationName),
+    ).toContain('identity-list-select');
 
     await catalog.getByRole('tab', { name: 'Timeline', exact: true }).click();
     await expect(
       catalog.locator('article[data-component="timeline"] [aria-current="true"]'),
     ).toHaveCount(3);
+    const selectedTimelineRow = catalog
+      .locator('article[data-component="timeline"] [aria-current="true"]')
+      .first();
+    expect(
+      await selectedTimelineRow.evaluate((element) => getComputedStyle(element).animationName),
+    ).toContain('identity-timeline-select');
 
     await catalog.getByRole('tab', { name: 'Carousel', exact: true }).click();
     await catalog
@@ -52,6 +64,11 @@ test.describe('UI Lab Identity & Content', () => {
       .first()
       .click();
     await expect(catalog.locator('article[data-component="carousel"]')).toHaveCount(3);
+    const carouselContent = catalog.locator('[data-carousel-content]').first();
+    await expect(carouselContent).toHaveAttribute('data-direction', 'forward');
+    expect(
+      await carouselContent.evaluate((element) => getComputedStyle(element).animationName),
+    ).toContain('identity-carousel-content-enter');
     await expect(catalog.getByRole('button', { name: '다음 콘텐츠' })).toHaveCount(3);
     for (const nextButton of await catalog.getByRole('button', { name: '다음 콘텐츠' }).all()) {
       await expect(nextButton).toBeDisabled();
@@ -88,6 +105,16 @@ test.describe('UI Lab Identity & Content', () => {
       await catalog.getByRole('tab', { name: component, exact: true }).click();
       await expect(catalog.locator('article[data-component]')).toHaveCount(3);
     }
+
+    await catalog
+      .getByRole('button', { name: '메모리 사이클 회복 선택', exact: true })
+      .first()
+      .click();
+    const reducedCarouselDuration = await catalog
+      .locator('[data-carousel-content]')
+      .first()
+      .evaluate((element) => Number.parseFloat(getComputedStyle(element).animationDuration));
+    expect(reducedCarouselDuration).toBeLessThanOrEqual(0.001);
 
     const controls = catalog.getByRole('button');
     for (let index = 0; index < (await controls.count()); index += 1) {

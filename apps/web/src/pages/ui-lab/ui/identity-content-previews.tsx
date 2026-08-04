@@ -8,7 +8,7 @@ import {
   LoaderCircle,
   UserRound,
 } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 
 import styles from './identity-content-catalog.module.css';
 import {
@@ -253,8 +253,17 @@ function TimelinePreviews(props: PreviewProps) {
 function CarouselPreviews(props: PreviewProps) {
   const selectedIndex = contentItems.findIndex((item) => item.id === props.selectedId);
   const selectedItem = contentItems[selectedIndex] ?? contentItems[0];
+  const [direction, setDirection] = useState<'idle' | 'forward' | 'backward'>('idle');
   const atStart = selectedIndex <= 0;
   const atEnd = selectedIndex >= contentItems.length - 1;
+
+  const selectItem = (nextId: ContentItemId) => {
+    const nextIndex = contentItems.findIndex((item) => item.id === nextId);
+    setDirection(
+      nextIndex === selectedIndex ? 'idle' : nextIndex > selectedIndex ? 'forward' : 'backward',
+    );
+    props.onSelect(nextId);
+  };
 
   return (
     <PreviewGrid>
@@ -267,17 +276,24 @@ function CarouselPreviews(props: PreviewProps) {
             data-selected-id={selectedItem.id}
           >
             <div className={styles.carouselStage}>
-              <span>{selectedItem.eyebrow}</span>
-              <strong>{selectedItem.title}</strong>
-              <p>{selectedItem.description}</p>
-              <small>{selectedItem.source}</small>
+              <div
+                className={styles.carouselStageContent}
+                data-carousel-content
+                data-direction={direction}
+                key={selectedItem.id}
+              >
+                <span>{selectedItem.eyebrow}</span>
+                <strong>{selectedItem.title}</strong>
+                <p>{selectedItem.description}</p>
+                <small>{selectedItem.source}</small>
+              </div>
             </div>
             <div className={styles.carouselControls}>
               <button
                 aria-label="이전 콘텐츠"
                 disabled={atStart}
                 type="button"
-                onClick={() => props.onSelect(getAdjacentContentId(selectedItem.id, -1))}
+                onClick={() => selectItem(getAdjacentContentId(selectedItem.id, -1))}
               >
                 <ChevronLeft aria-hidden="true" size={17} />
               </button>
@@ -288,7 +304,7 @@ function CarouselPreviews(props: PreviewProps) {
                     aria-label={`${item.title} 선택`}
                     data-index={index + 1}
                     type="button"
-                    onClick={() => props.onSelect(item.id)}
+                    onClick={() => selectItem(item.id)}
                     key={item.id}
                   >
                     {variant.id === 'filmstrip' ? item.eyebrow : String(index + 1).padStart(2, '0')}
@@ -299,7 +315,7 @@ function CarouselPreviews(props: PreviewProps) {
                 aria-label="다음 콘텐츠"
                 disabled={atEnd}
                 type="button"
-                onClick={() => props.onSelect(getAdjacentContentId(selectedItem.id, 1))}
+                onClick={() => selectItem(getAdjacentContentId(selectedItem.id, 1))}
               >
                 <ChevronRight aria-hidden="true" size={17} />
               </button>

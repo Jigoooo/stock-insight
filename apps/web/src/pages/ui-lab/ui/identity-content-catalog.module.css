@@ -308,6 +308,10 @@
   padding: 10px;
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .contentButton:focus-visible,
@@ -320,6 +324,7 @@
 .contentButton[aria-current='true'] {
   color: var(--color-text-primary);
   background: var(--color-surface-subtle);
+  animation: identity-list-select 210ms var(--ease-out) both;
 }
 
 [data-list-variant='soft-cards'] {
@@ -348,6 +353,12 @@
   align-items: center;
   justify-content: center;
   color: var(--identity-muted);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.contentButton[aria-current='true'] .contentMarker {
+  color: var(--color-accent);
+  animation: identity-list-marker-select 210ms var(--ease-out) both;
 }
 
 .contentCopy,
@@ -420,10 +431,15 @@
   padding: 10px 8px;
   border-radius: var(--radius-md);
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .timeline button[aria-current='true'] {
   background: var(--color-surface-subtle);
+  animation: identity-timeline-select 230ms var(--ease-out) both;
 }
 
 .timelinePoint {
@@ -436,10 +452,14 @@
   border-radius: 50%;
   background: var(--color-text-tertiary);
   box-shadow: 0 0 0 1px var(--color-border-strong);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .timeline button[aria-current='true'] .timelinePoint {
   background: var(--color-accent);
+  animation: identity-timeline-point-select 260ms var(--ease-out) both;
 }
 
 .timeline time {
@@ -495,8 +515,7 @@
 .carouselStage {
   display: grid;
   min-height: 210px;
-  align-content: end;
-  gap: 8px;
+  overflow: hidden;
   padding: 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -506,15 +525,33 @@
     transform var(--duration-fast) var(--ease-out);
 }
 
-.carouselStage > span,
-.carouselStage > small {
+.carouselStageContent {
+  --carousel-enter-x: 0;
+
+  display: grid;
+  min-width: 0;
+  align-content: end;
+  gap: 8px;
+  animation: identity-carousel-content-enter var(--duration-base) var(--ease-out) both;
+}
+
+.carouselStageContent[data-direction='forward'] {
+  --carousel-enter-x: 14px;
+}
+
+.carouselStageContent[data-direction='backward'] {
+  --carousel-enter-x: -14px;
+}
+
+.carouselStageContent > span,
+.carouselStageContent > small {
   color: var(--color-text-primary);
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.carouselStage > strong {
+.carouselStageContent > strong {
   font-size: 16px;
 }
 
@@ -540,6 +577,12 @@
   font: inherit;
   font-size: 9px;
   cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-press) var(--ease-out);
 }
 
 .carouselControls > button {
@@ -606,6 +649,81 @@
 [data-carousel-variant='filmstrip'] .carouselSelectors button {
   padding-inline: 6px;
   white-space: nowrap;
+}
+
+@keyframes identity-list-select {
+  0% {
+    opacity: 0.78;
+    transform: translateX(0);
+  }
+
+  48% {
+    opacity: 1;
+    transform: translateX(3px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes identity-list-marker-select {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.72);
+  }
+
+  65% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes identity-timeline-select {
+  0% {
+    opacity: 0.74;
+    transform: translateY(3px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes identity-timeline-point-select {
+  0% {
+    transform: scale(0.7);
+  }
+
+  60% {
+    box-shadow:
+      0 0 0 1px var(--color-border-strong),
+      0 0 0 5px color-mix(in srgb, var(--color-accent) 14%, transparent);
+    transform: scale(1.16);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes identity-carousel-content-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(var(--carousel-enter-x));
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 1120px) {
