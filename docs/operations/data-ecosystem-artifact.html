@@ -366,7 +366,7 @@
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">관측 2026-08-05 02:10 KST · 라이브 DB · 프로덕션 e989889 · DB 는 066 까지</div>
+    <div class="eyebrow">관측 2026-08-05 02:50 KST · 라이브 DB · 프로덕션 e989889 · DB 는 066 까지</div>
     <h1>Stock Insight 데이터 생태계</h1>
     <p class="lede">
       모든 수치는 라이브 DB 조회다. 손으로 고쳐 쓴 숫자는 없다. 이번 판의 변화는 둘이다.
@@ -434,7 +434,7 @@
         <span class="verdict-q">Q. 종목 이름이 없어도 사건·흐름에서 도달하는가</span>
         <span class="verdict-a">아직 아니다. 길은 뚫렸는데 출발점이 없다</span>
         <p>
-          현재 관측 4,101건 중 <strong>2,465건</strong>에 기업이 붙지 않았고, 그 2,465건이
+          현재 관측 4,105건 중 <strong>2,468건</strong>에 기업이 붙지 않았고, 그 2,465건이
           만든 임팩트 경로는 <strong>여전히 정확히 0개</strong>다. 거시 엣지가 생겨도
           안 바뀐다 — 사건은 먼저 <code>target_entity_id</code> 를 얻어야 걷기를 시작하는데,
           이들에겐 타깃이 없다.
@@ -454,10 +454,25 @@
           </table>
         </div>
         <p style="margin-top:0.5rem">
-          <strong>872 는 "귀속 안 된 수" 이지 "귀속 가능한 수" 가 아니다.</strong> 몇 건이
-          실제로 붙을지는 재지 않았다 — 앞서 피드 라벨 1,396건 중 구제된 것이 13건뿐이었던
-          전례가 있다. 다만 그때는 <em>회사</em> 에 붙이려 했고 회사가 없었다. 이번은
-          <em>주제</em> 이고 주제 13계열은 이미 엔티티다. 다를 것으로 보지만 가설이다.
+          <strong>그리고 872 중 몇 건이 실제로 붙는지 쟀다 — 3건이다.</strong>
+        </p>
+        <div class="tableWrap" style="margin-top:0.5rem">
+          <table>
+            <thead><tr><th>단계</th><th class="n">남는 사건</th><th>줄어드는 이유</th></tr></thead>
+            <tbody>
+              <tr><td>거시 성격 미귀속</td><td class="n">872</td><td>—</td></tr>
+              <tr><td>시장 어휘에 걸림</td><td class="n">95</td><td>본문에 어휘가 없다</td></tr>
+              <tr><td>계열이 매핑된 주제</td><td class="n">25</td><td><code>trade</code>·<code>market</code>·<code>energy</code> 에 계열이 없다</td></tr>
+              <tr><td>엣지 있는 계열</td><td class="n">21</td><td><code>inflation</code> 계열은 월간이라 미측정</td></tr>
+              <tr><td><strong>모호하지 않은 것</strong></td><td class="n"><strong>3</strong></td><td><code>rates</code> 에 계열이 4개 — 택1 근거가 없다</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-top:0.5rem">
+          <code>target_entity_id</code> 는 <strong>단일 값</strong>이다. 사건 하나는 엔티티
+          하나에만 붙는데 <code>rates</code> 주제에 계열이 넷 매핑돼 있어 고를 근거가 없고,
+          귀속 잡은 이미 그런 상황을 거부한다. <strong>그리고 이 구조는 거꾸로 간다 —
+          계열을 늘릴수록 더 모호해진다.</strong> 필요한 것은 배선이 아니라 설계 결정이다.
         </p>
       </div>
     </div>
@@ -508,7 +523,7 @@ flowchart TB
   end
 
   subgraph S2["2 · 지식"]
-    EVENT["knowledge.event 4,101<br/>귀속 1,636 · <b>미귀속 2,465</b>"]
+    EVENT["knowledge.event 4,105<br/>귀속 1,637 · <b>미귀속 2,468</b>"]
     MACROEV["미귀속 중 거시 성격 <b>872</b><br/>policy_event 623 · regulation 152<br/>macro_shock 97 · 전부 타깃 없음"]
     CLAIM["knowledge.claim<br/>corroborated 292 · verified 0"]
   end
@@ -635,7 +650,7 @@ flowchart TB
       <div class="rows">
         <div class="row flow-s">
           <div class="surface">현재 관측 <small>knowledge.event 의 현재 리비전</small></div>
-          <div class="yield">4,101</div><span class="chip flow-s">전체</span>
+          <div class="yield">4,105</div><span class="chip flow-s">전체</span>
         </div>
         <div class="row block-s">
           <div class="surface">기업이 붙지 않음
@@ -714,9 +729,27 @@ flowchart TB
       순서는 <strong>값싼 것부터</strong>다.
     </p>
     <ol class="steps">
-      <li>
-        <span class="s-kind">배선 · 재료가 이미 다 있다</span>
-        <span class="s-title">미귀속 872건을 거시 주제에 귀속시킨다</span>
+      <li class="collect">
+        <span class="s-kind">수집 · 이번 측정으로 처음 보인 것</span>
+        <span class="s-title">trade · market · energy 계열을 받는다 — 72건이 여기 걸려 있다</span>
+        <div class="s-body">
+          미귀속 거시 사건이 어휘에 걸리는 95건 중 <strong>72건</strong>이
+          <code>trade</code>(37) · <code>market</code>(23) · <code>energy</code>(12) 주제인데,
+          <strong>이 세 주제에는 거시 계열이 하나도 매핑돼 있지 않다.</strong> 065 가 심은
+          13계열은 전부 금리·물가·성장·환율이다.
+          <br><br>
+          FRED 에 무역수지와 유가 계열이 있고 우리가 안 받는다. <strong>귀속을 아무리 잘
+          설계해도 이 72건은 안 풀린다</strong> — 계열이 없으면 붙을 곳이 없다. 순수한
+          수집 작업이고, 아래 어떤 항목보다 사거리가 크다.
+          <br><br>
+          <em>먼저 잴 것</em>: 어떤 FRED 계열이 이 세 주제에 맞는지, 그리고 그 계열의
+          발표 빈도. 월간이면 지금 모델로는 못 잰다(아래 참조).
+        </div>
+        <div class="s-close">닫는 관측 — 세 주제에 매핑된 계열 수가 0을 벗어나고, 그 계열이 스냅샷 엣지를 갖는다</div>
+      </li>
+      <li class="decide">
+        <span class="s-kind">결정 · 측정으로 크기가 드러났다</span>
+        <span class="s-title">미귀속 사건을 주제에 붙일 것인가 — 붙일 수 있는 것은 3건이다</span>
         <div class="s-body">
           <strong>이 목록에서 값어치 대비 가장 값싸 보이는 항목이다.</strong>
           <code>policy_event</code> 623 · <code>regulation</code> 152 ·
@@ -724,17 +757,27 @@ flowchart TB
           <code>fred:*</code> 엔티티 13개와 <code>analytics.macro_series_topic</code>
           (계열↔주제 매핑)이 이미 있으므로 이을 것이 다 갖춰져 있다.
           <br><br>
-          <strong>기대치를 먼저 낮춰 적는다</strong>: 872 는 "귀속 안 된 수" 이지
-          "귀속 가능한 수" 가 아니다. 2026-08-04 에 피드 라벨 1,396건 중 구제된 것이
-          13건뿐이었던 전례가 있다 — 지목된 회사가 <code>core.entity</code> 에 없어서였다.
-          다만 그때는 <em>회사</em> 였고 이번은 <em>주제</em> 다. 주제 13계열은 이미
-          엔티티이므로 같은 벽은 아닐 것으로 보지만 <strong>가설이다.</strong>
+          <strong>쟀고, 872 가 3이 됐다.</strong> 위 세 번째 질문의 표가 각 단계에서
+          몇 건이 왜 빠지는지 보여준다. 마지막 단계가 핵심이다 —
+          <code>target_entity_id</code> 가 단일 값인데 <code>rates</code> 주제에 계열이
+          넷이라, 넷 중 하나를 고를 근거가 없다.
           <br><br>
-          <strong>첫 단계는 구현이 아니라 측정</strong> — 872건 중 몇 건이 어휘/주제에
-          걸리는지 세는 것. 그 수가 나오기 전에는 배선 크기를 정할 수 없다.
-          "종목을 못 찾으면 주제에 붙인다" 는 판단도 필요하고 그건 사용자 몫이다.
+          <strong>그래서 구현하지 않았다.</strong> 근거 없이 하나를 고르는 것은 이 잡이
+          이미 명시적으로 거부하는 일이다("Ambiguity is not resolved by picking one").
+          선택지는 둘이고 성격이 다르다:
+          <br><br>
+          <strong>(가) 주제 엔티티를 만든다</strong> — <code>topic:rates</code> 같은
+          엔티티를 두고 사건을 거기 붙인 뒤 주제↔계열을 구조 관계로 잇는다. 모호성이
+          사라지고 <strong>계열을 늘려도 깨지지 않는다.</strong> 대신 새 술어 ·
+          새 마이그레이션 · 경로가 한 홉 길어지는 것을 받아들여야 한다.
+          <br><br>
+          <strong>(나) <code>fx</code> 3건만 붙이고 끝낸다</strong> — 값싸지만 3건이고,
+          위 이유로 늘어나지 않는다.
+          <br><br>
+          <em>(가)를 권한다.</em> 다만 "종목을 못 찾으면 주제에 붙인다" 를 제품이
+          허용하는가라는 판단이 들어 있고, 그건 사용자 것이다.
         </div>
-        <div class="s-close">닫는 관측 — 미귀속 사건이 만든 임팩트 경로가 0을 벗어난다. 거시 상관 단계로는 안 움직였던 바로 그 관측이다</div>
+        <div class="s-close">닫는 관측 — 미귀속 사건이 만든 임팩트 경로가 0을 벗어난다. 다만 (나)를 고르면 최대 3건이고, 사거리를 늘리는 것은 위의 수집 항목이다</div>
       </li>
       <li class="collect">
         <span class="s-kind">수집 · 배관은 이미 다 있다</span>
@@ -747,10 +790,36 @@ flowchart TB
           <strong>공시가 없으면 아무것도 만들지 않는다</strong> — 지어내기가 구조적으로
           막혀 있어서, 이 저장소가 거부해온 종류의 추론이 아니다.
           <br><br>
-          <strong>방법</strong> ① SEC 10-K 주요 고객 공시와 DART 매출처 공시의 수집
-          가능성·파싱 난이도를 먼저 잰다(둘 다 아직 미확인) → ② 소스를 계약 계층에
-          등록해 <code>source_revision</code> 을 얻는다 → ③ <code>firm_supply_relation</code>
-          에 적재 → ④ 빌더에 호출자를 붙인다(ownership 배선과 같은 형태).
+          <strong>2026-08-05 에 SEC 쪽을 쟀다. 수집은 되는데 거래처가 익명이다.</strong>
+          <br><br>
+          지금 수집기는 본문을 안 받는다 — SEC 는 <code>companyfacts</code>(XBRL 숫자),
+          DART 는 <code>fnlttSinglAcntAll</code>(재무제표 계정)이다. 고객 공시는 서술부에
+          있고, 받으려면 새 엔드포인트가 필요하다(SEC <code>submissions</code> →
+          <code>Archives</code>). SEC 는 실제로 붙여 확인했다 — HTTP 200, 문서 229~420KB.
+        </div>
+        <div class="tableWrap" style="margin:0.6rem 0">
+          <table>
+            <thead><tr><th>미국 반도체 8곳 최신 10-K</th><th class="n">건수</th></tr></thead>
+            <tbody>
+              <tr><td>집중도 공시 문장 보유</td><td class="n">8 / 8</td></tr>
+              <tr><td><strong>거래처를 실명으로 지목</strong></td><td class="n"><strong>1 / 8</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="s-body">
+          나머지는 전부 익명이다 — "one customer" · "Customer One" · XBRL 태그
+          <code>us-gaap:CustomerConcentrationRiskMember</code> + <code>CustomerOneMember</code>.
+          <strong>익명화가 누락이 아니라 표준이다.</strong> 빌더는 공급자와 고객
+          <strong>양쪽 다 실제 엔티티</strong>를 요구하므로 "한 고객이 매출의 21%" 는
+          어느 쪽도 주지 않는다.
+          <br><br>
+          한 건 걸린 것은 Lam Research → 삼성전자이고, <strong>삼성전자는 유니버스 안에
+          있다</strong>(005930). 즉 1/8 은 실제로 엣지가 되는 1/8 이지 0/8 이 아니다.
+          <br><br>
+          <em>이 수치를 읽을 때 조심할 것</em>: 표본 8곳이 <strong>전부 반도체</strong>라
+          보편 비율이 아니다(집중도가 가장 심하고 익명화도 가장 흔한 업종이다). 그리고
+          <strong>DART 는 재지 않았다</strong> — 한국 매출처 공시는 실명이 더 흔할
+          가능성이 있는데 그건 추측이지 측정이 아니다. 다시 집을 때 첫 할 일이다.
           <br><br>
           <em>후보가 아닌 것</em>: <code>watchlist.customers</code> 8행은 Discord 사용자
           목록이고 research-common 소유다. 이름만 겹친다.
@@ -903,14 +972,16 @@ flowchart TB
             <div class="yield">이어짐</div>
             <span class="chip flow-s">신규</span>
           </div>
-          <div class="row block-s">
+          <div class="row dormant-s">
             <div class="surface">거시 계열 나머지 10종 → 그래프
-              <small><code>ICSA</code> 는 주간 기준일이 토요일이라 260일 중 <strong>0일</strong>이
-              거래일과 겹친다. <code>WALCL</code> 은 98.9%가 겹치지만 주간이라 주간 리샘플한
-              주가 계열이 있어야 하고, 월간 8종은 표본 38점의 빈도 불일치다</small>
+              <small><strong>주간 2종은 풀었다</strong>(2026-08-05) — 계열 자기 격자에 주가를
+              리샘플해 <code>ICSA</code>(정확일 정렬로는 260일 중 0일)와 <code>WALCL</code> 을
+              측정 대상에 넣었다. <strong>그런데 얻은 엣지는 1개뿐이다</strong>(ICSA↔서울보증보험
+              −0.253, n=71) — 그마저 경제적 이야기가 없어 미덥지 않다. WALCL 은 0쌍.
+              월간 8종은 리샘플해도 57~59점으로 최소 60 미만이라 그대로 막혀 있다</small>
             </div>
-            <div class="yield">3 / 13 계열</div>
-            <span class="chip block-s">정렬 불가</span>
+            <div class="yield">5 / 13 계열</div>
+            <span class="chip dormant-s">배관은 맞고 상관이 없다</span>
           </div>
           <div class="row flow-s">
             <div class="surface">v2 임팩트 → 제품
