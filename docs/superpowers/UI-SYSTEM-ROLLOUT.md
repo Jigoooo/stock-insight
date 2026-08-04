@@ -40,7 +40,7 @@
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
-| 5B   | Data & Feedback                     | 목업      | UI Lab 통합 A/B/C 비교                |
+| 5B   | Data & Feedback                     | 목업      | 사용자 시각 승인                      |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
 ## 완료 기록
@@ -320,6 +320,20 @@
 - 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
 - 설계 문서: `docs/superpowers/specs/2026-08-04-data-feedback-mockups-design.md`
 - 다음 행동은 승인된 설계의 구현 계획을 작성하는 것임
+
+### 2026-08-04 — 5B Data & Feedback 목업 구현
+
+- UI Lab `목업 진행 중` 탭에 Table, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading 여덟 수평 탭을 추가하고 각 컴포넌트의 독립 A/B/C 시안을 구현함
+- Table은 A Expandable Rows, B Sticky Surface, C Compact Ledger가 정렬·복수 선택·연결 근거 펼침 상태를 공유함
+- DataGrid는 A Precision Grid, B Soft Sheet, C Dense Matrix가 결정적 로컬 1,000행, 정렬, 선택, `note|status` 셀 편집, 포인터·키보드 열 리사이즈를 공유함
+- DataGrid virtualizer는 고정 44px 행, 320px 뷰포트, overscan 6을 사용하며 새 런타임 의존성 없이 실제 보이는 범위만 마운트함
+- DataGrid 키보드 계약은 Arrow, Home, End, Enter, F2, Escape를 포함하고 열 separator는 ArrowLeft·ArrowRight로 8px씩 너비를 조절함
+- Progress A Hairline Progress·B Soft Meter·C Segmented Track과 Loading A Skeleton First·B Progress Panel·C Staged Ledger는 완료 후 다시 실행하는 순환 상태를 공유함
+- Spinner A Orbit·B Three Dot·C Signal Sweep, Skeleton A Quiet Blocks·B Shimmer Surface·C Ledger Rows, Empty A Quiet Empty·B Guided Empty·C Inline Empty, Error A Quiet Alert·B Recovery Panel·C Inline Critical을 각각 독립 비교로 추가함
+- Error는 카탈로그 단일 assertive 영역만 소유하고 Progress·Loading·Empty 액션은 polite 결과를 공유하며, 감소 모션에서 진행·스피너·시머·로딩 애니메이션을 정지함
+- 자동 검증: Data & Feedback Node 모델 계약 2건, 전용 Playwright 2건(공유 Table·DataGrid 상호작용, 390px·감소 모션·Axe), web typecheck, 변경 파일 Oxfmt·Oxlint, `git diff --check` 통과
+- Codex 인앱 브라우저 6110에서 여덟 탭·선택된 탭의 세 카드, Table 공유 펼침·선택, DataGrid 공유 정렬·편집·선택·열 너비, 각 grid `aria-rowcount=1001`·마운트 행 15개, Loading의 `pending → complete` 2회 반복과 URL 고정을 확인함
+- 목업 단계에서 `shared/ui` 공개 API와 제품 사용처는 변경하지 않았으며, 다음 행동은 여덟 컴포넌트의 A/B/C 사용자 시각 승인임
 
 ## 실행 환경 메모
 
