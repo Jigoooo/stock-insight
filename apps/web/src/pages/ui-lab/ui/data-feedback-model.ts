@@ -16,7 +16,7 @@ export type DataFeedbackVariant = {
 
 export type DataColumnKey = 'ticker' | 'company' | 'score' | 'status' | 'note' | 'source';
 export type EditableDataColumnKey = Extract<DataColumnKey, 'status' | 'note'>;
-export type DataRowStatus = '확인 필요' | '근거 추가' | '검토 완료';
+export type DataRowStatus = '확인 전' | '확인 중' | '확인 완료';
 
 export type DataRow = {
   id: string;
@@ -99,7 +99,7 @@ const companies = [
   'KB금융',
 ];
 const sources = ['DART', 'SEC', '한국거래소', '기업 IR'];
-const statuses: readonly DataRowStatus[] = ['확인 필요', '근거 추가', '검토 완료'];
+const statuses: readonly DataRowStatus[] = ['확인 전', '확인 중', '확인 완료'];
 const notes = ['실적 발표 전 확인', '공시 연결 근거', '테마 영향 경로', '변동성 재검토'];
 
 export function createDataRows(count: number): DataRow[] {

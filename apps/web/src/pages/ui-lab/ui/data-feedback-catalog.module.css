@@ -160,10 +160,223 @@
   white-space: nowrap;
 }
 
-.tableStatus[data-status='검토 완료'] {
+.tableStatus[data-status='확인 완료'] {
   color: var(--color-success-text);
   border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
   background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+}
+
+.dataGrid {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.dataGridViewport {
+  width: 100%;
+  height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.dataGridHeader,
+.dataGridRow {
+  display: grid;
+  width: max-content;
+}
+
+.dataGridHeader {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  height: 44px;
+  border-bottom: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.dataGridHeaderCell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.gridSortButton {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dataGridHeaderCell[data-column='score'] .gridSortButton {
+  text-align: right;
+}
+
+.columnResizer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: -6px;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.columnResizer::after {
+  position: absolute;
+  top: 9px;
+  right: 5px;
+  width: 1px;
+  height: 26px;
+  background: var(--color-border-strong);
+  content: '';
+}
+
+.columnResizer:focus-visible::after,
+.columnResizer:hover::after {
+  width: 2px;
+  background: var(--color-accent);
+}
+
+.dataGridSpacer {
+  position: relative;
+}
+
+.dataGridRows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  will-change: transform;
+}
+
+.dataGridRow {
+  height: 44px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dataGridRow[data-selected] {
+  background: var(--color-accent-soft);
+}
+
+.dataGridSelectionCell,
+.dataGridCell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding: 0 10px;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataGridSelectionCell {
+  justify-content: center;
+  padding: 0;
+}
+
+.dataGridSelectionCell input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.dataGridCell[data-column='ticker'] {
+  color: var(--color-text-primary);
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataGridCell[data-column='score'] {
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.dataGridCell:focus-visible,
+.dataGridCell[data-editing] {
+  z-index: 1;
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+  background: var(--color-surface);
+}
+
+.dataGridInput {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  font: inherit;
+  outline: 0;
+}
+
+.dataGridSelect {
+  width: 100%;
+}
+
+.gridStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+}
+
+.gridStatus[data-status='확인 완료'] {
+  color: var(--color-success-text);
+  background: color-mix(in srgb, var(--color-success) 9%, var(--color-surface));
+}
+
+.variantCard[data-variant='precision-grid'] .dataGrid {
+  border-radius: 2px;
+}
+
+.variantCard[data-variant='soft-sheet'] .dataGrid {
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-xs);
+}
+
+.variantCard[data-variant='soft-sheet'] .dataGridRow[data-selected],
+.variantCard[data-variant='soft-sheet'] .dataGridCell[data-editing] {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.variantCard[data-variant='dense-matrix'] .dataGrid {
+  border-radius: 0;
+}
+
+.variantCard[data-variant='dense-matrix'] .dataGridCell,
+.variantCard[data-variant='dense-matrix'] .dataGridHeaderCell {
+  font-variant-numeric: tabular-nums;
+}
+
+.variantCard[data-variant='dense-matrix'] :is(.dataGridCell, .dataGridHeaderCell)[data-column='ticker'] {
+  position: sticky;
+  z-index: 3;
+  left: 48px;
+  background: var(--color-surface);
+  box-shadow: 1px 0 0 var(--color-border);
 }
 
 .expandCell {

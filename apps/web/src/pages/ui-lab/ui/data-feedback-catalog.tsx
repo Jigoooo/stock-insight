@@ -2,11 +2,16 @@ import { useState, type ReactElement, type ReactNode } from 'react';
 
 import styles from './data-feedback-catalog.module.css';
 import {
+  DataFeedbackGridPreview,
+  initialDataGridWidths,
+} from './data-feedback-grid-preview';
+import {
   createDataRows,
   dataFeedbackTabs,
   dataFeedbackVariants,
   type DataFeedbackTabId,
   type DataFeedbackVariant,
+  type DataColumnKey,
   type SortState,
 } from './data-feedback-model';
 import { DataFeedbackTablePreview } from './data-feedback-table-preview';
@@ -47,6 +52,11 @@ export function DataFeedbackCatalog(): ReactElement {
   const [tableSort, setTableSort] = useState<SortState>({ key: 'ticker', direction: 'none' });
   const [selectedTableIds, setSelectedTableIds] = useState<readonly string[]>([]);
   const [expandedTableId, setExpandedTableId] = useState<string>();
+  const [gridRows, setGridRows] = useState(() => createDataRows(1_000));
+  const [gridSort, setGridSort] = useState<SortState>({ key: 'ticker', direction: 'none' });
+  const [selectedGridIds, setSelectedGridIds] = useState<readonly string[]>([]);
+  const [columnWidths, setColumnWidths] =
+    useState<Record<DataColumnKey, number>>(initialDataGridWidths);
 
   return (
     <section
@@ -103,6 +113,18 @@ export function DataFeedbackCatalog(): ReactElement {
                         onExpandedIdChange={setExpandedTableId}
                         onSelectedIdsChange={setSelectedTableIds}
                         onSortChange={setTableSort}
+                      />
+                    ) : tab.id === 'data-grid' ? (
+                      <DataFeedbackGridPreview
+                        columnWidths={columnWidths}
+                        rows={gridRows}
+                        selectedIds={selectedGridIds}
+                        sort={gridSort}
+                        variantId={variant.id}
+                        onColumnWidthsChange={setColumnWidths}
+                        onRowsChange={setGridRows}
+                        onSelectedIdsChange={setSelectedGridIds}
+                        onSortChange={setGridSort}
                       />
                     ) : (
                       <div className={styles.previewPlaceholder}>상호작용 목업 구현 중</div>
