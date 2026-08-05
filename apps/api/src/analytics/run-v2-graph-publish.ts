@@ -55,7 +55,9 @@ import {
 } from '../relations/relation-graph-projector-v2.ts';
 import {
   planRetractionsFromDatabase,
+  planRetractionsNotInFromDatabase,
   retractEdges,
+  retractEdgesNotIn,
   type MeasuredAbsence,
 } from '../relations/relation-retraction.ts';
 
@@ -1736,6 +1738,13 @@ async function dryRun(client: Client): Promise<void> {
       'PRODUCT_SIMILARITY',
       productAbsences(productDryPlan.measuredBelowThreshold),
     );
+    const topicRetractionPlan = await planRetractionsNotInFromDatabase(client, 'MEASURED_BY', {
+      holdingPairs: topicMappings.rows.map((row) => ({
+        subjectEntityId: row.topicEntityId,
+        objectEntityId: row.seriesEntityId,
+      })),
+      sourceWasRead: dryRunTopicReady,
+    });
     const topicCandidates = buildMacroTopicCandidates(
       (dryRunTopicReady ? topicMappings.rows : []).map((row) => ({
         topicEntityId: row.topicEntityId,
@@ -1866,6 +1875,10 @@ async function dryRun(client: Client): Promise<void> {
           mappingRowsWithoutEntities: topicMappings.mappingRowsTotal - topicMappings.rows.length,
           candidates: topicCandidates.length,
           accepted: topicCandidates.filter((row) => row.targetRevisionStatus === 'accepted').length,
+          // MEASURED_BY is closed_world: a pair that left the mapping leaves the
+          // graph. Shown before applying, like every other shrinking operation.
+          wouldRetractEdges: topicRetractionPlan.wouldRetract,
+          acceptedEdgesInspected: topicRetractionPlan.inspected,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -2071,6 +2084,26 @@ async function apply(client: Client): Promise<void> {
       'product-similarity-below-threshold',
       productAbsences(productPlan.measuredBelowThreshold),
     );
+    // MEASURED_BY declares closed_world because analytics.macro_series_topic IS
+    // its world — a topic with no row has no series. So a pair that leaves the
+    // mapping has to leave the graph, and this is the enumeration form: the
+    // current mapping is handed over and the complement is retracted.
+    //
+    // sourceWasRead is topicReady: when the ontology is pending the mapping is
+    // never consulted, and a skipped step must retract nothing rather than
+    // everything.
+    const topicRetraction = await retractEdgesNotIn(
+      client as unknown as PoolClient,
+      'MEASURED_BY',
+      'macro-topic-mapping-absent',
+      {
+        holdingPairs: topicMappings.rows.map((row) => ({
+          subjectEntityId: row.topicEntityId,
+          objectEntityId: row.seriesEntityId,
+        })),
+        sourceWasRead: topicReady,
+      },
+    );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
       // Rounded UP to the next millisecond, not read raw.
       //
@@ -2186,6 +2219,12 @@ async function apply(client: Client): Promise<void> {
           ).length,
           inserted: topicPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: topicPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+          // MEASURED_BY is closed_world: a pair that left the mapping leaves the
+          // graph. Reported next to the additions so a shrinking predicate is
+          // visible in the same place as a growing one.
+          retractedEdges: topicRetraction.retracted,
+          retractionsAlreadyStanding: topicRetraction.replayed,
+          acceptedEdgesInspected: topicRetraction.inspected,
         },
         productSimilarity: {
           candidates: productBuilt.candidates.length,

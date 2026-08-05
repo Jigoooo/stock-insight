@@ -3,8 +3,18 @@
 // DISTINCT immutable source revisions, whether statistical predicates must bind
 // a model_config evidence row, a finite superhub degree cap for ETF/universal
 // owner style predicates, promotion eligibility (news co-mention is NEVER
-// promoted to a structural relation), and absence semantics (undisclosed
-// supply chains stay unknown/not_disclosed — never closed-world absence).
+// promoted to a structural relation), and absence semantics.
+//
+// absenceSemantics is LOAD-BEARING as of 2026-08-05: relation-retraction.ts reads
+// it to decide whether a predicate may be retracted at all. `closed_world` means
+// the builder evaluates every pair every run, so a pair's absence is a verdict;
+// `unknown_not_disclosed` means absence carries no information and the edge must
+// stand. Disclosure-based predicates (SUPPLIES, CUSTOMER_OF, OWNS) are the second
+// kind — an undisclosed supply relation stays unknown, never absent.
+//
+// Changing this field changes behaviour. It described an intention for months and
+// the code drifted the opposite way in both directions before it became the
+// switch; absence-semantics-contract.test.ts is what keeps them tied together.
 
 export type RelationClass =
   | 'identity'
@@ -76,7 +86,7 @@ export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
     requiresModelConfig: true,
     superhubDegreeCap: 50,
     promotionEligible: true,
-    absenceSemantics: 'unknown_not_disclosed',
+    absenceSemantics: 'closed_world',
   },
   {
     // A macro series and a stock whose daily moves tracked each other over a
@@ -101,7 +111,7 @@ export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
     requiresModelConfig: true,
     superhubDegreeCap: 40,
     promotionEligible: true,
-    absenceSemantics: 'unknown_not_disclosed',
+    absenceSemantics: 'closed_world',
   },
   {
     predicate: 'SUPPLIES',
