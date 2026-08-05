@@ -921,13 +921,35 @@ async function openFetchRun(
   token: number,
   startedAt: string,
 ): Promise<{ fetchRunId: number; sourceId: number }> {
-  const runId = `${naturalRunKey}:fencing-${token}`;
+  // The idempotency key MUST carry the provider. This job opens five fetch runs
+  // per slot (ETF, sector, profile, macro series, stock price) and they used to
+  // share one key, so `ON CONFLICT (idempotency_key) DO UPDATE ... RETURNING`
+  // handed every later caller the FIRST run's source_id.
+  //
+  // Measured on production 2026-08-05: `internal-etf-holdings-snapshot` held
+  // 798 transitional_company_profile, 119 transitional_industry_classification,
+  // 63 stock_price_window and 18 macro_series_window revisions alongside its own
+  // 171, while the four sibling sources — all approved, all created for exactly
+  // this — had zero. Every relation's source_revision evidence therefore cited
+  // an ETF holdings snapshot: 22,449 SAME_ETF_BASKET, 13,180 PRODUCT_SIMILARITY,
+  // 119 CLASSIFIED_AS, 210 MACRO_COMOVEMENT. The payload metadata carried the
+  // truth in its `kind`, so nothing was lost — but the ledger, which is what the
+  // product treats as authoritative provenance, pointed at the wrong source.
+  const runId = `${naturalRunKey}:${providerKey}:fencing-${token}`;
   const result = await client.query<
     QueryResultRow & { fetch_run_id: string | number; source_id: string | number }
   >(OPEN_FETCH_RUN_SQL, [providerKey, runId, runId, startedAt]);
+  const row = result.rows[0];
+  // The SQL now refuses to reuse a run belonging to a different source, which
+  // returns no row. Say why rather than dying on a property of undefined.
+  if (row === undefined) {
+    throw new Error(
+      `fetch run ${runId} exists under a different source than ${providerKey}; refusing to file this run's revisions under it`,
+    );
+  }
   return {
-    fetchRunId: numeric(result.rows[0]!.fetch_run_id, 'fetchRunId'),
-    sourceId: numeric(result.rows[0]!.source_id, 'sourceId'),
+    fetchRunId: numeric(row.fetch_run_id, 'fetchRunId'),
+    sourceId: numeric(row.source_id, 'sourceId'),
   };
 }
 

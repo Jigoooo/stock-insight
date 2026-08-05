@@ -288,7 +288,14 @@ INSERT INTO ingestion.fetch_run (
   (SELECT source_id FROM ingestion.source WHERE provider_key = $1),
   $2, $3, $4, 'running'
 )
+-- The WHERE makes a cross-source key collision return NO ROW instead of another
+-- source's run. Without it this statement silently hands the caller a
+-- fetch_run_id belonging to a different provider, and every revision registered
+-- against it is filed under that provider — which is exactly what happened to
+-- four of the five internal snapshot sources in run-v2-graph-publish until
+-- 2026-08-05. Callers must treat an empty result as an error, not as absence.
 ON CONFLICT (idempotency_key) DO UPDATE SET run_id = EXCLUDED.run_id
+  WHERE fetch_run.source_id = EXCLUDED.source_id
 RETURNING fetch_run_id, source_id
 `;
 
