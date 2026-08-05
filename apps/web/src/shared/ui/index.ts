@@ -7,6 +7,7 @@ export * from './card';
 export * from './checkbox';
 export * from './combobox';
 export * from './date-picker';
+export * from './data-grid';
 export * from './feedback';
 export * from './field';
 export * from './file-upload';

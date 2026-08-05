@@ -17,6 +17,7 @@ import { cn } from '@/shared/lib/utils';
 
 export type TableSurface = 'framed' | 'plain';
 export type TableSelectionMode = 'none' | 'single' | 'multiple';
+export type TableVariant = 'default' | 'expandable-rows' | 'sticky-surface' | 'compact-ledger';
 
 type SelectionContextValue = {
   groupName: string;
@@ -35,6 +36,7 @@ export type TableProps = ComponentProps<'table'> & {
   selectionMode?: TableSelectionMode;
   selectionSummary?: ReactNode;
   surface?: TableSurface;
+  variant?: TableVariant;
 };
 
 export function Table({
@@ -47,6 +49,7 @@ export function Table({
   selectionMode = 'none',
   selectionSummary,
   surface = 'framed',
+  variant = 'default',
   ...props
 }: TableProps) {
   const groupName = useId();
@@ -89,6 +92,7 @@ export function Table({
           className={cn(styles.table, className)}
           data-selection-mode={selectionMode}
           data-slot="table"
+          data-variant={variant}
         >
           {children}
         </table>

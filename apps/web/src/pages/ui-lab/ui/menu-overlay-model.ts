@@ -1,7 +1,4 @@
-export const roadmapBatches = [
-  { state: '진행 중', title: 'Data & Feedback' },
-  { state: '예정', title: 'Charts End-to-End' },
-] as const;
+export const roadmapBatches = [{ state: '다음', title: 'Charts End-to-End' }] as const;
 
 export type MenuOverlayVariant = 'hairline' | 'soft-surface';
 type ResearchActionId = 'evidence' | 'impact' | 'copy-link' | 'archived';

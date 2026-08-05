@@ -13,7 +13,7 @@ import {
 } from './data-feedback-model';
 import {
   DataFeedbackStatePreview,
-  type LoadingState,
+  type LoadingPreviewState,
   type RecoveryState,
 } from './data-feedback-state-previews';
 import { DataFeedbackTablePreview } from './data-feedback-table-preview';
@@ -21,7 +21,6 @@ import { DataFeedbackTablePreview } from './data-feedback-table-preview';
 import {
   Tabs,
   TabsContent,
-  TabsContents,
   TabsHighlight,
   TabsHighlightItem,
   TabsList,
@@ -57,11 +56,12 @@ export function DataFeedbackCatalog(): ReactElement {
   const [gridRows, setGridRows] = useState(() => createDataRows(1_000));
   const [gridSort, setGridSort] = useState<SortState>({ key: 'ticker', direction: 'none' });
   const [selectedGridIds, setSelectedGridIds] = useState<readonly string[]>([]);
+  const [showGridColumnBorders, setShowGridColumnBorders] = useState(false);
   const [columnWidths, setColumnWidths] =
     useState<Record<DataColumnKey, number>>(initialDataGridWidths);
   const progressSteps = [0, 36, 68, 100] as const;
   const [progressIndex, setProgressIndex] = useState(0);
-  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
+  const [loadingState, setLoadingState] = useState<LoadingPreviewState>('idle');
   const [recoveryState, setRecoveryState] = useState<RecoveryState>('idle');
   const [politeMessage, setPoliteMessage] = useState('');
   const [assertiveMessage, setAssertiveMessage] = useState('');
@@ -106,7 +106,7 @@ export function DataFeedbackCatalog(): ReactElement {
       >
         <TabsHighlight className={styles.componentTabViewport}>
           <TabsList
-            aria-label="Data & Feedback 목업 종류"
+            aria-label="Data & Feedback 공용 컴포넌트 종류"
             className={styles.componentTabList}
             data-slot="data-feedback-tabs"
           >
@@ -120,7 +120,7 @@ export function DataFeedbackCatalog(): ReactElement {
           </TabsList>
         </TabsHighlight>
 
-        <TabsContents>
+        <div className={styles.componentTabContents} data-slot="data-feedback-contents">
           {dataFeedbackTabs.map((tab) => (
             <TabsContent value={tab.id} key={tab.id}>
               <div className={styles.variantGrid}>
@@ -142,11 +142,13 @@ export function DataFeedbackCatalog(): ReactElement {
                         columnWidths={columnWidths}
                         rows={gridRows}
                         selectedIds={selectedGridIds}
+                        showColumnBorders={showGridColumnBorders}
                         sort={gridSort}
                         variantId={variant.id}
                         onColumnWidthsChange={setColumnWidths}
                         onRowsChange={setGridRows}
                         onSelectedIdsChange={setSelectedGridIds}
+                        onShowColumnBordersChange={setShowGridColumnBorders}
                         onSortChange={setGridSort}
                       />
                     ) : (
@@ -178,7 +180,7 @@ export function DataFeedbackCatalog(): ReactElement {
               </div>
             </TabsContent>
           ))}
-        </TabsContents>
+        </div>
       </Tabs>
 
       <p className={styles.liveRegion} aria-live="polite" data-slot="data-feedback-status">

@@ -12,7 +12,7 @@ import {
 } from '../src/pages/ui-lab/ui/data-feedback-model.ts';
 
 describe('Data & Feedback model', () => {
-  it('keeps eight independent A/B/C comparisons and connects them to the active mockup tab', async () => {
+  it('keeps eight independent A/B/C comparisons in the completed catalog', async () => {
     assert.deepEqual(
       dataFeedbackTabs.map(({ id }) => id),
       ['table', 'data-grid', 'progress', 'spinner', 'skeleton', 'empty', 'error', 'loading'],
@@ -33,8 +33,8 @@ describe('Data & Feedback model', () => {
     );
 
     assert.match(pageSource, /import \{ DataFeedbackCatalog \}/);
-    assert.match(pageSource, /<TabsContent value="in-progress">[\s\S]*?<DataFeedbackCatalog \/>/);
-    assert.match(pageSource, /<TabsContent value="completed">[\s\S]*?<IdentityContentCatalog \/>/);
+    assert.match(pageSource, /<TabsContent value="completed">[\s\S]*?<DataFeedbackCatalog \/>/);
+    assert.match(pageSource, /<TabsContent value="in-progress">[\s\S]*?Charts End-to-End/);
   });
 
   it('sorts, edits, and virtualizes without mutating source rows', () => {
@@ -45,8 +45,11 @@ describe('Data & Feedback model', () => {
     assert.deepEqual(rows[0], createDataRows(1)[0]);
 
     const edited = updateDataCell(rows, rows[20]!.id, 'note', '다시 확인');
+    const editedScore = updateDataCell(rows, rows[20]!.id, 'score', '88');
 
     assert.equal(edited[20]!.note, '다시 확인');
+    assert.equal(editedScore[20]!.score, 88);
+    assert.equal(typeof editedScore[20]!.score, 'number');
     assert.notEqual(edited, rows);
     assert.deepEqual(getVirtualRange({ scrollTop: 8_800, viewportHeight: 320, rowCount: 1_000 }), {
       start: 194,

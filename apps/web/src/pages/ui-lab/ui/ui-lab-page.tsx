@@ -95,15 +95,15 @@ export function UiLabPage({
               <StepperCommandCatalog />
               <MenuOverlayCatalog />
               <IdentityContentCatalog />
+              <DataFeedbackCatalog />
             </TabsContent>
 
             <TabsContent value="in-progress">
               <div className={styles.statusIntro}>
                 <span>In progress</span>
-                <h2>Data & Feedback</h2>
-                <p>다음 공용화 묶음의 비교 목업을 준비합니다.</p>
+                <h2>Charts End-to-End</h2>
+                <p>차트 기반과 제품 연결을 함께 점검할 다음 묶음입니다.</p>
               </div>
-              <DataFeedbackCatalog />
             </TabsContent>
 
             <TabsContent value="planned">

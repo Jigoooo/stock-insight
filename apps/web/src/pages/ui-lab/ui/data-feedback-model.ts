@@ -15,7 +15,7 @@ export type DataFeedbackVariant = {
 };
 
 export type DataColumnKey = 'ticker' | 'company' | 'score' | 'status' | 'note' | 'source';
-export type EditableDataColumnKey = Extract<DataColumnKey, 'status' | 'note'>;
+export type EditableDataColumnKey = DataColumnKey;
 export type DataRowStatus = '확인 전' | '확인 중' | '확인 완료';
 
 export type DataRow = {
@@ -66,9 +66,9 @@ export const dataFeedbackVariants = {
     { id: 'signal-sweep', label: 'C · Signal Sweep', description: '짧은 스캔 신호' },
   ],
   skeleton: [
-    { id: 'quiet-blocks', label: 'A · Quiet Blocks', description: '정적인 구조 블록' },
-    { id: 'shimmer-surface', label: 'B · Shimmer Surface', description: '제한된 표면 이동' },
-    { id: 'ledger-rows', label: 'C · Ledger Rows', description: '표 행 구조 미리보기' },
+    { id: 'block-pulse', label: 'A · Block Pulse', description: '블록 전체의 잔잔한 호흡' },
+    { id: 'surface-sweep', label: 'B · Surface Sweep', description: '각 블록을 가로지르는 빛' },
+    { id: 'staggered-blocks', label: 'C · Staggered Blocks', description: '블록별 순차 점등' },
   ],
   empty: [
     { id: 'quiet-empty', label: 'A · Quiet Empty', description: '최소 안내' },
@@ -147,30 +147,14 @@ export function updateDataCell(
   return rows.map((row) => {
     if (row.id !== rowId) return row;
     if (column === 'status' && !statuses.includes(value as DataRowStatus)) return row;
+    if (column === 'score') {
+      const score = Number(value);
+      if (!Number.isFinite(score) || score < 0 || score > 100) return row;
+      return { ...row, score };
+    }
     return { ...row, [column]: value } as DataRow;
   });
 }
 
-export function getVirtualRange({
-  scrollTop,
-  viewportHeight,
-  rowCount,
-  rowHeight = 44,
-  overscan = 6,
-}: {
-  scrollTop: number;
-  viewportHeight: number;
-  rowCount: number;
-  rowHeight?: number;
-  overscan?: number;
-}) {
-  const start = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
-  const end = Math.min(rowCount, Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan);
-
-  return {
-    start,
-    end,
-    offsetTop: start * rowHeight,
-    totalHeight: rowCount * rowHeight,
-  };
-}
+export const getVirtualRange = getDataGridVirtualRange;
+import { getDataGridVirtualRange } from '../../../shared/ui/data-grid/data-grid-model.ts';

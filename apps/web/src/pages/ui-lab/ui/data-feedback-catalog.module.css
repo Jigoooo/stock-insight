@@ -44,6 +44,11 @@
   margin-top: 28px;
 }
 
+.componentTabContents {
+  min-width: 0;
+  overflow: visible;
+}
+
 .componentTabViewport {
   min-width: 0;
 }
@@ -51,6 +56,7 @@
 .componentTabList {
   width: 100% !important;
   overflow-x: auto;
+  gap: 12px !important;
   scrollbar-width: none;
 }
 
@@ -58,8 +64,22 @@
   display: none;
 }
 
-.componentTab {
+.componentTabList > * {
+  display: grid;
+  width: 104px;
   min-width: 104px;
+  place-items: center;
+}
+
+.componentTab {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+.componentTabList [data-slot='motion-highlight'] {
+  right: 16px !important;
+  left: 16px !important;
 }
 
 .variantGrid {
@@ -67,6 +87,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 20px;
+  padding-bottom: 24px;
 }
 
 .variantCard {
@@ -119,6 +140,14 @@
   align-content: center;
   justify-items: start;
   gap: 14px;
+}
+
+.emptyPreview,
+.errorPreview,
+.loadingPreview {
+  justify-items: center;
+  padding: 28px 18px;
+  text-align: center;
 }
 
 .statePreview p,
@@ -261,11 +290,13 @@
 }
 
 .skeletonVisual {
+  position: relative;
   display: grid;
   gap: 12px;
   width: 100%;
   min-height: 220px;
   align-content: center;
+  overflow: hidden;
   padding: 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel);
@@ -277,7 +308,7 @@
   height: 12px;
   overflow: hidden;
   border-radius: 4px;
-  background: var(--color-surface-subtle);
+  background: color-mix(in srgb, var(--color-text-primary) 9%, var(--color-surface-subtle));
 }
 
 .skeletonEyebrow {
@@ -294,28 +325,61 @@
   width: 58%;
 }
 
-.variantCard[data-variant='shimmer-surface'] .skeletonVisual span {
+.skeletonVisual span {
+  position: relative;
+  transform-origin: left center;
+}
+
+.variantCard[data-variant='block-pulse'] .skeletonVisual {
+  animation: data-feedback-skeleton-shell-tone 2.2s ease-in-out infinite alternate;
+}
+
+.variantCard[data-variant='block-pulse'] .skeletonVisual span {
+  background: color-mix(in srgb, var(--color-text-primary) 13%, var(--color-surface-subtle));
+  animation: data-feedback-skeleton-block-pulse 2.2s ease-in-out infinite alternate;
+}
+
+.variantCard[data-variant='surface-sweep'] .skeletonVisual {
+  animation: data-feedback-skeleton-shell-tone 1.6s ease-in-out infinite alternate;
+}
+
+.variantCard[data-variant='surface-sweep'] .skeletonVisual span::after {
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
-    90deg,
-    var(--color-surface-subtle) 20%,
-    var(--color-surface) 50%,
-    var(--color-surface-subtle) 80%
+    105deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-surface) 72%, transparent) 48%,
+    transparent 76%
   );
-  background-size: 220% 100%;
-  animation: data-feedback-shimmer 1.5s linear infinite;
+  content: '';
+  pointer-events: none;
+  transform: translateX(-130%);
+  animation: data-feedback-skeleton-surface-sweep 1.6s ease-in-out infinite;
 }
 
-.variantCard[data-variant='ledger-rows'] .skeletonVisual {
-  gap: 0;
-  padding: 0;
-  border-radius: 2px;
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual {
+  animation: data-feedback-skeleton-shell-tone 1.7s ease-in-out infinite alternate;
 }
 
-.variantCard[data-variant='ledger-rows'] .skeletonVisual span {
-  width: 100%;
-  height: 44px !important;
-  border-bottom: 1px solid var(--color-border);
-  border-radius: 0;
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual span {
+  animation: data-feedback-skeleton-staggered-block 1.7s ease-in-out infinite;
+}
+
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual span:nth-child(2) {
+  animation-delay: 110ms;
+}
+
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual span:nth-child(3) {
+  animation-delay: 220ms;
+}
+
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual span:nth-child(4) {
+  animation-delay: 330ms;
+}
+
+.variantCard[data-variant='staggered-blocks'] .skeletonVisual span:nth-child(5) {
+  animation-delay: 440ms;
 }
 
 .emptyPreview > svg,
@@ -337,12 +401,12 @@
 
 .variantCard[data-variant='inline-empty'] .emptyPreview,
 .variantCard[data-variant='inline-critical'] .errorPreview {
-  min-height: 0;
-  margin-top: 108px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  padding: 12px;
+  min-height: 190px;
+  align-content: center;
+  margin-top: 54px;
+  padding: 22px 18px;
   border-block: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface-subtle) 72%, transparent);
 }
 
 .variantCard[data-variant='inline-empty'] .emptyPreview > svg,
@@ -362,17 +426,113 @@
   background: color-mix(in srgb, var(--color-success) 9%, var(--color-surface));
 }
 
-.loadingVisual {
+.variantCard[data-variant='guided-empty'] .emptyPreview,
+.variantCard[data-variant='recovery-panel'] .errorPreview {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.loadingSkeleton,
+.loadingProgress,
+.loadingLedger {
   color: var(--color-accent-text);
+}
+
+.loadingSkeleton {
+  display: grid;
+  width: min(180px, 78%);
+  gap: 8px;
+}
+
+.loadingSkeleton span {
+  height: 10px;
+  border-radius: 4px;
+  background: var(--color-surface-subtle);
   animation: data-feedback-breathe 1.2s ease-in-out infinite alternate;
 }
 
-.loadingVisual svg {
-  width: 20px;
-  height: 20px;
+.loadingSkeleton span:nth-child(1) {
+  width: 58%;
 }
 
-.loadingPreview[data-loading-state='complete'] .loadingVisual {
+.loadingSkeleton span:nth-child(3) {
+  width: 76%;
+}
+
+.loadingProgress {
+  display: grid;
+  width: min(190px, 84%);
+  justify-items: center;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.loadingProgress svg {
+  width: 22px;
+  height: 22px;
+}
+
+.loadingProgress > span {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-surface-subtle);
+}
+
+.loadingProgress i {
+  display: block;
+  width: 58%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  animation: data-feedback-loading-progress 1.2s ease-in-out infinite alternate;
+}
+
+.loadingProgress i[data-complete] {
+  width: 100%;
+  background: var(--color-success);
+  animation: none;
+}
+
+.loadingLedger {
+  display: grid;
+  width: min(210px, 88%);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0 10px;
+  border-block: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.loadingLedger svg {
+  grid-row: 1 / 3;
+  width: 22px;
+  height: 22px;
+}
+
+.loadingLedger span {
+  padding: 8px 0;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.loadingLedger span + span {
+  border-top: 1px solid var(--color-border);
+}
+
+.loadingLedger span[data-active] {
+  color: var(--color-text-primary);
+}
+
+.loadingPreview[data-loading-state='complete']
+  :is(.loadingSkeleton, .loadingProgress, .loadingLedger) {
   color: var(--color-success-text);
 }
 
@@ -411,10 +571,48 @@
   }
 }
 
+@keyframes data-feedback-skeleton-block-pulse {
+  to {
+    opacity: 0.56;
+    transform: scaleX(0.99);
+  }
+}
+
+@keyframes data-feedback-skeleton-shell-tone {
+  to {
+    background: color-mix(in srgb, var(--color-surface-subtle) 18%, var(--color-surface));
+  }
+}
+
+@keyframes data-feedback-skeleton-surface-sweep {
+  to {
+    transform: translateX(130%);
+  }
+}
+
+@keyframes data-feedback-skeleton-staggered-block {
+  0%,
+  32%,
+  100% {
+    opacity: 0.42;
+    transform: scaleX(0.985);
+  }
+  58% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
 @keyframes data-feedback-breathe {
   to {
     opacity: 0.52;
     transform: scale(0.92);
+  }
+}
+
+@keyframes data-feedback-loading-progress {
+  to {
+    transform: translateX(68%);
   }
 }
 
@@ -433,6 +631,59 @@
   font-size: 12px;
 }
 
+.animatedTableRow {
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.animatedTableRow:hover,
+.animatedTableRow[data-state='selected'] {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+}
+
+.tableSelectionCell {
+  width: 38px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.tableSelectionControl {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  place-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  appearance: none;
+  background: var(--color-surface);
+  cursor: pointer;
+  outline: none;
+}
+
+.tableSelectionControl::before {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--color-text-primary);
+  content: '';
+  opacity: 0;
+  transform: scale(0.65);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.tableSelectionControl:checked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.tableSelectionControl:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 14%, transparent);
+}
+
 .sortButton,
 .expandButton {
   border: 0;
@@ -442,11 +693,37 @@
 }
 
 .sortButton {
+  display: inline-flex;
+  width: 100%;
   min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 0 7px;
   border-radius: var(--radius-control);
   font: inherit;
   font-weight: 700;
+}
+
+.sortButton[data-numeric] {
+  justify-content: flex-end;
+}
+
+.sortIcon,
+.gridSortIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  opacity: 0.42;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out);
+}
+
+:is(.sortIcon, .gridSortIcon)[data-sort-state='asc'],
+:is(.sortIcon, .gridSortIcon)[data-sort-state='desc'] {
+  color: var(--color-text-primary);
+  opacity: 1;
 }
 
 .sortButton:hover,
@@ -483,6 +760,34 @@
   background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
 }
 
+.dataGridPreview {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.dataGridToolbar {
+  display: flex;
+  min-width: 0;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.dataGridOption {
+  display: inline-flex;
+  min-height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
 .dataGrid {
   min-width: 0;
   border: 1px solid var(--color-border);
@@ -508,7 +813,7 @@
   top: 0;
   height: 44px;
   border-bottom: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface-subtle) 72%, var(--color-surface));
 }
 
 .dataGridHeaderCell {
@@ -516,16 +821,23 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  border-right: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   font-size: 11px;
   font-weight: 720;
 }
 
+.dataGridHeader > .dataGridHeaderCell:first-child {
+  justify-content: center;
+}
+
 .gridSortButton {
+  display: inline-flex;
   width: 100%;
   min-width: 0;
   height: 100%;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
   padding: 0 12px;
   overflow: hidden;
   border: 0;
@@ -535,10 +847,35 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+  outline: none;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .dataGridHeaderCell[data-column='score'] .gridSortButton {
-  text-align: right;
+  justify-content: flex-end;
+}
+
+.gridSortButton[data-sort-state='asc'],
+.gridSortButton[data-sort-state='desc'] {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.gridSortButton > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gridSortButton:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.gridSortButton:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-focus-ring);
 }
 
 .columnResizer {
@@ -554,11 +891,11 @@
 
 .columnResizer::after {
   position: absolute;
-  top: 9px;
+  top: 13px;
   right: 5px;
   width: 1px;
-  height: 26px;
-  background: var(--color-border-strong);
+  height: 18px;
+  background: var(--color-border);
   content: '';
 }
 
@@ -580,9 +917,18 @@
   will-change: transform;
 }
 
+.dataGridSortWindow {
+  width: max-content;
+}
+
 .dataGridRow {
   height: 44px;
   border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.dataGridRow:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
 }
 
 .dataGridRow[data-selected] {
@@ -596,7 +942,7 @@
   align-items: center;
   padding: 0 10px;
   overflow: hidden;
-  border-right: 1px solid var(--color-border);
+  border-right: 0;
   color: var(--color-text-secondary);
   font-size: 12px;
   text-overflow: ellipsis;
@@ -608,10 +954,46 @@
   padding: 0;
 }
 
-.dataGridSelectionCell input {
+.gridSelectionControl {
+  display: grid;
   width: 16px;
   height: 16px;
-  accent-color: var(--color-accent);
+  margin: 0;
+  place-content: center;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  appearance: none;
+  background: var(--color-surface);
+  cursor: pointer;
+  outline: none;
+}
+
+.gridSelectionControl::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  content: '';
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.gridSelectionControl:checked::before,
+.gridSelectionControl:indeterminate::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.gridSelectionControl:indeterminate::before {
+  height: 2px;
+  border-radius: 999px;
+}
+
+.gridSelectionControl:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 16%, transparent);
 }
 
 .dataGridCell[data-column='ticker'] {
@@ -623,6 +1005,11 @@
 .dataGridCell[data-column='score'] {
   justify-content: flex-end;
   font-variant-numeric: tabular-nums;
+}
+
+.dataGrid[data-column-borders] .dataGridHeaderCell[data-column],
+.dataGrid[data-column-borders] .dataGridCell {
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
 }
 
 .dataGridCell:focus-visible,
@@ -665,7 +1052,17 @@
 }
 
 .variantCard[data-variant='precision-grid'] .dataGrid {
-  border-radius: 2px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.variantCard[data-variant='precision-grid'] .dataGridHeader {
+  background: color-mix(in srgb, var(--color-surface-subtle) 64%, var(--color-surface));
+}
+
+.variantCard[data-variant='precision-grid'] .columnResizer::after {
+  background: var(--color-border-strong);
+  opacity: 0.72;
 }
 
 .variantCard[data-variant='soft-sheet'] .dataGrid {
@@ -674,13 +1071,47 @@
   box-shadow: var(--shadow-xs);
 }
 
+.variantCard[data-variant='soft-sheet'] .dataGridHeader {
+  border-bottom-color: var(--color-border);
+  background: var(--color-surface-subtle);
+}
+
+.variantCard[data-variant='soft-sheet'] .columnResizer::after {
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.variantCard[data-variant='soft-sheet'] .columnResizer:is(:hover, :focus-visible)::after {
+  opacity: 1;
+}
+
+.variantCard[data-variant='soft-sheet'] .dataGridRow:nth-child(even) {
+  background: color-mix(in srgb, var(--color-surface-subtle) 48%, transparent);
+}
+
 .variantCard[data-variant='soft-sheet'] .dataGridRow[data-selected],
 .variantCard[data-variant='soft-sheet'] .dataGridCell[data-editing] {
   background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
 }
 
 .variantCard[data-variant='dense-matrix'] .dataGrid {
+  --data-grid-pinned-surface: color-mix(
+    in srgb,
+    var(--color-text-primary) 3%,
+    var(--color-surface)
+  );
+  --data-grid-pinned-header-surface: color-mix(
+    in srgb,
+    var(--color-text-primary) 7%,
+    var(--color-surface)
+  );
+
   border-radius: 0;
+  border-color: var(--color-border-strong);
+}
+
+.variantCard[data-variant='dense-matrix'] .dataGridHeader {
+  background: color-mix(in srgb, var(--color-text-primary) 7%, var(--color-surface));
 }
 
 .variantCard[data-variant='dense-matrix'] .dataGridCell,
@@ -688,13 +1119,43 @@
   font-variant-numeric: tabular-nums;
 }
 
+.variantCard[data-variant='dense-matrix'] .dataGridHeader > .dataGridHeaderCell:first-child,
+.variantCard[data-variant='dense-matrix'] .dataGridSelectionCell {
+  position: sticky;
+  z-index: 4;
+  left: 0;
+  background: var(--data-grid-pinned-surface);
+}
+
+.variantCard[data-variant='dense-matrix'] .dataGridHeader > .dataGridHeaderCell:first-child {
+  z-index: 7;
+  background: var(--data-grid-pinned-header-surface);
+}
+
+.variantCard[data-variant='dense-matrix']
+  :is(.dataGridCell, .dataGridHeaderCell)[data-column='ticker'] {
+  border-left: 0;
+  border-right: 1px solid var(--color-border-strong);
+}
+
+.variantCard[data-variant='dense-matrix'] .columnResizer::after {
+  height: 14px;
+  opacity: 0.36;
+}
+
 .variantCard[data-variant='dense-matrix']
   :is(.dataGridCell, .dataGridHeaderCell)[data-column='ticker'] {
   position: sticky;
   z-index: 3;
   left: 48px;
-  background: var(--color-surface);
-  box-shadow: 1px 0 0 var(--color-border);
+  background: var(--data-grid-pinned-surface);
+  box-shadow: 5px 0 10px color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+}
+
+.variantCard[data-variant='dense-matrix']
+  .dataGridHeader
+  > :is(.dataGridHeaderCell:first-child, .dataGridHeaderCell[data-column='ticker']) {
+  background: var(--data-grid-pinned-header-surface);
 }
 
 .expandCell {
@@ -723,6 +1184,10 @@
 .evidenceRow td {
   padding: 0 !important;
   background: var(--color-surface-subtle);
+}
+
+.evidenceDetailClip {
+  overflow: hidden;
 }
 
 .evidenceDetail {
@@ -804,11 +1269,13 @@
   }
 
   .componentTabList > * {
-    flex: 0 0 auto;
+    flex: 0 0 96px;
+    width: 96px;
+    min-width: 96px;
   }
 
   .componentTab {
-    min-width: 96px;
+    width: 100%;
   }
 }
 
@@ -842,7 +1309,6 @@
 
   .variantCard[data-variant='inline-empty'] .emptyPreview,
   .variantCard[data-variant='inline-critical'] .errorPreview {
-    grid-template-columns: 1fr;
     margin-top: 0;
   }
 }
@@ -859,6 +1325,17 @@
   .catalog [data-motion-indicator],
   .catalog [data-motion-indicator]::before,
   .catalog [data-motion-indicator]::after {
+    animation-play-state: paused !important;
+  }
+
+  .animatedTableRow,
+  .tableSelectionControl::before,
+  .gridSelectionControl::before {
+    transition-duration: 0.01ms !important;
+  }
+
+  .skeletonVisual span,
+  .skeletonVisual span::after {
     animation-play-state: paused !important;
   }
 }

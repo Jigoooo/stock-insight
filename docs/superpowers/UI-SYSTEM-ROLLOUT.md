@@ -6,9 +6,9 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `5B Data & Feedback 목업 비교`
-- 다음 묶음: `6A Charts End-to-End`
-- 마지막 갱신: 2026-08-04
+- 현재 활성 묶음: `6A Charts End-to-End`
+- 다음 묶음: `6A Charts End-to-End 기반·차트·제품 연결 통합 진행`
+- 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
 ## 상태값
@@ -40,7 +40,7 @@
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
-| 5B   | Data & Feedback                     | 목업      | 사용자 시각 승인                      |
+| 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
 | 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
 
 ## 완료 기록
@@ -334,6 +334,70 @@
 - 자동 검증: Data & Feedback Node 모델 계약 2건, 전용 Playwright 2건(공유 Table·DataGrid 상호작용, 390px·감소 모션·Axe), web typecheck, 변경 파일 Oxfmt·Oxlint, `git diff --check` 통과
 - Codex 인앱 브라우저 6110에서 여덟 탭·선택된 탭의 세 카드, Table 공유 펼침·선택, DataGrid 공유 정렬·편집·선택·열 너비, 각 grid `aria-rowcount=1001`·마운트 행 15개, Loading의 `pending → complete` 2회 반복과 URL 고정을 확인함
 - 목업 단계에서 `shared/ui` 공개 API와 제품 사용처는 변경하지 않았으며, 다음 행동은 여덟 컴포넌트의 A/B/C 사용자 시각 승인임
+
+### 2026-08-04 — 5B Data & Feedback 1차 시각 피드백 반영
+
+- 상단 컴포넌트 탭의 트리거와 하단 선택선을 같은 고정 폭 안에서 중앙 정렬하고, 좁은 화면에서도 동일한 기준을 유지함
+- Table 정렬 시 실제 행 위치가 이동하는 spring 모션과 연결 근거 행의 높이·투명도 전환을 추가하고, 기존 공용 `TableSelectionSummary`를 연결해 복수 선택 상태와 선택 해제를 세 시안에 함께 표시함
+- DataGrid는 가상 스크롤 정렬로 가시 행 집합이 교체되는 경우에도 짧은 교차 진입 모션을 제공하며, A는 정밀 격자·B는 수직선 없는 소프트 시트·C는 고정 식별 열만 강하게 구분하는 밀집 매트릭스로 열선과 헤더 대비를 분리함
+- Empty·Error·Loading은 세 시안 모두 카드 중앙축에 맞추고, Loading은 Skeleton First·Progress Panel·Staged Ledger의 시각 구조를 실제로 다르게 표현함
+- Codex 인앱 브라우저 6110에서 탭 선택선 중심, Table 정렬 transform·근거 펼침·선택 요약 3개, DataGrid 정렬 진입 transform·A/B/C 열선 차이, Empty·Loading 중앙 정렬과 브라우저 오류 0건을 확인함
+- 전용 Playwright 2건과 web typecheck를 통과했으며, 사용자 시각 승인 전이므로 `shared/ui` 공개 API와 제품 사용처는 변경하지 않음
+
+### 2026-08-05 — 5B Data & Feedback 2차 시각 피드백 반영
+
+- Table의 종목·기업·점수·상태와 DataGrid의 여섯 데이터 열 헤더에 미정렬·오름차순·내림차순 화살표를 표시하고, 헤더 전체 클릭으로 세 상태를 순환함
+- AG Grid의 기본 헤더·행 애니메이션·테마 경계 구조를 참고하되 의존성은 추가하지 않고, 본문은 수평 행선 중심으로 단순화하며 열 구분은 헤더 리사이저와 C의 고정 종목 열 경계에만 유지함
+- Skeleton은 A Block Pulse, B Surface Sweep, C Row Scan으로 모두 움직임을 제공하고 B의 이동 광택 대비를 높여 표면 이동이 명확히 보이도록 조정함
+- 5B 탭의 자동 높이 overflow 래퍼를 제거하고 카드 묶음 하단에 24px 여백을 포함해 세로 배치에서 마지막 C 카드가 전환 중 잘리지 않도록 수정함
+- Codex 인앱 브라우저 6110에서 헤더 화살표, B 스윕 강조, 세 Skeleton 모션 실행 상태와 C 하단 24px·overflow visible을 확인함
+- 사용자 시각 승인 전이므로 목업 경계만 변경했고 `shared/ui` 공개 API와 제품 사용처는 변경하지 않음
+
+### 2026-08-05 — 5B 부분 승인 및 DataGrid·Skeleton 재비교
+
+- 사용자 승인에 따라 Table, Progress, Spinner, Empty, Error, Loading은 각 A/B/C 세 시안을 모두 유지 대상으로 확정함
+- DataGrid와 Skeleton은 이번 승인에서 제외하고 목업 비교를 계속하며, 아직 `shared/ui` 공개 API와 제품 사용처로 공용화하지 않음
+- DataGrid는 AG Grid·shadcn Data Table·React Spectrum TableView의 헤더 패턴을 참고해 빈 선택 헤더를 전체 선택 체크박스로 바꾸고, 정렬 라벨 바로 옆 6px 위치에 상태 화살표를 배치하며 활성 정렬 헤더만 낮은 강조 면을 사용하도록 정리함
+- DataGrid A는 드러난 리사이저와 정밀한 단일 외곽선, B는 필요할 때만 리사이저가 나타나는 소프트 시트, C는 고정 종목 열 경계와 높은 헤더 대비를 유지해 같은 동작 안에서 밀도를 구분함
+- Skeleton은 A의 다섯 블록 크기·순서·간격을 세 시안에 동일하게 고정하고 A Block Pulse, B Surface Sweep, C Staggered Blocks로 내부 블록 모션만 다르게 구성함
+- Motion Skeleton의 실제 콘텐츠와 같은 골격 유지 원칙과 transform·opacity 중심 모션을 반영하고, 감소 모션에서는 블록 및 sweep 애니메이션을 정지함
+- Codex 인앱 브라우저 6110에서 DataGrid 세 시안의 점수 오름차순 공유, 모든 정렬 라벨·아이콘 6px 간격, 전체 선택 3개 동기화와 Skeleton 동일 블록 치수·세 모션 실행 상태를 직접 확인함
+- 전용 Playwright 2건에서 DataGrid 헤더 선택·정렬 간격과 Skeleton 동일 골격·서로 다른 모션 계약을 통과함
+
+### 2026-08-05 — Skeleton 최종 승인 및 DataGrid 고정 영역 보정
+
+- 사용자 승인에 따라 Skeleton의 A Block Pulse, B Surface Sweep, C Staggered Blocks를 모두 유지 대상으로 확정함
+- A Block Pulse는 이동량을 키우지 않고 블록 명도 대비를 높이며 2.2초 주기로 늦춰, 더 잘 보이면서도 잔잔한 호흡으로 조정함
+- DataGrid C Dense Matrix는 선택 체크박스 열과 종목 열을 좌측 고정 영역으로 함께 묶고, 고정 종목 열의 좌우에 1px 수직 경계를 표시해 스크롤 영역과의 관계를 분명히 함
+- DataGrid는 사용자 최종 확정 전까지 목업 비교 상태를 유지하며 `shared/ui` 공개 API와 제품 사용처로 공용화하지 않음
+
+### 2026-08-05 — DataGrid 가상 스크롤·경계·편집 보정
+
+- 빠르게 하단으로 이동한 뒤 즉시 상단으로 복귀하면 가상 범위는 1행부터 정상 계산되지만, 가상 행의 `layout="position"` FLIP가 이전 하단 위치를 기준으로 수천 px transform을 적용해 상단이 비어 보이는 원인을 확인함
+- 가상 행 자체의 layout·exit 모션을 제거하고 정렬 키가 바뀔 때만 내부 가시 창에 160ms opacity·6px 전환을 적용해, 스크롤은 즉시 배치하면서 정렬 피드백은 유지함
+- C의 체크박스 열과 종목 열은 하나의 좌측 고정 그룹으로 유지하되 두 열 사이 경계는 제거하고, 비고정 열과 맞닿는 종목 열 오른쪽에만 강한 고정 경계를 표시함
+- 고정 경계와 별개로 `수직선` 옵션을 추가해 A/B/C 세 시안의 일반 데이터 열에 낮은 opacity의 수직선을 함께 켜고 끌 수 있게 함. 일반 수직선은 약한 색, C의 고정 경계는 강한 색으로 구분함
+- 종목·기업·점수·상태·메모·출처 셀을 더블클릭 또는 Enter/F2로 편집할 수 있게 확장하고, 점수는 0~100 숫자, 상태는 기존 선택 목록, 나머지는 텍스트 입력을 사용함
+- Codex 인앱 브라우저에서 43,000px 하단 이동 후 16ms 내 상단 복귀 시 첫 행 top gap 44px·transform none, 세 시안 수직선 동기화, C 고정 그룹과 경계 색 차이, 종목 `TEST01`·점수 `88`의 세 시안 공유 편집을 확인함
+- 전용 Playwright 3건과 모델 테스트 2건, web typecheck를 통과했으며 DataGrid는 사용자 최종 확정 전까지 목업 상태를 유지함
+
+### 2026-08-05 — DataGrid 최종 시각 승인
+
+- C Dense Matrix의 좌측 고정 그룹에서 체크박스 열과 종목 열이 같은 본문·헤더 표면 색을 사용하도록 통합해 두 열이 하나의 고정 영역으로 보이게 함
+- 사용자 승인에 따라 DataGrid의 A Precision Grid, B Soft Sheet, C Dense Matrix를 모두 유지 대상으로 확정함
+- 이 승인으로 5B Data & Feedback의 Table, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading은 각 A/B/C 시안의 시각 선택을 모두 완료함
+- 아직 목업 승인 단계만 완료했으며, `shared/ui` 공개 API 공용화와 제품 사용처 감사는 다음 단계로 남김
+
+### 2026-08-05 — 5B Data & Feedback 공용화·제품 감사·검증 완료
+
+- Table은 `expandable-rows`, `sticky-surface`, `compact-ledger` variant를 공개 API로 유지하고, 정렬·선택·행 확장 계약을 UI Lab과 공유함
+- DataGrid는 `precision-grid`, `soft-sheet`, `dense-matrix` variant와 정렬·선택·열 크기·수직선·셀 편집·고정 높이 가상화 계약을 `shared/ui/data-grid` 공개 API로 공용화함
+- Progress, Spinner, Skeleton, EmptyState, ErrorState, LoadingState의 승인된 A/B/C 표현과 감소 모션 계약을 `shared/ui/feedback` 공개 API로 공용화함
+- UI Lab의 Data & Feedback을 `완료` 탭으로 이동하고 `목업 진행 중`에는 다음 묶음인 Charts End-to-End만 남김
+- 제품 감사 결과 Stock Detail 진행률을 공용 Progress로, WorkspaceState 로딩 골격을 공용 Skeleton으로 연결함. 기존 Workspace Table과 ErrorState 사용은 유지하고, 읽기 전용 제품에 맞지 않는 편집형 DataGrid 및 별도 Spinner·LoadingState 사용처는 억지로 추가하지 않음
+- Codex 인앱 브라우저 6110에서 공용 DataGrid 세 variant, 각 14개 가상 행, C의 체크박스·종목 고정 그룹 본문 및 헤더 표면 색 통합을 확인함
+- 좁은 자동 검증으로 Data & Feedback 모델·공개 API 계약, 전용 Playwright의 Table·DataGrid 상호작용·빠른 상단 복귀·390px·감소 모션·Axe, web typecheck와 변경 파일 Oxfmt·Oxlint 및 `git diff --check`를 수행함
+- 다음 활성 묶음은 6A Charts End-to-End이며, 차트 기반·시각 비교·공용화·제품 연결을 한 묶음으로 진행함
 
 ## 실행 환경 메모
 

@@ -1,3 +1,5 @@
+/* oxlint-disable jsx-a11y/prefer-tag-over-role -- Custom segmented progress and compact status visuals require styled div anatomy. */
+import { Database, Layers3 } from 'lucide-react';
 import { useId, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 
 import styles from './feedback.module.css';
@@ -24,8 +26,34 @@ export type DataQualityPopoverProps = DataQualitySummaryOptions & {
 };
 
 export type FeedbackStateProps = HTMLAttributes<HTMLDivElement> & {
+  announcement?: 'inherit' | 'self';
   children: ReactNode;
   testId?: string;
+  variant?: FeedbackStateVariant;
+};
+
+export type FeedbackStateVariant =
+  | 'default'
+  | 'quiet-empty'
+  | 'guided-empty'
+  | 'inline-empty'
+  | 'quiet-alert'
+  | 'recovery-panel'
+  | 'inline-critical';
+
+export type ProgressVariant = 'hairline-progress' | 'soft-meter' | 'segmented-track';
+
+export type ProgressProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+  label: string;
+  value: number;
+  variant?: ProgressVariant;
+};
+
+export type SpinnerVariant = 'orbit' | 'three-dot' | 'signal-sweep';
+
+export type SpinnerProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+  label: string;
+  variant?: SpinnerVariant;
 };
 
 export type InlineFeedbackTone = 'pending' | 'error' | 'success';
@@ -46,6 +74,20 @@ export type InlineFeedbackRegionProps = Omit<HTMLAttributes<HTMLDivElement>, 'ch
 export type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   width?: CSSProperties['width'];
   height?: CSSProperties['height'];
+  variant?: SkeletonVariant;
+};
+
+export type SkeletonVariant = 'plain' | 'block-pulse' | 'surface-sweep' | 'staggered-blocks';
+
+export type LoadingStateValue = 'idle' | 'pending' | 'complete';
+export type LoadingStateVariant = 'skeleton-first' | 'progress-panel' | 'staged-ledger';
+
+export type LoadingStateProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+  action?: ReactNode;
+  description: ReactNode;
+  state: LoadingStateValue;
+  title: ReactNode;
+  variant?: LoadingStateVariant;
 };
 
 function classNames(...values: (string | false | null | undefined)[]) {
@@ -106,6 +148,73 @@ export function InlineFeedbackRegion({
       >
         {message}
       </PresenceRegion>
+    </div>
+  );
+}
+
+export function Progress({
+  'aria-label': ariaLabel,
+  className,
+  label,
+  value,
+  variant = 'hairline-progress',
+  ...props
+}: ProgressProps) {
+  const resolvedValue = Math.max(0, Math.min(100, value));
+  const segments = [20, 40, 60, 80, 100];
+
+  return (
+    <div
+      {...props}
+      aria-label={ariaLabel ?? `${label} ${resolvedValue}%`}
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={resolvedValue}
+      className={classNames(styles.progress, className)}
+      data-slot="feedback-progress"
+      data-variant={variant}
+      role="progressbar"
+    >
+      {variant === 'segmented-track' ? (
+        segments.map((segment) => (
+          <span
+            aria-hidden="true"
+            data-complete={resolvedValue >= segment || undefined}
+            key={segment}
+          />
+        ))
+      ) : (
+        <span
+          aria-hidden="true"
+          className={styles.progressFill}
+          data-motion-indicator
+          style={{ width: `${resolvedValue}%` }}
+        />
+      )}
+    </div>
+  );
+}
+
+export function Spinner({
+  'aria-label': ariaLabel,
+  className,
+  label,
+  variant = 'orbit',
+  ...props
+}: SpinnerProps) {
+  return (
+    <div
+      {...props}
+      aria-label={ariaLabel ?? label}
+      className={classNames(styles.spinner, className)}
+      data-motion-indicator
+      data-slot="feedback-spinner"
+      data-variant={variant}
+      role="status"
+    >
+      <span aria-hidden="true" />
+      <span aria-hidden="true" />
+      <span aria-hidden="true" />
     </div>
   );
 }
@@ -194,7 +303,14 @@ export function DataQualityPopover({
   );
 }
 
-export function EmptyState({ children, className, testId, ...props }: FeedbackStateProps) {
+export function EmptyState({
+  announcement = 'self',
+  children,
+  className,
+  testId,
+  variant = 'default',
+  ...props
+}: FeedbackStateProps) {
   return (
     <div
       {...props}
@@ -202,7 +318,8 @@ export function EmptyState({ children, className, testId, ...props }: FeedbackSt
       data-slot="feedback-root"
       data-testid={testId}
       data-tone="empty"
-      aria-live="polite"
+      data-variant={variant}
+      aria-live={announcement === 'self' ? 'polite' : undefined}
     >
       <Effect className={styles.feedbackVisual} data-slot="feedback-visual" fade>
         <div className={styles.feedbackContent} data-slot="feedback-content">
@@ -213,7 +330,14 @@ export function EmptyState({ children, className, testId, ...props }: FeedbackSt
   );
 }
 
-export function ErrorState({ children, className, testId, ...props }: FeedbackStateProps) {
+export function ErrorState({
+  announcement = 'self',
+  children,
+  className,
+  testId,
+  variant = 'default',
+  ...props
+}: FeedbackStateProps) {
   return (
     <div
       {...props}
@@ -221,7 +345,8 @@ export function ErrorState({ children, className, testId, ...props }: FeedbackSt
       data-slot="feedback-root"
       data-testid={testId}
       data-tone="error"
-      role="alert"
+      data-variant={variant}
+      role={announcement === 'self' ? 'alert' : undefined}
     >
       <Effect className={styles.feedbackVisual} data-slot="feedback-visual" fade>
         <div className={styles.feedbackContent} data-slot="feedback-content">
@@ -236,6 +361,7 @@ export function Skeleton({
   className,
   height = 16,
   style,
+  variant = 'plain',
   width = '100%',
   ...props
 }: SkeletonProps) {
@@ -245,9 +371,88 @@ export function Skeleton({
       aria-hidden="true"
       className={classNames(styles.skeleton, className)}
       data-slot="skeleton-root"
+      data-variant={variant}
       style={{ width, height, ...style }}
     >
-      <Effect className={styles.skeletonVisual} data-slot="skeleton-visual" fade />
+      {variant === 'plain' ? (
+        <Effect className={styles.skeletonVisual} data-slot="skeleton-visual" fade />
+      ) : (
+        <div
+          className={styles.skeletonPattern}
+          data-motion-indicator
+          data-skeleton-animation={variant}
+        >
+          <span data-size="eyebrow" />
+          <span data-size="title" />
+          <span />
+          <span />
+          <span data-size="short" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function LoadingState({
+  action,
+  className,
+  description,
+  state,
+  title,
+  variant = 'skeleton-first',
+  ...props
+}: LoadingStateProps) {
+  return (
+    <div
+      {...props}
+      aria-live="polite"
+      className={classNames(styles.loadingState, className)}
+      data-slot="feedback-loading"
+      data-state={state}
+      data-variant={variant}
+      role="status"
+    >
+      <LoadingVisual state={state} variant={variant} />
+      <strong>{title}</strong>
+      <p>{description}</p>
+      {action ? <div className={styles.loadingAction}>{action}</div> : null}
+    </div>
+  );
+}
+
+function LoadingVisual({
+  state,
+  variant,
+}: {
+  state: LoadingStateValue;
+  variant: LoadingStateVariant;
+}) {
+  if (variant === 'skeleton-first') {
+    return (
+      <div aria-hidden="true" className={styles.loadingSkeleton} data-motion-indicator>
+        <span />
+        <span />
+        <span />
+      </div>
+    );
+  }
+
+  if (variant === 'progress-panel') {
+    return (
+      <div aria-hidden="true" className={styles.loadingProgress} data-motion-indicator>
+        <Database />
+        <span>
+          <i data-complete={state === 'complete' || undefined} />
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div aria-hidden="true" className={styles.loadingLedger} data-motion-indicator>
+      <Layers3 />
+      <span data-active={state !== 'idle' || undefined}>출처 수집</span>
+      <span data-active={state === 'complete' || undefined}>영향 연결</span>
     </div>
   );
 }
