@@ -235,14 +235,14 @@ export function EvidenceBandPreview({
         </div>
         <div className={styles.evidencePanel} data-slot="evidence-panel">
           {variantId === 'evidence-split' && selectedEvidence && selectedBar ? (
-            <aside className={styles.selectedEvidenceSummary} data-slot="evidence-selected-summary">
+            <div className={styles.selectedEvidenceSummary} data-slot="evidence-selected-summary">
               <span data-tone={selectedEvidence.tone}>{toneLabel(selectedEvidence.tone)}</span>
               <strong>{selectedEvidence.title}</strong>
               <small>
                 {selectedBar.date.toLocaleDateString('ko-KR')} ·{' '}
                 {formatPrice(currency, selectedBar.close)} · {selectedEvidence.sourceCount}개 출처
               </small>
-            </aside>
+            </div>
           ) : null}
           {list}
         </div>

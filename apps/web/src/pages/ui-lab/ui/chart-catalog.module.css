@@ -476,42 +476,69 @@
   display: grid;
   height: 100%;
   min-width: 0;
-  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.5fr) minmax(230px, 0.5fr);
   gap: 14px;
 }
 
 .evidenceChartColumn {
-  display: grid;
+  position: relative;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
-  grid-template-rows: auto minmax(0, 1fr);
+  --chart-label: var(--color-text-secondary);
 }
 
-.bandLabels {
+.evidenceContextLegend {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  left: 12px;
   display: flex;
-  min-height: 28px;
+  max-width: calc(100% - 88px);
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  padding: 5px 7px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-canvas) 92%, transparent);
+  pointer-events: none;
 }
 
-.bandLabels span {
-  padding: 4px 7px;
-  border: 1px dashed var(--color-border-strong);
+.evidenceContextLegend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--color-text-secondary);
   font-size: 9px;
+  line-height: 1.3;
 }
 
-.bandLabels span:first-child {
-  border-color: color-mix(in srgb, var(--color-copper) 65%, var(--color-border));
+.evidenceContextLegend i {
+  width: 13px;
+  height: 5px;
+  border: 1px solid color-mix(in srgb, var(--color-copper) 78%, transparent);
+  background: color-mix(in srgb, var(--color-copper) 12%, transparent);
 }
 
-.bandLabels span:last-child {
-  border-color: color-mix(in srgb, var(--color-risk) 55%, var(--color-border));
+.evidenceContextLegend span[data-band-tone='risk'] i {
+  border-color: color-mix(in srgb, var(--color-risk) 68%, transparent);
+  background: color-mix(in srgb, var(--color-risk) 9%, transparent);
+}
+
+.evidencePanel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .evidenceList {
   display: grid;
   min-width: 0;
+  min-height: 0;
   align-content: start;
   gap: 7px;
   padding: 4px;
@@ -520,19 +547,18 @@
 
 .evidenceRow {
   display: grid;
-  min-height: 78px;
+  min-height: 72px;
   gap: 5px;
   padding: 11px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
   transition:
     border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
+    background 160ms ease;
 }
 
 .evidenceRow:hover {
@@ -549,18 +575,34 @@
   background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
 }
 
-.evidenceRow > span {
+.evidenceRowMeta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evidenceRowMeta time {
+  color: var(--color-text-secondary);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.evidenceRowMeta > span {
   color: var(--color-text-tertiary);
   font-size: 9px;
   letter-spacing: 0.04em;
 }
 
-.evidenceRow > span[data-tone='risk'] {
-  color: var(--color-risk);
+.evidenceRowMeta > span[data-tone='risk'],
+.selectedEvidenceSummary > span[data-tone='risk'] {
+  color: color-mix(in srgb, var(--color-risk) 76%, var(--color-text-primary));
 }
 
-.evidenceRow > span[data-tone='positive'] {
-  color: var(--color-positive);
+.evidenceRowMeta > span[data-tone='positive'],
+.selectedEvidenceSummary > span[data-tone='positive'] {
+  color: color-mix(in srgb, var(--color-positive) 74%, var(--color-text-primary));
 }
 
 .evidenceRow strong {
@@ -570,26 +612,99 @@
 }
 
 .evidenceRow small {
+  color: var(--color-text-secondary);
+  font-size: 9px;
+}
+
+.selectedEvidenceSummary {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+}
+
+.selectedEvidenceSummary > span {
   color: var(--color-text-tertiary);
   font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.selectedEvidenceSummary strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedEvidenceSummary small {
+  color: var(--color-text-secondary);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 
 .variantCard[data-variant='band-ledger'] .evidencePreview {
   grid-template-columns: 1fr;
+  grid-template-rows: minmax(200px, 1fr) auto;
+  gap: 10px;
 }
 
-.variantCard[data-variant='band-ledger'] .evidenceList {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.variantCard[data-variant='band-ledger'] .evidenceContextLegend {
+  top: 10px;
+  border: 0;
+  background: transparent;
+}
+
+.variantCard[data-variant='band-ledger'] .evidenceContextLegend span {
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-canvas) 94%, transparent);
+}
+
+.variantCard[data-variant='band-ledger'] .evidencePanel {
   overflow: visible;
 }
 
+.variantCard[data-variant='band-ledger'] .evidenceList {
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  border-top: 1px solid var(--color-border);
+}
+
 .variantCard[data-variant='band-ledger'] .evidenceRow {
-  border-style: dashed;
-  border-radius: 3px;
+  min-height: 48px;
+  align-items: center;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 8px 12px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+}
+
+.variantCard[data-variant='band-ledger'] .evidenceRow:last-child {
+  border-bottom: 0;
+}
+
+.variantCard[data-variant='band-ledger'] .evidenceRowMeta {
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.variantCard[data-variant='event-pulse'] .evidencePreview {
+  grid-template-columns: minmax(0, 1.5fr) minmax(230px, 0.5fr);
+}
+
+.variantCard[data-variant='event-pulse'] .evidenceContextLegend {
+  opacity: 0.68;
 }
 
 .variantCard[data-variant='event-pulse'] .evidenceRow[data-selected] {
-  transform: translateX(-3px);
+  border-left: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
 }
 
 .variantCard[data-variant='evidence-split'] {
@@ -597,25 +712,36 @@
 }
 
 .variantCard[data-variant='evidence-split'] .evidencePreview {
+  grid-template-columns: minmax(0, 1.85fr) minmax(260px, 1fr);
   gap: 0;
 }
 
-.variantCard[data-variant='evidence-split'] .evidenceList {
-  padding: 0 0 0 12px;
+.variantCard[data-variant='evidence-split'] .evidenceContextLegend {
+  gap: 8px;
+  border-radius: 0;
+}
+
+.variantCard[data-variant='evidence-split'] .evidencePanel {
   border-left: 1px solid var(--color-border-strong);
+}
+
+.variantCard[data-variant='evidence-split'] .evidenceList {
+  gap: 0;
+  padding: 0;
 }
 
 .variantCard[data-variant='evidence-split'] .evidenceRow {
   position: relative;
+  min-height: 62px;
   border-width: 0 0 1px;
   border-radius: 0;
 }
 
 .variantCard[data-variant='evidence-split'] .evidenceRow[data-selected]::before {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
-  left: -13px;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
   width: 2px;
   background: var(--color-accent);
   content: '';
@@ -711,17 +837,24 @@
 @media (max-width: 900px) {
   .evidencePreview,
   .variantCard[data-variant='band-ledger'] .evidencePreview,
+  .variantCard[data-variant='event-pulse'] .evidencePreview,
   .variantCard[data-variant='evidence-split'] .evidencePreview {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(230px, 1fr) auto;
     overflow-y: auto;
   }
 
-  .variantCard[data-variant='band-ledger'] .evidenceList {
-    grid-template-columns: 1fr;
+  .evidencePanel,
+  .variantCard[data-variant='band-ledger'] .evidencePanel {
+    min-height: auto;
+    overflow: visible;
   }
 
-  .variantCard[data-variant='evidence-split'] .evidenceList {
-    padding: 10px 0 0;
+  .evidenceList {
+    overflow: visible;
+  }
+
+  .variantCard[data-variant='evidence-split'] .evidencePanel {
     border-top: 1px solid var(--color-border-strong);
     border-left: 0;
   }
@@ -809,7 +942,25 @@
   }
 
   .evidenceChartColumn {
-    min-height: 260px;
+    min-height: 220px;
+  }
+
+  .evidenceRow {
+    min-height: 44px;
+  }
+
+  .variantCard[data-variant='band-ledger'] .evidenceRow {
+    min-height: 44px;
+    align-items: start;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .variantCard[data-variant='band-ledger'] .evidenceRowMeta {
+    align-items: center;
+    flex-direction: row;
+    justify-content: space-between;
   }
 
   .ohlcvReadout {
