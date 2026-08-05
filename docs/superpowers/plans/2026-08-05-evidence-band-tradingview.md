@@ -5,3 +5,4 @@
 3. Evidence Band A/B/C를 새 어댑터로 교체하고 Bklit Evidence 전용 코드를 제거한다.
 4. 소스 계약, 기존 차트 Playwright 3건, typecheck와 변경 파일 정적 검사를 수행한다.
 5. UI Lab에서 데스크톱·390px 실제 화면을 확인하고 진행 원장에 결과를 기록한다.
+6. A/B/C 전체 채택 후 조건 가격 범위와 선택 근거의 native price line·crosshair 디테일을 보강한다.

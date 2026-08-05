@@ -24,6 +24,7 @@ export type LightweightReferenceBand = {
 export type LightweightEvidenceBandRendererProps = {
   bands: readonly LightweightReferenceBand[];
   bars: readonly PreviewChartBar[];
+  currency: 'KRW' | 'USD';
   evidence: readonly LightweightEvidence[];
   rangeSelection: { start: Date; end: Date } | null;
   selectedEvidenceId?: string;
@@ -50,6 +51,7 @@ type PrimitiveAttachment = {
 };
 
 type DrawableBand = LightweightReferenceBand & {
+  detailLabel: string;
   fill: string;
   stroke: string;
 };
@@ -109,11 +111,11 @@ class EvidenceBandPrimitive {
           context.lineWidth = Math.max(1, horizontalRatio);
           context.strokeRect(x + 0.5, y + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
 
-          const labelWidth = context.measureText(band.label).width + 12 * horizontalRatio;
+          const labelWidth = context.measureText(band.detailLabel).width + 12 * horizontalRatio;
           context.fillStyle = band.stroke;
           context.fillRect(x, y, Math.min(width, labelWidth), 18 * verticalRatio);
           context.fillStyle = '#ffffff';
-          context.fillText(band.label, x + 6 * horizontalRatio, y + 4 * verticalRatio);
+          context.fillText(band.detailLabel, x + 6 * horizontalRatio, y + 4 * verticalRatio);
         }
         context.restore();
       },
@@ -140,6 +142,13 @@ function toTime(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatBandPrice(currency: 'KRW' | 'USD', value: number) {
+  return new Intl.NumberFormat('ko-KR', {
+    currency,
+    maximumFractionDigits: currency === 'KRW' ? 0 : 2,
+  }).format(value);
+}
+
 function parseTime(value: unknown): Date | null {
   if (typeof value === 'string') return new Date(`${value}T00:00:00.000Z`);
   if (typeof value !== 'object' || value === null) return null;
@@ -151,6 +160,7 @@ function parseTime(value: unknown): Date | null {
 export function LightweightEvidenceBandRenderer({
   bands,
   bars,
+  currency,
   evidence,
   rangeSelection,
   selectedEvidenceId,
@@ -177,7 +187,7 @@ export function LightweightEvidenceBandRenderer({
     let dispose: (() => void) | undefined;
 
     async function mountChart(target: HTMLDivElement) {
-      const { AreaSeries, ColorType, CrosshairMode, createChart, createSeriesMarkers } =
+      const { AreaSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers } =
         await import('lightweight-charts');
       if (cancelled) return;
 
@@ -214,6 +224,8 @@ export function LightweightEvidenceBandRenderer({
       const markerPlugin = createSeriesMarkers(series, [], { autoScale: true });
       const bandPrimitive = new EvidenceBandPrimitive();
       series.attachPrimitive(bandPrimitive);
+      let selectedPriceLine: ReturnType<typeof series.createPriceLine> | null = null;
+      let crosshairFrame = 0;
 
       let suppressRangeEvent = false;
       const setRange = (selection: { start: Date; end: Date } | null) => {
@@ -262,6 +274,7 @@ export function LightweightEvidenceBandRenderer({
             show
               ? nextBands.map((band, index) => ({
                   ...band,
+                  detailLabel: `${band.label} · ${formatBandPrice(currency, band.low)}–${formatBandPrice(currency, band.high)}`,
                   fill: index === 0 ? 'rgba(154, 107, 63, 0.10)' : 'rgba(180, 35, 24, 0.07)',
                   stroke: index === 0 ? copper : risk,
                 }))
@@ -271,7 +284,7 @@ export function LightweightEvidenceBandRenderer({
           series.setData(
             nextBars.map(({ ts, close }) => ({ time: ts.slice(0, 10), value: close })),
           ),
-        setMarkers: (nextEvidence, selectedId, nextBars) =>
+        setMarkers: (nextEvidence, selectedId, nextBars) => {
           markerPlugin.setMarkers(
             nextEvidence.flatMap((item) => {
               const bar = nextBars.find(({ date }) => date.getTime() === item.date.getTime());
@@ -297,19 +310,45 @@ export function LightweightEvidenceBandRenderer({
                         : ('circle' as const),
                   size: selected ? 1.8 : tone === 'event-pulse' ? 1.3 : 1,
                   text:
-                    selected || tone === 'event-pulse'
-                      ? `${selected ? '선택 · ' : ''}${item.sourceCount}개 근거`
-                      : undefined,
-                  time: toTime(item.date),
+                    !selected && tone === 'event-pulse' ? `${item.sourceCount}개 근거` : undefined,
+                  time: bar.ts.slice(0, 10),
                 },
               ];
             }),
-          ),
+          );
+          if (selectedPriceLine) {
+            series.removePriceLine(selectedPriceLine);
+            selectedPriceLine = null;
+          }
+          const selectedEvidence = nextEvidence.find(({ id }) => id === selectedId);
+          const selectedBar = selectedEvidence
+            ? nextBars.find(({ date }) => date.getTime() === selectedEvidence.date.getTime())
+            : undefined;
+          if (selectedEvidence && selectedBar) {
+            selectedPriceLine = series.createPriceLine({
+              axisLabelVisible: true,
+              color: accent,
+              lineStyle: LineStyle.Dotted,
+              lineVisible: true,
+              lineWidth: 1,
+              price: selectedBar.close,
+              title: selectedEvidence.title,
+            });
+            if (crosshairFrame) window.cancelAnimationFrame(crosshairFrame);
+            crosshairFrame = window.requestAnimationFrame(() => {
+              crosshairFrame = 0;
+              chart.setCrosshairPosition(selectedBar.close, selectedBar.ts.slice(0, 10), series);
+            });
+          } else {
+            chart.clearCrosshairPosition();
+          }
+        },
         setRange,
       };
       setRendererEpoch((epoch) => epoch + 1);
 
       dispose = () => {
+        if (crosshairFrame) window.cancelAnimationFrame(crosshairFrame);
         resizeObserver.disconnect();
         chart.timeScale().unsubscribeVisibleTimeRangeChange(handleRangeChange);
         chart.unsubscribeClick(handleClick);
@@ -325,15 +364,15 @@ export function LightweightEvidenceBandRenderer({
       controllerRef.current = null;
       dispose?.();
     };
-  }, [tone]);
+  }, [currency, tone]);
 
   useEffect(() => {
     const controller = controllerRef.current;
     if (!controller) return;
     controller.setBars(bars);
     controller.setBands(bands, showBands);
-    controller.setMarkers(evidence, selectedEvidenceId, bars);
     controller.setRange(rangeSelection);
+    controller.setMarkers(evidence, selectedEvidenceId, bars);
   }, [bands, bars, evidence, rangeSelection, rendererEpoch, selectedEvidenceId, showBands]);
 
   return (
@@ -342,6 +381,12 @@ export function LightweightEvidenceBandRenderer({
       data-band-count={showBands ? bands.length : 0}
       data-marker-count={evidence.length}
       data-selected-evidence-id={selectedEvidenceId}
+      data-selected-price={
+        evidence
+          .filter(({ id }) => id === selectedEvidenceId)
+          .map(({ date }) => bars.find((bar) => bar.date.getTime() === date.getTime())?.close)
+          .at(0) ?? undefined
+      }
       data-slot="lightweight-evidence-root"
       data-tone={tone}
       ref={containerRef}

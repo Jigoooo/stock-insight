@@ -202,6 +202,7 @@ export function EvidenceBandPreview({
           <LightweightEvidenceBandRenderer
             bands={rendererBands}
             bars={sourceBars}
+            currency={currency}
             evidence={rendererEvidence}
             rangeSelection={rangeSelection}
             selectedEvidenceId={selectedEvidenceId}

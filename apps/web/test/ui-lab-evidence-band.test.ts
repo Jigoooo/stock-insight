@@ -23,6 +23,9 @@ describe('UI Lab Evidence Band TradingView renderer', () => {
     assert.match(renderer, /attachPrimitive\(bandPrimitive\)/);
     assert.match(renderer, /timeToCoordinate/);
     assert.match(renderer, /priceToCoordinate/);
+    assert.match(renderer, /createPriceLine/);
+    assert.match(renderer, /setCrosshairPosition/);
+    assert.match(renderer, /formatBandPrice/);
     assert.match(renderer, /data-slot="lightweight-evidence-root"/);
     assert.match(css, /\.variantCard\[data-variant='band-ledger'\] \.evidenceRow/);
     assert.match(css, /\.variantCard\[data-variant='event-pulse'\] \.evidencePreview/);

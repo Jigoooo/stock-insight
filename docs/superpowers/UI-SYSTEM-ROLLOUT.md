@@ -7,7 +7,7 @@
 
 - 프로그램 상태: 실행 중
 - 현재 활성 묶음: `6A Charts End-to-End`
-- 다음 묶음: `6A TradingView Evidence Band A/B/C 시각 승인`
+- 다음 묶음: `6A Evidence Band TradingView 디테일 시각 확인`
 - 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -41,7 +41,7 @@
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
 | 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
-| 6A   | Charts End-to-End                   | 목업      | TradingView Evidence A/B/C 시각 승인  |
+| 6A   | Charts End-to-End                   | 승인      | Evidence Band 디테일 시각 확인        |
 
 ## 완료 기록
 
@@ -440,6 +440,15 @@
 - 검증은 Evidence Band·upstream·chart model Node 7건, web typecheck, 변경 파일 Oxfmt·Oxlint, Evidence 전용 Playwright 1건에서 canvas 3개·marker·primitive 상태·선택 동기화·390px·Axe를 통과함
 - 1280px와 390px 실제 캡처에서 native 가격축·시간축·marker와 canvas 조건 구간이 동일 좌표계에 정렬되고 수평 overflow가 없음을 확인함
 - 다음 행동은 TradingView로 전환된 Evidence Band A/B/C 사용자 시각 승인임. 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+
+### 2026-08-05 — 6A Evidence Band A/B/C 전체 채택·디테일 보강
+
+- 사용자가 TradingView 기반 Evidence Band A Range Ledger·B Event Pulse·C Linked Evidence를 모두 유지하기로 확정함
+- 조건 구간 primitive 라벨에 실제 하한–상한 가격을 추가하고, 선택 근거에는 TradingView native price line·가격축 라벨·고정 crosshair를 연결해 사건 시점과 가격을 차트 안에서 직접 읽도록 보강함
+- 기간 이동 뒤 crosshair가 이전 좌표에 남지 않도록 visible range 갱신 다음 frame에 원본 bar timestamp로 crosshair를 배치함
+- 선택 marker의 중복 설명은 제거해 조건 구간 라벨과 겹치지 않게 하고, 상세 제목은 native price line과 외부 근거 원장이 담당하도록 정리함
+- 검증은 Evidence Band·upstream Node 5건, web typecheck, Evidence 전용 Playwright 1건을 통과했고 1280px 실제 캡처에서 선택 시점 2026-02-15와 가격선 142.14가 같은 좌표에 정렬됨을 확인함
+- 다음 행동은 보강된 디테일의 실제 화면 확인이며, 이후 승인된 A/B/C를 공개 `shared/ui/chart` API로 승격하고 제품 사용처를 감사함
 
 ## 실행 환경 메모
 

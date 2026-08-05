@@ -78,6 +78,7 @@ test.describe('UI Lab Charts End-to-End', () => {
     await expect(catalog.locator('[data-slot="evidence-selected-summary"]')).toHaveCount(1);
     for (const renderer of await renderers.all()) {
       await expect(renderer).toHaveAttribute('data-selected-evidence-id', 'evidence-demand');
+      await expect(renderer).toHaveAttribute('data-selected-price', /\d+/);
     }
 
     const bandToggle = catalog.getByRole('checkbox', { name: '조건 구간 표시' });
