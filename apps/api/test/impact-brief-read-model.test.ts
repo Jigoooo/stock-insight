@@ -97,6 +97,10 @@ test('serves impact paths from the entity content pack with its digest', async (
     hopCount: 2,
     pathScore: 0.71,
     note: 'industrial linkage strength; never a price prediction',
+    // This fixture is a pack sealed before steps existed. Null is the honest
+    // answer for it — packs are immutable, so an older one can never gain the
+    // field, and "no steps recorded" must not read as "this path had no hops".
+    steps: null,
   });
 });
 

@@ -12,6 +12,7 @@ import {
   CONTENT_PACK_MAX_ITEMS,
   publishContentPacks,
 } from '../relations/content-pack-publisher.ts';
+import type { ImpactBriefStep } from '@stock-insight/contracts';
 
 // P0-3 — L5 analytics producer (roadmap §4 P0-3).
 // Fills the three empty L5 tables against the LATEST SEALED snapshot:
@@ -154,6 +155,37 @@ async function loadLatestSealedSnapshot(client: Client): Promise<{
     asOf: toIso(row.as_of),
     knownAt: toIso(row.known_at),
   };
+}
+
+// Predicate to the word the product shows. Deliberately NOT causal: a path can
+// only report what the relation measured, and none of these measured causation.
+//
+// `moves_with` carries the weight. MACRO_COMOVEMENT says a stock and a macro
+// series moved together over a stated window and nothing about one driving the
+// other, so the label stops at co-movement. That is the same reason the
+// predicate is not called AFFECTS.
+const STEP_RELATION_BY_PREDICATE: Readonly<Record<string, ImpactBriefStep['relation']>> = {
+  SAME_ETF_BASKET: 'same_basket',
+  PRODUCT_SIMILARITY: 'similar_products',
+  CLASSIFIED_AS: 'same_classification',
+  MACRO_COMOVEMENT: 'moves_with',
+  MEASURED_BY: 'indicated_by',
+  ISSUED_BY: 'issued_by',
+};
+
+/**
+ * Throws on an unmapped predicate rather than falling back to a generic word.
+ * A new predicate reaching the product is a decision about what to CALL it, and
+ * a silent 'other' would ship that decision unmade.
+ */
+function stepRelationFor(predicate: string): ImpactBriefStep['relation'] {
+  const relation = STEP_RELATION_BY_PREDICATE[predicate];
+  if (relation === undefined) {
+    throw new Error(
+      `predicate ${predicate} reaches impact paths but has no product wording; add it to STEP_RELATION_BY_PREDICATE`,
+    );
+  }
+  return relation;
 }
 
 async function loadSnapshotEdges(
@@ -511,9 +543,19 @@ async function main(): Promise<void> {
       // earlier in this pipeline cannot be reopened to carry these — this
       // publisher has to write its own packs.
       const impactItemsByTargetEntity = new Map<number, ContentPackSourceItem[]>();
+      // Every endpoint a step lands on, not just the source: a 2-hop path passes
+      // through something (a macro series, a taxonomy node) and naming it is most
+      // of what makes the chain readable.
       const sourceNames = await loadEntityNames(client, [
-        ...new Set(pathsByEvent.flatMap(({ paths }) => paths.map((p) => p.sourceEntityId))),
+        ...new Set(
+          pathsByEvent.flatMap(({ paths }) =>
+            paths.flatMap((p) => [p.sourceEntityId, ...p.steps.map((step) => step.toEntityId)]),
+          ),
+        ),
       ]);
+      const predicateByEdgeId = new Map(
+        pathEdges.map((edge) => [edge.graphSnapshotEdgeId, edge.predicate] as const),
+      );
       for (const { event, paths } of pathsByEvent) {
         // One row per (event, target): builder already returns the best-first
         // ordering; keep only the strongest path per target under the natural
@@ -600,6 +642,19 @@ async function main(): Promise<void> {
                 // Same wording as the path's own explanation. This is what the
                 // product renders, and the read-only contract applies to it.
                 note: 'industrial linkage strength; never a price prediction',
+                steps: path.steps.map((step) => {
+                  const predicate = predicateByEdgeId.get(step.graphSnapshotEdgeId);
+                  if (predicate === undefined) {
+                    throw new Error(
+                      `path step cites edge ${step.graphSnapshotEdgeId} that is not in this snapshot`,
+                    );
+                  }
+                  return {
+                    relation: stepRelationFor(predicate),
+                    toName: sourceNames.get(step.toEntityId)?.name ?? null,
+                    toEntityKey: sourceNames.get(step.toEntityId)?.entityKey ?? null,
+                  };
+                }),
               },
             },
             // Higher score serves first. Scores are 0..1, so scaling keeps the

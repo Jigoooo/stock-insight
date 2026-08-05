@@ -634,6 +634,30 @@ export type ImpactSummaryResponse = z.infer<typeof impactSummaryResponseSchema>;
 // is permanently empty (see docs/operations/impact-plane-v1-v2.md): these are
 // individual paths, each anchored to a sealed analytics.impact_path_v2 row whose
 // steps carry real foreign keys into the graph snapshot.
+/**
+ * One hop of an impact path, named so it cannot be read as causation.
+ *
+ * `moves_with` is the load-bearing choice. MACRO_COMOVEMENT measures that a
+ * stock and a macro series moved together over a stated window — nothing about
+ * one driving the other — so the label says co-movement and stops there. Calling
+ * it "affected by" would put a claim on screen that the measurement does not
+ * contain, which is why the predicate itself is not named AFFECTS either.
+ */
+export const impactBriefStepSchema = z.object({
+  relation: z.enum([
+    'same_basket',
+    'similar_products',
+    'same_classification',
+    'moves_with',
+    'indicated_by',
+    'issued_by',
+  ]),
+  /** Where the hop lands. Null when the entity vanished between sealing and read. */
+  toName: z.string().min(1).nullable(),
+  toEntityKey: z.string().min(1).nullable(),
+});
+export type ImpactBriefStep = z.infer<typeof impactBriefStepSchema>;
+
 export const impactBriefPathSchema = z.object({
   impactPathV2Id: z.number().int().positive(),
   triggerEventId: z.number().int().positive(),
@@ -651,6 +675,18 @@ export const impactBriefPathSchema = z.object({
   pathScore: z.number().min(0).max(1),
   /** Read-only contract: linkage strength, never a price expectation. */
   note: z.string().min(1),
+  /**
+   * The chain the walk actually followed, one entry per hop.
+   *
+   * Without this the product could say "2 hops, 0.43" and nothing else: the user
+   * saw a number and no reason. The relation each hop used is the reason, and it
+   * is already recorded as a graph_snapshot_edge FK on every step — it simply
+   * never reached a contract.
+   *
+   * Nullable for the same reason sourceName is: a pack is immutable once sealed,
+   * so packs published before this field existed keep serving without it.
+   */
+  steps: z.array(impactBriefStepSchema).min(1).nullable(),
 });
 export type ImpactBriefPath = z.infer<typeof impactBriefPathSchema>;
 

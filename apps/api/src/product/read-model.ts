@@ -12,6 +12,7 @@ import {
   impactSummaryResponseSchema,
   latestReportsResponseSchema,
   marketConfirmationResponseSchema,
+  type ImpactBriefStep,
   personalizedFeedResponseSchema,
   type CalibrationScorecardResponse,
   type FeatureSnapshotResponse,
@@ -382,6 +383,16 @@ export async function getImpactBrief(
           hopCount: numberValue(impact.hopCount, 1),
           pathScore: numberValue(impact.pathScore),
           note: String(impact.note ?? 'industrial linkage strength; never a price prediction'),
+          // Packs sealed before steps existed carry none. Null says "this pack
+          // predates the field", which is different from "this path had no
+          // steps" — a path always has at least one.
+          steps: Array.isArray(impact.steps)
+            ? (impact.steps as ImpactBriefStep[]).map((step) => ({
+                relation: step.relation,
+                toName: typeof step.toName === 'string' ? step.toName : null,
+                toEntityKey: typeof step.toEntityKey === 'string' ? step.toEntityKey : null,
+              }))
+            : null,
         };
       });
 
