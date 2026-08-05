@@ -108,10 +108,14 @@ export function CryptoWorkspaceView({ data }: { data: CryptoResearchWorkspace })
       />
 
       {data.availability === 'empty' ? (
+        // "준비되면 표시됩니다" 는 수집이 진행 중이라는 뜻인데 사실이 아니다.
+        // 2026-08-05 확인: crypto_serving 네 표가 전부 0행이고 여기에 쓰는
+        // 코드가 저장소에 없다. 곧 채워질 화면이 아니라 아직 시작하지 않은
+        // 영역이므로, 기다리라고 말하지 않고 그렇게 말한다.
         <WorkspaceState
           kind="empty"
-          title="데이터가 아직 없습니다"
-          description="검증된 크립토 식별 정보와 기업 연결이 준비되면 표시됩니다."
+          title="크립토는 아직 수집하지 않습니다"
+          description="이 화면이 쓰는 식별·연결·사건·리스크 자료를 아직 모으지 않고 있습니다. 비어 있는 것은 오류가 아니라 범위 밖이라는 뜻입니다."
         />
       ) : (
         <div className={styles.contentGrid}>
