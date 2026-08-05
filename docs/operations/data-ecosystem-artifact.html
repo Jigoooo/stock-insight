@@ -1367,23 +1367,25 @@ flowchart TB
             <div class="yield">5 / 13 계열</div>
             <span class="chip dormant-s">배관은 맞고 상관이 없다</span>
           </div>
-          <div class="row block-s">
+          <div class="row flow-s">
             <div class="surface">v2 임팩트 → 제품
-              <small>최신 봉인 스냅샷(29) 엣지 5,390 · 연결 엔티티 670. <strong>지금 두 평면이
-              갈라져 있다</strong>: 관계 그래프 팩은 스냅샷 29(철회 후)를, 임팩트 브리프 팩은
-              여전히 스냅샷 28(철회 전, 5,408)을 가리킨다. 스냅샷 29 의
-              <code>impact_path_v2</code> 는 0행이다.
-              <br><br>원인은 데이터가 아니라 <strong>실행 방식</strong>이다. 발행은 두 잡이고
-              (<code>run-v2-graph-publish</code> → <code>run-v2-analytics-publish</code>),
-              2026-08-06 새벽에 앞쪽만 손으로 돌렸다. 경로와 브리프는 뒤쪽 잡이 만든다.
-              다음 정기 분석 실행(07:45 KST)이 둘을 함께 돌려 정합해진다.
+              <small>최신 봉인 스냅샷(29) 엣지 5,390 · 연결 엔티티 670 →
+              <code>impact_path_v2</code> 8,341 · <code>content_pack</code> 두 종 모두 29
+              기준(관계 그래프 317 · 임팩트 브리프 309) → 도달 종목 317 / 325.
+              <br><br><strong>경로가 8,344 에서 8,341 로 3개 줄었다.</strong> 철회한 18개 ETF
+              엣지 중 실제로 경로에 쓰이던 것이 그만큼이라는 뜻이고, 철회가 원장에서 서빙까지
+              전파된 것이 이 수치로 닫힌다.
+              <br><br>한동안 두 평면이 갈라져 있었다 — 발행은 두 잡인데
+              (<code>run-v2-graph-publish</code> → <code>run-v2-analytics-publish</code>)
+              앞쪽만 손으로 돌려서 관계 그래프는 스냅샷 29, 브리프는 28(철회 전)을 가리켰다.
+              원인은 데이터가 아니라 실행 방식이었고 뒤쪽 잡을 돌려 해소했다.
               <strong>두 잡짜리 발행의 절반만 손으로 돌리지 말 것.</strong>
               <br><br>그리고 <strong>엣지 5,390 은 스냅샷 한 장 기준</strong>이고
               <code>graph_snapshot_edge</code> 테이블 전체는 137,383행이다 — 스냅샷이 쌓인
               것이지 그래프가 넓어진 게 아니다. 이 둘을 섞어 읽지 말 것</small>
             </div>
-            <div class="yield">평면 분리 · 07:45 에 해소</div>
-            <span class="chip block-s">막힘</span>
+            <div class="yield">끊긴 곳 없음</div>
+            <span class="chip flow-s">흐름</span>
           </div>
           <div class="row flow-s">
             <div class="surface">사건 귀속 → 월드 참여자
