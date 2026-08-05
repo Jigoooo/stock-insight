@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import { SNAPSHOT_EDGE_SELECTOR_SQL } from '../src/analytics/graph-snapshot.ts';
@@ -47,6 +48,31 @@ describe('snapshot edge retraction', () => {
       statusList,
       /quarantined_unverified/,
       'an unverified newer revision must not retract an accepted one',
+    );
+  });
+
+  it('reads knownAt rounded up, so a same-millisecond verdict is not lost', async () => {
+    // knownAt travels through Date.toISOString(), which truncates to
+    // milliseconds. Reading clock_timestamp() raw makes a revision written
+    // microseconds earlier in the SAME millisecond look later than the snapshot,
+    // and `newer.known_from <= knownAt` then hides it.
+    //
+    // Measured on production 2026-08-05: a retraction written at
+    // 09:39:57.950212 against a snapshot knownAt of 09:39:57.950000 left one of
+    // eight retracted PRODUCT_SIMILARITY edges standing in snapshot 25.
+    // Retraction is the last write before the snapshot, so it is the most
+    // exposed — but every same-millisecond revision was at risk.
+    const source = await readFile(
+      new URL('../src/analytics/run-v2-graph-publish.ts', import.meta.url),
+      'utf8',
+    );
+    const knownAtRead = source.match(/`SELECT[^`]*AS known_at`/)?.[0];
+
+    assert.ok(knownAtRead, 'the publisher must read a knownAt');
+    assert.match(
+      knownAtRead,
+      /date_trunc\('milliseconds'[\s\S]*\+ interval '1 millisecond'/,
+      'knownAt must round up past any microsecond-precision write this run made',
     );
   });
 

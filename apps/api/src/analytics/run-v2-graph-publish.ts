@@ -2065,7 +2065,20 @@ async function apply(client: Client): Promise<void> {
       productAbsences(productPlan.measuredBelowThreshold),
     );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
-      `SELECT clock_timestamp() AS known_at`,
+      // Rounded UP to the next millisecond, not read raw.
+      //
+      // knownAt travels through toIso(), and Date.toISOString() truncates to
+      // milliseconds. A revision written microseconds earlier in the same
+      // millisecond therefore ends up with known_from GREATER than the snapshot's
+      // knownAt, and the selector's `newer.known_from <= knownAt` excludes it —
+      // so the newer verdict is invisible and the older one survives.
+      //
+      // Measured on production 2026-08-05: retraction written at
+      // 09:39:57.950212, snapshot knownAt truncated to 09:39:57.950000, and one
+      // of eight retracted PRODUCT_SIMILARITY edges stayed in snapshot 25.
+      // Retraction is the last write before the snapshot, so it is the most
+      // exposed to this, but any same-millisecond revision was at risk.
+      `SELECT date_trunc('milliseconds', clock_timestamp()) + interval '1 millisecond' AS known_at`,
     );
     const knownAt = toIso(known.rows[0]!.known_at);
     const builderVersion = `v2-publish:${RELEASE_COMMIT}:${slot}:f${token}`;
