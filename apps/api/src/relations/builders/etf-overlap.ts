@@ -19,6 +19,46 @@ import {
 } from '../builder-core.ts';
 import { getRelationBuilderPolicy } from '../relation-policy.ts';
 
+/**
+ * Confidence for a co-membership, from the tightest basket the pair shares.
+ *
+ * This used to be a flat 0.800 for every pair. Measured on production
+ * 2026-08-05: 2,006 of 2,519 SAME_ETF_BASKET edges (80%) come from baskets of
+ * 50+ members, and the largest is SPY at 70. Those pairs assert "both are large
+ * US caps" — and they carried MORE weight than any PRODUCT_SIMILARITY edge
+ * (max 0.477) and most MACRO_COMOVEMENT edges. The single most influential
+ * number in the graph ranked index membership above every measured relationship,
+ * and nobody had chosen it deliberately.
+ *
+ * The form is 1/(n-1): a member of an n-name basket has n-1 co-members, so the
+ * chance a randomly drawn one is this particular partner is 1/(n-1). That is the
+ * specificity the edge actually carries.
+ *
+ * The constant anchors n=8 — the tightest basket we hold — at 0.800, so the
+ * strongest co-membership keeps the value it has today and everything wider is
+ * discounted by how much company it keeps:
+ *
+ *   8 members  0.800     14 members 0.431     70 members (SPY) 0.081
+ *   9 members  0.700     19 members 0.311
+ *
+ * The floor keeps a broad-index edge walkable rather than deleting it: the pair
+ * IS in the same basket, it just does not distinguish much.
+ */
+export const ETF_BASKET_CONFIDENCE = Object.freeze({
+  anchorBasketSize: 8,
+  anchorConfidence: 0.8,
+  floor: 0.05,
+});
+
+export function etfBasketConfidence(smallestSharedBasketSize: number): number {
+  if (!Number.isSafeInteger(smallestSharedBasketSize) || smallestSharedBasketSize < 2) {
+    throw new Error('smallestSharedBasketSize must be an integer of at least 2');
+  }
+  const { anchorBasketSize, anchorConfidence, floor } = ETF_BASKET_CONFIDENCE;
+  const scaled = (anchorConfidence * (anchorBasketSize - 1)) / (smallestSharedBasketSize - 1);
+  return Number(Math.min(anchorConfidence, Math.max(floor, scaled)).toFixed(3));
+}
+
 export type EtfBasketObservation = {
   etfEntityId: number;
   memberEntityId: number;
@@ -54,6 +94,8 @@ export function buildEtfBasketCandidates(
   const exclusions: SuperhubExclusion[] = [];
   type PairContribution = {
     etfEntityId: number;
+    /** How many members that basket had, which is what makes the pair specific. */
+    basketMemberCount: number;
     validFrom: string;
     subjectRows: EtfBasketObservation[];
     objectRows: EtfBasketObservation[];
@@ -86,7 +128,13 @@ export function buildEtfBasketCandidates(
           .at(-1)!;
         const pairKey = `${subjectEntityId}|${objectEntityId}`;
         const contributions = contributionsByPair.get(pairKey) ?? [];
-        contributions.push({ etfEntityId, validFrom, subjectRows, objectRows });
+        contributions.push({
+          etfEntityId,
+          basketMemberCount: memberIds.length,
+          validFrom,
+          subjectRows,
+          objectRows,
+        });
         contributionsByPair.set(pairKey, contributions);
       }
     }
@@ -141,9 +189,16 @@ export function buildEtfBasketCandidates(
       subjectDegree: 1,
       objectDegree: 1,
     });
+    // The TIGHTEST basket the pair shares. Co-membership in a 9-name sector fund
+    // says something; co-membership in a 70-name index fund says "both are large
+    // caps". Taking the minimum lets one specific basket carry the pair even when
+    // they also happen to share a broad one.
+    const smallestSharedBasketSize = Math.min(...contributions.map((row) => row.basketMemberCount));
     const metadata: Record<string, unknown> = {
       builder: 'etf-overlap-v1',
       etfEntityIds,
+      smallestSharedBasketSize,
+      basketConfidence: etfBasketConfidence(smallestSharedBasketSize),
     };
     if (etfEntityIds.length === 1) metadata['etfEntityId'] = etfEntityIds[0]!;
     candidates.push({

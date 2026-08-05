@@ -2011,10 +2011,17 @@ async function apply(client: Client): Promise<void> {
       sectorBuilt,
       { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
     );
+    // Was a flat 0.8 for every pair. The builder now derives it from the tightest
+    // basket the pair shares, because 80% of these edges come from 50+ name index
+    // funds where co-membership only says "both are large caps" — and at 0.8 that
+    // outranked every measured relationship in the graph.
     const etfPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
       etfBuilt.candidates,
-      { predicateOntologyRevisionIds: ontologyIds, confidence: 0.8 },
+      {
+        predicateOntologyRevisionIds: ontologyIds,
+        confidence: (candidate) => Number(candidate.metadata['basketConfidence']),
+      },
     );
     const productPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
