@@ -59,9 +59,14 @@ test.describe('UI Lab Charts End-to-End', () => {
     await expect(catalog.getByRole('heading', { name: 'A · Range Ledger' })).toHaveCount(1);
     await expect(catalog.getByRole('heading', { name: 'B · Event Pulse' })).toHaveCount(1);
     await expect(catalog.getByRole('heading', { name: 'C · Linked Evidence' })).toHaveCount(1);
-    await expect(catalog.locator('[data-slot="evidence-context-legend"]')).toHaveCount(3);
+    const renderers = catalog.locator('[data-slot="lightweight-evidence-root"]');
+    await expect(renderers).toHaveCount(3);
     await expect(catalog.locator('[data-slot="evidence-row"]')).toHaveCount(9);
-    await expect(catalog.locator('[data-slot="reference-band"]')).toHaveCount(6);
+    for (const renderer of await renderers.all()) {
+      await expect(renderer).toHaveAttribute('data-band-count', '2');
+      await expect(renderer).toHaveAttribute('data-marker-count', '3');
+    }
+    await expect.poll(async () => catalog.locator('canvas').count()).toBeGreaterThanOrEqual(3);
 
     await catalog.locator('[data-evidence-id="evidence-demand"]').first().click();
     const sharedEvidence = catalog.locator('[data-evidence-id="evidence-demand"]');
@@ -71,11 +76,15 @@ test.describe('UI Lab Charts End-to-End', () => {
       await expect(evidence).toHaveAttribute('aria-current', 'true');
     }
     await expect(catalog.locator('[data-slot="evidence-selected-summary"]')).toHaveCount(1);
+    for (const renderer of await renderers.all()) {
+      await expect(renderer).toHaveAttribute('data-selected-evidence-id', 'evidence-demand');
+    }
 
     const bandToggle = catalog.getByRole('checkbox', { name: '조건 구간 표시' });
     await bandToggle.uncheck();
-    await expect(catalog.locator('[data-slot="reference-band"]')).toHaveCount(0);
-    await expect(catalog.locator('svg .chart-reference-area')).toHaveCount(0);
+    for (const renderer of await renderers.all()) {
+      await expect(renderer).toHaveAttribute('data-band-count', '0');
+    }
 
     await catalog.getByRole('combobox', { name: '차트 상태' }).selectOption('error');
     await expect(catalog.getByText('가격 데이터 읽기 오류')).toHaveCount(3);

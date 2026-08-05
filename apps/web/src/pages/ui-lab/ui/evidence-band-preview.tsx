@@ -1,5 +1,3 @@
-import { useReducedMotion } from 'motion/react';
-
 import {
   filterBarsBySelection,
   findEvidenceVisibleDomain,
@@ -13,7 +11,7 @@ import {
 import styles from './chart-catalog.module.css';
 import { ChartPreviewFrame, type ChartSummary } from './chart-preview-frame';
 
-import { BklitEvidenceBandRenderer } from '@/shared/ui/chart/internal/bklit-preview';
+import { LightweightEvidenceBandRenderer } from '@/shared/ui/chart/internal/lightweight-evidence-preview';
 
 export type EvidenceBandPreviewProps = {
   bands: readonly ReferenceBand[];
@@ -81,27 +79,6 @@ function isBarInSelection(bar: ChartBar, selection: ChartRangeSelection | null) 
   const end = Math.max(selection.start.getTime(), selection.end.getTime());
   const timestamp = bar.date.getTime();
   return timestamp >= start && timestamp <= end;
-}
-
-function EvidenceContextLegend({ bands }: { bands: readonly ReferenceBand[] }) {
-  return (
-    <div
-      aria-label="표시 중인 조건 구간"
-      className={styles.evidenceContextLegend}
-      data-slot="evidence-context-legend"
-    >
-      {bands.map((band, index) => (
-        <span
-          data-band-tone={index === 0 ? 'copper' : 'risk'}
-          data-slot="reference-band"
-          key={band.id}
-        >
-          <i aria-hidden="true" />
-          {band.label}
-        </span>
-      ))}
-    </div>
-  );
 }
 
 function EvidenceList({
@@ -174,7 +151,6 @@ export function EvidenceBandPreview({
   onRetry,
   onSelectEvidence,
 }: EvidenceBandPreviewProps) {
-  const reducedMotion = useReducedMotion() ?? false;
   const visibleBars = filterBarsBySelection(sourceBars, rangeSelection);
   const copy = variantCopy[variantId];
   const summary = createSummary(visibleBars, currency);
@@ -205,6 +181,11 @@ export function EvidenceBandPreview({
   return (
     <ChartPreviewFrame
       bars={visibleBars}
+      attribution={
+        <a href="https://www.tradingview.com/" rel="noreferrer" target="_blank">
+          TradingView Lightweight Charts
+        </a>
+      }
       currency={currency}
       description={copy.description}
       limitation={
@@ -218,14 +199,11 @@ export function EvidenceBandPreview({
     >
       <div className={styles.evidencePreview} data-slot="evidence-band-preview">
         <div className={styles.evidenceChartColumn}>
-          {showBands ? <EvidenceContextLegend bands={bands} /> : null}
-          <BklitEvidenceBandRenderer
+          <LightweightEvidenceBandRenderer
             bands={rendererBands}
             bars={sourceBars}
-            currency={currency}
             evidence={rendererEvidence}
             rangeSelection={rangeSelection}
-            reducedMotion={reducedMotion}
             selectedEvidenceId={selectedEvidenceId}
             showBands={showBands}
             tone={variantId}

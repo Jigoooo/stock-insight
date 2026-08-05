@@ -7,7 +7,7 @@
 
 - 프로그램 상태: 실행 중
 - 현재 활성 묶음: `6A Charts End-to-End`
-- 다음 묶음: `6A Evidence Band A/B/C 개선 목업 시각 승인`
+- 다음 묶음: `6A TradingView Evidence Band A/B/C 시각 승인`
 - 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -41,7 +41,7 @@
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
 | 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
-| 6A   | Charts End-to-End                   | 목업      | Evidence Band A/B/C 개선 시각 승인    |
+| 6A   | Charts End-to-End                   | 목업      | TradingView Evidence A/B/C 시각 승인  |
 
 ## 완료 기록
 
@@ -430,6 +430,16 @@
 - Codex 인앱 브라우저 6110에서 A의 세 ledger 행과 brush, B의 세 사건 카드와 marker guide, C의 선택 요약·rail, 1280px 65/35 split, 390px 단일 열과 `scrollWidth === clientWidth`를 직접 확인함
 - 구현 커밋: `99bf6d2`, `8ed2eee`, `9f3b1f2`, `3daa47e`, `a69db95`
 - 다음 행동은 개선된 Evidence Band A/B/C의 사용자 시각 승인이며, 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+
+### 2026-08-05 — 6A Evidence Band TradingView 전환
+
+- 사용자가 Bklit 기반 Evidence Band A/B/C의 차트 외부 범례와 별도 SVG annotation이 어색하다고 판단해 해당 개선안을 시각 승인 전에 폐기함
+- Evidence Band의 가격 경로를 TradingView Lightweight Charts `AreaSeries`, 사건을 native series marker, 시간+가격 조건 구간을 series primitive로 전환해 한 chart pane 좌표계에서 렌더링함
+- 차트 내부 HTML 범례를 제거하고 조건 구간의 면·경계·라벨을 primitive canvas가 직접 그리도록 변경함. 근거 목록은 키보드 접근과 상세 문맥을 위해 차트 외부 제어면으로 유지함
+- A Range Ledger·B Event Pulse·C Linked Evidence의 공유 선택·기간·조건 구간 토글과 서로 다른 정보 배치는 유지함
+- 검증은 Evidence Band·upstream·chart model Node 7건, web typecheck, 변경 파일 Oxfmt·Oxlint, Evidence 전용 Playwright 1건에서 canvas 3개·marker·primitive 상태·선택 동기화·390px·Axe를 통과함
+- 1280px와 390px 실제 캡처에서 native 가격축·시간축·marker와 canvas 조건 구간이 동일 좌표계에 정렬되고 수평 overflow가 없음을 확인함
+- 다음 행동은 TradingView로 전환된 Evidence Band A/B/C 사용자 시각 승인임. 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
 
 ## 실행 환경 메모
 

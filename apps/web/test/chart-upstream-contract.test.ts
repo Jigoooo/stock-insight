@@ -60,7 +60,7 @@ describe('chart upstream contract', () => {
         .filter(({ name }) => /-preview\.tsx$/.test(name))
         .map(({ name }) => name)
         .sort(),
-      ['bklit-preview.tsx', 'lightweight-preview.tsx'],
+      ['bklit-preview.tsx', 'lightweight-evidence-preview.tsx', 'lightweight-preview.tsx'],
     );
     const sources = await sourceFiles(internalRoot);
     assert.equal(sources.filter((source) => /vendor\/bklit/.test(source)).length, 1);
@@ -70,7 +70,7 @@ describe('chart upstream contract', () => {
     );
     assert.equal(
       sources.filter((source) => /import\(['"]lightweight-charts['"]\)/.test(source)).length,
-      1,
+      2,
     );
   });
 });
