@@ -90,6 +90,22 @@ test.describe('UI Lab Charts End-to-End', () => {
     }));
     expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
 
+    const containedEvidenceRows = await catalog.evaluate((element) =>
+      ['band-ledger', 'event-pulse', 'evidence-split'].map((variantId) => {
+        const viewport = element.querySelector(
+          `article[data-variant="${variantId}"] [data-slot="chart-viewport"]`,
+        );
+        const lastRow = element.querySelector(
+          `article[data-variant="${variantId}"] [data-evidence-id="evidence-supply"]`,
+        );
+        if (!(viewport && lastRow)) return false;
+        return (
+          lastRow.getBoundingClientRect().bottom <= viewport.getBoundingClientRect().bottom + 1
+        );
+      }),
+    );
+    expect(containedEvidenceRows).toEqual([true, true, true]);
+
     const results = await new AxeBuilder({ page }).include('[data-slot="chart-catalog"]').analyze();
     expect(results.violations).toEqual([]);
   });

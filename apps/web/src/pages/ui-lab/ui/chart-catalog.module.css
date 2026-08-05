@@ -694,6 +694,12 @@
   gap: 2px;
 }
 
+@media (min-width: 901px) {
+  .variantCard[data-variant='band-ledger'] .chartViewport {
+    height: 420px;
+  }
+}
+
 .variantCard[data-variant='event-pulse'] .evidencePreview {
   grid-template-columns: minmax(0, 1.5fr) minmax(230px, 0.5fr);
 }
@@ -835,6 +841,15 @@
 }
 
 @media (max-width: 900px) {
+  .variantCard[data-variant='band-ledger'] .chartViewport,
+  .variantCard[data-variant='event-pulse'] .chartViewport {
+    height: 520px;
+  }
+
+  .variantCard[data-variant='evidence-split'] .chartViewport {
+    height: 600px;
+  }
+
   .evidencePreview,
   .variantCard[data-variant='band-ledger'] .evidencePreview,
   .variantCard[data-variant='event-pulse'] .evidencePreview,
