@@ -391,19 +391,124 @@
   </header>
 
   <section class="s">
+    <h2>인과 술어는 여전히 0 — 그리고 유일한 길을 쟀다</h2>
+    <div class="s-close">닫는 관측 — 한국 사업보고서 40곳 표본에서 실명 거래처 16곳 · 엣지 후보 37쌍</div>
+    <p>
+      경로가 밟는 술어는 다섯이 됐지만 <strong>전부 구조적·통계적이다.</strong>
+      「같은 ETF」 「제품 유사」 「같은 업종」 「함께 움직임」 「지표」 — 어느 것도
+      A 가 B 에 <em>작용한다</em> 고 말하지 않는다. <code>AFFECTS</code> 616 ·
+      <code>SUPPLY_CHAIN</code> 169 · <code>EXPOSES</code> 107 등 인과 술어는
+      <strong>accepted 0</strong> 이고, 증거 규칙을 완화하지 않는 한 소급도 안 된다.
+      <br><br>
+      남은 정당한 길은 <strong>공급망 공시 수집</strong> 하나다.
+      <code>SUPPLIES</code>·<code>CUSTOMER_OF</code> 는 정책·빌더·테이블이 다 있고
+      <code>analytics.firm_supply_relation</code> 이 0행이다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>표본</th><th class="n">집중도/매출처 공시</th><th class="n">문맥 안 실명</th></tr></thead>
+        <tbody>
+          <tr><td>미국 10-K (반도체 8곳)</td><td class="n">8 / 8</td><td class="n">1 / 8</td></tr>
+          <tr><td><strong>한국 사업보고서 (40곳)</strong></td><td class="n">32 / 40</td><td class="n"><strong>16 / 40</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>미국이 아니라 한국이 길이다.</strong> 미국은
+      <code>CustomerOneMember</code> 익명화가 표준이라 1/8 이지만, 한국 공시는
+      거래처를 실명으로 지목한다. 읽히는 것이 나온다 — 현대건설→한국전력,
+      삼양식품→GS리테일·BGF리테일, 포스코퓨처엠→삼성SDI·LG에너지솔루션,
+      한온시스템→현대모비스·현대자동차, 팬오션→현대글로비스·한국가스공사.
+      <br><br>
+      <strong>처음 센 값은 89쌍이었고 37로 깎았다.</strong> 자기·계열
+      (대한전선→대한전선), 이름 변형(한국전력 + 한국전력공사가 Company/Stock 두
+      행이라 중복), 짧은 이름(<code>GS</code>·<code>NC</code> 가 300자 창에 아무
+      데나 걸린다 — 롯데에너지머티리얼즈→「NC, GS」 가 대표 소음)이 섞여 있었다.
+      <strong>세지 않고 보고했으면 89를 냈을 것이다.</strong>
+      <br><br>
+      <strong>그래서 구현 전에 풀어야 할 것은 수집이 아니라 이름 해소다.</strong>
+      부분 문자열 매칭으로는 못 만든다: 계열사·모회사((주)LS→LS일렉트릭은 거래처가
+      아니라 자회사), 지주사 보고서(포스코홀딩스 목록은 자회사 것을 포함한 것으로
+      보인다), 짧은 이름(기아 2자는 진짜, GS 2자는 소음 — 길이로는 못 가른다).
+      필요한 것은 <strong>별칭 테이블 + 소유관계 제외 + 지주사 섹션 귀속</strong>이고
+      그게 이 작업의 실제 비용이다. 수집 자체는 되는 것을 확인했다(80요청 · 디코딩
+      오류 0).
+      <br><br>
+      전량 수집은 <code>182 × 2 = 364요청</code>으로 OpenDART 일일 한도
+      <code>(300, 361]</code> 를 넘는다 — 이틀로 나누거나 정기 수집을 피해야 한다.
+    </p>
+  </section>
+
+  <section class="s">
     <h2>2026-08-05 에 바뀐 것</h2>
-    <div class="s-close">닫는 관측 — 36 − 13 = 23 으로 산술이 닫히고, 드라이런 예고와 실제가 일치했다</div>
+    <div class="s-close">닫는 관측 — 스냅샷 22 → 28. 술어 여섯 종, 철회 21건, 경로가 처음으로 이유를 말한다</div>
     <table>
-      <thead><tr><th>세는 것</th><th class="n">이전</th><th class="n">이후</th></tr></thead>
+      <thead><tr><th>세는 것</th><th class="n">아침 (22)</th><th class="n">지금 (28)</th></tr></thead>
       <tbody>
-        <tr><td>스냅샷</td><td class="n">22</td><td class="n"><strong>23</strong></td></tr>
-        <tr><td>스냅샷 엣지</td><td class="n">5,415</td><td class="n">5,402</td></tr>
-        <tr><td><code>MACRO_COMOVEMENT</code> 엣지</td><td class="n">36</td><td class="n"><strong>23</strong></td></tr>
-        <tr><td><code>rejected</code> 리비전</td><td class="n">0</td><td class="n"><strong>13</strong></td></tr>
-        <tr><td>거시 스텝</td><td class="n">304</td><td class="n">222</td></tr>
-        <tr><td>거시 경로가 닿는 종목</td><td class="n">10</td><td class="n">8</td></tr>
+        <tr><td>스냅샷 엣지</td><td class="n">5,415</td><td class="n">5,408</td></tr>
+        <tr><td>연결 엔티티</td><td class="n">656</td><td class="n"><strong>670</strong></td></tr>
+        <tr><td><code>MACRO_COMOVEMENT</code></td><td class="n">36</td><td class="n"><strong>23</strong></td></tr>
+        <tr><td><code>PRODUCT_SIMILARITY</code></td><td class="n">2,487</td><td class="n">2,479</td></tr>
+        <tr><td><code>MEASURED_BY</code> <span class="chip flow-s">신규</span></td><td class="n">0</td><td class="n"><strong>14</strong></td></tr>
+        <tr><td><code>rejected</code> 리비전</td><td class="n">0</td><td class="n"><strong>21</strong></td></tr>
+        <tr><td>주제 사건 중 경로를 낸 것</td><td class="n">0</td><td class="n"><strong>38</strong></td></tr>
       </tbody>
     </table>
+    <p>
+      <strong>넷이 들어갔다.</strong>
+      <br><br>
+      <strong>하나 — 철회.</strong> 원장에 철회 경로가 없어서 그래프가 「한 번이라도
+      수락된 적 있는 것」 의 합집합이었다. 이제 <strong>측정으로</strong> 철회한다 —
+      부재가 아니라. 후보가 안 나오는 이유는 넷이고 그중 하나만 판정이다:
+      겹침 부족·미로드·차수상한 거부는 「못 쟀거나 성립한다」 이고,
+      <code>|측정값| &lt; 임계</code> 만 「쟀고 성립 안 한다」 다.
+      거시 13건 · 제품유사도 8건을 철회했다.
+      <br><br>
+      제품유사도에서 <strong>내가 규모를 크게 틀렸다.</strong> accepted 2,487 −
+      오늘 후보 1,854 = 633 을 대상으로 봤는데 실제는 8건이었다. 625건은
+      차수 상한에 잘린 것 — 임계는 넘었고 관계는 성립한다.
+      <strong>뺄셈으로 철회했으면 625건이 오철회였다.</strong>
+      <br><br>
+      <strong>둘 — 주제 엔티티.</strong> <code>target_entity_id</code> 가 단일 값이라
+      rates 사건을 계열 넷 중 어디에 붙일지 고를 근거가 없었다. 주제는 항상 하나이므로
+      모호성이 사라지고, 계열을 늘려도 안 깨진다. 42건이 귀속되고
+      <strong>38건이 경로를 냈다</strong> — 구현 전 예측(rates 17 · energy 17 ·
+      fx 3 · growth 1)과 정확히 같다.
+      <br><br>
+      <strong>셋 — <code>SAME_ETF_BASKET</code> 신뢰도.</strong> 2,519개가 전부
+      0.800 이었고, 그중 80%가 50명 이상 바스켓(SPY 70명)에서 왔다. 즉
+      <strong>가장 영향력 큰 숫자가 측정된 어떤 관계보다 지수 편입을 위에 놓았다.</strong>
+      이제 1/(n−1) 로 낸다 — 8명 0.800 · 14명 0.431 · 70명 0.081. 올라간 값은 없다.
+      <br><br>
+      <strong>다섯 — 경로가 처음으로 「왜」 를 말한다.</strong> 이게 오늘 가장 큰
+      변화다. 임팩트 경로가 제품에 <code>2홉 · 0.43</code> 으로만 도착했다. 그런데
+      스텝마다 <code>graph_snapshot_edge</code> FK 가 이미 기록돼 있었다 — 이유는
+      남아 있었고 계약에 닿은 적이 없을 뿐이다. 그래서 위의 넷을 전부 해도
+      <strong>점수만 바뀌고 사용자가 읽는 문장은 한 글자도 안 바뀔 상태</strong>였다.
+      <br><br>
+      지금은 이렇게 나온다:
+      <br>
+      <code>topic:energy · 거시 충격 · 지표 → 함께 움직임 · fred:DCOILWTICO 경유 · 연결 강도 0.71</code>
+      <br>
+      <code>AMD · 실적 · 같은 업종 → 같은 업종 · 반도체 업종 경유 · 연결 강도 0.58</code>
+      <br><br>
+      어휘를 <strong>인과가 아니게</strong> 골랐다. <code>MACRO_COMOVEMENT</code> 는
+      「함께 움직임」 이고 「영향」 이 아니다 — 잰 것은 정해진 창에서의 동행뿐이고
+      어느 쪽이 어느 쪽을 민다는 내용이 없다. 술어를 <code>AFFECTS</code> 로 짓지
+      않은 것과 같은 이유이고, 테스트가 affects·causes·drives·impacts·exposed_to 가
+      어휘에 없는 것을 고정한다. 모르는 술어는 fallback 없이 던진다 — 새 술어가
+      제품에 도달하는 것은 「뭐라고 부를 것인가」 라는 결정이고, fallback 은 그
+      결정을 안 내린 채 출고하는 것이다.
+      <br><br>
+      경로가 밟는 술어(스냅샷 28): <code>similar_products</code> 4,965 ·
+      <code>same_basket</code> 2,265 · <code>same_classification</code> 1,470 ·
+      <code>moves_with</code> 479 · <code>indicated_by</code> 279.
+      <br><br>
+            <strong>넷 — 출처 오기재.</strong> 내부 스냅샷 다섯 종이 전부
+      <code>internal-etf-holdings-snapshot</code> 으로 적혀 있었다(멱등키에
+      프로바이더가 빠져서). 고쳤지만 <strong>과거는 못 고친다</strong> — 계보 세 표가
+      append-only 트리거를 달고 있고 그건 원장의 보장이다.
+    </p>
     <p>
       원유 엣지에서 <strong>Alphabet · Meta · GS · C · ASML · GM 이 빠졌다.</strong>
       남은 것은 에너지 섹터 ETF 0.580 · 엑슨 0.558 · UAL · DAL · 포스코인터내셔널 ·
@@ -631,12 +736,12 @@ flowchart TB
   end
 
   subgraph S3["3 · 관계 — 여기가 좁다"]
-    ACC["accepted 26,264 · rejected 13<br/>스냅샷 23 기준 SAME_ETF_BASKET 2,519 · PRODUCT_SIMILARITY 2,487<br/>ISSUED_BY 254 · CLASSIFIED_AS 119 · MACRO_COMOVEMENT 23"]
+    ACC["rejected 21 · 스냅샷 28 기준<br/>SAME_ETF_BASKET 2,519 · PRODUCT_SIMILARITY 2,479<br/>ISSUED_BY 254 · CLASSIFIED_AS 119 · MACRO_COMOVEMENT 23 · MEASURED_BY 14"]
     QUAR["격리 3,312<br/>AFFECTS 616 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · SUPPLY_CHAIN 169"]
-    MACROREL["MACRO_COMOVEMENT <b>23 엣지</b><br/>066·067 적용 · 베타 조정 · 철회 13<br/>6계열 × 종목 · 통계적 동행"]
+    MACROREL["MACRO_COMOVEMENT <b>23</b> + MEASURED_BY <b>14</b><br/>066·067·068 적용 · 베타 조정 · 철회 21<br/>주제 → 계열 → 종목 · 통계적 동행"]
     SUPPLY["SUPPLIES · CUSTOMER_OF<br/>정책 ✓ 빌더 ✓ 테이블 ✓<br/><b>데이터 0행</b>"]
     THEME["theme_membership 396<br/>전부 adjacent · 근거 93% 격리"]
-    SNAP["graph_snapshot_edge<br/>스냅샷 23 · 엣지 5,402 · 엔티티 656"]
+    SNAP["graph_snapshot_edge<br/>스냅샷 28 · 엣지 5,408 · 엔티티 670"]
   end
 
   subgraph S4["4 · 임팩트 · 서빙"]
@@ -1079,8 +1184,8 @@ flowchart TB
           </div>
           <div class="row flow-s">
             <div class="surface">v2 임팩트 → 제품
-              <small>최신 봉인 스냅샷(23) 엣지 5,402 · 연결 엔티티 656 → impact_path_v2 8,965 · content_pack 317 → 도달 종목 317 / 325.
-              <strong>엣지 5,402 는 스냅샷 한 장 기준</strong>이고 <code>graph_snapshot_edge</code> 테이블 전체는 110,334행이다 — 스냅샷이 쌓인 것이지 그래프가 넓어진 게 아니다. 이 둘을 섞어 읽지 말 것</small>
+              <small>최신 봉인 스냅샷(28) 엣지 5,408 · 연결 엔티티 670 → impact_path_v2 8,344 · content_pack 309 → 도달 종목 317 / 325.
+              <strong>엣지 5,408 은 스냅샷 한 장 기준</strong>이고 <code>graph_snapshot_edge</code> 테이블 전체는 137,383행이다 — 스냅샷이 쌓인 것이지 그래프가 넓어진 게 아니다. 이 둘을 섞어 읽지 말 것</small>
             </div>
             <div class="yield">끊긴 곳 없음</div>
             <span class="chip flow-s">흐름</span>
