@@ -23,6 +23,8 @@ import { randomUUID } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import { readUnattributedGauge } from './event-attribution-gauge.ts';
+
 const JOB_NAME = 'stock-insight-event-topic-attribution';
 const POLICY = 'topic-vocabulary-exact-match-v1';
 const APPLY = process.argv.includes('--apply');
@@ -207,6 +209,10 @@ async function main(): Promise<void> {
       topicHasNoSeriesSkipped: noSeries,
       byTopic,
       attached,
+      // A2: what is LEFT after this run, not what this run did. A job that
+      // attaches 3 and leaves 2,543 is not the same as one that attaches 3 and
+      // leaves 0, and `attached` alone cannot tell them apart.
+      ...(await readUnattributedGauge(client)),
       sample: attachable.slice(0, 10).map((entry) => ({
         eventId: Number(entry.row.event_id),
         topic: entry.row.topic,
@@ -215,7 +221,10 @@ async function main(): Promise<void> {
     };
     console.log(JSON.stringify(summary, null, 2));
 
-    if (APPLY && attached > 0) {
+    // Records the run even when it attached nothing. The gauge is only useful as a
+    // series, and `attached > 0` would have written a row exactly on the days the
+    // backlog moved and stayed silent while it sat — the wrong way round.
+    if (APPLY) {
       await client.query(INSERT_MIGRATION_RUN_SQL, [
         `${JOB_NAME}-${randomUUID()}`,
         JOB_NAME,

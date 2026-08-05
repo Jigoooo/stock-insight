@@ -74,6 +74,28 @@ pipeline_record_stage_success stock-insight-knowledge-extraction-stage "$RUN_STA
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-event-entity-resolution.ts --apply
 pipeline_record_stage_success stock-insight-event-entity-resolution-stage "$RUN_STARTED_AT" || exit $?
 
+# A1: text and topic attribution had no producer at all. Both were written and
+# measured on 2026-08-03/05 but only ever run by hand, so their results were a
+# one-off backfill and every event arriving afterwards stayed unattributed —
+# 2,546 of 4,245 as of 2026-08-06, and loadRecentEvents filters on
+# `target_entity_id IS NOT NULL`, so an unattributed event cannot begin a path.
+#
+# Placed between FK resolution and the world projection: after resolution because
+# the FK chain is the strongest evidence and should claim an event first, before
+# the projection for the reason the block below gives — participants are derived
+# from target_entity_id.
+#
+# Company BEFORE topic, and the ordering is enforced by the queries rather than by
+# this file. The topic job's candidate set is `target_entity_id IS NULL`, so it can
+# never overwrite a company answer; the company job's set is `IS NULL OR
+# entity_type = 'Metric'`, so it CAN take an event off a topic when a company name
+# turns up later. The sequence converges: NULL → topic → company, never back.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-event-text-attribution.ts --apply
+pipeline_record_stage_success stock-insight-event-text-attribution-stage "$RUN_STARTED_AT" || exit $?
+
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-event-topic-attribution.ts --apply
+pipeline_record_stage_success stock-insight-event-topic-attribution-stage "$RUN_STARTED_AT" || exit $?
+
 # The world plane is a projection of knowledge.event and had no producer: migration
 # 032 filled it once and it then drifted 923 events behind before anyone noticed,
 # because its serving view reports 100% yield over whatever it happens to hold.

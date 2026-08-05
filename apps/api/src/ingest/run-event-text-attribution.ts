@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
+import { readUnattributedGauge } from './event-attribution-gauge.ts';
+
 // Attaches an event to a company when its own text names that company outright.
 //
 // run-event-entity-resolution.ts resolves events through foreign keys only
@@ -218,6 +220,10 @@ async function main(): Promise<void> {
       attachableFromMetricLabel: attachable.filter(
         (entry) => entry.row.previous_target_entity_id !== null,
       ).length,
+      // A2: what is LEFT after this run. Read from the same module as the topic
+      // job so the two totals in one pipeline run are the same measurement — the
+      // topic job's number should be this one minus what it attached.
+      ...(await readUnattributedGauge(client)),
       sample: attachable.slice(0, 10).map((entry) => ({
         eventId: Number(entry.row.event_id),
         term: entry.row.term,
@@ -226,7 +232,9 @@ async function main(): Promise<void> {
     };
     console.log(JSON.stringify(summary, null, 2));
 
-    if (APPLY && attached > 0) {
+    // See the topic job: a row per apply run, so the gauge is a series. The
+    // absence of a row now means the job did not run, which is the useful signal.
+    if (APPLY) {
       await client.query(INSERT_MIGRATION_RUN_SQL, [
         `${JOB_NAME}-${randomUUID()}`,
         JOB_NAME,
