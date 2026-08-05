@@ -377,11 +377,58 @@
       귀속 자체다.
       <br><br>
       <strong>둘 — 거시 상관이 프로덕션에 들어갔다.</strong> 55,775행 13계열이 3년 넘게
-      그래프와 분리돼 있었는데, <code>MACRO_COMOVEMENT</code> 18엣지로 처음 이어졌다.
+      그래프와 분리돼 있었는데, <code>MACRO_COMOVEMENT</code> 로 처음 이어졌다.
       그리고 <strong>종목 A 가 거시 계열을 거쳐 종목 B 에 닿는 경로가 처음 생겼다</strong> —
       <code>CLASSIFIED_AS</code> 두 번이 아닌 첫 2홉 모양이다.
+      <br><br>
+      <strong>셋 — 그래프가 처음으로 줄어들 수 있게 됐다 (2026-08-05).</strong>
+      원장에 철회가 없어서, 빌더가 어떤 쌍을 더 이상 안 내면 마지막 수락이 영원히
+      살아남았다. 그래서 그래프는 <strong>한 번이라도 수락된 적 있는 것의 합집합</strong>
+      이었다. 베타 조정이 수락 후보를 23으로 줄였는데 스냅샷은 여전히 36을 들고 있었고,
+      원유 엣지에 Alphabet·Meta·GS·C 가 조정 이전 신뢰도 그대로 남아 있었다.
+      지금은 <strong>측정으로</strong> 철회한다 — 부재가 아니라.
     </p>
   </header>
+
+  <section class="s">
+    <h2>2026-08-05 에 바뀐 것</h2>
+    <div class="s-close">닫는 관측 — 36 − 13 = 23 으로 산술이 닫히고, 드라이런 예고와 실제가 일치했다</div>
+    <table>
+      <thead><tr><th>세는 것</th><th class="n">이전</th><th class="n">이후</th></tr></thead>
+      <tbody>
+        <tr><td>스냅샷</td><td class="n">22</td><td class="n"><strong>23</strong></td></tr>
+        <tr><td>스냅샷 엣지</td><td class="n">5,415</td><td class="n">5,402</td></tr>
+        <tr><td><code>MACRO_COMOVEMENT</code> 엣지</td><td class="n">36</td><td class="n"><strong>23</strong></td></tr>
+        <tr><td><code>rejected</code> 리비전</td><td class="n">0</td><td class="n"><strong>13</strong></td></tr>
+        <tr><td>거시 스텝</td><td class="n">304</td><td class="n">222</td></tr>
+        <tr><td>거시 경로가 닿는 종목</td><td class="n">10</td><td class="n">8</td></tr>
+      </tbody>
+    </table>
+    <p>
+      원유 엣지에서 <strong>Alphabet · Meta · GS · C · ASML · GM 이 빠졌다.</strong>
+      남은 것은 에너지 섹터 ETF 0.580 · 엑슨 0.558 · UAL · DAL · 포스코인터내셔널 ·
+      현대로템 · SK이노베이션 — 전부 경제적으로 읽히는 것들이다.
+      <br><br>
+      <strong>대가도 적는다.</strong> 4종 술어를 밟던 사건 22건이 3종으로 내려갔고
+      거시 경로가 닿는 종목이 10 → 8 이 됐다. 엣지를 13개 지웠으니 당연하고, 그 13개는
+      오늘 측정으로 성립하지 않는 것들이다. <strong>다양성이 줄어든 게 아니라 근거 없는
+      다양성이 빠진 것이다.</strong>
+      <br><br>
+      <strong>부재로 철회하지 않는 것이 설계의 전부다.</strong> 후보가 안 나오는 이유는
+      넷이고 그중 하나만 판정이다 — 겹침 부족·미로드·차수상한 거부는 "못 쟀거나 성립한다"
+      이고, <code>|부분상관| &lt; 임계</code> 만 "쟀고 성립 안 한다" 이다. 입력이 하루
+      비면 관계가 지워지는 사고를 구조에서 막는다.
+    </p>
+    <p>
+      <strong>같은 날 찾은 출처 오기재.</strong> 내부 스냅샷 다섯 종이 전부
+      <code>internal-etf-holdings-snapshot</code> 으로 적혀 있었다 — 기업프로필 798 ·
+      업종분류 119 · 주가창 63 · 거시계열창 18 이 ETF 자기 것 171 과 섞여 있었고,
+      나머지 네 출처는 승인된 채 0행이었다. 원인은 fetch run 멱등키에 프로바이더가
+      빠진 것이고, 고쳤다. <strong>과거는 못 고친다</strong> — 계보 세 표가 append-only
+      트리거를 달고 있고, 그건 결함이 아니라 원장의 보장이다.
+      <code>payload_metadata.http_meta.kind</code> 가 진짜 종류를 갖고 있어 판별은 된다.
+    </p>
+  </section>
 
   <section>
     <h2>세 가지 질문에 대한 답</h2>
@@ -393,7 +440,7 @@
           임팩트 경로가 실제로 밟는 술어 —
           <code>SAME_ETF_BASKET</code> 78,202회, <code>PRODUCT_SIMILARITY</code> 43,075회,
           <code>CLASSIFIED_AS</code> 5,624회, 그리고 <strong>새로
-          <code>MACRO_COMOVEMENT</code> 8회</strong>.
+          <code>MACRO_COMOVEMENT</code></strong> — 스냅샷 23 기준 222회.
           <br><br>
           네 번째가 붙었지만 <strong>인과는 여전히 0이다.</strong> 잰 것은 "함께
           움직였다" 하나이고 ETF·유사도와 같은 층위다. 이름을 <code>AFFECTS</code>·
@@ -458,14 +505,14 @@
         </p>
         <div class="tableWrap" style="margin-top:0.5rem">
           <table>
-            <thead><tr><th>사건당 술어 수</th><th class="n">이전</th><th class="n">이후</th></tr></thead>
+            <thead><tr><th>사건당 술어 수</th><th class="n">수정 전</th><th class="n">수정 직후</th><th class="n">철회 후 (지금)</th></tr></thead>
             <tbody>
-              <tr><td>1종만</td><td class="n">502</td><td class="n"><strong>137</strong></td></tr>
-              <tr><td>2종</td><td class="n">151</td><td class="n">184</td></tr>
-              <tr><td>3종</td><td class="n">2</td><td class="n"><strong>157</strong></td></tr>
-              <tr><td>4종</td><td class="n">0</td><td class="n">22</td></tr>
-              <tr><td><code>MACRO_COMOVEMENT</code> 스텝</td><td class="n">16</td><td class="n"><strong>304</strong></td></tr>
-              <tr><td>거시 경로의 출발 종목</td><td class="n">1</td><td class="n"><strong>7</strong></td></tr>
+              <tr><td>1종만</td><td class="n">502</td><td class="n"><strong>137</strong></td><td class="n">135</td></tr>
+              <tr><td>2종</td><td class="n">151</td><td class="n">184</td><td class="n">186</td></tr>
+              <tr><td>3종</td><td class="n">2</td><td class="n"><strong>157</strong></td><td class="n"><strong>179</strong></td></tr>
+              <tr><td>4종</td><td class="n">0</td><td class="n">22</td><td class="n">0</td></tr>
+              <tr><td><code>MACRO_COMOVEMENT</code> 스텝</td><td class="n">16</td><td class="n"><strong>304</strong></td><td class="n">222</td></tr>
+              <tr><td>거시 경로의 출발 종목</td><td class="n">1</td><td class="n"><strong>7</strong></td><td class="n">8</td></tr>
             </tbody>
           </table>
         </div>
@@ -584,12 +631,12 @@ flowchart TB
   end
 
   subgraph S3["3 · 관계 — 여기가 좁다"]
-    ACC["accepted 21,854<br/>SAME_ETF_BASKET 14,619 · PRODUCT_SIMILARITY 6,590<br/>ISSUED_BY 508 · CLASSIFIED_AS 119 · MACRO_COMOVEMENT 18"]
+    ACC["accepted 26,264 · rejected 13<br/>스냅샷 23 기준 SAME_ETF_BASKET 2,519 · PRODUCT_SIMILARITY 2,487<br/>ISSUED_BY 254 · CLASSIFIED_AS 119 · MACRO_COMOVEMENT 23"]
     QUAR["격리 3,312<br/>AFFECTS 616 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · SUPPLY_CHAIN 169"]
-    MACROREL["MACRO_COMOVEMENT <b>50 엣지</b><br/>066·067 적용됨 · 2026-08-05<br/>6계열 × 종목 · 통계적 동행"]
+    MACROREL["MACRO_COMOVEMENT <b>23 엣지</b><br/>066·067 적용 · 베타 조정 · 철회 13<br/>6계열 × 종목 · 통계적 동행"]
     SUPPLY["SUPPLIES · CUSTOMER_OF<br/>정책 ✓ 빌더 ✓ 테이블 ✓<br/><b>데이터 0행</b>"]
     THEME["theme_membership 396<br/>전부 adjacent · 근거 93% 격리"]
-    SNAP["graph_snapshot_edge<br/>스냅샷 20 · 엣지 5,411 · 엔티티 656"]
+    SNAP["graph_snapshot_edge<br/>스냅샷 23 · 엣지 5,402 · 엔티티 656"]
   end
 
   subgraph S4["4 · 임팩트 · 서빙"]
@@ -665,7 +712,7 @@ flowchart TB
           <tr><td><strong>PRODUCT_SIMILARITY</strong></td><td>통계</td><td class="n">6,590</td><td class="n">0</td><td>1홉 · 43,075회</td></tr>
           <tr><td><strong>CLASSIFIED_AS</strong></td><td>구조</td><td class="n">119</td><td class="n">0</td><td>2홉 · 5,624회</td></tr>
           <tr><td><strong>ISSUED_BY</strong></td><td>구조</td><td class="n">508</td><td class="n">0</td><td>정체성 전용</td></tr>
-          <tr><td><strong>MACRO_COMOVEMENT</strong> <span class="chip flow-s">신규</span></td><td>통계</td><td class="n">50</td><td class="n">0</td><td><strong>2홉 · 16회</strong></td></tr>
+          <tr><td><strong>MACRO_COMOVEMENT</strong> <span class="chip flow-s">신규</span></td><td>통계</td><td class="n">23</td><td class="n">0</td><td><strong>2홉 · 222회</strong></td></tr>
           <tr><td>COMMON_OWNER</td><td>통계</td><td class="n">0</td><td class="n">1,062</td><td>—</td></tr>
           <tr><td>AFFECTS</td><td>구조</td><td class="n">0</td><td class="n">616</td><td>—</td></tr>
           <tr><td>SAME_INDUSTRY</td><td>구조</td><td class="n">0</td><td class="n">418</td><td>—</td></tr>
@@ -1012,7 +1059,7 @@ flowchart TB
           </div>
           <div class="row flow-s">
             <div class="surface">거시 시계열 → 그래프 → 경로
-              <small>macro_vintage 55,775행 → 13계열 엔티티 → MACRO_COMOVEMENT 18엣지 →
+              <small>macro_vintage 55,775행 → 13계열 엔티티 → MACRO_COMOVEMENT 23엣지 →
               경로가 8회 밟는다. <strong>Metric 엔티티 엣지가 0에서 18이 됐다.</strong>
               3년 넘게 분리돼 있던 평면이 처음 이어진 것 — 다만 13계열 중 3계열뿐이다</small>
             </div>
@@ -1032,8 +1079,8 @@ flowchart TB
           </div>
           <div class="row flow-s">
             <div class="surface">v2 임팩트 → 제품
-              <small>최신 봉인 스냅샷(19) 엣지 5,397 · 연결 엔티티 654 → impact_path_v2 124,093 → content_pack 317 · 아이템 94,768 → 도달 종목 317 / 325.
-              <strong>엣지 5,397 은 스냅샷 한 장 기준</strong>이고 <code>graph_snapshot_edge</code> 테이블 전체는 88,695행이다 — 스냅샷이 쌓인 것이지 그래프가 넓어진 게 아니다</small>
+              <small>최신 봉인 스냅샷(23) 엣지 5,402 · 연결 엔티티 656 → impact_path_v2 8,965 · content_pack 317 → 도달 종목 317 / 325.
+              <strong>엣지 5,402 는 스냅샷 한 장 기준</strong>이고 <code>graph_snapshot_edge</code> 테이블 전체는 110,334행이다 — 스냅샷이 쌓인 것이지 그래프가 넓어진 게 아니다. 이 둘을 섞어 읽지 말 것</small>
             </div>
             <div class="yield">끊긴 곳 없음</div>
             <span class="chip flow-s">흐름</span>
