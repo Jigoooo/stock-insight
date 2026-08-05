@@ -1,9 +1,19 @@
-// Retraction for exhaustively-computed predicates.
+// Retraction for predicates whose absence is a verdict. Which ones those are is
+// decided by `absenceSemantics` in relation-policy.ts, not by this file.
 //
-// Used by MACRO_COMOVEMENT and PRODUCT_SIMILARITY: both score EVERY pair every
-// run, so a pair's absence from the output is a verdict rather than a silence.
-// SAME_ETF_BASKET is deliberately NOT here — co-membership is not a score, and
-// one failed holdings collection would read as "these stocks left the basket".
+// Three shapes, because "absence is a verdict" has three different proofs:
+//
+//   threshold      MACRO_COMOVEMENT, PRODUCT_SIMILARITY. Every pair is scored
+//                  every run, so the builder hands over the pairs it measured and
+//                  failed. retractEdges + MeasuredAbsence.
+//   enumeration    MEASURED_BY. A curated mapping table IS the world, so the
+//                  builder hands over the current set and the complement is the
+//                  verdict. retractEdgesNotIn + sourceWasRead.
+//   scoped         SAME_ETF_BASKET. An enumeration complete only per basket, so
+//                  the run must also name the baskets it evaluated. Added
+//                  2026-08-06; this file used to say co-membership could never be
+//                  retracted, which was true only while the scope could not be
+//                  stated. retractEdgesNotIn + EnumerationScope.
 //
 // A builder that stops producing a pair used to leave its last acceptance
 // standing forever, so the graph became the union of every run that ever
@@ -16,10 +26,15 @@
 // once believed it. A later `rejected` revision states the newer verdict, and
 // the snapshot selector prefers the latest verdict.
 //
-// The rule that makes this safe: retract only what this run MEASURED and found
-// below threshold. Absence is not a verdict — a pair can be missing because the
-// overlap was too short, because an input never loaded, or because the degree
-// cap dropped it, and none of those mean the relation stopped holding.
+// The rule that makes all three safe: retract only what this run actually
+// MEASURED. Absence from the output is not a measurement — a pair can be missing
+// because the overlap was too short, because an input never loaded, or because the
+// degree cap dropped it, and none of those mean the relation stopped holding.
+//
+// Every shape here exists to make that distinction something the caller must
+// state. The one time it was left implicit, subtracting candidates from accepted
+// predicted 633 PRODUCT_SIMILARITY retractions when the truth was 8 — 625 were
+// degree-cap drops, and applying that estimate would have been 625 false verdicts.
 
 import type { PoolClient, QueryResultRow } from 'pg';
 
@@ -81,7 +96,11 @@ SELECT identity_row.relation_identity_id,
        identity_row.object_entity_id,
        revision.relation_kind,
        revision.valid_from,
-       revision.predicate_ontology_revision_id
+       revision.predicate_ontology_revision_id,
+       -- Carried for scope checks: the builder records which sources produced the
+       -- edge, and an edge whose sources were not all evaluated this run cannot be
+       -- contradicted by this run's enumeration.
+       revision.metadata
 FROM knowledge.relation_identity identity_row
 JOIN knowledge.relation_revision revision
   ON revision.relation_identity_id = identity_row.relation_identity_id
@@ -103,6 +122,45 @@ export type AcceptedIdentity = {
   validFrom: string;
   predicateOntologyRevisionId: number;
 };
+
+/**
+ * Where an enumeration is complete, for predicates whose completeness is per
+ * source rather than global.
+ *
+ * `metadataKey` names the array the builder writes on every revision recording
+ * which sources produced the edge (`etfEntityIds` for SAME_ETF_BASKET).
+ * `evaluatedValues` is what this run genuinely evaluated — read AND not suppressed.
+ */
+export type EnumerationScope = {
+  metadataKey: string;
+  evaluatedValues: readonly number[];
+};
+
+/**
+ * Pure so the dangerous decision is testable without a database.
+ *
+ * An edge is in scope only when EVERY source that produced it was evaluated. If
+ * one contributing ETF went uncollected, the pair's absence from today's set says
+ * nothing about the pair — it says something about the collection.
+ *
+ * Missing or empty provenance is OUT of scope, deliberately. An edge that cannot
+ * name its sources cannot prove they were evaluated, and the fail-closed reading
+ * of "I don't know where this came from" is to leave it standing.
+ */
+export function isWithinEnumerationScope(
+  metadata: unknown,
+  scope: EnumerationScope | undefined,
+): boolean {
+  if (scope === undefined) return true;
+  const record = typeof metadata === 'object' && metadata !== null ? metadata : undefined;
+  const raw = record ? (record as Record<string, unknown>)[scope.metadataKey] : undefined;
+  if (!Array.isArray(raw) || raw.length === 0) return false;
+  const evaluated = new Set(scope.evaluatedValues.map(Number));
+  return raw.every((value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && evaluated.has(numeric);
+  });
+}
 
 /**
  * Which accepted edges this run contradicts. Pure so the decision is testable
@@ -255,6 +313,20 @@ export async function retractEdges(
  * getting that wrong retracts the entire predicate. The caller has to state that
  * it actually read the source, and an empty set is refused outright — a closed
  * world with nothing in it is a claim no run should be able to make by accident.
+ *
+ * `scope` narrows WHERE the enumeration is complete. MEASURED_BY needs none: one
+ * mapping table is the whole world, so `sourceWasRead` covers it. SAME_ETF_BASKET
+ * is complete only over the baskets this run actually evaluated — a pair missing
+ * from the current set because its ETF was not collected today has not been
+ * measured at all, and retracting it would turn a collection outage into a verdict
+ * about the companies. Same distinction the degree cap forces: a basket read and
+ * then suppressed for being too broad was not evaluated either.
+ *
+ * This is the shape of the PRODUCT_SIMILARITY error, generalised. Subtracting the
+ * candidate count from the accepted count predicted 633 retractions there and the
+ * truth was 8, because 625 were degree-cap drops — absence in the candidate set
+ * meant "not evaluated", not "no longer holds". `scope` makes that difference
+ * something the caller has to state rather than something the caller can forget.
  */
 /**
  * Read-only twin of retractEdgesNotIn. Exists because a run that shrinks the
@@ -267,23 +339,42 @@ export async function planRetractionsNotInFromDatabase(
   input: {
     holdingPairs: readonly { subjectEntityId: number; objectEntityId: number }[];
     sourceWasRead: boolean;
+    scope?: EnumerationScope;
   },
-): Promise<{ inspected: number; wouldRetract: number }> {
+): Promise<{ inspected: number; wouldRetract: number; outOfScope: number }> {
   assertRetractable(predicate);
   if (!input.sourceWasRead || input.holdingPairs.length === 0) {
-    return { inspected: 0, wouldRetract: 0 };
+    return { inspected: 0, wouldRetract: 0, outOfScope: 0 };
   }
   const holding = new Set(
     input.holdingPairs.map((pair) => canonicalPairKey(pair.subjectEntityId, pair.objectEntityId)),
   );
   const rows = await client.query<
-    QueryResultRow & { subject_entity_id: string | number; object_entity_id: string | number }
+    QueryResultRow & {
+      subject_entity_id: string | number;
+      object_entity_id: string | number;
+      metadata: unknown;
+    }
   >(ACCEPTED_IDENTITIES_SQL, [predicate]);
-  const wouldRetract = rows.rows.filter(
-    (row) =>
-      !holding.has(canonicalPairKey(Number(row.subject_entity_id), Number(row.object_entity_id))),
-  ).length;
-  return { inspected: rows.rows.length, wouldRetract };
+
+  let wouldRetract = 0;
+  let outOfScope = 0;
+  for (const row of rows.rows) {
+    if (
+      holding.has(canonicalPairKey(Number(row.subject_entity_id), Number(row.object_entity_id)))
+    ) {
+      continue;
+    }
+    // Counted, not hidden: this is the difference between "we contradict 8 edges"
+    // and "633 edges are missing from today's set", and reporting only the first
+    // without the second is what made the PRODUCT_SIMILARITY estimate look sound.
+    if (!isWithinEnumerationScope(row.metadata, input.scope)) {
+      outOfScope += 1;
+      continue;
+    }
+    wouldRetract += 1;
+  }
+  return { inspected: rows.rows.length, wouldRetract, outOfScope };
 }
 
 export async function retractEdgesNotIn(
@@ -293,12 +384,24 @@ export async function retractEdgesNotIn(
   input: {
     holdingPairs: readonly { subjectEntityId: number; objectEntityId: number }[];
     sourceWasRead: boolean;
+    scope?: EnumerationScope;
   },
-): Promise<{ inspected: number; retracted: number; replayed: number }> {
+): Promise<{
+  inspected: number;
+  retracted: number;
+  replayed: number;
+  outOfScope: number;
+}> {
   assertRetractable(predicate);
   if (!input.sourceWasRead) {
     // Not an error: a skipped step must retract nothing rather than everything.
-    return { inspected: 0, retracted: 0, replayed: 0 };
+    return { inspected: 0, retracted: 0, replayed: 0, outOfScope: 0 };
+  }
+  if (input.scope !== undefined && input.scope.evaluatedValues.length === 0) {
+    throw new Error(
+      `${predicate} retraction refused: sourceWasRead is true but the evaluated scope is empty, ` +
+        `so no accepted edge can be proven measured. A run that evaluated nothing must retract nothing.`,
+    );
   }
   if (input.holdingPairs.length === 0) {
     throw new Error(
@@ -317,15 +420,21 @@ export async function retractEdgesNotIn(
       relation_kind: string;
       valid_from: Date | string;
       predicate_ontology_revision_id: string | number;
+      metadata: unknown;
     }
   >(ACCEPTED_IDENTITIES_SQL, [predicate]);
 
   let retracted = 0;
   let replayed = 0;
+  let outOfScope = 0;
   for (const row of rows.rows) {
     const subjectEntityId = Number(row.subject_entity_id);
     const objectEntityId = Number(row.object_entity_id);
     if (holding.has(canonicalPairKey(subjectEntityId, objectEntityId))) continue;
+    if (!isWithinEnumerationScope(row.metadata, input.scope)) {
+      outOfScope += 1;
+      continue;
+    }
     const validFrom =
       row.valid_from instanceof Date
         ? row.valid_from.toISOString()
@@ -346,5 +455,5 @@ export async function retractEdgesNotIn(
     if (result.outcome === 'inserted') retracted += 1;
     else replayed += 1;
   }
-  return { inspected: rows.rows.length, retracted, replayed };
+  return { inspected: rows.rows.length, retracted, replayed, outOfScope };
 }

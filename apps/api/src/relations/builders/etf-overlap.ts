@@ -101,6 +101,11 @@ export function buildEtfBasketCandidates(
 
   const candidates: RelationCandidateDraft[] = [];
   const exclusions: SuperhubExclusion[] = [];
+  // The retraction scope. A basket lands here only after it survives both gates
+  // below — fewer than 2 members means there was no pair to evaluate, and over the
+  // degree cap means the pairs were suppressed rather than found absent. Treating
+  // either as evaluated would let a collection gap retract real co-memberships.
+  const evaluatedHubEntityIds: number[] = [];
   type PairContribution = {
     etfEntityId: number;
     /** How many members that basket had, which is what makes the pair specific. */
@@ -124,6 +129,7 @@ export function buildEtfBasketCandidates(
       });
       continue;
     }
+    evaluatedHubEntityIds.push(etfEntityId);
 
     for (let i = 0; i < memberIds.length; i += 1) {
       for (let j = i + 1; j < memberIds.length; j += 1) {
@@ -223,5 +229,9 @@ export function buildEtfBasketCandidates(
     });
   }
 
-  return { candidates: sortCandidates(candidates), exclusions };
+  return {
+    candidates: sortCandidates(candidates),
+    exclusions,
+    evaluatedHubEntityIds: evaluatedHubEntityIds.sort((left, right) => left - right),
+  };
 }

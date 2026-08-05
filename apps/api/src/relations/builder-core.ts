@@ -50,6 +50,14 @@ export type BuilderRunOptions = {
 export type BuilderResult = {
   candidates: RelationCandidateDraft[];
   exclusions: SuperhubExclusion[];
+  /**
+   * Hubs this run genuinely evaluated: read AND not suppressed. Set only by
+   * builders whose enumeration is complete per hub rather than globally, where
+   * retraction needs to tell "no longer co-members" from "that basket was never
+   * looked at". A hub that was read and then dropped by the degree cap does NOT
+   * belong here — it was read, not evaluated.
+   */
+  evaluatedHubEntityIds?: number[];
 };
 
 const compareUtf8 = (left: string, right: string): number =>

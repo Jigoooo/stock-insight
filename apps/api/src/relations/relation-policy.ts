@@ -165,7 +165,15 @@ export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
     requiresModelConfig: false,
     superhubDegreeCap: 100,
     promotionEligible: true,
-    absenceSemantics: 'unknown_not_disclosed',
+    // Closed world PER BASKET, not globally, which is why this stayed
+    // unknown_not_disclosed until the scope mechanism existed. A holdings
+    // snapshot is an enumeration: if an evaluated basket no longer lists both
+    // names, they are no longer co-members. But a basket that was not collected
+    // says nothing, and a basket dropped by the degree cap says nothing either —
+    // so retraction here requires EnumerationScope naming the baskets this run
+    // actually evaluated. Without it a one-day collection outage would retract
+    // every pair of the missing ETF.
+    absenceSemantics: 'closed_world',
   },
   {
     predicate: 'NEWS_COMENTION',

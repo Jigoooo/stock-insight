@@ -53,10 +53,15 @@ describe('absence semantics is the retraction switch', () => {
       (policy) => policy.absenceSemantics === 'closed_world',
     ).map((policy) => policy.predicate);
 
-    // Measured on snapshot 28. SAME_ETF_BASKET is deliberately absent from this
-    // list: co-membership is an enumeration whose completeness is not yet proven
-    // per run, so it still declares unknown_not_disclosed.
-    assert.deepEqual(declared.sort(), ['MACRO_COMOVEMENT', 'MEASURED_BY', 'PRODUCT_SIMILARITY']);
+    // SAME_ETF_BASKET joined on 2026-08-06, once EnumerationScope could express
+    // the thing that kept it out: its enumeration is complete per basket, not
+    // globally, so retraction needs to name the baskets the run evaluated.
+    assert.deepEqual(declared.sort(), [
+      'MACRO_COMOVEMENT',
+      'MEASURED_BY',
+      'PRODUCT_SIMILARITY',
+      'SAME_ETF_BASKET',
+    ]);
 
     for (const predicate of declared) {
       assert.match(

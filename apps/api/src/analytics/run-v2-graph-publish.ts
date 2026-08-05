@@ -1649,18 +1649,38 @@ async function dryRun(client: Client): Promise<void> {
     const freshUntil = new Date(
       new Date(cutoff).getTime() + FRESHNESS_HOURS * 60 * 60 * 1000,
     ).toISOString();
-    const fakeEtfIds = new Map<string, number>();
+    // ETF ids are resolved for REAL here, read-only, unlike every other synthetic
+    // id in this block. The retraction scope is matched against etfEntityIds
+    // recorded in the ledger, so synthetic ids would put every accepted edge out of
+    // scope and the dry run would report "0 would retract, 18 held back" whatever
+    // the holdings actually say — a number that looks conservative and measures
+    // nothing. Measured 2026-08-06: that is exactly what it reported before this,
+    // while the apply path had all 18 in scope.
+    //
+    // A ticker with no entity yet keeps a synthetic id. That is safe for scope: a
+    // brand-new ETF cannot be named by an already-accepted edge.
+    const dryRunEtfIds = new Map<string, number>();
     const fakeEtfRevisions = new Map<string, number>();
     const etfObservations: EtfBasketObservation[] = [];
-    for (const [index, ticker] of [...new Set(inputs.holdings.map((row) => row.etf_ticker))]
-      .sort()
-      .entries()) {
-      fakeEtfIds.set(ticker, 10_000_000 + index);
+    const dryRunEtfTickers = [...new Set(inputs.holdings.map((row) => row.etf_ticker))].sort();
+    const existingEtfEntities = await client.query<
+      QueryResultRow & { internal_key: string; entity_id: string | number }
+    >(
+      `SELECT identifier_value AS internal_key, entity_id
+         FROM core.entity_identifier
+        WHERE identifier_type = 'INTERNAL_KEY' AND identifier_value = ANY($1::text[])`,
+      [dryRunEtfTickers.map(etfEntityKey)],
+    );
+    const etfIdByInternalKey = new Map(
+      existingEtfEntities.rows.map((row) => [row.internal_key, Number(row.entity_id)]),
+    );
+    for (const [index, ticker] of dryRunEtfTickers.entries()) {
+      dryRunEtfIds.set(ticker, etfIdByInternalKey.get(etfEntityKey(ticker)) ?? 10_000_000 + index);
       fakeEtfRevisions.set(ticker, 20_000_000 + index);
     }
     for (const row of inputs.holdings) {
       etfObservations.push({
-        etfEntityId: fakeEtfIds.get(row.etf_ticker)!,
+        etfEntityId: dryRunEtfIds.get(row.etf_ticker)!,
         memberEntityId: numeric(row.member_entity_id!, 'memberEntityId'),
         sourceRevisionId: fakeEtfRevisions.get(row.etf_ticker)!,
         availableAt: cutoff,
@@ -1744,6 +1764,20 @@ async function dryRun(client: Client): Promise<void> {
         objectEntityId: row.seriesEntityId,
       })),
       sourceWasRead: dryRunTopicReady,
+    });
+    // SAME_ETF_BASKET, scoped. holdingPairs is every pair this run produced (any
+    // decision, not just accepted) because production means the co-membership was
+    // observed; scope is the baskets that survived both the 2-member and
+    // degree-cap gates. sourceWasRead requires at least one evaluated basket, so a
+    // run that read no holdings retracts nothing instead of retracting all.
+    const dryRunEvaluatedEtfIds = etf.evaluatedHubEntityIds ?? [];
+    const etfRetractionPlan = await planRetractionsNotInFromDatabase(client, 'SAME_ETF_BASKET', {
+      holdingPairs: etf.candidates.map((candidate) => ({
+        subjectEntityId: candidate.subjectEntityId,
+        objectEntityId: candidate.objectEntityId,
+      })),
+      sourceWasRead: dryRunEvaluatedEtfIds.length > 0,
+      scope: { metadataKey: 'etfEntityIds', evaluatedValues: dryRunEvaluatedEtfIds },
     });
     const topicCandidates = buildMacroTopicCandidates(
       (dryRunTopicReady ? topicMappings.rows : []).map((row) => ({
@@ -1840,7 +1874,7 @@ async function dryRun(client: Client): Promise<void> {
       JSON.stringify({
         mode: 'dry-run',
         holdings: inputs.holdings.length,
-        etfs: fakeEtfIds.size,
+        etfs: dryRunEtfIds.size,
         classifications: inputs.sectors.length,
         profiles: inputs.profiles.length,
         etfCandidates: etf.candidates.length,
@@ -1879,6 +1913,19 @@ async function dryRun(client: Client): Promise<void> {
           // graph. Shown before applying, like every other shrinking operation.
           wouldRetractEdges: topicRetractionPlan.wouldRetract,
           acceptedEdgesInspected: topicRetractionPlan.inspected,
+        },
+        etfBasket: {
+          evaluatedBaskets: dryRunEvaluatedEtfIds.length,
+          // Read but NOT evaluated: their pairs were suppressed, not found absent.
+          capSuppressedBaskets: etf.exclusions.length,
+          candidatePairs: etf.candidates.length,
+          wouldRetractEdges: etfRetractionPlan.wouldRetract,
+          // Missing from today's pairs but not provably measured — at least one
+          // contributing basket was uncollected or cap-suppressed. Reported next to
+          // wouldRetractEdges because the gap between them is the whole guard:
+          // subtraction alone would have retracted all of these too.
+          heldBackOutOfScope: etfRetractionPlan.outOfScope,
+          acceptedEdgesInspected: etfRetractionPlan.inspected,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -2104,6 +2151,22 @@ async function apply(client: Client): Promise<void> {
         sourceWasRead: topicReady,
       },
     );
+    // Same shape, scoped per basket. See the dry-run twin for why holdingPairs is
+    // every produced candidate and why the scope excludes cap-suppressed baskets.
+    const evaluatedEtfIds = etfBuilt.evaluatedHubEntityIds ?? [];
+    const etfRetraction = await retractEdgesNotIn(
+      client as unknown as PoolClient,
+      'SAME_ETF_BASKET',
+      'etf-basket-co-membership-absent',
+      {
+        holdingPairs: etfBuilt.candidates.map((candidate) => ({
+          subjectEntityId: candidate.subjectEntityId,
+          objectEntityId: candidate.objectEntityId,
+        })),
+        sourceWasRead: evaluatedEtfIds.length > 0,
+        scope: { metadataKey: 'etfEntityIds', evaluatedValues: evaluatedEtfIds },
+      },
+    );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
       // Rounded UP to the next millisecond, not read raw.
       //
@@ -2234,6 +2297,17 @@ async function apply(client: Client): Promise<void> {
           retractionsAlreadyStanding: productRetraction.replayed,
           acceptedEdgesInspected: productRetraction.inspected,
           scoredBelowThreshold: productPlan.measuredBelowThreshold.length,
+        },
+        etfBasket: {
+          evaluatedBaskets: evaluatedEtfIds.length,
+          capSuppressedBaskets: etfBuilt.exclusions.length,
+          candidatePairs: etfBuilt.candidates.length,
+          retractedEdges: etfRetraction.retracted,
+          retractionsAlreadyStanding: etfRetraction.replayed,
+          // The guard, as a number. Compare with the dry run's heldBackOutOfScope:
+          // these are the pairs a subtraction would have retracted without proof.
+          heldBackOutOfScope: etfRetraction.outOfScope,
+          acceptedEdgesInspected: etfRetraction.inspected,
         },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,
