@@ -490,6 +490,93 @@
   content: '';
 }
 
+.candlePreview {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.ohlcvReadout {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  grid-template-columns: 1.35fr repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.ohlcvReadout > div {
+  min-width: 0;
+  padding: 7px 9px;
+  border-right: 1px solid var(--color-border);
+}
+
+.ohlcvReadout > div:last-child {
+  border-right: 0;
+}
+
+.ohlcvReadout dt,
+.ohlcvReadout dd {
+  margin: 0;
+}
+
+.ohlcvReadout dt {
+  color: var(--color-text-tertiary);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+}
+
+.ohlcvReadout dd {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--color-text-primary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.candleCanvas {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.variantCard[data-variant='clean-candle'] .ohlcvReadout {
+  border-width: 0 0 1px;
+  background: transparent;
+}
+
+.variantCard[data-variant='clean-candle'] .ohlcvReadout > div {
+  border-right: 0;
+}
+
+.variantCard[data-variant='dual-pane'] .candleCanvas {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.variantCard[data-variant='market-ledger'] {
+  border-radius: 4px;
+}
+
+.variantCard[data-variant='market-ledger'] .chartViewport {
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    transparent calc(100% - 1px),
+    color-mix(in srgb, var(--color-border) 42%, transparent) calc(100% - 1px)
+  );
+  background-size: 16.666% 100%;
+}
+
+.variantCard[data-variant='market-ledger'] .ohlcvReadout,
+.variantCard[data-variant='market-ledger'] .candleCanvas {
+  border-radius: 0;
+}
+
 @media (max-width: 900px) {
   .evidencePreview,
   .variantCard[data-variant='band-ledger'] .evidencePreview,
@@ -568,6 +655,18 @@
 
   .evidenceChartColumn {
     min-height: 260px;
+  }
+
+  .ohlcvReadout {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ohlcvReadout > div:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .ohlcvReadout > div:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--color-border);
   }
 }
 
