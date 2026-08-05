@@ -253,6 +253,12 @@ function markerIcon(tone: PreviewEvidence['tone']): ReactNode {
   return '•';
 }
 
+function evidenceToneColor(tone: PreviewEvidence['tone']) {
+  if (tone === 'risk') return 'var(--color-risk)';
+  if (tone === 'positive') return 'var(--color-positive)';
+  return 'var(--color-copper)';
+}
+
 export function BklitEvidenceBandRenderer({
   bands,
   bars,
@@ -268,25 +274,31 @@ export function BklitEvidenceBandRenderer({
 }: BklitEvidenceBandRendererProps) {
   const visibleBars = useMemo(() => filterBars(bars, rangeSelection), [bars, rangeSelection]);
   const data = useMemo(() => toChartData(visibleBars), [visibleBars]);
-  const markerItems = useMemo<ChartMarker[]>(
-    () =>
-      evidence
-        .filter(({ date }) => visibleBars.some((bar) => bar.date.getTime() === date.getTime()))
-        .map((item) => ({
-          color:
-            item.id === selectedEvidenceId
-              ? 'var(--color-accent)'
-              : item.tone === 'risk'
-                ? 'var(--color-risk)'
-                : 'var(--color-copper)',
-          date: item.date,
-          description: `${item.sourceCount}개 근거`,
-          icon: markerIcon(item.tone),
-          title: item.title,
-          onClick: () => onSelectEvidence(item.id),
-        })),
-    [evidence, onSelectEvidence, selectedEvidenceId, visibleBars],
-  );
+  const markerGroups = useMemo<{ context: ChartMarker[]; selected: ChartMarker[] }>(() => {
+    const visibleEvidence = evidence.filter(({ date }) =>
+      visibleBars.some((bar) => bar.date.getTime() === date.getTime()),
+    );
+    const toMarker = (item: PreviewEvidence, selected: boolean): ChartMarker => ({
+      color: selected
+        ? 'var(--color-accent)'
+        : tone === 'band-ledger'
+          ? 'var(--color-text-tertiary)'
+          : evidenceToneColor(item.tone),
+      date: item.date,
+      description: `${item.sourceCount}개 근거`,
+      icon: markerIcon(item.tone),
+      title: item.title,
+      onClick: () => onSelectEvidence(item.id),
+    });
+    return {
+      context: visibleEvidence
+        .filter((item) => item.id !== selectedEvidenceId)
+        .map((item) => toMarker(item, false)),
+      selected: visibleEvidence
+        .filter((item) => item.id === selectedEvidenceId)
+        .map((item) => toMarker(item, true)),
+    };
+  }, [evidence, onSelectEvidence, selectedEvidenceId, tone, visibleBars]);
   const fullData = useMemo(() => toChartData(bars), [bars]);
 
   return (
@@ -317,6 +329,7 @@ export function BklitEvidenceBandRenderer({
           >
             <Grid
               numTicksRows={5}
+              strokeOpacity={tone === 'event-pulse' ? 0.34 : tone === 'band-ledger' ? 0.46 : 0.58}
               strokeDasharray={tone === 'evidence-split' ? '0' : '4,4'}
               vertical={tone === 'evidence-split'}
             />
@@ -324,12 +337,19 @@ export function BklitEvidenceBandRenderer({
               ? bands.map((band, index) => (
                   <ReferenceArea
                     axisLabelColor={index === 0 ? 'var(--color-copper)' : 'var(--color-risk)'}
-                    fillOpacity={tone === 'band-ledger' ? 0.88 : 0.56}
+                    fadeEdges={tone !== 'evidence-split'}
+                    fadeEdgesLength={tone === 'band-ledger' ? 4 : 8}
+                    fill={index === 0 ? 'var(--color-copper)' : 'var(--color-risk)'}
+                    fillOpacity={
+                      tone === 'band-ledger' ? 0.1 : tone === 'event-pulse' ? 0.045 : 0.065
+                    }
                     key={band.id}
-                    pattern={index === 0 ? 'diagonal' : 'dots'}
-                    patternColor={index === 0 ? 'var(--color-copper)' : 'var(--color-risk)'}
+                    markerColor={index === 0 ? 'var(--color-copper)' : 'var(--color-risk)'}
+                    pattern="none"
+                    showMarkers={tone === 'band-ledger'}
                     stroke={index === 0 ? 'var(--color-copper)' : 'var(--color-risk)'}
-                    strokeStyle="dashed"
+                    strokeStyle="solid"
+                    strokeWidth={tone === 'band-ledger' ? 1.25 : 0.75}
                     x1={band.start}
                     x2={band.end}
                     y1={band.low}
@@ -341,22 +361,28 @@ export function BklitEvidenceBandRenderer({
               animate={!reducedMotion}
               dataKey="close"
               fill="var(--chart-line-primary)"
-              fillOpacity={tone === 'band-ledger' ? 0.08 : 0.14}
+              fillOpacity={tone === 'band-ledger' ? 0.035 : tone === 'event-pulse' ? 0.02 : 0.04}
               stroke="var(--chart-line-primary)"
-              strokeWidth={tone === 'event-pulse' ? 1.6 : 2}
+              strokeWidth={tone === 'event-pulse' ? 2.15 : 2.35}
             />
             <Line
               animate={!reducedMotion}
               dataKey="close"
               showMarkers={false}
               stroke="var(--chart-line-primary)"
-              strokeWidth={tone === 'event-pulse' ? 1.6 : 2}
+              strokeWidth={tone === 'event-pulse' ? 2.15 : 2.35}
             />
             <ChartMarkers
               animate={!reducedMotion && tone === 'event-pulse'}
-              items={markerItems}
+              items={markerGroups.context}
+              showLines={tone === 'event-pulse'}
+              size={tone === 'band-ledger' ? 16 : tone === 'event-pulse' ? 22 : 18}
+            />
+            <ChartMarkers
+              animate={false}
+              items={markerGroups.selected}
               showLines={tone !== 'band-ledger'}
-              size={tone === 'event-pulse' ? 27 : 23}
+              size={tone === 'band-ledger' ? 20 : tone === 'event-pulse' ? 26 : 23}
             />
             <XAxis numTicks={5} />
             <YAxis formatValue={(value) => formatPrice(currency, value)} orientation="right" />
