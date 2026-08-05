@@ -7,7 +7,7 @@
 
 - 프로그램 상태: 실행 중
 - 현재 활성 묶음: `6A Charts End-to-End`
-- 다음 묶음: `6A Evidence Band A/B/C 개선 목업 구현·시각 승인`
+- 다음 묶음: `6A Evidence Band A/B/C 개선 목업 시각 승인`
 - 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -41,7 +41,7 @@
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
 | 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
-| 6A   | Charts End-to-End                   | 목업      | Evidence Band A/B/C 개선·시각 승인    |
+| 6A   | Charts End-to-End                   | 목업      | Evidence Band A/B/C 개선 시각 승인    |
 
 ## 완료 기록
 
@@ -419,6 +419,17 @@
 - Evidence Band A는 조건 구간 중심 Range Ledger, B는 사건 시점 중심 Event Pulse, C는 차트·근거 원장을 연결하는 Linked Evidence로 역할을 명확히 나누는 개선 방향을 사용자 승인함
 - 기존 Bklit 경계를 유지하고 새 차트·애니메이션 의존성은 추가하지 않으며, 개선 목업의 사용자 시각 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
 - 다음 행동은 승인된 Evidence Band 개선 설계에 따라 A/B/C 목업을 수정하고 6110 UI Lab에서 시각 비교하는 것임
+
+### 2026-08-05 — 6A Evidence Band 개선 목업 구현·검증
+
+- A는 낮은 opacity의 solid 조건 구간과 세 행 compact ledger를 결합한 Range Ledger, B는 사건 marker·vertical guide와 근거 카드를 우선한 Event Pulse, C는 선택 요약·rail과 차트·원장을 연결한 Linked Evidence로 의미 계층을 분리함
+- 분리된 dashed label chip 행과 넓은 pattern fill을 제거하고 plot 내부 compact legend, solid ReferenceArea, 가격선 우선순위와 선택 marker 계층을 적용함
+- 900px 이하에서는 A/B 520px, 선택 요약이 있는 C 600px 고정 viewport로 적층해 세 근거 행이 모두 보이도록 했고, 390px에서 각 행 44px 이상과 catalog 가로 overflow 0을 유지함
+- Vite SSR이 `@visx/*` alpha 패키지를 Node에 직접 넘겨 확장자 없는 ESM import에서 실패하던 6110 개발 서버 문제를 `ssr.noExternal` 범위 번들링으로 보정함
+- 자동 검증은 Evidence Band source contract·chart model Node 4건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 3건에서 역할 copy·선택 동기화·band 제거·마지막 행 containment·390px·감소 모션·Axe를 통과함
+- Codex 인앱 브라우저 6110에서 A의 세 ledger 행과 brush, B의 세 사건 카드와 marker guide, C의 선택 요약·rail, 1280px 65/35 split, 390px 단일 열과 `scrollWidth === clientWidth`를 직접 확인함
+- 구현 커밋: `99bf6d2`, `8ed2eee`, `9f3b1f2`, `3daa47e`, `a69db95`
+- 다음 행동은 개선된 Evidence Band A/B/C의 사용자 시각 승인이며, 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
 
 ## 실행 환경 메모
 
