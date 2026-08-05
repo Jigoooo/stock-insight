@@ -33,6 +33,34 @@ export type RelationBuilderPolicy = {
 
 export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
   {
+    // A macro topic and the FRED series that indicates it: `topic:energy`
+    // MEASURED_BY `fred:DCOILWTICO`. Hierarchy, not association — the series is
+    // an instrument OF the topic, and the pair is a curated definition rather
+    // than a measurement, so it carries no model config and no confidence
+    // derived from data.
+    //
+    // Why the topic node exists at all: knowledge.event.target_entity_id is a
+    // SINGLE value, so an event about rates cannot attach to DGS10, DGS2,
+    // FEDFUNDS and WALCL at once, and run-event-text-attribution refuses to pick
+    // one ("Ambiguity is not resolved by picking one"). Attaching to the topic
+    // removes the ambiguity — a topic is always one — and, unlike attaching to a
+    // series, it does not get worse as coverage grows.
+    //
+    // No degree cap. Measured 2026-08-05 on the live snapshot: the widest topic
+    // reaches 10 stocks in two hops (energy 10, rates 10, fx 2, growth 1)
+    // against MAX_PATHS_PER_EVENT of 20, so a topic cannot crowd the per-event
+    // path budget. A cap here would be a number with nothing behind it.
+    predicate: 'MEASURED_BY',
+    relationClass: 'hierarchy',
+    minSourceRevisions: 1,
+    requiresModelConfig: false,
+    superhubDegreeCap: null,
+    promotionEligible: true,
+    // The mapping table is the whole world for this predicate: a topic with no
+    // row has no series, full stop. That is closed_world, not "undisclosed".
+    absenceSemantics: 'closed_world',
+  },
+  {
     predicate: 'CLASSIFIED_AS',
     relationClass: 'hierarchy',
     minSourceRevisions: 1,

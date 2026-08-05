@@ -65,6 +65,7 @@ import { feedLabelEventTargetsMigrationSql } from './migrations/064_feed_label_e
 import { macroSeriesEntitiesMigrationSql } from './migrations/065_macro_series_entities.ts';
 import { macroComovementOntologyMigrationSql } from './migrations/066_macro_comovement_ontology.ts';
 import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_energy.ts';
+import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_entities.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -802,6 +803,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroSeriesEnergyMigrationSql,
   },
+  {
+    id: '068_macro_topic_entities',
+    description:
+      "Creates a Metric entity per macro topic ('topic:rates' and friends) and approves MEASURED_BY, the curated topic-to-series predicate, plus its own ingestion source. knowledge.event.target_entity_id is a single value, so an event about rates cannot attach to DGS10, DGS2, FEDFUNDS and WALCL at once and run-event-text-attribution refuses to guess; under the strict rule only single-series topics were attributable (fx 3 events, energy 12) while rates 18 stayed unreachable, and adding series made attribution HARDER rather than easier. A topic is always one thing, so attaching the event there removes the ambiguity and survives coverage growth, at the cost of one extra hop — event to topic to series to stock is exactly MAX_HOPS. Measured 2026-08-05: the widest topic reaches 10 stocks in two hops against a 20-path budget, so no degree cap is warranted.",
+    tables: [],
+    sql: macroTopicEntitiesMigrationSql,
+  },
 ];
 
 export {
@@ -871,5 +879,6 @@ export {
   macroSeriesEntitiesMigrationSql,
   macroComovementOntologyMigrationSql,
   macroSeriesEnergyMigrationSql,
+  macroTopicEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
