@@ -226,7 +226,11 @@ const MACRO_TOPIC_MAPPING_SQL = `
 SELECT mapping.topic,
        mapping.series_key,
        topic_entity.entity_id AS topic_entity_id,
-       series_entity.entity_id AS series_entity_id
+       series_entity.entity_id AS series_entity_id,
+       -- valid_from for the edge. A curated mapping holds from when the mapping was
+       -- created, not from whenever we last read it, and using the read time made
+       -- every publish append a fresh revision for an unchanged fact.
+       mapping.created_at AS mapping_created_at
 FROM analytics.macro_series_topic mapping
 JOIN core.entity topic_entity
   ON topic_entity.entity_type='Metric'
@@ -845,6 +849,8 @@ type MacroTopicMappingRow = {
   seriesKey: string;
   topicEntityId: number;
   seriesEntityId: number;
+  /** When the curated mapping row was created — the edge's valid_from. */
+  mappingCreatedAt: string;
 };
 
 async function loadMacroTopicMappings(
@@ -860,6 +866,7 @@ async function loadMacroTopicMappings(
       series_key: string;
       topic_entity_id: string | number;
       series_entity_id: string | number;
+      mapping_created_at: Date | string;
     }
   >(MACRO_TOPIC_MAPPING_SQL, []);
   return {
@@ -869,6 +876,7 @@ async function loadMacroTopicMappings(
       seriesKey: row.series_key,
       topicEntityId: numeric(row.topic_entity_id, 'topicEntityId'),
       seriesEntityId: numeric(row.series_entity_id, 'seriesEntityId'),
+      mappingCreatedAt: toIso(row.mapping_created_at),
     })),
   };
 }
@@ -945,10 +953,20 @@ async function materializeMacroTopicSource(
     topic: row.topic,
     seriesKey: row.seriesKey,
     sourceRevisionId: registered.sourceRevisionId,
+    // available_at moves every run and should: it is when WE could see the
+    // mapping, and we re-read it each publish.
     availableAt: registered.sourceAvailableAt,
-    // The mapping's validity starts when the snapshot became available, not at
-    // an observation date: there is no observation behind it to date it from.
-    validFrom: registered.sourceAvailableAt,
+    // valid_from must NOT move. It is when the fact holds, and a curated mapping
+    // holds from when it was curated. Reading the snapshot again does not make
+    // `topic:energy MEASURED_BY fred:DCOILWTICO` newly true.
+    //
+    // This carried registered.sourceAvailableAt until 2026-08-06, which advanced
+    // with the run clock. appendRelationRevision requires valid_from to match to
+    // call a write a replay, so every publish appended 14 fresh revisions with an
+    // IDENTICAL payload hash — 84 revisions for 14 unchanging edges across six
+    // runs. The retraction hash was deliberately made stable for exactly this
+    // reason on the same day and the reasoning was not carried over to here.
+    validFrom: row.mappingCreatedAt,
   }));
   return { observations, manifests, replayedRawObjects };
 }
@@ -1787,7 +1805,10 @@ async function dryRun(client: Client): Promise<void> {
         seriesKey: row.seriesKey,
         sourceRevisionId: 1,
         availableAt: cutoff,
-        validFrom: cutoff,
+        // Real, like the ETF ids above and unlike sourceRevisionId. The dry run
+        // exists to predict the apply, and a valid_from that only the dry run uses
+        // predicts nothing about whether the write replays or appends.
+        validFrom: row.mappingCreatedAt,
       })),
       { asOf: cutoff },
     ).candidates;
