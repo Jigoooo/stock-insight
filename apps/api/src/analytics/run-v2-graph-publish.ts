@@ -426,6 +426,8 @@ async function loadInputs(client: Client): Promise<{
   holdings: EtfHoldingRow[];
   sectors: SectorRow[];
   profiles: CompanyProfileRow[];
+  /** Basket members core identity resolution has deferred; reported, never silent. */
+  deferredMemberKeys: string[];
 }> {
   const holdings = await client.query<EtfHoldingRow>(LATEST_ETF_HOLDINGS_SQL);
   const sectors = await client.query<SectorRow>(SECTOR_ROWS_SQL);
@@ -433,16 +435,47 @@ async function loadInputs(client: Client): Promise<{
   if (holdings.rows.length === 0) throw new Error('latest ETF holdings are empty');
   if (sectors.rows.length === 0) throw new Error('SIC/KSIC classifications are empty');
   if (profiles.rows.length === 0) throw new Error('company profile summaries are empty');
-  const missingMember = holdings.rows.find((row) => row.member_entity_id === null);
-  if (missingMember)
-    throw new Error(`ETF member lacks canonical core entity: ${missingMember.member_entity_key}`);
+  // A basket member without a canonical entity is one core identity resolution
+  // has DEFERRED, not one that is broken.
+  //
+  // run-core-identity-sync classifies an identity as `deferred` when it cannot
+  // anchor it yet — "wait for the upstream backfill rather than minting an
+  // identity we cannot anchor". Measured 2026-08-05: 13 of 338 eligible
+  // identities were deferred for "untrusted or missing company name", and two of
+  // them (US:CAT, KR:139130) had just entered ETF baskets. Throwing here turned
+  // that designed wait into a pipeline outage — one new ETF constituent stopped
+  // the whole daily graph publish.
+  //
+  // Dropping them silently would be worse than throwing, so they are counted and
+  // reported. Nothing real is lost: a member with no canonical entity has no
+  // price series either, so it could never have carried an edge.
+  const deferredMembers = holdings.rows.filter((row) => row.member_entity_id === null);
+  const resolvedHoldings = holdings.rows.filter((row) => row.member_entity_id !== null);
+  const deferredMemberKeys = [
+    ...new Set(deferredMembers.map((row) => row.member_entity_key)),
+  ].sort();
+  // Fail-closed backstop: a handful of deferrals is normal operation, a flood is
+  // identity resolution itself breaking, and that must still stop the run.
+  const deferredShare =
+    holdings.rows.length === 0 ? 0 : deferredMembers.length / holdings.rows.length;
+  if (deferredShare > 0.05) {
+    throw new Error(
+      `ETF members lacking canonical core entities exceed the tolerated share: ` +
+        `${deferredMembers.length}/${holdings.rows.length} (${deferredMemberKeys.slice(0, 5).join(', ')})`,
+    );
+  }
   const missingSector = sectors.rows.find((row) => row.subject_entity_id === null);
   if (missingSector)
     throw new Error(`classified stock lacks canonical core entity: ${missingSector.entity_key}`);
   const missingProfile = profiles.rows.find((row) => row.entity_id === null);
   if (missingProfile)
     throw new Error(`company profile lacks canonical core entity: ${missingProfile.entity_key}`);
-  return { holdings: holdings.rows, sectors: sectors.rows, profiles: profiles.rows };
+  return {
+    holdings: resolvedHoldings,
+    sectors: sectors.rows,
+    profiles: profiles.rows,
+    deferredMemberKeys,
+  };
 }
 
 /**
@@ -1563,6 +1596,7 @@ async function dryRun(client: Client): Promise<void> {
         classifications: inputs.sectors.length,
         profiles: inputs.profiles.length,
         etfCandidates: etf.candidates.length,
+        deferredEtfMembers: inputs.deferredMemberKeys,
         sectorCandidates: sectors.length,
         productCandidates: products.candidates.length,
         macroComovement: {
@@ -1784,6 +1818,7 @@ async function apply(client: Client): Promise<void> {
         projectedRoots: projections.length,
         contentPacks: published.packIds.length,
         contentPackItems: published.itemCount,
+        deferredEtfMembers: inputs.deferredMemberKeys,
         sectorCandidates: sectorBuilt.length,
         etfCandidates: etfBuilt.candidates.length,
         productCandidates: productBuilt.candidates.length,
