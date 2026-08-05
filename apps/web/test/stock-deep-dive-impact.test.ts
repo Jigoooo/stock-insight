@@ -64,10 +64,67 @@ const path = (overrides: Record<string, unknown> = {}) => ({
   hopCount: 2,
   pathScore: 0.71,
   note: 'industrial linkage strength; never a price prediction',
+  // Defaults to a pack sealed before steps existed. Those keep serving until the
+  // next pipeline run, so the reason-free form has to stay readable.
+  steps: null,
   ...overrides,
 });
 
 describe('second-order exposure from sealed impact paths', () => {
+  it('says WHY the path reaches here, not only how far', () => {
+    // "관계 2단계" told the distance and nothing else. Every step already carried
+    // a graph_snapshot_edge FK, so the reason existed and simply never reached
+    // the screen — which is why the whole 2026-08-05 graph rewrite (macro
+    // co-movement, topic entities, retraction) changed scores and not one word
+    // the user reads.
+    const result = buildStockDeepDive(
+      stockDetail,
+      relation,
+      brief([
+        path({
+          sourceName: 'topic:energy',
+          hopCount: 2,
+          steps: [
+            { relation: 'indicated_by', toName: 'fred:DCOILWTICO', toEntityKey: null },
+            { relation: 'moves_with', toName: 'Exxon Mobil Corp', toEntityKey: 'US:XOM' },
+          ],
+        }),
+      ]),
+    );
+    const first = result.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!;
+
+    assert.match(first, /지표 → 함께 움직임/);
+    // The waypoint is the part a hop count cannot express.
+    assert.match(first, /fred:DCOILWTICO 경유/);
+    // The last hop lands on the holding being viewed; repeating it would just
+    // echo the page back at the reader.
+    assert.doesNotMatch(first, /Exxon Mobil Corp 경유/);
+    assert.doesNotMatch(first, /관계 2단계/);
+  });
+
+  it('never turns co-movement into a causal claim on screen', () => {
+    const result = buildStockDeepDive(
+      stockDetail,
+      relation,
+      brief([
+        path({
+          hopCount: 1,
+          steps: [{ relation: 'moves_with', toName: 'Exxon Mobil Corp', toEntityKey: 'US:XOM' }],
+        }),
+      ]),
+    );
+    const first = result.sections.find((item) => item.id === 'secondary_exposure')!.items[0]!;
+
+    assert.match(first, /함께 움직임/);
+    for (const causal of ['영향', '때문', '유발', '이끌']) {
+      assert.doesNotMatch(
+        first,
+        new RegExp(causal),
+        `'${causal}' claims a direction the measurement does not contain`,
+      );
+    }
+  });
+
   it('stays missing when no impact brief is supplied', () => {
     const result = buildStockDeepDive(stockDetail, relation);
     const section = result.sections.find((item) => item.id === 'secondary_exposure');

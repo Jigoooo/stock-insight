@@ -1,4 +1,9 @@
-import type { ImpactBriefResponse, StockDetailResponse } from '@stock-insight/contracts';
+import type {
+  ImpactBriefPath,
+  ImpactBriefResponse,
+  ImpactBriefStep,
+  StockDetailResponse,
+} from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export const DEEP_DIVE_SECTION_IDS = [
@@ -196,6 +201,45 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
  */
 const IMPACT_ITEM_LIMIT = 12;
 
+/**
+ * What each hop was, in the user's words.
+ *
+ * `moves_with` is "함께 움직임", never "영향" — MACRO_COMOVEMENT measures that a
+ * stock and a macro series moved together over a stated window and nothing about
+ * one driving the other. A label that says more than the measurement is the one
+ * mistake this whole predicate was named to avoid.
+ */
+const RELATION_LABELS: Readonly<Record<ImpactBriefStep['relation'], string>> = {
+  same_basket: '같은 ETF',
+  similar_products: '제품 유사',
+  same_classification: '같은 업종',
+  moves_with: '함께 움직임',
+  indicated_by: '지표',
+  issued_by: '발행',
+};
+
+/**
+ * "관계 2단계" said how far but never why. The steps carry the reason, so when a
+ * pack has them the chain replaces the count.
+ *
+ * Packs sealed before steps existed carry none, and they keep serving until the
+ * next pipeline run, so the hop-count form has to stay rather than leaving a
+ * blank where a reason should be.
+ */
+function describeReach(path: ImpactBriefPath): string {
+  const steps = path.steps;
+  if (steps === null || steps.length === 0) return `관계 ${path.hopCount}단계`;
+  const chain = steps.map((step) => RELATION_LABELS[step.relation]).join(' → ');
+  // The last hop lands on the holding being viewed, so naming it repeats the
+  // page. Everything before it is where the path actually went, and that is the
+  // part a hop count cannot express.
+  const waypoints = steps
+    .slice(0, -1)
+    .map((step) => step.toName)
+    .filter((name): name is string => name !== null);
+  return waypoints.length > 0 ? `${chain} · ${waypoints.join(' → ')} 경유` : chain;
+}
+
 function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
   if (!brief || brief.data === null) return [];
   const ranked = brief.data.paths.slice().sort((left, right) => right.pathScore - left.pathScore);
@@ -210,7 +254,7 @@ function impactExposureItems(brief: ImpactBriefResponse | null): string[] {
     // existed keep serving until the next pipeline run, so the unnamed form has
     // to stay readable rather than showing an empty slot.
     const where = path.sourceName ?? `${path.hopCount}단계 떨어진 기업`;
-    const reach = `관계 ${path.hopCount}단계`;
+    const reach = describeReach(path);
     return `${where} · ${label} · ${reach} · 연결 강도 ${path.pathScore.toFixed(2)}`;
   });
   const hidden = ranked.length - shown.length;
