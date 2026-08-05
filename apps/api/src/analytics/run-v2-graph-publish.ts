@@ -21,6 +21,10 @@ import {
   type MacroComovementObservation,
 } from '../relations/builders/macro-comovement.ts';
 import {
+  buildMacroTopicCandidates,
+  type MacroTopicObservation,
+} from '../relations/builders/macro-topic.ts';
+import {
   buildOfficialSectorCandidates,
   type OfficialSectorObservation,
 } from '../relations/builders/official-sector.ts';
@@ -96,6 +100,13 @@ const ETF_PROVIDER = 'internal-etf-holdings-snapshot';
 const SECTOR_PROVIDER = 'internal-industry-classification-snapshot';
 const PROFILE_PROVIDER = 'internal-company-profile-snapshot';
 const MACRO_SERIES_PROVIDER = 'internal-macro-series-window-snapshot';
+// Created by migration 068 rather than by ensureSource, because its contract
+// declares `curated_not_observed` — this mapping is an editorial judgement, and
+// the shared ensureSource writes `internal_derived` / `transitional_source`,
+// which would describe it as derived from data. If 068 has not been applied the
+// MEASURED_BY ontology is also absent, so the whole step skips and the missing
+// source is never reached.
+const MACRO_TOPIC_PROVIDER = 'internal-macro-topic-mapping-snapshot';
 const STOCK_PRICE_PROVIDER = 'internal-stock-price-window-snapshot';
 
 type EtfHoldingRow = QueryResultRow & {
@@ -201,6 +212,28 @@ const STOCK_PRICE_SOURCE: SourceDefinition = {
   sourceTable: 'market_ts.ohlcv',
   requiredFields: ['symbol', 'exchange', 'domain', 'timeframe', 'ts', 'close'],
 };
+
+// The curated topic-to-series mapping, resolved to the entity ids on both ends.
+// An INNER JOIN on both sides on purpose: a mapping row whose topic or series
+// has no core.entity cannot become an edge, and inventing one here would create
+// a node the rest of the system has never heard of. Rows that drop out are
+// counted in the run summary rather than silently ignored.
+const MACRO_TOPIC_MAPPING_SQL = `
+SELECT mapping.topic,
+       mapping.series_key,
+       topic_entity.entity_id AS topic_entity_id,
+       series_entity.entity_id AS series_entity_id
+FROM analytics.macro_series_topic mapping
+JOIN core.entity topic_entity
+  ON topic_entity.entity_type='Metric'
+ AND topic_entity.canonical_name='topic:'||mapping.topic
+JOIN core.entity series_entity
+  ON series_entity.entity_type='Metric'
+ AND series_entity.canonical_name=mapping.series_key
+ORDER BY mapping.topic, mapping.series_key
+`;
+
+const MACRO_TOPIC_MAPPING_TOTAL_SQL = `SELECT count(*)::int AS total FROM analytics.macro_series_topic`;
 
 const LATEST_ETF_HOLDINGS_SQL = `
 WITH latest_date AS (
@@ -769,6 +802,119 @@ async function materializeMacroComovementSources(
     };
   });
 
+  return { observations, manifests, replayedRawObjects };
+}
+
+type MacroTopicMappingRow = {
+  topic: string;
+  seriesKey: string;
+  topicEntityId: number;
+  seriesEntityId: number;
+};
+
+async function loadMacroTopicMappings(
+  client: Client,
+): Promise<{ rows: MacroTopicMappingRow[]; mappingRowsTotal: number }> {
+  const total = await client.query<QueryResultRow & { total: number }>(
+    MACRO_TOPIC_MAPPING_TOTAL_SQL,
+    [],
+  );
+  const result = await client.query<
+    QueryResultRow & {
+      topic: string;
+      series_key: string;
+      topic_entity_id: string | number;
+      series_entity_id: string | number;
+    }
+  >(MACRO_TOPIC_MAPPING_SQL, []);
+  return {
+    mappingRowsTotal: Number(total.rows[0]?.total ?? 0),
+    rows: result.rows.map((row) => ({
+      topic: row.topic,
+      seriesKey: row.series_key,
+      topicEntityId: numeric(row.topic_entity_id, 'topicEntityId'),
+      seriesEntityId: numeric(row.series_entity_id, 'seriesEntityId'),
+    })),
+  };
+}
+
+/**
+ * Registers the mapping AS ONE snapshot, not one revision per pair.
+ *
+ * The mapping is a single curated document — a pair does not have provenance
+ * separate from the table it lives in, and minting a revision per row would
+ * claim each was observed on its own. Every candidate therefore cites the same
+ * revision, which is exactly what backs it.
+ */
+async function materializeMacroTopicSource(
+  client: Client,
+  mappings: readonly MacroTopicMappingRow[],
+  naturalRunKey: string,
+  token: number,
+  capturedAt: string,
+): Promise<{
+  observations: MacroTopicObservation[];
+  manifests: ManifestEntry[];
+  replayedRawObjects: number;
+}> {
+  if (mappings.length === 0) {
+    return { observations: [], manifests: [], replayedRawObjects: 0 };
+  }
+  const capturedDate = new Date(capturedAt);
+  const manifests: ManifestEntry[] = [];
+  const run = await openFetchRun(client, MACRO_TOPIC_PROVIDER, naturalRunKey, token, capturedAt);
+  const payload = JSON.stringify({
+    schemaVersion: 1,
+    provider: MACRO_TOPIC_PROVIDER,
+    sourceTable: 'analytics.macro_series_topic',
+    asOf: capturedAt,
+    mappings: mappings.map((row) => ({
+      topic: row.topic,
+      seriesKey: row.seriesKey,
+      topicEntityId: row.topicEntityId,
+      seriesEntityId: row.seriesEntityId,
+    })),
+  });
+  const raw = await writeRawObject({
+    providerKey: MACRO_TOPIC_PROVIDER,
+    content: payload,
+    extension: 'json',
+    fetchedAt: capturedDate,
+  });
+  const registered = await registerRawObjectWithRevision(client as unknown as PoolClient, {
+    fetchRunId: run.fetchRunId,
+    sourceId: run.sourceId,
+    providerRecordKey: 'macro-topic-mapping',
+    contentHash: raw.contentHash,
+    objectUri: raw.objectUri,
+    httpMeta: {
+      bytes: raw.bytes,
+      kind: 'macro_topic_mapping',
+      source_table: 'analytics.macro_series_topic',
+    },
+    fetchedAt: capturedAt,
+  });
+  let replayedRawObjects = 0;
+  if (registered.rawInserted) {
+    manifests.push({ providerKey: MACRO_TOPIC_PROVIDER, ref: raw, fetchedAt: capturedDate });
+  } else {
+    replayedRawObjects += 1;
+  }
+  await closeFetchRun(client, run.fetchRunId, capturedAt, mappings.length, 1, 0, {
+    mappingsRegistered: mappings.length,
+  });
+
+  const observations: MacroTopicObservation[] = mappings.map((row) => ({
+    topicEntityId: row.topicEntityId,
+    seriesEntityId: row.seriesEntityId,
+    topic: row.topic,
+    seriesKey: row.seriesKey,
+    sourceRevisionId: registered.sourceRevisionId,
+    availableAt: registered.sourceAvailableAt,
+    // The mapping's validity starts when the snapshot became available, not at
+    // an observation date: there is no observation behind it to date it from.
+    validFrom: registered.sourceAvailableAt,
+  }));
   return { observations, manifests, replayedRawObjects };
 }
 
@@ -1540,6 +1686,29 @@ async function dryRun(client: Client): Promise<void> {
       client,
       macroPlan.measuredBelowThreshold,
     );
+    // The topic mapping needs no materialization to be counted: the candidates
+    // depend only on the mapping rows, and the source revision id is the same
+    // for all of them. A placeholder id keeps the builder's shape without
+    // registering anything.
+    const dryRunTopicReady = dryRunOntologyIds['MEASURED_BY'] !== undefined;
+    // Loaded and joined either way, so every number below is literally what the
+    // database says. Short-circuiting on the pending ontology would report
+    // "0 mapping rows", which reads as "there are no mappings" — a different and
+    // wrong fact, and the same confusion the macro `skipped` field exists to
+    // prevent.
+    const topicMappings = await loadMacroTopicMappings(client);
+    const topicCandidates = buildMacroTopicCandidates(
+      (dryRunTopicReady ? topicMappings.rows : []).map((row) => ({
+        topicEntityId: row.topicEntityId,
+        seriesEntityId: row.seriesEntityId,
+        topic: row.topic,
+        seriesKey: row.seriesKey,
+        sourceRevisionId: 1,
+        availableAt: cutoff,
+        validFrom: cutoff,
+      })),
+      { asOf: cutoff },
+    ).candidates;
     const macro = buildMacroComovementCandidates(
       macroPlan.pairs.map((pair) => ({
         seriesEntityId: pair.seriesEntityId,
@@ -1649,6 +1818,13 @@ async function dryRun(client: Client): Promise<void> {
           // graph, so seeing the number before applying matters most.
           wouldRetractEdges: macroRetractionPlan.planned.length,
           acceptedEdgesInspected: macroRetractionPlan.inspected,
+        },
+        macroTopic: {
+          ontologyApproved: dryRunTopicReady,
+          mappingRowsTotal: topicMappings.mappingRowsTotal,
+          mappingRowsWithoutEntities: topicMappings.mappingRowsTotal - topicMappings.rows.length,
+          candidates: topicCandidates.length,
+          accepted: topicCandidates.filter((row) => row.targetRevisionStatus === 'accepted').length,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -1767,6 +1943,26 @@ async function apply(client: Client): Promise<void> {
     const macroBuilt = buildMacroComovementCandidates(macroMaterialized.observations, {
       asOf: capturedAt,
     });
+    // Same skip contract as MACRO_COMOVEMENT: persistRelationCandidates THROWS
+    // when a predicate has no approved ontology, and this whole function is one
+    // transaction, so publishing before migration 068 is applied would roll back
+    // the entire day rather than just this predicate.
+    const topicOntologyRevisionId = ontologyIds['MEASURED_BY'] ?? 0;
+    const topicReady = Number.isSafeInteger(topicOntologyRevisionId) && topicOntologyRevisionId > 0;
+    // Loaded and joined either way so the summary is literal; only the WRITE is
+    // withheld when the ontology is pending.
+    const topicMappings = await loadMacroTopicMappings(client);
+    const topicMaterialized = await materializeMacroTopicSource(
+      client,
+      topicReady ? topicMappings.rows : [],
+      naturalRunKey,
+      token,
+      capturedAt,
+    );
+    manifests.push(...topicMaterialized.manifests);
+    const topicBuilt = buildMacroTopicCandidates(topicMaterialized.observations, {
+      asOf: capturedAt,
+    });
     const sectorPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
       sectorBuilt,
@@ -1795,6 +1991,13 @@ async function apply(client: Client): Promise<void> {
         predicateOntologyRevisionIds: ontologyIds,
         confidence: (candidate) => Math.abs(Number(candidate.metadata['correlation'])),
       },
+    );
+    // Confidence 1: the mapping is a curated definition, so there is no measured
+    // strength to scale by. Same treatment as CLASSIFIED_AS, for the same reason.
+    const topicPersisted = await persistRelationCandidates(
+      client as unknown as PoolClient,
+      topicBuilt.candidates,
+      { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
     );
     // Retract before the snapshot is planned, so the snapshot reflects this
     // run's verdicts rather than the union of every run that ever accepted a
@@ -1893,11 +2096,28 @@ async function apply(client: Client): Promise<void> {
           retractionsAlreadyStanding: macroRetraction.replayed,
           acceptedEdgesInspected: macroRetraction.inspected,
         },
+        macroTopic: {
+          ontologyApproved: topicReady,
+          mappingRowsTotal: topicMappings.mappingRowsTotal,
+          // Mapping rows whose topic or series has no core.entity. Counted, not
+          // dropped in silence — a mapping that cannot reach the graph is a gap
+          // in 065/067/068, not a non-event.
+          mappingRowsWithoutEntities: topicMappings.mappingRowsTotal - topicMappings.rows.length,
+          candidates: topicBuilt.candidates.length,
+          accepted: topicBuilt.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          quarantined: topicBuilt.candidates.filter(
+            (row) => row.targetRevisionStatus === 'quarantined_unverified',
+          ).length,
+          inserted: topicPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
+          replayed: topicPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,
           ...etfPersisted.persisted,
           ...productPersisted.persisted,
           ...macroPersisted.persisted,
+          ...topicPersisted.persisted,
         ].filter((row) => row.outcome === 'inserted').length,
         replayedRelationRevisions: [
           ...sectorPersisted.persisted,

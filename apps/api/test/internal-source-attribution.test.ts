@@ -65,9 +65,10 @@ describe('internal snapshot provenance attribution', () => {
 
     const providers = [...source.matchAll(/'(internal-[a-z-]+)'/g)].map((match) => match[1]);
     const distinct = new Set(providers);
-    // Five kinds of snapshot, five sources. If a constant is ever dropped or
-    // reused, two kinds start sharing provenance again — the shape of the bug
-    // this file exists for.
+    // One source per kind of snapshot. If a constant is ever dropped or reused,
+    // two kinds start sharing provenance again — the shape of the bug this file
+    // exists for. Adding a kind is fine and must be stated here, so a new
+    // snapshot cannot quietly borrow an existing source.
     assert.deepEqual(
       [...distinct].sort(),
       [
@@ -75,6 +76,10 @@ describe('internal snapshot provenance attribution', () => {
         'internal-etf-holdings-snapshot',
         'internal-industry-classification-snapshot',
         'internal-macro-series-window-snapshot',
+        // Added 2026-08-05 with MEASURED_BY. Its contract is written by
+        // migration 068 rather than ensureSource, because the mapping is a
+        // curated judgement and ensureSource would file it as internal_derived.
+        'internal-macro-topic-mapping-snapshot',
         'internal-stock-price-window-snapshot',
       ],
       'each internal snapshot kind needs its own source',
