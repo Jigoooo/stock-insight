@@ -51,4 +51,26 @@ describe('chart upstream contract', () => {
     );
     assert.equal(offenders.length, 0);
   });
+
+  it('limits direct renderer imports to non-public chart adapters', async () => {
+    const internalRoot = new URL('../src/shared/ui/chart/internal/', import.meta.url);
+    const files = await readdir(internalRoot, { withFileTypes: true });
+    assert.deepEqual(
+      files
+        .filter(({ name }) => /-preview\.tsx$/.test(name))
+        .map(({ name }) => name)
+        .sort(),
+      ['bklit-preview.tsx'],
+    );
+    const sources = await sourceFiles(internalRoot);
+    assert.equal(sources.filter((source) => /vendor\/bklit/.test(source)).length, 1);
+    assert.equal(
+      sources.filter((source) => /from ['"]lightweight-charts['"]/.test(source)).length,
+      0,
+    );
+    assert.equal(
+      sources.filter((source) => /import\(['"]lightweight-charts['"]\)/.test(source)).length,
+      0,
+    );
+  });
 });
