@@ -30,7 +30,11 @@ try {
     });
     page.on('pageerror', (error) => consoleErrors.push(error.message));
     await page.goto(url, { waitUntil: 'networkidle' });
-    await page.getByRole('heading', { name: '크립토·기업 연결 리서치' }).waitFor();
+    // 1edcf81("워크스페이스 제품 UI 수렴")이 이 헤딩을 '크립토 리서치' 로 바꾸고
+    // 게이트를 안 고쳤다. 그때부터 test:p6:browser 는 30초 타임아웃으로 죽어
+    // verify:release 를 여기서 멈춰 왔다 — 제품이 멀쩡한데 게이트가 옛 문장을
+    // 기다린 것이다.
+    await page.getByRole('heading', { name: '크립토 리서치' }).waitFor();
 
     const metrics = await page.evaluate(() => {
       const tableWrap = document.querySelector('[aria-label="기업 연결 표 가로 스크롤 영역"]');

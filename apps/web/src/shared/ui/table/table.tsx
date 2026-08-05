@@ -82,6 +82,11 @@ export function Table({
   return (
     <SelectionContext.Provider value={context}>
       <div
+        // A labelled, focusable scroll container needs role="region" to exist in
+        // the accessibility tree: aria-label alone leaves a plain <div>, so a
+        // screen reader cannot find the horizontally scrolling area it names.
+        // Callers that pass their own role still win — the spread is first.
+        role={restContainerProps['aria-label'] === undefined ? undefined : 'region'}
         {...restContainerProps}
         className={cn(styles.container, containerClassName)}
         data-slot="table-container"

@@ -10,7 +10,12 @@
   --color-on-chrome-tertiary: #92958c;
   --color-text-primary: #20211f;
   --color-text-secondary: #656760;
-  --color-text-tertiary: #6f716a;
+  /* 4.45 on canvas, 3.88 on surface-muted — AA(4.5) 미달이었다.
+     market-graphite 를 고칠 때 이 프로파일을 놓쳤고, 크립토 브라우저 게이트가
+     낡은 헤딩 단언에서 먼저 죽어 며칠간 안 보였다. 이 프로파일의 다섯 표면
+     전부에서 최악 4.61 이 되는 값이다 — market-graphite 의 #696a64 를 그대로
+     쓰면 surface-muted 가 더 어두워 4.28 로 미달한다. 프로파일마다 값이 다르다. */
+  --color-text-tertiary: #646560;
   --color-border: #d8d9d3;
   --color-border-strong: #bfc1b9;
   --color-accent: #343632;
@@ -175,7 +180,8 @@
     --color-chrome-raised: #1b1d19;
     --color-text-primary: #f2f2ed;
     --color-text-secondary: #b1b2ab;
-    --color-text-tertiary: #85877f;
+    /* accent-soft 위에서 3.83 이었다. 다섯 표면 전부에서 최악 4.60. */
+    --color-text-tertiary: #93958d;
     --color-border: #30322e;
     --color-border-strong: #454840;
     --color-accent: #d6d8d1;
