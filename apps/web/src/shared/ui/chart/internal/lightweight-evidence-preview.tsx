@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { PreviewChartBar } from './bklit-preview';
+import { createRangeEchoGuard, dateRangeKey } from './lightweight-range-sync';
 
 export type LightweightEvidence = {
   id: string;
@@ -226,9 +227,16 @@ export function LightweightEvidenceBandRenderer({
       series.attachPrimitive(bandPrimitive);
       let selectedPriceLine: ReturnType<typeof series.createPriceLine> | null = null;
       let crosshairFrame = 0;
+      const rangeEchoGuard = createRangeEchoGuard();
 
       let suppressRangeEvent = false;
       const setRange = (selection: { start: Date; end: Date } | null) => {
+        if (
+          selection &&
+          !rangeEchoGuard.shouldApplyExternal(dateRangeKey(selection.start, selection.end))
+        ) {
+          return;
+        }
         suppressRangeEvent = true;
         if (selection) {
           chart
@@ -245,7 +253,12 @@ export function LightweightEvidenceBandRenderer({
         if (suppressRangeEvent) return;
         const start = range ? parseTime(range.from) : null;
         const end = range ? parseTime(range.to) : null;
-        rangeCallbackRef.current(start && end ? { start, end } : null);
+        if (start && end) {
+          rangeEchoGuard.markLocal(dateRangeKey(start, end));
+          rangeCallbackRef.current({ start, end });
+        } else {
+          rangeCallbackRef.current(null);
+        }
       };
       chart.timeScale().subscribeVisibleTimeRangeChange(handleRangeChange);
 
@@ -371,9 +384,19 @@ export function LightweightEvidenceBandRenderer({
     if (!controller) return;
     controller.setBars(bars);
     controller.setBands(bands, showBands);
+  }, [bands, bars, rendererEpoch, showBands]);
+
+  useEffect(() => {
+    const controller = controllerRef.current;
+    if (!controller) return;
     controller.setRange(rangeSelection);
+  }, [rangeSelection, rendererEpoch]);
+
+  useEffect(() => {
+    const controller = controllerRef.current;
+    if (!controller) return;
     controller.setMarkers(evidence, selectedEvidenceId, bars);
-  }, [bands, bars, evidence, rangeSelection, rendererEpoch, selectedEvidenceId, showBands]);
+  }, [bars, evidence, rendererEpoch, selectedEvidenceId]);
 
   return (
     <div

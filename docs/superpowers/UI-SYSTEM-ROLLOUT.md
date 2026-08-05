@@ -450,6 +450,14 @@
 - 검증은 Evidence Band·upstream Node 5건, web typecheck, Evidence 전용 Playwright 1건을 통과했고 1280px 실제 캡처에서 선택 시점 2026-02-15와 가격선 142.14가 같은 좌표에 정렬됨을 확인함
 - 다음 행동은 보강된 디테일의 실제 화면 확인이며, 이후 승인된 A/B/C를 공개 `shared/ui/chart` API로 승격하고 제품 사용처를 감사함
 
+### 2026-08-05 — Evidence Band 확대·이동 떨림 수정
+
+- TradingView의 visible range 변경이 React 공용 상태를 거쳐 원본 차트의 `setVisibleRange`로 즉시 되돌아오고, 같은 render effect가 marker·price line·band까지 재생성해 내부 pan/zoom과 외부 동기화가 서로 경쟁하던 것이 떨림의 원인이었음
+- 차트 인스턴스별 range echo guard를 추가해 원본 차트의 동일 range echo만 한 번 건너뛰고, 나머지 A/B/C 차트에는 외부 range를 계속 적용함
+- bars·bands, range, evidence marker 갱신 효과를 분리해 pan/zoom 중 marker·price line·band를 재생성하지 않도록 변경함
+- 회귀 계약은 source chart local echo 제외와 sibling range 허용을 검증하는 Node 1건을 추가했으며, 관련 Node 6건·web typecheck·Evidence Playwright 1건을 통과함
+- 실제 wheel 확대와 좌우 drag 후 80ms 간격 canvas 4개 frame hash가 모두 동일해 이동 종료 뒤 잔여 떨림이 없음을 확인함
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
