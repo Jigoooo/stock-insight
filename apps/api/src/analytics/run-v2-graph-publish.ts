@@ -38,6 +38,10 @@ import {
   type StockPriceWindow,
 } from '../relations/macro-comovement-model.ts';
 import {
+  planMacroRetractionsFromDatabase,
+  retractMacroComovementEdges,
+} from '../relations/macro-comovement-retraction.ts';
+import {
   buildProductSimilarityObservations,
   type ProductSimilarityProfile,
 } from '../relations/product-similarity-model.ts';
@@ -1531,6 +1535,11 @@ async function dryRun(client: Client): Promise<void> {
         .sort((left, right) => left - right)
         .map((stockEntityId, index) => [stockEntityId, 91_000_000 + index] as const),
     );
+    // Read-only: the same decision apply makes, without appending anything.
+    const macroRetractionPlan = await planMacroRetractionsFromDatabase(
+      client,
+      macroPlan.measuredBelowThreshold,
+    );
     const macro = buildMacroComovementCandidates(
       macroPlan.pairs.map((pair) => ({
         seriesEntityId: pair.seriesEntityId,
@@ -1635,6 +1644,11 @@ async function dryRun(client: Client): Promise<void> {
           quarantined: macro.candidates.filter(
             (row) => row.targetRevisionStatus === 'quarantined_unverified',
           ).length,
+          // A dry run has to answer "what would this REMOVE", not only what it
+          // would add. Retraction is the one operation here that shrinks the
+          // graph, so seeing the number before applying matters most.
+          wouldRetractEdges: macroRetractionPlan.planned.length,
+          acceptedEdgesInspected: macroRetractionPlan.inspected,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -1782,6 +1796,16 @@ async function apply(client: Client): Promise<void> {
         confidence: (candidate) => Math.abs(Number(candidate.metadata['correlation'])),
       },
     );
+    // Retract before the snapshot is planned, so the snapshot reflects this
+    // run's verdicts rather than the union of every run that ever accepted a
+    // pair. Only pairs this run measured and found below threshold are touched.
+    // When the ontology is not approved the windows are empty, the plan measures
+    // nothing, and this retracts nothing — a skipped macro step must not read as
+    // "every macro pair stopped holding".
+    const macroRetraction = await retractMacroComovementEdges(
+      client as unknown as PoolClient,
+      macroPlan.measuredBelowThreshold,
+    );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
       `SELECT clock_timestamp() AS known_at`,
     );
@@ -1862,6 +1886,12 @@ async function apply(client: Client): Promise<void> {
           ).length,
           inserted: macroPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: macroPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+          // Edges this run removed because it measured the pair and it no longer
+          // qualified. Reported rather than silent: a shrinking graph must be
+          // visible in the run summary, not discovered later from a count.
+          retractedEdges: macroRetraction.retracted,
+          retractionsAlreadyStanding: macroRetraction.replayed,
+          acceptedEdgesInspected: macroRetraction.inspected,
         },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,

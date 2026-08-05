@@ -98,6 +98,20 @@ describe('macro co-movement model', () => {
     // The short series never reached the correlation step at all.
     assert.equal(plan.diagnostics.pairsWithEnoughOverlap, 1);
     assert.equal(plan.diagnostics.pairsOverThreshold, 0);
+
+    // These two drop for different reasons and only ONE of them is a verdict.
+    // 9002 was measured and did not co-move — an existing edge for it is stale
+    // and may be retracted. 9003 could not be measured at all, and retracting on
+    // that would delete relations whenever an input goes short.
+    assert.deepEqual(
+      plan.measuredBelowThreshold.map((entry) => entry.stockEntityId),
+      [9002],
+    );
+    assert.equal(plan.diagnostics.pairsBelowThreshold, 1);
+    assert.ok(
+      Math.abs(plan.measuredBelowThreshold[0]!.correlation) < 0.25,
+      'the recorded number must be the measurement that failed the threshold',
+    );
   });
 
   it('binds every constant that decides the output into model_config', () => {

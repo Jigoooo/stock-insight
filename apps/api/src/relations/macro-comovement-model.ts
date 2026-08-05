@@ -68,8 +68,37 @@ export type MacroComovementPair = {
   lastObservedDate: string;
 };
 
+/**
+ * A pair this run MEASURED and found not to co-move.
+ *
+ * This is the only absence that carries information. A pair can fail to become a
+ * candidate for four different reasons and only one of them means "we looked and
+ * it does not hold":
+ *
+ *   overlap below the minimum      we could not measure it        NOT this
+ *   series or stock not loaded     we did not measure it          NOT this
+ *   dropped by the degree cap      measured, holds, capped        NOT this
+ *   |partial r| below threshold    measured, does not hold        THIS
+ *
+ * Retracting on absence alone would delete relations whenever an input went
+ * missing. Retracting on this is a statement the run can actually back.
+ */
+export type MacroComovementMeasuredAbsence = {
+  seriesEntityId: number;
+  stockEntityId: number;
+  /** The partial correlation actually computed, below the threshold in absolute value. */
+  correlation: number;
+  overlappingObservations: number;
+  lastObservedDate: string;
+};
+
 export type MacroComovementPlan = {
   pairs: MacroComovementPair[];
+  /**
+   * Pairs measured and found below threshold. An existing edge for one of these
+   * is stale and should be retracted — see MacroComovementMeasuredAbsence.
+   */
+  measuredBelowThreshold: MacroComovementMeasuredAbsence[];
   modelConfig: Record<string, unknown>;
   /** Per-series counts, for a run summary that shows where candidates died. */
   diagnostics: {
@@ -77,6 +106,7 @@ export type MacroComovementPlan = {
     stocksConsidered: number;
     pairsWithEnoughOverlap: number;
     pairsOverThreshold: number;
+    pairsBelowThreshold: number;
     pairsDroppedByDegreeCap: number;
     /** No market factor covered this pair's dates — never guessed at. */
     pairsDroppedByMissingMarket: number;
@@ -533,6 +563,7 @@ export function planMacroComovementPairs(
   let pairsDroppedByMissingMarket = 0;
   let pairsDroppedByDegenerateMarket = 0;
   const pairs: MacroComovementPair[] = [];
+  const measuredBelowThreshold: MacroComovementMeasuredAbsence[] = [];
 
   for (const series of seriesChanges) {
     // A weekly series is paired against the stock resampled onto its own grid,
@@ -584,7 +615,20 @@ export function planMacroComovementPairs(
       }
       const precision = MACRO_COMOVEMENT_MODEL_CONFIG.scorePrecision;
       const rounded = Number(partial.toFixed(precision));
-      if (Math.abs(rounded) < MACRO_COMOVEMENT_MODEL_CONFIG.absCorrelationThreshold) continue;
+      if (Math.abs(rounded) < MACRO_COMOVEMENT_MODEL_CONFIG.absCorrelationThreshold) {
+        // Measured, and it does not hold. Recorded rather than dropped so an
+        // edge left over from a run that DID accept this pair can be retracted.
+        // Every other `continue` above is an inability to measure and must not
+        // reach this list.
+        measuredBelowThreshold.push({
+          seriesEntityId: series.window.seriesEntityId,
+          stockEntityId: stock.stockEntityId,
+          correlation: rounded,
+          overlappingObservations: overlappingDates.length,
+          lastObservedDate: overlappingDates.at(-1)!,
+        });
+        continue;
+      }
       pairsOverThreshold += 1;
       scored.push({
         seriesKey: series.window.seriesKey,
@@ -615,14 +659,21 @@ export function planMacroComovementPairs(
       left.seriesEntityId - right.seriesEntityId || left.stockEntityId - right.stockEntityId,
   );
 
+  measuredBelowThreshold.sort(
+    (left, right) =>
+      left.seriesEntityId - right.seriesEntityId || left.stockEntityId - right.stockEntityId,
+  );
+
   return {
     pairs,
+    measuredBelowThreshold,
     modelConfig,
     diagnostics: {
       seriesConsidered: seriesChanges.length,
       stocksConsidered: dailyStockChanges.length,
       pairsWithEnoughOverlap,
       pairsOverThreshold,
+      pairsBelowThreshold: measuredBelowThreshold.length,
       pairsDroppedByDegreeCap,
       pairsDroppedByMissingMarket,
       pairsDroppedByDegenerateMarket,
