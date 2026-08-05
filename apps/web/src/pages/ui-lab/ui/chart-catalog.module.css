@@ -251,6 +251,97 @@
   white-space: nowrap;
 }
 
+.marketPreview {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.rangeReadout {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.rangeReadout strong {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signalLedger {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: -2px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.signalLedger > * {
+  min-width: 0;
+  padding: 7px 9px;
+  overflow: hidden;
+  border-right: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signalLedger > *:last-child {
+  border-right: 0;
+}
+
+.signalLedger strong {
+  color: var(--color-text-primary);
+}
+
+.variantCard[data-variant='quiet-trace'] .chartViewport {
+  background: var(--color-canvas);
+}
+
+.variantCard[data-variant='quiet-trace'] .rangeReadout {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+}
+
+.variantCard[data-variant='layered-range'] .chartViewport {
+  background:
+    linear-gradient(var(--color-canvas), var(--color-canvas)) padding-box,
+    color-mix(in srgb, var(--color-accent) 3%, var(--color-canvas));
+}
+
+.variantCard[data-variant='layered-range'] [data-slot='chart-brush'] {
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+}
+
+.variantCard[data-variant='signal-ledger'] {
+  border-radius: 4px;
+}
+
+.variantCard[data-variant='signal-ledger'] .chartViewport {
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    transparent calc(100% - 1px),
+    color-mix(in srgb, var(--color-border) 45%, transparent) calc(100% - 1px)
+  );
+  background-size: 25% 100%;
+}
+
 @media (max-width: 720px) {
   .variantHeader {
     min-height: 0;
@@ -292,6 +383,20 @@
     bottom: 24px;
     left: 16px;
     width: auto;
+  }
+
+  .rangeReadout {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .signalLedger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .signalLedger > *:nth-child(2) {
+    border-right: 0;
   }
 }
 
