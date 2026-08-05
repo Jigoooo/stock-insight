@@ -5,6 +5,107 @@
   border-top: 1px solid var(--color-border);
 }
 
+.catalogHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(280px, 1.18fr);
+  gap: 32px;
+  align-items: end;
+}
+
+.catalogHeader span,
+.roleDescription span,
+.toolbarField > span {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.catalogHeader h2,
+.catalogHeader p,
+.roleDescription p {
+  margin: 0;
+}
+
+.catalogHeader h2 {
+  margin-top: 8px;
+  color: var(--color-text-primary);
+  font-size: clamp(22px, 3vw, 32px);
+  letter-spacing: -0.04em;
+}
+
+.catalogHeader p {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.roleTabs {
+  margin-top: 28px;
+}
+
+.roleTabList {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.roleTab {
+  min-width: 150px;
+}
+
+.catalogToolbar {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-subtle);
+}
+
+.toolbarField {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.toolbarField select {
+  min-width: 112px;
+  min-height: 40px;
+  padding: 0 30px 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+
+.toolbarField select:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.catalogToolbar > [data-slot='checkbox-control'] {
+  margin-left: auto;
+}
+
+.roleDescription {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-top: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.roleDescription p {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
 .variantStack {
   display: grid;
   min-width: 0;
@@ -597,6 +698,30 @@
 }
 
 @media (max-width: 720px) {
+  .catalogHeader {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .catalogToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbarField select {
+    width: 100%;
+  }
+
+  .catalogToolbar > [data-slot='checkbox-control'] {
+    margin-left: 0;
+  }
+
+  .roleDescription {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
   .variantHeader {
     min-height: 0;
     flex-direction: column;

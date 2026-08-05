@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { ChartCatalog } from './chart-catalog';
 import { CompletedComponentsCatalog } from './completed-components-catalog';
 import { DataFeedbackCatalog } from './data-feedback-catalog';
 import { IdentityContentCatalog } from './identity-content-catalog';
@@ -104,6 +105,7 @@ export function UiLabPage({
                 <h2>Charts End-to-End</h2>
                 <p>차트 기반과 제품 연결을 함께 점검할 다음 묶음입니다.</p>
               </div>
+              <ChartCatalog />
             </TabsContent>
 
             <TabsContent value="planned">
