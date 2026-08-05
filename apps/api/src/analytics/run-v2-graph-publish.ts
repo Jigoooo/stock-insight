@@ -29,6 +29,10 @@ import {
   type OfficialSectorObservation,
 } from '../relations/builders/official-sector.ts';
 import { buildProductSimilarityCandidates } from '../relations/builders/product-similarity.ts';
+import {
+  buildSupplyChainCandidates,
+  type SupplyChainObservation,
+} from '../relations/builders/supply-chain.ts';
 import { type ContentPackSourceItem } from '../relations/content-pack-builder.ts';
 import { publishContentPacks } from '../relations/content-pack-publisher.ts';
 import {
@@ -242,6 +246,30 @@ ORDER BY mapping.topic, mapping.series_key
 `;
 
 const MACRO_TOPIC_MAPPING_TOTAL_SQL = `SELECT count(*)::int AS total FROM analytics.macro_series_topic`;
+
+// B2 — the collected supply disclosures. This is the first CAUSAL predicate the
+// graph gets: AFFECTS, SUPPLY_CHAIN and EXPOSES all stand at zero accepted
+// revisions because nothing legitimate ever fed them, and the only door migration
+// 024's evidence gate opens for these is source_revision — identity_mapping is
+// ISSUED_BY-only, and claim/document require a verified claim of which production
+// has none. So the source revision the collector recorded is carried through here
+// rather than re-derived.
+//
+// valid_from is the FILING's date, already stored by the collector. A disclosure
+// holds from when it was disclosed, not from when this publish read the row — the
+// same distinction that made 14 MEASURED_BY revisions churn once per publish.
+const SUPPLY_RELATION_SQL = `
+SELECT relation.from_firm_entity_id,
+       relation.to_firm_entity_id,
+       (relation.evidence_locator->>'source_revision_id')::bigint AS source_revision_id,
+       relation.available_at,
+       relation.valid_from
+FROM analytics.firm_supply_relation relation
+WHERE relation.relation_kind = 'customer'
+  AND relation.valid_until IS NULL
+  AND relation.evidence_locator->>'source_revision_id' IS NOT NULL
+ORDER BY relation.from_firm_entity_id, relation.to_firm_entity_id
+`;
 
 const LATEST_ETF_HOLDINGS_SQL = `
 WITH latest_date AS (
@@ -1789,6 +1817,32 @@ async function dryRun(client: Client): Promise<void> {
     // degree-cap gates. sourceWasRead requires at least one evaluated basket, so a
     // run that read no holdings retracts nothing instead of retracting all.
     const dryRunEvaluatedEtfIds = etf.evaluatedHubEntityIds ?? [];
+    // Loaded and built in the dry run too. Twice today a dry run failed to predict
+    // its apply — synthetic ETF ids put every edge out of retraction scope, and a
+    // dry-run-only valid_from could not tell a replay from an insert. A predicate
+    // that reports nothing until it is applied is the same defect in advance.
+    const dryRunSupplyReady =
+      (dryRunOntologyIds['SUPPLIES'] ?? 0) > 0 && (dryRunOntologyIds['CUSTOMER_OF'] ?? 0) > 0;
+    const dryRunSupplyRows = await client.query<
+      QueryResultRow & {
+        from_firm_entity_id: string | number;
+        to_firm_entity_id: string | number;
+        source_revision_id: string | number;
+        available_at: Date | string;
+        valid_from: Date | string | null;
+      }
+    >(SUPPLY_RELATION_SQL, []);
+    const dryRunSupply = buildSupplyChainCandidates(
+      (dryRunSupplyReady ? dryRunSupplyRows.rows : []).map((row) => ({
+        supplierEntityId: Number(row.from_firm_entity_id),
+        customerEntityId: Number(row.to_firm_entity_id),
+        disclosureKind: 'customer_disclosed' as const,
+        sourceRevisionId: Number(row.source_revision_id),
+        availableAt: toIso(row.available_at),
+        validFrom: row.valid_from === null ? toIso(row.available_at) : toIso(row.valid_from),
+      })),
+      { asOf: cutoff },
+    );
     const etfRetractionPlan = await planRetractionsNotInFromDatabase(client, 'SAME_ETF_BASKET', {
       holdingPairs: etf.candidates.map((candidate) => ({
         subjectEntityId: candidate.subjectEntityId,
@@ -1947,6 +2001,14 @@ async function dryRun(client: Client): Promise<void> {
           // subtraction alone would have retracted all of these too.
           heldBackOutOfScope: etfRetractionPlan.outOfScope,
           acceptedEdgesInspected: etfRetractionPlan.inspected,
+        },
+        supplyChain: {
+          suppliesOntologyApproved: (dryRunOntologyIds['SUPPLIES'] ?? 0) > 0,
+          customerOfOntologyApproved: (dryRunOntologyIds['CUSTOMER_OF'] ?? 0) > 0,
+          disclosedRelationRows: dryRunSupplyRows.rows.length,
+          candidates: dryRunSupply.candidates.length,
+          accepted: dryRunSupply.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -2128,6 +2190,55 @@ async function apply(client: Client): Promise<void> {
     const topicPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
       topicBuilt.candidates,
+      { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
+    );
+    // B2 — supply disclosures. The builder emits BOTH directions per observation,
+    // so BOTH ontologies have to be approved before any candidate is produced:
+    // persistRelationCandidates throws rather than quarantining on a missing
+    // ontology, and this whole function is one transaction, so one unapproved
+    // predicate would roll back the entire day's publish. Same skip contract as
+    // MACRO_COMOVEMENT and MEASURED_BY, for the same reason.
+    const suppliesOntologyRevisionId = ontologyIds['SUPPLIES'] ?? 0;
+    const customerOfOntologyRevisionId = ontologyIds['CUSTOMER_OF'] ?? 0;
+    const supplyReady =
+      Number.isSafeInteger(suppliesOntologyRevisionId) &&
+      suppliesOntologyRevisionId > 0 &&
+      Number.isSafeInteger(customerOfOntologyRevisionId) &&
+      customerOfOntologyRevisionId > 0;
+    // Loaded either way so the summary reports what the table holds rather than
+    // what the guard allowed through — the same reason the macro topic mapping is
+    // read before its readiness check.
+    const supplyRows = await client.query<
+      QueryResultRow & {
+        from_firm_entity_id: string | number;
+        to_firm_entity_id: string | number;
+        source_revision_id: string | number;
+        available_at: Date | string;
+        valid_from: Date | string | null;
+      }
+    >(SUPPLY_RELATION_SQL, []);
+    const supplyObservations: SupplyChainObservation[] = (supplyReady ? supplyRows.rows : []).map(
+      (row) => ({
+        supplierEntityId: Number(row.from_firm_entity_id),
+        customerEntityId: Number(row.to_firm_entity_id),
+        // The reporting issuer is the SUPPLIER and the named party is the
+        // CUSTOMER: Korean 매출처 disclosure names who the filer sells to. Raising
+        // this to both_disclosed requires the same pair out of the counterparty's
+        // own report, which is a judgement to make after full collection.
+        disclosureKind: 'customer_disclosed',
+        sourceRevisionId: Number(row.source_revision_id),
+        availableAt: toIso(row.available_at),
+        validFrom: row.valid_from === null ? toIso(row.available_at) : toIso(row.valid_from),
+      }),
+    );
+    const supplyBuilt = buildSupplyChainCandidates(supplyObservations, { asOf: capturedAt });
+    // Confidence 1: a disclosure is an assertion by the filer, not a measurement
+    // with a strength. What is uncertain here is our name resolution, and that
+    // uncertainty belongs in the resolver's rejections rather than smuggled into a
+    // confidence number that would read as measured.
+    const supplyPersisted = await persistRelationCandidates(
+      client as unknown as PoolClient,
+      supplyBuilt.candidates,
       { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
     );
     // Retract before the snapshot is planned, so the snapshot reflects this
@@ -2330,18 +2441,40 @@ async function apply(client: Client): Promise<void> {
           heldBackOutOfScope: etfRetraction.outOfScope,
           acceptedEdgesInspected: etfRetraction.inspected,
         },
+        supplyChain: {
+          // The two ontologies the builder needs. Reported rather than assumed:
+          // an unapproved predicate here rolls back the whole publish, so which
+          // gate was open has to be answerable from the run's own output.
+          suppliesOntologyApproved: suppliesOntologyRevisionId > 0,
+          customerOfOntologyApproved: customerOfOntologyRevisionId > 0,
+          // What the table holds, regardless of the guard. A skipped step must not
+          // report "there are no supply relations".
+          disclosedRelationRows: supplyRows.rows.length,
+          observations: supplyObservations.length,
+          candidates: supplyBuilt.candidates.length,
+          accepted: supplyBuilt.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          inserted: supplyPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
+          replayed: supplyPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,
           ...etfPersisted.persisted,
           ...productPersisted.persisted,
           ...macroPersisted.persisted,
           ...topicPersisted.persisted,
+          ...supplyPersisted.persisted,
         ].filter((row) => row.outcome === 'inserted').length,
+        // topicPersisted was missing here while being counted in the inserted
+        // total, so MEASURED_BY replays were invisible — and a replay becoming
+        // visible is exactly how the valid_from fix gets confirmed.
         replayedRelationRevisions: [
           ...sectorPersisted.persisted,
           ...etfPersisted.persisted,
           ...productPersisted.persisted,
           ...macroPersisted.persisted,
+          ...topicPersisted.persisted,
+          ...supplyPersisted.persisted,
         ].filter((row) => row.outcome === 'replayed').length,
         replayedRawObjects: materialized.replayedRawObjects + macroMaterialized.replayedRawObjects,
       }),

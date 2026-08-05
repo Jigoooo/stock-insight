@@ -66,6 +66,7 @@ import { macroSeriesEntitiesMigrationSql } from './migrations/065_macro_series_e
 import { macroComovementOntologyMigrationSql } from './migrations/066_macro_comovement_ontology.ts';
 import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_energy.ts';
 import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_entities.ts';
+import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_supply_disclosure_source.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -810,6 +811,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroTopicEntitiesMigrationSql,
   },
+  {
+    id: '069_dart_supply_disclosure_source',
+    description:
+      "Registers a dedicated ingestion source for supply relations extracted from Korean 사업보고서 filings, plus the resume cursor the chunked collector needs. Reusing source 18 ('opendart') would repeat the provenance misattribution corrected on 2026-08-05, when five distinct internal snapshots all reported themselves as one ETF source: document.xml is a different endpoint with different content and a different epistemic status, because a financial fact is asserted by the filer while a supply relation is EXTRACTED by us from prose. The contract states that separation, and records the two decisions that changed the measurement — utf-8 decoding (EUC-KR produced 148,449 replacement characters and a false reading of '0 매출처') and a 150-character context window (whole-document search turned a holding company's portfolio into its customers). Emptiness is declared a valid observation here, unlike the curated macro mapping: 6 of 40 sampled reports genuinely have no 매출처 section. The cursor exists because 188 KR issuers at ~2 requests each cannot fit one day's document.xml budget, which ran out at 120 requests.",
+    tables: [],
+    sql: dartSupplyDisclosureSourceMigrationSql,
+  },
 ];
 
 export {
@@ -880,5 +888,6 @@ export {
   macroComovementOntologyMigrationSql,
   macroSeriesEnergyMigrationSql,
   macroTopicEntitiesMigrationSql,
+  dartSupplyDisclosureSourceMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
