@@ -21,6 +21,31 @@ test('E2E safety rejects production-like database URLs without explicit mutation
   }
 });
 
+test('E2E safety rejects cluster superusers even against a disposable database', () => {
+  // A disposable database name is not containment when the ROLE owns the whole
+  // cluster: `postgres` reaches research_app and every other project's schema.
+  // The database here matches DISPOSABLE_DATABASE_PATTERN on purpose — the name
+  // must not be what saves us.
+  for (const role of ['postgres', 'timescaledb']) {
+    assert.throws(
+      () =>
+        assertSafeE2eConfiguration({
+          DATABASE_URL: `postgresql://${role}:pw@127.0.0.1:55432/stock_insight_qa_macro`,
+        }),
+      /E2E refused/,
+      `${role} must not pass`,
+    );
+  }
+
+  // A purpose-made QA login against the same database is still allowed, so the
+  // rule narrows to the role and does not block the intended workflow.
+  assert.doesNotThrow(() =>
+    assertSafeE2eConfiguration({
+      DATABASE_URL: 'postgresql://qa_macro:pw@127.0.0.1:55432/stock_insight_qa_macro',
+    }),
+  );
+});
+
 test('E2E safety rejects live flags and external server reuse by default', () => {
   assert.throws(
     () => assertSafeE2eConfiguration({ STOCK_INSIGHT_MUTATIONS_ENABLED: 'true' }),

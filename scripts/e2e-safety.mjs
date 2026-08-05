@@ -11,6 +11,13 @@ const PRODUCTION_ROLES = new Set([
   'stock_insight_app_reader',
   'stock_insight_app_writer',
   'research_app',
+  // The cluster superusers. A disposable database name is not containment when
+  // the ROLE owns the whole cluster: `postgres` can read and write research_app
+  // and every other project's schema, which is exactly what this guard says it
+  // refuses. Omitted until 2026-08-05, when reaching for a QA login and finding
+  // this set would have waved the superuser through.
+  'postgres',
+  'timescaledb',
 ]);
 
 function decodeComponent(value) {
