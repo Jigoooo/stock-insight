@@ -34,6 +34,16 @@ export type ResolvedMention = {
   issuerEntityId: number;
   /** The catalog name that matched, for the evidence text. */
   matchedName: string;
+  /**
+   * Other names in the same window that resolved to this issuer.
+   *
+   * Not decoration: without it the arithmetic does not close. Re-measured
+   * 2026-08-05, the 40-report sample went 89 raw hits to 35 mentions with only 34
+   * rejections — the other 20 were issuer merges that left no trace, and a
+   * summary that silently loses 20 rows is the exact fault this file's rejection
+   * list exists to prevent.
+   */
+  mergedNames: string[];
 };
 
 export type MentionRejection = {
@@ -81,7 +91,12 @@ export function resolveCustomerMentions(input: {
   /** Text windows already narrowed to 매출처 context by the collector. */
   contextWindows: readonly string[];
   catalog: readonly NameCatalogEntry[];
-}): { resolved: ResolvedMention[]; rejections: MentionRejection[] } {
+}): {
+  resolved: ResolvedMention[];
+  rejections: MentionRejection[];
+  /** Names folded into an issuer already claimed. resolved + rejected + merged = hits. */
+  mergedByIssuer: number;
+} {
   const reportingNeedle = normalizeCompanyName(input.reportingName);
   const rejections: MentionRejection[] = [];
   const reject = (needle: string, reason: MentionRejection['reason']): void => {
@@ -115,7 +130,8 @@ export function resolveCustomerMentions(input: {
   );
 
   const resolved: ResolvedMention[] = [];
-  const claimedIssuers = new Set<number>();
+  const claimedByIssuer = new Map<number, ResolvedMention>();
+  let mergedByIssuer = 0;
   const acceptedNeedles: string[] = [];
   for (const needle of ordered) {
     const group = byNeedle.get(needle)!;
@@ -125,10 +141,17 @@ export function resolveCustomerMentions(input: {
     }
     // Self, and the family of names that normalize into each other. This is the
     // only affiliate case a name rule can honestly catch.
+    //
+    // Containment is gated on the REPORTING name being specific enough too. A
+    // two-character issuer like (주)LS normalizes to `ls`, and an ungated
+    // containment check would reject every counterparty whose name happens to
+    // contain those letters — `wolseley` among them. Exact equality still holds
+    // at any length, so a short name never becomes its own customer.
+    const containmentIsMeaningful = reportingNeedle.length >= MIN_MENTION_LENGTH;
     if (
       needle === reportingNeedle ||
-      needle.includes(reportingNeedle) ||
-      reportingNeedle.includes(needle)
+      (containmentIsMeaningful &&
+        (needle.includes(reportingNeedle) || reportingNeedle.includes(needle)))
     ) {
       reject(needle, 'self_or_same_name_group');
       continue;
@@ -144,14 +167,23 @@ export function resolveCustomerMentions(input: {
       continue;
     }
     const issuerEntityId = [...group.issuers][0]!;
+    const primaryName = [...group.names].sort()[0]!;
     // Two names of one issuer are one mention — this is the ISSUED_BY collapse
-    // doing its work.
-    if (claimedIssuers.has(issuerEntityId)) continue;
-    claimedIssuers.add(issuerEntityId);
+    // doing its work. Counted and attributed, not dropped: a merge is a decision
+    // and the summary has to add up.
+    const claimed = claimedByIssuer.get(issuerEntityId);
+    if (claimed !== undefined) {
+      claimed.mergedNames.push(primaryName);
+      mergedByIssuer += 1;
+      continue;
+    }
+    const mention: ResolvedMention = { issuerEntityId, matchedName: primaryName, mergedNames: [] };
+    claimedByIssuer.set(issuerEntityId, mention);
     acceptedNeedles.push(needle);
-    resolved.push({ issuerEntityId, matchedName: [...group.names].sort()[0]! });
+    resolved.push(mention);
   }
 
+  for (const mention of resolved) mention.mergedNames.sort();
   resolved.sort((left, right) => left.issuerEntityId - right.issuerEntityId);
-  return { resolved, rejections };
+  return { resolved, rejections, mergedByIssuer };
 }
