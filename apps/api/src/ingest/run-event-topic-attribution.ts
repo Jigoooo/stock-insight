@@ -59,11 +59,20 @@ SELECT hit.event_id,
        min(hit.topic) AS topic,
        min(hit.term) AS term,
        count(DISTINCT hit.topic) AS topic_matches,
-       min(topic_entity.entity_id) AS topic_entity_id
+       min(topic_entity.entity_id) AS topic_entity_id,
+       -- Distinguishes "no node yet" from "no node possible". A topic with a
+       -- mapped series but no entity means migration 068 is pending; a topic the
+       -- mapping never lists (market, trade) has no series to bridge to at all,
+       -- which is a measured dead end, not a schema gap.
+       bool_or(mapped.topic IS NOT NULL) AS topic_has_series
 FROM hit
 LEFT JOIN core.entity topic_entity
   ON topic_entity.entity_type = 'Metric'
  AND topic_entity.canonical_name = 'topic:' || hit.topic
+LEFT JOIN LATERAL (
+  SELECT 1 AS topic FROM analytics.macro_series_topic mapping
+  WHERE mapping.topic = hit.topic LIMIT 1
+) mapped ON true
 GROUP BY hit.event_id
 ORDER BY hit.event_id
 `;
@@ -99,11 +108,12 @@ type TopicHitRow = QueryResultRow & {
   term: string;
   topic_matches: string | number;
   topic_entity_id: string | number | null;
+  topic_has_series: boolean | null;
 };
 
 export type TopicAttributionDecision =
   | { attach: true; topic: string; term: string; topicEntityId: number }
-  | { attach: false; reason: 'ambiguous' | 'topic_entity_missing' };
+  | { attach: false; reason: 'ambiguous' | 'topic_entity_missing' | 'topic_has_no_series' };
 
 /**
  * Two refusals, and they mean different things.
@@ -112,15 +122,28 @@ export type TopicAttributionDecision =
  * tariffs and the won is not an article about one of them, and choosing would be
  * a guess. Same rule the company job applies to two company names.
  *
- * `topic_entity_missing` — the topic has no core.entity yet, so migration 068
- * has not been applied. Attaching to nothing is impossible; reporting it as a
- * separate count keeps a pending migration from reading as an ambiguity problem.
+ * `topic_has_no_series` — the vocabulary knows this topic but the mapping has no
+ * series under it, so no node exists and none should: market and trade are dead
+ * ends by measurement, not by oversight. FRED has no daily series representing
+ * tariffs, and correlating every stock with an index is beta.
+ *
+ * `topic_entity_missing` — the topic HAS series but no core.entity, which only
+ * happens while migration 068 is unapplied. Kept apart from the case above so a
+ * pending migration can never be read as a permanent dead end, or the reverse.
  */
 export function decideTopic(
-  row: Pick<TopicHitRow, 'topic' | 'term' | 'topic_matches' | 'topic_entity_id'>,
+  row: Pick<
+    TopicHitRow,
+    'topic' | 'term' | 'topic_matches' | 'topic_entity_id' | 'topic_has_series'
+  >,
 ): TopicAttributionDecision {
   if (Number(row.topic_matches) !== 1) return { attach: false, reason: 'ambiguous' };
-  if (row.topic_entity_id === null) return { attach: false, reason: 'topic_entity_missing' };
+  if (row.topic_entity_id === null) {
+    return {
+      attach: false,
+      reason: row.topic_has_series === true ? 'topic_entity_missing' : 'topic_has_no_series',
+    };
+  }
   return {
     attach: true,
     topic: row.topic,
@@ -144,6 +167,9 @@ async function main(): Promise<void> {
     ).length;
     const missingEntity = decided.filter(
       (entry) => !entry.decision.attach && entry.decision.reason === 'topic_entity_missing',
+    ).length;
+    const noSeries = decided.filter(
+      (entry) => !entry.decision.attach && entry.decision.reason === 'topic_has_no_series',
     ).length;
 
     let attached = 0;
@@ -176,6 +202,9 @@ async function main(): Promise<void> {
       ambiguousSkipped: ambiguous,
       // Not an error and not an ambiguity: migration 068 has not been applied.
       topicEntityMissingSkipped: missingEntity,
+      // A measured dead end, not a gap. market and trade have no macro series to
+      // bridge to, so there is nothing to attach these events to.
+      topicHasNoSeriesSkipped: noSeries,
       byTopic,
       attached,
       sample: attachable.slice(0, 10).map((entry) => ({

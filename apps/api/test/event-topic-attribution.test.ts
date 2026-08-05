@@ -20,6 +20,7 @@ describe('event topic attribution', () => {
       term: '금리',
       topic_matches: 1,
       topic_entity_id: 900,
+      topic_has_series: true,
     });
 
     assert.deepEqual(decision, {
@@ -39,6 +40,7 @@ describe('event topic attribution', () => {
       term: '관세',
       topic_matches: 2,
       topic_entity_id: 900,
+      topic_has_series: true,
     });
 
     assert.deepEqual(decision, { attach: false, reason: 'ambiguous' });
@@ -53,6 +55,7 @@ describe('event topic attribution', () => {
       term: '유가',
       topic_matches: 1,
       topic_entity_id: null,
+      topic_has_series: true,
     });
 
     assert.deepEqual(decision, { attach: false, reason: 'topic_entity_missing' });
@@ -67,9 +70,30 @@ describe('event topic attribution', () => {
       term: '관세',
       topic_matches: 3,
       topic_entity_id: null,
+      topic_has_series: true,
     });
 
     assert.deepEqual(decision, { attach: false, reason: 'ambiguous' });
+  });
+
+  it('tells a permanent dead end apart from a pending migration', () => {
+    // market and trade are in the vocabulary but have no macro series under
+    // them, so no topic node exists and none should. Measured 2026-08-05: trade
+    // has no daily FRED series representing tariffs (BOPGSTB is monthly, NETEXP
+    // quarterly, both under the 60-observation minimum), and every stock
+    // correlates with an index, so market would be beta.
+    //
+    // 78 of the 125 matched events land here. Reporting them as
+    // 'topic_entity_missing' would say a migration is pending forever.
+    const decision = decideTopic({
+      topic: 'trade',
+      term: '관세',
+      topic_matches: 1,
+      topic_entity_id: null,
+      topic_has_series: false,
+    });
+
+    assert.deepEqual(decision, { attach: false, reason: 'topic_has_no_series' });
   });
 
   it('accepts the counts as strings, which is how pg returns them', () => {
@@ -78,6 +102,7 @@ describe('event topic attribution', () => {
       term: '환율',
       topic_matches: '1' as unknown as number,
       topic_entity_id: '901' as unknown as number,
+      topic_has_series: true,
     });
 
     assert.equal(decision.attach, true);
