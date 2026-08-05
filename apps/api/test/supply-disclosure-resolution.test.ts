@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  MIN_MENTION_LENGTH,
+  MIN_MENTION_LENGTH_HANGUL,
+  MIN_MENTION_LENGTH_LATIN,
+  minimumMentionLength,
   normalizeCompanyName,
   resolveCustomerMentions,
   type NameCatalogEntry,
@@ -209,17 +211,48 @@ describe('supply disclosure name resolution', () => {
     assert.equal(normalizeCompanyName('삼성 SDI ㈜'), '삼성sdi');
   });
 
-  it('states the specificity floor it cannot see past', () => {
-    // 기아 is a real 포스코홀딩스 customer and two characters long. The floor
-    // costs it, and that cost is the reason this is a threshold rather than a
-    // solution — recorded so the next reader does not lower it by accident.
-    assert.equal(MIN_MENTION_LENGTH, 4);
+  it('sees 기아 now — the floor is by script, not by length', () => {
+    // This test used to assert the opposite: that the flat floor of 4 dropped 기아,
+    // a real two-character customer, and that the cost was recorded rather than
+    // hidden. Measuring the whole catalog on 2026-08-06 showed the floor was paying
+    // for the wrong thing — 19 of 24 sub-4 Hangul names collide with NOTHING, while
+    // every dangerous case (t 66 collisions, lg 4, sk 3, ls 2, gm 1) is Latin.
+    assert.equal(MIN_MENTION_LENGTH_HANGUL, 2);
     const { resolved } = resolveCustomerMentions({
       reportingIssuerEntityId: 900,
       reportingName: '포스코홀딩스(주)',
       contextWindows: ['주요 매출처 기아'],
       catalog: [{ entityId: 30, issuerEntityId: 810, name: '기아' }],
     });
-    assert.deepEqual(resolved, [], '기아 is genuine and this rule still drops it');
+    assert.deepEqual(resolved, [{ issuerEntityId: 810, matchedName: '기아', mergedNames: [] }]);
+  });
+
+  it('still refuses the short Latin names that hide inside other words', () => {
+    // The protection this change had to preserve. `gm` is inside figma, `ls` inside
+    // wellsfargo, `sk` inside novonordiskas — all measured in the live catalog, and
+    // all under 4 characters, so the Latin floor still excludes them.
+    assert.equal(MIN_MENTION_LENGTH_LATIN, 4);
+    const { resolved, rejections } = resolveCustomerMentions({
+      reportingIssuerEntityId: 900,
+      reportingName: '포스코홀딩스(주)',
+      contextWindows: ['주요 매출처 Figma, Inc. 와 Wells Fargo & Company'],
+      catalog: [
+        { entityId: 40, issuerEntityId: 820, name: 'GM' },
+        { entityId: 41, issuerEntityId: 821, name: '(주)LS' },
+      ],
+    });
+    assert.deepEqual(resolved, []);
+    assert.deepEqual(rejections.map((row) => row.reason).sort(), [
+      'below_minimum_specificity',
+      'below_minimum_specificity',
+    ]);
+  });
+
+  it('treats a mixed-script name as Hangul, because the Hangul is what makes it specific', () => {
+    // `lg전자` cannot hide inside a Latin word: the moment a Hangul syllable is in
+    // the needle, the failure mode the Latin floor guards against is gone.
+    assert.equal(minimumMentionLength('lg전자'), MIN_MENTION_LENGTH_HANGUL);
+    assert.equal(minimumMentionLength('gm'), MIN_MENTION_LENGTH_LATIN);
+    assert.equal(minimumMentionLength('기아'), MIN_MENTION_LENGTH_HANGUL);
   });
 });

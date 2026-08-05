@@ -56,18 +56,60 @@ export type MentionRejection = {
 };
 
 /**
- * Minimum normalized length for a name to count as a mention.
+ * Minimum normalized length for a name to count as a mention — by SCRIPT, because
+ * the risk is not a function of length.
  *
- * Chosen by reading the output, the same way the macro correlation threshold was.
- * Measured on the 40-report sample: at 2 characters the result is 61 pairs and
- * includes 롯데에너지머티리얼즈 → "NC, GS"; at 4 it is 37 and every row reads
- * (현대건설 → 한국전력, 한온시스템 → 현대모비스·현대자동차); at 5 it drops to 25
- * and loses real counterparties like 기아.
+ * The single threshold this replaced was chosen by reading output: at 2 characters
+ * the 40-report sample gave 61 pairs including 롯데에너지머티리얼즈 → "NC, GS"; at
+ * 4 it gave 37 clean rows; at 5 it dropped to 25 and lost 기아. So 4 was picked,
+ * and the file admitted it was "a threshold, not a solution".
  *
- * It is a threshold, not a solution — 기아 is a genuine 2-character customer and
- * this rule cannot see it. The count it costs is recorded rather than hidden.
+ * Measured 2026-08-06 over the whole 297-name catalog, counting how often each
+ * short name appears as a substring of a DIFFERENT catalog name — the direct
+ * measurement of the defect where `(주)LS` → `ls` matched `wolseley`:
+ *
+ *   latin  10 names,  5 collide,  76 collisions   t 66 · lg 4 · sk 3 · ls 2 · gm 1
+ *   hangul 24 names,  5 collide,   7 collisions
+ *
+ * The Latin collisions are substrings hiding inside longer Latin words:
+ * novonordiskas contains sk, appliedmaterialsinc contains ls, figma contains gm.
+ * Every one of those names is under 4 characters, so a floor of 4 already excludes
+ * all of them.
+ *
+ * The Hangul collisions are different in kind: all 7 are a name inside its own
+ * extension — 카카오/카카오뱅크, 케이티/케이티앤지, 효성/효성중공업,
+ * 두산/두산에너빌리티, 테스/두산테스나 — which `shadowed_by_longer_match` already
+ * resolves by preferring the longer match. 19 of the 24 collide with nothing at all.
+ *
+ * So a single floor of 4 was spending 19 zero-risk Hangul names, 기아 among them,
+ * to block 5 Latin ones. Splitting by script keeps the Latin protection exactly as
+ * it was and stops paying for it in Korean.
+ *
+ * NOT measured: whether Latin names of 4+ characters collide. The survey covered
+ * only the sub-4 set, so the Latin floor stays where the evidence stops.
  */
-export const MIN_MENTION_LENGTH = 4;
+export const MIN_MENTION_LENGTH_LATIN = 4;
+
+/**
+ * 2, not 1: a single Hangul syllable carries too little to be a company reference,
+ * and the catalog contains none — the only 1-character name measured was `t`.
+ */
+export const MIN_MENTION_LENGTH_HANGUL = 2;
+
+/** Kept as the Latin floor so existing callers and tests keep their meaning. */
+export const MIN_MENTION_LENGTH = MIN_MENTION_LENGTH_LATIN;
+
+/**
+ * Any Hangul syllable makes a needle Hangul. A mixed name like `lg전자` is treated
+ * as Hangul on purpose: the Hangul part is what makes it specific, and the Latin
+ * collision risk comes from names that are Latin THROUGHOUT and can therefore hide
+ * inside another Latin word.
+ */
+export function minimumMentionLength(needle: string): number {
+  return /[\u3131-\u318E\uAC00-\uD7A3]/.test(needle)
+    ? MIN_MENTION_LENGTH_HANGUL
+    : MIN_MENTION_LENGTH_LATIN;
+}
 
 /** Strips the corporate-form decorations Korean filings vary freely. */
 export function normalizeCompanyName(value: string): string {
@@ -135,7 +177,7 @@ export function resolveCustomerMentions(input: {
   const acceptedNeedles: string[] = [];
   for (const needle of ordered) {
     const group = byNeedle.get(needle)!;
-    if (needle.length < MIN_MENTION_LENGTH) {
+    if (needle.length < minimumMentionLength(needle)) {
       reject(needle, 'below_minimum_specificity');
       continue;
     }
@@ -147,7 +189,10 @@ export function resolveCustomerMentions(input: {
     // containment check would reject every counterparty whose name happens to
     // contain those letters — `wolseley` among them. Exact equality still holds
     // at any length, so a short name never becomes its own customer.
-    const containmentIsMeaningful = reportingNeedle.length >= MIN_MENTION_LENGTH;
+    // Script-aware for the same reason: `ls` must not gate containment, but `효성`
+    // legitimately should — its only catalog collision is 효성중공업, which is the
+    // same group and belongs in this rejection.
+    const containmentIsMeaningful = reportingNeedle.length >= minimumMentionLength(reportingNeedle);
     if (
       needle === reportingNeedle ||
       (containmentIsMeaningful &&
