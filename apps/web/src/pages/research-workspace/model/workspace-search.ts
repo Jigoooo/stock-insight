@@ -37,10 +37,15 @@ export function validateWorkspaceSearch(
     search.cursor.length <= 1_024
       ? search.cursor
       : undefined;
+  const query =
+    typeof search.query === 'string' && search.query.trim().length > 0 && search.query.length <= 120
+      ? search.query
+      : undefined;
   return {
     ...(view ? { view } : {}),
     ...(lane ? { lane } : {}),
     ...(record ? { record } : {}),
     ...(cursor ? { cursor } : {}),
+    ...(query ? { query } : {}),
   };
 }

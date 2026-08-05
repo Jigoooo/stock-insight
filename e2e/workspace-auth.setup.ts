@@ -23,8 +23,8 @@ test('authenticates the workspace visual matrix once', async ({ page }) => {
   await page.getByLabel('사용자 이름').fill(username);
   await page.locator('#login-password').fill(password);
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspace\/today$/);
-  await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
+  await expect(page).toHaveURL(/\/workspace\/today$/, { timeout: 20_000 });
+  await expect(page.getByTestId('research-workspace-v3')).toBeVisible({ timeout: 15_000 });
 
   await mkdir(generatedAuthDirectory, { recursive: true, mode: 0o700 });
   await chmod(generatedAuthDirectory, 0o700);

@@ -152,16 +152,20 @@ export function TodayView({
                     disabled={!interactive}
                     onClick={() => onSelectRecord(item)}
                   >
-                    <span className={styles.market}>{marketLabel(item.market)}</span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      <p>{presentResearchSummary(item.summary)}</p>
-                      <small>{whySurfacedLabel(item)}</small>
-                    </div>
-                    <div className={styles.rowMeta}>
-                      <span>{confidenceLabel(item.confidence)}</span>
-                      <time>{formatDate(item.publishedAt, true)}</time>
-                    </div>
+                    <span className={styles.feedRowLayout}>
+                      <span className={styles.market}>{marketLabel(item.market)}</span>
+                      <span>
+                        <strong>{item.title}</strong>
+                        <span className={styles.summary}>
+                          {presentResearchSummary(item.summary)}
+                        </span>
+                        <small>{whySurfacedLabel(item)}</small>
+                      </span>
+                      <span className={styles.rowMeta}>
+                        <span>{confidenceLabel(item.confidence)}</span>
+                        <time>{formatDate(item.publishedAt, true)}</time>
+                      </span>
+                    </span>
                   </Button>
                 </li>
               ))}

@@ -104,15 +104,17 @@ export function ThemesView({
                         if (entityKey) onSelectEntity(entityKey);
                       }}
                     >
-                      <strong>{themeTitleLabel(theme.title)}</strong>
-                      <p>{theme.description}</p>
-                      <small>
-                        {isActive
-                          ? '오른쪽 관계 지도에 표시 중'
-                          : theme.topEntityKeys.length > 0
-                            ? `대표 종목 ${theme.topEntityKeys.length}개`
-                            : '대표 종목 없음'}
-                      </small>
+                      <span className={styles.themeSelectLayout}>
+                        <strong>{themeTitleLabel(theme.title)}</strong>
+                        <span className={styles.themeSummary}>{theme.description}</span>
+                        <small>
+                          {isActive
+                            ? '오른쪽 관계 지도에 표시 중'
+                            : theme.topEntityKeys.length > 0
+                              ? `대표 종목 ${theme.topEntityKeys.length}개`
+                              : '대표 종목 없음'}
+                        </small>
+                      </span>
                     </Button>
                     <PropertyList
                       items={[
@@ -222,16 +224,18 @@ function RelationLedger({
                 transition={disclosureTransition}
                 style={{ overflow: 'hidden' }}
               >
-                <StructuredList className={styles.edgeList} aria-label="관계 근거 목록">
+                <StructuredList
+                  className={styles.edgeList}
+                  aria-label="관계 근거 목록"
+                  tabIndex={0}
+                >
                   {graph.edges.map((edge) => (
                     <li key={edge.edgeId} data-direction={edge.direction}>
                       <span data-endpoint="from">{relationNodeLabel(graph, edge.from)}</span>
-                      <span
-                        className={styles.edgeDirection}
-                        aria-label={
-                          edge.direction === 'directed' ? '에서 대상으로' : '와 방향 없는 관계'
-                        }
-                      >
+                      <span className={styles.edgeDirection}>
+                        <span className={styles.relationSrOnly}>
+                          {edge.direction === 'directed' ? '에서 대상으로' : '와 방향 없는 관계'}
+                        </span>
                         {edge.direction === 'directed' ? (
                           <ChevronRight aria-hidden="true" />
                         ) : (

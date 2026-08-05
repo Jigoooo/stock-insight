@@ -105,6 +105,7 @@ export type ResearchWorkspaceUrlState = {
   lane?: ResearchFeedLaneId;
   record?: string;
   cursor?: string;
+  query?: string;
 };
 
 type ResearchWorkspacePageProps = {
@@ -113,6 +114,10 @@ type ResearchWorkspacePageProps = {
   loadStockDeepDive?: StockDeepDiveLoader;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
+  onNavigateSection?: (
+    section: SectionId,
+    next?: Partial<ResearchWorkspaceUrlState>,
+  ) => Promise<void>;
   onPrefetchSection?: (section: SectionId) => void;
   urlState?: ResearchWorkspaceUrlState;
   viewLoadError?: SectionId;
@@ -340,6 +345,7 @@ export function ResearchWorkspacePage({
   loadStockDeepDive,
   navigationMode = 'route',
   onLogout,
+  onNavigateSection,
   onPrefetchSection,
   urlState = {},
   viewLoadError,
@@ -349,7 +355,7 @@ export function ResearchWorkspacePage({
   const [localLane, setLocalLane] = useState<ResearchFeedLaneId>(
     urlState.lane ?? (data.view === 'today' ? data.lane : 'must_know'),
   );
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(urlState.query ?? '');
   const { deferredQuery, pending: searchPending } = useDeferredWorkspaceSearch(query);
   const [navigationIntent, dispatchNavigationIntent] = useReducer(
     reduceWorkspaceNavigationIntent,
@@ -415,7 +421,7 @@ export function ResearchWorkspacePage({
       ? { base: data.history, value: { page: data.history, state: 'ready' } }
       : null,
   );
-  const section = onUrlStateChange ? data.view : localSection;
+  const section = onUrlStateChange ? (viewLoadError ?? data.view) : localSection;
   const markViewReady = useCallback((readyViewKey: string) => {
     setResolvedViewKey(readyViewKey as SectionId);
   }, []);
@@ -628,6 +634,26 @@ export function ResearchWorkspacePage({
     dispatchNavigationIntent({ kind: 'section', sequence, type: 'request', value: next });
   };
 
+  const submitWorkspaceSearch = () => {
+    if (!onNavigateSection) {
+      selectSection('stocks');
+      return;
+    }
+    const sequence = ++navigationSequenceRef.current;
+    dispatchNavigationIntent({ kind: 'section', sequence, type: 'request', value: 'stocks' });
+    startNavigationTransition(() => {
+      void onNavigateSection('stocks', { query: query.trim() || undefined })
+        .then(() => {
+          startNavigationTransition(() => {
+            dispatchNavigationIntent({ sequence, type: 'settle' });
+          });
+        })
+        .catch(() => {
+          dispatchNavigationIntent({ sequence, type: 'settle' });
+        });
+    });
+  };
+
   const selectLane = (next: ResearchFeedLaneId) => {
     if (!onUrlStateChange) {
       setLocalLane(next);
@@ -818,7 +844,7 @@ export function ResearchWorkspacePage({
               {workspaceSections.find(({ id }) => id === viewLoadError)?.label ?? '선택한 화면'}을
               불러오지 못했습니다
             </strong>
-            <p>기존 워크스페이스는 유지했습니다. 연결을 확인한 뒤 다시 시도해 주세요.</p>
+            <p>이전 화면의 데이터는 표시하지 않았습니다. 연결을 확인한 뒤 다시 시도해 주세요.</p>
           </div>
           <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
             다시 시도
@@ -916,7 +942,7 @@ export function ResearchWorkspacePage({
         <WorkspaceSearch
           disabled={!hydrated}
           onQueryChange={setQuery}
-          onSubmit={() => selectSection('stocks')}
+          onSubmit={submitWorkspaceSearch}
           pending={searchPending}
           query={query}
         />

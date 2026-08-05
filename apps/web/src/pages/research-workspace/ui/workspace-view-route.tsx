@@ -1,5 +1,6 @@
 import { useNavigate, useRouteContext, useSearch } from '@tanstack/react-router';
 
+import { workspaceSections } from '@/features/workspace-navigation';
 import { logout } from '@/pages/auth/model/auth-functions';
 import { loadResearchWorkspaceView } from '@/pages/research-workspace/model/load-research-workspace';
 import {
@@ -24,6 +25,14 @@ export function WorkspaceViewRoute({ loaderData }: { loaderData: WorkspaceRouteL
         if (!result.ok) return false;
         workspaceViewCache.clear();
         return true;
+      }}
+      onNavigateSection={async (section, next) => {
+        const target = workspaceSections.find((item) => item.id === section);
+        if (!target) return;
+        await navigate({
+          to: target.href,
+          search: (previous) => ({ ...previous, ...next }),
+        });
       }}
       onPrefetchSection={(view) => {
         void workspaceViewCache.prefetch(

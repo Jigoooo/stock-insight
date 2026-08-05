@@ -18,6 +18,10 @@ const stocksViewUrl = new URL(
   '../src/pages/research-workspace/ui/views/stocks-view.tsx',
   import.meta.url,
 );
+const viewRouteUrl = new URL(
+  '../src/pages/research-workspace/ui/workspace-view-route.tsx',
+  import.meta.url,
+);
 
 type Stock = StockListResponse['data'][number];
 
@@ -91,5 +95,17 @@ describe('workspace search concurrency', () => {
     assert.match(stocksView, /data-pending=\{pending \|\| undefined\}/);
     assert.match(stocksView, /aria-busy=\{pending \|\| undefined\}/);
     assert.match(stocksView, /!pending && stocks\.length === 0/);
+  });
+
+  it('submits Enter through client-side route navigation to the stocks view', async () => {
+    const [page, viewRoute] = await Promise.all([
+      readFile(pageUrl, 'utf8'),
+      readFile(viewRouteUrl, 'utf8'),
+    ]);
+
+    assert.match(page, /onNavigateSection\?: \([\s\S]{0,120}section: SectionId/);
+    assert.match(page, /onSubmit=\{submitWorkspaceSearch\}/);
+    assert.match(viewRoute, /onNavigateSection=\{async \(section, next\) =>/);
+    assert.match(viewRoute, /navigate\(\{\s*to:\s*target\.href/);
   });
 });

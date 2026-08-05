@@ -242,8 +242,11 @@ test.describe('authenticated workspace visual matrix', () => {
         expect(testInfo.project.use.viewport).toEqual(workspaceViewports[mode.viewport]);
         await page.emulateMedia({ colorScheme, reducedMotion: 'no-preference' });
         await gotoAuthenticatedRoute(page, route);
-        await assertNoHorizontalOverflow(page);
         await assertShellMode(page, mode.shell);
+        await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({
+          timeout: 20_000,
+        });
+        await assertNoHorizontalOverflow(page);
         const accessibility = await new AxeBuilder({ page }).analyze();
         expect(accessibility.violations).toEqual([]);
         await capture(
@@ -302,6 +305,30 @@ test.describe('authenticated workspace visual matrix', () => {
     await capture(page, testInfo, 'workspace-evidence-inspector', [page.locator('time')]);
   });
 
+  test('keeps Today feed content across the available row width', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single layout contract');
+    await gotoAuthenticatedRoute(page, '/workspace/today');
+    const record = page.getByTestId('research-feed-record').first();
+    const emptyState = page
+      .getByTestId('research-feed')
+      .locator('[data-kind="empty"], [data-kind="unavailable"]');
+    await expect(record.or(emptyState)).toBeVisible({ timeout: 20_000 });
+    await skipAfterCanonicalAbsence({
+      canonicalTitle: '이 분류에는 아직 변화가 없습니다',
+      reason: 'canonical empty Today lane has no feed row to measure',
+      region: page.getByTestId('research-feed'),
+      target: record,
+    });
+
+    const [recordBox, labelBox] = await Promise.all([
+      record.boundingBox(),
+      record.locator('[data-slot="button-label"]').boundingBox(),
+    ]);
+    expect(recordBox).not.toBeNull();
+    expect(labelBox).not.toBeNull();
+    expect(labelBox!.width).toBeGreaterThan(recordBox!.width * 0.8);
+  });
+
   test('captures Stocks selected row and deep dive', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/stocks');
@@ -337,6 +364,37 @@ test.describe('authenticated workspace visual matrix', () => {
     if ((await fallback.getAttribute('aria-expanded')) !== 'true') await fallback.click();
     await expect(page.getByRole('list', { name: '관계 근거 목록' })).toBeVisible();
     await capture(page, testInfo, 'workspace-themes-graph-text-fallback');
+  });
+
+  test('keeps theme selection content across the available action width', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'workspace-expanded', 'single desktop layout check');
+    await gotoAuthenticatedRoute(page, '/workspace/themes');
+    await expect(page.getByRole('heading', { level: 1, name: '테마·관계' })).toBeVisible({
+      timeout: 20_000,
+    });
+    const themeLedger = page.getByTestId('theme-ledger');
+    const theme = themeLedger.getByTestId('theme-select').first();
+    const emptyState = themeLedger.locator('[data-kind="empty"], [data-kind="unavailable"]');
+    await expect(theme.or(emptyState)).toBeVisible({ timeout: 20_000 });
+    await skipAfterCanonicalAbsence({
+      canonicalTitle: '아직 구성된 테마가 없습니다',
+      reason: 'canonical empty theme ledger has no selectable theme',
+      region: themeLedger,
+      target: theme,
+    });
+    const widths = await theme.evaluate((button) => {
+      const label = button.querySelector<HTMLElement>('[data-slot="button-label"]');
+      const row = button.closest('li');
+      return {
+        button: button.getBoundingClientRect().width,
+        label: label?.getBoundingClientRect().width ?? 0,
+        row: row?.getBoundingClientRect().width ?? 0,
+      };
+    });
+    expect(widths.button).toBeGreaterThan(widths.row * 0.5);
+    expect(widths.label).toBeGreaterThan(widths.button * 0.8);
   });
 
   test('captures Radar map fallback when authorized data exposes it', async ({

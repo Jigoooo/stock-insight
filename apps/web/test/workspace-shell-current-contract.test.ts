@@ -11,6 +11,7 @@ describe('current workspace shell behavior', () => {
     const current = {
       cursor: 'cursor:current',
       lane: 'explore',
+      query: 'NVDA',
       record: 'record:current',
       view: 'themes',
     } as const;
@@ -35,7 +36,10 @@ describe('current workspace shell behavior', () => {
     assert.match(navigation, /onPointerEnter=\{\(\) => onPrefetch\?\.\(item\.id\)\}/);
     assert.match(sections, /href: '\/workspace\/today'/);
     assert.match(route, /await navigate\(/);
-    assert.match(page, /const section = onUrlStateChange \? data\.view : localSection/);
+    assert.match(
+      page,
+      /const section = onUrlStateChange \? \(viewLoadError \?\? data\.view\) : localSection/,
+    );
     assert.match(page, /const lane = onUrlStateChange/);
     assert.match(page, /void onUrlStateChange\?\.\(\{ record: undefined \}\)/);
   });

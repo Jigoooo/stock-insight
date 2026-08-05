@@ -169,14 +169,21 @@ export function TableRow({
   );
 }
 
-export function TableSelectionHead({ className, ...props }: ComponentProps<'th'>) {
+export function TableSelectionHead({
+  'aria-label': ariaLabel,
+  children,
+  className,
+  ...props
+}: ComponentProps<'th'>) {
   return (
     <th
       {...props}
-      aria-label={props['aria-label'] ?? '선택'}
+      aria-label={children ? ariaLabel : undefined}
       className={cn(styles.selectionHead, className)}
       data-slot="table-selection-head"
-    />
+    >
+      {children ?? <span className={styles.srOnly}>{ariaLabel ?? '선택'}</span>}
+    </th>
   );
 }
 

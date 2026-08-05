@@ -146,6 +146,8 @@ describe('workspace active-view route loader', () => {
     assert.doesNotMatch(today, /pendingComponent:\s*WorkspaceRoutePending/);
     assert.match(page, /viewLoadError\?:\s*SectionId/);
     assert.match(page, /(?:data-testid|testId)="workspace-view-load-error"/);
+    assert.match(page, /onUrlStateChange\s*\?\s*\(viewLoadError\s*\?\?\s*data\.view\)/);
+    assert.doesNotMatch(page, /기존 워크스페이스는 유지했습니다/);
   });
 
   // A redirect thrown inside a loader is control flow. If it were caught by the

@@ -4,6 +4,16 @@
   overflow-x: auto;
 }
 
+.srOnly {
+  width: 1px;
+  height: 1px;
+  position: absolute;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .container[data-surface='framed'] {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-panel, 14px);
