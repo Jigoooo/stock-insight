@@ -7,7 +7,7 @@
 
 - 프로그램 상태: 실행 중
 - 현재 활성 묶음: `6A Charts End-to-End`
-- 다음 묶음: `6A Charts End-to-End 기반·차트·제품 연결 통합 진행`
+- 다음 묶음: `6A Market Tape·Evidence Band·Candle Ledger A/B/C 시각 승인`
 - 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -41,7 +41,7 @@
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
 | 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
-| 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
+| 6A   | Charts End-to-End                   | 목업      | 역할별 A/B/C 사용자 시각 승인         |
 
 ## 완료 기록
 
@@ -398,6 +398,18 @@
 - Codex 인앱 브라우저 6110에서 공용 DataGrid 세 variant, 각 14개 가상 행, C의 체크박스·종목 고정 그룹 본문 및 헤더 표면 색 통합을 확인함
 - 좁은 자동 검증으로 Data & Feedback 모델·공개 API 계약, 전용 Playwright의 Table·DataGrid 상호작용·빠른 상단 복귀·390px·감소 모션·Axe, web typecheck와 변경 파일 Oxfmt·Oxlint 및 `git diff --check`를 수행함
 - 다음 활성 묶음은 6A Charts End-to-End이며, 차트 기반·시각 비교·공용화·제품 연결을 한 묶음으로 진행함
+
+### 2026-08-05 — 6A Charts End-to-End 목업 구현·검증
+
+- 결정론적 180개 OHLCV 일봉 fixture와 `1M|3M|6M|1Y` 구간, 세 근거 사건, 두 조건 구간, `ready|loading|stale|partial|empty|error|unavailable` 상태를 UI Lab 전용 모델로 고정함
+- Bklit 기반 Market Tape A Quiet Trace·B Layered Range·C Signal Ledger와 Evidence Band A Band Ledger·B Event Pulse·C Evidence Split을 구현하고, 역할 내부 세 시안이 기간·브러시·근거 선택·조건 구간 표시를 공유하도록 연결함
+- TradingView Lightweight Charts는 `shared/ui/chart/internal`의 동적 로딩 어댑터로 격리하고 Candle Ledger A Clean Candle·B Dual Pane·C Market Ledger의 OHLCV readout, 가격·거래량 pane, 크로스헤어, resize·cleanup 계약을 구현함
+- 상단 수평 탭은 선택 역할의 세 차트만 마운트하며, 공통 기간·상태·통화·조건 구간 제어와 네이티브 데이터 표를 제공함. 목업 승인 전에는 공개 `shared/ui` 차트 API나 제품 사용처를 변경하지 않음
+- Playwright 검증 중 Evidence SVG hit-area가 근거 목록 클릭을 가로막는 overflow와 중첩된 상위 Tabs 스타일이 390px 역할 선택선을 44px 면으로 키우는 문제를 발견해 각각 차트 열 경계와 2px indicator 소유 범위로 보정함
+- 자동 검증: 차트 모델·upstream 경계 Node 5건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 3건에서 Market 브러시 동기화, Evidence 선택·밴드 공유, Candle 3개 마운트·390px·감소 모션·Axe를 통과함
+- Codex 인앱 브라우저 6110에서 역할별 카드 3개만 렌더링, 데스크톱 툴바 열 간격, Evidence 9개 근거·6개 밴드, Candle renderer 3개, 390px page/catalog overflow 0과 2px 선택선을 직접 확인함
+- 구현 커밋: `019008c`, `8afe12c`, `da4fffd`, `68cdd3c`, `d6c9508`, `1989004`, `503d0a5`, `d5ae435`, `5461273`
+- 다음 행동은 Market Tape·Evidence Band·Candle Ledger 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
 
 ## 실행 환경 메모
 

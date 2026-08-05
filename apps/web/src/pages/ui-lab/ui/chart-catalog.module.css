@@ -45,12 +45,31 @@
 }
 
 .roleTabList {
+  display: grid;
   width: 100%;
   overflow-x: auto;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
 }
 
 .roleTab {
-  min-width: 150px;
+  width: 100%;
+  min-width: 0;
+}
+
+.roleTabs[data-variant='sliding-underline']
+  > [data-slot='tabs-list']
+  > [data-slot='tabs-highlight-item']
+  > [data-slot='motion-highlight'] {
+  inset: auto 0 -1px;
+  width: auto;
+  height: 2px;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-text-primary);
+  box-shadow: none;
 }
 
 .rolePanel[hidden] {
@@ -58,9 +77,10 @@
 }
 
 .catalogToolbar {
-  display: flex;
+  display: grid;
   min-width: 0;
   align-items: end;
+  grid-template-columns: minmax(270px, auto) 112px 112px minmax(180px, 1fr);
   gap: 16px;
   margin-top: 18px;
   padding: 14px;
@@ -98,7 +118,7 @@
 }
 
 .catalogToolbar > [data-slot='checkbox-control'] {
-  margin-left: auto;
+  justify-self: end;
 }
 
 .roleDescription {
@@ -715,7 +735,7 @@
 
   .catalogToolbar {
     align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .toolbarField select {
@@ -723,7 +743,7 @@
   }
 
   .catalogToolbar > [data-slot='checkbox-control'] {
-    margin-left: 0;
+    justify-self: start;
   }
 
   .roleDescription {

@@ -85,7 +85,13 @@ test.describe('UI Lab Charts End-to-End', () => {
     await catalog.getByRole('tab', { name: 'Candle Ledger', exact: true }).click();
 
     const renderers = catalog.locator('[data-slot="lightweight-chart-root"]');
+    const roleIndicator = catalog.locator(
+      ':scope > [data-slot="tabs"] > [data-slot="tabs-list"] > [data-slot="tabs-highlight-item"][data-active="true"] > [data-slot="motion-highlight"]',
+    );
     await expect(renderers).toHaveCount(3);
+    await expect(roleIndicator).toHaveCount(1);
+    await expect(roleIndicator).toHaveCSS('height', '2px');
+    await expect(roleIndicator).toHaveCSS('min-height', '0px');
     await expect(catalog.locator('[data-slot="candle-readout"]')).toHaveCount(3);
     await expect(catalog.getByRole('link', { name: 'TradingView Lightweight Charts' })).toHaveCount(
       3,
