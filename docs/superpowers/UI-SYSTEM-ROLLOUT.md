@@ -7,7 +7,7 @@
 
 - 프로그램 상태: 실행 중
 - 현재 활성 묶음: `6A Charts End-to-End`
-- 다음 묶음: `6A Market Tape·Evidence Band·Candle Ledger A/B/C 시각 승인`
+- 다음 묶음: `6A Evidence Band A/B/C 개선 목업 구현·시각 승인`
 - 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
@@ -41,7 +41,7 @@
 | 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
 | 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
 | 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
-| 6A   | Charts End-to-End                   | 목업      | 역할별 A/B/C 사용자 시각 승인         |
+| 6A   | Charts End-to-End                   | 목업      | Evidence Band A/B/C 개선·시각 승인    |
 
 ## 완료 기록
 
@@ -410,6 +410,15 @@
 - Codex 인앱 브라우저 6110에서 역할별 카드 3개만 렌더링, 데스크톱 툴바 열 간격, Evidence 9개 근거·6개 밴드, Candle renderer 3개, 390px page/catalog overflow 0과 2px 선택선을 직접 확인함
 - 구현 커밋: `019008c`, `8afe12c`, `da4fffd`, `68cdd3c`, `d6c9508`, `1989004`, `503d0a5`, `d5ae435`, `5461273`
 - 다음 행동은 Market Tape·Evidence Band·Candle Ledger 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
+
+### 2026-08-05 — 6A 역할별 시각 승인·Evidence Band 개선 방향 확정
+
+- Market Tape A Quiet Trace·B Layered Range·C Signal Ledger는 A/B/C를 모두 유지하기로 사용자 승인함
+- Candle Ledger A Clean Candle·B Dual Pane·C Market Ledger는 A/B/C를 모두 유지하기로 사용자 승인함
+- Evidence Band는 기존 세 시안의 chart 내부 의미 계층이 비슷하고 pattern·label·근거 목록이 분리돼 보이는 문제를 확인함
+- Evidence Band A는 조건 구간 중심 Range Ledger, B는 사건 시점 중심 Event Pulse, C는 차트·근거 원장을 연결하는 Linked Evidence로 역할을 명확히 나누는 개선 방향을 사용자 승인함
+- 기존 Bklit 경계를 유지하고 새 차트·애니메이션 의존성은 추가하지 않으며, 개선 목업의 사용자 시각 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+- 다음 행동은 승인된 Evidence Band 개선 설계에 따라 A/B/C 목업을 수정하고 6110 UI Lab에서 시각 비교하는 것임
 
 ## 실행 환경 메모
 
