@@ -42,8 +42,12 @@ export type MacroComovementObservation = {
   /** core.entity id of the stock. */
   stockEntityId: number;
   seriesKey: string;
-  /** Pearson correlation of the two change series, within [-1,1]. */
+  /** PARTIAL correlation controlling for the stock's market factor, within [-1,1]. */
   correlation: number;
+  /** Raw correlation before the market factor was removed. */
+  rawCorrelation: number;
+  /** The stock's correlation with its market factor over the same dates. */
+  stockMarketCorrelation: number;
   overlappingObservations: number;
   windowStartDate: string;
   windowEndDate: string;
@@ -80,6 +84,8 @@ export function buildMacroComovementCandidates(
       stockEntityId: values.stockEntityId as number,
       seriesKey: values.seriesKey as string,
       correlation: values.correlation as number,
+      rawCorrelation: values.rawCorrelation as number,
+      stockMarketCorrelation: values.stockMarketCorrelation as number,
       overlappingObservations: values.overlappingObservations as number,
       windowStartDate: values.windowStartDate as string,
       windowEndDate: values.windowEndDate as string,
@@ -130,6 +136,7 @@ export function buildMacroComovementCandidates(
       subjectEntityId,
       objectEntityId,
       correlation: observation.correlation,
+      rawCorrelation: observation.rawCorrelation,
       overlappingObservations: observation.overlappingObservations,
       windowStartDate: observation.windowStartDate,
       windowEndDate: observation.windowEndDate,
@@ -165,10 +172,14 @@ export function buildMacroComovementCandidates(
         // Confidence on the revision is the magnitude and would lose the sign.
         correlation: observation.correlation,
         correlationDirection: observation.correlation >= 0 ? 'same' : 'opposite',
+        // Both kept so the subtraction can be checked rather than trusted. A
+        // large gap between raw and partial means the pair was mostly beta.
+        rawCorrelation: observation.rawCorrelation,
+        stockMarketCorrelation: observation.stockMarketCorrelation,
         overlappingObservations: observation.overlappingObservations,
         windowStartDate: observation.windowStartDate,
         windowEndDate: observation.windowEndDate,
-        methodology: 'pearson-change-series',
+        methodology: 'pearson-partial-controlling-for-market',
         // Said in the row itself, not only in a document, because this metadata
         // is what a rendering layer reaches for first.
         interpretation: 'statistical_comovement_not_causal',

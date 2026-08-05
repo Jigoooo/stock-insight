@@ -39,7 +39,25 @@ function seriesWindow(
 function stockWindow(stockEntityId: number, closes: readonly number[]): StockPriceWindow {
   return {
     stockEntityId,
+    marketKey: 'TEST',
     observations: dates(closes.length).map((date, index) => ({ date, close: closes[index]! })),
+  };
+}
+
+/**
+ * A market factor that moves but is (near) orthogonal to the signals below, so
+ * the partial correlation reduces to the raw one and the existing assertions
+ * still measure what they meant to. A flat factor cannot be used: zero variance
+ * makes every correlation with it undefined and the pair is dropped.
+ */
+function marketWindow(length: number, marketKey = 'TEST') {
+  const closes: number[] = [100];
+  for (let i = 1; i < length; i += 1) {
+    closes.push(closes[i - 1]! * (1 + (i % 7 === 0 ? 0.004 : i % 3 === 0 ? -0.003 : 0.001)));
+  }
+  return {
+    marketKey,
+    observations: dates(length).map((date, index) => ({ date, close: closes[index]! })),
   };
 }
 
@@ -60,6 +78,7 @@ describe('macro co-movement model', () => {
     const plan = planMacroComovementPairs(
       [seriesWindow('fred:DGS10', 5001, yieldLevels)],
       [stockWindow(9001, closes)],
+      [marketWindow(LENGTH)],
     );
     assert.equal(plan.pairs.length, 1);
     assert.equal(plan.pairs[0]!.correlation, -1);
@@ -73,6 +92,7 @@ describe('macro co-movement model', () => {
     const plan = planMacroComovementPairs(
       [seriesWindow('fred:DGS10', 5001, yieldLevels)],
       [stockWindow(9002, flat), stockWindow(9003, short)],
+      [marketWindow(LENGTH)],
     );
     assert.equal(plan.pairs.length, 0);
     // The short series never reached the correlation step at all.
@@ -89,6 +109,7 @@ describe('macro co-movement model', () => {
           Array.from({ length: LENGTH }, (_, i) => 100 + i),
         ),
       ],
+      [marketWindow(LENGTH)],
     );
     for (const key of [
       'windowDays',
@@ -130,9 +151,65 @@ describe('macro co-movement model', () => {
       }
       stocks.push(stockWindow(9100 + n, closes));
     }
-    const plan = planMacroComovementPairs([seriesWindow('fred:DGS10', 5001, yieldLevels)], stocks);
+    const plan = planMacroComovementPairs([seriesWindow('fred:DGS10', 5001, yieldLevels)], stocks, [
+      marketWindow(LENGTH),
+    ]);
     assert.equal(plan.pairs.length, cap);
     assert.equal(plan.diagnostics.pairsDroppedByDegreeCap, 5);
+  });
+
+  it('removes what the stock and the series merely share with the market', () => {
+    // Construct the exact failure the partial exists to prevent: the stock has
+    // NO independent relationship to the macro series — its return is purely the
+    // market's — while the series also loads on the market. A raw correlation
+    // reads that as a strong link; the partial must read it as nothing.
+    const market: number[] = [100];
+    for (let i = 1; i < LENGTH; i += 1) market.push(market[i - 1]! * (1 + 0.01 * Math.sin(i / 2)));
+    const marketReturn = (i: number) => Math.log(market[i]! / market[i - 1]!);
+
+    // Series level whose change is 3x the market return — it loads on the market
+    // and on nothing else.
+    const seriesLevels: number[] = [50];
+    for (let i = 1; i < LENGTH; i += 1)
+      seriesLevels.push(seriesLevels[i - 1]! + 3 * marketReturn(i));
+    // Stock whose log return IS the market return, exactly.
+    const closes: number[] = [100];
+    for (let i = 1; i < LENGTH; i += 1) closes.push(closes[i - 1]! * Math.exp(marketReturn(i)));
+
+    const marketFactor = {
+      marketKey: 'TEST',
+      observations: dates(LENGTH).map((date, i) => ({ date, close: market[i]! })),
+    };
+    const plan = planMacroComovementPairs(
+      [seriesWindow('fred:DGS10', 5001, seriesLevels)],
+      [stockWindow(9001, closes)],
+      [marketFactor],
+    );
+
+    // Raw would be ~1 and would have sailed past the 0.25 threshold. The pair
+    // must not survive, because there is nothing left once the market is out.
+    assert.equal(plan.pairs.length, 0, 'a pure-beta pair must not become an edge');
+    assert.ok(
+      plan.diagnostics.pairsWithEnoughOverlap > 0,
+      'it must have been computed and then rejected, not skipped for want of data',
+    );
+  });
+
+  it('refuses rather than guesses when no market factor covers the pair', () => {
+    const closes: number[] = [100];
+    for (let i = 1; i < LENGTH; i += 1) {
+      closes.push(closes[i - 1]! * Math.exp(-2 * (yieldLevels[i]! - yieldLevels[i - 1]!)));
+    }
+    const plan = planMacroComovementPairs(
+      [seriesWindow('fred:DGS10', 5001, yieldLevels)],
+      [stockWindow(9001, closes)],
+      [], // no factor supplied
+    );
+    assert.equal(plan.pairs.length, 0);
+    assert.ok(
+      plan.diagnostics.pairsDroppedByMissingMarket > 0,
+      'the drop must be counted, not silent',
+    );
   });
 
   it('documents every series it declines to measure', () => {
@@ -189,7 +266,22 @@ describe('macro co-movement model', () => {
       bars.every((b) => ![0, 6].includes(new Date(`${b.date}T00:00:00Z`).getUTCDay())),
       'no bar may fall on a weekend — that is the condition being tested',
     );
-    const plan = planMacroComovementPairs([series], [{ stockEntityId: 9500, observations: bars }]);
+    const plan = planMacroComovementPairs(
+      [series],
+      [{ stockEntityId: 9500, marketKey: 'TEST', observations: bars }],
+      [
+        {
+          marketKey: 'TEST',
+          // Independent of the claims signal: driven by the bar index, not by
+          // the claims series the stock was built to invert. A factor that
+          // mirrors either side collapses the partial's denominator.
+          observations: bars.map((b, i) => ({
+            date: b.date,
+            close: 100 * (1 + 0.02 * Math.cos(i / 5)),
+          })),
+        },
+      ],
+    );
     assert.equal(plan.pairs.length, 1, 'weekly series must produce a pair via grid alignment');
     assert.ok(
       Math.abs(plan.pairs[0]!.correlation) > 0.9,
@@ -205,6 +297,8 @@ describe('macro co-movement builder', () => {
     stockEntityId: 9001,
     seriesKey: 'fred:DGS10',
     correlation: -0.62,
+    rawCorrelation: -0.71,
+    stockMarketCorrelation: 0.45,
     overlappingObservations: 240,
     windowStartDate: '2025-08-04',
     windowEndDate: '2026-08-03',

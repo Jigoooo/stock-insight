@@ -33,6 +33,7 @@ import {
   MACRO_WINDOW_DAYS_BY_FREQUENCY,
   planMacroComovementPairs,
   type MacroComovementPlan,
+  type MarketFactorWindow,
   type MacroSeriesWindow,
   type StockPriceWindow,
 } from '../relations/macro-comovement-model.ts';
@@ -138,9 +139,12 @@ type MacroSeriesWindowRow = QueryResultRow & {
 
 type StockPriceWindowRow = QueryResultRow & {
   security_entity_id: string | number;
+  market: string;
   bar_date: string;
   close: number;
 };
+
+type MarketFactorRow = QueryResultRow & { market_key: string; bar_date: string; close: number };
 
 type ManifestEntry = { providerKey: string; ref: RawObjectRef; fetchedAt: Date };
 
@@ -311,6 +315,7 @@ ORDER BY pit.series_key, pit.observation_date
 const STOCK_PRICE_WINDOW_SQL = `
 SELECT DISTINCT ON (universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date)
        universe.security_entity_id,
+       universe.market,
        ((bar.ts AT TIME ZONE 'UTC')::date)::text AS bar_date,
        bar.close::float8 AS close
 FROM market_ts.ohlcv bar
@@ -323,6 +328,60 @@ WHERE bar.domain = 'stock'
   AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
   AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
 ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
+`;
+
+// Market factors, one per market, so a stock is only ever controlled for the
+// market it actually trades in.
+//
+// US uses ^GSPC, which market_ts.ohlcv carries with full history (1,267 daily
+// bars, 2021-07 onward). KR has no usable index: ^KS11 exists only in
+// stock.market_snapshots and only for 141 days (2026-04-30 onward), far short of
+// the correlation window. So the KR factor is a daily-rebalanced equal-weighted
+// index built from the KR universe itself — the average of what our own Korean
+// holdings did each day.
+//
+// The asymmetry is deliberate and recorded rather than smoothed over: using
+// ^GSPC for Korean stocks would subtract a factor they do not load on, and
+// waiting for KOSPI history would leave every Korean edge restating beta in the
+// meantime.
+const MARKET_FACTOR_SQL = `
+WITH bars AS (
+  SELECT DISTINCT ON (universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date)
+         universe.security_entity_id,
+         universe.market,
+         (bar.ts AT TIME ZONE 'UTC')::date AS bar_date,
+         bar.close::float8 AS close
+  FROM market_ts.ohlcv bar
+  JOIN core.v_security_universe universe
+    ON universe.ticker = regexp_replace(upper(bar.symbol), '\\.(KS|KQ)$', '')
+   AND universe.market = CASE WHEN bar.exchange IN ('KOSPI','KOSDAQ') THEN 'KR' ELSE 'US' END
+  WHERE bar.domain = 'stock' AND bar.timeframe = '1D' AND bar.close > 0
+    AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
+    AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
+  ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
+), stock_returns AS (
+  SELECT market, bar_date,
+         ln(close / lag(close) OVER (PARTITION BY security_entity_id ORDER BY bar_date)) AS r
+  FROM bars
+), mean_returns AS (
+  SELECT market, bar_date, avg(r) AS mean_r
+  FROM stock_returns WHERE r IS NOT NULL GROUP BY 1,2
+), kr_index AS (
+  -- Daily-rebalanced equal weight: the level is the running product of the
+  -- cross-sectional mean return, so its log return IS the average stock's.
+  SELECT 'KR'::text AS market_key, bar_date::text AS bar_date,
+         exp(sum(mean_r) OVER (ORDER BY bar_date))::float8 AS close
+  FROM mean_returns WHERE market = 'KR'
+), us_index AS (
+  SELECT 'US'::text AS market_key,
+         ((bar.ts AT TIME ZONE 'UTC')::date)::text AS bar_date,
+         bar.close::float8 AS close
+  FROM market_ts.ohlcv bar
+  WHERE bar.symbol = '^GSPC' AND bar.timeframe = '1D' AND bar.close > 0
+    AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
+    AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
+)
+SELECT * FROM kr_index UNION ALL SELECT * FROM us_index ORDER BY market_key, bar_date
 `;
 
 function sha256(value: string): string {
@@ -399,7 +458,11 @@ async function loadInputs(client: Client): Promise<{
 async function loadMacroComovementInputs(
   client: Client,
   asOf: string,
-): Promise<{ seriesWindows: MacroSeriesWindow[]; stockWindows: StockPriceWindow[] }> {
+): Promise<{
+  seriesWindows: MacroSeriesWindow[];
+  stockWindows: StockPriceWindow[];
+  marketFactors: MarketFactorWindow[];
+}> {
   const includedSeries = Object.keys(MACRO_SERIES_TRANSFORMS).sort();
   // Load the widest window any frequency needs; the model trims each series to
   // its own. Loading only the daily 365 left the weekly series with ~52 points,
@@ -436,6 +499,7 @@ async function loadMacroComovementInputs(
     const existing = stockByEntity.get(stockEntityId);
     const window = existing ?? {
       stockEntityId,
+      marketKey: row.market,
       observations: [] as Array<{ date: string; close: number }>,
     };
     (window.observations as Array<{ date: string; close: number }>).push({
@@ -445,12 +509,30 @@ async function loadMacroComovementInputs(
     stockByEntity.set(stockEntityId, window);
   }
 
+  const factorRows = await client.query<MarketFactorRow>(MARKET_FACTOR_SQL, [asOf, windowDays]);
+  const factorByKey = new Map<string, MarketFactorWindow>();
+  for (const row of factorRows.rows) {
+    const existing = factorByKey.get(row.market_key);
+    const factor = existing ?? {
+      marketKey: row.market_key,
+      observations: [] as Array<{ date: string; close: number }>,
+    };
+    (factor.observations as Array<{ date: string; close: number }>).push({
+      date: row.bar_date,
+      close: row.close,
+    });
+    factorByKey.set(row.market_key, factor);
+  }
+
   return {
     seriesWindows: [...seriesByKey.values()].sort((left, right) =>
       left.seriesKey.localeCompare(right.seriesKey),
     ),
     stockWindows: [...stockByEntity.values()].sort(
       (left, right) => left.stockEntityId - right.stockEntityId,
+    ),
+    marketFactors: [...factorByKey.values()].sort((left, right) =>
+      left.marketKey.localeCompare(right.marketKey),
     ),
   };
 }
@@ -635,6 +717,8 @@ async function materializeMacroComovementSources(
       stockEntityId: pair.stockEntityId,
       seriesKey: pair.seriesKey,
       correlation: pair.correlation,
+      rawCorrelation: pair.rawCorrelation,
+      stockMarketCorrelation: pair.stockMarketCorrelation,
       overlappingObservations: pair.overlappingObservations,
       windowStartDate: pair.firstObservedDate,
       windowEndDate: pair.lastObservedDate,
@@ -1380,6 +1464,7 @@ async function dryRun(client: Client): Promise<void> {
     const macroPlan = planMacroComovementPairs(
       macroWindows.seriesWindows,
       macroWindows.stockWindows,
+      macroWindows.marketFactors,
     );
     const fakeSeriesRevisions = new Map(
       [...new Set(macroPlan.pairs.map((pair) => pair.seriesKey))]
@@ -1397,6 +1482,8 @@ async function dryRun(client: Client): Promise<void> {
         stockEntityId: pair.stockEntityId,
         seriesKey: pair.seriesKey,
         correlation: pair.correlation,
+        rawCorrelation: pair.rawCorrelation,
+        stockMarketCorrelation: pair.stockMarketCorrelation,
         overlappingObservations: pair.overlappingObservations,
         windowStartDate: pair.firstObservedDate,
         windowEndDate: pair.lastObservedDate,
@@ -1592,10 +1679,11 @@ async function apply(client: Client): Promise<void> {
     const macroReady = Number.isSafeInteger(macroOntologyRevisionId) && macroOntologyRevisionId > 0;
     const macroWindows = macroReady
       ? await loadMacroComovementInputs(client, capturedAt)
-      : { seriesWindows: [], stockWindows: [] };
+      : { seriesWindows: [], stockWindows: [], marketFactors: [] };
     const macroPlan = planMacroComovementPairs(
       macroWindows.seriesWindows,
       macroWindows.stockWindows,
+      macroWindows.marketFactors,
     );
     const macroMaterialized = await materializeMacroComovementSources(
       client,

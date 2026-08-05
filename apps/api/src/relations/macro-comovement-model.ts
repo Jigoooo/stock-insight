@@ -35,14 +35,33 @@ export type StockPriceObservation = {
 export type StockPriceWindow = {
   stockEntityId: number;
   observations: readonly StockPriceObservation[];
+  /**
+   * Which market factor this stock is controlled for. A stock must be measured
+   * against its OWN market — controlling a Korean stock for the S&P would
+   * subtract a factor it does not load on.
+   */
+  marketKey: string;
+};
+
+/** A market factor series, keyed by StockPriceWindow.marketKey. */
+export type MarketFactorWindow = {
+  marketKey: string;
+  observations: readonly StockPriceObservation[];
 };
 
 export type MacroComovementPair = {
   seriesKey: string;
   seriesEntityId: number;
   stockEntityId: number;
-  /** Pearson correlation of the two change series, within [-1,1]. */
+  /**
+   * PARTIAL correlation of the two change series controlling for the stock's
+   * market factor, within [-1,1]. This is the number the edge asserts.
+   */
   correlation: number;
+  /** Raw Pearson correlation before the market factor is removed. */
+  rawCorrelation: number;
+  /** Correlation of the stock with its market factor over the same dates (beta-ish). */
+  stockMarketCorrelation: number;
   overlappingObservations: number;
   /** First and last date contributing a change to both sides. */
   firstObservedDate: string;
@@ -59,6 +78,10 @@ export type MacroComovementPlan = {
     pairsWithEnoughOverlap: number;
     pairsOverThreshold: number;
     pairsDroppedByDegreeCap: number;
+    /** No market factor covered this pair's dates — never guessed at. */
+    pairsDroppedByMissingMarket: number;
+    /** The market explained a side almost entirely; the partial is undefined. */
+    pairsDroppedByDegenerateMarket: number;
   };
 };
 
@@ -199,6 +222,12 @@ export const MACRO_COMOVEMENT_MODEL_CONFIG = Object.freeze({
   // closes before the US session that sets the day's yield, so a same-date pairing
   // there is contemporaneous by calendar and not by clock.
   alignment: 'same_calendar_date_utc',
+  // The edge asserts the PARTIAL correlation, not the raw one. Without this the
+  // number restates market beta: an energy name moves with oil partly because
+  // both move with everything. Raw and the stock's market correlation are kept
+  // on the relation so the subtraction can be checked rather than trusted.
+  correlationKind: 'partial_controlling_for_market_factor',
+  marketFactorTransform: 'log_return',
   stockPriceField: 'market_ts.ohlcv.close',
   // Not adj_close: measured 2026-08-04, adj_close is populated on 0 of 298,754
   // stock 1D rows and adjustment_version is empty on all of them. close is
@@ -300,9 +329,35 @@ function pearson(left: readonly number[], right: readonly number[]): number | nu
  * rule; this function never reaches for data it was not handed, so what it
  * measured is exactly what the evidence will record.
  */
+/**
+ * Partial correlation of x and y holding the market factor m fixed.
+ *
+ * A raw correlation between a stock and a macro series contains whatever both
+ * share with the market. Energy Select SPDR correlates +0.592 with WTI, but part
+ * of that is simply "both went up when everything went up" — the edge would be
+ * restating market beta while claiming to say something about oil.
+ *
+ * This is the exact algebraic partial, not a regression: for three standardised
+ * series it is equivalent to correlating the residuals of x~m and y~m, and needs
+ * only the three pairwise correlations.
+ *
+ * Returns null when the market explains a series almost entirely (|r|→1), where
+ * the denominator collapses and the partial is not defined — an index-tracking
+ * ETF against its own index is the case that hits this. Refusing is right: there
+ * is no independent variation left to measure.
+ */
+function partialCorrelation(rXY: number, rXM: number, rYM: number): number | null {
+  const denominator = Math.sqrt((1 - rXM * rXM) * (1 - rYM * rYM));
+  if (!Number.isFinite(denominator) || denominator < 1e-6) return null;
+  const value = (rXY - rXM * rYM) / denominator;
+  if (!Number.isFinite(value)) return null;
+  return Math.max(-1, Math.min(1, value));
+}
+
 export function planMacroComovementPairs(
   seriesWindows: readonly MacroSeriesWindow[],
   stockWindows: readonly StockPriceWindow[],
+  marketFactors: readonly MarketFactorWindow[] = [],
 ): MacroComovementPlan {
   // The window is anchored on the latest observation present, not on the clock,
   // so a replay of the same inputs produces the same window.
@@ -367,6 +422,7 @@ export function planMacroComovementPairs(
   // computed once up front.
   const stockPoints: Array<{
     stockEntityId: number;
+    marketKey: string;
     points: Array<{ date: string; value: number }>;
   }> = [];
   for (const window of [...stockWindows].sort(
@@ -379,11 +435,13 @@ export function planMacroComovementPairs(
     seenStocks.add(window.stockEntityId);
     stockPoints.push({
       stockEntityId: window.stockEntityId,
+      marketKey: window.marketKey,
       points: window.observations.map((row) => ({ date: row.date, value: row.close })),
     });
   }
   const dailyStockChanges = stockPoints.map((entry) => ({
     stockEntityId: entry.stockEntityId,
+    marketKey: entry.marketKey,
     changes: toChanges(
       boundTo(entry.points, MACRO_WINDOW_DAYS_BY_FREQUENCY.daily),
       'log_return',
@@ -392,7 +450,7 @@ export function planMacroComovementPairs(
   }));
   const weeklyStockChangesBySeries = new Map<
     string,
-    Array<{ stockEntityId: number; changes: Map<string, number> }>
+    Array<{ stockEntityId: number; marketKey: string; changes: Map<string, number> }>
   >();
   for (const series of seriesChanges) {
     if (series.frequency !== 'weekly') continue;
@@ -403,12 +461,51 @@ export function planMacroComovementPairs(
       series.window.seriesKey,
       stockPoints.map((entry) => ({
         stockEntityId: entry.stockEntityId,
+        marketKey: entry.marketKey,
         changes: toChanges(
           resampleToGrid(entry.points, grid),
           'log_return',
           `stock ${entry.stockEntityId} on ${series.window.seriesKey} grid`,
         ),
       })),
+    );
+  }
+
+  // Market factors get the same treatment as the stock side: a weekly series is
+  // correlated against the market resampled onto that series' grid, so all three
+  // correlations in the partial are measured over one set of intervals.
+  const marketPoints = marketFactors.map((factor) => ({
+    marketKey: factor.marketKey,
+    points: factor.observations.map((row) => ({ date: row.date, value: row.close })),
+  }));
+  const dailyMarketChanges = new Map(
+    marketPoints.map((entry) => [
+      entry.marketKey,
+      toChanges(
+        boundTo(entry.points, MACRO_WINDOW_DAYS_BY_FREQUENCY.daily),
+        'log_return',
+        `market ${entry.marketKey}`,
+      ),
+    ]),
+  );
+  const weeklyMarketChangesBySeries = new Map<string, Map<string, Map<string, number>>>();
+  for (const series of seriesChanges) {
+    if (series.frequency !== 'weekly') continue;
+    const grid = boundTo(series.window.observations, MACRO_WINDOW_DAYS_BY_FREQUENCY.weekly).map(
+      (row) => row.date,
+    );
+    weeklyMarketChangesBySeries.set(
+      series.window.seriesKey,
+      new Map(
+        marketPoints.map((entry) => [
+          entry.marketKey,
+          toChanges(
+            resampleToGrid(entry.points, grid),
+            'log_return',
+            `market ${entry.marketKey} on ${series.window.seriesKey} grid`,
+          ),
+        ]),
+      ),
     );
   }
 
@@ -433,6 +530,8 @@ export function planMacroComovementPairs(
   let pairsWithEnoughOverlap = 0;
   let pairsOverThreshold = 0;
   let pairsDroppedByDegreeCap = 0;
+  let pairsDroppedByMissingMarket = 0;
+  let pairsDroppedByDegenerateMarket = 0;
   const pairs: MacroComovementPair[] = [];
 
   for (const series of seriesChanges) {
@@ -440,6 +539,8 @@ export function planMacroComovementPairs(
     // so both sides measure the same interval. A daily series uses the stock's
     // daily changes unchanged.
     const stockSide = weeklyStockChangesBySeries.get(series.window.seriesKey) ?? dailyStockChanges;
+    const marketChangesByKey =
+      weeklyMarketChangesBySeries.get(series.window.seriesKey) ?? dailyMarketChanges;
     const scored: MacroComovementPair[] = [];
     for (const stock of stockSide) {
       const overlappingDates = [...series.changes.keys()]
@@ -449,16 +550,40 @@ export function planMacroComovementPairs(
         continue;
       }
       pairsWithEnoughOverlap += 1;
-      const correlation = pearson(
-        overlappingDates.map((date) => series.changes.get(date)!),
-        overlappingDates.map((date) => stock.changes.get(date)!),
-      );
-      if (correlation === null || !Number.isFinite(correlation)) continue;
-      const rounded = Number(
-        Math.max(-1, Math.min(1, correlation)).toFixed(
-          MACRO_COMOVEMENT_MODEL_CONFIG.scorePrecision,
-        ),
-      );
+      const seriesValues = overlappingDates.map((date) => series.changes.get(date)!);
+      const stockValues = overlappingDates.map((date) => stock.changes.get(date)!);
+      const raw = pearson(seriesValues, stockValues);
+      if (raw === null || !Number.isFinite(raw)) continue;
+
+      // Remove what the stock and the series merely share with the stock's own
+      // market. Without this the edge restates beta: an energy name correlates
+      // with oil partly because both rose when everything rose.
+      const marketChanges = marketChangesByKey.get(stock.marketKey);
+      if (marketChanges === undefined) {
+        pairsDroppedByMissingMarket += 1;
+        continue;
+      }
+      const marketValues = overlappingDates.map((date) => marketChanges.get(date));
+      if (marketValues.some((value) => value === undefined)) {
+        // The market factor must cover exactly the dates being correlated;
+        // a partial computed over a different set is not the same quantity.
+        pairsDroppedByMissingMarket += 1;
+        continue;
+      }
+      const market = marketValues as number[];
+      const rStockMarket = pearson(stockValues, market);
+      const rSeriesMarket = pearson(seriesValues, market);
+      if (rStockMarket === null || rSeriesMarket === null) {
+        pairsDroppedByMissingMarket += 1;
+        continue;
+      }
+      const partial = partialCorrelation(raw, rSeriesMarket, rStockMarket);
+      if (partial === null) {
+        pairsDroppedByDegenerateMarket += 1;
+        continue;
+      }
+      const precision = MACRO_COMOVEMENT_MODEL_CONFIG.scorePrecision;
+      const rounded = Number(partial.toFixed(precision));
       if (Math.abs(rounded) < MACRO_COMOVEMENT_MODEL_CONFIG.absCorrelationThreshold) continue;
       pairsOverThreshold += 1;
       scored.push({
@@ -466,6 +591,8 @@ export function planMacroComovementPairs(
         seriesEntityId: series.window.seriesEntityId,
         stockEntityId: stock.stockEntityId,
         correlation: rounded,
+        rawCorrelation: Number(raw.toFixed(precision)),
+        stockMarketCorrelation: Number(rStockMarket.toFixed(precision)),
         overlappingObservations: overlappingDates.length,
         firstObservedDate: overlappingDates[0]!,
         lastObservedDate: overlappingDates.at(-1)!,
@@ -497,6 +624,8 @@ export function planMacroComovementPairs(
       pairsWithEnoughOverlap,
       pairsOverThreshold,
       pairsDroppedByDegreeCap,
+      pairsDroppedByMissingMarket,
+      pairsDroppedByDegenerateMarket,
     },
   };
 }
