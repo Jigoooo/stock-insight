@@ -11,6 +11,7 @@ import type { AccountRole, AdminInvitation } from '@/server/auth/admin-invitatio
 import { Button } from '@/shared/ui/button';
 import { InlineFeedbackRegion } from '@/shared/ui/feedback';
 import { Field, FieldLabel } from '@/shared/ui/field';
+import { IdentityBadge, type IdentityTone } from '@/shared/ui/identity-content';
 import { Input } from '@/shared/ui/input';
 import { PresenceRegion } from '@/shared/ui/motion';
 import { Select, type SelectOption } from '@/shared/ui/select';
@@ -73,6 +74,12 @@ function formatDateTime(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
+}
+
+function invitationStatusTone(status: AdminInvitation['status']): IdentityTone {
+  if (status === 'active') return 'positive';
+  if (status === 'revoked' || status === 'expired') return 'pending';
+  return 'neutral';
 }
 
 export function AdminInvitationPage({
@@ -204,9 +211,9 @@ export function AdminInvitationPage({
           <PanelHeader
             className={styles.panelHeader}
             meta={
-              <span className={styles.roleBadge}>
+              <IdentityBadge className={styles.roleBadge} tone="progress" variant="soft-fill">
                 <ShieldCheck aria-hidden="true" /> {accountRole === 'owner' ? 'Owner' : 'Admin'}
-              </span>
+              </IdentityBadge>
             }
           >
             <span>Invitation policy</span>
@@ -378,9 +385,14 @@ export function AdminInvitationPage({
                       <small>{formatDateTime(invitation.createdAt)}</small>
                     </th>
                     <td>
-                      <span className={styles.statusBadge} data-status={invitation.status}>
+                      <IdentityBadge
+                        className={styles.statusBadge}
+                        data-status={invitation.status}
+                        tone={invitationStatusTone(invitation.status)}
+                        variant="dot-label"
+                      >
                         {statusLabels[invitation.status]}
-                      </span>
+                      </IdentityBadge>
                     </td>
                     <td>
                       {invitation.usedCount} / {invitation.maxUses}

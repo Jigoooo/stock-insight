@@ -4,8 +4,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import styles from './workspace.module.css';
 
 import { cn } from '@/shared/lib/utils';
+import { Skeleton } from '@/shared/ui/feedback';
 import { ScrollArea } from '@/shared/ui/scroll-area';
-import { Skeleton } from '@/shared/ui/skeleton';
 
 export type WorkspaceStateKind =
   | 'loading'

@@ -19,7 +19,7 @@ import type { Stock } from '../model/types';
 import { loadStockDetailResponse } from '@/pages/dashboard/model/load-stock-detail-response';
 import { resolveStockDetailForDashboard } from '@/pages/dashboard/model/resolve-stocks';
 import { Button } from '@/shared/ui/button';
-import { DataQualityPopover, StatusBadge } from '@/shared/ui/feedback';
+import { DataQualityPopover, Progress, StatusBadge } from '@/shared/ui/feedback';
 import { TextLink } from '@/shared/ui/link';
 import type {
   DataAvailability,
@@ -435,9 +435,12 @@ function ProgressRow({ label, value }: Readonly<{ label: string; value: number }
   return (
     <div className={styles.rowbar}>
       <b>{label}</b>
-      <div className={styles.track}>
-        <span data-progress-reveal style={{ width: `${value}%` }} />
-      </div>
+      <Progress
+        className={styles.metricProgress}
+        label={`${label} 비중`}
+        value={value}
+        variant="hairline-progress"
+      />
       <em>{value}%</em>
     </div>
   );

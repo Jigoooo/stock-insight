@@ -1,0 +1,253 @@
+.catalog {
+  --overlay-secondary: color-mix(in srgb, var(--color-text-primary) 78%, var(--color-surface));
+
+  display: grid;
+  gap: 28px;
+  margin-top: 48px;
+  padding-top: 36px;
+  border-top: 1px solid var(--color-border);
+}
+
+.catalogHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 430px);
+  align-items: end;
+  gap: 24px;
+}
+
+.catalogHeader span,
+.variantCard > header > span,
+.groupHeading > span,
+.panelEyebrow {
+  color: var(--overlay-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.catalogHeader h2,
+.catalogHeader p,
+.variantCard h3,
+.popoverCopy,
+.result {
+  margin: 0;
+}
+
+.catalogHeader h2 {
+  margin-top: 6px;
+  font-size: 24px;
+  letter-spacing: -0.035em;
+}
+
+.catalogHeader p {
+  color: var(--overlay-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.variantGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.variantCard {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.variantCard > header {
+  min-height: 116px;
+  padding: 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.variantCard h3 {
+  margin-top: 9px;
+  font-size: 15px;
+}
+
+.previewGroup {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-canvas);
+}
+
+.previewGroup:last-child {
+  border-bottom: 0;
+}
+
+.groupHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.groupHeading small {
+  color: var(--overlay-secondary);
+  font-size: 10px;
+}
+
+.previewTrigger[data-slot='button-control'],
+.panelTrigger[data-slot='button-control'] {
+  width: 100%;
+  min-height: 44px;
+}
+
+.previewTrigger [data-slot='button-label'] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contextTarget {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+.contextTarget span {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.contextTarget small {
+  grid-column: 2;
+  color: var(--overlay-secondary);
+  font-size: 10px;
+}
+
+.contextTarget:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.panelTriggers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.panelTrigger[data-slot='button-control'] {
+  padding-inline: 8px;
+  font-size: 10px;
+}
+
+.popoverLabel {
+  color: var(--overlay-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.popoverTitle {
+  font-size: 14px;
+}
+
+.popoverCopy {
+  color: var(--overlay-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.variantCard[data-variant='hairline'] .previewGroup {
+  background: var(--color-surface);
+}
+
+.variantCard[data-variant='hairline'] .previewTrigger[data-slot='button-control'],
+.variantCard[data-variant='hairline'] .panelTrigger[data-slot='button-control'],
+.variantCard[data-variant='hairline'] .contextTarget {
+  border-radius: var(--radius-lg);
+}
+
+.variantCard[data-variant='soft-surface'] .previewGroup {
+  background: var(--color-surface-subtle);
+}
+
+.panelContent {
+  max-height: 100dvh;
+}
+
+.panelBody {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.panelBody > strong {
+  font-size: 20px;
+}
+
+.panelBody dl,
+.panelBody dd {
+  margin: 0;
+}
+
+.panelBody dl {
+  display: grid;
+  border-top: 1px solid var(--color-border);
+}
+
+.panelBody dl > div {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+}
+
+.panelBody dt {
+  color: var(--overlay-secondary);
+}
+
+.result {
+  min-height: 44px;
+  padding: 13px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--overlay-secondary);
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+}
+
+@media (max-width: 1120px) {
+  .variantGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .catalogHeader {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .previewGroup {
+    padding-inline: 12px;
+  }
+
+  .panelTriggers {
+    grid-template-columns: 1fr;
+  }
+}

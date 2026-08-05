@@ -6,9 +6,9 @@
 ## 현재 포인터
 
 - 프로그램 상태: 실행 중
-- 현재 활성 묶음: `4A Menu & Overlay 목업 비교`
-- 다음 묶음: `5A Identity & Content 목업 비교`
-- 마지막 갱신: 2026-08-04
+- 현재 활성 묶음: `6A Charts End-to-End`
+- 다음 묶음: `6A Evidence Band TradingView 디테일 시각 확인`
+- 마지막 갱신: 2026-08-05
 - 실행 방식: 도메인 묶음별 end-to-end
 
 ## 상태값
@@ -38,10 +38,10 @@
 | 3B   | Side Tab + Side List                | 검증 완료 | 3C Breadcrumb + Pagination 목업 비교  |
 | 3C   | Breadcrumb + Pagination             | 검증 완료 | 3D Stepper + CommandPalette 목업 비교 |
 | 3D   | Stepper + CommandPalette            | 검증 완료 | 4A Menu & Overlay 목업 비교           |
-| 4A   | Menu & Overlay                      | 목업      | UI Lab 통합 A/B/C 구현                |
-| 5A   | Identity & Content                  | 대기      | UI Lab 통합 A/B/C 비교                |
-| 5B   | Data & Feedback                     | 대기      | UI Lab 통합 A/B/C 비교                |
-| 6A   | Charts End-to-End                   | 대기      | 기반·차트·제품 연결 통합 진행         |
+| 4A   | Menu & Overlay                      | 검증 완료 | 5A Identity & Content 목업 비교       |
+| 5A   | Identity & Content                  | 검증 완료 | 5B Data & Feedback 목업 비교          |
+| 5B   | Data & Feedback                     | 검증 완료 | 6A Charts End-to-End 진행             |
+| 6A   | Charts End-to-End                   | 승인      | Evidence Band 디테일 시각 확인        |
 
 ## 완료 기록
 
@@ -250,6 +250,222 @@
 - 목업은 URL과 실제 데이터를 변경하지 않고 UI Lab 로컬 결과만 표시함
 - 검증은 소스 계약 1~2건, 핵심 상호작용 1건, 모바일·감소 모션·Axe 통합 1건과 변경 범위 정적 검사로 제한함
 - 다음 행동은 승인된 4A 설계 문서를 검토한 뒤 구현 계획을 작성하는 것임
+
+### 2026-08-04 — 4A Menu & Overlay 목업 구현
+
+- A Hairline, B Soft Surface, C Compact Ledger를 DropdownMenu·ContextMenu·Popover·Drawer·Sheet·BottomSheet 여섯 표면에 같은 디자인 언어로 적용함
+- DropdownMenu와 ContextMenu는 일반 액션·아이콘·단축키·구분선·비활성 상태를 포함한 동일 리서치 액션 배열을 공유함
+- Drawer는 왼쪽, Sheet는 오른쪽, BottomSheet는 아래쪽에서 열리며 같은 선택 근거 내용을 표시함
+- 완료된 Stepper·CommandPalette 카탈로그는 `완료` 탭으로 이동하고 `예정` 카드는 네 통합 묶음으로 축소함
+- 메뉴 실행은 UI Lab 로컬 `aria-live` 결과만 갱신하며 기존 URL과 제품 데이터는 변경하지 않음
+- 검증: Menu & Overlay Node 모델 계약 2건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건과 Axe 집중 검사 통과
+- Codex 인앱 브라우저 6110에서 A/B/C 여섯 표면 렌더링, DropdownMenu A 실행 결과와 URL 고정을 확인하고 사용자 시각 승인 대기 상태로 전환함
+- 사용자 피드백에 따라 A Hairline의 메뉴·Popover·trigger 라운드를 키우고, C Compact Ledger의 과도한 직각 표현과 BottomSheet 좌우 비대칭을 보정함
+- 공용 Sheet 종료를 Dialog 계열과 같은 계약으로 맞춰 overlay·content가 닫힘 즉시 포인터를 놓고 각각 100ms·80ms 안에 퇴장하도록 변경함
+- 회귀 계약은 닫힘 20ms 뒤 overlay `pointer-events: none`, 120ms 뒤 Portal·스크롤 잠금 제거, 390px BottomSheet 좌우 여백 대칭을 직접 검증함
+- 사용자는 여섯 표면 모두 A Hairline과 B Soft Surface를 채택하고 C Compact Ledger를 제외함
+- DropdownMenu·ContextMenu·Popover는 A/B variant를 제공하는 `shared/ui/menu-overlay` 공개 API로 공용화하고 UI Lab도 해당 공개 API를 사용하도록 전환함
+- Drawer·Sheet·BottomSheet는 기존 공용 Sheet에 A/B variant를 추가해 같은 디자인 언어와 빠른 종료 계약을 공유함
+- 실제 제품에서는 모바일 워크스페이스 내비게이션 Sheet에 B Soft Surface를 적용함
+- DropdownMenu·ContextMenu·Popover에는 현재 적합한 일반 제품 사용처가 없어 가짜 기능을 추가하지 않았으며, 특화된 SplitButton·DatePicker 계열의 내부 Radix 사용도 억지로 교체하지 않음
+- 승인된 Menu & Overlay 카탈로그는 UI Lab `완료` 탭으로 이동하고 예정 카드에서 5A Identity & Content를 `다음`으로 표시함
+- 공용화 검증: Menu & Overlay 모델·워크스페이스 오버레이 Node 계약 9건, public props fixture, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건 통과
+- Codex 인앱 브라우저 6110에서 완료 탭에 A/B 두 카드만 남고 C가 제거된 상태와 B Sheet의 실제 열림을 확인함
+- 다음 행동은 5A Identity & Content 통합 목업 비교를 시작하는 것임
+
+### 2026-08-04 — 5A Identity & Content 목업 설계 승인
+
+- Avatar, Badge, Status, List, Timeline, Carousel을 하나의 공통 디자인 언어로 묶지 않고 컴포넌트별 독립 A/B/C로 비교함
+- UI Lab 내부 상단 수평 탭으로 여섯 컴포넌트를 나누고 선택한 컴포넌트의 A/B/C만 표시함
+- List, Timeline, Carousel은 동일한 데모 데이터와 현재 선택 상태를 세 시안이 공유함
+- 390px 수평 탭 스크롤, 44px 터치 영역, 키보드, 감소 모션, Axe 계약을 목업 단계부터 포함함
+- 완료된 Menu & Overlay는 `예정` 카드에서 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 카드만 남김
+- 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
+- 설계 문서: `docs/superpowers/specs/2026-08-04-identity-content-mockups-design.md`
+- 구현 계획: `docs/superpowers/plans/2026-08-04-identity-content-mockups.md`
+
+### 2026-08-04 — 5A Identity & Content 목업 구현
+
+- UI Lab `목업 진행 중` 탭에 Avatar, Badge, Status, List, Timeline, Carousel 여섯 수평 탭을 추가하고 각 컴포넌트의 독립 A/B/C 시안을 구현함
+- List, Timeline, Carousel은 세 시안이 같은 현재 선택 상태를 공유하며 탭을 옮겨도 선택이 유지됨
+- 사용자 피드백에 따라 List는 선택 행·마커 안착, Timeline은 현재 행·포인트 연결, Carousel은 이전·다음 카드가 잠시 겹치며 탐색 방향으로 포개지는 스택 전환을 추가하고 감소 모션에서는 즉시 전환하도록 유지함
+- `예정` 카드는 완료된 Menu & Overlay를 제거하고 Identity & Content, Data & Feedback, Charts End-to-End 세 묶음만 표시함
+- `완료` 탭의 Button 데모는 하나의 `새로고침` 액션이 `불러오는 중`에서 `새로고침 완료`로 전환되고 다시 실행되는 반복 상태를 제공함
+- 개발 모드 effect 재실행이 클릭 핸들러에서 만든 타이머를 취소하던 문제를 확인하고, pending 상태를 구독하는 effect가 타이머의 생성과 정리를 함께 소유하도록 보정함
+- 390px 수평 탭 스크롤, 44px 터치 영역, 키보드 탭 전환, 감소 모션, Axe 접근성을 전용 Playwright 계약에 포함함
+- Node 모델 계약 3건, 전용 Playwright 2건, web typecheck와 변경 파일 정적 검사를 사용하며 전체 테스트·빌드는 실행하지 않음
+- Codex 인앱 브라우저 6110에서 여섯 컴포넌트 탭, List·Timeline 공유 선택과 Carousel 방향 전환 모션, 반복 새로고침 상태 전환을 확인함
+- 다음 행동은 여섯 컴포넌트 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
+
+### 2026-08-04 — 5A Identity & Content 승인·공용화 완료
+
+- 사용자 승인: Avatar, Badge, Status, List, Timeline, Carousel의 A/B/C를 모두 유지함
+- `shared/ui/identity-content` 공개 API로 여섯 컴포넌트와 각 variant를 공용화하고, UI Lab의 페이지 소유 렌더링·선택 모션·Carousel 스택 전환을 공개 컴포넌트로 교체함
+- List·Timeline·Carousel은 controlled `value`와 `onValueChange`를 통해 동일한 선택 상태를 공유하며, Carousel은 방향에 따라 이전·다음 카드가 겹치는 전환과 감소 모션 즉시 전환을 공용 계약으로 소유함
+- 실제 제품 적용: 관리자 가입 코드 화면의 Owner/Admin 역할과 초대 상태를 `IdentityBadge`의 `soft-fill|dot-label` variant로 교체함
+- 제품 사용처 감사: Avatar, StatusIndicator, ContentList, ContentTimeline, Carousel은 현재 적합한 사용처가 없어 가짜 제품 기능을 추가하지 않음. 기존 workspace Timeline과 종목 상세 StatusBadge는 의미가 달라 유지함
+- UI Lab 카탈로그는 `완료` 탭으로 이동하고 현재 묶음을 5B Data & Feedback으로 전환했으며, `예정` 카드는 Data & Feedback과 Charts End-to-End 두 개만 남김
+- 검증: Identity & Content 모델 Node 1건, Menu & Overlay 회귀 Node 1건, public props fixture, web typecheck, 관리자 초대 관련 Node 계약, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 2건과 Axe 집중 검사
+- Codex 인앱 브라우저 6110에서 여섯 컴포넌트별 A/B/C 공개 루트, List·Timeline의 선택 상태 3개 동기화, Carousel 전환 중 카드 2개 겹침과 종료 후 1개 복귀를 확인함
+- 다음 행동은 5B Data & Feedback 통합 A/B/C 목업 비교를 시작하는 것임
+
+### 2026-08-04 — 5B Data & Feedback 목업 설계 승인
+
+- Table 확장, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading을 각각 수평 탭으로 나누고 컴포넌트별 독립 A/B/C를 비교함
+- Table은 정렬·선택·행 펼침, DataGrid는 정렬·선택·셀 편집·열 리사이즈·1,000행 실제 가상 스크롤을 세 시안 모두 제공함
+- DataGrid A/B/C는 데이터, 정렬, 선택, 편집 결과, 열 너비를 공유하며 URL과 실제 제품 데이터는 변경하지 않음
+- 새 table·virtualization 패키지 없이 UI Lab 경계의 고정 행 높이 virtualizer를 사용함
+- Progress와 Loading은 완료 후 다시 실행 가능하며 Spinner·Skeleton 모션은 감소 모션에서 정적 상태로 대체함
+- 목업 단계에서는 기존 Table·Skeleton·Feedback 공개 API와 제품 사용처를 변경하지 않음
+- 검증은 Node 2건, Playwright 2건, web typecheck와 변경 파일 정적 검사로 제한하며 전체 테스트·빌드는 실행하지 않음
+- 설계 문서: `docs/superpowers/specs/2026-08-04-data-feedback-mockups-design.md`
+- 다음 행동은 승인된 설계의 구현 계획을 작성하는 것임
+
+### 2026-08-04 — 5B Data & Feedback 목업 구현
+
+- UI Lab `목업 진행 중` 탭에 Table, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading 여덟 수평 탭을 추가하고 각 컴포넌트의 독립 A/B/C 시안을 구현함
+- Table은 A Expandable Rows, B Sticky Surface, C Compact Ledger가 정렬·복수 선택·연결 근거 펼침 상태를 공유함
+- DataGrid는 A Precision Grid, B Soft Sheet, C Dense Matrix가 결정적 로컬 1,000행, 정렬, 선택, `note|status` 셀 편집, 포인터·키보드 열 리사이즈를 공유함
+- DataGrid virtualizer는 고정 44px 행, 320px 뷰포트, overscan 6을 사용하며 새 런타임 의존성 없이 실제 보이는 범위만 마운트함
+- DataGrid 키보드 계약은 Arrow, Home, End, Enter, F2, Escape를 포함하고 열 separator는 ArrowLeft·ArrowRight로 8px씩 너비를 조절함
+- Progress A Hairline Progress·B Soft Meter·C Segmented Track과 Loading A Skeleton First·B Progress Panel·C Staged Ledger는 완료 후 다시 실행하는 순환 상태를 공유함
+- Spinner A Orbit·B Three Dot·C Signal Sweep, Skeleton A Quiet Blocks·B Shimmer Surface·C Ledger Rows, Empty A Quiet Empty·B Guided Empty·C Inline Empty, Error A Quiet Alert·B Recovery Panel·C Inline Critical을 각각 독립 비교로 추가함
+- Error는 카탈로그 단일 assertive 영역만 소유하고 Progress·Loading·Empty 액션은 polite 결과를 공유하며, 감소 모션에서 진행·스피너·시머·로딩 애니메이션을 정지함
+- 자동 검증: Data & Feedback Node 모델 계약 2건, 전용 Playwright 2건(공유 Table·DataGrid 상호작용, 390px·감소 모션·Axe), web typecheck, 변경 파일 Oxfmt·Oxlint, `git diff --check` 통과
+- Codex 인앱 브라우저 6110에서 여덟 탭·선택된 탭의 세 카드, Table 공유 펼침·선택, DataGrid 공유 정렬·편집·선택·열 너비, 각 grid `aria-rowcount=1001`·마운트 행 15개, Loading의 `pending → complete` 2회 반복과 URL 고정을 확인함
+- 목업 단계에서 `shared/ui` 공개 API와 제품 사용처는 변경하지 않았으며, 다음 행동은 여덟 컴포넌트의 A/B/C 사용자 시각 승인임
+
+### 2026-08-04 — 5B Data & Feedback 1차 시각 피드백 반영
+
+- 상단 컴포넌트 탭의 트리거와 하단 선택선을 같은 고정 폭 안에서 중앙 정렬하고, 좁은 화면에서도 동일한 기준을 유지함
+- Table 정렬 시 실제 행 위치가 이동하는 spring 모션과 연결 근거 행의 높이·투명도 전환을 추가하고, 기존 공용 `TableSelectionSummary`를 연결해 복수 선택 상태와 선택 해제를 세 시안에 함께 표시함
+- DataGrid는 가상 스크롤 정렬로 가시 행 집합이 교체되는 경우에도 짧은 교차 진입 모션을 제공하며, A는 정밀 격자·B는 수직선 없는 소프트 시트·C는 고정 식별 열만 강하게 구분하는 밀집 매트릭스로 열선과 헤더 대비를 분리함
+- Empty·Error·Loading은 세 시안 모두 카드 중앙축에 맞추고, Loading은 Skeleton First·Progress Panel·Staged Ledger의 시각 구조를 실제로 다르게 표현함
+- Codex 인앱 브라우저 6110에서 탭 선택선 중심, Table 정렬 transform·근거 펼침·선택 요약 3개, DataGrid 정렬 진입 transform·A/B/C 열선 차이, Empty·Loading 중앙 정렬과 브라우저 오류 0건을 확인함
+- 전용 Playwright 2건과 web typecheck를 통과했으며, 사용자 시각 승인 전이므로 `shared/ui` 공개 API와 제품 사용처는 변경하지 않음
+
+### 2026-08-05 — 5B Data & Feedback 2차 시각 피드백 반영
+
+- Table의 종목·기업·점수·상태와 DataGrid의 여섯 데이터 열 헤더에 미정렬·오름차순·내림차순 화살표를 표시하고, 헤더 전체 클릭으로 세 상태를 순환함
+- AG Grid의 기본 헤더·행 애니메이션·테마 경계 구조를 참고하되 의존성은 추가하지 않고, 본문은 수평 행선 중심으로 단순화하며 열 구분은 헤더 리사이저와 C의 고정 종목 열 경계에만 유지함
+- Skeleton은 A Block Pulse, B Surface Sweep, C Row Scan으로 모두 움직임을 제공하고 B의 이동 광택 대비를 높여 표면 이동이 명확히 보이도록 조정함
+- 5B 탭의 자동 높이 overflow 래퍼를 제거하고 카드 묶음 하단에 24px 여백을 포함해 세로 배치에서 마지막 C 카드가 전환 중 잘리지 않도록 수정함
+- Codex 인앱 브라우저 6110에서 헤더 화살표, B 스윕 강조, 세 Skeleton 모션 실행 상태와 C 하단 24px·overflow visible을 확인함
+- 사용자 시각 승인 전이므로 목업 경계만 변경했고 `shared/ui` 공개 API와 제품 사용처는 변경하지 않음
+
+### 2026-08-05 — 5B 부분 승인 및 DataGrid·Skeleton 재비교
+
+- 사용자 승인에 따라 Table, Progress, Spinner, Empty, Error, Loading은 각 A/B/C 세 시안을 모두 유지 대상으로 확정함
+- DataGrid와 Skeleton은 이번 승인에서 제외하고 목업 비교를 계속하며, 아직 `shared/ui` 공개 API와 제품 사용처로 공용화하지 않음
+- DataGrid는 AG Grid·shadcn Data Table·React Spectrum TableView의 헤더 패턴을 참고해 빈 선택 헤더를 전체 선택 체크박스로 바꾸고, 정렬 라벨 바로 옆 6px 위치에 상태 화살표를 배치하며 활성 정렬 헤더만 낮은 강조 면을 사용하도록 정리함
+- DataGrid A는 드러난 리사이저와 정밀한 단일 외곽선, B는 필요할 때만 리사이저가 나타나는 소프트 시트, C는 고정 종목 열 경계와 높은 헤더 대비를 유지해 같은 동작 안에서 밀도를 구분함
+- Skeleton은 A의 다섯 블록 크기·순서·간격을 세 시안에 동일하게 고정하고 A Block Pulse, B Surface Sweep, C Staggered Blocks로 내부 블록 모션만 다르게 구성함
+- Motion Skeleton의 실제 콘텐츠와 같은 골격 유지 원칙과 transform·opacity 중심 모션을 반영하고, 감소 모션에서는 블록 및 sweep 애니메이션을 정지함
+- Codex 인앱 브라우저 6110에서 DataGrid 세 시안의 점수 오름차순 공유, 모든 정렬 라벨·아이콘 6px 간격, 전체 선택 3개 동기화와 Skeleton 동일 블록 치수·세 모션 실행 상태를 직접 확인함
+- 전용 Playwright 2건에서 DataGrid 헤더 선택·정렬 간격과 Skeleton 동일 골격·서로 다른 모션 계약을 통과함
+
+### 2026-08-05 — Skeleton 최종 승인 및 DataGrid 고정 영역 보정
+
+- 사용자 승인에 따라 Skeleton의 A Block Pulse, B Surface Sweep, C Staggered Blocks를 모두 유지 대상으로 확정함
+- A Block Pulse는 이동량을 키우지 않고 블록 명도 대비를 높이며 2.2초 주기로 늦춰, 더 잘 보이면서도 잔잔한 호흡으로 조정함
+- DataGrid C Dense Matrix는 선택 체크박스 열과 종목 열을 좌측 고정 영역으로 함께 묶고, 고정 종목 열의 좌우에 1px 수직 경계를 표시해 스크롤 영역과의 관계를 분명히 함
+- DataGrid는 사용자 최종 확정 전까지 목업 비교 상태를 유지하며 `shared/ui` 공개 API와 제품 사용처로 공용화하지 않음
+
+### 2026-08-05 — DataGrid 가상 스크롤·경계·편집 보정
+
+- 빠르게 하단으로 이동한 뒤 즉시 상단으로 복귀하면 가상 범위는 1행부터 정상 계산되지만, 가상 행의 `layout="position"` FLIP가 이전 하단 위치를 기준으로 수천 px transform을 적용해 상단이 비어 보이는 원인을 확인함
+- 가상 행 자체의 layout·exit 모션을 제거하고 정렬 키가 바뀔 때만 내부 가시 창에 160ms opacity·6px 전환을 적용해, 스크롤은 즉시 배치하면서 정렬 피드백은 유지함
+- C의 체크박스 열과 종목 열은 하나의 좌측 고정 그룹으로 유지하되 두 열 사이 경계는 제거하고, 비고정 열과 맞닿는 종목 열 오른쪽에만 강한 고정 경계를 표시함
+- 고정 경계와 별개로 `수직선` 옵션을 추가해 A/B/C 세 시안의 일반 데이터 열에 낮은 opacity의 수직선을 함께 켜고 끌 수 있게 함. 일반 수직선은 약한 색, C의 고정 경계는 강한 색으로 구분함
+- 종목·기업·점수·상태·메모·출처 셀을 더블클릭 또는 Enter/F2로 편집할 수 있게 확장하고, 점수는 0~100 숫자, 상태는 기존 선택 목록, 나머지는 텍스트 입력을 사용함
+- Codex 인앱 브라우저에서 43,000px 하단 이동 후 16ms 내 상단 복귀 시 첫 행 top gap 44px·transform none, 세 시안 수직선 동기화, C 고정 그룹과 경계 색 차이, 종목 `TEST01`·점수 `88`의 세 시안 공유 편집을 확인함
+- 전용 Playwright 3건과 모델 테스트 2건, web typecheck를 통과했으며 DataGrid는 사용자 최종 확정 전까지 목업 상태를 유지함
+
+### 2026-08-05 — DataGrid 최종 시각 승인
+
+- C Dense Matrix의 좌측 고정 그룹에서 체크박스 열과 종목 열이 같은 본문·헤더 표면 색을 사용하도록 통합해 두 열이 하나의 고정 영역으로 보이게 함
+- 사용자 승인에 따라 DataGrid의 A Precision Grid, B Soft Sheet, C Dense Matrix를 모두 유지 대상으로 확정함
+- 이 승인으로 5B Data & Feedback의 Table, DataGrid, Progress, Spinner, Skeleton, Empty, Error, Loading은 각 A/B/C 시안의 시각 선택을 모두 완료함
+- 아직 목업 승인 단계만 완료했으며, `shared/ui` 공개 API 공용화와 제품 사용처 감사는 다음 단계로 남김
+
+### 2026-08-05 — 5B Data & Feedback 공용화·제품 감사·검증 완료
+
+- Table은 `expandable-rows`, `sticky-surface`, `compact-ledger` variant를 공개 API로 유지하고, 정렬·선택·행 확장 계약을 UI Lab과 공유함
+- DataGrid는 `precision-grid`, `soft-sheet`, `dense-matrix` variant와 정렬·선택·열 크기·수직선·셀 편집·고정 높이 가상화 계약을 `shared/ui/data-grid` 공개 API로 공용화함
+- Progress, Spinner, Skeleton, EmptyState, ErrorState, LoadingState의 승인된 A/B/C 표현과 감소 모션 계약을 `shared/ui/feedback` 공개 API로 공용화함
+- UI Lab의 Data & Feedback을 `완료` 탭으로 이동하고 `목업 진행 중`에는 다음 묶음인 Charts End-to-End만 남김
+- 제품 감사 결과 Stock Detail 진행률을 공용 Progress로, WorkspaceState 로딩 골격을 공용 Skeleton으로 연결함. 기존 Workspace Table과 ErrorState 사용은 유지하고, 읽기 전용 제품에 맞지 않는 편집형 DataGrid 및 별도 Spinner·LoadingState 사용처는 억지로 추가하지 않음
+- Codex 인앱 브라우저 6110에서 공용 DataGrid 세 variant, 각 14개 가상 행, C의 체크박스·종목 고정 그룹 본문 및 헤더 표면 색 통합을 확인함
+- 좁은 자동 검증으로 Data & Feedback 모델·공개 API 계약, 전용 Playwright의 Table·DataGrid 상호작용·빠른 상단 복귀·390px·감소 모션·Axe, web typecheck와 변경 파일 Oxfmt·Oxlint 및 `git diff --check`를 수행함
+- 다음 활성 묶음은 6A Charts End-to-End이며, 차트 기반·시각 비교·공용화·제품 연결을 한 묶음으로 진행함
+
+### 2026-08-05 — 6A Charts End-to-End 목업 구현·검증
+
+- 결정론적 180개 OHLCV 일봉 fixture와 `1M|3M|6M|1Y` 구간, 세 근거 사건, 두 조건 구간, `ready|loading|stale|partial|empty|error|unavailable` 상태를 UI Lab 전용 모델로 고정함
+- Bklit 기반 Market Tape A Quiet Trace·B Layered Range·C Signal Ledger와 Evidence Band A Band Ledger·B Event Pulse·C Evidence Split을 구현하고, 역할 내부 세 시안이 기간·브러시·근거 선택·조건 구간 표시를 공유하도록 연결함
+- TradingView Lightweight Charts는 `shared/ui/chart/internal`의 동적 로딩 어댑터로 격리하고 Candle Ledger A Clean Candle·B Dual Pane·C Market Ledger의 OHLCV readout, 가격·거래량 pane, 크로스헤어, resize·cleanup 계약을 구현함
+- 상단 수평 탭은 선택 역할의 세 차트만 마운트하며, 공통 기간·상태·통화·조건 구간 제어와 네이티브 데이터 표를 제공함. 목업 승인 전에는 공개 `shared/ui` 차트 API나 제품 사용처를 변경하지 않음
+- Playwright 검증 중 Evidence SVG hit-area가 근거 목록 클릭을 가로막는 overflow와 중첩된 상위 Tabs 스타일이 390px 역할 선택선을 44px 면으로 키우는 문제를 발견해 각각 차트 열 경계와 2px indicator 소유 범위로 보정함
+- 자동 검증: 차트 모델·upstream 경계 Node 5건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 3건에서 Market 브러시 동기화, Evidence 선택·밴드 공유, Candle 3개 마운트·390px·감소 모션·Axe를 통과함
+- Codex 인앱 브라우저 6110에서 역할별 카드 3개만 렌더링, 데스크톱 툴바 열 간격, Evidence 9개 근거·6개 밴드, Candle renderer 3개, 390px page/catalog overflow 0과 2px 선택선을 직접 확인함
+- 구현 커밋: `019008c`, `8afe12c`, `da4fffd`, `68cdd3c`, `d6c9508`, `1989004`, `503d0a5`, `d5ae435`, `5461273`
+- 다음 행동은 Market Tape·Evidence Band·Candle Ledger 각각 유지할 A/B/C 시안을 한 번에 사용자에게 확인하는 것임
+
+### 2026-08-05 — 6A 역할별 시각 승인·Evidence Band 개선 방향 확정
+
+- Market Tape A Quiet Trace·B Layered Range·C Signal Ledger는 A/B/C를 모두 유지하기로 사용자 승인함
+- Candle Ledger A Clean Candle·B Dual Pane·C Market Ledger는 A/B/C를 모두 유지하기로 사용자 승인함
+- Evidence Band는 기존 세 시안의 chart 내부 의미 계층이 비슷하고 pattern·label·근거 목록이 분리돼 보이는 문제를 확인함
+- Evidence Band A는 조건 구간 중심 Range Ledger, B는 사건 시점 중심 Event Pulse, C는 차트·근거 원장을 연결하는 Linked Evidence로 역할을 명확히 나누는 개선 방향을 사용자 승인함
+- 기존 Bklit 경계를 유지하고 새 차트·애니메이션 의존성은 추가하지 않으며, 개선 목업의 사용자 시각 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+- 다음 행동은 승인된 Evidence Band 개선 설계에 따라 A/B/C 목업을 수정하고 6110 UI Lab에서 시각 비교하는 것임
+
+### 2026-08-05 — 6A Evidence Band 개선 목업 구현·검증
+
+- A는 낮은 opacity의 solid 조건 구간과 세 행 compact ledger를 결합한 Range Ledger, B는 사건 marker·vertical guide와 근거 카드를 우선한 Event Pulse, C는 선택 요약·rail과 차트·원장을 연결한 Linked Evidence로 의미 계층을 분리함
+- 분리된 dashed label chip 행과 넓은 pattern fill을 제거하고 plot 내부 compact legend, solid ReferenceArea, 가격선 우선순위와 선택 marker 계층을 적용함
+- 900px 이하에서는 A/B 520px, 선택 요약이 있는 C 600px 고정 viewport로 적층해 세 근거 행이 모두 보이도록 했고, 390px에서 각 행 44px 이상과 catalog 가로 overflow 0을 유지함
+- Vite SSR이 `@visx/*` alpha 패키지를 Node에 직접 넘겨 확장자 없는 ESM import에서 실패하던 6110 개발 서버 문제를 `ssr.noExternal` 범위 번들링으로 보정함
+- 자동 검증은 Evidence Band source contract·chart model Node 4건, web typecheck, 변경 파일 Oxfmt·Oxlint, 전용 Playwright 3건에서 역할 copy·선택 동기화·band 제거·마지막 행 containment·390px·감소 모션·Axe를 통과함
+- Codex 인앱 브라우저 6110에서 A의 세 ledger 행과 brush, B의 세 사건 카드와 marker guide, C의 선택 요약·rail, 1280px 65/35 split, 390px 단일 열과 `scrollWidth === clientWidth`를 직접 확인함
+- 구현 커밋: `99bf6d2`, `8ed2eee`, `9f3b1f2`, `3daa47e`, `a69db95`
+- 다음 행동은 개선된 Evidence Band A/B/C의 사용자 시각 승인이며, 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+
+### 2026-08-05 — 6A Evidence Band TradingView 전환
+
+- 사용자가 Bklit 기반 Evidence Band A/B/C의 차트 외부 범례와 별도 SVG annotation이 어색하다고 판단해 해당 개선안을 시각 승인 전에 폐기함
+- Evidence Band의 가격 경로를 TradingView Lightweight Charts `AreaSeries`, 사건을 native series marker, 시간+가격 조건 구간을 series primitive로 전환해 한 chart pane 좌표계에서 렌더링함
+- 차트 내부 HTML 범례를 제거하고 조건 구간의 면·경계·라벨을 primitive canvas가 직접 그리도록 변경함. 근거 목록은 키보드 접근과 상세 문맥을 위해 차트 외부 제어면으로 유지함
+- A Range Ledger·B Event Pulse·C Linked Evidence의 공유 선택·기간·조건 구간 토글과 서로 다른 정보 배치는 유지함
+- 검증은 Evidence Band·upstream·chart model Node 7건, web typecheck, 변경 파일 Oxfmt·Oxlint, Evidence 전용 Playwright 1건에서 canvas 3개·marker·primitive 상태·선택 동기화·390px·Axe를 통과함
+- 1280px와 390px 실제 캡처에서 native 가격축·시간축·marker와 canvas 조건 구간이 동일 좌표계에 정렬되고 수평 overflow가 없음을 확인함
+- 다음 행동은 TradingView로 전환된 Evidence Band A/B/C 사용자 시각 승인임. 승인 전에는 공개 `shared/ui/chart` API나 제품 사용처를 변경하지 않음
+
+### 2026-08-05 — 6A Evidence Band A/B/C 전체 채택·디테일 보강
+
+- 사용자가 TradingView 기반 Evidence Band A Range Ledger·B Event Pulse·C Linked Evidence를 모두 유지하기로 확정함
+- 조건 구간 primitive 라벨에 실제 하한–상한 가격을 추가하고, 선택 근거에는 TradingView native price line·가격축 라벨·고정 crosshair를 연결해 사건 시점과 가격을 차트 안에서 직접 읽도록 보강함
+- 기간 이동 뒤 crosshair가 이전 좌표에 남지 않도록 visible range 갱신 다음 frame에 원본 bar timestamp로 crosshair를 배치함
+- 선택 marker의 중복 설명은 제거해 조건 구간 라벨과 겹치지 않게 하고, 상세 제목은 native price line과 외부 근거 원장이 담당하도록 정리함
+- 검증은 Evidence Band·upstream Node 5건, web typecheck, Evidence 전용 Playwright 1건을 통과했고 1280px 실제 캡처에서 선택 시점 2026-02-15와 가격선 142.14가 같은 좌표에 정렬됨을 확인함
+- 다음 행동은 보강된 디테일의 실제 화면 확인이며, 이후 승인된 A/B/C를 공개 `shared/ui/chart` API로 승격하고 제품 사용처를 감사함
+
+### 2026-08-05 — Evidence Band 확대·이동 떨림 수정
+
+- TradingView의 visible range 변경이 React 공용 상태를 거쳐 원본 차트의 `setVisibleRange`로 즉시 되돌아오고, 같은 render effect가 marker·price line·band까지 재생성해 내부 pan/zoom과 외부 동기화가 서로 경쟁하던 것이 떨림의 원인이었음
+- 차트 인스턴스별 range echo guard를 추가해 원본 차트의 동일 range echo만 한 번 건너뛰고, 나머지 A/B/C 차트에는 외부 range를 계속 적용함
+- bars·bands, range, evidence marker 갱신 효과를 분리해 pan/zoom 중 marker·price line·band를 재생성하지 않도록 변경함
+- 회귀 계약은 source chart local echo 제외와 sibling range 허용을 검증하는 Node 1건을 추가했으며, 관련 Node 6건·web typecheck·Evidence Playwright 1건을 통과함
+- 실제 wheel 확대와 좌우 drag 후 80ms 간격 canvas 4개 frame hash가 모두 동일해 이동 종료 뒤 잔여 떨림이 없음을 확인함
+
+### 2026-08-05 — Evidence Band 인앱 브라우저 직접 조작 후속 보정
+
+- 사용자가 여전히 미세한 떨림을 확인해 Codex 인앱 브라우저의 현재 30 bars 상태에서 A 차트에 연속 wheel 확대·축소와 긴 좌우 왕복 drag를 직접 수행함
+- 첫 수정은 이동 종료 뒤 잔여 떨림은 제거했지만, sibling 차트의 `setVisibleRange`가 한 frame보다 늦게 같은 이벤트를 방출하면 시간 기반 suppression이 먼저 풀리고, 연속 range 이벤트가 React 상태를 매번 갱신하는 조작 중 경로가 남아 있었음
+- local·external range를 각각 값으로 추적하는 coordinator를 도입해 source local echo와 delayed sibling programmatic echo를 모두 차단함
+- 연속 pan/zoom range는 72ms trailing emitter가 마지막 값 하나만 React에 전달해 원본 TradingView 조작과 sibling 동기화가 같은 frame에서 경쟁하지 않도록 변경함
+- 인앱 브라우저 직접 재검증에서 연속 확대·축소·왕복 이동 뒤 A/B/C가 모두 `33 bars`로 수렴했고 console warning·error 0건, 32ms 간격 6개 viewport frame hash가 모두 동일함을 확인함
+- 회귀 테스트는 delayed sibling echo 차단과 연속 range 마지막 값 병합을 추가해 관련 Node 8건을 통과함
 
 ## 실행 환경 메모
 

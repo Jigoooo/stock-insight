@@ -10,6 +10,7 @@ import styles from './sheet.module.css';
 import { getStrictContext } from '@/shared/lib/get-strict-context';
 import { useControlledState } from '@/shared/lib/use-controlled-state';
 import { cn } from '@/shared/lib/utils';
+import type { MenuOverlayVariant } from '@/shared/ui/menu-overlay';
 
 type SheetSide = 'top' | 'bottom' | 'left' | 'right';
 type SheetContextValue = { open: boolean };
@@ -49,6 +50,7 @@ export type SheetContentProps = Omit<
   showCloseButton?: boolean;
   side?: SheetSide;
   transition?: Transition;
+  variant?: MenuOverlayVariant;
 };
 
 const offscreenBySide: Record<SheetSide, { x?: string; y?: string; opacity: number }> = {
@@ -58,30 +60,53 @@ const offscreenBySide: Record<SheetSide, { x?: string; y?: string; opacity: numb
   bottom: { y: '100%', opacity: 0 },
 };
 
+const sheetExitTransition = { duration: 0.08, ease: 'easeIn' } as const;
+const sheetOverlayTransition = { duration: 0.1, ease: 'easeOut' } as const;
+
 export function SheetContent({
   children,
   className,
   showCloseButton = true,
   side = 'right',
   transition = { type: 'spring', stiffness: 180, damping: 28 },
+  variant,
   ...props
 }: SheetContentProps) {
   const { open } = useSheetContext();
   const reducedMotion = useReducedMotion();
   const axis = side === 'left' || side === 'right' ? 'x' : 'y';
+  const exit = reducedMotion
+    ? { opacity: 0, pointerEvents: 'none' as const, transition: { duration: 0 } }
+    : {
+        ...offscreenBySide[side],
+        pointerEvents: 'none' as const,
+        transition: sheetExitTransition,
+      };
 
   return (
     <AnimatePresence>
       {open ? (
         <SheetPrimitive.Portal forceMount>
-          <SheetPrimitive.Overlay className={styles.overlay} data-slot="sheet-overlay" />
+          <SheetPrimitive.Overlay asChild forceMount>
+            <motion.div
+              animate={{ opacity: 1 }}
+              className={styles.overlay}
+              data-motion-owner="motion"
+              data-slot="sheet-overlay"
+              exit={{ opacity: 0, pointerEvents: 'none' }}
+              initial={reducedMotion ? false : { opacity: 0 }}
+              transition={reducedMotion ? { duration: 0 } : sheetOverlayTransition}
+            />
+          </SheetPrimitive.Overlay>
           <SheetPrimitive.Content asChild forceMount {...props}>
             <motion.div
               animate={{ [axis]: 0, opacity: 1 }}
               className={cn(styles.content, className)}
+              data-motion-owner="motion"
               data-side={side}
               data-slot="sheet-content"
-              exit={reducedMotion ? { opacity: 0 } : offscreenBySide[side]}
+              data-variant={variant}
+              exit={exit}
               initial={reducedMotion ? false : offscreenBySide[side]}
               transition={reducedMotion ? { duration: 0 } : transition}
             >

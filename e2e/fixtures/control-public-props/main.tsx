@@ -15,8 +15,32 @@ import { Calendar } from '@/shared/ui/calendar';
 import { CommandPalette } from '@/shared/ui/command-palette';
 import { DatePicker, RangePicker } from '@/shared/ui/date-picker';
 import { Dropzone, FileUpload } from '@/shared/ui/file-upload';
+import {
+  Avatar,
+  Carousel,
+  ContentList,
+  ContentTimeline,
+  IdentityBadge,
+  StatusIndicator,
+  type ContentItem,
+} from '@/shared/ui/identity-content';
 import { Input } from '@/shared/ui/input';
 import { TextLink } from '@/shared/ui/link';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/shared/ui/menu-overlay';
 import { OTP } from '@/shared/ui/otp';
 import {
   CursorPagination,
@@ -34,6 +58,7 @@ import {
 import { RadioGroup } from '@/shared/ui/radio-group';
 import { RouteTab, RouteTabs } from '@/shared/ui/route-tabs';
 import { Select } from '@/shared/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/shared/ui/sheet';
 import { SideList, SideListItem } from '@/shared/ui/side-list';
 import {
   SideTabs,
@@ -57,6 +82,25 @@ const groupDrag: DragEventHandler<HTMLDivElement> = () => undefined;
 const groupAnimationStart: AnimationEventHandler<HTMLDivElement> = () => undefined;
 const anchorDrag: DragEventHandler<HTMLAnchorElement> = () => undefined;
 const anchorAnimationStart: AnimationEventHandler<HTMLAnchorElement> = () => undefined;
+
+const identityContentItems = [
+  {
+    description: 'Tracks infrastructure demand.',
+    eyebrow: 'Infrastructure',
+    id: 'infrastructure',
+    source: 'Fixture source',
+    time: '09:10',
+    title: 'Infrastructure demand',
+  },
+  {
+    description: 'Tracks memory recovery.',
+    eyebrow: 'Memory',
+    id: 'memory',
+    source: 'Fixture source',
+    time: '11:40',
+    title: 'Memory recovery',
+  },
+] as const satisfies ReadonlyArray<ContentItem<'infrastructure' | 'memory'>>;
 
 export const nativeControlPropsFixture = (
   <>
@@ -94,6 +138,99 @@ export const nativeControlPropsFixture = (
       value="evidence"
       variant="hairline-flow"
     />
+    <Avatar initials="JG" name="Kim Jigoo" variant="monogram-ring" />
+    <Avatar initials="NV" name="NVIDIA" variant="soft-portrait" />
+    <Avatar initials="MS" meta="NASDAQ · MSFT" name="Microsoft" variant="identity-pair" />
+    <IdentityBadge tone="positive" variant="hairline-tag">
+      Available
+    </IdentityBadge>
+    <IdentityBadge tone="progress" variant="soft-fill">
+      Collecting
+    </IdentityBadge>
+    <IdentityBadge tone="pending" variant="dot-label">
+      Pending
+    </IdentityBadge>
+    <StatusIndicator
+      description="Ready for review"
+      label="Available"
+      tone="positive"
+      variant="inline-signal"
+    />
+    <StatusIndicator
+      description="Collecting evidence"
+      label="Collecting"
+      tone="progress"
+      variant="status-block"
+    />
+    <StatusIndicator
+      description="Awaiting source"
+      label="Pending"
+      tone="pending"
+      variant="key-value-status"
+    />
+    <ContentList
+      aria-label="Quiet fixture content"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="quiet-rows"
+    />
+    <ContentList
+      aria-label="Soft fixture content"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="soft-cards"
+    />
+    <ContentList
+      aria-label="Ledger fixture content"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="ledger-list"
+    />
+    <ContentTimeline
+      aria-label="Hairline fixture timeline"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="hairline-rail"
+    />
+    <ContentTimeline
+      aria-label="Fixture event cards"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="event-cards"
+    />
+    <ContentTimeline
+      aria-label="Fixture compact timeline"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="compact-ledger"
+    />
+    <Carousel
+      aria-label="Edge fixture carousel"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="edge-arrows"
+    />
+    <Carousel
+      aria-label="Snap fixture carousel"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="snap-cards"
+    />
+    <Carousel
+      aria-label="Filmstrip fixture carousel"
+      items={identityContentItems}
+      onValueChange={() => undefined}
+      value="infrastructure"
+      variant="filmstrip"
+    />
     <CommandPalette
       description="Find a fixture command"
       items={[
@@ -112,6 +249,41 @@ export const nativeControlPropsFixture = (
       title="Fixture commands"
       variant="split-context"
     />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button">Open fixture menu</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent variant="hairline">
+        <DropdownMenuItem shortcut="Enter">Evidence</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled>Archived</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <button type="button">Fixture context target</button>
+      </ContextMenuTrigger>
+      <ContextMenuContent variant="soft-surface">
+        <ContextMenuItem shortcut="I">Impact path</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem disabled>Archived</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button">Open fixture popover</button>
+      </PopoverTrigger>
+      <PopoverContent variant="hairline">Fixture evidence</PopoverContent>
+    </Popover>
+    <Sheet>
+      <SheetTrigger asChild>
+        <button type="button">Open fixture sheet</button>
+      </SheetTrigger>
+      <SheetContent side="bottom" variant="soft-surface">
+        <SheetTitle>Fixture sheet</SheetTitle>
+        <SheetDescription>Fixture sheet description</SheetDescription>
+      </SheetContent>
+    </Sheet>
     <SplitButton
       actions={[
         { label: 'Download', value: 'download' },

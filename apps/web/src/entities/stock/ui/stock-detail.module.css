@@ -224,19 +224,8 @@
   text-align: right;
 }
 
-.track {
-  height: 6px;
-  overflow: hidden;
-  border-radius: var(--radius-xs);
-  background: var(--color-card-muted);
-}
-
-.track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-primary);
-  transform-origin: left center;
+.metricProgress {
+  min-width: 0;
 }
 
 .bullet {
@@ -596,12 +585,6 @@
   text-decoration: none;
 }
 
-@keyframes progress-fill {
-  from {
-    transform: scaleX(0);
-  }
-}
-
 @media (max-width: 720px) {
   .livePanelHead {
     display: grid;
@@ -627,12 +610,6 @@
   .price:hover {
     border-color: var(--color-line-strong);
     background: var(--color-card-subtle);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .track span[data-progress-reveal] {
-    animation: progress-fill var(--duration-base) var(--ease-out) both;
   }
 }
 

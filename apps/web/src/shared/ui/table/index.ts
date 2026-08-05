@@ -10,6 +10,12 @@ export {
   TableSelectionHead,
 } from './table';
 export { resolveTableSelection } from './table-selection-controller';
-export type { TableProps, TableRowProps, TableSelectionMode, TableSurface } from './table';
+export type {
+  TableProps,
+  TableRowProps,
+  TableSelectionMode,
+  TableSurface,
+  TableVariant,
+} from './table';
 export { TableSelectionSummary } from './table-selection-summary';
 export type { TableSelectionSummaryProps } from './table-selection-summary';
