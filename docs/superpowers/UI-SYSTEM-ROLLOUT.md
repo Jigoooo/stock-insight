@@ -458,6 +458,15 @@
 - 회귀 계약은 source chart local echo 제외와 sibling range 허용을 검증하는 Node 1건을 추가했으며, 관련 Node 6건·web typecheck·Evidence Playwright 1건을 통과함
 - 실제 wheel 확대와 좌우 drag 후 80ms 간격 canvas 4개 frame hash가 모두 동일해 이동 종료 뒤 잔여 떨림이 없음을 확인함
 
+### 2026-08-05 — Evidence Band 인앱 브라우저 직접 조작 후속 보정
+
+- 사용자가 여전히 미세한 떨림을 확인해 Codex 인앱 브라우저의 현재 30 bars 상태에서 A 차트에 연속 wheel 확대·축소와 긴 좌우 왕복 drag를 직접 수행함
+- 첫 수정은 이동 종료 뒤 잔여 떨림은 제거했지만, sibling 차트의 `setVisibleRange`가 한 frame보다 늦게 같은 이벤트를 방출하면 시간 기반 suppression이 먼저 풀리고, 연속 range 이벤트가 React 상태를 매번 갱신하는 조작 중 경로가 남아 있었음
+- local·external range를 각각 값으로 추적하는 coordinator를 도입해 source local echo와 delayed sibling programmatic echo를 모두 차단함
+- 연속 pan/zoom range는 72ms trailing emitter가 마지막 값 하나만 React에 전달해 원본 TradingView 조작과 sibling 동기화가 같은 frame에서 경쟁하지 않도록 변경함
+- 인앱 브라우저 직접 재검증에서 연속 확대·축소·왕복 이동 뒤 A/B/C가 모두 `33 bars`로 수렴했고 console warning·error 0건, 32ms 간격 6개 viewport frame hash가 모두 동일함을 확인함
+- 회귀 테스트는 delayed sibling echo 차단과 연속 range 마지막 값 병합을 추가해 관련 Node 8건을 통과함
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

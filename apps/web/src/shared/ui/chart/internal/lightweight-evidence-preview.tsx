@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { PreviewChartBar } from './bklit-preview';
-import { createRangeEchoGuard, dateRangeKey } from './lightweight-range-sync';
+import {
+  createRangeSyncCoordinator,
+  createTrailingEmitter,
+  dateRangeKey,
+} from './lightweight-range-sync';
 
 export type LightweightEvidence = {
   id: string;
@@ -227,17 +231,18 @@ export function LightweightEvidenceBandRenderer({
       series.attachPrimitive(bandPrimitive);
       let selectedPriceLine: ReturnType<typeof series.createPriceLine> | null = null;
       let crosshairFrame = 0;
-      const rangeEchoGuard = createRangeEchoGuard();
+      const rangeSync = createRangeSyncCoordinator();
+      const rangeEmitter = createTrailingEmitter(72, (selection: { start: Date; end: Date }) => {
+        rangeCallbackRef.current(selection);
+      });
 
-      let suppressRangeEvent = false;
       const setRange = (selection: { start: Date; end: Date } | null) => {
         if (
           selection &&
-          !rangeEchoGuard.shouldApplyExternal(dateRangeKey(selection.start, selection.end))
+          !rangeSync.acceptExternalRange(dateRangeKey(selection.start, selection.end))
         ) {
           return;
         }
-        suppressRangeEvent = true;
         if (selection) {
           chart
             .timeScale()
@@ -245,20 +250,13 @@ export function LightweightEvidenceBandRenderer({
         } else {
           chart.timeScale().fitContent();
         }
-        window.requestAnimationFrame(() => {
-          suppressRangeEvent = false;
-        });
       };
       const handleRangeChange = (range: { from: unknown; to: unknown } | null) => {
-        if (suppressRangeEvent) return;
         const start = range ? parseTime(range.from) : null;
         const end = range ? parseTime(range.to) : null;
-        if (start && end) {
-          rangeEchoGuard.markLocal(dateRangeKey(start, end));
-          rangeCallbackRef.current({ start, end });
-        } else {
-          rangeCallbackRef.current(null);
-        }
+        if (!(start && end)) return;
+        if (!rangeSync.acceptChartRange(dateRangeKey(start, end))) return;
+        rangeEmitter.schedule({ start, end });
       };
       chart.timeScale().subscribeVisibleTimeRangeChange(handleRangeChange);
 
@@ -362,6 +360,7 @@ export function LightweightEvidenceBandRenderer({
 
       dispose = () => {
         if (crosshairFrame) window.cancelAnimationFrame(crosshairFrame);
+        rangeEmitter.cancel();
         resizeObserver.disconnect();
         chart.timeScale().unsubscribeVisibleTimeRangeChange(handleRangeChange);
         chart.unsubscribeClick(handleClick);
