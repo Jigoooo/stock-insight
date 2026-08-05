@@ -104,15 +104,21 @@ export function extractWindows(
   // would join a tag-separated company name to the next word and invent a name
   // that is in no document.
   const plain = documentText.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
-  const windows: string[] = [];
+  // Deduplicated as a cheap safeguard, NOT because duplicates were measured. Two
+  // documents produced 207 affiliate windows and deduplication removed none of
+  // them on 2026-08-06 — the marker repeats through a table but each occurrence
+  // slices different prose, so they are genuinely distinct. Kept because an
+  // identical window carries no new information if one ever appears; the earlier
+  // note here claimed it shrank the output, which the measurement disproved.
+  const windows = new Set<string>();
   for (const marker of markers) {
     let at = plain.indexOf(marker);
     while (at !== -1) {
-      windows.push(plain.slice(Math.max(0, at - contextChars), at + marker.length + contextChars));
+      windows.add(plain.slice(Math.max(0, at - contextChars), at + marker.length + contextChars));
       at = plain.indexOf(marker, at + 1);
     }
   }
-  return windows;
+  return [...windows];
 }
 
 /** document.xml returns a ZIP whose XML declares utf-8. Read it as utf-8. */
@@ -299,6 +305,22 @@ async function run(): Promise<void> {
     let customerWindowDocuments = 0;
     let affiliateWindowDocuments = 0;
     let affiliateWindowsTotal = 0;
+    // NOT an exclusion list. Measured 2026-08-06 on real filings: the section the
+    // affiliate markers actually catch is the related-party note of the financial
+    // statements, and it names major group companies — 삼성증권's window resolved
+    // 삼성전자, 삼성에스디에스, 삼성생명보험, 삼성화재해상보험. Excluding those
+    // would delete intra-group revenue relationships that are real.
+    //
+    // Worse for the original plan: it does not catch the case it was designed for.
+    // 엘에스일렉트릭's window lists subsidiaries and associates (LS티라유텍,
+    // 티라로보틱스, 포메이션랩스) and resolved NOTHING, because the parent (주)LS
+    // appears only as the table heading '지배기업' with no name inside ±150 chars.
+    //
+    // So the flag is recorded on the relation and the decision is left to whoever
+    // reads it. Dropping the information would be worse than either choice.
+    let affiliateNamesResolved = 0;
+    let customersAlsoRelatedParty = 0;
+    const affiliateSamples: { from: string; resolved: string[]; window: string }[] = [];
     let badDecodeDocuments = 0;
     let resolvedMentions = 0;
     const rejectionsByReason: Record<string, number> = {};
@@ -363,9 +385,37 @@ async function run(): Promise<void> {
 
       const customerWindows = extractWindows(text, CUSTOMER_MARKERS);
       const affiliateWindows = extractWindows(text, AFFILIATE_MARKERS);
+      // Per issuer, deliberately. A batch-wide set would flag issuer B's customer
+      // because issuer A happened to name it as a related party — the flag has to
+      // mean "this filer's own related party" or it means nothing.
+      const issuerAffiliateIds = new Set<number>();
       if (affiliateWindows.length > 0) {
         affiliateWindowDocuments += 1;
         affiliateWindowsTotal += affiliateWindows.length;
+        // B4's decision input. Run through the SAME resolver as customers so the
+        // number is comparable: if the affiliate section names catalog companies
+        // the way the customer section does, exclusion is workable; if it resolves
+        // nothing, the format is not readable and the rule stays off. Reported,
+        // never applied — an exclusion rule built on an unread format would drop
+        // real customers silently.
+        const affiliateResolution = resolveCustomerMentions({
+          reportingIssuerEntityId: Number(issuer.issuer_entity_id),
+          reportingName: issuer.name,
+          contextWindows: affiliateWindows,
+          catalog,
+        });
+        affiliateNamesResolved += affiliateResolution.resolved.length;
+        for (const mention of affiliateResolution.resolved) {
+          issuerAffiliateIds.add(mention.issuerEntityId);
+        }
+        if (!apply && affiliateSamples.length < 3) {
+          affiliateSamples.push({
+            from: issuer.name,
+            resolved: affiliateResolution.resolved.map((mention) => mention.matchedName),
+            // Truncated prose so the FORMAT can be read by eye. Dry run only.
+            window: affiliateWindows[0]!.replace(/\s+/g, ' ').slice(0, 300),
+          });
+        }
       }
       if (customerWindows.length === 0) {
         // A real observation. 6 of 40 sampled reports have no customer section,
@@ -386,6 +436,9 @@ async function run(): Promise<void> {
         rejectionsByReason[rejection.reason] = (rejectionsByReason[rejection.reason] ?? 0) + 1;
       }
       resolvedMentions += resolution.resolved.length;
+      for (const mention of resolution.resolved) {
+        if (issuerAffiliateIds.has(mention.issuerEntityId)) customersAlsoRelatedParty += 1;
+      }
       if (resolution.resolved.length > 0 && samples.length < 10) {
         samples.push({
           from: issuer.name,
@@ -455,6 +508,9 @@ async function run(): Promise<void> {
               matched_name: mention.matchedName,
               merged_names: mention.mergedNames,
               disclosure_kind: 'customer_disclosed',
+              // Flagged, not excluded. See issuerAffiliateIds above for why the
+              // exclusion rule this was built for is not enabled.
+              also_disclosed_as_related_party: issuerAffiliateIds.has(mention.issuerEntityId),
               collector: JOB_NAME,
             }),
           ]);
@@ -488,6 +544,14 @@ async function run(): Promise<void> {
       // off until they are looked at.
       documentsWithAffiliateContext: affiliateWindowDocuments,
       affiliateWindowsTotal,
+      // The number B4 turns on. Zero means the section exists but names nothing we
+      // hold, and the exclusion rule must stay off rather than be guessed.
+      affiliateNamesResolved,
+      // How many resolved CUSTOMERS are also named as related parties. This is the
+      // number an exclusion rule would have deleted, so it must be visible before
+      // anyone turns one on.
+      customersAlsoDisclosedAsRelatedParty: customersAlsoRelatedParty,
+      affiliateSamples,
       // A misread must never be reported as an absence.
       badDecodeDocuments,
       resolvedMentions,
