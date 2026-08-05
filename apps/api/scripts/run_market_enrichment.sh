@@ -102,5 +102,29 @@ if [[ "$(date +%u)" == "7" ]]; then
   " || exit $?
 fi
 
+# B3 — supply/customer disclosure out of 사업보고서. LAST on purpose, and Sunday
+# only.
+#
+# Last, because the DART budget above is already spent: the financial-facts step
+# takes 15 issuers at 20 requests each = 300, against a ceiling this file measures
+# as "above 100, at or below 361". A new consumer placed earlier would eat the
+# headroom that step deliberately left, and a failure here must not be able to
+# stop the four proven jobs that follow. Nothing follows it now, so a genuine
+# failure aborts only the wrapper's completion record — which is the signal, and
+# is not swallowed.
+#
+# Sunday only, because 사업보고서 is filed ANNUALLY. There is nothing to re-read
+# daily. 10 issuers per week is 20 requests on top of 300, so the ceiling keeps its
+# margin, and the 182-issuer universe completes a pass in about 19 weeks — well
+# inside the yearly refresh the filings themselves need.
+#
+# Quota exhaustion is not a failure: on status 020 the collector stops, keeps the
+# cursor on the unfinished issuer and exits 0, so the next Sunday resumes.
+if [[ "$(date +%u)" == "7" ]]; then
+  DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
+    apps/api/src/ingest/run-dart-supply-disclosure.ts --limit 10 --apply
+  pipeline_record_stage_success stock-insight-dart-supply-disclosure-stage "$RUN_STARTED_AT" || exit $?
+fi
+
 pipeline_finish_wrapper_attempt "$WRAPPER_ATTEMPT_ID" completed || exit $?
 trap - EXIT

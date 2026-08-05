@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import { decodeDocumentZip, extractWindows } from '../src/ingest/run-dart-supply-disclosure.ts';
@@ -74,5 +75,59 @@ describe('document decoding', () => {
     assert.equal(decodeDocumentZip(Buffer.from('{"status":"020"}', 'utf8')), null);
     assert.equal(decodeDocumentZip(Buffer.from('', 'utf8')), null);
     assert.equal(decodeDocumentZip(Buffer.from('<?xml version="1.0"?>', 'utf8')), null);
+  });
+});
+
+/**
+ * A job nobody runs is a backfill. The attribution jobs were written, measured and
+ * left out of every pipeline script for days; nothing failed, because a stage that
+ * does not exist cannot report a failure. This is the same guard for the collector.
+ */
+describe('the collector is wired into a pipeline', () => {
+  const script = (): Promise<string> =>
+    readFile(new URL('../scripts/run_market_enrichment.sh', import.meta.url), 'utf8');
+
+  it('runs with --apply and records a stage', async () => {
+    const source = await script();
+    assert.match(source, /run-dart-supply-disclosure\.ts --limit \d+ --apply/);
+    assert.match(
+      source,
+      /pipeline_record_stage_success stock-insight-dart-supply-disclosure-stage/,
+    );
+  });
+
+  it('runs after the financial-facts step, which owns the DART budget', async () => {
+    const source = await script();
+    // That step takes 15 issuers at 20 requests each = 300, against a ceiling this
+    // repository has measured only as "above 100, at or below 361". Collecting
+    // before it would eat the headroom it deliberately leaves.
+    const facts = source.indexOf('run-dart-financial-facts.ts');
+    const supply = source.indexOf('run-dart-supply-disclosure.ts');
+    assert.notEqual(facts, -1);
+    assert.notEqual(supply, -1);
+    assert.ok(facts < supply, 'financial facts must claim the DART budget first');
+  });
+
+  it('is gated to Sunday, because 사업보고서 is annual', async () => {
+    const source = await script();
+    const supply = source.indexOf('run-dart-supply-disclosure.ts');
+    // The nearest preceding day-of-week guard has to be the one wrapping it.
+    const guard = source.lastIndexOf('date +%u', supply);
+    assert.ok(guard !== -1 && guard < supply, 'the collector must sit inside a weekday guard');
+  });
+
+  it('is last, so its failure cannot stop the proven jobs', async () => {
+    const source = await script();
+    const supply = source.indexOf('run-dart-supply-disclosure.ts');
+    for (const job of [
+      'run-sec-financial-facts.ts',
+      'run-finra-short-volume.ts',
+      'run-fred-vintage.ts',
+      'run-ohlcv-adjust.ts',
+    ]) {
+      const at = source.indexOf(job);
+      assert.notEqual(at, -1, job);
+      assert.ok(at < supply, `${job} must run before the collector`);
+    }
   });
 });

@@ -311,13 +311,22 @@ async function run(): Promise<void> {
     // 삼성전자, 삼성에스디에스, 삼성생명보험, 삼성화재해상보험. Excluding those
     // would delete intra-group revenue relationships that are real.
     //
-    // Worse for the original plan: it does not catch the case it was designed for.
-    // 엘에스일렉트릭's window lists subsidiaries and associates (LS티라유텍,
-    // 티라로보틱스, 포메이션랩스) and resolved NOTHING, because the parent (주)LS
-    // appears only as the table heading '지배기업' with no name inside ±150 chars.
+    // And on the case that motivated the rule it is INVERTED, which the first
+    // apply run showed outright. (주)LS names two customers:
+    //
+    //   (주)LS → 엘에스일렉트릭   its own subsidiary   flagged FALSE
+    //   (주)LS → LG전자           a genuine customer   flagged TRUE
+    //
+    // So an exclusion rule would have deleted the real edge and kept the spurious
+    // one. Over 10 issuers the flag fired on 5 of 10 relations, so this is not a
+    // rare misfire. The section names whoever the related-party note happens to
+    // discuss, which correlates with corporate history — LS was spun out of LG —
+    // rather than with "is not a customer".
     //
     // So the flag is recorded on the relation and the decision is left to whoever
-    // reads it. Dropping the information would be worse than either choice.
+    // reads it. The field name says what was observed ('named in the related-party
+    // note'), not what it implies, because the implication is what turned out to be
+    // false. Dropping the information would be worse than either choice.
     let affiliateNamesResolved = 0;
     let customersAlsoRelatedParty = 0;
     const affiliateSamples: { from: string; resolved: string[]; window: string }[] = [];
