@@ -80,7 +80,19 @@ WHERE revision.revision_status = 'accepted'
     FROM knowledge.relation_revision newer
     WHERE newer.relation_identity_id = revision.relation_identity_id
       AND newer.revision_no > revision.revision_no
-      AND newer.revision_status = 'accepted'
+      -- A later verdict of 'rejected' or 'superseded' has to be able to REMOVE an
+      -- edge, not just fail to add one. While this read only 'accepted', a builder
+      -- that stopped producing a pair left its last acceptance standing forever:
+      -- measured 2026-08-05, beta adjustment cut MACRO_COMOVEMENT to 23 accepted
+      -- candidates while the snapshot still carried 36 edges, including
+      -- Alphabet/Meta/GS/C against oil at their pre-adjustment confidence. The
+      -- graph was the UNION of every run that ever accepted a pair.
+      --
+      -- 'quarantined_unverified' is deliberately NOT in this list. It means the
+      -- evidence gate could not verify the candidate — "we do not know" — and a
+      -- transient evidence gap must not delete a relation that was established.
+      -- Only an affirmative later verdict retracts.
+      AND newer.revision_status IN ('accepted', 'rejected', 'superseded')
       AND newer.valid_from <= $1::timestamptz
       AND (newer.valid_to IS NULL OR newer.valid_to > $1::timestamptz)
       AND newer.known_from <= $2::timestamptz

@@ -58,8 +58,43 @@ internal-etf-holdings-snapshot   798 transitional_company_profile
 혼합 정체성    0     ETF 아래 484개가 전부 kind 하나씩 → 옮김이 모호하지 않다
 ```
 
-두 계층을 건드려야 한다: `source_record_identity.source_id` 와
-`source_revision.source_contract_revision_id`. **실행은 프로덕션 쓰기라 판단 대기.**
+### 소급 시도 — **원장이 막는다. 못 한다**
+
+승인을 받아 실행했고 트랜잭션이 첫 UPDATE 다음에 멈췄다:
+
+```
+UPDATE 998                                   ← raw_object 는 통과
+ERROR: ingestion.source_record_identity is append-only; append a revision instead
+CONTEXT: ingestion.reject_immutable_revision_mutation()
+```
+
+**롤백됐다. 프로덕션은 그대로다.**
+
+세 표가 append-only 트리거를 달고 있다:
+
+```
+ingestion.source_contract_revision
+ingestion.source_record_identity
+ingestion.source_revision
+```
+
+즉 계보는 **설계상 불변**이다. 이건 결함이 아니라 원장의 핵심 보장이고,
+소급으로 고치는 것은 "그때 이렇게 기록했다" 는 감사 기록을 지우는 일이다.
+
+**내 드라이런이 이걸 못 잡았다.** UNIQUE·CHECK 제약과 FK 는 봤는데 **트리거를 안
+봤다.** "충돌 0 · 위반 0" 이 "쓸 수 있다" 는 뜻이 아니었다. 다음에 쓰기 계획을
+드라이런할 때는 `pg_trigger` 를 반드시 함께 볼 것.
+
+### 그래서 남는 것
+
+- `raw_object.source_id` 만 바꿀 수 있는데 **그것만 고치면 리비전 계약과 어긋나
+  오히려 더 나빠진다.** 안 한다
+- append-only 식으로 새 정체성·새 리비전을 덧붙이는 길은 있지만
+  (`supersedes_source_revision_id` 가 있다), **관계 증거 13,509행은 여전히 옛
+  리비전 id 를 가리킨다.** 그걸 맞추려면 증거 원장을 고쳐 써야 하고, 그건 잘못된
+  포인터를 남겨 두는 것보다 나쁘다
+- **결론: 과거는 그대로 둔다.** `payload_metadata.http_meta.kind` 가 진짜 종류를
+  갖고 있으므로 판별은 가능하다. 2026-08-05 이후 실행부터 맞게 적힌다
 
 ---
 
