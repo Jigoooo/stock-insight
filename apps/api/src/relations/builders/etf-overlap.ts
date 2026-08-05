@@ -43,6 +43,15 @@ import { getRelationBuilderPolicy } from '../relation-policy.ts';
  *
  * The floor keeps a broad-index edge walkable rather than deleting it: the pair
  * IS in the same basket, it just does not distinguish much.
+ *
+ * REVISIT WHEN the smallest basket we hold drops below 8 members. "The tightest
+ * basket we hold" is what justifies pinning 0.800 there, and a tighter basket
+ * makes that justification stale — a 4-name basket would carry 1/3 the company of
+ * an 8-name one and deserves to outrank it, but this curve caps it at 0.800 too.
+ * Nothing breaks (the value saturates rather than exceeding 1), so the symptom is
+ * silent: two baskets of different specificity would score identically. The
+ * builder reports `smallestSharedBasketSize` per edge, so the condition is
+ * observable without new instrumentation.
  */
 export const ETF_BASKET_CONFIDENCE = Object.freeze({
   anchorBasketSize: 8,

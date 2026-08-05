@@ -65,3 +65,47 @@ wrapper-finish:completed`. The guard was doing its job — a file was edited whi
 the pipeline ran.
 
 Commit (or stash) before starting a run.
+
+## 2026-08-05: ten snapshots in one day
+
+The contract is one scheduled slot per day, and that day produced **ten**
+snapshots (`graph_snapshot_id` 19–28). None of them was a violation: nine were
+deliberate `--slot-suffix` re-runs while five changes were measured into the
+graph, and the tenth was the scheduled 00:55 KST run.
+
+```
+v2-graph-publish:2026-08-05                00:55   scheduled slot
+v2-graph-publish:2026-08-05#energy         03:11
+v2-graph-publish:2026-08-05#diversity      03:21
+v2-graph-publish:2026-08-05#beta           11:11
+v2-graph-publish:2026-08-05#retract-1      15:13   retraction shipped
+v2-graph-publish:2026-08-05#topic-1        16:49   topic entities (migration 068)
+v2-graph-publish:2026-08-05#product-retract-1  18:39
+v2-graph-publish:2026-08-05#product-retract-2  18:43
+v2-graph-publish:2026-08-05#etf-conf-1     19:30   measured basket confidence
+v2-graph-publish:2026-08-05#steps-3        21:09   path steps
+```
+
+### Where the suffix is recorded — not on the snapshot
+
+This matters when you are reading back what happened: the snapshot row does not
+carry the suffix.
+
+- `analytics.graph_snapshot.builder_version` was `v2-publish:f2ec673:2026-08-05:f1`
+  for all ten. It carries the commit and the slot date, not the suffix.
+- `metadata` holds only `release_commit` and `writer`.
+- The suffix lives in **`ops.pipeline_run_claim.natural_run_key`**, appended as
+  `#suffix` (`run-v2-graph-publish.ts` builds `v2-graph-publish:${slot}${SLOT_SUFFIX}`
+  and hands it to `ops.claim_pipeline_run`).
+
+So "which change produced snapshot 27" is answered by joining on time against
+`pipeline_run_claim`, not by reading the snapshot. That is worth knowing before
+you conclude a re-run left no trace.
+
+### Counting them: use KST, not UTC
+
+`as_of` and `created_at` are `timestamptz`, and filtering `as_of >= '2026-08-05'`
+compares in UTC — which drops the KST early-morning runs and undercounts the day.
+The day's real count came from grouping on
+`created_at AT TIME ZONE 'Asia/Seoul'`, and it agrees exactly with the ten claim
+rows. An undercount here reads as "the slot contract held" when it did not.
