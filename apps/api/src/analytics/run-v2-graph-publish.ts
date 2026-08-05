@@ -42,11 +42,8 @@ import {
   type StockPriceWindow,
 } from '../relations/macro-comovement-model.ts';
 import {
-  planMacroRetractionsFromDatabase,
-  retractMacroComovementEdges,
-} from '../relations/macro-comovement-retraction.ts';
-import {
-  buildProductSimilarityObservations,
+  planProductSimilarity,
+  type ProductSimilarityMeasuredAbsence,
   type ProductSimilarityProfile,
 } from '../relations/product-similarity-model.ts';
 import { persistRelationCandidates } from '../relations/relation-candidate-store.ts';
@@ -56,6 +53,11 @@ import {
   type RelationGraphProjectionEdge,
   type RelationGraphProjectionEntity,
 } from '../relations/relation-graph-projector-v2.ts';
+import {
+  planRetractionsFromDatabase,
+  retractEdges,
+  type MeasuredAbsence,
+} from '../relations/relation-retraction.ts';
 
 const APPLY = process.argv.includes('--apply');
 // The run slot is the KST date, so a second publish in one day is impossible by
@@ -433,6 +435,37 @@ function numeric(value: string | number, label: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error(`${label} must be positive`);
   return parsed;
+}
+
+// Each model names its number differently; the retraction ledger only needs the
+// pair and the value that failed. Mapping here keeps relation-retraction.ts from
+// having to know about correlations, cosines, or whatever comes next.
+function macroAbsences(
+  rows: readonly {
+    seriesEntityId: number;
+    stockEntityId: number;
+    correlation: number;
+    overlappingObservations: number;
+    lastObservedDate: string;
+  }[],
+): MeasuredAbsence[] {
+  return rows.map((row) => ({
+    subjectEntityId: row.seriesEntityId,
+    objectEntityId: row.stockEntityId,
+    measuredValue: row.correlation,
+    detail: {
+      overlappingObservations: row.overlappingObservations,
+      lastObservedDate: row.lastObservedDate,
+    },
+  }));
+}
+
+function productAbsences(rows: readonly ProductSimilarityMeasuredAbsence[]): MeasuredAbsence[] {
+  return rows.map((row) => ({
+    subjectEntityId: row.subjectEntityId,
+    objectEntityId: row.objectEntityId,
+    measuredValue: row.similarityScore,
+  }));
 }
 
 function etfEntityKey(ticker: string): string {
@@ -1657,10 +1690,10 @@ async function dryRun(client: Client): Promise<void> {
     }));
     const etf = buildEtfBasketCandidates(etfObservations, { asOf: cutoff });
     const sectors = buildOfficialSectorCandidates(sectorObservations, { asOf: cutoff });
-    const products = buildProductSimilarityCandidates(
-      buildProductSimilarityObservations(productProfiles),
-      { asOf: cutoff },
-    );
+    const productDryPlan = planProductSimilarity(productProfiles);
+    const products = buildProductSimilarityCandidates(productDryPlan.observations, {
+      asOf: cutoff,
+    });
     // Real entity ids and real windows; only the source revision ids are stand-ins,
     // because minting them is a write. That keeps the dry run's candidate count
     // the number apply will produce rather than an estimate of it.
@@ -1682,9 +1715,10 @@ async function dryRun(client: Client): Promise<void> {
         .map((stockEntityId, index) => [stockEntityId, 91_000_000 + index] as const),
     );
     // Read-only: the same decision apply makes, without appending anything.
-    const macroRetractionPlan = await planMacroRetractionsFromDatabase(
+    const macroRetractionPlan = await planRetractionsFromDatabase(
       client,
-      macroPlan.measuredBelowThreshold,
+      'MACRO_COMOVEMENT',
+      macroAbsences(macroPlan.measuredBelowThreshold),
     );
     // The topic mapping needs no materialization to be counted: the candidates
     // depend only on the mapping rows, and the source revision id is the same
@@ -1697,6 +1731,11 @@ async function dryRun(client: Client): Promise<void> {
     // wrong fact, and the same confusion the macro `skipped` field exists to
     // prevent.
     const topicMappings = await loadMacroTopicMappings(client);
+    const productRetractionPlan = await planRetractionsFromDatabase(
+      client,
+      'PRODUCT_SIMILARITY',
+      productAbsences(productDryPlan.measuredBelowThreshold),
+    );
     const topicCandidates = buildMacroTopicCandidates(
       (dryRunTopicReady ? topicMappings.rows : []).map((row) => ({
         topicEntityId: row.topicEntityId,
@@ -1799,6 +1838,8 @@ async function dryRun(client: Client): Promise<void> {
         deferredEtfMembers: inputs.deferredMemberKeys,
         sectorCandidates: sectors.length,
         productCandidates: products.candidates.length,
+        productWouldRetractEdges: productRetractionPlan.planned.length,
+        productAcceptedEdgesInspected: productRetractionPlan.inspected,
         macroComovement: {
           // Read-only check of the same condition apply guards on, so a dry run
           // answers "would apply actually persist these?" and not just "does the
@@ -1900,10 +1941,12 @@ async function apply(client: Client): Promise<void> {
     const sectorBuilt = buildOfficialSectorCandidates(materialized.sectorObservations, {
       asOf: capturedAt,
     });
-    const productBuilt = buildProductSimilarityCandidates(
-      buildProductSimilarityObservations(materialized.productProfiles),
-      { asOf: capturedAt },
-    );
+    // planProductSimilarity, not buildProductSimilarityObservations: the apply
+    // path needs what the run REJECTED as well as what it accepted.
+    const productPlan = planProductSimilarity(materialized.productProfiles);
+    const productBuilt = buildProductSimilarityCandidates(productPlan.observations, {
+      asOf: capturedAt,
+    });
     if (etfBuilt.exclusions.length > 0) {
       throw new Error(`ETF superhub exclusions require review: ${etfBuilt.exclusions.length}`);
     }
@@ -2005,9 +2048,21 @@ async function apply(client: Client): Promise<void> {
     // When the ontology is not approved the windows are empty, the plan measures
     // nothing, and this retracts nothing — a skipped macro step must not read as
     // "every macro pair stopped holding".
-    const macroRetraction = await retractMacroComovementEdges(
+    const macroRetraction = await retractEdges(
       client as unknown as PoolClient,
-      macroPlan.measuredBelowThreshold,
+      'MACRO_COMOVEMENT',
+      'macro-comovement-below-threshold',
+      macroAbsences(macroPlan.measuredBelowThreshold),
+    );
+    // PRODUCT_SIMILARITY is scored exhaustively too, so the same rule applies:
+    // a pair the run scored below threshold no longer holds. Measured
+    // 2026-08-05, 633 of its 2,487 accepted edges came from runs that no longer
+    // produce them — 25% of the predicate, against 18 for SAME_ETF_BASKET.
+    const productRetraction = await retractEdges(
+      client as unknown as PoolClient,
+      'PRODUCT_SIMILARITY',
+      'product-similarity-below-threshold',
+      productAbsences(productPlan.measuredBelowThreshold),
     );
     const known = await client.query<QueryResultRow & { known_at: Date | string }>(
       `SELECT clock_timestamp() AS known_at`,
@@ -2111,6 +2166,15 @@ async function apply(client: Client): Promise<void> {
           ).length,
           inserted: topicPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: topicPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
+        productSimilarity: {
+          candidates: productBuilt.candidates.length,
+          // The one operation here that shrinks the graph. Reported next to the
+          // additions so a run that removes more than it adds is visible.
+          retractedEdges: productRetraction.retracted,
+          retractionsAlreadyStanding: productRetraction.replayed,
+          acceptedEdgesInspected: productRetraction.inspected,
+          scoredBelowThreshold: productPlan.measuredBelowThreshold.length,
         },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,

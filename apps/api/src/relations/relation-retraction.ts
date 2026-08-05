@@ -1,4 +1,9 @@
-// Retraction for MACRO_COMOVEMENT.
+// Retraction for exhaustively-computed predicates.
+//
+// Used by MACRO_COMOVEMENT and PRODUCT_SIMILARITY: both score EVERY pair every
+// run, so a pair's absence from the output is a verdict rather than a silence.
+// SAME_ETF_BASKET is deliberately NOT here — co-membership is not a score, and
+// one failed holdings collection would read as "these stocks left the basket".
 //
 // A builder that stops producing a pair used to leave its last acceptance
 // standing forever, so the graph became the union of every run that ever
@@ -19,7 +24,19 @@
 import type { PoolClient, QueryResultRow } from 'pg';
 
 import { relationPayloadHash } from './builder-core.ts';
-import type { MacroComovementMeasuredAbsence } from './macro-comovement-model.ts';
+/**
+ * The only shape a retraction needs: which pair was measured, and what the
+ * measurement was. Each predicate's model names its number differently, so the
+ * caller maps into this rather than this knowing about every model.
+ */
+export type MeasuredAbsence = {
+  subjectEntityId: number;
+  objectEntityId: number;
+  /** The value that failed the threshold, kept for the retraction's metadata. */
+  measuredValue: number;
+  /** Free-form detail recorded alongside the verdict. */
+  detail?: Record<string, unknown>;
+};
 import { appendRelationRevision } from '../knowledge/relation-ledger.ts';
 
 /**
@@ -31,8 +48,8 @@ export function canonicalPairKey(left: number, right: number): string {
   return left < right ? `${left}:${right}` : `${right}:${left}`;
 }
 
-/** Accepted MACRO_COMOVEMENT edges as of now, with what a retraction must carry forward. */
-export const ACCEPTED_MACRO_IDENTITIES_SQL = `
+/** Accepted edges of one predicate as of now, with what a retraction must carry forward. */
+export const ACCEPTED_IDENTITIES_SQL = `
 SELECT identity_row.relation_identity_id,
        identity_row.subject_entity_id,
        identity_row.object_entity_id,
@@ -42,7 +59,7 @@ SELECT identity_row.relation_identity_id,
 FROM knowledge.relation_identity identity_row
 JOIN knowledge.relation_revision revision
   ON revision.relation_identity_id = identity_row.relation_identity_id
-WHERE identity_row.predicate = 'MACRO_COMOVEMENT'
+WHERE identity_row.predicate = $1
   AND revision.revision_status = 'accepted'
   AND NOT EXISTS (
     SELECT 1 FROM knowledge.relation_revision newer
@@ -52,7 +69,7 @@ WHERE identity_row.predicate = 'MACRO_COMOVEMENT'
 ORDER BY identity_row.relation_identity_id
 `;
 
-export type AcceptedMacroIdentity = {
+export type AcceptedIdentity = {
   relationIdentityId: number;
   subjectEntityId: number;
   objectEntityId: number;
@@ -65,20 +82,20 @@ export type AcceptedMacroIdentity = {
  * Which accepted edges this run contradicts. Pure so the decision is testable
  * without a database — the dangerous half of retraction is choosing the set.
  */
-export function planMacroRetractions(
-  accepted: readonly AcceptedMacroIdentity[],
-  measuredBelowThreshold: readonly MacroComovementMeasuredAbsence[],
-): { identity: AcceptedMacroIdentity; measurement: MacroComovementMeasuredAbsence }[] {
-  const measuredByPair = new Map<string, MacroComovementMeasuredAbsence>();
+export function planRetractions(
+  accepted: readonly AcceptedIdentity[],
+  measuredBelowThreshold: readonly MeasuredAbsence[],
+): { identity: AcceptedIdentity; measurement: MeasuredAbsence }[] {
+  const measuredByPair = new Map<string, MeasuredAbsence>();
   for (const measurement of measuredBelowThreshold) {
     measuredByPair.set(
-      canonicalPairKey(measurement.seriesEntityId, measurement.stockEntityId),
+      canonicalPairKey(measurement.subjectEntityId, measurement.objectEntityId),
       measurement,
     );
   }
   const planned: {
-    identity: AcceptedMacroIdentity;
-    measurement: MacroComovementMeasuredAbsence;
+    identity: AcceptedIdentity;
+    measurement: MeasuredAbsence;
   }[] = [];
   for (const identity of accepted) {
     const measurement = measuredByPair.get(
@@ -98,26 +115,31 @@ export function planMacroRetractions(
  * the existing revision instead of appending a new one every day. The measured
  * correlation goes in metadata, where changing it does not churn the ledger.
  */
-export function retractionPayloadHash(subjectEntityId: number, objectEntityId: number): string {
+export function retractionPayloadHash(
+  predicate: string,
+  subjectEntityId: number,
+  objectEntityId: number,
+): string {
   return relationPayloadHash({
-    predicate: 'MACRO_COMOVEMENT',
+    predicate,
     subjectEntityId,
     objectEntityId,
     retracted: true,
   });
 }
 
-type MacroClient = {
+type RetractionClient = {
   query<T>(sql: string, params: readonly unknown[]): Promise<{ rows: T[] }>;
 };
 
 /** Read-only: what a run WOULD retract. Shared by the dry run and the apply path. */
-export async function planMacroRetractionsFromDatabase(
-  client: MacroClient,
-  measuredBelowThreshold: readonly MacroComovementMeasuredAbsence[],
+export async function planRetractionsFromDatabase(
+  client: RetractionClient,
+  predicate: string,
+  measuredBelowThreshold: readonly MeasuredAbsence[],
 ): Promise<{
   inspected: number;
-  planned: { identity: AcceptedMacroIdentity; measurement: MacroComovementMeasuredAbsence }[];
+  planned: { identity: AcceptedIdentity; measurement: MeasuredAbsence }[];
 }> {
   if (measuredBelowThreshold.length === 0) return { inspected: 0, planned: [] };
   const rows = await client.query<
@@ -129,8 +151,8 @@ export async function planMacroRetractionsFromDatabase(
       valid_from: Date | string;
       predicate_ontology_revision_id: string | number;
     }
-  >(ACCEPTED_MACRO_IDENTITIES_SQL, []);
-  const accepted: AcceptedMacroIdentity[] = rows.rows.map((row) => ({
+  >(ACCEPTED_IDENTITIES_SQL, [predicate]);
+  const accepted: AcceptedIdentity[] = rows.rows.map((row) => ({
     relationIdentityId: Number(row.relation_identity_id),
     subjectEntityId: Number(row.subject_entity_id),
     objectEntityId: Number(row.object_entity_id),
@@ -143,16 +165,19 @@ export async function planMacroRetractionsFromDatabase(
   }));
   return {
     inspected: accepted.length,
-    planned: planMacroRetractions(accepted, measuredBelowThreshold),
+    planned: planRetractions(accepted, measuredBelowThreshold),
   };
 }
 
-export async function retractMacroComovementEdges(
+export async function retractEdges(
   client: PoolClient,
-  measuredBelowThreshold: readonly MacroComovementMeasuredAbsence[],
+  predicate: string,
+  retractedBy: string,
+  measuredBelowThreshold: readonly MeasuredAbsence[],
 ): Promise<{ inspected: number; retracted: number; replayed: number }> {
-  const { inspected, planned } = await planMacroRetractionsFromDatabase(
+  const { inspected, planned } = await planRetractionsFromDatabase(
     client,
+    predicate,
     measuredBelowThreshold,
   );
   let retracted = 0;
@@ -169,12 +194,15 @@ export async function retractMacroComovementEdges(
       // Carried forward, not stamped with today: re-stamping would make every
       // run a new revision and the ledger would grow without saying anything new.
       validFrom: identity.validFrom,
-      payloadHash: retractionPayloadHash(identity.subjectEntityId, identity.objectEntityId),
+      payloadHash: retractionPayloadHash(
+        predicate,
+        identity.subjectEntityId,
+        identity.objectEntityId,
+      ),
       metadata: {
-        retractedBy: 'macro-comovement-below-threshold',
-        measuredCorrelation: measurement.correlation,
-        overlappingObservations: measurement.overlappingObservations,
-        lastObservedDate: measurement.lastObservedDate,
+        retractedBy,
+        measuredValue: measurement.measuredValue,
+        ...(measurement.detail ?? {}),
         interpretation: 'measured_and_did_not_hold_not_absent',
       },
     });

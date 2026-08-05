@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import type { MacroComovementMeasuredAbsence } from '../src/relations/macro-comovement-model.ts';
 import {
   canonicalPairKey,
-  planMacroRetractions,
+  planRetractions,
   retractionPayloadHash,
-  type AcceptedMacroIdentity,
-} from '../src/relations/macro-comovement-retraction.ts';
+  type AcceptedIdentity,
+  type MeasuredAbsence,
+} from '../src/relations/relation-retraction.ts';
 
 /**
  * The dangerous half of retraction is choosing the set. Removing an edge on the
@@ -22,7 +22,7 @@ import {
 const SERIES = 100;
 const STOCK = 200;
 
-function identity(overrides: Partial<AcceptedMacroIdentity> = {}): AcceptedMacroIdentity {
+function identity(overrides: Partial<AcceptedIdentity> = {}): AcceptedIdentity {
   return {
     relationIdentityId: 1,
     subjectEntityId: Math.min(SERIES, STOCK),
@@ -34,26 +34,22 @@ function identity(overrides: Partial<AcceptedMacroIdentity> = {}): AcceptedMacro
   };
 }
 
-function measured(
-  overrides: Partial<MacroComovementMeasuredAbsence> = {},
-): MacroComovementMeasuredAbsence {
+function measured(overrides: Partial<MeasuredAbsence> = {}): MeasuredAbsence {
   return {
-    seriesEntityId: SERIES,
-    stockEntityId: STOCK,
-    correlation: 0.11,
-    overlappingObservations: 247,
-    lastObservedDate: '2026-08-04',
+    subjectEntityId: SERIES,
+    objectEntityId: STOCK,
+    measuredValue: 0.11,
     ...overrides,
   };
 }
 
 describe('macro co-movement retraction set', () => {
   it('retracts an accepted edge the run measured and found below threshold', () => {
-    const planned = planMacroRetractions([identity()], [measured()]);
+    const planned = planRetractions([identity()], [measured()]);
 
     assert.equal(planned.length, 1);
     assert.equal(planned[0]!.identity.relationIdentityId, 1);
-    assert.equal(planned[0]!.measurement.correlation, 0.11);
+    assert.equal(planned[0]!.measurement.measuredValue, 0.11);
   });
 
   it('leaves an accepted edge alone when the run did not measure that pair', () => {
@@ -61,10 +57,10 @@ describe('macro co-movement retraction set', () => {
     // input never loaded, or because the degree cap dropped it. None of those
     // mean the relation stopped holding, and we have nothing to contradict it
     // with — so it stays.
-    const planned = planMacroRetractions([identity()], []);
+    const planned = planRetractions([identity()], []);
     assert.deepEqual(planned, []);
 
-    const otherPair = planMacroRetractions([identity()], [measured({ stockEntityId: 999 })]);
+    const otherPair = planRetractions([identity()], [measured({ objectEntityId: 999 })]);
     assert.deepEqual(otherPair, [], 'a measurement of a different pair must not retract this one');
   });
 
@@ -74,11 +70,11 @@ describe('macro co-movement retraction set', () => {
     // retract nothing for half the edges.
     assert.equal(canonicalPairKey(SERIES, STOCK), canonicalPairKey(STOCK, SERIES));
 
-    const seriesIsSubject = planMacroRetractions(
+    const seriesIsSubject = planRetractions(
       [identity({ subjectEntityId: SERIES, objectEntityId: STOCK })],
       [measured()],
     );
-    const stockIsSubject = planMacroRetractions(
+    const stockIsSubject = planRetractions(
       [identity({ subjectEntityId: STOCK, objectEntityId: SERIES })],
       [measured()],
     );
@@ -86,17 +82,28 @@ describe('macro co-movement retraction set', () => {
     assert.equal(stockIsSubject.length, 1);
   });
 
+  it('does not let two predicates share one retraction payload', () => {
+    // The hash is what makes a re-run replay instead of appending. If it ignored
+    // the predicate, retracting a MACRO_COMOVEMENT pair would look identical to
+    // retracting the PRODUCT_SIMILARITY pair between the same two entities, and
+    // the second retraction would silently replay the first.
+    assert.notEqual(
+      retractionPayloadHash('MACRO_COMOVEMENT', SERIES, STOCK),
+      retractionPayloadHash('PRODUCT_SIMILARITY', SERIES, STOCK),
+    );
+  });
+
   it('keeps the retraction payload stable so a re-run replays instead of appending', () => {
     // The verdict "this pair no longer qualifies" does not change as the window
     // slides. If the hash moved with the measurement, every daily run would
     // append another revision that said nothing new.
-    const first = retractionPayloadHash(SERIES, STOCK);
-    const second = retractionPayloadHash(SERIES, STOCK);
+    const first = retractionPayloadHash('MACRO_COMOVEMENT', SERIES, STOCK);
+    const second = retractionPayloadHash('MACRO_COMOVEMENT', SERIES, STOCK);
     assert.equal(first, second);
     assert.match(first, /^[a-f0-9]{64}$/);
     assert.notEqual(
       first,
-      retractionPayloadHash(SERIES, STOCK + 1),
+      retractionPayloadHash('MACRO_COMOVEMENT', SERIES, STOCK + 1),
       'a different pair must not share a retraction payload',
     );
   });
@@ -108,9 +115,9 @@ describe('macro co-movement retraction set', () => {
       identity({ relationIdentityId: 3, subjectEntityId: 100, objectEntityId: 400 }),
     ];
     // Only two of the three were measured this run.
-    const planned = planMacroRetractions(identities, [
-      measured({ seriesEntityId: 100, stockEntityId: 200 }),
-      measured({ seriesEntityId: 100, stockEntityId: 400 }),
+    const planned = planRetractions(identities, [
+      measured({ subjectEntityId: 100, objectEntityId: 200 }),
+      measured({ subjectEntityId: 100, objectEntityId: 400 }),
     ]);
 
     assert.deepEqual(

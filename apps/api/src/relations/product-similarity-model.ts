@@ -48,9 +48,35 @@ function laterTimestamp(left: string, right: string): string {
   return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
 }
 
+/**
+ * A pair this run scored and found below the similarity threshold.
+ *
+ * Only pairs BOTH of whose profiles were in the corpus reach this list — the
+ * loop below cannot see a pair whose profile failed to load, so an input outage
+ * produces silence here rather than a false "no longer similar". Pairs dropped
+ * by the degree cap are also absent: they scored above the threshold and the
+ * relation still holds, they simply lost a slot.
+ */
+export type ProductSimilarityMeasuredAbsence = {
+  subjectEntityId: number;
+  objectEntityId: number;
+  similarityScore: number;
+};
+
+/**
+ * Kept returning a bare array so the nine existing call sites are untouched.
+ * Callers that need to know what the run REJECTED use planProductSimilarity.
+ */
 export function buildProductSimilarityObservations(
   rawProfiles: readonly ProductSimilarityProfile[],
 ): ProductSimilarityObservation[] {
+  return planProductSimilarity(rawProfiles).observations;
+}
+
+export function planProductSimilarity(rawProfiles: readonly ProductSimilarityProfile[]): {
+  observations: ProductSimilarityObservation[];
+  measuredBelowThreshold: ProductSimilarityMeasuredAbsence[];
+} {
   const profiles = [...rawProfiles].sort((left, right) => left.entityId - right.entityId);
   const seenEntities = new Set<number>();
   const termCounts = new Map<number, Map<string, number>>();
@@ -71,7 +97,10 @@ export function buildProductSimilarityObservations(
       documentFrequency.set(token, (documentFrequency.get(token) ?? 0) + 1);
     }
   }
-  if (profiles.length < 2) return [];
+  // Fewer than two profiles means nothing was compared, so nothing is below the
+  // threshold either. Returning an empty absence set here is what stops a corpus
+  // outage from retracting every product edge in the graph.
+  if (profiles.length < 2) return { observations: [], measuredBelowThreshold: [] };
   const corpusSourceRevisionIds = [...new Set(profiles.map((row) => row.sourceRevisionId))].sort(
     (left, right) => left - right,
   );
@@ -101,6 +130,7 @@ export function buildProductSimilarityObservations(
   });
 
   const pairs: ScoredPair[] = [];
+  const measuredBelowThreshold: ProductSimilarityMeasuredAbsence[] = [];
   for (let leftIndex = 0; leftIndex < vectorized.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < vectorized.length; rightIndex += 1) {
       const subject = vectorized[leftIndex]!;
@@ -115,6 +145,14 @@ export function buildProductSimilarityObservations(
       const score = Number(rawScore.toFixed(PRODUCT_SIMILARITY_MODEL_CONFIG.scorePrecision));
       if (score >= PRODUCT_SIMILARITY_MODEL_CONFIG.threshold) {
         pairs.push({ subject, object, score });
+      } else {
+        // Scored, and it does not hold. Recorded rather than dropped so an edge
+        // left over from a run that DID accept this pair can be retracted.
+        measuredBelowThreshold.push({
+          subjectEntityId: subject.entityId,
+          objectEntityId: object.entityId,
+          similarityScore: score,
+        });
       }
     }
   }
@@ -139,7 +177,7 @@ export function buildProductSimilarityObservations(
     degree.set(pair.object.entityId, (degree.get(pair.object.entityId) ?? 0) + 1);
   }
 
-  return selected
+  const observations = selected
     .sort(
       (left, right) =>
         left.subject.entityId - right.subject.entityId ||
@@ -156,4 +194,10 @@ export function buildProductSimilarityObservations(
       availableAt: corpusAvailableAt,
       validFrom: corpusValidFrom,
     }));
+
+  measuredBelowThreshold.sort(
+    (left, right) =>
+      left.subjectEntityId - right.subjectEntityId || left.objectEntityId - right.objectEntityId,
+  );
+  return { observations, measuredBelowThreshold };
 }
