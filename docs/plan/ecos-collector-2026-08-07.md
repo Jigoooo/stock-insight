@@ -27,6 +27,17 @@ vintage_date      = observation_date   ← 수집일이 아니라 관측일
 당일 공표·무개정이라 근사가 실제로 참이다. **개정되는 계열을 여기 추가하려면 이 판단을
 다시 해야 한다.**
 
+### 그 전제를 주장이 아니라 측정으로 둔다
+
+"무개정" 은 이 파일에서 **유일하게 재지 않고 주장한 것**이었다. 그런데
+`ON CONFLICT DO NOTHING` 은 개정된 값을 **버리면서 `inserted: 0` 을 보고한다** —
+"개정이 없었다" 와 "개정을 버렸다" 가 똑같이 보이고, **첫 `--apply` 이후에는 둘을
+구분할 방법이 없다.**
+
+그래서 매 실행마다 저장값과 조회값을 대조해 `totalValueChanged` 와 표본을 요약에 싣는다.
+0 이 아니면 전제가 거짓이고 키 설계를 다시 봐야 한다는 신호다. 여기서 자동으로 덮어쓰지
+않는 이유는, 이력을 조용히 다시 쓰는 쪽이 더 나쁜 실패이기 때문이다.
+
 ## 2. 계열 선정 — 후보 공간이 일곱뿐이다
 
 ECOS 통계표는 834개지만 **일별(D) 주기는 7개다**(2026-08-07 `StatisticTableList` 실측).
@@ -173,9 +184,42 @@ oxlint           변경 파일·apps/api 무경고 (apps/web 의 jsx-a11y 경고
 ## 8. 다음 세션이 이어받을 순서
 
 ```
-1  --apply 수집          사용자 확인 후. 15,661행이 market.macro_vintage 에 들어간다
+1  --apply 수집 (2단계)   사용자 확인 후. 아래 참조
 2  막힘 1+3 결정          FRED_SERIES 조인 확장 + TRANSFORMS 항목 추가를 한 번에.
                         DHHNGSP 도 같은 결정에 얹는다
 3  macro_series_topic    2 가 끝난 뒤. 순서를 뒤집으면 갈 곳 없는 엣지가 생긴다
 4  KOSPI 시장 팩터        별건. 전후 측정이 필요하다
 ```
+
+### 1 을 2단계로 나누는 이유
+
+드라이런은 `if (!apply) continue` 에서 돌아온다. 즉 `writeRawObject` ·
+`registerRawObjectWithRevision` · 업서트 · `CLOSE_FETCH_RUN_SQL` ·
+`migration_runs` 삽입은 **한 번도 실행된 적이 없다.** typecheck 는 서명을 볼 뿐
+동작을 보지 않는다 — 예컨대 원시객체 저장소가 `bok-ecos/` 디렉터리를 처음 만드는
+경로가 그렇다. 검증 안 된 코드 경로로 15,661행을 한 번에 쓸 이유가 없다.
+
+```
+1a  --apply --from 2026-08-01    5계열 20행. macro_vintage · source_revision 모양 확인
+1b  --apply --from 2015-01-01    확인 후 전체 창
+```
+
+`--from` 은 이미 지원한다. 두 번째 실행은 첫 번째가 넣은 행을 `DO NOTHING` 으로
+건너뛰므로 중복이 생기지 않는다.
+
+## 9. 검증된 비(非)막힘
+
+막힘으로 셀 뻔했으나 재보니 아닌 것도 적는다.
+
+```
+bok-ecos 계약  개정 1 provisional_review_required · 개정 2 approved
+fred 계약      개정 1 provisional_review_required · 개정 2 approved   ← 동일 모양
+```
+
+`SELECT_SOURCE_CONTRACT_HEAD_SQL` 이 `revision_no DESC` 로 고르므로 승인된 개정판 2가
+선택된다. PIT 게이트의 `source_contract.policy_status='approved'` 요구는 충족된다.
+FRED 가 같은 경로로 113개 개정을 쌓아 accepted 엣지를 만들고 있는 것이 그 증거다.
+
+> 다만 이 계약을 지키는 테스트인 `source-contract-integrity.test.ts` 는 환경변수 없이
+> **조용히 skip** 되고(인수인계 §2-4), 이번 실행의 skip 46건에 포함돼 있다.
+> **초록불은 이 항목에 대한 증거가 아니다** — 위 판단의 근거는 직접 조회한 값이다.

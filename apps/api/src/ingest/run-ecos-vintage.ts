@@ -240,11 +240,21 @@ async function run(): Promise<void> {
   const pool = new Pool({ connectionString: required('DATABASE_URL'), max: 1 });
   const client = await pool.connect();
   try {
-    const perSeries: Record<string, { observations: number; inserted: number }> = {};
+    const perSeries: Record<
+      string,
+      { observations: number; inserted: number; valueChanged: number }
+    > = {};
     let totalObservations = 0;
     let totalInserted = 0;
     let revisionsRegistered = 0;
     let revisionsReplayed = 0;
+    let totalValueChanged = 0;
+    const valueChangeSamples: Array<{
+      seriesKey: string;
+      observationDate: string;
+      stored: number;
+      fetched: number;
+    }> = [];
 
     // bok-ecos was seeded with a contract by migration 020 like every other
     // source; what has never existed is anything writing revisions against it.
@@ -290,8 +300,44 @@ async function run(): Promise<void> {
         endTime,
         rows,
       };
-      perSeries[series.seriesKey] = { observations: rows.length, inserted: 0 };
+      perSeries[series.seriesKey] = { observations: rows.length, inserted: 0, valueChanged: 0 };
       totalObservations += rows.length;
+
+      // Does ECOS revise these series? The header claims it does not, and the
+      // whole vintage_date=observation_date design rests on that claim. But
+      // ON CONFLICT DO NOTHING would DISCARD a revised value and still report
+      // inserted:0, so the claim would be indistinguishable from silence — and
+      // after the first --apply there is no way to tell the two apart.
+      //
+      // So it is measured every run instead of asserted once. A non-zero
+      // valueChanged means the claim is false and the key design has to be
+      // revisited; it is surfaced in the summary rather than acted on here,
+      // because silently rewriting history is the worse failure.
+      const stored = await client.query<{ observation_date: string; value: string | null }>(
+        `SELECT observation_date::text, value::text
+         FROM market.macro_vintage
+         WHERE series_key = $1 AND vintage_quality = 'approx_collected'`,
+        [series.seriesKey],
+      );
+      const storedByDate = new Map(stored.rows.map((row) => [row.observation_date, row.value]));
+      for (const row of rows) {
+        const previous = storedByDate.get(isoDate(row.TIME));
+        if (previous === undefined || previous === null) continue;
+        const fetched = row.DATA_VALUE === null ? null : Number(row.DATA_VALUE);
+        if (fetched === null || !Number.isFinite(fetched)) continue;
+        // Stored is numeric; compare as numbers so 3.790 and 3.79 do not differ.
+        if (Math.abs(Number(previous) - fetched) < 1e-9) continue;
+        perSeries[series.seriesKey]!.valueChanged += 1;
+        totalValueChanged += 1;
+        if (valueChangeSamples.length < 20) {
+          valueChangeSamples.push({
+            seriesKey: series.seriesKey,
+            observationDate: isoDate(row.TIME),
+            stored: Number(previous),
+            fetched,
+          });
+        }
+      }
 
       if (!apply) {
         await new Promise((resolve) => setTimeout(resolve, 300));
@@ -369,6 +415,10 @@ async function run(): Promise<void> {
       totalInserted,
       revisionsRegistered,
       revisionsReplayed,
+      // Non-zero means ECOS revised a value this collector already stored, and
+      // ON CONFLICT DO NOTHING kept the old one. See the loop that fills it.
+      totalValueChanged,
+      valueChangeSamples,
       perSeries,
     };
     if (apply && fetchRunId !== null) {
