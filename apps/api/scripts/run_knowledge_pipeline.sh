@@ -103,11 +103,24 @@ pipeline_record_stage_success stock-insight-event-topic-attribution-stage "$RUN_
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-world-event-sync.ts --apply
 pipeline_record_stage_success stock-insight-world-event-sync-stage "$RUN_STARTED_AT" || exit $?
 
+# C4 step 1 — supply the second document a claim already has elsewhere.
+#
+# The note below used to end "'verified' needs a second independent document and is
+# left to arrive on its own". It had arrived: 10 groups of claims share
+# (subject, predicate, object) across 2+ DISTINCT documents, 6 of them same-day.
+# Extraction writes a NEW claim row per document rather than attaching the second
+# document as further evidence, so nothing ever reached the 2-document bar.
+#
+# Runs BEFORE corroboration so a claim gaining its second document is promoted in
+# the same cycle. This job only INSERTs evidence — claim_evidence rejects UPDATE and
+# DELETE — and the guarded status transition stays with the job below.
+DATABASE_URL="$DB_URL" node apps/api/src/knowledge/run-claim-merge.ts --apply
+pipeline_record_stage_success stock-insight-claim-merge-stage "$RUN_STARTED_AT" || exit $?
+
 # Claims sat at verified 0 / 271 not because verification was unsolved but because
 # nothing ran it: ops.verification_policy already defines what 'corroborated'
 # requires, transitionVerification() had only test callers, and every claim in the
 # table met the rule. Runs after extraction so new claims are judged the same day.
-# 'verified' needs a second independent document and is left to arrive on its own.
 DATABASE_URL="$DB_URL" node apps/api/src/knowledge/run-claim-corroboration.ts --apply
 pipeline_record_stage_success stock-insight-claim-corroboration-stage "$RUN_STARTED_AT" || exit $?
 
