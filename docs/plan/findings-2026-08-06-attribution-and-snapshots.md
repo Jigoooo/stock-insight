@@ -335,6 +335,62 @@ claim 325건은 **전부** 문서 1건 · 증거 1행 · 인용 있음이다. �
 | 항목 | 상태 |
 | --- | --- |
 | `transitional_source: true` | 없으면 예외를 던지고(`run-v2-graph-publish.ts:1046`) ADR-002 계약을 영구 면제받는다(`source-contract-integrity.test.ts:136`). 이름이 거짓말이지만 개명은 핫패스 변경이라 별도 항목 |
-| `public.entities` | `core.v_security_universe` 가 랜딩했는데 12개 파일이 여전히 읽는다 |
+| `public.entities` | 15개 파일이 읽는다(위 기록의 12는 과소 집계). 조사 결과 **옮기지 않기로** — 아래 절 |
 | `analytics.theme` 534행 | v2 가 `theme_exposure_snapshot` 으로 대체 설계를 정해 뒀다. **폐기 예정**으로 분류를 바꾼다 |
 | `legacy_no_document` 1,478 | SEC EDGAR 재수집. 별도 수집 작업 |
+
+---
+
+## `public.entities` — 조사했고, 옮기지 않기로 한다
+
+마이그레이션 `007:11` 이 *"transitional source … **until core schema lands**"* 라고
+적었다. 코어는 랜딩했다(`core.v_security_universe`, `009:180-197`). 그래서 이전
+가능성을 파일별로 쟀다.
+
+**앞선 기록의 "12개 파일" 은 과소 집계다. `apps/api/src` 에서 실제 질의는 15개 파일**
+(문자열 리터럴·주석 3건 제외). 그 밖에 `run_ohlcv_daily.sh:46` 하나가 더 있다.
+
+```
+REPLACEABLE   8   entity_key · name · symbol · market 만 쓴다
+BLOCKED       6   레거시 id 로 조인한다
+구조적 불가    1   run-core-identity-sync — 코어에 없는 레거시 행을 찾는 것이 목적이라 순환
+```
+
+### 막는 것은 뷰의 컬럼이 아니라 id 공간이다
+
+막는 조건 11개 중 **9개가 같은 하나**다: `public.entities.id`. 뷰가 그걸 안 내주는
+게 문제가 아니라, **조인하는 쪽이 레거시 id 컬럼**이다 —
+`market_signals.entity_id` · `etf_holdings.entity_id` ·
+`temporal_graph_edge.src/dst_entity_id` · `v_graph_adjacency.from_id/to_id` ·
+`user_watchlist.entity_id`.
+
+가장 날카로운 사례는 `me/manual-input.ts:44,111` 이다. 읽기가 아니라 **쓰기에 물려**
+있다 — `entities.id` 를 `public.user_watchlist.entity_id` 에 넣는다. 뷰의
+`security_entity_id` 로 바꾸면 레거시 id 컬럼에 코어 id 를 쓰게 된다.
+
+그 외 두 가지가 따로 막는다.
+
+- **행 범위**: 뷰는 `entity_type='Stock' AND status='active'` + 현재 상장을 요구한다.
+  레거시의 `theme`·`macro`·`org`·`stage` 행은 **구조적으로** 들어올 수 없다.
+  `run-event-entity-resolution.ts:57` 은 바로 그 `macro` 행을 골라내는 것이 목적이고,
+  `portfolio/read-model.ts:193` 은 `theme`·`macro`·`stage` 를 명시적으로 찾는다
+- **분류 컬럼**: `run-v2-graph-publish.ts:313` 이 쓰는
+  `industry_code_source`·`industry_code_as_of`·`source_system`·`source_ref` 는
+  `core.taxonomy_*` 에도 없다(멤버십의 `source_reference` 는 하드코딩 리터럴,
+  `valid_from` 은 전 행이 같은 상수)
+
+### 그래서 8개만 바꾸지 않는다
+
+쉬운 8개를 옮겨도 나머지 6개가 `public.entities` 를 살려 둔다. **의존은 하나도
+안 줄고 8파일이 바뀐다** — 값이 안 맞는다. 이 작업의 단위는 파일이 아니라
+**레거시 id 다리** 하나이고, 그건 별도 작업이다.
+
+### 함께 확인된 것
+
+- **프로덕션 쓰기가 없다.** 모든 파일 형식을 훑어 `INSERT`/`UPDATE`/`DELETE` 는
+  테스트 픽스처 두 곳뿐이다. 즉 이 저장소의 모든 접근은 **교차 프로젝트 읽기**다
+- **`core.entity` 에 없는 행이 실재하고 계속 생긴다.** `029:2-4` 가
+  `US:AAL`·`US:NOK`·`US:T` 를 메웠지만 구조적이다 —
+  `core-identity-sync-contract.ts:37-45`: 새 US 티커는 뉴스·시세 수집이 보는 즉시
+  `public.entities` 에 들어오는데 CIK 는 주간 백필에야 오고, SEC 목록에 없는
+  티커는 영영 안 풀린다

@@ -482,6 +482,72 @@
   </section>
 
   <section class="s">
+    <h2>같은 결함이 다섯 번 — 그리고 근원에서 고친 것</h2>
+    <div class="s-close">닫는 관측 — 선언은 있고 부르는 코드가 없다. 탐지기 둘을 놓고 근원 넷을 고쳤다</div>
+    <p>
+      2026-08-06 하루에 같은 모양이 <strong>다섯 번</strong> 나왔다. 전부
+      「만들어 놓고 아무도 소비하지 않는다」 이고, 그때마다 <em>아무것도 실패하지
+      않았다</em> — 없는 것은 실패를 보고할 수 없기 때문이다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>선언된 것</th><th>부르는 코드</th></tr></thead>
+        <tbody>
+          <tr><td><code>absenceSemantics</code> 정책 필드</td><td>없었다 — 철회 여부를 아무도 여기서 읽지 않았다</td></tr>
+          <tr><td>귀속 잡 둘</td><td>없었다 — 어느 파이프라인에도 배선 안 됨</td></tr>
+          <tr><td><code>ops.verification_policy</code> 의 <code>verified</code> 행 (2026-07-19~)</td><td>없었다 — 잡이 <code>corroborated</code> 행만 읽었다</td></tr>
+          <tr><td><code>knowledge.claim.object_entity_id</code> (마이그레이션 011~)</td><td>없었다 — INSERT 컬럼 목록에 한 번도 없었다</td></tr>
+          <tr><td>계약 무결성 테스트</td><td>돌지 않았다 — 환경변수 없으면 skip, 6개가 조용히 건너뛰었다</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>탐지기 둘을 놓았다.</strong> 사례마다 테스트를 쓰는 대신 전수를 센다 —
+      없는 테스트는 언제나 아무도 안 쓴 그 테스트라서, 개별 가드는 <em>다음</em> 것을
+      못 잡는다.
+      <br><br>
+      <code>job-wiring-inventory</code> 는 실행 가능한 잡 38개 중 파이프라인이 부르는
+      32개와 이유가 적힌 예외 6개를 대조한다. 어젯밤이면 빨간불이었다.
+      <code>run-table-reachability-audit</code> 는 우리가 만들고 채우는데 아무도 읽지
+      않는 표를 매일 센다 — 첫 실행이 문서의 낡은 곳을 잡았고, 그때 읽는 것으로 나온
+      <code>analytics.theme</code> 의 유일한 독자는 <strong>그 감사 잡 자신의 주석</strong>이었다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>근원에서 고친 것</th><th class="n">전</th><th class="n">후</th></tr></thead>
+        <tbody>
+          <tr><td>뉴스 문서 링크 (추출기가 눈을 뜨는 범위)</td><td class="n">672</td><td class="n"><strong>896</strong></td></tr>
+          <tr><td><code>claim</code> verified</td><td class="n">0</td><td class="n"><strong>8</strong></td></tr>
+          <tr><td><code>SUPPLIES</code>·<code>CUSTOMER_OF</code> accepted</td><td class="n">0</td><td class="n"><strong>20</strong></td></tr>
+          <tr><td>같은 문서 안 claim 중복</td><td class="n">막지 않음</td><td class="n"><strong>dedupe 키</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>「34%」 는 틀린 수였다.</strong> 그 분모에는 추출되지 않는 문서 종류가
+      섞여 있었다. 추출 대상인 뉴스만 보면 <strong>13.7%</strong> — 셋 중 둘이 아니라
+      여덟 중 일곱에서 눈이 멀어 있었다. 원인은 <strong>연결 표면이 읽기 표면보다
+      좁은 것</strong>이었다: 링크는 제목만 보는데 추출기는 제목+요약을 읽으니, 요약에만
+      이름이 나온 회사는 구조적으로 해소될 수 없었다. 표면을 맞춰 17.8% 로 올렸다.
+      <br><br>
+      <strong>남은 82% 는 매칭 문제가 아니다.</strong> 유니버스가 325 종목인데 뉴스는
+      시장 전체를 다룬다 — 대부분의 기사는 우리가 가진 회사를 아예 언급하지 않는다.
+      이 수정은 그걸 고치지 않고, 고친 것처럼 읽히면 안 된다.
+    </p>
+    <p>
+      <strong>만들었다가 걷어낸 것.</strong> 캐노니컬 이름 링커는 단독 측정 770 문서였는데
+      넓힌 별칭 뒤에 돌리니 <strong>4건</strong>이었다 — 표면이 같아지면 두 카탈로그가
+      겹친다. 이미 썼다는 것은 남길 근거가 아니라서 지웠다.
+      <br><br>
+      <strong>그리고 내가 두 번 깨뜨렸다.</strong> 마이그레이션을 적용하기 전에 그것을
+      요구하는 코드를 워킹 트리에 둬서 knowledge 파이프라인이 세 사이클(14:45·14:55·15:04)
+      실패했다 — <em>타이머는 커밋이 아니라 워킹 트리를 실행한다.</em> 그리고 069 가
+      ADR-002 계층 없이 출처를 승인해 계약 불변조건을 깼는데, 그 테스트가 환경변수 없이는
+      건너뛰어서 하루 동안 초록불 뒤에 숨어 있었다. 둘 다 고치고 기록했다.
+    </p>
+  </section>
+
+  <section class="s">
     <h2>2026-08-06 에 바뀐 것</h2>
     <div class="s-close">닫는 관측 — 스냅샷 28 → 29. 철회 39건, 미귀속에 게이지가 붙었고, 선언 하나가 하중을 받게 됐다</div>
     <table>
