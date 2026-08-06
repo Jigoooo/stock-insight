@@ -3,13 +3,9 @@ import { useRef } from 'react';
 import { marketConnectionLabel } from '../../model/market-overview';
 import styles from '../feed-ledger.module.css';
 import { MarketOverviewPanel } from '../market-overview-panel';
-import {
-  type DetailState,
-  formatDate,
-  marketLabel,
-  signalTypeLabel,
-} from '../research-workspace-page';
+import type { DetailState } from '../research-workspace-page';
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
+import { formatDate, marketLabel, signalTypeLabel } from '../workspace-presenters';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import {

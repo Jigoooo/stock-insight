@@ -6,17 +6,27 @@ import {
   type StockDeepDive,
   type StockDeepDiveLoader,
 } from '../../model/stock-deep-dive';
+import { paginateStockRows } from '../../model/stock-table-pagination';
+import styles from '../research-workspace-page.module.css';
+import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
+import stockStyles from '../stock-deep-dive-panel.module.css';
 import {
   analysisStatusLabel,
   availabilityLabels,
   formatDate,
   formatNumber,
   marketLabel,
-} from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
-import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
-import stockStyles from '../stock-deep-dive-panel.module.css';
+} from '../workspace-presenters';
 
+import {
+  Pagination,
+  PaginationItem,
+  PaginationLink,
+  PaginationList,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationStatus,
+} from '@/shared/ui/pagination';
 import { TableRow, TableSelectionHead } from '@/shared/ui/table';
 import {
   AvailabilityNotice,
@@ -50,6 +60,13 @@ export function StocksView({
   const [relation, setRelation] = useState<EntityRelationGraph | null>(null);
   const [detailState, setDetailState] = useState<StockDeepDivePanelState>('idle');
   const [detailError, setDetailError] = useState<string>();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageRows, setPageRows] = useState(stocks);
+  if (pageRows !== stocks) {
+    setPageRows(stocks);
+    setCurrentPage(1);
+  }
+  const page = paginateStockRows(stocks, currentPage);
 
   useEffect(
     () => () => {
@@ -129,7 +146,7 @@ export function StocksView({
             <p aria-live="polite">
               {pending
                 ? '검색 결과를 갱신하고 있습니다'
-                : `${stocks.length}개 표시 · ${availabilityLabels[data.availability]}`}
+                : `${stocks.length}개 중 ${stocks.length === 0 ? 0 : page.startIndex + 1}–${page.endIndex}개 표시 · ${availabilityLabels[data.availability]}`}
             </p>
           </PanelHeader>
           <p id="stock-table-scroll-hint" className={stockStyles.tableScrollHint}>
@@ -175,10 +192,9 @@ export function StocksView({
                     </td>
                   </tr>
                 )}
-                {stocks.map((stock) => (
+                {page.items.map((stock) => (
                   <TableRow
                     key={stock.entityKey}
-                    className={stocks.length > 100 ? stockStyles.deferredTableRow : undefined}
                     rowKey={stock.entityKey}
                     selectionLabel={`${stock.displayName} 종목 선택`}
                   >
@@ -216,6 +232,48 @@ export function StocksView({
               </tbody>
             </DataTable>
           </div>
+          {stocks.length > 0 && (
+            <Pagination
+              aria-label="종목 목록 페이지"
+              className={stockStyles.stockPagination}
+              variant="hairline"
+            >
+              <PaginationStatus aria-live="polite">
+                {page.currentPage} / {page.pageCount} 페이지
+              </PaginationStatus>
+              <PaginationList>
+                <PaginationItem>
+                  <PaginationPrevious
+                    disabled={page.currentPage === 1}
+                    href="#stock-table-scroll-hint"
+                    label="이전 종목 페이지"
+                    onClick={() => setCurrentPage(Math.max(1, page.currentPage - 1))}
+                  />
+                </PaginationItem>
+                {Array.from({ length: page.pageCount }, (_, index) => index + 1).map(
+                  (pageNumber) => (
+                    <PaginationItem key={pageNumber}>
+                      <PaginationLink
+                        current={pageNumber === page.currentPage}
+                        href="#stock-table-scroll-hint"
+                        onClick={() => setCurrentPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    disabled={page.currentPage === page.pageCount}
+                    href="#stock-table-scroll-hint"
+                    label="다음 종목 페이지"
+                    onClick={() => setCurrentPage(Math.min(page.pageCount, page.currentPage + 1))}
+                  />
+                </PaginationItem>
+              </PaginationList>
+            </Pagination>
+          )}
         </Panel>
         {detailRegion}
       </div>

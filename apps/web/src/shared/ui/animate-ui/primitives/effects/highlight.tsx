@@ -437,6 +437,7 @@ function HighlightItem<T extends React.ElementType>({
   React.useEffect(() => {
     if (mode !== 'parent') return;
     let rafId: number;
+    let resizeObserver: ResizeObserver | undefined;
     let previousBounds: Bounds | null = null;
     const shouldUpdateBounds =
       forceUpdateBounds === true ||
@@ -468,9 +469,20 @@ function HighlightItem<T extends React.ElementType>({
     if (isActive) {
       updateBounds();
       setActiveClassName(activeClassName ?? '');
+      if (
+        !shouldUpdateBounds &&
+        localRef.current &&
+        typeof ResizeObserver !== 'undefined'
+      ) {
+        resizeObserver = new ResizeObserver(updateBounds);
+        resizeObserver.observe(localRef.current);
+      }
     } else if (!activeValue) clearBounds();
 
-    if (shouldUpdateBounds) return () => cancelAnimationFrame(rafId);
+    return () => {
+      if (shouldUpdateBounds) cancelAnimationFrame(rafId);
+      resizeObserver?.disconnect();
+    };
   }, [
     mode,
     isActive,

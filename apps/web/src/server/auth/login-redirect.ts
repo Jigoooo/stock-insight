@@ -1,4 +1,4 @@
-const defaultRedirect = '/';
+const defaultRedirect = '/workspace/today';
 
 function containsControlCharacter(value: string): boolean {
   for (const character of value) {
@@ -25,6 +25,9 @@ export function sanitizeLoginRedirect(candidate: unknown): string {
     const url = new URL(candidate, 'https://stock-insight.invalid');
     if (url.origin !== 'https://stock-insight.invalid' || url.pathname === '/login') {
       return defaultRedirect;
+    }
+    if (url.pathname === '/' || url.pathname === '/workspace') {
+      return `${defaultRedirect}${url.search}${url.hash}`;
     }
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {

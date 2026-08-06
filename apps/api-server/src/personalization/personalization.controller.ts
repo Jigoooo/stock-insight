@@ -52,7 +52,7 @@ export class PersonalizationController {
     const result = await withSnapshot((executor) =>
       getPersonalizationPortfolioSnapshot(executor, { userScope, snapshotId }),
     );
-    if (!result) throw apiError('portfolio_snapshot_not_found', 404);
+    if (!result && snapshotId !== null) throw apiError('portfolio_snapshot_not_found', 404);
     return result;
   }
 

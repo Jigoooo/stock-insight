@@ -61,7 +61,10 @@ describe('development-only visual surface routes', () => {
     );
     assert.match(previewRoute, /throw notFound\(\)/);
     assert.match(uiLabRoute, /throw notFound\(\)/);
-    assert.match(authenticatedRoute, /const session = await getCurrentSession\(\)/);
+    assert.match(
+      authenticatedRoute,
+      /const session = await context\.authenticatedSessionCache\.load\(getCurrentSession\)/,
+    );
     assert.match(authenticatedRoute, /throw redirect\(\{ to: '\/login'/);
   });
 

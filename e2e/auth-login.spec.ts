@@ -721,7 +721,7 @@ test.describe('private workspace authentication', () => {
 
   test('redirects an anonymous root request to an accessible login form', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveURL(/\/login\?redirect=%2Fworkspace$/);
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fworkspace%2Ftoday$/);
     await expect(page.getByRole('heading', { name: '로그인', exact: true })).toBeVisible();
     await expect(page.getByLabel('사용자 이름')).toBeVisible();
     await expect(page.locator('#login-password')).toHaveAttribute('type', 'password');

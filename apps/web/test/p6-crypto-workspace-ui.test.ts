@@ -31,7 +31,7 @@ describe('P6-6 crypto read-only workspace vertical', () => {
       read('features/workspace-navigation/model/sections.ts'),
       read('pages/research-workspace/model/workspace-search.ts'),
       read('pages/research-workspace/model/workspace-view-cache.ts'),
-      read('server/research-workspace.ts'),
+      read('server/research-workspace-orchestrator.ts'),
       read('pages/research-workspace/model/workspace-view-payload.ts'),
     ]);
     assert.match(
@@ -49,8 +49,8 @@ describe('P6-6 crypto read-only workspace vertical', () => {
       /\| \{ crypto: CryptoResearchWorkspace; shell: ResearchWorkspaceShellSummary; view: 'crypto' \}/,
     );
     const cryptoCase = loader.match(/case 'crypto':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
-    assert.match(cryptoCase, /loadCryptoResearchWorkspace\(userId/);
-    assert.match(cryptoCase, /activeSlice = \{ crypto, view: options\.view \}/);
+    assert.match(cryptoCase, /loaders\s*\.loadCrypto\(userId/);
+    assert.match(cryptoCase, /\{ crypto, view: 'crypto' as const \}/);
   });
 
   it('renders company links, events, risk, and explicit empty/read-only states without controls', async () => {
@@ -109,9 +109,9 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     );
     assert.match(
       view,
-      /<DataTable[\s\S]*?containerProps=\{\{[\s\S]*?'aria-describedby': 'crypto-company-scroll-hint',[\s\S]*?'aria-label': '기업 연결 표 가로 스크롤 영역',[\s\S]*?tabIndex: 0,[\s\S]*?\}\}/,
+      /<section[\s\S]*?aria-describedby="crypto-company-scroll-hint"[\s\S]*?aria-label="기업 연결 표 가로 스크롤 영역"[\s\S]*?tabIndex=\{0\}/,
     );
-    assert.doesNotMatch(view, /<section[\s\S]*?tabIndex=\{0\}/);
+    assert.doesNotMatch(view, /<DataTable[\s\S]*?containerProps=/);
   });
 
   it('keeps one shared table scroll owner and mobile layout rules', async () => {
@@ -120,8 +120,12 @@ describe('P6-6 crypto read-only workspace vertical', () => {
       read('shared/ui/table/table.tsx'),
       read('shared/ui/table/table.module.css'),
     ]);
-    assert.doesNotMatch(extractCssBlock(css, '.tableWrap'), /overflow-x:/);
+    assert.match(extractCssBlock(css, '.tableWrap'), /overflow-x:\s*auto/);
     assert.match(extractCssBlock(css, '.tableWrap'), /min-width:\s*0/);
+    assert.match(
+      extractCssBlock(css, ".tableWrap [data-slot='table-container']"),
+      /overflow-x:\s*visible/,
+    );
     assert.match(table, /data-slot="table-container"/);
     assert.match(extractCssBlock(tableCss, '.container'), /overflow-x:\s*auto/);
     assert.match(extractCssBlock(css, '@media (max-width: 520px)'), /grid-template-columns:\s*1fr/);

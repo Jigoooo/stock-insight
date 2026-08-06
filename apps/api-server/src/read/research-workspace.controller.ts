@@ -13,6 +13,7 @@ import {
   getResearchRecordDetail,
   getSystemStatus,
   getThemeResearchList,
+  getWorkspaceShellSummary,
   getWorkspaceToday,
 } from '@stock-insight/api';
 
@@ -39,6 +40,12 @@ export class ResearchWorkspaceController {
   async getWorkspace() {
     const { withSnapshot, userScope } = researchContext();
     return withSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
+  }
+
+  @Get('workspace/shell')
+  async getWorkspaceShell() {
+    const { withSnapshot, userScope } = researchContext();
+    return withSnapshot((executor) => getWorkspaceShellSummary(executor, { userScope }));
   }
 
   @Get('status')

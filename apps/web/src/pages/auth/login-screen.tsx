@@ -32,16 +32,17 @@ export function LoginScreen({ redirectTo }: { redirectTo: string }) {
       // already parsed and hydrated here, and on this deployment every document
       // fetch is a trans-Pacific round trip.
       //
-      // invalidate() first because the session cookie just changed: any route
-      // match resolved while anonymous must not be reused now that the caller
-      // is authenticated.
+      // The login response carries the verified user and fail-closed
+      // capabilities that the authenticated route needs. Adopt it directly so
+      // the fresh cookie is not immediately resolved through another remote
+      // account lookup before the workspace can start loading.
       //
       // `pending` is deliberately NOT cleared on success. navigate() settles
       // only after the workspace loader does, and this screen stays mounted
       // until then — clearing it would flash an idle login form over a
       // workspace that is still loading. The workspace owns its own pending
       // state from there (navigationIntent in research-workspace-page).
-      await router.invalidate();
+      router.options.context.authenticatedSessionCache.set(result.session);
       // `href` rather than `to`: redirectTo is a runtime string, not a literal
       // route id.
       await navigate({ href: redirectTo });

@@ -7,6 +7,7 @@ import { WorkspaceLogoutAction, WorkspaceTopbar } from './workspace-topbar';
 import {
   createWorkspaceShellState,
   reduceWorkspaceShellState,
+  type WorkspaceDesktopMode,
 } from '../model/workspace-shell-state';
 
 import type { WorkspaceNavigationItem, WorkspaceSectionId } from '@/features/workspace-navigation';
@@ -28,6 +29,8 @@ export type WorkspaceShellProps = {
 
 const shellTransition = { duration: 0.18, ease: [0.22, 1, 0.36, 1] } as const;
 const serverViewportWidth = 1240;
+const desktopModeStorageKey = 'stock-insight:workspace-desktop-mode';
+let rememberedDesktopMode: WorkspaceDesktopMode | null = null;
 
 function subscribeViewport(onStoreChange: () => void) {
   window.addEventListener('resize', onStoreChange);
@@ -60,10 +63,8 @@ export function WorkspaceShell({
     getViewportSnapshot,
     getServerViewportSnapshot,
   );
-  const [state, dispatch] = useReducer(
-    reduceWorkspaceShellState,
-    viewportWidth,
-    createWorkspaceShellState,
+  const [state, dispatch] = useReducer(reduceWorkspaceShellState, viewportWidth, (width) =>
+    createWorkspaceShellState(width, rememberedDesktopMode),
   );
   const reducedMotion = useReducedMotion();
   const content = Children.toArray(children);
@@ -73,6 +74,17 @@ export function WorkspaceShell({
   useEffect(() => {
     dispatch({ type: 'viewport-changed', width: viewportWidth });
   }, [viewportWidth]);
+
+  useEffect(() => {
+    try {
+      const storedMode = window.sessionStorage.getItem(desktopModeStorageKey);
+      if (storedMode !== 'compact' && storedMode !== 'expanded') return;
+      rememberedDesktopMode = storedMode;
+      dispatch({ type: 'restore-desktop-mode', mode: storedMode });
+    } catch {
+      // Session storage can be unavailable in privacy-restricted contexts.
+    }
+  }, []);
 
   useEffect(() => {
     dispatch({ type: 'route-committed' });
@@ -85,6 +97,15 @@ export function WorkspaceShell({
   const handleNavigate = (section: WorkspaceSectionId) => {
     dispatch({ type: 'route-committed' });
     onNavigate?.(section);
+  };
+  const toggleDesktopMode = () => {
+    rememberedDesktopMode = state.mode === 'expanded' ? 'compact' : 'expanded';
+    try {
+      window.sessionStorage.setItem(desktopModeStorageKey, rememberedDesktopMode);
+    } catch {
+      // The in-memory preference still preserves the mode for client transitions.
+    }
+    dispatch({ type: 'toggle-desktop-mode' });
   };
   const mobileOpen = state.mode === 'mobile' && state.mobileOpen && !mobileModalInert;
   const navigation = (
@@ -160,7 +181,7 @@ export function WorkspaceShell({
             navigationItems={navigationItems}
             navigationPending={navigationPending}
             onLogout={onLogout}
-            onToggleDesktop={() => dispatch({ type: 'toggle-desktop-mode' })}
+            onToggleDesktop={toggleDesktopMode}
             search={search}
           />
           {currentView}

@@ -10,6 +10,7 @@ export type WorkspaceShellState = {
 export type WorkspaceShellAction =
   | { type: 'viewport-changed'; width: number }
   | { type: 'toggle-desktop-mode' }
+  | { type: 'restore-desktop-mode'; mode: WorkspaceDesktopMode }
   | { type: 'set-mobile-open'; open: boolean }
   | { type: 'route-committed' };
 
@@ -19,10 +20,14 @@ export function resolveResponsiveNavigationMode(width: number): WorkspaceNavigat
   return 'expanded';
 }
 
-export function createWorkspaceShellState(width: number): WorkspaceShellState {
+export function createWorkspaceShellState(
+  width: number,
+  override: WorkspaceDesktopMode | null = null,
+): WorkspaceShellState {
+  const responsive = resolveResponsiveNavigationMode(width);
   return {
-    mode: resolveResponsiveNavigationMode(width),
-    override: null,
+    mode: responsive === 'mobile' ? 'mobile' : (override ?? responsive),
+    override,
     mobileOpen: false,
   };
 }
@@ -31,6 +36,13 @@ export function reduceWorkspaceShellState(
   state: WorkspaceShellState,
   action: WorkspaceShellAction,
 ): WorkspaceShellState {
+  if (action.type === 'restore-desktop-mode') {
+    return {
+      ...state,
+      mode: state.mode === 'mobile' ? 'mobile' : action.mode,
+      override: action.mode,
+    };
+  }
   if (action.type === 'viewport-changed') {
     const responsive = resolveResponsiveNavigationMode(action.width);
     return {

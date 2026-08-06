@@ -1,12 +1,12 @@
 import ledgerStyles from '../feed-ledger.module.css';
+import styles from '../research-workspace-page.module.css';
 import {
   availabilityLabels,
   datasetLabel,
   domainLabels,
   formatDate,
   formatNumber,
-} from '../research-workspace-page';
-import styles from '../research-workspace-page.module.css';
+} from '../workspace-presenters';
 
 import {
   AvailabilityNotice,

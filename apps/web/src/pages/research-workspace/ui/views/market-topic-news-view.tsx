@@ -1,5 +1,5 @@
 import ledgerStyles from '../feed-ledger.module.css';
-import { formatDate, formatNumber } from '../research-workspace-page';
+import { formatDate, formatNumber } from '../workspace-presenters';
 
 import styles from './market-topic-news-view.module.css';
 

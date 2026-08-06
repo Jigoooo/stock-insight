@@ -6,9 +6,14 @@ import { sanitizeLoginRedirect } from '../src/server/auth/login-redirect.ts';
 describe('login redirect sanitization', () => {
   it('keeps only an internal absolute path', () => {
     assert.equal(
-      sanitizeLoginRedirect('/workspace?selected=US%3ANVDA'),
-      '/workspace?selected=US%3ANVDA',
+      sanitizeLoginRedirect('/workspace/stocks?selected=US%3ANVDA'),
+      '/workspace/stocks?selected=US%3ANVDA',
     );
+  });
+
+  it('sends workspace entry redirects straight to the default view', () => {
+    assert.equal(sanitizeLoginRedirect('/'), '/workspace/today');
+    assert.equal(sanitizeLoginRedirect('/workspace'), '/workspace/today');
   });
 
   for (const candidate of [
@@ -22,7 +27,7 @@ describe('login redirect sanitization', () => {
     '/login?redirect=/login',
   ]) {
     it('falls back to the current dashboard for unsafe or looping redirects', () => {
-      assert.equal(sanitizeLoginRedirect(candidate), '/');
+      assert.equal(sanitizeLoginRedirect(candidate), '/workspace/today');
     });
   }
 });

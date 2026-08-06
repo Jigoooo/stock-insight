@@ -405,7 +405,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.getByLabel('사용자 이름').fill(username);
     await page.locator('#login-password').fill(password);
     await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page).toHaveURL(/\/workspace\?view=radar/);
+    await expect(page).toHaveURL(/\/workspace(?:\/today)?\?view=radar/);
     authenticatedCookies = (await context.storageState()).cookies;
     await context.close();
   });
@@ -519,6 +519,91 @@ test.describe('v3 research workspace candidate', () => {
     await expect(mobileSidebar).toBeHidden();
     await expect(content).not.toHaveAttribute('inert');
     await expect(trigger).toBeFocused();
+  });
+
+  test('keeps the active sidebar surface aligned while the navigation expands', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 900, width: 1240 });
+    await page.goto('/workspace/stocks');
+
+    const sidebar = page.getByTestId('workspace-sidebar');
+    const activeLink = sidebar.locator('[aria-current="page"]');
+    const activeSurface = sidebar.locator('[data-slot="motion-highlight"]');
+
+    await page.getByRole('button', { name: '사이드바 축소' }).click();
+    await expect(sidebar).toHaveCSS('width', '68px');
+
+    await page.getByRole('button', { name: '사이드바 펼치기' }).click();
+    const expansionFrames = await page.evaluate(
+      async ({ activeLinkSelector, activeSurfaceSelector, sidebarSelector }) => {
+        const sidebarElement = document.querySelector<HTMLElement>(sidebarSelector);
+        const activeLinkElement = sidebarElement?.querySelector<HTMLElement>(activeLinkSelector);
+        const activeSurfaceElement =
+          sidebarElement?.querySelector<HTMLElement>(activeSurfaceSelector);
+        if (!sidebarElement || !activeLinkElement || !activeSurfaceElement) return [];
+
+        const frames: Array<{
+          activeRight: number;
+          activeWidth: number;
+          sidebarWidth: number;
+          surfaceRight: number;
+          surfaceWidth: number;
+        }> = [];
+
+        await new Promise<void>((resolve) => {
+          let frameCount = 0;
+          const sample = () => {
+            const sidebarRect = sidebarElement.getBoundingClientRect();
+            const activeRect = activeLinkElement.getBoundingClientRect();
+            const surfaceRect = activeSurfaceElement.getBoundingClientRect();
+            if (sidebarRect.width > 70 && sidebarRect.width < 208) {
+              frames.push({
+                activeRight: activeRect.right,
+                activeWidth: activeRect.width,
+                sidebarWidth: sidebarRect.width,
+                surfaceRight: surfaceRect.right,
+                surfaceWidth: surfaceRect.width,
+              });
+            }
+            frameCount += 1;
+            if (frameCount >= 18) resolve();
+            else requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        });
+
+        return frames;
+      },
+      {
+        activeLinkSelector: '[aria-current="page"]',
+        activeSurfaceSelector: '[data-slot="motion-highlight"]',
+        sidebarSelector: '[data-testid="workspace-sidebar"]',
+      },
+    );
+
+    expect(expansionFrames.length).toBeGreaterThan(1);
+    for (const frame of expansionFrames) {
+      expect(frame.surfaceWidth).toBeLessThanOrEqual(frame.activeWidth + 1.5);
+      expect(frame.surfaceRight).toBeLessThanOrEqual(frame.activeRight + 1.5);
+    }
+
+    await expect(sidebar).toHaveCSS('width', '210px');
+    await expect
+      .poll(async () => {
+        const [activeBox, surfaceBox] = await Promise.all([
+          activeLink.boundingBox(),
+          activeSurface.boundingBox(),
+        ]);
+        if (!activeBox || !surfaceBox) return Number.POSITIVE_INFINITY;
+        return Math.abs(activeBox.width - surfaceBox.width);
+      })
+      .toBeLessThan(1.5);
+
+    await expect(activeSurface).toHaveCSS(
+      'border-radius',
+      await activeLink.evaluate((element) => getComputedStyle(element).borderRadius),
+    );
   });
 
   test('clears the session on logout and protects the workspace again', async ({

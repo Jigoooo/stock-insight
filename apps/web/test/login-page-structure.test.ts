@@ -19,12 +19,13 @@ describe('login page structure', () => {
     // Every document fetch on this deployment is a trans-Pacific round trip, and
     // the bundle is already parsed and hydrated by the time login succeeds.
     assert.doesNotMatch(screen, /window\.location\.assign/);
-    // invalidate() must run before navigating: the session cookie just changed,
-    // so any route match resolved while anonymous cannot be reused.
+    // The successful response already contains a verified session, so the
+    // authenticated route can consume it without another account round trip.
     assert.match(
       screen,
-      /await router\.invalidate\(\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*await navigate\(\{ href: redirectTo \}\)/,
+      /authenticatedSessionCache\.set\(result\.session\)[\s\S]*?await navigate\(\{ href: redirectTo \}\)/,
     );
+    assert.doesNotMatch(screen, /await router\.invalidate\(\)/);
     // `pending` stays set on the success path. navigate() settles only after the
     // workspace loader does and this screen stays mounted until then, so
     // clearing it would flash an idle form over a still-loading workspace.

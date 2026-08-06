@@ -24,6 +24,13 @@ export function createWorkspaceNavigationIntentState(sequence = 0): WorkspaceNav
   };
 }
 
+export function resolveWorkspaceVisualSelection<Value>(
+  committed: Value,
+  pending: Value | null,
+): Value {
+  return pending ?? committed;
+}
+
 export function reduceWorkspaceNavigationIntent(
   state: WorkspaceNavigationIntentState,
   action: WorkspaceNavigationIntentAction,

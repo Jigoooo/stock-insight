@@ -1,7 +1,7 @@
 .banner {
   position: fixed;
   right: max(1rem, env(safe-area-inset-right));
-  bottom: max(1rem, env(safe-area-inset-bottom));
+  top: calc(max(0.75rem, env(safe-area-inset-top)) + 4rem);
   z-index: 1000;
   display: inline-flex;
   align-items: center;

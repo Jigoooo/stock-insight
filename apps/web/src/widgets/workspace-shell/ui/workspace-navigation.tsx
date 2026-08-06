@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router';
+import type { MouseEvent } from 'react';
 
 import styles from './workspace-shell.module.css';
+import { isPlainWorkspaceNavigationActivation } from '../model/workspace-navigation-activation';
 
 import type {
   WorkspaceNavigationItem,
@@ -78,7 +80,9 @@ export function WorkspaceNavigation({
               <Link
                 aria-label={mode === 'compact' ? item.label : undefined}
                 data-testid={`workspace-nav-${item.id}`}
-                onClick={() => onNavigate?.(item.id)}
+                onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                  if (isPlainWorkspaceNavigationActivation(event)) onNavigate?.(item.id);
+                }}
                 onFocus={() => onPrefetch?.(item.id)}
                 onPointerEnter={() => onPrefetch?.(item.id)}
                 preload="intent"

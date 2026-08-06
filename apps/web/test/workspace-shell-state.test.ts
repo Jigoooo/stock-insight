@@ -16,16 +16,29 @@ describe('workspace shell state', () => {
     assert.equal(resolveResponsiveNavigationMode(767), 'mobile');
   });
 
-  it('keeps an explicit desktop override only for the mounted shell', () => {
+  it('restores an explicit desktop override when a route remounts the shell', () => {
     const initial = createWorkspaceShellState(1440);
     const compact = reduceWorkspaceShellState(initial, { type: 'toggle-desktop-mode' });
     assert.equal(compact.mode, 'compact');
     assert.equal(compact.override, 'compact');
-    assert.deepEqual(createWorkspaceShellState(1440), {
-      mode: 'expanded',
-      override: null,
+
+    assert.deepEqual(createWorkspaceShellState(1440, compact.override), {
+      mode: 'compact',
+      override: 'compact',
       mobileOpen: false,
     });
+
+    assert.deepEqual(
+      reduceWorkspaceShellState(createWorkspaceShellState(1170), {
+        type: 'restore-desktop-mode',
+        mode: 'expanded',
+      }),
+      {
+        mode: 'expanded',
+        override: 'expanded',
+        mobileOpen: false,
+      },
+    );
   });
 
   it('closes the mobile sheet when a route is committed', () => {

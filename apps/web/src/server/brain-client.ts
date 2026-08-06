@@ -153,7 +153,13 @@ export async function brainRequest<T = unknown>(
     parsed = text;
   }
 
-  if (!response.ok) throw new BrainRequestError(response.status, parsed);
+  if (!response.ok) {
+    throw new BrainRequestError(
+      response.status,
+      parsed,
+      `Brain request failed (${response.status}) for ${signedPath}`,
+    );
+  }
   return parsed as T;
 }
 
@@ -197,7 +203,11 @@ export async function brainRequestBinary(
     } catch {
       parsed = text;
     }
-    throw new BrainRequestError(response.status, parsed);
+    throw new BrainRequestError(
+      response.status,
+      parsed,
+      `Brain request failed (${response.status}) for ${signedPath}`,
+    );
   }
   return new Uint8Array(await response.arrayBuffer());
 }

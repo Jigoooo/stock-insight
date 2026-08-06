@@ -59,6 +59,7 @@ export function SignupScreen() {
 
       // Same client transition as login-screen — see the comment there for why
       // invalidate() runs first and why `pending` is held through navigate().
+      router.options.context.authenticatedSessionCache.clear();
       await router.invalidate();
       await navigate({ to: '/workspace' });
     } catch {

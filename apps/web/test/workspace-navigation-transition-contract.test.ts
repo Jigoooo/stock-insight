@@ -46,7 +46,7 @@ describe('workspace authoritative navigation transition', () => {
     assert.match(route, /onUrlStateChange=\{async \(next\) => \{[\s\S]*?await navigate\(/);
   });
 
-  it('keeps authoritative ARIA on committed values and marks only the latest target pending', async () => {
+  it('moves controlled selection to the latest target while authoritative data is pending', async () => {
     const [page, navigation, today, tabs] = await Promise.all([
       readFile(pageUrl, 'utf8'),
       readFile(navigationUrl, 'utf8'),
@@ -55,6 +55,11 @@ describe('workspace authoritative navigation transition', () => {
     ]);
 
     assert.match(page, /useReducer\(\s*reduceWorkspaceNavigationIntent/);
+    assert.match(page, /const visualSection = resolveWorkspaceVisualSelection\(/);
+    assert.match(page, /const visualLane = resolveWorkspaceVisualSelection\(/);
+    assert.match(page, /activeSection=\{visualSection\}/);
+    assert.match(page, /lane=\{visualLane\}/);
+    assert.match(page, /selectedRecordKey=\{requestedRecordKey \?\? visibleDetail\?\.recordKey\}/);
     assert.match(navigation, /pending=\{pending === item\.id\}/);
     assert.match(navigation, /<SideList[\s\S]*?value=\{activeSection\}/);
     assert.match(page, /pendingLane=\{navigationIntent\.pendingLane/);

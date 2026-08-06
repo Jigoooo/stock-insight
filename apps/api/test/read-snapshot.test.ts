@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { withReadSnapshot, type ReadSnapshotConnection } from '../src/server/read-snapshot.ts';
 
 describe('withReadSnapshot', () => {
-  it('runs every query on one repeatable-read read-only transaction', async () => {
+  it('runs every query on one snapshot and configures the scoped transaction in one round trip', async () => {
     const calls: Array<{ sql: string; params: readonly unknown[] }> = [];
     let releaseCount = 0;
     const connection: ReadSnapshotConnection = {
@@ -41,17 +41,16 @@ describe('withReadSnapshot', () => {
       calls.map(({ sql }) => sql),
       [
         'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
-        "SELECT set_config('stock_insight.user_id', $1, true)",
-        "SELECT set_config('statement_timeout', $1, true)",
-        "SELECT set_config('lock_timeout', $1, true)",
+        `SELECT
+      set_config('stock_insight.user_id', $1, true),
+      set_config('statement_timeout', $2, true),
+      set_config('lock_timeout', $3, true)`,
         'SELECT first',
         'SELECT second',
         'COMMIT',
       ],
     );
-    assert.deepEqual(calls[1]?.params, ['11111111-1111-4111-8111-111111111111']);
-    assert.deepEqual(calls[2]?.params, ['4000ms']);
-    assert.deepEqual(calls[3]?.params, ['750ms']);
+    assert.deepEqual(calls[1]?.params, ['11111111-1111-4111-8111-111111111111', '4000ms', '750ms']);
     assert.equal(releaseCount, 1);
   });
 

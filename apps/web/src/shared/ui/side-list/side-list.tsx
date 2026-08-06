@@ -48,7 +48,15 @@ export function SideList({
           controlledItems
           mode="parent"
           transition={
-            reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 28 }
+            reducedMotion
+              ? { duration: 0 }
+              : {
+                  type: 'spring',
+                  stiffness: 260,
+                  damping: 28,
+                  left: { duration: 0 },
+                  width: { duration: 0 },
+                }
           }
           value={value}
         >

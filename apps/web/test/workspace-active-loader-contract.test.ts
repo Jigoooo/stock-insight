@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const serverUrl = new URL('../src/server/research-workspace.ts', import.meta.url);
+const orchestratorUrl = new URL(
+  '../src/server/research-workspace-orchestrator.ts',
+  import.meta.url,
+);
 const modelUrl = new URL(
   '../src/pages/research-workspace/model/load-research-workspace.ts',
   import.meta.url,
@@ -14,13 +18,15 @@ const payloadUrl = new URL(
 
 describe('workspace active-view server loader', () => {
   it('returns a discriminated active slice plus shell counts', async () => {
-    const [source, payload] = await Promise.all([
+    const [server, source, payload] = await Promise.all([
       readFile(serverUrl, 'utf8'),
+      readFile(orchestratorUrl, 'utf8'),
       readFile(payloadUrl, 'utf8'),
     ]);
 
     assert.match(payload, /export type ResearchWorkspaceViewPayload/);
-    assert.match(source, /export async function loadResearchWorkspaceView/);
+    assert.match(server, /export async function loadResearchWorkspaceView/);
+    assert.match(server, /orchestrateResearchWorkspaceView\(loaders, userId, options\)/);
     assert.match(source, /switch \(options\.view\)/);
     for (const view of [
       'today',
@@ -34,10 +40,9 @@ describe('workspace active-view server loader', () => {
     ]) {
       assert.match(source, new RegExp(`case '${view}'`));
     }
-    assert.match(
-      source,
-      /const shell:\s*ResearchWorkspaceShellSummary\s*=\s*\{[\s\S]*?radarScopeTotal:[\s\S]*?watchlistCount:/,
-    );
+    assert.match(source, /const shellPromise = loaders\.loadShell\(userId\)/);
+    assert.match(source, /const \[activeSlice, shell\] = await Promise\.all/);
+    assert.match(source, /\.\.\.activeSlice,[\s\S]*?shell,[\s\S]*?view:\s*options\.view/);
     assert.match(source, /view:\s*options\.view/);
   });
 
@@ -61,8 +66,9 @@ describe('workspace active-view server loader', () => {
   });
 
   it('does not convert active read errors into empty payloads', async () => {
-    const [server, model] = await Promise.all([
+    const [server, orchestrator, model] = await Promise.all([
       readFile(serverUrl, 'utf8'),
+      readFile(orchestratorUrl, 'utf8'),
       readFile(modelUrl, 'utf8'),
     ]);
 
@@ -71,15 +77,22 @@ describe('workspace active-view server loader', () => {
       /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/,
     );
     assert.doesNotMatch(model, /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/);
+    assert.doesNotMatch(
+      orchestrator,
+      /catch\s*\([^)]*\)\s*\{[\s\S]{0,300}(?:items:\s*\[\]|data:\s*\[\])/,
+    );
   });
 
   it('routes the initial themes relation through the v2-preference adapter', async () => {
-    const source = await readFile(serverUrl, 'utf8');
-    const themesCase = source.match(/case 'themes':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
+    const [source, orchestrator] = await Promise.all([
+      readFile(serverUrl, 'utf8'),
+      readFile(orchestratorUrl, 'utf8'),
+    ]);
+    const themesCase = orchestrator.match(/case 'themes':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
 
     // Depth 1 and the caller's scope are now positional arguments to the
     // brain-backed loader: loadEntityRelationGraph(userId, entityKey, depth).
-    assert.match(themesCase, /loadEntityRelationGraph\(userId,\s*relationRoot,\s*1\)/);
+    assert.match(themesCase, /loaders\.loadRelation\(userId,\s*relationRoot,\s*1\)/);
     // P0-5: the V1 fallback is removed — the adapter is V2-only.
     assert.doesNotMatch(themesCase, /loadV1/);
     assert.doesNotMatch(source, /getEntityRelations[^W]/);

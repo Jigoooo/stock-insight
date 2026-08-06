@@ -17,8 +17,11 @@ type PgModule = {
   Pool: new (options: {
     connectionString: string;
     max?: number;
+    min?: number;
     idleTimeoutMillis?: number;
     connectionTimeoutMillis?: number;
+    keepAlive?: boolean;
+    keepAliveInitialDelayMillis?: number;
   }) => PgPool;
 };
 
@@ -80,8 +83,14 @@ function getReadPool(connectionString: string): PgPool {
     pool = new Pool({
       connectionString,
       max: 4,
+      min: 2,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10_000,
+    });
+    pool.on('error', (error) => {
+      console.error('Unexpected error on an idle read database connection', error);
     });
     readPoolCache.set(connectionString, pool);
   }
@@ -273,6 +282,23 @@ export function createReadOnlyDatabaseClient(
     return { kind: 'disabled', reason: 'DATABASE_URL is not configured' };
   }
   return buildReadOnlyClient(connectionString, env.userId);
+}
+
+export async function primeReadOnlyDatabasePool(env: ServerEnv = parseServerEnv()): Promise<void> {
+  const connectionString = resolveDatabaseConnectionStrings(env).read;
+  if (connectionString === undefined) return;
+
+  const pool = getReadPool(connectionString);
+  const results = await Promise.allSettled([pool.connect(), pool.connect()]);
+
+  for (const result of results) {
+    if (result.status === 'fulfilled') result.value.release();
+  }
+
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+  if (failure) throw failure.reason;
 }
 
 export function createDatabaseClient(env: ServerEnv = parseServerEnv()): DatabaseClient {

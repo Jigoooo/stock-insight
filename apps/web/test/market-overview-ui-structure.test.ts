@@ -70,8 +70,8 @@ describe('P3-WC market overview UI structure', () => {
   });
 
   it('labels every production market-signal taxonomy without a generic collapse', async () => {
-    const page = await read('research-workspace-page.tsx');
-    const labels = page.match(
+    const presenters = await read('workspace-presenters.ts');
+    const labels = presenters.match(
       /const signalTypeLabels: Record<string, string> = \{([\s\S]*?)\n\};/,
     )?.[1];
     assert.ok(labels, 'signalTypeLabels map must exist');

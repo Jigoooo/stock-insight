@@ -2,14 +2,14 @@ import { ChevronRight, GitBranch, MoveHorizontal } from 'lucide-react';
 import { useRef } from 'react';
 
 import styles from '../relation-detail.module.css';
+import type { DetailState } from '../research-workspace-page';
+import { useWorkspaceRelationCrossfade } from '../use-workspace-relation-crossfade';
 import {
-  type DetailState,
   availabilityLabels,
   confidenceLabel,
   relationNodeLabel,
   relationTypeLabel,
-} from '../research-workspace-page';
-import { useWorkspaceRelationCrossfade } from '../use-workspace-relation-crossfade';
+} from '../workspace-presenters';
 
 import { themeTitleLabel } from '@/pages/research-workspace/model/presentation';
 import { isVerifiedRelationEdge } from '@/pages/research-workspace/model/relation-graphology';

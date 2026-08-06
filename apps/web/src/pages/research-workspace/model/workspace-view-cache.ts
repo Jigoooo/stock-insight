@@ -27,15 +27,17 @@ type CacheEntry<Value> =
   | {
       controller: AbortController;
       promise: Promise<Value>;
+      request: QueuedRequest<Value>;
       status: 'pending';
     };
 
 type QueuedRequest<Value> = {
+  abortableConsumers: number;
   controller: AbortController;
-  detachExternalAbort?: () => void;
   generation: number;
   key: string;
   loader: WorkspaceViewLoader<Value>;
+  persistentConsumer: boolean;
   promise: Promise<Value>;
   reject: (reason: unknown) => void;
   resolve: (value: Value) => void;
@@ -54,25 +56,42 @@ function createAbortError(message: string) {
   return error;
 }
 
-function waitForCaller<Value>(promise: Promise<Value>, signal?: AbortSignal) {
-  if (!signal) return promise;
+function waitForCaller<Value>(request: QueuedRequest<Value>, signal?: AbortSignal) {
+  if (!signal) {
+    request.persistentConsumer = true;
+    return request.promise;
+  }
   if (signal.aborted) {
     return Promise.reject(signal.reason ?? createAbortError('Workspace view caller aborted'));
   }
+
+  request.abortableConsumers += 1;
   return new Promise<Value>((resolve, reject) => {
-    const detach = () => signal.removeEventListener('abort', onAbort);
+    let settled = false;
+    const detach = () => {
+      if (settled) return false;
+      settled = true;
+      request.abortableConsumers -= 1;
+      signal.removeEventListener('abort', onAbort);
+      return true;
+    };
     const onAbort = () => {
-      detach();
+      if (!detach()) return;
       reject(signal.reason ?? createAbortError('Workspace view caller aborted'));
+      if (!request.settled && !request.persistentConsumer && request.abortableConsumers === 0) {
+        request.controller.abort(
+          signal.reason ?? createAbortError('Workspace view caller aborted'),
+        );
+      }
     };
     signal.addEventListener('abort', onAbort, { once: true });
-    void promise.then(
+    void request.promise.then(
       (value) => {
-        detach();
+        if (!detach()) return;
         resolve(value);
       },
       (error: unknown) => {
-        detach();
+        if (!detach()) return;
         reject(error);
       },
     );
@@ -120,7 +139,7 @@ export class WorkspaceViewCache<Value> {
     const serializedKey = serializeKey(key);
     const cached = this.#entries.get(serializedKey);
     if (cached?.status === 'ready') return Promise.resolve(cached.data);
-    if (cached?.status === 'pending') return waitForCaller(cached.promise, options.signal);
+    if (cached?.status === 'pending') return waitForCaller(cached.request, options.signal);
 
     const controller = new AbortController();
     let resolve!: (value: Value) => void;
@@ -130,10 +149,12 @@ export class WorkspaceViewCache<Value> {
       reject = onReject;
     });
     const request: QueuedRequest<Value> = {
+      abortableConsumers: 0,
       controller,
       generation: this.#generation,
       key: serializedKey,
       loader,
+      persistentConsumer: false,
       promise,
       reject,
       resolve,
@@ -142,21 +163,11 @@ export class WorkspaceViewCache<Value> {
       started: false,
     };
 
-    this.#entries.set(serializedKey, { controller, promise, status: 'pending' });
+    this.#entries.set(serializedKey, { controller, promise, request, status: 'pending' });
     controller.signal.addEventListener('abort', () => this.#rejectAborted(request), { once: true });
-    if (options.signal) {
-      if (options.signal.aborted) controller.abort(options.signal.reason);
-      else {
-        const externalSignal = options.signal;
-        const onExternalAbort = () => controller.abort(externalSignal.reason);
-        externalSignal.addEventListener('abort', onExternalAbort, { once: true });
-        request.detachExternalAbort = () =>
-          externalSignal.removeEventListener('abort', onExternalAbort);
-      }
-    }
     this.#queue.push(request);
     this.#pump();
-    return promise;
+    return waitForCaller(request, options.signal);
   }
 
   prefetch(
@@ -253,14 +264,12 @@ export class WorkspaceViewCache<Value> {
               return;
             }
             request.settled = true;
-            request.detachExternalAbort?.();
             this.#entries.set(request.key, { data: value, status: 'ready' });
             request.resolve(value);
           },
           (error: unknown) => {
             if (request.settled) return;
             request.settled = true;
-            request.detachExternalAbort?.();
             this.#deletePending(request);
             request.reject(error);
           },
@@ -275,7 +284,6 @@ export class WorkspaceViewCache<Value> {
   #rejectAborted(request: QueuedRequest<Value>) {
     if (request.settled) return;
     request.settled = true;
-    request.detachExternalAbort?.();
     this.#deletePending(request);
     request.reject(createAbortError('Workspace request aborted after scope change'));
     if (!request.started) {

@@ -106,6 +106,19 @@ function createExecutor() {
           },
         ];
       }
+      if (
+        sql.includes('analytics.graph_snapshot') &&
+        sql.includes('user_watchlist') &&
+        sql.includes('market_snapshots')
+      ) {
+        return [
+          {
+            relation_count: 4,
+            watchlist_count: 1,
+            market_data_as_of: '2026-07-16T12:40:00.000Z',
+          },
+        ];
+      }
       if (sql.includes('analytics.graph_snapshot')) return [{ relation_count: 4 }];
       if (sql.includes('user_watchlist')) return [{ watchlist_count: 1 }];
       if (sql.includes('market_snapshots')) {
@@ -142,6 +155,8 @@ describe('workspace read model', () => {
     assert.equal(result.meta.freshness, 'available');
     assert.deepEqual(result.meta.sourceCoverage, { linked: 4, clickable: 2, total: 4 });
     assert.equal(result.summary.relationCount, 4);
+    assert.equal(calls.length, 3);
+    assert.deepEqual(calls[2]?.params, ['2026-07-16T13:05:26.678Z', userScope.userId]);
     assert.ok(calls.some(({ params }) => params.includes(userScope.userId)));
     assert.equal(
       calls.some(({ sql }) => /\b(insert|update|delete|alter|drop|create)\b/i.test(sql)),

@@ -60,8 +60,11 @@ type FeedRow = {
   clickable_source_count: number | string;
 };
 
-type CountRow = { relation_count?: number | string; watchlist_count?: number | string };
 type MarketAsOfRow = { market_data_as_of: string | null };
+type WorkspaceTodaySummaryRow = MarketAsOfRow & {
+  relation_count: number | string;
+  watchlist_count: number | string;
+};
 
 const LATEST_RUN_SQL = `
   SELECT analysis_run_id, analysis_revision, cutoff_at, source_watermark_at,
@@ -150,23 +153,28 @@ const FEED_SQL = `
            publication.record_key ASC
 `;
 
-const RELATION_COUNT_SQL = `
-  SELECT coalesce((
-    SELECT snapshot.edge_count
-    FROM analytics.graph_snapshot snapshot
-    WHERE snapshot.status = 'sealed'
-      AND snapshot.as_of <= $1::timestamptz
-      AND snapshot.known_at <= $1::timestamptz
-    ORDER BY snapshot.as_of DESC, snapshot.known_at DESC, snapshot.graph_snapshot_id DESC
-    LIMIT 1
-  ), 0)::int AS relation_count
-`;
-
-const WATCHLIST_COUNT_SQL = `
-  SELECT count(*)::int AS watchlist_count
-  FROM public.user_watchlist
-  WHERE user_id = $1::uuid
-    AND active = true
+const WORKSPACE_TODAY_SUMMARY_SQL = `
+  SELECT
+    coalesce((
+      SELECT snapshot.edge_count
+      FROM analytics.graph_snapshot snapshot
+      WHERE snapshot.status = 'sealed'
+        AND snapshot.as_of <= $1::timestamptz
+        AND snapshot.known_at <= $1::timestamptz
+      ORDER BY snapshot.as_of DESC, snapshot.known_at DESC, snapshot.graph_snapshot_id DESC
+      LIMIT 1
+    ), 0)::int AS relation_count,
+    (
+      SELECT count(*)::int
+      FROM public.user_watchlist
+      WHERE user_id = $2::uuid
+        AND active = true
+    ) AS watchlist_count,
+    (
+      SELECT max(coalesce(nullif(collected_at, ''), nullif(snapshot_date, '')))
+      FROM stock.market_snapshots
+      WHERE symbol IS NOT NULL
+    ) AS market_data_as_of
 `;
 
 const MARKET_AS_OF_SQL = `
@@ -325,11 +333,10 @@ export async function getWorkspaceToday(
     latestRun.analysis_revision,
     cutoffAt,
   ]);
-  const [relationRow] = await executor.queryRows<CountRow>(RELATION_COUNT_SQL, [cutoffAt]);
-  const [watchlistRow] = await executor.queryRows<CountRow>(WATCHLIST_COUNT_SQL, [
-    options.userScope.userId,
-  ]);
-  const [marketRow] = await executor.queryRows<MarketAsOfRow>(MARKET_AS_OF_SQL);
+  const [summaryRow] = await executor.queryRows<WorkspaceTodaySummaryRow>(
+    WORKSPACE_TODAY_SUMMARY_SQL,
+    [cutoffAt, options.userScope.userId],
+  );
 
   const grouped: Record<ResearchFeedLaneId, ResearchFeedItem[]> = {
     must_know: [],
@@ -375,7 +382,7 @@ export async function getWorkspaceToday(
         edgeRevisionPolicy: 'latest_known_at_or_before_cutoff',
       },
       marketSnapshot: {
-        marketDataAsOf: marketRow?.market_data_as_of ? toIso(marketRow.market_data_as_of) : null,
+        marketDataAsOf: summaryRow?.market_data_as_of ? toIso(summaryRow.market_data_as_of) : null,
       },
       sourceCoverage: {
         linked: linkedRecords,
@@ -386,8 +393,8 @@ export async function getWorkspaceToday(
     },
     summary: {
       laneItemCount: returnedItems.length,
-      relationCount: toCount(relationRow?.relation_count),
-      watchlistCount: toCount(watchlistRow?.watchlist_count),
+      relationCount: toCount(summaryRow?.relation_count),
+      watchlistCount: toCount(summaryRow?.watchlist_count),
       sourceCount,
     },
     lanes,

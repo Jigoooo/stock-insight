@@ -145,6 +145,7 @@ describe('workspace active-view route loader', () => {
     assert.match(today, /pendingMs:\s*Number\.POSITIVE_INFINITY/);
     assert.doesNotMatch(today, /pendingComponent:\s*WorkspaceRoutePending/);
     assert.match(page, /viewLoadError\?:\s*SectionId/);
+    assert.match(page, /navigationIntent\.pendingSection\s*\?\s*\(\s*<WorkspaceViewLoading \/>/);
     assert.match(page, /(?:data-testid|testId)="workspace-view-load-error"/);
     assert.match(page, /onUrlStateChange\s*\?\s*\(viewLoadError\s*\?\?\s*data\.view\)/);
     assert.doesNotMatch(page, /기존 워크스페이스는 유지했습니다/);

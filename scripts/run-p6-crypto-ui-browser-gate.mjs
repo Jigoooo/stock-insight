@@ -139,9 +139,18 @@ try {
     }
 
     const axe = await new AxeBuilder({ page }).analyze();
+    const axeViolationSummary = axe.violations.map((violation) => ({
+      id: violation.id,
+      nodes: violation.nodes.map((node) => ({
+        html: node.html,
+        target: node.target,
+        summary: node.failureSummary,
+      })),
+    }));
     assert.deepEqual(
       axe.violations.map((violation) => violation.id),
       [],
+      JSON.stringify(axeViolationSummary),
     );
     results.push({ viewport: viewport.name, ...metrics, consoleErrors, axeViolations: [] });
     await context.close();

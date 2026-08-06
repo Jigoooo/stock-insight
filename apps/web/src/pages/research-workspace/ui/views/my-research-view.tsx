@@ -1,6 +1,6 @@
 import personalizationStyles from '../personalization.module.css';
-import { formatDate } from '../research-workspace-page';
 import styles from '../research-workspace-page.module.css';
+import { formatDate } from '../workspace-presenters';
 import { DecisionSupportContent } from './decision-support-content';
 import { getDecisionSupportPresentation } from './decision-support-presentation';
 import { HistoryRows } from './history-view';

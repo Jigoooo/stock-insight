@@ -4,6 +4,7 @@ import { createApp } from './app.ts';
 import type { ApiServerEnv } from './config/env.ts';
 import { API_SERVER_ENV } from './config/tokens.ts';
 import { verifyLiveDatabaseTarget } from './db/live-database-guard.ts';
+import { primeReadOnlyDatabasePool } from '@stock-insight/api';
 
 type ApiApplication = {
   get(token: unknown): ApiServerEnv;
@@ -14,14 +15,17 @@ type ApiApplication = {
 export async function bootstrap({
   createApplication = createApp,
   verifyDatabase = verifyLiveDatabaseTarget,
+  primeDatabase = primeReadOnlyDatabasePool,
 }: {
   createApplication?: () => Promise<ApiApplication>;
   verifyDatabase?: (env: ApiServerEnv) => Promise<void>;
+  primeDatabase?: (env: ApiServerEnv) => Promise<void>;
 } = {}): Promise<void> {
   const app = await createApplication();
   try {
     const env = app.get(API_SERVER_ENV);
     await verifyDatabase(env);
+    await primeDatabase(env);
     await app.listen({ host: env.host, port: env.port });
     process.stdout.write(`stock-insight-api-server listening on http://${env.host}:${env.port}\n`);
   } catch (error) {

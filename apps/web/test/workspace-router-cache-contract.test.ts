@@ -6,6 +6,8 @@ const rootUrl = new URL('../src/routes/__root.tsx', import.meta.url);
 const routerUrl = new URL('../src/router.tsx', import.meta.url);
 const zodJitlessUrl = new URL('../src/zod-jitless.ts', import.meta.url);
 const authRouteUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
+const loginScreenUrl = new URL('../src/pages/auth/login-screen.tsx', import.meta.url);
+const signupScreenUrl = new URL('../src/pages/auth/signup-screen.tsx', import.meta.url);
 // Path updated by the workspace route split: the shared route body moved from
 // routes/_authenticated/workspace.tsx (one route, ?view= param) to
 // pages/research-workspace/ui/workspace-view-route.tsx, which every per-tab
@@ -40,7 +42,8 @@ describe('workspace router-owned session cache', () => {
     assert.match(root, /createRootRouteWithContext<StockInsightRouterContext>\(\)/);
     assert.match(router, /export type StockInsightRouterContext/);
     assert.match(router, /export function getRouter\(\)[\s\S]*?new WorkspaceViewCache/);
-    assert.match(router, /context:\s*\{\s*workspaceViewCache/);
+    assert.match(router, /context:\s*\{[\s\S]*?workspaceViewCache:/);
+    assert.match(router, /authenticatedSessionCache:\s*new AuthenticatedSessionCache/);
     assert.doesNotMatch(router, /const\s+workspaceViewCache\s*=\s*new WorkspaceViewCache/);
   });
 
@@ -48,6 +51,10 @@ describe('workspace router-owned session cache', () => {
     const source = await readFile(authRouteUrl, 'utf8');
 
     assert.match(source, /beforeLoad:\s*async\s*\(\{\s*context,\s*location\s*\}\)/);
+    assert.match(
+      source,
+      /const session = await context\.authenticatedSessionCache\.load\(getCurrentSession\)/,
+    );
     assert.match(source, /context\.workspaceViewCache\.setScopeVersion\(session\.user\.id\)/);
     assert.match(source, /return \{ session \}/);
   });
@@ -61,6 +68,22 @@ describe('workspace router-owned session cache', () => {
     assert.match(page, /onLogout\?: \(\) => Promise<boolean>/);
     assert.doesNotMatch(page, /await logout\(\)/);
     assert.match(route, /workspaceViewCache\.clear\(\)/);
+    assert.match(route, /authenticatedSessionCache\.clear\(\)/);
     assert.match(route, /onLogout=\{async \(\) =>/);
+  });
+
+  it('adopts a successful login session while signup invalidates prior identity', async () => {
+    const [loginScreen, signupScreen] = await Promise.all([
+      readFile(loginScreenUrl, 'utf8'),
+      readFile(signupScreenUrl, 'utf8'),
+    ]);
+
+    assert.match(loginScreen, /authenticatedSessionCache\.set\(result\.session\)/);
+    assert.doesNotMatch(loginScreen, /await router\.invalidate\(\)/);
+    assert.match(signupScreen, /router\.options\.context\.authenticatedSessionCache\.clear\(\)/);
+    assert.match(
+      signupScreen,
+      /authenticatedSessionCache\.clear\(\)[\s\S]*?await router\.invalidate\(\)/,
+    );
   });
 });

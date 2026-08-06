@@ -26,6 +26,10 @@ const workspaceShell = [
 ].join('\n');
 const workspace = [
   pageSource,
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/workspace-presenters.ts', import.meta.url),
+    'utf8',
+  ),
   workspaceShell,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
@@ -390,7 +394,7 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /<StructuredList[\s\S]*?className=\{styles\.themeLedger\}/);
     assert.match(page, /aria-pressed=\{isActive\}/);
     assert.match(page, /motion="none"/);
-    assert.match(page, /<StructuredList className=\{styles\.edgeList\}/);
+    assert.match(page, /<StructuredList[\s\S]*?className=\{styles\.edgeList\}/);
     assert.match(page, /onSelectEntity\(entityKey\)/);
     const relationPanel = relationCss.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
     assert.match(relationPanel, /overflow-y:\s*auto/);

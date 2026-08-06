@@ -22,6 +22,7 @@ test('bootstrap closes the Nest application when the live database guard fails',
       verifyDatabase: async () => {
         throw new Error('wrong database identity');
       },
+      primeDatabase: async () => calls.push('prime'),
     }),
     /wrong database identity/,
   );
@@ -29,13 +30,32 @@ test('bootstrap closes the Nest application when the live database guard fails',
   assert.deepEqual(calls, ['close']);
 });
 
-test('bootstrap listens only after the live database guard succeeds', async () => {
+test('bootstrap primes the read pool after the live database guard and before listening', async () => {
   const { app, calls } = createAppFixture();
 
   await bootstrap({
     createApplication: async () => app,
     verifyDatabase: async () => calls.push('verify'),
+    primeDatabase: async () => calls.push('prime'),
   });
 
-  assert.deepEqual(calls, ['verify', 'listen']);
+  assert.deepEqual(calls, ['verify', 'prime', 'listen']);
+});
+
+test('bootstrap closes the Nest application when read pool priming fails', async () => {
+  const { app, calls } = createAppFixture();
+
+  await assert.rejects(
+    bootstrap({
+      createApplication: async () => app,
+      verifyDatabase: async () => calls.push('verify'),
+      primeDatabase: async () => {
+        calls.push('prime');
+        throw new Error('read pool unavailable');
+      },
+    }),
+    /read pool unavailable/,
+  );
+
+  assert.deepEqual(calls, ['verify', 'prime', 'close']);
 });

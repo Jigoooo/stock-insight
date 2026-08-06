@@ -4,9 +4,16 @@ import { describe, it } from 'node:test';
 import {
   createWorkspaceNavigationIntentState,
   reduceWorkspaceNavigationIntent,
+  resolveWorkspaceVisualSelection,
 } from '../src/pages/research-workspace/model/workspace-navigation-intent.ts';
 
 describe('workspace navigation intent', () => {
+  it('shows the latest requested target while navigation is pending', () => {
+    assert.equal(resolveWorkspaceVisualSelection('today', 'radar'), 'radar');
+    assert.equal(resolveWorkspaceVisualSelection('must_know', 'explore'), 'explore');
+    assert.equal(resolveWorkspaceVisualSelection('today', null), 'today');
+  });
+
   it('marks only the target pending while authoritative section and lane remain external', () => {
     const initial = createWorkspaceNavigationIntentState();
     const section = reduceWorkspaceNavigationIntent(initial, {

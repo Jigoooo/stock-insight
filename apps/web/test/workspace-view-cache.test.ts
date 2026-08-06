@@ -145,6 +145,29 @@ describe('authenticated workspace view cache', () => {
     await assert.rejects(request, /abort/i);
   });
 
+  it('keeps shared work alive when its initiating route is aborted after another caller joins', async () => {
+    const cache = new WorkspaceViewCache<string>('user-a:v1');
+    const firstRouteAbort = new AbortController();
+    const gate = deferred<string>();
+    let sharedSignal: AbortSignal | undefined;
+    const firstRoute = cache.load(
+      key('radar'),
+      ({ signal }) => {
+        sharedSignal = signal;
+        return gate.promise;
+      },
+      { signal: firstRouteAbort.signal },
+    );
+    const latestRoute = cache.load(key('radar'), () => Promise.resolve('unexpected'));
+
+    firstRouteAbort.abort();
+
+    await assert.rejects(firstRoute, /abort/i);
+    assert.equal(sharedSignal?.aborted, false);
+    gate.resolve('shared-radar');
+    assert.equal(await latestRoute, 'shared-radar');
+  });
+
   it('aborts a route caller that joined an existing prefetch without cancelling the shared work', async () => {
     const cache = new WorkspaceViewCache<string>('user-a:v1');
     const gate = deferred<string>();

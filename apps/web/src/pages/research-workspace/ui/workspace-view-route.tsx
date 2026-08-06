@@ -14,7 +14,9 @@ import { ResearchWorkspacePage } from '@/pages/research-workspace/ui/research-wo
 export function WorkspaceViewRoute({ loaderData }: { loaderData: WorkspaceRouteLoaderResult }) {
   const search = useSearch({ from: '/_authenticated/workspace' });
   const navigate = useNavigate();
-  const { session, workspaceViewCache } = useRouteContext({ from: '/_authenticated' });
+  const { authenticatedSessionCache, session, workspaceViewCache } = useRouteContext({
+    from: '/_authenticated',
+  });
 
   return (
     <ResearchWorkspacePage
@@ -23,6 +25,7 @@ export function WorkspaceViewRoute({ loaderData }: { loaderData: WorkspaceRouteL
       onLogout={async () => {
         const result = await logout();
         if (!result.ok) return false;
+        authenticatedSessionCache.clear();
         workspaceViewCache.clear();
         return true;
       }}
@@ -42,6 +45,7 @@ export function WorkspaceViewRoute({ loaderData }: { loaderData: WorkspaceRouteL
         );
       }}
       viewLoadError={loaderData.viewLoadError}
+      viewLoadFailureKind={loaderData.viewLoadFailureKind}
       urlState={search}
       onUrlStateChange={async (next) => {
         await navigate({

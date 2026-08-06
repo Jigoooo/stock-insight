@@ -1,11 +1,14 @@
 import '@tanstack/react-start/server-only';
 
 import { brainRequest, brainRequestBinary } from './brain-client.ts';
-import { selectInitialRelationRoot } from '@/pages/research-workspace/model/relation-root';
+import {
+  orchestrateResearchWorkspaceView,
+  type ResearchWorkspaceLoaders,
+} from './research-workspace-orchestrator.ts';
+import { createWorkspaceShellSummaryLoader } from './workspace-shell-summary-loader.ts';
 import type {
   ResearchWorkspaceShellSummary,
   ResearchWorkspaceViewOptions,
-  ResearchWorkspaceViewPayload,
 } from '@/pages/research-workspace/model/workspace-view-payload';
 import type {
   MyResearchOverview,
@@ -14,8 +17,6 @@ import type {
 
 // Every read here used to open its own PostgreSQL connection. They now go over
 // HTTP to the brain, so this process holds no database credentials.
-
-type WithoutShell<Payload> = Payload extends unknown ? Omit<Payload, 'shell'> : never;
 
 function scopeFor(userId: string) {
   return { kind: 'user' as const, userId };
@@ -27,6 +28,16 @@ function isoOrUndefined(value: Date | undefined): string | undefined {
 
 export async function loadResearchWorkspace(userId: string) {
   return brainRequest('/v1/workspace', { scope: scopeFor(userId) });
+}
+
+const loadResearchWorkspaceShellCached = createWorkspaceShellSummaryLoader(async (userId) => {
+  return brainRequest<ResearchWorkspaceShellSummary>('/v1/workspace/shell', {
+    scope: scopeFor(userId),
+  });
+});
+
+export async function loadResearchWorkspaceShell(userId: string) {
+  return loadResearchWorkspaceShellCached(userId);
 }
 
 export async function loadCryptoResearchWorkspace(
@@ -189,121 +200,26 @@ export async function loadStockList(userId: string) {
 export async function loadResearchWorkspaceView(
   userId: string,
   options: ResearchWorkspaceViewOptions,
-): Promise<ResearchWorkspaceViewPayload> {
-  let activeRadar: RadarSignalPage | undefined;
-  let activeResearch: MyResearchOverview | undefined;
-  let activeSlice: WithoutShell<ResearchWorkspaceViewPayload>;
-
-  switch (options.view) {
-    case 'today': {
-      const today = (await loadResearchWorkspace(userId)) as {
-        defaultRecordKey?: string;
-      } & Record<string, unknown>;
-      const recordKey = options.record ?? today.defaultRecordKey;
-      const defaultRecord = recordKey ? await loadResearchRecord(userId, recordKey) : null;
-      activeSlice = {
-        defaultRecord,
-        lane: options.lane ?? 'must_know',
-        today,
-        view: options.view,
-      } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'radar': {
-      activeRadar = await loadRadarSignalPage(userId, {
-        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-        limit: 30,
-      });
-      const geoSnapshot = await loadGeoSnapshot(userId);
-      activeSlice = {
-        geoSnapshot,
-        radar: activeRadar,
-        view: options.view,
-      } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'stocks': {
-      const stocks = await loadStockList(userId);
-      activeSlice = { stocks, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'crypto': {
-      const crypto = await loadCryptoResearchWorkspace(userId, { limit: 40 });
-      activeSlice = { crypto, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'themes': {
-      const themes = (await loadThemeResearch(userId)) as { items: { entityKey?: string }[] };
-      const relationRoot = selectInitialRelationRoot([], themes.items as never);
-      const relation = relationRoot ? await loadEntityRelationGraph(userId, relationRoot, 1) : null;
-      activeSlice = {
-        relation,
-        themes,
-        view: options.view,
-      } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'research': {
-      activeResearch = await loadMyResearchOverview(userId);
-      const portfolio = (await loadPersonalizationPortfolioSnapshot(userId)) as {
-        positions?: { entityKey: string }[];
-      } | null;
-      const selectedEntityKey =
-        activeResearch.decisionSupport.latestPacket?.entityKey ??
-        portfolio?.positions?.[0]?.entityKey ??
-        null;
-      const impact = portfolio ? await loadPersonalizationPortfolioImpact(userId) : null;
-      const decision = selectedEntityKey
-        ? await loadPersonalizationDecisionSupport(userId, selectedEntityKey)
-        : null;
-      const decisionHistory = selectedEntityKey
-        ? await loadPersonalizationDecisionHistory(userId, selectedEntityKey, 20)
-        : null;
-      const thesis = selectedEntityKey
-        ? await loadPersonalizationThesis(userId, selectedEntityKey)
-        : null;
-      activeSlice = {
-        myResearch: activeResearch,
-        personalization: {
-          decision,
-          decisionHistory,
-          impact,
-          portfolio,
-          selectedEntityKey,
-          thesis,
-        },
-        view: options.view,
-      } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'history': {
-      const history = await loadDecisionHistoryPage(userId, {
-        ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-        limit: 30,
-      });
-      activeSlice = { history, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'status': {
-      const status = await loadResearchStatus(userId);
-      activeSlice = { status, view: options.view } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-    case 'market-topic-news': {
-      const marketTopicNews = await loadMarketTopicNews(userId);
-      activeSlice = {
-        marketTopicNews,
-        view: options.view,
-      } as WithoutShell<ResearchWorkspaceViewPayload>;
-      break;
-    }
-  }
-
-  const radarSummary = activeRadar ?? (await loadRadarSignalPage(userId, { limit: 1 }));
-  const researchSummary = activeResearch ?? (await loadMyResearchOverview(userId));
-  const shell: ResearchWorkspaceShellSummary = {
-    radarScopeTotal: radarSummary.scopeTotal,
-    watchlistCount: researchSummary.watchlistCount,
-  };
-  return { ...activeSlice, shell, view: options.view } as ResearchWorkspaceViewPayload;
+) {
+  const loaders = {
+    loadCrypto: loadCryptoResearchWorkspace,
+    loadDecision: loadPersonalizationDecisionSupport,
+    loadDecisionHistory: loadPersonalizationDecisionHistory,
+    loadGeo: loadGeoSnapshot,
+    loadHistory: loadDecisionHistoryPage,
+    loadImpact: loadPersonalizationPortfolioImpact,
+    loadMarketTopicNews,
+    loadPortfolio: loadPersonalizationPortfolioSnapshot,
+    loadRadar: loadRadarSignalPage,
+    loadRecord: loadResearchRecord,
+    loadRelation: loadEntityRelationGraph,
+    loadResearch: loadMyResearchOverview,
+    loadShell: loadResearchWorkspaceShell,
+    loadStatus: loadResearchStatus,
+    loadStocks: loadStockList,
+    loadThemes: loadThemeResearch,
+    loadThesis: loadPersonalizationThesis,
+    loadToday: loadResearchWorkspace,
+  } as unknown as ResearchWorkspaceLoaders;
+  return orchestrateResearchWorkspaceView(loaders, userId, options);
 }

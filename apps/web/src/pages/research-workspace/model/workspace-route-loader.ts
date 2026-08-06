@@ -1,5 +1,9 @@
 import { loadResearchWorkspaceView } from './load-research-workspace';
 import type { WorkspaceViewCache, WorkspaceViewCacheKey } from './workspace-view-cache';
+import {
+  classifyWorkspaceViewFailure,
+  type WorkspaceViewFailureKind,
+} from './workspace-view-failure';
 import type {
   ResearchWorkspaceViewId,
   ResearchWorkspaceViewPayload,
@@ -18,6 +22,7 @@ import type {
 export type WorkspaceRouteLoaderResult = {
   data: ResearchWorkspaceViewPayload;
   viewLoadError: ResearchWorkspaceViewId | undefined;
+  viewLoadFailureKind: WorkspaceViewFailureKind | undefined;
 };
 
 export function workspaceCacheKey(
@@ -67,24 +72,24 @@ export async function loadWorkspaceView(
     if (!cache.commitActive(data, activeLoadToken)) {
       throw createRouteAbortError();
     }
-    return { data, viewLoadError: undefined };
+    return { data, viewLoadError: undefined, viewLoadFailureKind: undefined };
   } catch (error) {
     // A redirect is control flow, not a failure — never swallow it into the
     // stale-data fallback below.
     if (isRedirect(error)) throw error;
-    if (signal.aborted || isAbortError(error) || !cache.isActiveLoad(activeLoadToken)) {
+    if (signal.aborted || !cache.isActiveLoad(activeLoadToken)) {
       throw error;
     }
     // Keep the last good payload on screen and surface a per-view error badge
     // instead of blanking the workspace.
     const data = cache.getActive();
     if (!data) throw error;
-    return { data, viewLoadError: view };
+    return {
+      data,
+      viewLoadError: view,
+      viewLoadFailureKind: classifyWorkspaceViewFailure(error),
+    };
   }
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === 'AbortError';
 }
 
 function isRedirect(error: unknown) {

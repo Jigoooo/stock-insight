@@ -25,7 +25,8 @@ export const Route = createFileRoute('/login')({
 
 function LoginRoute() {
   const { redirect } = Route.useSearch();
-  // Same default sanitizeLoginRedirect() applies to a missing candidate, so a
-  // bare /login behaves exactly as before — it just no longer rewrites the URL.
-  return <LoginScreen redirectTo={redirect ?? '/'} />;
+  // Keep the bare URL stable while sending a successful login straight to the
+  // default workspace view. This avoids routing through both `/` and the
+  // `/workspace` index before the real data loader can start.
+  return <LoginScreen redirectTo={sanitizeLoginRedirect(redirect)} />;
 }

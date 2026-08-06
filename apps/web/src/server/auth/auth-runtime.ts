@@ -3,6 +3,7 @@ import '@tanstack/react-start/server-only';
 import { brainRequest } from '../brain-client.ts';
 import { loadAuthRuntimeConfig, type AuthRuntimeConfig } from './auth-runtime-config.ts';
 import { fingerprintSessionSecret, type AccountIdentity } from './credential-binding.ts';
+import { createInFlightAccountIdentityLoader } from './in-flight-account-identity-loader.ts';
 import { readSessionCookie } from './session-cookie.ts';
 import { createSessionToken, verifySessionToken, type SessionClaims } from './session-core.ts';
 
@@ -20,6 +21,13 @@ function baseSessionSecret(config: AuthRuntimeConfig): Buffer {
 }
 
 const anonymous = { kind: 'anonymous' as const };
+
+const loadAccountIdentity = createInFlightAccountIdentityLoader<AccountIdentity>(async (userId) => {
+  const result = await brainRequest<
+    { status: 'found'; identity: AccountIdentity } | { status: 'not_found' }
+  >('/v1/auth/account', { scope: anonymous, query: { userId } });
+  return result.status === 'found' ? result.identity : undefined;
+});
 
 // Session keys are still credential-bound, but the binding material is now the
 // brain-issued credentialFingerprint rather than the raw password record — which
@@ -75,16 +83,14 @@ export async function readBoundSession(
   if (!subject) return undefined;
   const config = await getAuthConfig();
 
-  const result = await brainRequest<
-    { status: 'found'; identity: AccountIdentity } | { status: 'not_found' }
-  >('/v1/auth/account', { scope: anonymous, query: { userId: subject } });
-  if (result.status !== 'found') return undefined;
+  const identity = await loadAccountIdentity(subject);
+  if (!identity) return undefined;
 
-  const session = verifySessionToken(token, { secret: sessionSecretFor(config, result.identity) });
+  const session = verifySessionToken(token, { secret: sessionSecretFor(config, identity) });
   if (!session) return undefined;
   // Bind the claims to the resolved account so a token cannot be replayed under
   // a different identity even if its signature somehow validated.
-  return session.sub === result.identity.userId && session.username === result.identity.username
+  return session.sub === identity.userId && session.username === identity.username
     ? session
     : undefined;
 }

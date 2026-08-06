@@ -173,7 +173,7 @@ test.describe('P6 crypto read-only workspace', () => {
     });
 
     await navigateToCrypto(page);
-    await expect(page.getByRole('heading', { name: '크립토·기업 연결 리서치' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '크립토 리서치' })).toBeVisible();
     await expect(page.locator('output').filter({ hasText: '조회 전용' })).toBeVisible();
     await expect(page.getByText('데이터가 아직 없습니다')).toBeVisible();
 
@@ -217,7 +217,7 @@ test.describe('P6 crypto read-only workspace', () => {
     await cryptoNav.evaluate((element: HTMLButtonElement) => element.click());
     await expect(page).toHaveURL(/\/workspace\?view=crypto$/);
     await expect.poll(() => evidence.matched).toBe(true);
-    await expect(page.getByRole('heading', { name: '크립토·기업 연결 리서치' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '크립토 리서치' })).toBeVisible();
     await expect(page.getByText('검증 1개 · 검토 중 1개')).toBeVisible();
     await expect(page.getByText('원계수 214000 BTC')).toBeVisible();
     await expect(page.getByText('최종 확정')).toBeVisible();

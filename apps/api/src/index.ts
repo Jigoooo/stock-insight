@@ -105,6 +105,12 @@ export type {
   GetWorkspaceTodayOptions,
   WorkspaceRowQueryExecutor,
 } from './workspace/read-model';
+export { getWorkspaceShellSummary } from './workspace/shell-summary';
+export type {
+  GetWorkspaceShellSummaryOptions,
+  WorkspaceShellSummary,
+  WorkspaceShellSummaryQueryExecutor,
+} from './workspace/shell-summary';
 export {
   getCalibrationScorecard,
   getFeatureSnapshots,
@@ -242,6 +248,7 @@ export {
   createScopedReadOnlyDatabaseClient,
   createSignupDatabaseClient,
   parseServerEnv,
+  primeReadOnlyDatabasePool,
   requireUserScope,
 } from './server';
 // Credential material (password records, invitation code digests) never leaves

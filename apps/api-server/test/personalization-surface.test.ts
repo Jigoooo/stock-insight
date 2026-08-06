@@ -35,3 +35,13 @@ test('P4-C personalization routes stay authenticated, read-only except thesis PO
   assert.doesNotMatch(`${controller}\n${service}`, /placeOrder|executeOrder|broker|매수|매도/);
   assert.match(appModule, /PersonalizationController/);
 });
+
+test('an absent latest portfolio snapshot remains an empty state while an explicit id stays 404', async () => {
+  const controller = await readFile(controllerUrl, 'utf8');
+
+  assert.match(
+    controller,
+    /if \(!result && snapshotId !== null\) throw apiError\('portfolio_snapshot_not_found', 404\)/,
+  );
+  assert.match(controller, /return result/);
+});

@@ -6,8 +6,8 @@ const payload = readFileSync(
   new URL('../src/pages/research-workspace/model/workspace-view-payload.ts', import.meta.url),
   'utf8',
 );
-const loader = readFileSync(
-  new URL('../src/server/research-workspace.ts', import.meta.url),
+const orchestrator = readFileSync(
+  new URL('../src/server/research-workspace-orchestrator.ts', import.meta.url),
   'utf8',
 );
 const view = readFileSync(
@@ -28,17 +28,19 @@ describe('P4-C personalization workspace UI', () => {
     for (const field of ['portfolio', 'impact', 'decision', 'decisionHistory', 'thesis']) {
       assert.match(payload, new RegExp(`${field}:`));
     }
-    const researchCase = loader.match(/case 'research':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
+    const researchCase =
+      orchestrator.match(/case 'research':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
     for (const symbol of [
-      'loadPersonalizationPortfolioSnapshot',
-      'loadPersonalizationPortfolioImpact',
-      'loadPersonalizationDecisionSupport',
-      'loadPersonalizationDecisionHistory',
-      'loadPersonalizationThesis',
+      'loadPortfolio',
+      'loadImpact',
+      'loadDecision',
+      'loadDecisionHistory',
+      'loadThesis',
     ]) {
-      assert.match(researchCase, new RegExp(`${symbol}\\(userId`));
+      assert.match(researchCase, new RegExp(`loaders\\.${symbol}\\(userId`));
     }
-    assert.doesNotMatch(researchCase, /fetch\(|Promise\.all/);
+    assert.doesNotMatch(researchCase, /fetch\(/);
+    assert.match(researchCase, /Promise\.all/);
   });
 
   it('renders the complete nine-part explanation and private lineage without order controls', () => {

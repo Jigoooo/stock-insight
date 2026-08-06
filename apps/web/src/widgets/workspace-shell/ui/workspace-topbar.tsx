@@ -48,6 +48,7 @@ export function WorkspaceTopbar({
             className={styles.navigationToggle}
             type="button"
             motion="quiet"
+            variant="ghost"
             aria-label="메뉴 열기"
             aria-controls="workspace-navigation"
             aria-expanded={mobileOpen}
@@ -60,6 +61,7 @@ export function WorkspaceTopbar({
           className={styles.navigationToggle}
           type="button"
           motion="quiet"
+          variant="ghost"
           aria-label={mode === 'expanded' ? '사이드바 축소' : '사이드바 펼치기'}
           aria-controls="workspace-navigation"
           aria-expanded={mode === 'expanded'}

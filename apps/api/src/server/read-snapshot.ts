@@ -34,17 +34,17 @@ export async function withReadSnapshot<TResult>(
   const connection = await provider.connect();
   try {
     await connection.queryRows('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-    if (options.sessionUserId !== undefined) {
-      await connection.queryRows("SELECT set_config('stock_insight.user_id', $1, true)", [
-        options.sessionUserId,
-      ]);
-    }
-    await connection.queryRows("SELECT set_config('statement_timeout', $1, true)", [
-      `${options.statementTimeoutMs}ms`,
-    ]);
-    await connection.queryRows("SELECT set_config('lock_timeout', $1, true)", [
-      `${options.lockTimeoutMs}ms`,
-    ]);
+    await connection.queryRows(
+      `SELECT
+      set_config('stock_insight.user_id', $1, true),
+      set_config('statement_timeout', $2, true),
+      set_config('lock_timeout', $3, true)`,
+      [
+        options.sessionUserId ?? '',
+        `${options.statementTimeoutMs}ms`,
+        `${options.lockTimeoutMs}ms`,
+      ],
+    );
     const result = await work({ queryRows: connection.queryRows.bind(connection) });
     await connection.queryRows('COMMIT');
     return result;

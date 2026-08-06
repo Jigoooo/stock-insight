@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import { GeoMarketMap } from './geo-market-map';
 import styles from './market-overview.module.css';
-import { formatDate, marketLabel, signalTypeLabel } from './research-workspace-page';
+import { formatDate, marketLabel, signalTypeLabel } from './workspace-presenters';
 import {
   MARKET_MODE_IDS,
   buildMarketOverview,

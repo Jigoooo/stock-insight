@@ -43,7 +43,9 @@ describe('Task 1 product shared UI adoption', () => {
           readTypeScriptTree(new URL(`${layer}/`, sourceRoot)),
         ),
       )
-    ).flat();
+    )
+      .flat()
+      .filter(({ path }) => !path.includes('/pages/ui-lab/'));
     const deepImports = productFiles.flatMap(({ path, source }) =>
       importedModules(source, path)
         .filter((specifier) => /^@\/shared\/ui\/[^/]+\/.+/.test(specifier))

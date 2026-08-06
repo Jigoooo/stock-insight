@@ -96,6 +96,13 @@ export const login = createServerFn({ method: 'POST' })
     }
 
     accountLoginRateLimiter.reset(accountKey);
+    const { loadFailClosedAdminCapabilitiesForUser } =
+      await import('@/server/auth/admin-invitations');
+    const capabilities = await loadFailClosedAdminCapabilitiesForUser(authenticated.session.sub);
+    const user = {
+      id: authenticated.session.sub,
+      username: authenticated.session.username,
+    };
     setResponseHeader(
       'Set-Cookie',
       sessionCookieHeader(authenticated.token, authenticated.maxAgeSeconds),
@@ -103,10 +110,8 @@ export const login = createServerFn({ method: 'POST' })
     setResponseHeader('Cache-Control', 'no-store');
     return {
       ok: true as const,
-      user: {
-        id: authenticated.session.sub,
-        username: authenticated.session.username,
-      },
+      user,
+      session: { user, capabilities },
     };
   });
 
