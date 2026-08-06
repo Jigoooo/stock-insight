@@ -157,10 +157,10 @@ WHERE link.document_id = ANY($1::bigint[])
 
 const INSERT_CLAIM_SQL = `
 INSERT INTO knowledge.claim (
-  subject_entity_id, predicate, object_value, claim_type, polarity,
+  subject_entity_id, predicate, object_entity_id, object_value, claim_type, polarity,
   observed_at, published_at, extraction_confidence, verification_status,
   extraction_run_id, metadata
-) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, 'unverified', $9, $10::jsonb)
+) VALUES ($1, $2, $3::bigint, $4::jsonb, $5, $6, $7, $8, $9, 'unverified', $10, $11::jsonb)
 RETURNING claim_id
 `;
 
@@ -456,20 +456,45 @@ function validateEvent(event: ExtractedEvent, docText: string): 'ok' | 'bad_type
   return 'ok';
 }
 
-// Deterministic mention resolution against pre-linked document entities (04-A §2).
-function resolveMention(
+export type MentionResolution = {
+  entityId: number | null;
+  reason: 'resolved' | 'no_match' | 'ambiguous';
+};
+
+/**
+ * Deterministic mention resolution against pre-linked document entities (04-A §2).
+ *
+ * Ambiguity is refused rather than guessed. This used to return the FIRST link
+ * whose canonical name substring-matched in either direction, with no check for a
+ * second candidate — looser than run-event-text-attribution.ts:110,120-122, which
+ * vetoes a mention matching more than one entity. The compensator downstream judged
+ * more carefully than the source, and widening the linking surface (2026-08-06,
+ * +205 documents) makes multi-candidate documents more common, so the looseness
+ * would have grown with it.
+ *
+ * Exact match wins outright: a document linked to both 'LG' and 'LG전자' should give
+ * the mention "LG전자" to LG전자, not refuse. Only when no exact match exists and
+ * several names contain each other is the mention genuinely ambiguous.
+ */
+export function resolveMention(
   mention: string,
   links: Array<{ entity_id: number; canonical_name: string }>,
-): number | null {
+): MentionResolution {
   const normalized = mention.trim().toLowerCase();
-  if (!normalized) return null;
+  if (!normalized) return { entityId: null, reason: 'no_match' };
+
+  const exact = new Set<number>();
+  const loose = new Set<number>();
   for (const link of links) {
     const name = link.canonical_name.toLowerCase();
-    if (name === normalized || name.includes(normalized) || normalized.includes(name)) {
-      return link.entity_id;
-    }
+    if (name === normalized) exact.add(link.entity_id);
+    else if (name.includes(normalized) || normalized.includes(name)) loose.add(link.entity_id);
   }
-  return null;
+  if (exact.size === 1) return { entityId: [...exact][0]!, reason: 'resolved' };
+  if (exact.size > 1) return { entityId: null, reason: 'ambiguous' };
+  if (loose.size === 1) return { entityId: [...loose][0]!, reason: 'resolved' };
+  if (loose.size > 1) return { entityId: null, reason: 'ambiguous' };
+  return { entityId: null, reason: 'no_match' };
 }
 
 async function run(): Promise<void> {
@@ -535,7 +560,20 @@ async function run(): Promise<void> {
       nonExtractionSkipped,
       claimsExtracted: 0,
       claimsStored: 0,
-      claimsRejected: { bad_predicate: 0, bad_type: 0, no_quote: 0, unresolved_subject: 0 },
+      claimsRejected: {
+        bad_predicate: 0,
+        bad_type: 0,
+        no_quote: 0,
+        unresolved_subject: 0,
+        // Of the unresolved subjects, how many were refused for naming more than
+        // one linked entity rather than none. A different problem with a different
+        // fix, so it is counted apart.
+        ambiguous_subject: 0,
+      },
+      // Objects that became an entity id instead of free text. 0 of 325 before
+      // 2026-08-06 because the object was never passed to the resolver.
+      objectResolved: 0,
+      objectAmbiguous: 0,
       claimsQuarantinedSemantics: 0,
       claimsDowngradedSemantics: 0,
       eventsExtracted: 0,
@@ -574,14 +612,26 @@ async function run(): Promise<void> {
           stats.claimsRejected[verdict] += 1;
           continue;
         }
-        const subjectId = resolveMention(
-          claim.subject_mention,
-          linksByDoc.get(claim.document_id) ?? [],
-        );
-        if (subjectId === null) {
+        const links = linksByDoc.get(claim.document_id) ?? [];
+        const subject = resolveMention(claim.subject_mention, links);
+        if (subject.entityId === null) {
           stats.claimsRejected.unresolved_subject += 1;
+          if (subject.reason === 'ambiguous') stats.claimsRejected.ambiguous_subject += 1;
           continue;
         }
+        const subjectId = subject.entityId;
+        // The object goes through the SAME resolver as the subject. It never did:
+        // knowledge.claim.object_entity_id and its CHECK have existed unused since
+        // migration 011, so every one of the 325 claims in production carries free
+        // text like {"text":"엔비디아"} and cannot become a relation — the ledger
+        // needs entity ids on both ends. Resolving here removes the need for a
+        // separate downstream resolver.
+        //
+        // Falling back to text is not a failure: most objects are not companies
+        // ("반도체", "순이익 3280억원"). The CHECK admits exactly one of the two.
+        const object = resolveMention(claim.object_text, links);
+        if (object.reason === 'ambiguous') stats.objectAmbiguous += 1;
+        if (object.entityId !== null) stats.objectResolved += 1;
         // P0-2: semantic verification — polarity/negation, modality, attribution,
         // condition, correction/retraction, numeric consistency. Quote existence
         // was already proven by validateClaim; this judges what the quote MEANS.
@@ -604,7 +654,9 @@ async function run(): Promise<void> {
           [
             subjectId,
             claim.predicate,
-            JSON.stringify({ text: claim.object_text }),
+            object.entityId,
+            // Exactly one of the two, per the CHECK on migration 011.
+            object.entityId === null ? JSON.stringify({ text: claim.object_text }) : null,
             persistedClaimType,
             semantics.polarity,
             doc.observed_at,
@@ -648,7 +700,7 @@ async function run(): Promise<void> {
           stats.eventsRejected[verdict] += 1;
           continue;
         }
-        const targetId = resolveMention(
+        const target = resolveMention(
           event.target_mention,
           linksByDoc.get(event.document_id) ?? [],
         );
@@ -672,7 +724,10 @@ async function run(): Promise<void> {
           INSERT_EVENT_SQL,
           [
             event.event_type,
-            targetId,
+            // Ambiguous stays NULL rather than picking one — the same refusal
+            // run-event-topic-attribution makes ("Ambiguity is not resolved by
+            // picking one"). The attribution jobs re-scan these later.
+            target.entityId,
             doc.published_at ?? doc.observed_at,
             doc.published_at ?? doc.observed_at,
             event.magnitude,
@@ -685,7 +740,7 @@ async function run(): Promise<void> {
               target_mention: event.target_mention,
               source_revision_no: revisionNo,
               model,
-              resolved: targetId !== null,
+              resolved: target.entityId !== null,
             }),
             eventKey,
             revisionNo,
