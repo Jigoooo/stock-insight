@@ -69,6 +69,7 @@ import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_ent
 import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_supply_disclosure_source.ts';
 import { documentEntityCanonicalNameMigrationSql } from './migrations/070_document_entity_canonical_name.ts';
 import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts';
+import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_license_tier.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -834,6 +835,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: claimDedupeKeyMigrationSql,
   },
+  {
+    id: '072_dart_supply_license_tier',
+    description:
+      "Gives opendart-business-report-supply the ADR-002 T1 tier contract migration 069 omitted. 069 approved the source with a license_policy of {basis: official_api_terms, status: conditional} and no tier tuple, which violates this repository's own invariant that an approved contract carries either an exact ADR-002 tier tuple or the internal-transitional exemption — it was the only violation among 36 approved contracts. It went unnoticed because source-contract-integrity.test.ts skips unless STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is set, which the ordinary test run does not set: six tests reported skipped and the suite was green. T1/accepted_evidence_and_display/attribution_required mirrors the sibling 'opendart' source approved 2026-07-20 — same API, same licence, same use as accepted evidence behind SUPPLIES and CUSTOMER_OF. Appended as a new revision because contracts are append-only.",
+    tables: [],
+    sql: dartSupplyLicenseTierMigrationSql,
+  },
 ];
 
 export {
@@ -907,5 +915,6 @@ export {
   dartSupplyDisclosureSourceMigrationSql,
   documentEntityCanonicalNameMigrationSql,
   claimDedupeKeyMigrationSql,
+  dartSupplyLicenseTierMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

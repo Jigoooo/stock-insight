@@ -149,7 +149,19 @@ describe('B2 source contract coverage and immutability', () => {
                  ('T5','internal_ops_only','forbidden')
                )
              )
-           )) AS invalid_approved
+           )) AS invalid_approved,
+          -- The exemption itself, counted. It was unbounded: any internal source
+          -- carrying transitional_source='true' is approved without an ADR-002
+          -- contract, and nothing capped how many could do that. A carve-out that
+          -- grows without anyone deciding stops being a carve-out.
+          (SELECT count(*)::int
+           FROM ingestion.source_contract_current_v1 contract
+           JOIN ingestion.source source USING(source_id)
+           WHERE contract.policy_status='approved'
+             AND source.source_type='internal'
+             AND source.license_status='allowed'
+             AND source.redistribution='internal_only'
+             AND source.metadata->>'transitional_source'='true') AS exempt_approved
       `);
         assert.equal(result.rows[0]!.uncovered, 0);
         assert.equal(result.rows[0]!.active_contracts, result.rows[0]!.active_sources);
@@ -160,6 +172,26 @@ describe('B2 source contract coverage and immutability', () => {
           result.rows[0]!.active_sources,
         );
         assert.equal(result.rows[0]!.invalid_approved, 0);
+
+        // Measured 2026-08-06: exactly five, all internal snapshots of transitional
+        // serving tables — company-profile, etf-holdings, industry-classification,
+        // macro-series-window, stock-price-window.
+        //
+        // The name is a lie and is left alone on purpose. `transitional_source` no
+        // longer means temporary: run-v2-graph-publish.ts:1046 THROWS when the flag
+        // is missing, so it is a required invariant, and this test is where it buys
+        // a permanent exemption from ADR-002. Renaming it would need a data
+        // migration over ingestion.source.metadata plus a change in the 63x hot
+        // path — more risk than a better name is worth today.
+        //
+        // What was worth fixing is that the exemption had no ceiling. A sixth
+        // source appearing here is a decision someone should make deliberately, so
+        // it fails this assertion instead of arriving silently.
+        assert.equal(
+          result.rows[0]!.exempt_approved,
+          5,
+          'a source gained the transitional exemption — decide whether it deserves one, then update this number',
+        );
       } finally {
         await pool.end();
       }
