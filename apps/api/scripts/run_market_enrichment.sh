@@ -102,6 +102,17 @@ if [[ "$(date +%u)" == "7" ]]; then
   " || exit $?
 fi
 
+# B — promote research-common's calendar snapshots. Read-only against another
+# project's disk, so it is cheap and cannot fail on a rate limit; placed here
+# because the enrichment run is the daily one and a calendar is a daily thing.
+#
+# These dates have been collected daily for months and discarded: event_calendar.py
+# and macro_calendar.py both write JSON, and the path that reaches Postgres keeps
+# the derived signal card and drops the date. This is the last hop, not new
+# collection.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-calendar-promote.ts --apply
+pipeline_record_stage_success stock-insight-calendar-promote-stage "$RUN_STARTED_AT" || exit $?
+
 # B3 — supply/customer disclosure out of 사업보고서. LAST on purpose, and Sunday
 # only.
 #

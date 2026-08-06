@@ -71,6 +71,7 @@ import { documentEntityCanonicalNameMigrationSql } from './migrations/070_docume
 import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts';
 import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_license_tier.ts';
 import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series_natural_gas.ts';
+import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -850,6 +851,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: macroSeriesNaturalGasMigrationSql,
   },
+  {
+    id: '074_scheduled_event',
+    description:
+      "Creates market.scheduled_event for dated things — central bank meetings, economic releases, earnings — promoted from research-common calendar snapshots that have been collected daily for months and discarded. Both scripts/event_calendar.py and research_common/macro_calendar.py are scheduled in run_collectors.py and both write only a JSON file; what reaches Postgres is a derived signal card that keeps the narrative and drops the date, so 'BOK 2026-08-28 한국은행 금통위, D-21' existed on disk and nowhere in this database. Explicitly NOT a legislative calendar: bill status and chamber schedules are collected by no project — macro_calendar.py's policy_events are news headlines tagged with a category, not schedules with vote dates — and modelling them needs a new external source rather than a half-shaped column here.",
+    tables: [],
+    sql: scheduledEventMigrationSql,
+  },
 ];
 
 export {
@@ -925,5 +933,6 @@ export {
   claimDedupeKeyMigrationSql,
   dartSupplyLicenseTierMigrationSql,
   macroSeriesNaturalGasMigrationSql,
+  scheduledEventMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
