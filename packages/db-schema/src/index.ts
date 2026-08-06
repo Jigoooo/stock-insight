@@ -73,6 +73,7 @@ import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_
 import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series_natural_gas.ts';
 import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts';
 import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
+import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -866,6 +867,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: legislativeActionMigrationSql,
   },
+  {
+    id: '076_ecos_macro_series',
+    description:
+      "Gives the five collected BOK ECOS series a core.entity identity, the first ECOS_SERIES identifiers this database has ever held, and an analytics.macro_series_topic mapping under 'rates'. The vocabulary was never the gap: analytics.market_topic_term already carried 국채·금리·기준금리·한국은행 under 'rates' while every series mapped to it was American. The wall was run-v2-graph-publish joining core.entity_identifier on identifier_type='FRED_SERIES' alone, so a Korean series could not enter the co-movement model whatever mapping it was given; that join now accepts both namespaces and this migration is the half that mints the rows. Excludes 원/달러 (the same quantity as fred:DEXKOUS, already mapped to 'fx'), KOSPI (nearly the same object as the equal-weighted KR beta control in MARKET_FACTOR_SQL — a modelling decision, not a series list entry) and 뉴스심리지수 (BOK publishes it as 실험적 통계).",
+    tables: [],
+    sql: ecosMacroSeriesMigrationSql,
+  },
 ];
 
 export {
@@ -943,5 +951,6 @@ export {
   macroSeriesNaturalGasMigrationSql,
   scheduledEventMigrationSql,
   legislativeActionMigrationSql,
+  ecosMacroSeriesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

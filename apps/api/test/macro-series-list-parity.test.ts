@@ -2,35 +2,39 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
+import {
+  MACRO_SERIES_EXCLUSIONS,
+  MACRO_SERIES_FREQUENCY,
+  MACRO_SERIES_TRANSFORMS,
+} from '../src/relations/macro-comovement-model.ts';
+
 /**
- * The macro series list lives in two places and they can drift apart silently.
+ * A macro series has to appear in THREE places to be worth anything, and each pair
+ * can drift apart without either side failing.
  *
  *   apps/api/src/ingest/run-fred-vintage.ts   CORE_SERIES — what gets COLLECTED
  *   apps/api/src/ingest/run-ecos-vintage.ts   CORE_SERIES — what gets COLLECTED
- *   analytics.macro_series_topic (migrations) — what reaches the GRAPH
+ *   analytics.macro_series_topic (migrations) — what becomes an ENTITY
+ *   MACRO_SERIES_TRANSFORMS (model)           — what REACHES A STOCK
  *
- * Neither side fails when the other is missing an entry. A series in the array
- * only collects vintages that nothing reads; a series in the mapping only creates
- * a Metric entity with no data behind it. DCOILWTICO actually went through this:
- * added to the collector on 2026-08-05 and given its entity by a separate
- * migration (067) afterwards, so between those two moments it was in one list and
- * not the other.
+ * A series in the array only collects vintages nothing reads. A series in the
+ * mapping only creates a Metric entity with no data behind it. A series in both
+ * but not in the model gets an entity, a MEASURED_BY edge, and no way to reach a
+ * stock — it stops one hop short and looks connected.
  *
- * Both directions are checked, because the two failures look nothing alike.
+ * All three failures are silent and none of them looks like the others.
+ *
+ * THE THIRD CHECK EXISTS BECAUSE THE FIRST TWO PASSED WHILE fred:DHHNGSP FAILED.
+ * Collected 2026-08-06 to widen the `energy` topic beyond one instrument, mapped
+ * by migration 073, absent from MACRO_SERIES_TRANSFORMS — and
+ * loadMacroComovementInputs asks for exactly `Object.keys(MACRO_SERIES_TRANSFORMS)`,
+ * so it was never loaded. 680 vintages, zero relations of any predicate, and this
+ * file was green throughout. Counting the inventory is what catches the next one.
  *
  * Series keys are compared WHOLE (`fred:DGS10`, `ecos:817Y002:010200000`) rather
- * than as bare vendor ids. The first version of this file stripped the prefix,
- * which worked while FRED was the only provider and would have quietly matched an
- * ECOS item code against a FRED series id once it was not.
- *
- * WHAT THIS TEST STILL DOES NOT COVER, measured 2026-08-07 and written down so it
- * is not mistaken for coverage: a series can pass every assertion here and still
- * never reach a stock. Reaching a stock needs an entry in MACRO_SERIES_TRANSFORMS
- * (run-v2-graph-publish loads exactly `Object.keys(MACRO_SERIES_TRANSFORMS)`) and
- * an identifier the window query joins on. `fred:DHHNGSP` is the live example —
- * collected 2026-08-06, mapped to the `energy` topic, in neither table, and
- * holding zero relations of any predicate. Extending this test to the model is a
- * separate piece of work, not a line here.
+ * than as bare vendor ids. The first version stripped the prefix, which worked
+ * while FRED was the only provider and would have quietly matched an ECOS item
+ * code against a FRED series id once it was not.
  */
 const FRED_COLLECTOR = new URL('../src/ingest/run-fred-vintage.ts', import.meta.url);
 const ECOS_COLLECTOR = new URL('../src/ingest/run-ecos-vintage.ts', import.meta.url);
@@ -40,29 +44,18 @@ const MIGRATIONS = new URL('../../../packages/db-schema/src/migrations/', import
  * Series deliberately collected without a graph mapping, with the reason. An entry
  * here is a decision someone made; the test fails if one gains a mapping, so the
  * list cannot quietly stop describing reality.
+ *
+ * EMPTY as of 2026-08-07, and that is a measurement. The five ECOS series were
+ * held here for part of one session because MACRO_SERIES_WINDOW_SQL joined on
+ * FRED_SERIES only; migration 076 and that join's widening landed together and the
+ * exemption came straight back off.
  */
-const COLLECTED_WITHOUT_TOPIC = new Map<string, string>([
-  // The five ECOS series, all held back by the same measured obstacle rather than
-  // by five separate judgements. MACRO_SERIES_WINDOW_SQL joins
-  // core.entity_identifier on identifier_type = 'FRED_SERIES', so a Korean series
-  // cannot enter the co-movement model no matter what mapping it is given. Giving
-  // them macro_series_topic rows before that join is widened would mint Metric
-  // entities and MEASURED_BY edges that lead nowhere — which is exactly the state
-  // fred:DHHNGSP is in right now, and the reason it is named in the header.
-  //
-  // Collection is still worth doing ahead of the mapping: the vintages accumulate
-  // history, and market.macro_vintage is the only place they can accumulate it.
-  ['ecos:817Y002:010200000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
-  ['ecos:817Y002:010210000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
-  ['ecos:817Y002:010300000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
-  ['ecos:817Y002:010502000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
-  ['ecos:722Y001:0101000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
-]);
+const COLLECTED_WITHOUT_TOPIC = new Map<string, string>([]);
 
 async function collectorSeries(): Promise<Set<string>> {
   const found = new Set<string>();
 
-  // FRED: a flat array of bare series ids under a `fred:` prefix at use sites.
+  // FRED: a flat array of bare series ids, prefixed `fred:` at use sites.
   const fred = await readFile(FRED_COLLECTOR, 'utf8');
   const fredBlock = fred.slice(fred.indexOf('const CORE_SERIES'), fred.indexOf('] as const;'));
   for (const match of fredBlock.matchAll(/^\s*'([A-Z0-9]+)',/gm)) found.add(`fred:${match[1]!}`);
@@ -91,7 +84,7 @@ async function mappedSeries(): Promise<Set<string>> {
 }
 
 describe('macro series list parity', () => {
-  it('reads both lists', async () => {
+  it('reads every list', async () => {
     const collected = await collectorSeries();
     assert.ok(collected.size >= 10, 'CORE_SERIES parse looks wrong');
     assert.ok(
@@ -103,6 +96,7 @@ describe('macro series list parity', () => {
       'ECOS collector parse looks wrong',
     );
     assert.ok((await mappedSeries()).size >= 10, 'migration parse looks wrong');
+    assert.ok(Object.keys(MACRO_SERIES_TRANSFORMS).length >= 6, 'model table looks wrong');
   });
 
   it('every mapped series is actually collected', async () => {
@@ -127,6 +121,46 @@ describe('macro series list parity', () => {
       [],
       `collected but unreachable from the graph. Add a macro_series_topic row, or record why not:\n  ${orphans.join('\n  ')}`,
     );
+  });
+
+  it('every mapped series can reach a stock, or says in code why it cannot', async () => {
+    // The fred:DHHNGSP case. Being mapped buys a MEASURED_BY edge from the topic;
+    // reaching a STOCK needs MACRO_SERIES_TRANSFORMS, because that object's keys
+    // are literally the load list in loadMacroComovementInputs.
+    const mapped = [...(await mappedSeries())].sort();
+    const unreachable = mapped.filter(
+      (id) => !(id in MACRO_SERIES_TRANSFORMS) && !(id in MACRO_SERIES_EXCLUSIONS),
+    );
+    assert.deepEqual(
+      unreachable,
+      [],
+      `mapped but absent from both MACRO_SERIES_TRANSFORMS and MACRO_SERIES_EXCLUSIONS — it will get a MEASURED_BY edge and never reach a stock:\n  ${unreachable.join('\n  ')}`,
+    );
+  });
+
+  it('the two model tables agree with each other', () => {
+    // A transform without a frequency throws at run time ("no declared frequency
+    // for macro series"), and a frequency without a transform is never loaded, so
+    // the pair has to move together.
+    const transforms = Object.keys(MACRO_SERIES_TRANSFORMS).sort();
+    const frequencies = Object.keys(MACRO_SERIES_FREQUENCY).sort();
+    assert.deepEqual(
+      transforms.filter((id) => !(id in MACRO_SERIES_FREQUENCY)),
+      [],
+      'in MACRO_SERIES_TRANSFORMS but not MACRO_SERIES_FREQUENCY — this throws at run time',
+    );
+    assert.deepEqual(
+      frequencies.filter((id) => !(id in MACRO_SERIES_TRANSFORMS)),
+      [],
+      'in MACRO_SERIES_FREQUENCY but not MACRO_SERIES_TRANSFORMS — it is never loaded',
+    );
+  });
+
+  it('a series is never both measured and excluded', () => {
+    const both = Object.keys(MACRO_SERIES_TRANSFORMS)
+      .filter((id) => id in MACRO_SERIES_EXCLUSIONS)
+      .sort();
+    assert.deepEqual(both, [], `listed as both measured and excluded:\n  ${both.join('\n  ')}`);
   });
 
   it('every exemption is still unmapped and still collected', async () => {

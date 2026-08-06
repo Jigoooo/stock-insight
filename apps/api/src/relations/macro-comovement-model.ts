@@ -137,6 +137,17 @@ export const MACRO_SERIES_TRANSFORMS: Readonly<Record<string, 'level_difference'
     'fred:ICSA': 'log_return',
     // Daily. A price level, so a log return — the same treatment as DEXKOUS.
     'fred:DCOILWTICO': 'log_return',
+    // Daily gas price level; same treatment as WTI beside it.
+    'fred:DHHNGSP': 'log_return',
+    // Korean yields, quoted in 연% exactly like DGS10/DGS2, so the change is the
+    // level difference in percentage points. A log return of a yield is not a
+    // return of anything — and a yield can legitimately approach zero (CD 91일
+    // bottomed at 0.630), which a log transform handles badly.
+    'ecos:817Y002:010200000': 'level_difference',
+    'ecos:817Y002:010210000': 'level_difference',
+    'ecos:817Y002:010300000': 'level_difference',
+    'ecos:817Y002:010502000': 'level_difference',
+    'ecos:722Y001:0101000': 'level_difference',
   });
 
 /**
@@ -158,6 +169,25 @@ export const MACRO_SERIES_FREQUENCY: Readonly<Record<string, 'daily' | 'weekly'>
   'fred:WALCL': 'weekly',
   'fred:ICSA': 'weekly',
   'fred:DCOILWTICO': 'daily',
+  // Added 2026-08-07. Collected 2026-08-06 and left out of both tables, which made
+  // it invisible here: loadMacroComovementInputs asks for exactly the keys of
+  // MACRO_SERIES_TRANSFORMS, so a series missing from it is not a crash but a
+  // silent no-op. It held 680 vintages and zero relations of any predicate.
+  'fred:DHHNGSP': 'daily',
+  // Korean daily series (migration 076). All five are 시장금리/정책금리, and the
+  // `rates` vocabulary already carried 국채·금리·기준금리·한국은행 while every
+  // mapped series was American.
+  'ecos:817Y002:010200000': 'daily',
+  'ecos:817Y002:010210000': 'daily',
+  'ecos:817Y002:010300000': 'daily',
+  'ecos:817Y002:010502000': 'daily',
+  // Calendar-daily, not trading-daily: 4,233 rows over the same span where the
+  // market rates have 2,857, because the policy rate is published every day
+  // including weekends. That is fine for alignment (it covers every trading day)
+  // but it is a step function, so its change series is zero almost everywhere.
+  // Expected to produce few pairs or none; `varianceLeft === 0` returns null and
+  // it drops out quietly rather than inventing a correlation.
+  'ecos:722Y001:0101000': 'daily',
 });
 
 /** How far back a resampled grid may reach for the last close at or before a date. */

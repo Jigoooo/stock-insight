@@ -365,8 +365,13 @@ WITH pit AS (
 SELECT pit.series_key, pit.observation_date, pit.value,
        identifier.entity_id AS series_entity_id
 FROM pit
+-- Both macro identifier namespaces. This was 'FRED_SERIES' alone until
+-- 2026-08-07, which meant a Korean series could not enter the co-movement model
+-- whatever mapping it was given: ECOS_SERIES has been in the identifier_type
+-- CHECK since migration 008 and no row had ever used it, so the restriction read
+-- as a filter when it was really a hard wall.
 JOIN core.entity_identifier identifier
-  ON identifier.identifier_type = 'FRED_SERIES'
+  ON identifier.identifier_type IN ('FRED_SERIES', 'ECOS_SERIES')
  AND identifier.identifier_value = pit.series_key
  AND identifier.valid_to IS NULL
 JOIN core.entity series_entity
