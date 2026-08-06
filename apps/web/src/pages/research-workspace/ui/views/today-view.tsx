@@ -12,6 +12,10 @@ import {
 } from '../workspace-presenters';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
+import {
+  deriveTodayBriefing,
+  sampleMarketIndicators,
+} from '@/pages/research-workspace/model/today-briefing';
 import { Button } from '@/shared/ui/button';
 import {
   CursorPagination,
@@ -62,8 +66,12 @@ export function TodayView({
   onSelectRecord: (item: ResearchFeedItem) => void;
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
+  const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
+    data,
+    items,
+  );
   useWorkspaceAppendReveal({
-    keys: items.map((item) => item.recordKey),
+    keys: listItems.map((item) => item.recordKey),
     resetKey: lane,
     scopeRef: feedRef,
   });
@@ -76,25 +84,107 @@ export function TodayView({
   return (
     <>
       <PageHeader
-        title="오늘 봐야 할 변화"
-        description="중요도·개인 연결·근거 수준을 함께 확인합니다."
+        title="오늘의 투자 브리핑"
+        description="시장 변화가 내 관심종목과 어떻게 이어지는지, 확인할 근거와 함께 살펴봅니다."
         asOf={data.meta.contentSnapshot.analysisCutoffAt}
       />
       <AvailabilityNotice availability={data.meta.freshness} />
-      <MetricStrip
-        label="데이터 현황"
-        items={[
-          { label: '오늘의 신호', value: data.summary.laneItemCount },
-          { label: '관계 경로', value: formatNumber(data.summary.relationCount) },
-          { label: '관심종목', value: data.summary.watchlistCount },
-          { label: '연결 출처', value: data.summary.sourceCount },
-        ]}
-      />
-      <Panel>
+
+      <Panel data-testid="today-market-summary" aria-labelledby="today-market-summary-title">
+        <PanelHeader meta={<span className={styles.sampleBadge}>샘플 데이터</span>}>
+          <h2 id="today-market-summary-title">오늘의 시장 요약</h2>
+          <p>하루의 배경을 빠르게 훑어보는 주요 지표입니다.</p>
+        </PanelHeader>
+        <ul className={styles.marketSummaryList} aria-label="오늘의 주요 시장 지표 샘플">
+          {sampleMarketIndicators.map((item) => (
+            <li key={item.id}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small data-direction={item.direction}>{item.change}</small>
+              <em>{item.basisLabel}</em>
+            </li>
+          ))}
+        </ul>
+      </Panel>
+
+      <Panel data-testid="today-headline-news" aria-labelledby="today-headline-news-title">
+        <PanelHeader meta={`${headlineItems.length}건`}>
+          <h2 id="today-headline-news-title">핵심 카드 뉴스</h2>
+          <p>오늘 먼저 읽을 변화와 나에게 보인 이유를 함께 정리했습니다.</p>
+        </PanelHeader>
+        {headlineItems.length === 0 ? (
+          <WorkspaceState
+            kind="empty"
+            title="오늘 먼저 볼 핵심 뉴스가 아직 없습니다"
+            description="새 분석이 들어오면 중요도와 근거를 확인해 이곳에 정리합니다."
+          />
+        ) : (
+          <ul className={styles.headlineGrid} aria-label="오늘의 핵심 카드 뉴스">
+            {headlineItems.map((item) => (
+              <li key={item.recordKey}>
+                <Button
+                  type="button"
+                  motion="quiet"
+                  className={styles.headlineCard}
+                  aria-current={selectedRecordKey === item.recordKey}
+                  disabled={!interactive}
+                  onClick={() => onSelectRecord(item)}
+                >
+                  <span className={styles.headlineCardContent}>
+                    <span className={styles.headlineMeta}>
+                      <span className={styles.market}>{marketLabel(item.market)}</span>
+                      <time>{formatDate(item.publishedAt, true)}</time>
+                    </span>
+                    <strong>{item.title}</strong>
+                    <span className={styles.headlineSummary}>
+                      {presentResearchSummary(item.summary)}
+                    </span>
+                    <small>{whySurfacedLabel(item)}</small>
+                  </span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Panel>
+
+      <Panel data-testid="today-curated-news" aria-labelledby="today-curated-news-title">
+        <PanelHeader meta={`관심종목 ${formatNumber(data.summary.watchlistCount)}개`}>
+          <h2 id="today-curated-news-title">내 관심종목 큐레이터 뉴스</h2>
+          <p>관심종목과 직접 또는 가까운 관계로 연결된 소식입니다.</p>
+        </PanelHeader>
+        {curatedItems.length === 0 ? (
+          <WorkspaceState
+            kind="empty"
+            title="관심종목과 직접 연결된 뉴스가 아직 없습니다"
+            description={
+              data.summary.watchlistCount > 0
+                ? '수집과 관계 분석이 완료되면 연결 이유와 함께 표시합니다.'
+                : '내 종목에서 관심종목을 등록하면 관련 변화를 모아볼 수 있습니다.'
+            }
+          />
+        ) : (
+          <StructuredList className={styles.curatedList} aria-label="내 관심종목 큐레이터 뉴스">
+            {curatedItems.map((item) => (
+              <li key={item.recordKey}>
+                <NewsRowButton
+                  item={item}
+                  interactive={interactive}
+                  selected={selectedRecordKey === item.recordKey}
+                  onSelect={onSelectRecord}
+                />
+              </li>
+            ))}
+          </StructuredList>
+        )}
+      </Panel>
+
+      <Panel data-testid="today-news-list" aria-labelledby="today-news-list-title">
         <PanelHeader
           meta={`${data.meta.sourceCoverage.clickable}/${data.meta.sourceCoverage.total} 출처 연결`}
         >
-          <h2>시장 변화</h2>
+          <h2 id="today-news-list-title">더 살펴볼 뉴스</h2>
+          <p>분류를 바꿔가며 나머지 시장 변화를 이어서 확인합니다.</p>
         </PanelHeader>
         <Tabs
           fullWidth
@@ -132,41 +222,23 @@ export function TodayView({
           role="tabpanel"
           aria-labelledby={`lane-tab-${lane}`}
         >
-          {items.length === 0 ? (
+          {listItems.length === 0 ? (
             <WorkspaceState
               kind="empty"
-              title="이 분류에는 아직 변화가 없습니다"
-              description="다른 분류를 확인하거나 새 신호가 들어올 때 다시 살펴보세요."
+              title="이 분류에서 더 살펴볼 뉴스가 없습니다"
+              description="핵심 카드와 큐레이터 뉴스에 먼저 정리했거나 새 신호를 기다리고 있습니다."
             />
           ) : (
-            <StructuredList className={styles.feedList} aria-label="오늘의 시장 변화">
-              {items.map((item) => (
+            <StructuredList className={styles.feedList} aria-label="더 살펴볼 시장 변화">
+              {listItems.map((item) => (
                 <li key={item.recordKey}>
-                  <Button
-                    type="button"
-                    motion="quiet"
-                    data-append-key={item.recordKey}
-                    data-testid="research-feed-record"
-                    className={styles.feedRow}
-                    aria-current={selectedRecordKey === item.recordKey}
-                    disabled={!interactive}
-                    onClick={() => onSelectRecord(item)}
-                  >
-                    <span className={styles.feedRowLayout}>
-                      <span className={styles.market}>{marketLabel(item.market)}</span>
-                      <span>
-                        <strong>{item.title}</strong>
-                        <span className={styles.summary}>
-                          {presentResearchSummary(item.summary)}
-                        </span>
-                        <small>{whySurfacedLabel(item)}</small>
-                      </span>
-                      <span className={styles.rowMeta}>
-                        <span>{confidenceLabel(item.confidence)}</span>
-                        <time>{formatDate(item.publishedAt, true)}</time>
-                      </span>
-                    </span>
-                  </Button>
+                  <NewsRowButton
+                    item={item}
+                    interactive={interactive}
+                    selected={selectedRecordKey === item.recordKey}
+                    appendKey={item.recordKey}
+                    onSelect={onSelectRecord}
+                  />
                 </li>
               ))}
             </StructuredList>
@@ -186,6 +258,95 @@ export function TodayView({
           </CursorPagination>
         )}
       </Panel>
+
+      <Panel
+        data-testid="today-connection-summary"
+        aria-labelledby="today-connection-summary-title"
+      >
+        <PanelHeader
+          meta={`${formatNumber(data.summary.relationCount)}개 경로 · ${formatNumber(data.summary.sourceCount)}개 출처`}
+        >
+          <h2 id="today-connection-summary-title">시장 연결 경로와 확인할 리스크</h2>
+          <p>뉴스가 내 관심영역에 이어지는 이유와 추가로 확인할 지점입니다.</p>
+        </PanelHeader>
+        <MetricStrip
+          label="개인화 연결 현황"
+          items={[
+            { label: '관계 경로', value: formatNumber(data.summary.relationCount) },
+            { label: '관심종목', value: formatNumber(data.summary.watchlistCount) },
+            { label: '연결 출처', value: formatNumber(data.summary.sourceCount) },
+            { label: '오늘의 신호', value: formatNumber(data.summary.laneItemCount) },
+          ]}
+        />
+        {data.summary.relationCount === 0 || connectionItems.length === 0 ? (
+          <WorkspaceState
+            kind="empty"
+            title="연결 경로가 아직 계산되지 않았습니다"
+            description="관계 분석이 준비되면 영향 경로와 근거 수준을 함께 표시합니다."
+          />
+        ) : (
+          <StructuredList className={styles.connectionList} aria-label="시장 연결 경로 요약">
+            {connectionItems.map((item) => (
+              <li key={item.recordKey}>
+                <Button
+                  type="button"
+                  motion="quiet"
+                  className={styles.connectionRow}
+                  disabled={!interactive}
+                  onClick={() => onSelectRecord(item)}
+                >
+                  <span>
+                    <small>{item.affectedEntityKeys.join(' · ') || '시장 전반'}</small>
+                    <strong>{item.title}</strong>
+                    <span>{whySurfacedLabel(item)}</span>
+                  </span>
+                  <em>{confidenceLabel(item.confidence)} 근거</em>
+                </Button>
+              </li>
+            ))}
+          </StructuredList>
+        )}
+      </Panel>
     </>
+  );
+}
+
+function NewsRowButton({
+  appendKey,
+  interactive,
+  item,
+  onSelect,
+  selected,
+}: {
+  appendKey?: string;
+  interactive: boolean;
+  item: ResearchFeedItem;
+  onSelect: (item: ResearchFeedItem) => void;
+  selected: boolean;
+}) {
+  return (
+    <Button
+      type="button"
+      motion="quiet"
+      data-append-key={appendKey}
+      data-testid="research-feed-record"
+      className={styles.feedRow}
+      aria-current={selected}
+      disabled={!interactive}
+      onClick={() => onSelect(item)}
+    >
+      <span className={styles.feedRowLayout}>
+        <span className={styles.market}>{marketLabel(item.market)}</span>
+        <span>
+          <strong>{item.title}</strong>
+          <span className={styles.summary}>{presentResearchSummary(item.summary)}</span>
+          <small>{whySurfacedLabel(item)}</small>
+        </span>
+        <span className={styles.rowMeta}>
+          <span>{confidenceLabel(item.confidence)}</span>
+          <time>{formatDate(item.publishedAt, true)}</time>
+        </span>
+      </span>
+    </Button>
   );
 }

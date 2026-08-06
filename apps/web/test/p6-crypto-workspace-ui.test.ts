@@ -25,7 +25,7 @@ function extractCssBlock(source: string, selector: string): string {
 }
 
 describe('P6-6 crypto read-only workspace vertical', () => {
-  it('routes a first-class crypto view through URL, cache, loader, and workspace payload', async () => {
+  it('keeps the hidden crypto view directly addressable through URL, cache, loader, and payload', async () => {
     const [page, sections, search, cache, loader, payload] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.tsx'),
       read('features/workspace-navigation/model/sections.ts'),
@@ -36,7 +36,7 @@ describe('P6-6 crypto read-only workspace vertical', () => {
     ]);
     assert.match(
       sections,
-      /\{ id: 'crypto', label: '크립토', icon: Bitcoin, href: '\/workspace\/crypto' \}/,
+      /id: 'crypto',[\s\S]*?label: '크립토',[\s\S]*?icon: Bitcoin,[\s\S]*?href: '\/workspace\/crypto',[\s\S]*?navigationGroup: 'hidden'/,
     );
     assert.match(
       page,

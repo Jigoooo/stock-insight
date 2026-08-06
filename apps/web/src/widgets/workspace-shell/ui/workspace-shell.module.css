@@ -131,11 +131,24 @@
 }
 
 .navigationLink {
+  position: relative;
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) auto;
   gap: 9px;
   padding: 0 9px;
   border-radius: var(--radius-control);
+}
+
+.navigationLink[data-navigation-group='utility'] {
+  margin-top: 14px;
+}
+
+.navigationLink[data-navigation-group='utility']::before {
+  content: '';
+  height: 1px;
+  position: absolute;
+  inset: -8px 6px auto;
+  background: color-mix(in srgb, var(--color-on-chrome) 11%, transparent);
 }
 
 [data-navigation-mode='compact'] .navigationLink {

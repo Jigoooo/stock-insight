@@ -92,6 +92,27 @@ describe('development-only visual surface routes', () => {
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
 
+  it('offers a deterministic Today preview through the real five-part workspace view', async () => {
+    const fixtureModule =
+      await import('../src/pages/dev-preview/model/today-preview-fixture.ts').catch(() => null);
+    assert.ok(fixtureModule, 'expected the Today preview fixture to exist');
+    if (!fixtureModule) return;
+
+    const [previewPage, previewRoute] = await Promise.all([
+      readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/routes/[__dev-preview].tsx'),
+    ]);
+    const fixture = fixtureModule.todayPreviewFixture;
+
+    assert.equal(fixture.view, 'today');
+    assert.equal(fixture.today.meta.visibility, 'internal');
+    assert.ok(fixture.today.summary.laneItemCount >= 4);
+    assert.match(previewRoute, /search\.surface === 'today'/);
+    assert.match(previewPage, /todayPreviewFixture/);
+    assert.match(previewPage, /surface === 'today'/);
+    assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
+  });
+
   it('previews the real administrator form with local actions and no authenticated loader', async () => {
     const [previewPage, previewRoute] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),

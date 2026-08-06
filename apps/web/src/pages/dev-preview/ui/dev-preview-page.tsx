@@ -1,5 +1,6 @@
 import { loadPreviewStockDeepDive } from '../model/stock-deep-dive-preview-fixture';
 import { stocksPreviewFixture } from '../model/stocks-preview-fixture';
+import { todayPreviewFixture } from '../model/today-preview-fixture';
 
 import {
   AdminInvitationPage,
@@ -10,7 +11,7 @@ import {
 import { ResearchWorkspacePage } from '@/pages/research-workspace/ui/research-workspace-page';
 import type { AdminInvitation } from '@/server/auth/admin-invitations';
 
-type DevPreviewSurface = 'workspace' | 'admin-invitations';
+type DevPreviewSurface = 'workspace' | 'today' | 'admin-invitations';
 
 const initialPreviewInvitations: AdminInvitation[] = [
   {
@@ -81,6 +82,15 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
           issueInvitationAction={issuePreviewInvitation}
           logoutAction={previewLogout}
           revokeInvitationAction={revokePreviewInvitation}
+        />
+      ) : surface === 'today' ? (
+        <ResearchWorkspacePage
+          data={todayPreviewFixture}
+          navigationMode="static"
+          canManageInvitations={false}
+          onLogout={async () => false}
+          onPrefetchSection={() => undefined}
+          urlState={{ view: 'today' }}
         />
       ) : (
         <ResearchWorkspacePage

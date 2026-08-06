@@ -5,7 +5,12 @@ import { isDevSurfaceEnabled } from '@/shared/config/dev-surface-gate';
 
 export const Route = createFileRoute('/__dev-preview')({
   validateSearch: (search: Record<string, unknown>) => ({
-    surface: search.surface === 'admin-invitations' ? ('admin-invitations' as const) : undefined,
+    surface:
+      search.surface === 'admin-invitations'
+        ? ('admin-invitations' as const)
+        : search.surface === 'today'
+          ? ('today' as const)
+          : undefined,
   }),
   beforeLoad: () => {
     if (!isDevSurfaceEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_DEV_PREVIEW)) {

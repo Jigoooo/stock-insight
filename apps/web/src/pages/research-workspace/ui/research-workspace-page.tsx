@@ -647,7 +647,7 @@ export function ResearchWorkspacePage({
   const navigationItems: readonly WorkspaceNavigationItem[] = workspaceSections.map((item) => ({
     ...item,
     ...(item.id === 'radar' ? { count: data.shell.radarScopeTotal } : {}),
-    ...(item.id === 'research' ? { count: data.shell.watchlistCount } : {}),
+    ...(item.id === 'stocks' ? { count: data.shell.watchlistCount } : {}),
   }));
   const visibleDetailState =
     requestedRecordKey && requestedRecordKey !== visibleDetail?.recordKey

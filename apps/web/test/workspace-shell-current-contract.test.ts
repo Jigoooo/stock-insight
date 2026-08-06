@@ -44,6 +44,47 @@ describe('current workspace shell behavior', () => {
     assert.match(page, /void onUrlStateChange\?\.\(\{ record: undefined \}\)/);
   });
 
+  it('presents the workspace as a four-step research journey', async () => {
+    const [navigation, page, sections] = await Promise.all([
+      read('widgets/workspace-shell/ui/workspace-navigation.tsx'),
+      read('pages/research-workspace/ui/research-workspace-page.tsx'),
+      read('features/workspace-navigation/model/sections.ts'),
+    ]);
+
+    assert.match(sections, /id: 'today',[\s\S]*?label: '오늘',[\s\S]*?navigationGroup: 'primary'/);
+    assert.match(
+      sections,
+      /id: 'stocks',[\s\S]*?label: '내 종목',[\s\S]*?navigationGroup: 'primary'/,
+    );
+    assert.match(
+      sections,
+      /id: 'radar',[\s\S]*?label: '시장 연결',[\s\S]*?navigationGroup: 'primary'/,
+    );
+    assert.match(
+      sections,
+      /id: 'research',[\s\S]*?label: '복기',[\s\S]*?navigationGroup: 'primary'/,
+    );
+    assert.match(
+      sections,
+      /id: 'status',[\s\S]*?label: '데이터 신뢰도',[\s\S]*?navigationGroup: 'utility'/,
+    );
+    assert.match(sections, /id: 'crypto',[\s\S]*?navigationGroup: 'hidden'/);
+    assert.match(navigation, /item\.navigationGroup !== 'hidden'/);
+    assert.match(navigation, /data-navigation-group=\{item\.navigationGroup\}/);
+    const primaryOffsets = ["id: 'today'", "id: 'stocks'", "id: 'radar'", "id: 'research'"].map(
+      (id) => sections.indexOf(id),
+    );
+    assert.deepEqual(
+      primaryOffsets,
+      [...primaryOffsets].sort((a, b) => a - b),
+    );
+    assert.match(page, /item\.id === 'stocks' \? \{ count: data\.shell\.watchlistCount \}/);
+    assert.doesNotMatch(
+      page,
+      /item\.id === 'research' \? \{ count: data\.shell\.watchlistCount \}/,
+    );
+  });
+
   it('keeps mobile navigation and evidence focus ownership explicit', async () => {
     const [page, inspector, shell, sheet, e2e] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.tsx'),
