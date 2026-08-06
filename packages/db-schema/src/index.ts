@@ -70,6 +70,7 @@ import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_su
 import { documentEntityCanonicalNameMigrationSql } from './migrations/070_document_entity_canonical_name.ts';
 import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts';
 import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_license_tier.ts';
+import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series_natural_gas.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -842,6 +843,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: dartSupplyLicenseTierMigrationSql,
   },
+  {
+    id: '073_macro_series_natural_gas',
+    description:
+      "Adds Henry Hub natural gas as a second series under the 'energy' topic, which had exactly one (WTI, migration 067) so every energy event reached the graph through a single instrument. Gold, silver and copper were checked against the live FRED API rather than assumed and did not make it: FRED no longer publishes a gold or silver spot price (the LBMA fixings are discontinued; GVZCLS is a volatility index and the remainder are producer/import price indices), and copper's PCOPPUSDM is monthly, which the co-movement model drops for trading-day alignment (38/59 overlap) — adding it would collect vintages nothing reads.",
+    tables: [],
+    sql: macroSeriesNaturalGasMigrationSql,
+  },
 ];
 
 export {
@@ -916,5 +924,6 @@ export {
   documentEntityCanonicalNameMigrationSql,
   claimDedupeKeyMigrationSql,
   dartSupplyLicenseTierMigrationSql,
+  macroSeriesNaturalGasMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

@@ -46,6 +46,21 @@ const CORE_SERIES = [
   // series that would cover the `trade` topic is not, and is left out for that
   // reason rather than forgotten.
   'DCOILWTICO', // WTI crude spot
+  // Henry Hub natural gas, daily. Added 2026-08-07 to widen the `energy` topic
+  // beyond a single series, so an energy event does not rest on one instrument.
+  //
+  // WHAT DID NOT MAKE IT, and why, so nobody re-derives this:
+  //   gold / silver — FRED no longer carries a spot price. The LBMA fixings
+  //     (GOLDAMGBD228NLBM, GOLDPMGBD228NLBM) are discontinued; what remains is a
+  //     volatility index (GVZCLS) and producer/import price indices, none of
+  //     which is a price. A gold series needs a different provider, and the ETF
+  //     proxies (GLD, SLV) cannot be added either — that means a row in
+  //     public.entities, which another project owns.
+  //   copper (PCOPPUSDM) — exists and is current, but MONTHLY. The co-movement
+  //     model aligns on trading days and drops monthly series (measured: 38/59,
+  //     64.4% overlap), so it would collect vintages nothing reads. Left out for
+  //     the same reason the monthly trade-balance series is.
+  'DHHNGSP', // Henry Hub natural gas spot
 ] as const;
 
 const UPSERT_VINTAGE_SQL = `
