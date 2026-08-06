@@ -1437,11 +1437,32 @@ flowchart TB
       게시하지 않고(LBMA 고시 중단), 구리는 월간이라 상관 모델이 버린다.
     </p>
     <p>
-      <strong>법안이 종목에 닿는다고 말하지 않는다.</strong> 거시 계열은
-      <code>MEASURED_BY</code> → <code>MACRO_COMOVEMENT</code> 로 <em>상관</em>을 통해
-      종목에 닿는다. 법안은 상관이 아니다. 정책과 기업을 잇는 다리는
-      <code>EXPOSES</code> 이고 그건 여전히 accepted 0 이다. 일정이 들어온 것과 경로가
-      생긴 것은 다른 얘기다.
+      <strong>법안이 종목에 닿는다고 말하지 않는다 — 그리고 위 문장은 내가 틀리게
+      적었다.</strong> 「정책과 기업을 잇는 다리는 <code>EXPOSES</code> 이고 그건
+      accepted 0」 이라고 발행했는데, 재보니 두 군데가 틀렸다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>내가 적은 것</th><th>실제로 잰 것</th></tr></thead>
+        <tbody>
+          <tr class="row flow-w"><td><code>EXPOSES</code> accepted 0 — 만들어야 한다</td><td><strong>107개가 이미 원장에 있다.</strong> <code>quarantined_unverified</code> — 수집기가 없어서가 아니라 <strong>서술어가 미승인</strong>이라서. 설명란이 「semantic approval pending」</td></tr>
+          <tr class="row flow-w"><td>그게 정책→기업 다리다</td><td><strong>107개 전부 Stock → Industry 다.</strong> 정책→기업 모양이 아니다</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      더 근본적으로, <strong>법안은 엔티티가 아니다.</strong> <code>core.entity</code> 의
+      아홉 종류는 Metric·Company·Stock·LegalEntity·Theme·Industry·Token·ETF·Exchange 이고
+      법안도 일정도 없다. 방금 넣은 495개 법안 액션은 <code>market.scheduled_event</code>
+      라는 <em>평범한 표</em>에 있지 그래프의 노드가 아니다. 그러니
+      <code>EXPOSES</code> 를 승인해도 법안은 기업에 안 닿는다 —
+      <strong>이을 쪽 끝이 없다.</strong>
+      <br><br>
+      그리고 이건 <code>EXPOSES</code> 만의 일이 아니다. <strong>서술어 16종
+      3,312 엣지</strong>가 같은 이유로 격리돼 있다 — <code>AFFECTS</code> 616 ·
+      <code>COMMON_OWNER</code> 1,062 · <code>PEER_OF</code> 174 · <code>ROLLS_UP</code> 129.
+      계산은 끝났고 원장에 들어와 있는데 <strong>온톨로지 승인 한 줄</strong>에 막혀
+      서빙까지 못 간다. 오늘 다섯 번 나온 「만들어 놓고 안 쓴다」 의 가장 큰 사례다.
     </p>
   </section>
 
