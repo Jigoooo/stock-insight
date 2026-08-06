@@ -1395,6 +1395,58 @@ flowchart TB
   </section>
 
   <section>
+    <h2>2026-08-07 기준 남은 막힘 — 대조한 것만</h2>
+    <div class="s-close">닫는 관측 — 가장 큰 것은 고쳐지지 않았고 커지는 중이다</div>
+    <p>
+      오늘 고친 것을 세는 것보다 <strong>안 고쳐진 것을 다시 재는 것</strong>이 중요하다.
+      아래는 이 문서의 「막힘」 행을 하나씩 프로덕션과 대조한 결과다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>막힌 것</th><th class="n">지금</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr class="row block-s">
+            <td>사건 귀속</td><td class="n">2,632 / 4,356</td>
+            <td><strong>커지고 있다.</strong> 오늘 아침 2,542 → 지금 2,632. 링크를 넓혀도
+            (672→896) 새 사건이 들어오는 속도를 못 따라간다</td>
+          </tr>
+          <tr class="row block-s">
+            <td><code>EXPOSES</code></td><td class="n">0</td>
+            <td>사거리 94 → 0. 노출 술어를 만드는 코드가 없다</td>
+          </tr>
+          <tr class="row block-s">
+            <td><code>OWNS</code> · <code>ROLLS_UP</code></td><td class="n">0 / 0</td>
+            <td>소유 그래프가 존재하지 않는다. 계열사 판정을 데이터로 못 하는 이유가 이것</td>
+          </tr>
+          <tr class="row block-s">
+            <td><code>analytics.impact_shock</code></td><td class="n">0</td>
+            <td>월드 모델에서 포트폴리오 노출로 가는 다리가 비어 있다</td>
+          </tr>
+          <tr class="row dormant-s">
+            <td>거시 계열 연결</td><td class="n">5 / 13</td>
+            <td>8종이 그래프에 안 닿는다. 일부는 주간·월간이라 모델 최소 관측 미달</td>
+          </tr>
+          <tr class="row flow-s">
+            <td><code>claim</code> verified</td><td class="n">8 / 332</td>
+            <td><strong>뚫렸다</strong> — 이 문서가 「병합 단계 없음」 이라고 적고 있던 행</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>귀속이 가장 크고, 유일하게 악화되는 것이다.</strong> 그리고 오늘의 수정으로는
+      안 풀린다 — 링크 표면을 맞춘 것은 <em>우리가 가진 회사를 언급한 기사</em>를 더 찾는
+      일이고, 문제는 <strong>뉴스의 82%가 325 종목 유니버스 밖</strong>이라는 것이다.
+      매칭이 아니라 범위 문제다.
+      <br><br>
+      나머지 넷(<code>EXPOSES</code> · 소유 그래프 · <code>impact_shock</code> · 거시 8종)은
+      악화되지는 않는다. 만드는 코드가 없어서 0에 머물러 있는 것이고, 각각 새 작업이지
+      고장이 아니다. <strong>둘을 섞어 읽지 말 것</strong> — 커지는 하나와 멈춰 있는 넷은
+      다른 종류의 부채다.
+    </p>
+  </section>
+
+  <section class="s">
     <h2>여전히 끊겨 있는 사슬</h2>
     <div class="flow">
       <div class="stage">
@@ -1421,14 +1473,18 @@ flowchart TB
               <code>PARTNERS_WITH</code> 는 문서 3건, Nvidia <code>COMPETES_WITH</code> 는 3건.
               추출이 문서마다 <strong>새 claim 행</strong>을 만들고 같은 주장의 두 번째
               증거로 붙이지 않을 뿐이다. 없는 것은 기준이 아니라 <strong>병합 단계</strong>다.
+              <br><br><strong>2026-08-06 에 뚫렸다.</strong> 병합 잡이 증거 9행을 붙여 8건이
+              문서 2건을 갖추었고, corroboration 잡이 verified 정책 행을 읽게 고치자 승격됐다.
+              막고 있던 것은 둘이었다 — 잡이 <code>target_status='corroborated'</code> 행만
+              읽었고, 이미 corroborated 인 claim 을 다시 보지 않았다. <strong>verified 0 → 8.</strong>
               <br><br>다만 병합만으로는 그래프가 안 열린다. claim 객체는
               <strong>325건 전부 자유 텍스트</strong>(<code>{"text":"엔비디아"}</code>)이고
               관계 원장은 양쪽 엔티티 id 를 요구한다. 그래서 두 단계다 —
               <strong>병합</strong>으로 verified 를 만들고, <strong>객체 이름 해소</strong>로
               관계가 되게 한다.</small>
             </div>
-            <div class="yield">병합 단계 없음 · 후보 10그룹</div>
-            <span class="chip block-s">막힘</span>
+            <div class="yield">verified 8 / 332 — 뚫렸다</div>
+            <span class="chip flow-s">흐름</span>
           </div>
           <div class="row block-s">
             <div class="surface">시장 전반 뉴스 → 종목
