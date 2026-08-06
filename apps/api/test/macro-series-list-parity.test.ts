@@ -3,9 +3,10 @@ import { readdir, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 /**
- * The FRED series list lives in two places and they can drift apart silently.
+ * The macro series list lives in two places and they can drift apart silently.
  *
  *   apps/api/src/ingest/run-fred-vintage.ts   CORE_SERIES — what gets COLLECTED
+ *   apps/api/src/ingest/run-ecos-vintage.ts   CORE_SERIES — what gets COLLECTED
  *   analytics.macro_series_topic (migrations) — what reaches the GRAPH
  *
  * Neither side fails when the other is missing an entry. A series in the array
@@ -16,8 +17,23 @@ import { describe, it } from 'node:test';
  * not the other.
  *
  * Both directions are checked, because the two failures look nothing alike.
+ *
+ * Series keys are compared WHOLE (`fred:DGS10`, `ecos:817Y002:010200000`) rather
+ * than as bare vendor ids. The first version of this file stripped the prefix,
+ * which worked while FRED was the only provider and would have quietly matched an
+ * ECOS item code against a FRED series id once it was not.
+ *
+ * WHAT THIS TEST STILL DOES NOT COVER, measured 2026-08-07 and written down so it
+ * is not mistaken for coverage: a series can pass every assertion here and still
+ * never reach a stock. Reaching a stock needs an entry in MACRO_SERIES_TRANSFORMS
+ * (run-v2-graph-publish loads exactly `Object.keys(MACRO_SERIES_TRANSFORMS)`) and
+ * an identifier the window query joins on. `fred:DHHNGSP` is the live example —
+ * collected 2026-08-06, mapped to the `energy` topic, in neither table, and
+ * holding zero relations of any predicate. Extending this test to the model is a
+ * separate piece of work, not a line here.
  */
-const COLLECTOR = new URL('../src/ingest/run-fred-vintage.ts', import.meta.url);
+const FRED_COLLECTOR = new URL('../src/ingest/run-fred-vintage.ts', import.meta.url);
+const ECOS_COLLECTOR = new URL('../src/ingest/run-ecos-vintage.ts', import.meta.url);
 const MIGRATIONS = new URL('../../../packages/db-schema/src/migrations/', import.meta.url);
 
 /**
@@ -26,21 +42,39 @@ const MIGRATIONS = new URL('../../../packages/db-schema/src/migrations/', import
  * list cannot quietly stop describing reality.
  */
 const COLLECTED_WITHOUT_TOPIC = new Map<string, string>([
-  // EMPTY, and that is a measurement rather than an oversight. Checked against
-  // analytics.macro_series_topic on 2026-08-07: all 14 collected series carry a
-  // topic mapping. The monthly and weekly ones (CPIAUCSL, PAYEMS, ICSA …) are
-  // mapped too — the co-movement model drops them for trading-day alignment, but
-  // that happens downstream of the mapping and is a different thing from being
-  // unmapped. Conflating the two was the first draft of this file.
+  // The five ECOS series, all held back by the same measured obstacle rather than
+  // by five separate judgements. MACRO_SERIES_WINDOW_SQL joins
+  // core.entity_identifier on identifier_type = 'FRED_SERIES', so a Korean series
+  // cannot enter the co-movement model no matter what mapping it is given. Giving
+  // them macro_series_topic rows before that join is widened would mint Metric
+  // entities and MEASURED_BY edges that lead nowhere — which is exactly the state
+  // fred:DHHNGSP is in right now, and the reason it is named in the header.
   //
-  // An entry belongs here only when a series is collected on purpose with no way
-  // to reach the graph, and the reason is written down.
+  // Collection is still worth doing ahead of the mapping: the vintages accumulate
+  // history, and market.macro_vintage is the only place they can accumulate it.
+  ['ecos:817Y002:010200000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
+  ['ecos:817Y002:010210000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
+  ['ecos:817Y002:010300000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
+  ['ecos:817Y002:010502000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
+  ['ecos:722Y001:0101000', 'graph join is FRED_SERIES-only; collection first, mapping after'],
 ]);
 
 async function collectorSeries(): Promise<Set<string>> {
-  const source = await readFile(COLLECTOR, 'utf8');
-  const block = source.slice(source.indexOf('const CORE_SERIES'), source.indexOf('] as const;'));
-  return new Set([...block.matchAll(/^\s*'([A-Z0-9]+)',/gm)].map((m) => m[1]!));
+  const found = new Set<string>();
+
+  // FRED: a flat array of bare series ids under a `fred:` prefix at use sites.
+  const fred = await readFile(FRED_COLLECTOR, 'utf8');
+  const fredBlock = fred.slice(fred.indexOf('const CORE_SERIES'), fred.indexOf('] as const;'));
+  for (const match of fredBlock.matchAll(/^\s*'([A-Z0-9]+)',/gm)) found.add(`fred:${match[1]!}`);
+
+  // ECOS: an array of objects, each carrying its own fully-qualified seriesKey.
+  const ecos = await readFile(ECOS_COLLECTOR, 'utf8');
+  const ecosBlock = ecos.slice(ecos.indexOf('const CORE_SERIES'), ecos.indexOf('] as const;'));
+  for (const match of ecosBlock.matchAll(/seriesKey:\s*'(ecos:[A-Z0-9]+:[0-9]+)'/g)) {
+    found.add(match[1]!);
+  }
+
+  return found;
 }
 
 async function mappedSeries(): Promise<Set<string>> {
@@ -50,14 +84,24 @@ async function mappedSeries(): Promise<Set<string>> {
   );
   const found = new Set<string>();
   for (const body of bodies) {
-    for (const match of body.matchAll(/'fred:([A-Z0-9]+)'/g)) found.add(match[1]!);
+    for (const match of body.matchAll(/'fred:([A-Z0-9]+)'/g)) found.add(`fred:${match[1]!}`);
+    for (const match of body.matchAll(/'(ecos:[A-Z0-9]+:[0-9]+)'/g)) found.add(match[1]!);
   }
   return found;
 }
 
-describe('FRED series list parity', () => {
+describe('macro series list parity', () => {
   it('reads both lists', async () => {
-    assert.ok((await collectorSeries()).size >= 10, 'CORE_SERIES parse looks wrong');
+    const collected = await collectorSeries();
+    assert.ok(collected.size >= 10, 'CORE_SERIES parse looks wrong');
+    assert.ok(
+      [...collected].some((key) => key.startsWith('fred:')),
+      'FRED collector parse looks wrong',
+    );
+    assert.ok(
+      [...collected].some((key) => key.startsWith('ecos:')),
+      'ECOS collector parse looks wrong',
+    );
     assert.ok((await mappedSeries()).size >= 10, 'migration parse looks wrong');
   });
 

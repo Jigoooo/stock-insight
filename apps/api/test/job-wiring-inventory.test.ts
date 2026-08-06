@@ -16,6 +16,9 @@ import { describe, it } from 'node:test';
  * the one nobody wrote. Counting the inventory catches the NEXT one.
  *
  * Measured 2026-08-06: 38 jobs, 32 wired, 6 exempt.
+ * Measured 2026-08-07: 43 jobs, 36 wired, 7 exempt. The count is re-measured
+ * rather than edited in place, because the drift between the two lines is itself
+ * the thing worth seeing.
  */
 
 const SRC = new URL('../src/', import.meta.url);
@@ -36,6 +39,14 @@ const EXEMPT = new Map<string, string>([
   ['run-phase35.ts', 'one-shot backfill, ran 2026-07-07'],
   // Applying a migration is a decision, not a timer. Deliberately manual.
   ['run-schema-migrations.ts', 'manual by design — applying migrations is a decision'],
+  // Written 2026-08-07, deliberately not wired yet. Two things have to be decided
+  // before a timer runs it, and both are recorded in
+  // docs/plan/ecos-collector-2026-08-07.md: the first --apply is a production
+  // write the user has not approved, and the collected series cannot reach the
+  // graph at all until MACRO_SERIES_WINDOW_SQL stops joining on FRED_SERIES only.
+  // Wiring it now would schedule a job whose output nothing reads — which is the
+  // exact defect this file exists to catch, so it is not done quietly.
+  ['run-ecos-vintage.ts', 'pending first --apply approval and the FRED_SERIES-only graph join'],
 ]);
 
 async function collectJobs(dir: URL, found: string[] = []): Promise<string[]> {
