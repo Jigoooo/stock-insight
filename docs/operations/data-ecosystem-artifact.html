@@ -1405,10 +1405,15 @@ flowchart TB
       <table>
         <thead><tr><th>막힌 것</th><th class="n">지금</th><th>상태</th></tr></thead>
         <tbody>
-          <tr class="row block-s">
+          <tr class="row dormant-s">
             <td>사건 귀속</td><td class="n">2,632 / 4,356</td>
-            <td><strong>커지고 있다.</strong> 오늘 아침 2,542 → 지금 2,632. 링크를 넓혀도
-            (672→896) 새 사건이 들어오는 속도를 못 따라간다</td>
+            <td><strong>이 수치는 결함이 아니다 — 아래를 볼 것.</strong> 60%가 미귀속인 것은
+            대부분 필터가 맞게 도는 것이다</td>
+          </tr>
+          <tr class="row block-s">
+            <td>&nbsp;&nbsp;↳ 그중 진짜 못 붙인 것</td><td class="n">63</td>
+            <td>유니버스 회사를 언급했는데 문서까지 있으면서 안 붙은 뉴스 사건.
+            <strong>이것이 귀속 결함의 실제 크기다</strong></td>
           </tr>
           <tr class="row block-s">
             <td><code>EXPOSES</code></td><td class="n">0</td>
@@ -1434,10 +1439,25 @@ flowchart TB
       </table>
     </div>
     <p>
-      <strong>귀속이 가장 크고, 유일하게 악화되는 것이다.</strong> 그리고 오늘의 수정으로는
-      안 풀린다 — 링크 표면을 맞춘 것은 <em>우리가 가진 회사를 언급한 기사</em>를 더 찾는
-      일이고, 문제는 <strong>뉴스의 82%가 325 종목 유니버스 밖</strong>이라는 것이다.
-      매칭이 아니라 범위 문제다.
+      <strong>「귀속 60%」 를 문제로 읽으면 안 된다.</strong> 이 문서의 이전 판이 그렇게
+      적었고 틀렸다. 미귀속 2,641건(요약 보유) 중 <strong>유니버스 회사명을 담은 것은
+      163건, 6.2%</strong>다. 나머지 93.8%는 우리가 가진 회사를 아예 언급하지 않는 기사이고,
+      개인 투자 리서치 피드에서 그건 <em>필터가 작동하는 것</em>이지 고칠 것이 아니다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>미귀속 2,641 의 분해</th><th class="n">건</th><th>성격</th></tr></thead>
+        <tbody>
+          <tr class="row flow-s"><td>유니버스 밖 기사</td><td class="n">2,478</td><td>올바른 미귀속. 고칠 것 없음</td></tr>
+          <tr class="row dormant-s"><td>유니버스 안 · 문서 없음</td><td class="n">100</td><td><code>legacy_no_document</code> — SEC EDGAR 재수집 문제, 별도 수집 작업</td></tr>
+          <tr class="row block-s"><td>유니버스 안 · 문서 있음</td><td class="n"><strong>63</strong></td><td>붙었어야 하는데 안 붙었다. 실제 결함</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>그래서 귀속 부채는 2,632가 아니라 63이다.</strong> 유니버스를 넓히는 큰 작업이
+      아니라 63건이 왜 실패했는지 보는 작은 작업이고, 「가장 크고 악화되는 문제」 라는
+      이전 판의 서술은 재보지 않고 총수만 읽은 결과였다.
       <br><br>
       나머지 넷(<code>EXPOSES</code> · 소유 그래프 · <code>impact_shock</code> · 거시 8종)은
       악화되지는 않는다. 만드는 코드가 없어서 0에 머물러 있는 것이고, 각각 새 작업이지
