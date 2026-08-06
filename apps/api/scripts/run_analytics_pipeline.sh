@@ -87,6 +87,13 @@ pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_
 # read model selects user_positions directly.
 DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-portfolio-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-portfolio-snapshot-stage "$RUN_STARTED_AT" || exit $?
+# Which tables we own, fill, and nobody reads. Read-only; reports a gauge rather
+# than failing, because "built and unconsumed" is a backlog to watch, not an error
+# to page on. The number moving is the signal — the same reason the unattributed
+# event count is reported every knowledge cycle.
+DATABASE_URL="$DB_URL" node apps/api/src/ops/run-table-reachability-audit.ts --apply
+pipeline_record_stage_success stock-insight-table-reachability-audit-stage "$RUN_STARTED_AT" || exit $?
+
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-outbox-delivery.ts --apply --loop
 pipeline_record_stage_success stock-insight-outbox-delivery-stage "$RUN_STARTED_AT" || exit $?
 

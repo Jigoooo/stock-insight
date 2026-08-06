@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all ten stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all eleven stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -199,6 +199,11 @@ test('analytics runs all ten stages in order with an adjacent receipt per comman
     // writer. It needs only prices and registered holdings, so it sits late and
     // depends on neither report nor impact publishing.
     ['run-portfolio-snapshot.ts', 'stock-insight-portfolio-snapshot-stage'],
+    // Added 2026-08-06: read-only audit of tables this repository owns, fills, and
+    // nobody reads. Sits second-to-last because it depends on nothing and reports a
+    // gauge rather than producing data — the same placement logic as the backlog
+    // counters, and it must not sit between two stages that do depend on order.
+    ['run-table-reachability-audit.ts', 'stock-insight-table-reachability-audit-stage'],
     ['run-outbox-delivery.ts', 'stock-insight-outbox-delivery-stage'],
   ] as const;
   const stageLines = lines.filter((line) => /node apps\/api\/src\/.+\.ts/.test(line));
