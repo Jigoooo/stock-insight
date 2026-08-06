@@ -1395,6 +1395,57 @@ flowchart TB
   </section>
 
   <section>
+    <h2>2026-08-07 확장 — 그리고 열쇠가 이미 있었다</h2>
+    <div class="s-close">닫는 관측 — 일정 718건이 들어왔다. 아홉 개 API 키를 저장소가 하나도 안 읽고 있었다</div>
+    <p>
+      확장을 계획하려고 재보니 <strong>가장 큰 것은 없는 게 아니라 버려지고
+      있었다.</strong> <code>research-common</code> 이 <code>event_calendar.py</code> 와
+      <code>macro_calendar.py</code> 를 <em>매일 스케줄로</em> 돌려 JSON 을 쓰는데,
+      Postgres 로 가는 경로는 파생 시그널 카드를 남기고 <strong>날짜를 버린다.</strong>
+      「BOK 2026-08-28 한국은행 금통위, D-21」 이 디스크에 있는데 이 DB 는 금리 결정이
+      3주 뒤라는 걸 몰랐다. 새 수집이 아니라 <strong>한 번도 안 만든 마지막 홉</strong>이었다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>market.scheduled_event 에 들어온 것</th><th class="n">건</th><th>기간</th></tr></thead>
+        <tbody>
+          <tr class="row flow-s"><td><code>legislative_action</code> — 미 의회 법안</td><td class="n">495</td><td>2025-01-09 ~ 2026-08-05 · 하원 168 · 상원 327</td></tr>
+          <tr class="row flow-s"><td><code>economic_release</code></td><td class="n">173</td><td>3일 창, actual·consensus 포함</td></tr>
+          <tr class="row flow-s"><td><code>earnings</code></td><td class="n">50</td><td>3일 창</td></tr>
+          <tr class="row flow-s"><td><code>central_bank_meeting</code></td><td class="n">1</td><td>2026-08-28 BOK 금통위 — 유일한 진짜 미래 일정</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>열쇠가 이미 있었다.</strong> 확장 계획은 「법안 일정은 새 외부 API 가
+      필요하다」 고 적었는데, 환경에 <code>CONGRESS_GOV_API_KEY</code> ·
+      <code>ECOS_API_KEY</code> · <code>KOSIS_API_KEY</code> · <code>KRX_API_KEY</code> ·
+      <code>DATA_GO_KR_API_KEY</code> · <code>ALPHA_VANTAGE</code> ·
+      <code>FMP</code> · <code>FINNHUB</code> 가 있고 <strong>이 저장소는 하나도 읽지
+      않는다.</strong> 오늘 다섯 번 나온 「선언은 있고 부르는 코드가 없다」 가 자격증명
+      층위에서 한 번 더 나온 것이다.
+      <br><br>
+      특히 <code>KRX_API_KEY</code> 는 계획의 판단을 뒤집는다. 종목 유니버스 확장을
+      「남의 저장소 문제」 로 분류했는데, 한국거래소 키가 있으면 우리 쪽에서 KOSPI·KOSDAQ
+      전체와 지수를 받을 수 있다.
+    </p>
+    <p>
+      <strong>거시는 한 계열 늘었다.</strong> <code>energy</code> 주제에 WTI 하나뿐이라
+      모든 에너지 사건이 단일 상품을 거쳐 그래프에 닿고 있었다. 헨리허브 천연가스를
+      더해 둘이 됐다. <strong>금·은·구리는 재보고 뺐다</strong> — 계획은 「FRED 가 이미
+      제공」 이라고 적었지만 확인 안 한 가정이었다. FRED 는 금·은 현물가를 더 이상
+      게시하지 않고(LBMA 고시 중단), 구리는 월간이라 상관 모델이 버린다.
+    </p>
+    <p>
+      <strong>법안이 종목에 닿는다고 말하지 않는다.</strong> 거시 계열은
+      <code>MEASURED_BY</code> → <code>MACRO_COMOVEMENT</code> 로 <em>상관</em>을 통해
+      종목에 닿는다. 법안은 상관이 아니다. 정책과 기업을 잇는 다리는
+      <code>EXPOSES</code> 이고 그건 여전히 accepted 0 이다. 일정이 들어온 것과 경로가
+      생긴 것은 다른 얘기다.
+    </p>
+  </section>
+
+  <section class="s">
     <h2>2026-08-07 기준 남은 막힘 — 대조한 것만</h2>
     <div class="s-close">닫는 관측 — 가장 큰 것은 고쳐지지 않았고 커지는 중이다</div>
     <p>
