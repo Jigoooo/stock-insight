@@ -67,6 +67,7 @@ import { macroComovementOntologyMigrationSql } from './migrations/066_macro_como
 import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_energy.ts';
 import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_entities.ts';
 import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_supply_disclosure_source.ts';
+import { documentEntityCanonicalNameMigrationSql } from './migrations/070_document_entity_canonical_name.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -818,6 +819,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: dartSupplyDisclosureSourceMigrationSql,
   },
+  {
+    id: '070_document_entity_canonical_name',
+    description:
+      "Admits 'canonical_name' as a document-to-entity link method so the linker can use core.entity.canonical_name, the one catalog holding a name for every stock and the one it never consulted. Measured 2026-08-06 over 4,895 news documents: core.entity_alias holds 354 rows for 325 Stock entities and only 94 contain Hangul, while 2,712 of the documents are Korean — so Korean news naming a Korean company could match only if that company was one of the 94. Canonical names match 770 documents alone and lift the union of all linkers from 672 to 914 (13.7% to 18.7%). Restricted to Hangul names because stripping Korean corporate forms also strips whitespace, and a Latin name without token boundaries hides inside longer Latin words (sk in novonordiskas, ls in appliedmaterialsinc, gm in figma — 76 collisions across 10 short Latin names against 7 across 24 Hangul ones); Latin stays with the ticker and alias linkers, which keep their boundaries. Folding this into alias_exact was rejected: the finding is that one catalog went unread, and a link method that cannot name its catalog would hide that from the next audit.",
+    tables: [],
+    sql: documentEntityCanonicalNameMigrationSql,
+  },
 ];
 
 export {
@@ -889,5 +897,6 @@ export {
   macroSeriesEnergyMigrationSql,
   macroTopicEntitiesMigrationSql,
   dartSupplyDisclosureSourceMigrationSql,
+  documentEntityCanonicalNameMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

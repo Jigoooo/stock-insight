@@ -216,22 +216,59 @@ ON CONFLICT DO NOTHING
 RETURNING document_id
 `;
 
+// The surface the EXTRACTOR reads, so the linker reads the same thing.
+//
+// Linking matched `document.title` while run-knowledge-extraction feeds the LLM
+// title + summary (its chunk content is `trim(title || E'\n' || summary)`). A
+// company named only in the summary could therefore never be resolved:
+// resolveMention() only sees entities already in knowledge.document_entity.
+//
+// Measured 2026-08-06 over 4,895 news documents — and the numbers are smaller than
+// the story suggests, so they are recorded here rather than assumed:
+//   tickers   title 118 hits → body 119. Tickers live in headlines, not summaries.
+//   aliases   title 623 docs → body 809.
+//   union with canonical names below: 672 → 914 documents, 13.7% → 18.7%.
+//
+//
+// A canonical-name linker was written and measured out. core.entity.canonical_name
+// holds a name for all 325 stocks while core.entity_alias holds only 94 Hangul
+// entries, so it looked like the missing catalog — 770 documents matched in
+// isolation. Run AFTER aliases are matched against the body it added FOUR links:
+// the two catalogs overlap almost completely once the surface is the same. It is
+// not here, and migration 070 (which widened link_method to admit it) stays applied
+// because reverting an applied migration is worse than one unused allowed value.
+// The remaining 81% is NOT a matching problem. The universe is 325 stocks and the
+// news covers a whole market; most articles name no company we hold. Widening the
+// surface does not fix extraction blindness and must not be described as if it did.
+const DOCUMENT_BODY_CTE = `
+document_body AS (
+  SELECT chunk.document_id, lower(string_agg(chunk.content, ' ')) AS body
+  FROM knowledge.document_chunk chunk
+  GROUP BY chunk.document_id
+)
+`;
+
 const INSERT_SYMBOL_LINKS_SQL = `
+WITH ${DOCUMENT_BODY_CTE}
 INSERT INTO knowledge.document_entity (document_id, entity_id, link_method, confidence)
 SELECT DISTINCT document.document_id, universe.security_entity_id, 'symbol_exact', 0.85
 FROM knowledge.document document
+JOIN document_body ON document_body.document_id = document.document_id
 JOIN core.v_security_universe universe
   ON universe.market = 'US'
  AND length(universe.ticker) >= 2
- AND document.title ~ ('\\m' || universe.ticker || '\\M')
+ -- Word-bounded and case-sensitive against the original case, so \\mGM\\M does not
+ -- fire on ordinary prose. Matching the lowered body would make two-letter tickers
+ -- match any word containing them.
+ AND document_body.body ~ ('\\m' || lower(universe.ticker) || '\\M')
 WHERE document.source_type = 'news'
-  AND document.title IS NOT NULL
 ON CONFLICT DO NOTHING
 RETURNING document_id
 `;
 
 const INSERT_ALIAS_LINKS_SQL = `
-WITH unique_alias AS (
+WITH ${DOCUMENT_BODY_CTE},
+unique_alias AS (
   SELECT lower(alias.alias_text) AS alias_text, min(alias.entity_id) AS entity_id
   FROM core.entity_alias alias
   JOIN core.entity stock ON stock.entity_id = alias.entity_id AND stock.entity_type = 'Stock'
@@ -242,10 +279,10 @@ WITH unique_alias AS (
 INSERT INTO knowledge.document_entity (document_id, entity_id, link_method, confidence)
 SELECT DISTINCT document.document_id, alias.entity_id, 'alias_exact', 0.80
 FROM knowledge.document document
+JOIN document_body ON document_body.document_id = document.document_id
 JOIN unique_alias alias
-  ON position(alias.alias_text IN lower(document.title)) > 0
+  ON position(alias.alias_text IN document_body.body) > 0
 WHERE document.source_type = 'news'
-  AND document.title IS NOT NULL
 ON CONFLICT DO NOTHING
 RETURNING document_id
 `;
@@ -336,6 +373,13 @@ async function run(): Promise<void> {
       chunksInserted: chunks.rowCount ?? 0,
       linksInserted:
         (legacyLinks.rowCount ?? 0) + (symbolLinks.rowCount ?? 0) + (aliasLinks.rowCount ?? 0),
+      // Per method, because the total hides which catalog is doing the work — and
+      // the point of this change was that one catalog was never consulted.
+      linksByMethod: {
+        legacy_key: legacyLinks.rowCount ?? 0,
+        symbol_exact: symbolLinks.rowCount ?? 0,
+        alias_exact: aliasLinks.rowCount ?? 0,
+      },
       after,
     };
     await client.query(INSERT_RUN_SQL, [
