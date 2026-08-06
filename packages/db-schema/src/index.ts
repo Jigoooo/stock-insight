@@ -68,6 +68,7 @@ import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_ene
 import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_entities.ts';
 import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_supply_disclosure_source.ts';
 import { documentEntityCanonicalNameMigrationSql } from './migrations/070_document_entity_canonical_name.ts';
+import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -826,6 +827,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: documentEntityCanonicalNameMigrationSql,
   },
+  {
+    id: '071_claim_dedupe_key',
+    description:
+      "Gives knowledge.claim the document-scoped uniqueness it never had. Every extraction INSERT was unconditional — no ON CONFLICT, no pre-existence check, and no constraint to conflict against across all 70 prior migrations — while knowledge.event has deduped on dedupe_key since it was written. Measured 2026-08-06 over 327 claims and split by cause, because the two kinds need different fixes: 34 duplicates come from the same document repeated (this migration), 10 from two documents reporting the same claim (run-claim-merge, which stays). The cross-document ten cannot become a constraint — two documents days apart are one claim and months apart are two, and a unique index cannot express 'within 7 days'. The column is nullable and the index partial so the 327 existing rows keep a NULL key and never conflict: nothing is deleted and no history is rewritten, which matters because claim status transitions are trigger-guarded and audited and there is no deletion path at all.",
+    tables: [],
+    sql: claimDedupeKeyMigrationSql,
+  },
 ];
 
 export {
@@ -898,5 +906,6 @@ export {
   macroTopicEntitiesMigrationSql,
   dartSupplyDisclosureSourceMigrationSql,
   documentEntityCanonicalNameMigrationSql,
+  claimDedupeKeyMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

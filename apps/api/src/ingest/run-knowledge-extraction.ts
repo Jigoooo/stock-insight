@@ -5,6 +5,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 
 import { reconcileClaimType, verifyAssertionSemantics } from './assertion-semantics.ts';
 import {
+  buildClaimDedupeKey,
   buildEventKey,
   buildRevisionEventDedupeKey,
   normalizeSourceRevision,
@@ -159,8 +160,12 @@ const INSERT_CLAIM_SQL = `
 INSERT INTO knowledge.claim (
   subject_entity_id, predicate, object_entity_id, object_value, claim_type, polarity,
   observed_at, published_at, extraction_confidence, verification_status,
-  extraction_run_id, metadata
-) VALUES ($1, $2, $3::bigint, $4::jsonb, $5, $6, $7, $8, $9, 'unverified', $10, $11::jsonb)
+  extraction_run_id, metadata, dedupe_key
+) VALUES ($1, $2, $3::bigint, $4::jsonb, $5, $6, $7, $8, $9, 'unverified', $10, $11::jsonb, $12)
+-- Matches the partial unique index from migration 071. Re-extracting a document no
+-- longer mints a second copy of the same claim; the event insert has behaved this
+-- way since it was written and claims were simply never given the same treatment.
+ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
 RETURNING claim_id
 `;
 
@@ -572,6 +577,8 @@ async function run(): Promise<void> {
       },
       // Objects that became an entity id instead of free text. 0 of 325 before
       // 2026-08-06 because the object was never passed to the resolver.
+      // Repeats refused by the dedupe key from migration 071.
+      claimsDeduped: 0,
       objectResolved: 0,
       objectAmbiguous: 0,
       claimsQuarantinedSemantics: 0,
@@ -676,9 +683,20 @@ async function run(): Promise<void> {
                 verifierVersion: 'assertion-semantics-v1',
               },
             }),
+            buildClaimDedupeKey({
+              documentId: claim.document_id,
+              revisionNo,
+              predicate: claim.predicate,
+              subjectMention: claim.subject_mention,
+              objectText: claim.object_text,
+            }),
           ],
         );
         const claimId = inserted.rows[0]?.claim_id;
+        // ON CONFLICT DO NOTHING returns no row. That is the right outcome for a
+        // repeat, but a skip nobody counts is indistinguishable from a claim that
+        // was never extracted — count it.
+        if (claimId === undefined) stats.claimsDeduped += 1;
         if (claimId !== undefined) {
           const evidence = await client.query<EvidenceBinding>(INSERT_CLAIM_EVIDENCE_SQL, [
             claimId,

@@ -25,6 +25,35 @@ export function normalizeSourceRevision(value: unknown): number {
   return revision;
 }
 
+/**
+ * Document-scoped identity for a claim, mirroring buildRevisionEventDedupeKey.
+ *
+ * Scoped to the document ON PURPOSE. This stops one document producing the same
+ * claim twice (34 such duplicates measured 2026-08-06); it deliberately does NOT
+ * collapse the same claim reported by two documents. That is a different question
+ * with a time dimension — two reports days apart are one claim, months apart are
+ * two — and run-claim-merge answers it with a measured 7-day window, attaching the
+ * second document as evidence rather than discarding a row.
+ */
+export function buildClaimDedupeKey(input: {
+  documentId: number;
+  revisionNo: number;
+  predicate: string;
+  subjectMention: string;
+  objectText: string;
+}): string {
+  const revisionNo = normalizeSourceRevision(input.revisionNo);
+  const predicate = input.predicate.trim().toLowerCase();
+  const norm = (value: string): string =>
+    value.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 80);
+  const subject = norm(input.subjectMention);
+  const object = norm(input.objectText);
+  if (!Number.isSafeInteger(input.documentId) || input.documentId < 1 || !predicate || !subject) {
+    throw new Error('claim identity is incomplete');
+  }
+  return `extract-claim-v1:${input.documentId}:r${revisionNo}:${predicate}:${subject}:${object}`;
+}
+
 export function buildRevisionEventDedupeKey(input: {
   documentId: number;
   revisionNo: number;
