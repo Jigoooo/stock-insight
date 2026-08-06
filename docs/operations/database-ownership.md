@@ -53,8 +53,28 @@ crypto-research 에 있다.
 
 ### 공유
 
-`market_ts.ohlcv` — research-common 이 쓰고 stock-insight 가 읽는다
-(`run_ohlcv_daily.sh`, `run-feature-snapshot.ts`, `prices/read-model.ts`).
+`market_ts.ohlcv` — **양쪽이 쓴다.** 이 문서는 오래도록 "research-common 이 쓰고
+stock-insight 가 읽는다" 로 적혀 있었는데 **틀렸다.** `run-ohlcv.ts:147` 이 INSERT
+한다. 2026-08-07 실측:
+
+```
+소유자     postgres (공유)
+source_id='ict-bot'    2,364,041행  exchange=bitget · 심볼 4 · 2023-01-01~2026-06-28
+                                    research-common/scripts/migrate_ict_candles_to_pg.py
+source_id='yfinance'     299,619행  exchange=KOSPI/KOSDAQ/US · 심볼 332 · 1D
+                                    ← 우리 것. apps/api/src/ingest/run-ohlcv.ts
+(exchange,symbol,timeframe) 교집합        0
+```
+
+**둘은 exchange 로 갈리고 한 번도 겹친 적이 없다.** 그 분리가 하중을 받고 있는데
+아무것도 강제하지 않고 있었다 — 우리 UPSERT 의 conflict target 이
+`(exchange,symbol,timeframe,ts)` 이고 **`source_id` 가 없다.** 저쪽 키 공간에 한 행만
+들어가도 저쪽 행을 덮어쓰면서 `source_id` 까지 우리 것으로 바꾼다.
+
+`verify-table-ownership.sh` 는 이것을 못 잡는다. 그 스크립트는 표 이름을 grep 하는데
+이 표는 **양쪽이 정당하게 쓰는** 표라서 이름만으로는 위반과 정상을 구분할 수 없다.
+그래서 교집합이 0 이라는 불변조건을 `run_ohlcv_daily.sh` 의 DB 단언에 넣었다(1.9초).
+스크립트 쪽에는 이 쓰기를 **선언**해 두어, 선언이 사라지면 STALE_ALLOWANCE 로 걸리게 했다.
 
 ## stock-insight 가 남의 테이블에 쓰는 곳
 

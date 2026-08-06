@@ -54,6 +54,23 @@ SELECT CASE WHEN
         WHEN profile.profile_json ->> 'corporationClass' = 'K' THEN 'KOSDAQ'
       END
   )
+  -- market_ts.ohlcv is SHARED, not ours and not theirs: research-common writes
+  -- source_id='ict-bot' (bitget crypto, 2.36M rows) and run-ohlcv.ts writes
+  -- source_id='yfinance' (KOSPI/KOSDAQ/US equities, 300k rows). The two have never
+  -- overlapped — measured 2026-08-07, intersection of (exchange,symbol,timeframe)
+  -- is exactly 0.
+  --
+  -- That separation is load-bearing and nothing enforced it. Our UPSERT conflict
+  -- target is (exchange,symbol,timeframe,ts) with NO source_id, so a single bar
+  -- emitted into their key space would overwrite their row AND relabel its
+  -- source_id as ours — a silent cross-project write that
+  -- verify-table-ownership.sh cannot see, because it greps for table names and
+  -- this table is legitimately written by both.
+  AND NOT EXISTS (
+    SELECT exchange, symbol, timeframe FROM market_ts.ohlcv WHERE source_id = 'yfinance'
+    INTERSECT
+    SELECT exchange, symbol, timeframe FROM market_ts.ohlcv WHERE source_id IS DISTINCT FROM 'yfinance'
+  )
 THEN 1 ELSE 0 END
 " || exit $?
 
