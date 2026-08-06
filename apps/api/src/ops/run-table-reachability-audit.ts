@@ -57,8 +57,12 @@ const OWNED_SCHEMAS = [
  * a list like this stops meaning anything.
  */
 const ACCEPTED = new Map<string, string>([
-  ['analytics.theme', '테마 138행 — 사건을 테마로 분류하는 코드가 없다'],
-  ['analytics.theme_membership', '테마 멤버십 396행 — 위와 같은 이유'],
+  // 폐기 예정, 부채가 아니다. v2 마스터 플랜이 theme_exposure_snapshot +
+  // theme_membership_evidence(배열 대신 FK)로 대체 설계를 이미 정했고, 마이그레이션
+  // 068 은 같은 이유로 Theme 타입 사용을 명시적으로 거부했다. 분류를 바꾸는 이유는
+  // "언젠가 읽겠다" 와 "안 읽기로 했다" 가 다른 상태이기 때문이다.
+  ['analytics.theme', '138행 — 폐기 예정. v2 가 theme_exposure_snapshot 으로 대체'],
+  ['analytics.theme_membership', '396행 — 폐기 예정. v2 는 배열 대신 FK 증거표'],
   ['core.security_master', '297행 — listing_revision · ticker_history 와 함께 미사용'],
   ['knowledge.ontology_rfc', '22행 — ontology_revision 과 함께 미사용'],
   ['analytics.impact_channel', '17행 — 채널 분류가 경로에 붙지 않았다'],
