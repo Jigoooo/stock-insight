@@ -93,6 +93,18 @@ pipeline_record_stage_success stock-insight-portfolio-snapshot-stage "$RUN_START
 # event count is reported every knowledge cycle.
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-table-reachability-audit.ts --apply
 pipeline_record_stage_success stock-insight-table-reachability-audit-stage "$RUN_STARTED_AT" || exit $?
+# Whether every source still has an honest, approved contract. Unlike the audit
+# above this one FAILS the run: an unread table is backlog, but an approved
+# contract with no ADR-002 basis is a source minting accepted evidence it was
+# never cleared to mint.
+#
+# These assertions already existed in source-contract-integrity.test.ts and were
+# skipping silently — that test needs STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL
+# and marks every case skip without it, which is how migration 069's violation sat
+# behind a green suite for a day. The mutating cases still need a disposable DB and
+# stay there; these are pure SELECT and belong on a timer against the real one.
+DATABASE_URL="$DB_URL" node apps/api/src/ops/run-source-contract-audit.ts --apply
+pipeline_record_stage_success stock-insight-source-contract-audit-stage "$RUN_STARTED_AT" || exit $?
 
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-outbox-delivery.ts --apply --loop
 pipeline_record_stage_success stock-insight-outbox-delivery-stage "$RUN_STARTED_AT" || exit $?
@@ -111,10 +123,14 @@ SELECT CASE WHEN
      'stock-insight-v2-graph-publish-stage',
      'stock-insight-v2-l5-publish-stage',
      'stock-insight-portfolio-snapshot-stage',
+     -- Listed, unlike the reachability gauge above it, because the whole point of
+     -- this stage is that its predecessor was a detector nobody noticed was off.
+     -- Asserting it RAN is the part that was missing.
+     'stock-insight-source-contract-audit-stage',
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 10
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 11
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1

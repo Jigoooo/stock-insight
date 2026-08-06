@@ -19,6 +19,8 @@ import { describe, it } from 'node:test';
  * Measured 2026-08-07: 43 jobs, 36 wired, 7 exempt. The count is re-measured
  * rather than edited in place, because the drift between the two lines is itself
  * the thing worth seeing.
+ * Measured 2026-08-07 (later): 44 jobs, 37 wired, 7 exempt — run-source-contract-audit
+ * joined the analytics pipeline.
  */
 
 const SRC = new URL('../src/', import.meta.url);
