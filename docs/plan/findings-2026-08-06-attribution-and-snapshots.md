@@ -201,3 +201,71 @@ SQL·뷰까지 훑었다.
 
 `market_signals.entity_id` 는 `public.entities.id` 를 가리킨다 — `core.entity` 에 붙이면
 우연히 맞는 id 의 다른 이름이 나온다(그 착오로 중간에 잘못 정정했다가 되돌렸다).
+
+---
+
+## C4 정정 — 「검증 기준이 정의된 적 없다」 는 틀렸다
+
+계획의 D 절이 `claim` verified 0 을 **「답이 와야 하는 것」** 으로 분류하며
+*"검증 기준이 저장소에 정의된 적이 없다"* 고 적었다. **정의돼 있다.**
+
+```
+ops.verification_policy (2026-07-19 부터)
+  claim  corroborated   min_distinct_documents 1 · require_chunk_quote true
+  claim  verified       min_distinct_documents 2 · require_chunk_quote true
+  event  도 같은 형태로 두 줄
+```
+
+claim 325건은 **전부** 문서 1건 · 증거 1행 · 인용 있음이다. 즉 인용 요건은 충족이고
+문서 2건 요건에서 정확히 멈춘다. corroborated 325 / verified 0 은 기준 부재의 결과가
+아니라 **기준이 작동한 결과**다.
+
+### 두 번째 문서도 없지 않다 — 병합이 없다
+
+같은 주장(주체 + 술어 + 객체)이 서로 다른 문서 2건 이상에 등장하는 그룹이 **10개**다.
+
+```
+101 PARTNERS_WITH 엔비디아      claim 3 · 문서 3 · 0일
+242 COMPETES_WITH Nvidia        claim 4 · 문서 3 · 10일
+ 47 PRODUCES 반도체             claim 2 · 문서 2 · 0일
+ 73 PRODUCES 순이익 3280억원     claim 2 · 문서 2 · 0일
+114 INVESTS_IN 취약계층          claim 2 · 문서 2 · 0일
+242 ANNOUNCED earnings          claim 2 · 문서 2 · 0일
+211 GUIDES 2026 forecasts       claim 2 · 문서 2 · 1일
+ 73 ANNOUNCED 파업              claim 2 · 문서 2 · 5일
+ 76 PARTNERS_WITH OpenAI        claim 3 · 문서 2 · 7일
+243 ANNOUNCED Earnings          claim 3 · 문서 2 · 9일
+```
+
+10그룹 중 6개가 **같은 날**이고 나머지도 1~10일 안이다. 몇 달 떨어진 별개 발표가
+우연히 같은 키를 갖는 경우가 아니라, 여러 출처가 같은 사건을 말한 것이다.
+
+추출이 문서마다 **새 claim 행**을 만들고, 같은 주장을 기존 claim 의 두 번째 증거로
+붙이지 않는다. `run-claim-corroboration` 은 상태 전이만 하고 병합은 하지 않는다.
+**없는 것은 기준이 아니라 단계다.**
+
+이 모양은 오늘 밤 두 번 더 나왔다 — 귀속 잡이 파이프라인에 없던 것,
+`absenceSemantics` 를 읽는 코드가 없던 것. 세 번 다 "기능이 없다" 가 아니라
+"기능은 있는데 아무도 부르지 않는다" 였다.
+
+### 병합만으로는 그래프가 안 열린다
+
+```
+객체가 엔티티로 풀린 claim    0 / 325
+객체가 자유 텍스트            325 / 325     {"text": "엔비디아"} 형태
+술어 12종   ANNOUNCED 87 · PRODUCES 68 · GUIDES 39 · COMPETES_WITH 32 …
+```
+
+병합이 10건을 verified 로 만들어도, 024 게이트가 그 증거로 만들 수 있는 관계는
+**주체는 엔티티인데 객체는 문자열**이다. 관계 원장은 양쪽 엔티티 id 를 요구한다.
+
+그래서 C4 는 한 단계가 아니라 둘이고, 둘 다 측정된 작업이다.
+
+```
+1. claim 병합        같은 주장을 한 행으로 모아 증거를 쌓는다 → verified 10건
+2. 객체 이름 해소     {"text":"엔비디아"} → 엔티티 id       → 그래야 관계가 된다
+```
+
+2번은 `resolveCustomerMentions` 가 푸는 문제와 같은 종류다 — 카탈로그와 규칙이 이미 있다.
+
+**계획에서 옮긴다**: C4 는 「답이 와야 하는 것」(D 절)이 아니라 「측정된 두 단계 작업」이다.

@@ -900,7 +900,7 @@ flowchart TB
   subgraph S2["2 · 지식"]
     EVENT["knowledge.event 4,105<br/>귀속 1,637 · <b>미귀속 2,468</b>"]
     MACROEV["미귀속 중 거시 성격 <b>872</b><br/>policy_event 623 · regulation 152<br/>macro_shock 97 · 전부 타깃 없음"]
-    CLAIM["knowledge.claim<br/>corroborated 292 · verified 0"]
+    CLAIM["knowledge.claim<br/>corroborated 325 · verified 0<br/>객체는 전부 자유 텍스트"]
   end
 
   subgraph SFIX["정정된 것 — 피드 라벨 1,478건"]
@@ -1334,11 +1334,26 @@ flowchart TB
           </div>
           <div class="row block-s">
             <div class="surface">지식 추출 → 검증된 주장
-              <small>document 6,578 → claim 292(전부 corroborated) → <strong>verified 0</strong>.
-              문서 2건 요건을 못 채운다. 검증 기준이 이 저장소에 정의된 적이 없다</small>
+              <small>document 6,578 → claim 325(전부 corroborated) → <strong>verified 0</strong>.
+              <br><br>이 자리에 <strong>「검증 기준이 이 저장소에 정의된 적이 없다」 고
+              적혀 있었다. 틀렸다.</strong> <code>ops.verification_policy</code> 가
+              2026-07-19 부터 정의하고 있다 — corroborated 는 문서 1건, verified 는 문서
+              2건, 둘 다 청크 인용 필수. claim 325건은 전부 인용을 갖고 문서가 1건이라
+              corroborated 에서 정확히 멈춘 것이다.
+              <br><br><strong>두 번째 문서가 없는 것도 아니다.</strong> 같은 주장
+              (주체+술어+객체)이 서로 다른 문서 2건 이상에 등장하는 그룹이 10개 있고,
+              6개는 <em>같은 날</em>이며 나머지도 1~10일 안이다 — 엔비디아
+              <code>PARTNERS_WITH</code> 는 문서 3건, Nvidia <code>COMPETES_WITH</code> 는 3건.
+              추출이 문서마다 <strong>새 claim 행</strong>을 만들고 같은 주장의 두 번째
+              증거로 붙이지 않을 뿐이다. 없는 것은 기준이 아니라 <strong>병합 단계</strong>다.
+              <br><br>다만 병합만으로는 그래프가 안 열린다. claim 객체는
+              <strong>325건 전부 자유 텍스트</strong>(<code>{"text":"엔비디아"}</code>)이고
+              관계 원장은 양쪽 엔티티 id 를 요구한다. 그래서 두 단계다 —
+              <strong>병합</strong>으로 verified 를 만들고, <strong>객체 이름 해소</strong>로
+              관계가 되게 한다.</small>
             </div>
-            <div class="yield">verified 에서 끊김</div>
-            <span class="chip block-s">기준 미정</span>
+            <div class="yield">병합 단계 없음 · 후보 10그룹</div>
+            <span class="chip block-s">막힘</span>
           </div>
           <div class="row block-s">
             <div class="surface">시장 전반 뉴스 → 종목
