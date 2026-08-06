@@ -28,6 +28,10 @@ import {
   buildOfficialSectorCandidates,
   type OfficialSectorObservation,
 } from '../relations/builders/official-sector.ts';
+import {
+  buildOwnershipCandidates,
+  type OwnershipObservation,
+} from '../relations/builders/ownership.ts';
 import { buildProductSimilarityCandidates } from '../relations/builders/product-similarity.ts';
 import {
   buildSupplyChainCandidates,
@@ -116,6 +120,11 @@ const MACRO_SERIES_PROVIDER = 'internal-macro-series-window-snapshot';
 // source is never reached.
 const MACRO_TOPIC_PROVIDER = 'internal-macro-topic-mapping-snapshot';
 const STOCK_PRICE_PROVIDER = 'internal-stock-price-window-snapshot';
+// The sixth internal snapshot source, and the one that moves
+// run-source-contract-audit's transitional-exemption ceiling from 5 to 6. That
+// ceiling exists so a carve-out cannot grow without anyone deciding; this is the
+// deciding.
+const HOLDINGS_PROVIDER = 'internal-institutional-holdings-snapshot';
 
 type EtfHoldingRow = QueryResultRow & {
   etf_ticker: string;
@@ -128,6 +137,19 @@ type EtfHoldingRow = QueryResultRow & {
   sector: string | null;
   source: string;
   collected_at: Date | string;
+};
+
+type InstitutionalHoldingRow = QueryResultRow & {
+  holding_key: string | null;
+  institution: string;
+  owner_entity_id: string | number;
+  owned_entity_id: string | number;
+  owned_entity_key: string;
+  as_of: string;
+  filing_date: string;
+  value_usd: string | null;
+  rate_pct: string | null;
+  source: string | null;
 };
 
 type SectorRow = QueryResultRow & {
@@ -211,6 +233,20 @@ const MACRO_SERIES_SOURCE: SourceDefinition = {
   sourceTable: 'market.macro_vintage',
   requiredFields: ['series_key', 'observation_date', 'vintage_date', 'value', 'available_at'],
 };
+// One 13F position per record, not one filing. COMMON_OWNER declares
+// minSourceRevisions: 2 (relation-policy.ts), and its evidence is assembled from
+// the subject holding's revisions plus the object holding's. At filing grain both
+// legs of a pair cite the SAME revision, the pair sees one distinct id, and every
+// candidate would be quarantined — the builder would look wired and produce
+// nothing. At position grain the two legs cite different revisions and the pair
+// clears the policy honestly, because two separately-recorded positions really are
+// two observations.
+const HOLDINGS_SOURCE: SourceDefinition = {
+  providerKey: HOLDINGS_PROVIDER,
+  displayName: 'Institutional 13F/holdings positions used by the ownership builder',
+  sourceTable: 'public.institutional_holdings',
+  requiredFields: ['institution', 'entity_id', 'as_of', 'filing_date'],
+};
 const STOCK_PRICE_SOURCE: SourceDefinition = {
   providerKey: STOCK_PRICE_PROVIDER,
   displayName: 'Immutable daily close window used by the co-movement model',
@@ -270,6 +306,55 @@ WHERE relation.relation_kind = 'customer'
   AND relation.evidence_locator->>'source_revision_id' IS NOT NULL
 ORDER BY relation.from_firm_entity_id, relation.to_firm_entity_id
 `;
+
+/**
+ * Institutional holdings, resolved to core entities on BOTH ends.
+ *
+ * The owned end has always resolved (250 of 250 rows reach a core Stock through
+ * public.entities.entity_key). The owner end is new: migration 077 mints a
+ * LegalEntity per holder, keyed 'INSTITUTION:<name>', because core.entity held no
+ * institution at all — which is the real reason buildOwnershipCandidates had only
+ * test callers, rather than the missing 13F collector it was filed as.
+ *
+ * public.institutional_holdings is another project's table and is READ ONLY here,
+ * the same standing as public.etf_holdings and public.entities above.
+ *
+ * INNER JOIN on both ends on purpose: a holding whose either side has no core
+ * entity cannot become an edge, and minting one here would create a node the rest
+ * of the system has never heard of. Dropped rows are counted in the run summary.
+ */
+const INSTITUTIONAL_HOLDINGS_SQL = `
+SELECT DISTINCT ON (holding.institution, owned_identifier.entity_id, holding.as_of)
+       holding.holding_key,
+       holding.institution,
+       holder.entity_id AS owner_entity_id,
+       owned_identifier.entity_id AS owned_entity_id,
+       legacy.entity_key AS owned_entity_key,
+       holding.as_of::text AS as_of,
+       -- A 13F position is knowable only once it is filed. filing_date is that
+       -- moment; as_of is the quarter it describes. Using as_of as availableAt
+       -- would let a position enter the graph up to 45 days before anyone could
+       -- have seen it, which is exactly what the PIT gate exists to prevent.
+       coalesce(holding.filing_date, holding.as_of)::text AS filing_date,
+       holding.value_usd::text AS value_usd,
+       holding.rate_pct::text AS rate_pct,
+       holding.source
+FROM public.institutional_holdings holding
+JOIN public.entities legacy ON legacy.id = holding.entity_id
+JOIN core.entity_identifier owned_identifier
+  ON owned_identifier.identifier_type = 'INTERNAL_KEY'
+ AND owned_identifier.identifier_value = legacy.entity_key
+JOIN core.entity owned_entity
+  ON owned_entity.entity_id = owned_identifier.entity_id
+ AND owned_entity.entity_type = 'Stock'
+JOIN core.entity holder
+  ON holder.entity_type = 'LegalEntity'
+ AND holder.canonical_name = holding.institution
+ORDER BY holding.institution, owned_identifier.entity_id, holding.as_of,
+         holding.collected_at DESC, holding.id DESC
+`;
+
+const INSTITUTIONAL_HOLDINGS_TOTAL_SQL = `SELECT count(*)::int AS total FROM public.institutional_holdings`;
 
 const LATEST_ETF_HOLDINGS_SQL = `
 WITH latest_date AS (
@@ -535,12 +620,25 @@ async function loadInputs(client: Client): Promise<{
   holdings: EtfHoldingRow[];
   sectors: SectorRow[];
   profiles: CompanyProfileRow[];
+  institutionalHoldings: InstitutionalHoldingRow[];
+  /** Rows the join above dropped, so an unresolved holder is a number not a silence. */
+  institutionalHoldingsTotal: number;
   /** Basket members core identity resolution has deferred; reported, never silent. */
   deferredMemberKeys: string[];
 }> {
   const holdings = await client.query<EtfHoldingRow>(LATEST_ETF_HOLDINGS_SQL);
   const sectors = await client.query<SectorRow>(SECTOR_ROWS_SQL);
   const profiles = await client.query<CompanyProfileRow>(COMPANY_PROFILE_ROWS_SQL);
+  const institutionalHoldings = await client.query<InstitutionalHoldingRow>(
+    INSTITUTIONAL_HOLDINGS_SQL,
+  );
+  // Deliberately NOT a throw when empty, unlike the three above. Institutional
+  // holdings arrive from a sibling project on its own cadence; an empty table is a
+  // gap in coverage, not a broken publish, and taking the nightly graph down over
+  // it would be the wrong trade.
+  const institutionalHoldingsTotal = (
+    await client.query<QueryResultRow & { total: number }>(INSTITUTIONAL_HOLDINGS_TOTAL_SQL)
+  ).rows[0]!.total;
   if (holdings.rows.length === 0) throw new Error('latest ETF holdings are empty');
   if (sectors.rows.length === 0) throw new Error('SIC/KSIC classifications are empty');
   if (profiles.rows.length === 0) throw new Error('company profile summaries are empty');
@@ -583,6 +681,8 @@ async function loadInputs(client: Client): Promise<{
     holdings: resolvedHoldings,
     sectors: sectors.rows,
     profiles: profiles.rows,
+    institutionalHoldings: institutionalHoldings.rows,
+    institutionalHoldingsTotal,
     deferredMemberKeys,
   };
 }
@@ -1214,7 +1314,12 @@ async function closeFetchRun(
 
 async function materializeSources(
   client: Client,
-  inputs: { holdings: EtfHoldingRow[]; sectors: SectorRow[]; profiles: CompanyProfileRow[] },
+  inputs: {
+    holdings: EtfHoldingRow[];
+    sectors: SectorRow[];
+    profiles: CompanyProfileRow[];
+    institutionalHoldings: InstitutionalHoldingRow[];
+  },
   naturalRunKey: string,
   token: number,
   capturedAt: string,
@@ -1222,6 +1327,7 @@ async function materializeSources(
   etfObservations: EtfBasketObservation[];
   sectorObservations: OfficialSectorObservation[];
   productProfiles: ProductSimilarityProfile[];
+  ownershipObservations: OwnershipObservation[];
   manifests: ManifestEntry[];
   replayedRawObjects: number;
 }> {
@@ -1229,6 +1335,7 @@ async function materializeSources(
   await ensureSource(client, ETF_SOURCE, capturedAt);
   await ensureSource(client, SECTOR_SOURCE, capturedAt);
   await ensureSource(client, PROFILE_SOURCE, capturedAt);
+  await ensureSource(client, HOLDINGS_SOURCE, capturedAt);
   const manifests: ManifestEntry[] = [];
   let replayedRawObjects = 0;
 
@@ -1439,10 +1546,89 @@ async function materializeSources(
     inputs.profiles.length - profileWritten,
     { profiles: productProfiles.length },
   );
+  // ── institutional holdings → ownership observations ──────────────────────
+  // One raw object and one source revision per POSITION. See HOLDINGS_SOURCE for
+  // why the grain is a position rather than a filing: COMMON_OWNER needs two
+  // distinct revisions per pair and filing grain gives it one.
+  const holdingsRun = await openFetchRun(
+    client,
+    HOLDINGS_PROVIDER,
+    naturalRunKey,
+    token,
+    capturedAt,
+  );
+  const ownershipObservations: OwnershipObservation[] = [];
+  let holdingsWritten = 0;
+  for (const row of inputs.institutionalHoldings) {
+    const ownerEntityId = numeric(row.owner_entity_id, 'ownerEntityId');
+    const ownedEntityId = numeric(row.owned_entity_id, 'ownedEntityId');
+    // The builder throws on a self-link. A holder that is also an issuer we cover
+    // can legitimately appear on both ends (Berkshire Hathaway files 13F and is a
+    // security), and that is a real position, not corrupt input — it just cannot
+    // be an ownership EDGE between two distinct nodes.
+    if (ownerEntityId === ownedEntityId) continue;
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      provider: HOLDINGS_PROVIDER,
+      institution: row.institution,
+      ownerEntityId,
+      ownedEntityKey: row.owned_entity_key,
+      asOf: row.as_of,
+      filingDate: row.filing_date,
+      valueUsd: row.value_usd,
+      ratePct: row.rate_pct,
+      source: row.source,
+    });
+    const raw = await writeRawObject({
+      providerKey: HOLDINGS_PROVIDER,
+      content: payload,
+      extension: 'json',
+      fetchedAt: capturedDate,
+    });
+    const registered = await registerRawObjectWithRevision(client as unknown as PoolClient, {
+      fetchRunId: holdingsRun.fetchRunId,
+      sourceId: holdingsRun.sourceId,
+      providerRecordKey: `holding:${row.institution}:${row.owned_entity_key}:${row.as_of}`,
+      contentHash: raw.contentHash,
+      objectUri: raw.objectUri,
+      httpMeta: {
+        bytes: raw.bytes,
+        kind: 'transitional_institutional_holdings_snapshot',
+        source_table: HOLDINGS_SOURCE.sourceTable,
+      },
+      fetchedAt: capturedAt,
+    });
+    if (registered.rawInserted) {
+      manifests.push({ providerKey: HOLDINGS_PROVIDER, ref: raw, fetchedAt: capturedDate });
+      holdingsWritten += 1;
+    } else {
+      replayedRawObjects += 1;
+    }
+    ownershipObservations.push({
+      ownerEntityId,
+      ownedEntityId,
+      ownershipKind: 'institutional_holding',
+      sourceRevisionId: registered.sourceRevisionId,
+      // filing_date, not as_of — a 13F position is knowable only once filed.
+      availableAt: `${row.filing_date}T00:00:00.000Z`,
+      validFrom: `${row.as_of}T00:00:00.000Z`,
+    });
+  }
+  await closeFetchRun(
+    client,
+    holdingsRun.fetchRunId,
+    capturedAt,
+    inputs.institutionalHoldings.length,
+    holdingsWritten,
+    inputs.institutionalHoldings.length - holdingsWritten,
+    { observations: ownershipObservations.length },
+  );
+
   return {
     etfObservations,
     sectorObservations,
     productProfiles,
+    ownershipObservations,
     manifests,
     replayedRawObjects,
   };
@@ -1848,6 +2034,27 @@ async function dryRun(client: Client): Promise<void> {
       })),
       { asOf: cutoff },
     );
+    // Ownership. Real entity ids from the same join apply uses; only the revision
+    // ids are stand-ins, and they are per-POSITION exactly as apply mints them —
+    // COMMON_OWNER needs two distinct revisions per pair, so a single shared
+    // placeholder would report zero accepted and apply would report the real
+    // number. A dry run that disagrees with its apply is the defect this file
+    // keeps finding.
+    const dryRunOwnershipReady =
+      (dryRunOntologyIds['HELD_BY'] ?? 0) > 0 && (dryRunOntologyIds['COMMON_OWNER'] ?? 0) > 0;
+    const dryRunOwnership = buildOwnershipCandidates(
+      (dryRunOwnershipReady ? inputs.institutionalHoldings : [])
+        .map((row, index) => ({
+          ownerEntityId: numeric(row.owner_entity_id, 'ownerEntityId'),
+          ownedEntityId: numeric(row.owned_entity_id, 'ownedEntityId'),
+          ownershipKind: 'institutional_holding' as const,
+          sourceRevisionId: 92_000_000 + index,
+          availableAt: `${row.filing_date}T00:00:00.000Z`,
+          validFrom: `${row.as_of}T00:00:00.000Z`,
+        }))
+        .filter((row) => row.ownerEntityId !== row.ownedEntityId),
+      { asOf: cutoff },
+    );
     const etfRetractionPlan = await planRetractionsNotInFromDatabase(client, 'SAME_ETF_BASKET', {
       holdingPairs: etf.candidates.map((candidate) => ({
         subjectEntityId: candidate.subjectEntityId,
@@ -2014,6 +2221,25 @@ async function dryRun(client: Client): Promise<void> {
           candidates: dryRunSupply.candidates.length,
           accepted: dryRunSupply.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
             .length,
+        },
+        ownership: {
+          ontologyApproved: dryRunOwnershipReady,
+          sourceRows: inputs.institutionalHoldingsTotal,
+          resolvedRows: inputs.institutionalHoldings.length,
+          candidates: dryRunOwnership.candidates.length,
+          accepted: dryRunOwnership.candidates.filter(
+            (row) => row.targetRevisionStatus === 'accepted',
+          ).length,
+          quarantined: dryRunOwnership.candidates.filter(
+            (row) => row.targetRevisionStatus !== 'accepted',
+          ).length,
+          byPredicate: Object.fromEntries(
+            ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
+              predicate,
+              dryRunOwnership.candidates.filter((row) => row.predicate === predicate).length,
+            ]),
+          ),
+          superhubExclusions: dryRunOwnership.exclusions.length,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
@@ -2235,6 +2461,25 @@ async function apply(client: Client): Promise<void> {
         availableAt: toIso(row.available_at),
         validFrom: row.valid_from === null ? toIso(row.available_at) : toIso(row.valid_from),
       }),
+    );
+    // Ownership. OWNS/HELD_BY/COMMON_OWNER have been approved since migration 024
+    // and the builder fully tested since B6; what it never had was an owner node.
+    // Gated on the ontology the same way the others are, so a pending approval
+    // produces nothing rather than quarantine noise.
+    const ownershipReady =
+      ontologyIds['HELD_BY'] !== undefined && ontologyIds['COMMON_OWNER'] !== undefined;
+    const ownershipBuilt = buildOwnershipCandidates(
+      ownershipReady ? materialized.ownershipObservations : [],
+      { asOf: capturedAt },
+    );
+    // Confidence 1, same reasoning as the supply disclosure below: a filed
+    // position is an assertion by the filer, not a measurement with a strength.
+    // COMMON_OWNER carries no correlation and makes no claim that the two
+    // securities move together — only that one institution reported both.
+    const ownershipPersisted = await persistRelationCandidates(
+      client as unknown as PoolClient,
+      ownershipBuilt.candidates,
+      { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
     );
     const supplyBuilt = buildSupplyChainCandidates(supplyObservations, { asOf: capturedAt });
     // Confidence 1: a disclosure is an assertion by the filer, not a measurement
@@ -2461,6 +2706,31 @@ async function apply(client: Client): Promise<void> {
             .length,
           inserted: supplyPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: supplyPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
+        ownership: {
+          ontologyApproved: ownershipReady,
+          // What the sibling table holds against what survived the join to core
+          // entities. A holder or security with no core node drops here, and the
+          // gap has to be a number rather than a silence.
+          sourceRows: inputs.institutionalHoldingsTotal,
+          resolvedRows: inputs.institutionalHoldings.length,
+          observations: materialized.ownershipObservations.length,
+          candidates: ownershipBuilt.candidates.length,
+          accepted: ownershipBuilt.candidates.filter(
+            (row) => row.targetRevisionStatus === 'accepted',
+          ).length,
+          quarantined: ownershipBuilt.candidates.filter(
+            (row) => row.targetRevisionStatus !== 'accepted',
+          ).length,
+          byPredicate: Object.fromEntries(
+            ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
+              predicate,
+              ownershipBuilt.candidates.filter((row) => row.predicate === predicate).length,
+            ]),
+          ),
+          superhubExclusions: ownershipBuilt.exclusions.length,
+          inserted: ownershipPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
+          replayed: ownershipPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
         },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,

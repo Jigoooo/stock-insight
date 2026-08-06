@@ -74,6 +74,7 @@ import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series
 import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts';
 import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
 import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
+import { institutionalHolderEntitiesMigrationSql } from './migrations/077_institutional_holder_entities.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -874,6 +875,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: ecosMacroSeriesMigrationSql,
   },
+  {
+    id: '077_institutional_holder_entities',
+    description:
+      "Mints a LegalEntity per institutional holder in public.institutional_holdings, which is the missing subject the ownership builder needed. buildOwnershipCandidates has had approved ontology (024 seeds OWNS/HELD_BY/COMMON_OWNER as approved) and golden/determinism/superhub tests since B6, yet its only callers were tests and HELD_BY never held an edge — not because it was unwired but because core.entity contained no institution to be the owner. The owned side already resolved: 250 of 250 holdings join to a core Stock via public.entities.entity_key. Uses INTERNAL_KEY with an 'INSTITUTION:' prefix rather than CIK, because core.entity_identifier is UNIQUE (identifier_type, identifier_value, namespace) and a holder can also be an issuer we cover (Berkshire Hathaway files here); the CIK is kept in metadata where it is joinable and cannot collide. Derived from the table rather than hardcoded so a later holder is picked up by a re-run, and so the seven holders with no CIK (국민연금공단, 삼성자산운용 …) are not dropped.",
+    tables: [],
+    sql: institutionalHolderEntitiesMigrationSql,
+  },
 ];
 
 export {
@@ -952,5 +960,6 @@ export {
   scheduledEventMigrationSql,
   legislativeActionMigrationSql,
   ecosMacroSeriesMigrationSql,
+  institutionalHolderEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

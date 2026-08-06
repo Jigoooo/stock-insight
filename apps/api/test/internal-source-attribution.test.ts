@@ -75,6 +75,12 @@ describe('internal snapshot provenance attribution', () => {
         'internal-company-profile-snapshot',
         'internal-etf-holdings-snapshot',
         'internal-industry-classification-snapshot',
+        // Added 2026-08-07 with the ownership builder. One raw object and one
+        // source revision per POSITION rather than per filing, because
+        // COMMON_OWNER declares minSourceRevisions: 2 and assembles a pair's
+        // evidence from both legs — at filing grain both legs cite the same
+        // revision and every candidate would quarantine.
+        'internal-institutional-holdings-snapshot',
         'internal-macro-series-window-snapshot',
         // Added 2026-08-05 with MEASURED_BY. Its contract is written by
         // migration 068 rather than ensureSource, because the mapping is a

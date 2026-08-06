@@ -37,8 +37,17 @@ const JOB_NAME = 'stock-insight-source-contract-audit';
  * macro-series-window, stock-price-window.
  *
  * A sixth is a decision someone should make deliberately, so it fails here.
+ *
+ * 5 → 6 on 2026-08-07, and this is that deliberate decision rather than a number
+ * bumped to make a red build green. `internal-institutional-holdings-snapshot`
+ * joins the five: it is the same kind of object — an internal snapshot of a
+ * transitional table owned by a sibling project (public.institutional_holdings),
+ * registered so the ownership builder's positions can cite an immutable source
+ * revision. It is written by the same ensureSource path and carries the same
+ * internal_derived / internal_only policy as the other five, so admitting it under
+ * the same carve-out is consistent rather than an exception to it.
  */
-const EXPECTED_TRANSITIONAL_EXEMPTIONS = 5;
+const EXPECTED_TRANSITIONAL_EXEMPTIONS = 6;
 
 const AUDIT_SQL = `
 SELECT
