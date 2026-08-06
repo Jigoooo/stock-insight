@@ -1445,8 +1445,9 @@ flowchart TB
       <table>
         <thead><tr><th>내가 적은 것</th><th>실제로 잰 것</th></tr></thead>
         <tbody>
-          <tr class="row flow-w"><td><code>EXPOSES</code> accepted 0 — 만들어야 한다</td><td><strong>107개가 이미 원장에 있다.</strong> <code>quarantined_unverified</code> — 수집기가 없어서가 아니라 <strong>서술어가 미승인</strong>이라서. 설명란이 「semantic approval pending」</td></tr>
+          <tr class="row flow-w"><td><code>EXPOSES</code> accepted 0 — 만들어야 한다</td><td><strong>107개가 이미 원장에 있다.</strong> <code>quarantined_unverified</code> — 수집기가 없어서가 아니다</td></tr>
           <tr class="row flow-w"><td>그게 정책→기업 다리다</td><td><strong>107개 전부 Stock → Industry 다.</strong> 정책→기업 모양이 아니다</td></tr>
+          <tr class="row flow-w"><td>미승인 서술어라서 격리됐다 — 설명란이 「semantic approval pending」</td><td><strong>이것도 틀렸다(같은 날 재측정).</strong> 그 문구는 마이그레이션 023 이 레거시 어휘 전체에 찍은 <strong>자동 상투구</strong>지 심사 대기열이 아니다. 막은 것은 승인이 아니라 <strong>증거 0건</strong></td></tr>
         </tbody>
       </table>
     </div>
@@ -1461,8 +1462,59 @@ flowchart TB
       그리고 이건 <code>EXPOSES</code> 만의 일이 아니다. <strong>서술어 16종
       3,312 엣지</strong>가 같은 이유로 격리돼 있다 — <code>AFFECTS</code> 616 ·
       <code>COMMON_OWNER</code> 1,062 · <code>PEER_OF</code> 174 · <code>ROLLS_UP</code> 129.
-      계산은 끝났고 원장에 들어와 있는데 <strong>온톨로지 승인 한 줄</strong>에 막혀
-      서빙까지 못 간다. 오늘 다섯 번 나온 「만들어 놓고 안 쓴다」 의 가장 큰 사례다.
+    </p>
+  </section>
+
+  <section class="s">
+    <h2>정정 — 「온톨로지 승인 한 줄」 은 틀렸다 (같은 날 재측정)</h2>
+    <div class="s-close">닫는 관측 — 승인해도 해제되는 엣지는 0건이다</div>
+    <p>
+      위 문단은 원래 <em>「계산은 끝났고 원장에 들어와 있는데 온톨로지 승인 한 줄에 막혀
+      서빙까지 못 간다」</em> 로 끝났다. <strong>이 문서에서 두 군데가 서로 모순이었다</strong> —
+      임팩트 경로 절은 같은 엣지를 두고 「전부 <strong>증거 부족</strong>으로 격리」 라고
+      옳게 적어놨다. 재보니 그쪽이 맞았다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>측정</th><th class="n">값</th></tr></thead>
+        <tbody>
+          <tr class="row dormant-s"><td>현재 유효한 격리 엣지 (시점 필터 적용)</td><td class="n">3,299</td></tr>
+          <tr class="row dormant-s"><td>3,312 의 정체 — 시점 필터 없이 센 수. 13건은 이미 만료된 개정</td><td class="n">3,312</td></tr>
+          <tr class="row block-s"><td>격리 엣지 중 증거 원장에 행이 있는 것</td><td class="n">0</td></tr>
+          <tr class="row block-s"><td><strong>온톨로지 16종을 전부 승인하면 해제되는 엣지</strong></td><td class="n"><strong>0</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      차단막은 한 겹이 아니라 <strong>세 겹</strong>이고, 승인은 그중 가운데다.
+      가장 바깥은 원장에 저장된 상태 자체다 — <code>RELATION_PIT_SQL</code> 의 승격 분기는
+      저장 상태가 이미 <code>accepted</code> 인 행에만 발동하는데, 3,299건은 전부
+      <code>quarantined_unverified</code> 로 저장돼 있어 승인·증거와 무관하게 떨어진다.
+      <br><br>
+      승인이 게이트가 아니라는 <strong>직접 반례</strong>도 있다. <code>COMMON_OWNER</code>·
+      <code>OWNS</code>·<code>SAME_ETF_BASKET</code> 은 마이그레이션 024 가
+      <strong>이미 승인된 개정판 2를 심어놨다.</strong> 그런데 엣지들은 미승인 개정판 1을
+      가리킨 채 그대로 격리돼 있다.
+      <br><br>
+      출처는 끝까지 따라가 봤다. 포인터는 3,312/3,312 깨끗하게 풀려
+      <code>ops.graph_evidence</code> 83,788건에 닿는다. <strong>그런데 그 끝에 인용할 것이
+      없다</strong> — <code>derived_observation</code> 81,708 · <code>legacy_edge</code> 2,080 이고
+      <code>source_document_id</code> 와 <code>source_key</code> 가 <strong>전건 NULL</strong> 이다.
+      문서도 원천 개정도 없다.
+      <br><br>
+      <strong>그러니 이것은 부채가 아니라 B5 설계가 명세대로 작동하는 상태다.</strong>
+      마이그레이션 023 이 첫 줄에 적어놨다 —
+      <em>“Legacy relations with no evidence are preserved but quarantined.”</em>
+      「만들어 놓고 안 쓴다」 의 가장 큰 사례로 세었던 항목이 <strong>재보니 항목이 아니었다.</strong>
+    </p>
+    <p>
+      대신 그 자리에 진짜가 하나 나왔다. <strong><code>ownership</code> 빌더</strong>
+      (<code>OWNS</code>·<code>HELD_BY</code>·<code>COMMON_OWNER</code>) 는 온톨로지 승인 완료,
+      구현 완료, 골든·결정성·슈퍼허브 테스트 완비인데 <strong>프로덕션 호출자가 0개</strong>다.
+      빌더 8개 중 6개가 배선돼 있고 미배선은 둘인데, <code>news-relation</code> 은 024 가
+      「승격 불가」로 설계한 것이라 <strong>결함은 이쪽 하나다</strong>. <code>HELD_BY</code> 는 엣지가
+      한 번도 없었다. 다만 배선 작업은 아니다 — 빌더가 <code>sourceRevisionId</code> 를 요구하는데
+      13F 수집기가 저장소에 없다 (<code>sec-edgar</code> 148 개정은 전량 companyfacts XBRL).
     </p>
   </section>
 
