@@ -113,6 +113,14 @@ fi
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-calendar-promote.ts --apply
 pipeline_record_stage_success stock-insight-calendar-promote-stage "$RUN_STARTED_AT" || exit $?
 
+# Legislative actions. The one gap no project filled — migration 074 recorded it as
+# absent, and CONGRESS_GOV_API_KEY arrived 2026-08-07. Two pages of 250 is two
+# requests against a 5,000/hour allowance, sorted newest-action-first so a bounded
+# run gets the actions that just happened rather than an arbitrary slice.
+DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
+  apps/api/src/ingest/run-congress-bills.ts --pages 2 --apply
+pipeline_record_stage_success stock-insight-congress-bills-stage "$RUN_STARTED_AT" || exit $?
+
 # B3 — supply/customer disclosure out of 사업보고서. LAST on purpose, and Sunday
 # only.
 #

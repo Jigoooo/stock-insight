@@ -72,6 +72,7 @@ import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts
 import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_license_tier.ts';
 import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series_natural_gas.ts';
 import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts';
+import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -858,6 +859,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: scheduledEventMigrationSql,
   },
+  {
+    id: '075_legislative_action',
+    description:
+      "Admits 'legislative_action' into market.scheduled_event. Migration 074 stated the table was not a legislative calendar because no project collected one — macro_calendar.py's policy_events are news headlines with a category and carry no vote date, chamber or bill id. CONGRESS_GOV_API_KEY was added on 2026-08-07 and api.congress.gov returns exactly the missing shape (S850 2026-08-05 Passed Senate; HR9882 2026-07-22 Referred to the House Committee on Homeland Security), so the kind is admitted and 074's note is superseded rather than left reading as current. Modelled as one row per bill action rather than as a bill: a bill has identity and a months-long stream of actions, and faking that by overloading a calendar row would be worse than leaving the richer model for later.",
+    tables: [],
+    sql: legislativeActionMigrationSql,
+  },
 ];
 
 export {
@@ -934,5 +942,6 @@ export {
   dartSupplyLicenseTierMigrationSql,
   macroSeriesNaturalGasMigrationSql,
   scheduledEventMigrationSql,
+  legislativeActionMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };
