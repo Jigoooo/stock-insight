@@ -129,6 +129,9 @@ function MarketConnectionDetailContent({
   const rawStrength = detail.item.rawStrength;
   const compactPaths = detail.paths.slice(0, 1);
   const geoFeatures = geoSnapshot?.geojson.features ?? [];
+  const personalEntities = detail.item.connectedEntities.filter(
+    ({ holding, watched }) => holding || watched,
+  );
   const relatedEntities = relation
     ? relation.nodes.filter(({ entityKey }) => entityKey !== relation.rootEntityKey)
     : [];
@@ -153,10 +156,10 @@ function MarketConnectionDetailContent({
           </section>
         )}
 
-        {detail.item.connectedEntities.length > 0 && (
+        {personalEntities.length > 0 && (
           <section aria-labelledby="market-inspector-entities">
             <h3 id="market-inspector-entities">연결된 내 보유·관심 종목</h3>
-            <EntityConnections entities={detail.item.connectedEntities} />
+            <EntityConnections entities={personalEntities} />
           </section>
         )}
 

@@ -60,6 +60,8 @@ describe('market secondary exploration UI structure', () => {
     assert.match(exploration, /componentState\.rowCount/);
     assert.match(exploration, /갱신 지연/);
     assert.match(exploration, /kind="partial"/);
+    assert.match(exploration, /kind="empty"/);
+    assert.match(exploration, /현재 표시할 변화 없음/);
     assert.match(exploration, /kind="error"/);
     assert.match(exploration, /kind="unavailable"/);
   });

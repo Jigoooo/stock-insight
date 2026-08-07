@@ -50,6 +50,11 @@ const naver = entity('KR:035420', 'NAVER', true, false);
 const hyundai = entity('KR:005380', '현대자동차', true, false);
 const lgChem = entity('KR:051910', 'LG화학', true, false);
 const microsoft = entity('US:MSFT', 'Microsoft', false, true);
+const marketHyundai = entity('KR:005380', '현대자동차', false, false);
+const marketLgChem = entity('KR:051910', 'LG화학', false, false);
+const marketNvidia = entity('US:NVDA', 'NVIDIA', false, false);
+const marketNaver = entity('KR:035420', 'NAVER', false, false);
+const marketSamsung = entity('KR:005930', '삼성전자', false, false);
 
 function item(
   value: Omit<MarketConnectionItem, 'connectedEntities'> & {
@@ -141,7 +146,7 @@ const freightStory = item({
   strength: 'medium',
   rawStrength: 0.48,
   occurredAt: '2026-08-07T20:20:00.000Z',
-  connectedEntities: [hyundai, lgChem],
+  connectedEntities: [marketHyundai, marketLgChem],
   primaryPath: '원유·운임 → 원재료와 물류비 → 재고 반영 → 제조 원가',
   riskSummary: '장기 운송 계약과 재고 수준 때문에 현물 가격 변화가 즉시 반영되지 않을 수 있습니다.',
 });
@@ -157,7 +162,7 @@ const dollarStory = item({
   strength: 'low',
   rawStrength: 0.31,
   occurredAt: '2026-08-07T19:10:00.000Z',
-  connectedEntities: [nvidia, naver, samsung],
+  connectedEntities: [marketNvidia, marketNaver, marketSamsung],
   primaryPath: '달러 유동성 → 금리와 환율 → 밸류에이션·환산 실적 → 시장 변동성',
   riskSummary: '달러 강세가 모든 기업에 같은 방향의 영향을 준다고 볼 수 없습니다.',
 });
@@ -365,7 +370,9 @@ const storyByKey = new Map<string, PreviewStory>(
 const marketConnections: MarketConnectionsModel = {
   summary: {
     changeCount: allItems.length,
-    directConnectionCount: 4,
+    directConnectionCount: allItems.filter(
+      ({ scope }) => scope === 'holding' || scope === 'watchlist',
+    ).length,
     riskCount: allItems.length,
     analyzedAt,
   },

@@ -535,6 +535,16 @@
 - fresh Market Connections desktop/mobile은 19건 통과·5건 viewport 조건 skip·0건 실패, Today·Stocks 포함 비례 회귀는 67건 통과·23건 조건 skip·0건 실패임
 - focused Node 79건, format 1,327개 파일, lint 0 errors(기존 warning 6개), typecheck 11/11 tasks, `git diff --check`를 통과했고 `graphify update .`는 10,589 nodes·18,196 edges·713 communities로 갱신됨
 
+### 2026-08-08 — 시장 연결 경험 최종 review 정합성 보정
+
+- live Radar 상세 제목을 `종목명 · 신호 유형`으로 보강하고, 정상 조회된 0건 component watermark의 `empty`를 missing/unavailable과 분리해 `현재 표시할 변화 없음`으로 표시함
+- 상세의 `연결된 내 보유·관심 종목`은 holding 또는 watched인 entity만 표시한다. no-personalized 시장 전반 story는 개인 종목 섹션을 생략하고, 넓은 modal의 근거 기반 `연관 기업`에만 시장 entity를 유지함
+- preview 직접 연결 집계는 holding/watchlist scope에서 계산해 `3`으로 고정했고, no-personalized story entity는 holding/watchlist flag가 모두 false임을 Node와 E2E로 검증함
+- 승인 문구를 상대 강도 `강함`, scope `시장 전반 변화`로 맞췄으며, component E2E fixture에는 digest와 snapshot id를 갖춘 유효한 empty GeoSnapshot과 전용 TypeScript gate를 추가함
+- TDD RED는 focused Node `36건 중 8건 실패`, fixture typecheck의 필수 `geoSnapshot` 누락, desktop no-personalized 상세의 개인 종목 heading 1개 노출을 각각 재현함. locator 중복 1건은 `연관 기업` 영역으로 좁혀 제품 의미 구조를 유지함
+- fresh GREEN은 focused Task 6 Node `79/79`, Market Connections desktop/mobile `19건 통과·5건 viewport 조건 skip·0건 실패`, fixture typecheck, root typecheck `11/11`, format `1,328`개, lint `0 errors`(기존 warning 6), `git diff --check` 통과임. shared frame·Today·Stocks 구현은 변경하지 않아 별도 비례 회귀는 생략함
+- `graphify update .` 완료: 10,623 nodes·18,234 edges·711 communities. DB, migration, API server, 공개 contract, dependency, route는 변경하지 않았고 기존 disposable DB/auth 환경 제약은 재분류하지 않음
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

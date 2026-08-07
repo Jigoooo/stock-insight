@@ -101,7 +101,7 @@ export function marketConnectionScope(
 }
 
 export function marketConnectionStrengthLabel(value: MarketConnectionStrength): string {
-  return { high: '높음', medium: '보통', low: '낮음' }[value];
+  return { high: '강함', medium: '보통', low: '낮음' }[value];
 }
 
 export function marketConnectionScopeLabel(value: MarketConnectionScope): string {
@@ -109,7 +109,7 @@ export function marketConnectionScopeLabel(value: MarketConnectionScope): string
     holding: '보유종목',
     watchlist: '관심종목',
     indirect: '간접 연결',
-    market: '시장 전체',
+    market: '시장 전반 변화',
   }[value];
 }
 
@@ -159,7 +159,7 @@ function radarSignalToMarketConnection(signal: RadarSignalItem): MarketConnectio
   return {
     connectionKey: signal.signalKey,
     market: signal.market,
-    title: signalTypeLabel(signal.signalType),
+    title: `${signal.name} · ${signalTypeLabel(signal.signalType)}`,
     summary: signal.summary,
     scope: marketConnectionScope(signal),
     strength: marketConnectionStrength(signal.strength),

@@ -388,6 +388,22 @@ test('localizes no-personalized, empty, partial, and permanent detail-error scen
   await expect(page.getByText('개인화된 주요 변화가 없습니다', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: '내 종목에 연결된 주요 변화' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '그 밖의 시장 변화' })).toBeVisible();
+  const marketOnlyTitle = '유가와 운임 변화가 제조업 원가에 반영되는 시차를 확인합니다';
+  const { inspector: marketOnlyInspector } = await openStory(
+    page,
+    storyOpener(page, marketOnlyTitle),
+    marketOnlyTitle,
+  );
+  await expect(
+    marketOnlyInspector.getByRole('heading', { name: '연결된 내 보유·관심 종목' }),
+  ).toHaveCount(0);
+  if (testInfo.project.name === 'desktop') {
+    await marketOnlyInspector.getByRole('button', { name: '넓게 보기' }).click();
+    await expect(marketOnlyInspector.getByRole('heading', { name: '연관 기업' })).toBeVisible();
+    await expect(
+      marketOnlyInspector.getByLabel('연관 기업').getByText('LG화학', { exact: true }),
+    ).toBeVisible();
+  }
 
   await gotoPreview(page, 'empty');
   await expect(page.getByText('감지된 시장 변화가 없습니다', { exact: true })).toBeVisible();

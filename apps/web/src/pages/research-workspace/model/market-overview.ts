@@ -13,7 +13,13 @@ export const MARKET_EXPLORATION_IDS = [
 ] as const;
 
 export type MarketExplorationId = (typeof MARKET_EXPLORATION_IDS)[number];
-export type MarketExplorationAvailability = 'available' | 'partial' | 'stale' | 'missing' | 'error';
+export type MarketExplorationAvailability =
+  | 'available'
+  | 'partial'
+  | 'stale'
+  | 'empty'
+  | 'missing'
+  | 'error';
 
 export type MarketExplorationDefinition = {
   id: MarketExplorationId;
@@ -110,7 +116,7 @@ function buildSignalTypeGroups(items: RadarSignalItem[]): SignalTypeGroup[] {
 function normalizeAvailability(
   availability: MarketComponentWatermark['availability'] | GeoSnapshot['availability'],
 ): MarketExplorationAvailability {
-  if (availability === 'empty' || availability === 'unavailable') return 'missing';
+  if (availability === 'unavailable') return 'missing';
   return availability;
 }
 

@@ -177,13 +177,13 @@ describe('market secondary exploration model', () => {
     );
   });
 
-  it('reports empty component clocks as missing without borrowing another clock', () => {
+  it('preserves empty component clocks without borrowing another clock', () => {
     const emptyFactor = {
       ...watermarks,
       factor_map: { availability: 'empty', watermarkAt: null, rowCount: 0 },
     } satisfies MarketComponentWatermarks;
     assert.deepEqual(resolveMarketExplorationState('factor_map', emptyFactor), {
-      availability: 'missing',
+      availability: 'empty',
       watermarkAt: null,
       rowCount: 0,
     });

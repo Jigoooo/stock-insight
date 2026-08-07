@@ -10,6 +10,12 @@ import {
 } from '../../../apps/web/src/pages/research-workspace/model/market-connections';
 import { MarketConnectionsView } from '../../../apps/web/src/pages/research-workspace/ui/views/market-connections-view';
 
+import {
+  computeGeoSnapshotDigest,
+  deriveGeoSnapshotId,
+  type GeoSnapshot,
+  type GeoSnapshotSealMaterial,
+} from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 type DeferredRequest = {
@@ -77,7 +83,7 @@ function takeRequest(connectionKey: string) {
   const requests = pending.get(connectionKey);
   const request = requests?.shift();
   if (!request) throw new Error(`No pending fixture request for ${connectionKey}`);
-  if (requests.length === 0) pending.delete(connectionKey);
+  if (requests?.length === 0) pending.delete(connectionKey);
   return request;
 }
 
@@ -128,10 +134,40 @@ const radarPage: RadarSignalPage = {
   nextCursor: null,
 };
 
+const emptyGeoSnapshotMaterial = {
+  version: 1,
+  knownAt: occurredAt,
+  validAt: occurredAt,
+  sourceAsOf: null,
+  availability: 'empty',
+  geojson: { type: 'FeatureCollection', features: [] },
+  mvt: {
+    contentType: 'application/vnd.mapbox-vector-tile',
+    minZoom: 0,
+    maxZoom: 0,
+  },
+  h3: { resolution: 3, cells: [] },
+  rejected: { count: 0, reasons: [] },
+  limitations: ['시장 연결 컴포넌트 fixture에는 표시할 지역 데이터가 없습니다.'],
+} satisfies GeoSnapshotSealMaterial;
+const emptyGeoSnapshotDigest = computeGeoSnapshotDigest(emptyGeoSnapshotMaterial);
+const emptyGeoSnapshot = {
+  ...emptyGeoSnapshotMaterial,
+  snapshotId: deriveGeoSnapshotId(emptyGeoSnapshotDigest),
+  digest: emptyGeoSnapshotDigest,
+  generatedAt: occurredAt,
+  mvt: {
+    ...emptyGeoSnapshotMaterial.mvt,
+    available: false,
+    urlTemplate: null,
+  },
+} satisfies GeoSnapshot;
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Market connections fixture root is missing');
 createRoot(root).render(
   <MarketConnectionsView
+    geoSnapshot={emptyGeoSnapshot}
     interactive
     loadMarketConnectionDetail={loadMarketConnectionDetail}
     marketConnections={marketConnections}

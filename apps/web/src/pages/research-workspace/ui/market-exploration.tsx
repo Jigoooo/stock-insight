@@ -22,6 +22,7 @@ const componentAvailabilityLabel = {
   available: '최신',
   partial: '부분 제공',
   stale: '갱신 지연',
+  empty: '표시할 변화 없음',
   missing: '데이터 없음',
   error: '확인 필요',
 } as const;
@@ -217,6 +218,15 @@ export function MarketExploration({
           kind="error"
           title={`${mode.title} 데이터를 확인하지 못했습니다`}
           description="연결된 원천 상태를 확인한 뒤 이 탐색을 다시 살펴보세요."
+        />
+      );
+    }
+    if (componentState.availability === 'empty') {
+      return (
+        <WorkspaceState
+          kind="empty"
+          title="현재 표시할 변화 없음"
+          description="데이터는 정상적으로 확인했지만 현재 기준 시점에 표시할 시장 변화가 없습니다."
         />
       );
     }

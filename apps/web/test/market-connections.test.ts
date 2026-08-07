@@ -214,7 +214,7 @@ describe('market connections model', () => {
       holding: true,
       watched: true,
     });
-    assert.equal(model.priorityChanges[0]?.title, '가격 변화');
+    assert.equal(model.priorityChanges[0]?.title, 'NVIDIA · 가격 변화');
     assert.equal(model.marketChanges[0]?.scope, 'market');
     assert.equal(model.marketChanges[0]?.whyNow, undefined);
     assert.equal(model.marketChanges[0]?.primaryPath, undefined);
@@ -226,13 +226,13 @@ describe('market connections model', () => {
     assert.equal(marketConnectionStrength(0.669_999), 'medium');
     assert.equal(marketConnectionStrength(0.34), 'medium');
     assert.equal(marketConnectionStrength(0.339_999), 'low');
-    assert.equal(marketConnectionStrengthLabel('high'), '높음');
+    assert.equal(marketConnectionStrengthLabel('high'), '강함');
     assert.equal(marketConnectionStrengthLabel('medium'), '보통');
     assert.equal(marketConnectionStrengthLabel('low'), '낮음');
     assert.equal(marketConnectionScopeLabel('holding'), '보유종목');
     assert.equal(marketConnectionScopeLabel('watchlist'), '관심종목');
     assert.equal(marketConnectionScopeLabel('indirect'), '간접 연결');
-    assert.equal(marketConnectionScopeLabel('market'), '시장 전체');
+    assert.equal(marketConnectionScopeLabel('market'), '시장 전반 변화');
   });
 
   it('deduplicates only identical keys in provided models and returns an honest empty live model', () => {
@@ -293,7 +293,7 @@ describe('market connection live detail loader', () => {
     });
 
     assert.equal(result.detail.item.connectionKey, 'signal-detail');
-    assert.equal(result.detail.item.title, '가격 변화');
+    assert.equal(result.detail.item.title, 'NVIDIA · 가격 변화');
     assert.equal(result.detail.generatedAt, occurredAt);
     assert.equal(result.detail.availability, 'available');
     assert.deepEqual(
@@ -307,7 +307,7 @@ describe('market connection live detail loader', () => {
     assert.deepEqual(result.detail.sources, [
       {
         id: 'radar-signal-detail',
-        title: '가격 변화',
+        title: 'NVIDIA · 가격 변화',
         summary: '같은 시각에 관측된 같은 유형의 변화',
         sourceName: 'market_signals',
         publishedAt: occurredAt,
@@ -394,6 +394,11 @@ describe('market connections development preview', () => {
     assert.ok(first.data.geoSnapshot.geojson.features.length > 0);
     assert.equal(new URL(first.data.geoSnapshot.mvt.urlTemplate ?? '').protocol, 'https:');
     assert.equal(first.marketConnections.priorityChanges.length, 3);
+    assert.equal(
+      first.marketConnections.summary.directConnectionCount,
+      visibleItems.filter(({ scope }) => scope === 'holding' || scope === 'watchlist').length,
+    );
+    assert.equal(first.marketConnections.summary.directConnectionCount, 3);
     assert.ok(first.marketConnections.marketChanges.some(({ scope }) => scope !== 'market'));
     assert.ok(
       first.marketConnections.marketChanges.filter(({ scope }) => scope === 'market').length >= 2,
@@ -504,6 +509,12 @@ describe('market connections development preview', () => {
       assert.deepEqual(noPersonalized.marketConnections.priorityChanges, []);
       assert.ok(noPersonalizedItems.length >= 2);
       assert.ok(noPersonalizedItems.every(({ scope }) => scope === 'market'));
+      assert.equal(noPersonalized.marketConnections.summary.directConnectionCount, 0);
+      assert.ok(
+        noPersonalizedItems.every(({ connectedEntities }) =>
+          connectedEntities.every(({ holding, watched }) => !holding && !watched),
+        ),
+      );
       await noPersonalized.loader(noPersonalizedItems[0]!.connectionKey);
       await assert.rejects(
         noPersonalized.loader('preview:semiconductor-ai-supply'),

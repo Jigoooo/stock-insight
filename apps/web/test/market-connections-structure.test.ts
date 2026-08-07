@@ -123,7 +123,11 @@ describe('market connections workspace structure', () => {
 
     assert.match(
       inspector,
-      /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?detail\.item\.connectedEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?detail\.counterEvidence\.length > 0 \|\|[\s\S]*?detail\.risks\.length > 0 \|\|[\s\S]*?detail\.checkpoints\.length > 0[\s\S]*?반대 근거와 확인할 리스크[\s\S]*?데이터 기준 시각과 근거 수준/,
+      /const personalEntities = detail\.item\.connectedEntities\.filter\([\s\S]*?holding \|\| watched/,
+    );
+    assert.match(
+      inspector,
+      /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?personalEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?entities=\{personalEntities\}[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?detail\.counterEvidence\.length > 0 \|\|[\s\S]*?detail\.risks\.length > 0 \|\|[\s\S]*?detail\.checkpoints\.length > 0[\s\S]*?반대 근거와 확인할 리스크[\s\S]*?데이터 기준 시각과 근거 수준/,
     );
     assert.match(inspector, /detail\.availability === 'missing'/);
     assert.doesNotMatch(inspector, /일부 상세 데이터가 준비되지 않았습니다|styles\.partialState/);
