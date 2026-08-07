@@ -485,6 +485,7 @@
 - `no-holdings` fixture가 보유 수만 0으로 바꾸고 연결 뉴스 8건·리스크 3건·분석 시각을 남기던 모순을 제거해, 세 미지원 집계를 각각 `—`와 접근 가능한 unavailable label로 표시함
 - 768–807px modal은 quick motion이 안정된 두 animation frame 뒤 geometry를 측정하고 CSS 폭을 `100vw - 52px`로 보정해 양쪽 26px 설계 여유를 확보함. 경계 회귀 20회 반복에서 20/20 통과함
 - fresh 자동 검증: Stocks Playwright desktop/mobile 22건 통과·조건부 8건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, 전체 10개 테스트 task, format·lint·typecheck·build 통과
+- review 2차에서는 drawer 요약 회귀를 실제 separator와 session storage 경로로 확장해 기본 520px와 최소 420px 모두에서 inspector 폭, 각 값의 유효 폭, 가격·변화율 1줄과 분석 기준 최대 2줄을 검증함. 첫 실행부터 현재 구현이 계약을 만족했고 12회 반복 12/12, fresh Stocks desktop/mobile 22건 통과·조건부 8건 skip을 기록해 production 코드는 변경하지 않음
 - Codex 인앱 브라우저 재확인: controller가 drawer summary와 desktop/mobile 상태를 별도 수행 예정
 
 ## 실행 환경 메모

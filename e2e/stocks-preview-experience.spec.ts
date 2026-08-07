@@ -53,6 +53,30 @@ async function waitForStableGeometry(locator: Locator) {
     .toBe(true);
 }
 
+async function expectReadableSummaryMetrics(inspector: Locator, expectedDrawerWidth: number) {
+  await expect
+    .poll(async () => (await inspector.boundingBox())?.width)
+    .toBeCloseTo(expectedDrawerWidth, 0);
+  const values = inspector.locator(
+    'section[aria-labelledby="stock-inspector-summary"] dl > div > dd',
+  );
+  await expect(values).toHaveCount(3);
+  const geometry = await values.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      return {
+        lineCount: range.getClientRects().length,
+        width: node.getBoundingClientRect().width,
+      };
+    }),
+  );
+  for (const value of geometry) expect(value.width).toBeGreaterThanOrEqual(64);
+  expect(geometry[0]?.lineCount).toBe(1);
+  expect(geometry[1]?.lineCount).toBe(1);
+  expect(geometry[2]?.lineCount ?? Infinity).toBeLessThanOrEqual(2);
+}
+
 test.beforeEach(async ({ page }) => {
   await gotoPreview(page);
 });
@@ -113,29 +137,27 @@ test('opens the stock drawer above the workspace without changing page geometry'
   expect(await inspector.evaluate((node) => getComputedStyle(node).position)).toBe('fixed');
 });
 
-test('keeps drawer summary values readable instead of collapsing the value column', async ({
+test('keeps drawer summary values readable at the default and minimum widths', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'desktop drawer summary contract');
-  const { inspector } = await openStock(panelForHeading(page, '우선 확인할 보유종목'), '삼성전자');
-  const values = inspector.locator(
-    'section[aria-labelledby="stock-inspector-summary"] dl > div > dd',
-  );
-  await expect(values).toHaveCount(3);
-  const geometry = await values.evaluateAll((nodes) =>
-    nodes.map((node) => {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      return {
-        lineCount: range.getClientRects().length,
-        width: node.getBoundingClientRect().width,
-      };
-    }),
-  );
-  for (const value of geometry) expect(value.width).toBeGreaterThanOrEqual(64);
-  expect(geometry[0]?.lineCount).toBe(1);
-  expect(geometry[1]?.lineCount).toBe(1);
-  expect(geometry[2]?.lineCount ?? Infinity).toBeLessThanOrEqual(2);
+  await page.evaluate(() => sessionStorage.clear());
+  await gotoPreview(page);
+  try {
+    const { inspector } = await openStock(
+      panelForHeading(page, '우선 확인할 보유종목'),
+      '삼성전자',
+    );
+    const resizer = page.getByRole('separator', { name: '종목 브리핑 인스펙터 너비 조절' });
+    await expect(resizer).toHaveAttribute('aria-valuenow', '520');
+    await expectReadableSummaryMetrics(inspector, 520);
+
+    for (let step = 0; step < 7; step += 1) await resizer.press('ArrowRight');
+    await expect(resizer).toHaveAttribute('aria-valuenow', '420');
+    await expectReadableSummaryMetrics(inspector, 420);
+  } finally {
+    await page.evaluate(() => sessionStorage.clear());
+  }
 });
 
 test('overlay click closes only and does not activate the stock behind it', async ({
