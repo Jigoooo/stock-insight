@@ -797,23 +797,24 @@
           <code>CLASSIFIED_AS</code> 5,624회, 그리고 <strong>새로
           <code>MACRO_COMOVEMENT</code></strong> — 스냅샷 23 기준 222회.
           <br><br>
-          네 번째가 붙었지만 <strong>인과는 원장에서 여전히 0이다</strong>
-          (2026-08-06 에 공시 수집으로 후보 20건이 생겼고 발행을 기다린다). 잰 것은 "함께
-          움직였다" 하나이고 ETF·유사도와 같은 층위다. 이름을 <code>AFFECTS</code>·
-          <code>EXPOSES</code> 로 짓지 않은 이유가 그것이다.
-          <code>SUPPLY_CHAIN</code>·<code>OWNS</code>·<code>AFFECTS</code>·<code>EXPOSES</code>
-          는 <strong>단 한 번도 밟히지 않는다</strong> — 전부 증거 부족으로 격리(3,312)돼
-          스냅샷에 못 들어간다.
+          <strong>그 뒤 인과가 원장에 들어왔다(2026-08-07).</strong> 공시 수집이 발행돼
+          <code>SUPPLIES</code> 10 · <code>CUSTOMER_OF</code> 10 이 accepted 다 — 「A 가 B 에게
+          판다」 는 공시된 주장이지 통계적 동행이 아니다. 소유 층도 붙었다:
+          <code>HELD_BY</code> 250 · <code>COMMON_OWNER</code> 1,391.
           <br><br>
-          인과를 얻는 남은 길은 <strong>공급망 공시 수집 하나뿐</strong>이다.
+          다만 <code>MACRO_COMOVEMENT</code> 는 여전히 인과가 아니고, 그래서 여전히
+          <code>AFFECTS</code> 로 부르지 않는다. 잰 것은 "함께 움직였다" 하나다.
+          <code>AFFECTS</code> 616 · <code>SUPPLY_CHAIN</code> 169 · <code>EXPOSES</code> 107 ·
+          <code>OWNS</code> 64 는 <strong>아직 한 번도 밟히지 않는다</strong> — 전부 증거 없이
+          격리돼(현재 2,768) 스냅샷에 못 들어간다.
         </p>
       </div>
       <div class="verdict">
         <span class="verdict-q">Q. 타고 · 타고 · 타고 의 다중 홉이 되는가</span>
         <span class="verdict-a">2홉까지. 3홉 이상은 0건이고, 2홉도 인과가 아니다</span>
         <p>
-          봉인된 경로 124,093개 중 1홉이 121,277개(97.7%), 2홉이 2,816개,
-          <strong>3홉 이상은 여전히 0개</strong>다.
+          누적 봉인 경로는 241,188개다. 최신 스냅샷(37)만 보면 1홉 6,203 · 2홉 849 ·
+          <strong>3홉 이상은 여전히 0개</strong>다 — 소유 층이 붙어도 깊이는 안 늘었다.
           <br><br>
           <strong>다만 2홉의 모양이 처음으로 늘었다.</strong> 지금까지 2홉은
           <code>CLASSIFIED_AS</code> 두 번(<code>A → 분류 ← B</code>, 공통 소속)뿐이었는데,
@@ -966,16 +967,16 @@
 flowchart TB
 
   subgraph S1["1 · 수집"]
-    RSSDOC["source_documents · rss_news<br/>4,338건 중 entity_key <b>7건 (0.2%)</b>"]
+    RSSDOC["source_documents · news<br/>5,370건 중 entity_key <b>7건 (0.1%)</b><br/>문서는 늘고 키는 그대로다"]
     STKDOC["source_documents · stock_research<br/>5,477건 중 entity_key 3,789 (69%)"]
-    MACRO["market.macro_vintage<br/>55,775행 · 13계열 · 매일 갱신"]
+    MACRO["market.macro_vintage<br/>77,231행 · <b>fred 15 + ecos 6</b> 계열<br/>KOSPI 는 계열이 아니라 <b>시장 팩터</b>"]
     COV["coverage_ledger 3,955셀<br/>미수집 1,907 · 완료 1,613"]
   end
 
   subgraph S2["2 · 지식"]
-    EVENT["knowledge.event 4,105<br/>귀속 1,637 · <b>미귀속 2,468</b>"]
-    MACROEV["미귀속 중 거시 성격 <b>872</b><br/>policy_event 623 · regulation 152<br/>macro_shock 97 · 전부 타깃 없음"]
-    CLAIM["knowledge.claim<br/>corroborated 325 · verified 0<br/>객체는 전부 자유 텍스트"]
+    EVENT["knowledge.event 4,429<br/>귀속 1,764 · <b>미귀속 2,665</b>"]
+    MACROEV["미귀속 중 거시 성격 <b>863</b><br/>어휘에 안 걸리는 policy_event 576<br/>SpaceX 언급만 <b>305</b> — 유니버스 밖"]
+    CLAIM["knowledge.claim<br/>corroborated 341 · <b>verified 9</b><br/>객체는 전부 자유 텍스트"]
   end
 
   subgraph SFIX["정정된 것 — 피드 라벨 1,478건"]
@@ -983,21 +984,21 @@ flowchart TB
   end
 
   subgraph SDEAD["붙었는데 이어질 곳이 없는 곳"]
-    NARR["내러티브 엔티티 4개<br/>tariffs · ai_capex · semiconductor · gl_major_event<br/><b>붙은 사건 94 → 0</b> · 그래프 엣지 0"]
+    NARR["내러티브 엔티티 4개<br/>tariffs · ai_capex · semiconductor · gl_major_event<br/><b>붙은 사건 0</b> · 그래프 엣지 0"]
   end
 
   subgraph S3["3 · 관계 — 여기가 좁다"]
-    ACC["rejected 39 · 스냅샷 29 기준<br/>SAME_ETF_BASKET 2,501 · PRODUCT_SIMILARITY 2,479<br/>ISSUED_BY 254 · CLASSIFIED_AS 119 · MACRO_COMOVEMENT 23 · MEASURED_BY 14<br/>SUPPLIES · CUSTOMER_OF 후보 20 (발행 대기)"]
-    QUAR["격리 3,312<br/>AFFECTS 616 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · SUPPLY_CHAIN 169"]
-    MACROREL["MACRO_COMOVEMENT <b>23</b> + MEASURED_BY <b>14</b><br/>066·067·068 적용 · 베타 조정 · 철회 21<br/>주제 → 계열 → 종목 · 통계적 동행"]
-    SUPPLY["SUPPLIES · CUSTOMER_OF<br/>정책 ✓ 빌더 ✓ 테이블 ✓ 수집 ✓<br/><b>공시 10행 → 후보 20 (발행 대기)</b>"]
-    THEME["theme_membership 396<br/>전부 adjacent · 근거 93% 격리"]
-    SNAP["graph_snapshot_edge<br/>스냅샷 29 · 엣지 5,390 · 엔티티 670"]
+    ACC["스냅샷 37 기준 · accepted 7,059<br/>SAME_ETF_BASKET 2,501 · PRODUCT_SIMILARITY 2,479<br/><b>COMMON_OWNER 1,391 · HELD_BY 250</b> · ISSUED_BY 254<br/>CLASSIFIED_AS 119 · MACRO_COMOVEMENT 25 · MEASURED_BY 20<br/>SUPPLIES 10 · CUSTOMER_OF 10"]
+    QUAR["격리 <b>3,312 → 2,768</b><br/>AFFECTS 616 · COMMON_OWNER 531 · SAME_INDUSTRY 418<br/>SAME_THEME 410 · PEER_OF 174 · SUPPLY_CHAIN 169<br/><b>막는 것은 승인이 아니라 증거 0</b>"]
+    MACROREL["MACRO_COMOVEMENT <b>25</b> + MEASURED_BY <b>20</b><br/>ECOS 한국 금리 6엣지 · KR 팩터를 KOSPI 로 교체<br/>주제 → 계열 → 종목 · 통계적 동행"]
+    OWNED["OWNS · HELD_BY · COMMON_OWNER<br/>막은 것은 13F 수집기가 아니라 <b>소유자 노드</b>였다<br/>LegalEntity 13 + 팩 예산 → <b>1,641 엣지</b><br/>레거시 격리 <b>531 이 되살아났다</b>"]
+    THEME["theme_membership 396<br/>전부 adjacent · 근거 <b>100% 격리 · 증거 0행</b><br/>읽는 코드 0줄"]
+    SNAP["graph_snapshot_edge<br/>스냅샷 <b>37</b> · 엣지 <b>7,062</b> · 엔티티 691"]
   end
 
   subgraph S4["4 · 임팩트 · 서빙"]
-    IP2["impact_path_v2 124,093 봉인<br/>1홉 121,277 · 2홉 2,816 · <b>3홉+ 0</b><br/>2홉에 종목→거시→종목 4건"]
-    ITEM["content_pack 317 · 아이템 94,768"]
+    IP2["impact_path_v2 241,188 봉인<br/>스냅샷 37: 1홉 6,203 · 2홉 849 · <b>3홉+ 0</b><br/>사건당 술어 4종이 <b>162 → 175</b>"]
+    ITEM["content_pack 612 · 아이템 118,901<br/><b>팩 예산 460/512 · 초과 0</b>"]
     CONF["market_confirmation_v1<br/>화면 미연결"]
   end
 
@@ -1019,12 +1020,12 @@ flowchart TB
   EVENT --> CLAIM
   CLAIM -.->|"문서 2건 요건 미달"| QUAR
   NARR x--x|"잇는 술어가 없다"| SNAP
-  MACRO ==>|"14계열 중 6계열을 잰다"| MACROREL
-  MACROREL ==>|"50엣지 · 경로가 16회 밟는다"| SNAP
+  MACRO ==>|"21계열 중 12계열을 잰다"| MACROREL
+  MACROREL ==>|"45엣지 · 경로가 519회 밟는다"| SNAP
   ACC ==>|"유사도 엣지만 통과"| SNAP
-  QUAR x--x|"인과 엣지는 스냅샷에 못 들어간다"| SNAP
-  SUPPLY -.->|"공시 수집만 붙이면 산다"| SNAP
-  THEME -.->|"근거 370/396 격리"| SNAP
+  QUAR x--x|"증거가 0이라 못 들어간다 — 승인 문제가 아니다"| SNAP
+  OWNED ==>|"팩 예산이 풀었다"| SNAP
+  THEME x--x|"396 전부 격리 · SAME_THEME 스냅샷 엣지 0"| SNAP
   SNAP ==> IP2
   IP2 ==> ITEM
   ITEM ==> UI
@@ -1039,10 +1040,9 @@ flowchart TB
   classDef dead fill:#ffffff,stroke:#a83a2b,stroke-width:2px,stroke-dasharray:5 3,color:#4a1710
   classDef ready fill:#fdf3e0,stroke:#9a6b16,stroke-width:2px,color:#5c3f08
 
-  class STKDOC,MACRO,COV,EVENT,ACC,SNAP,IP2,ITEM,UI,MNEWS,FEED,MACROREL flow
+  class STKDOC,MACRO,COV,EVENT,ACC,SNAP,IP2,ITEM,UI,MNEWS,FEED,MACROREL,OWNED flow
   class QUAR,CLAIM,CONF,RSSDOC,MACROEV block
   class NARR,THEME dead
-  class SUPPLY ready
   class SHOCK dormant
       </pre>
     </div>
