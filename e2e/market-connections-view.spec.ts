@@ -21,6 +21,7 @@ test.beforeAll(async () => {
     resolve: {
       alias: {
         '@': `${repositoryRoot}apps/web/src`,
+        '@stock-insight/contracts/geo-api-contract': `${repositoryRoot}packages/contracts/src/geo-api-contract.ts`,
         react: `${repositoryRoot}apps/web/node_modules/react`,
         'react-dom': `${repositoryRoot}apps/web/node_modules/react-dom`,
       },

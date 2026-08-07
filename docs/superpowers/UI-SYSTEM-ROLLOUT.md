@@ -543,6 +543,7 @@
 - 승인 문구를 상대 강도 `강함`, scope `시장 전반 변화`로 맞췄으며, component E2E fixture에는 digest와 snapshot id를 갖춘 유효한 empty GeoSnapshot과 전용 TypeScript gate를 추가함
 - TDD RED는 focused Node `36건 중 8건 실패`, fixture typecheck의 필수 `geoSnapshot` 누락, desktop no-personalized 상세의 개인 종목 heading 1개 노출을 각각 재현함. locator 중복 1건은 `연관 기업` 영역으로 좁혀 제품 의미 구조를 유지함
 - fresh GREEN은 focused Task 6 Node `79/79`, Market Connections desktop/mobile `19건 통과·5건 viewport 조건 skip·0건 실패`, fixture typecheck, root typecheck `11/11`, format `1,328`개, lint `0 errors`(기존 warning 6), `git diff --check` 통과임. shared frame·Today·Stocks 구현은 변경하지 않아 별도 비례 회귀는 생략함
+- 최종 재검토에서 component fixture의 Geo contract 런타임 경로가 TypeScript에만 연결되고 Vite에는 누락된 사실을 실제 `Failed to resolve import`로 재현했다. fixture Vite에 정확한 contract source alias를 추가한 뒤 `e2e/market-connections-view.spec.ts` desktop 3건이 모두 통과해 stale completion·retry·opener 회귀가 실제 렌더링 경로에서 다시 검증됨
 - `graphify update .` 완료: 10,623 nodes·18,234 edges·711 communities. DB, migration, API server, 공개 contract, dependency, route는 변경하지 않았고 기존 disposable DB/auth 환경 제약은 재분류하지 않음
 
 ## 실행 환경 메모
