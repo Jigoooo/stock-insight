@@ -1519,8 +1519,12 @@ flowchart TB
   </section>
 
   <section class="s">
-    <h2>한국 거시가 처음 들어왔다 — 그리고 아직 그래프에 닿지 않는다</h2>
-    <div class="s-close">닫는 관측 — 15,661행 착륙, 그래프까지의 막힘 셋은 그대로</div>
+    <h2>한국 거시가 처음 들어왔다 — 그리고 같은 날 그래프에 닿았다</h2>
+    <div class="s-close">닫는 관측 — 15,661행 착륙, 막힘 셋을 열어 상관 엣지 6개까지 도달</div>
+    <p>
+      <strong>아래 「막힘 셋」은 같은 세션에서 전부 열렸다.</strong> 이 절은 착륙 시점의
+      기록으로 남기고, 연결 결과는 문서 끝의 「그래서 오늘 무엇이 바뀌었나」에 있다.
+    </p>
     <p>
       <code>bok-ecos</code> 는 <strong>2026-07-18부터 출처로 등록돼 있었고 개정 수가
       0이었다.</strong> 계약은 승인돼 있고 <code>ECOS_SERIES</code> 는 식별자 CHECK 에
@@ -1752,6 +1756,106 @@ flowchart TB
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="s">
+    <h2>그래서 오늘 무엇이 바뀌었나 — 그리고 무엇을 내가 깨뜨렸나</h2>
+    <div class="s-close">닫는 관측 — 스냅샷 30 → 34. 엣지 5,401 → 5,671. 파이프라인은 실제로 돌려 확인했다</div>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>세는 것</th><th class="n">전</th><th class="n">지금</th></tr></thead>
+        <tbody>
+          <tr class="row flow-s"><td>스냅샷 엣지</td><td class="n">5,401</td><td class="n"><strong>5,671</strong></td></tr>
+          <tr class="row flow-s"><td><code>HELD_BY</code> <span class="chip flow-s">사상 최초</span></td><td class="n">0</td><td class="n"><strong>250</strong></td></tr>
+          <tr class="row flow-s"><td><code>MEASURED_BY</code></td><td class="n">14</td><td class="n"><strong>20</strong></td></tr>
+          <tr class="row flow-s"><td><code>MACRO_COMOVEMENT</code></td><td class="n">22</td><td class="n"><strong>28</strong></td></tr>
+          <tr class="row flow-s"><td>상관 모델이 읽는 계열</td><td class="n">6</td><td class="n"><strong>12</strong></td></tr>
+          <tr class="row dormant-s"><td><code>COMMON_OWNER</code> — 팩 예산으로 보류</td><td class="n">—</td><td class="n">1,391</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>한국 금리가 종목에 닿는다.</strong> 국고채 3년 2건 · 국고채 10년 2건 ·
+      회사채(3년 AA-) 2건 — 합쳐 6개의 <code>MACRO_COMOVEMENT</code> 엣지다.
+      A/B 드라이런이 예측한 +6 과 원장이 정확히 일치했다.
+      <strong>CD(91일)과 기준금리는 0이고, 그것도 예측대로다</strong> — 기준금리는
+      달력일 계단함수라 일간 변화가 거의 전부 0이어서 상관이 성립하지 않는다.
+      「쌍이 0이면 예상된 결과이지 실패가 아니다」 라고 수집기 주석에 미리 적어둔
+      그대로다.
+      <br><br>
+      <strong>ownership 빌더가 막혔던 이유는 13F 수집기가 아니었다.</strong> 그렇게
+      적어둔 것은 나였고, 재보니 틀렸다. 빌더는 소유자·피보유자를
+      <code>core.entity</code> id 로 받는데, 피보유 측은 250/250 이미 해소돼 있었고
+      <strong>보유 측에 기관이 하나도 없었다.</strong> 필요한 것은 새 수집기가 아니라
+      <code>LegalEntity</code> 13개였다.
+    </p>
+    <div class="verdict">
+      <span class="verdict-q">그리고 내가 프로덕션을 깨뜨렸다</span>
+      <span class="verdict-a">드라이런이 건강해 보였고, 하류를 안 봤다</span>
+      <p>
+        ownership 을 켠 08:10 발행이 <code>pack US:AAPL exceeds lineage item cap: 672</code>
+        로 죽었다. 드라이런은 <strong>「후보 1,641 · 격리 0」</strong> 이었다.
+        <code>CONTENT_PACK_MAX_ITEMS</code> 는 512 이고 마이그레이션 026 이 강제하는데,
+        팩은 관계와 <em>증거</em>를 함께 센다. 포지션 단위 개정이라 다섯 기관이 함께
+        보유한 쌍은 증거 행이 열 개다 — <strong>엣지 수로는 팩 크기를 예측할 수 없다.</strong>
+        <br><br>
+        고치면서 한 번 더 틀렸다. 드라이런에 팩 크기를 넣었더니 <code>max 275 · 초과 0</code>
+        이 나왔는데 apply 는 672 로 죽은 그 실행이었다 — 투영이 현재 DB 기준이라
+        이번 실행의 후보가 빠져 있었다. 후보를 더해 다시 재니
+        <code>max 724 · 초과 41</code> 로 apply 와 일치했다.
+        <strong>「드라이런과 apply 가 어긋나는 것」 은 이 저장소가 반복해서 잡아온 결함이고,
+        이번엔 내가 그걸 저질렀다.</strong>
+      </p>
+    </div>
+    <p>
+      <strong><code>COMMON_OWNER</code> 는 보류했다 — 측정 결과지 취향이 아니다.</strong>
+      세 술어 전부 켜면 후보 1,641 · 최대 팩 724 · 초과 41 이고,
+      <code>HELD_BY</code> 만이면 250 · 285 · 0 이다. 빌더의 슈퍼허브 상한(100)은 최대
+      보유가 42라 발화하지 않고, 물게 하려면 ~30 인데 그러면 BlackRock 42 ·
+      T Rowe 41 · State Street 41 · FMR 41 · Vanguard 39 · 국민연금 33 이 전부 빠진다.
+      남는 것은 1~3 종목 보유라 아무것도 안 나온다. <strong>술어를 살리면서 상한에 맞는
+      임계값이 없다.</strong> 이 원천의 공동보유는 전부 유니버설 오너이고, 내보내면 모든
+      대형주의 팩 예산을 「BlackRock 이 둘 다 갖고 있다」 에 쓰게 된다.
+      보류량 1,391 은 <code>heldBackByPackBudget</code> 으로 요약에 실린다.
+    </p>
+    <h2 style="margin-top:1.5rem">부채 표에서 세 줄이 사라졌다 — 고쳐서가 아니라 틀려서</h2>
+    <div class="s-close">닫는 관측 — 재보니 둘은 할 일이 아니었고, 하나는 탐지기가 꺼져 있었다</div>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>부채로 적혀 있던 것</th><th>재보니</th></tr></thead>
+        <tbody>
+          <tr class="row block-s">
+            <td>SEC <code>legacy_no_document</code> 1,478 — 재수집이 답</td>
+            <td><strong>재수집으로 귀속되는 건수 0.</strong> insider 요약은 첫 토큰이 티커인데(ELV·JEF…) 431건 중 유니버스에 있는 것이 0, 8-K 424건 중 유니버스 기업을 언급한 것도 0. <strong>전부 우리가 커버하지 않는 기업 이야기</strong>다</td>
+          </tr>
+          <tr class="row block-s">
+            <td><code>analytics.theme</code> 534행 — 폐기 예정</td>
+            <td>폐기 근거였던 <code>theme_exposure_snapshot</code> 이 <strong>존재하지 않는다</strong>. 마스터 플랜에 축 이름만 있고 표도 마이그레이션도 없다. 「대체품이 있으니 버려도 된다」 가 아니라 <strong>「대체품은 계획서에만 있다」</strong> 였다</td>
+          </tr>
+          <tr class="row flow-s">
+            <td><code>source-contract-integrity.test.ts</code> 기본 skip</td>
+            <td><strong>해소.</strong> 환경변수 없으면 여섯 케이스가 조용히 skip 됐고 069 의 계약 위반이 그 뒤에 하루 숨었다. 커버리지 단언을 <code>run-source-contract-audit</code> 로 옮겨 <strong>매 분석 사이클마다 프로덕션에서 돌고, 위반 시 런을 깨뜨린다</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>그리고 knowledge 파이프라인이 08-07 01:46부터 죽어 있었다.</strong>
+      <code>claim 350 could not bind current-revision chunk evidence</code>.
+      검증과 바인딩이 서로 다른 질문을 하고 있었다 — 검증은 인용문의
+      <strong>앞 40자·대소문자 구분</strong>, 바인딩은 <strong>전문·대소문자 무시</strong>.
+      앞 40자만 진짜인 인용문은 검증을 통과하고 바인딩에서 <em>throw</em> 하며,
+      그건 거부가 아니라 예외라 트랜잭션 전체가 롤백된다.
+      <br><br>
+      증거는 <code>knowledge.claim</code> 이 <code>claim_id 348</code> 에서 멈춰 있는데
+      오류는 349·350 을 부른 것이었다 — <strong>시퀀스만 전진하고 행은 롤백됐다.</strong>
+      함수 하나로 묶어 양쪽이 같은 질문을 하게 했고, 이제 바인딩할 수 없는 인용문은
+      <code>no_quote</code> 로 거부·집계되고 파이프라인을 죽이지 않는다.
+      <br><br>
+      <strong>둘 다 실제로 돌려서 닫았다</strong> — <code>knowledge-wrapper</code> completed
+      (08-06 23:47 이후 첫 성공), <code>analytics-wrapper</code> completed, 콘텐츠 팩 317개
+      98,481 항목에 상한 위반 0.
+    </p>
   </section>
 
   <footer>
