@@ -46,6 +46,7 @@ export type StockDeepDiveLoadResult = {
   relation: EntityRelationGraph | null;
 };
 
+/** @deprecated Temporary compatibility until StocksView adopts StockBriefingLoader. */
 export type StockDeepDiveLoader = (entityKey: string) => Promise<StockDeepDiveLoadResult>;
 
 export function createLatestRequestGate() {
