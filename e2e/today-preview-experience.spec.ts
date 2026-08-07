@@ -195,14 +195,20 @@ test('opens the evidence drawer above the workspace without changing card geomet
   expect(metaColumns).toHaveLength(2);
 });
 
-test('moves focus into the inspector and restores the opener after close on every viewport', async ({
+test('restores a programmatically activated opener after close on every viewport', async ({
   page,
 }) => {
   const opener = page
     .getByTestId('today-headline-news')
     .getByRole('button', { name: /메모리 가격 반등/ });
 
-  await opener.click();
+  await expect(opener).toBeEnabled();
+  const wasFocusedBeforeActivation = await opener.evaluate((element) => {
+    const wasFocused = element.ownerDocument.activeElement === element;
+    element.click();
+    return wasFocused;
+  });
+  expect(wasFocusedBeforeActivation).toBe(false);
 
   const inspector = page.getByTestId('evidence-inspector');
   await expect(inspector).toBeVisible();

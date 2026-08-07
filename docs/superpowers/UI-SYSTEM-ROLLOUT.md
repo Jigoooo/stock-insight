@@ -497,6 +497,13 @@
 - Today·Stocks desktop/mobile 표준 4-worker 통합 재검증은 47건 통과·17건 viewport 조건 skip·0건 실패다. 이전 병렬 실행에서 session-width 재열기 1건이 일회성으로 실패했지만 workers=1 격리 재실행과 표준 4-worker fresh 재실행에서 모두 통과해 재현되지 않았다.
 - fresh 전체 gate는 format 1,313개 파일, lint 0 errors(7개 기존 warning), typecheck 11/11 tasks, test 10/10 tasks(web 687/687), build 7/7 tasks를 통과했다. 이 보정은 DB·migration·API server·공개 contract·의존성을 변경하지 않아 기존 P6 환경 gate는 반복하지 않았다.
 
+### 2026-08-07 — Today 모바일 opener 정확성 최종 보정
+
+- 이전 보정은 `document.activeElement`를 모바일에서도 저장했지만, Chromium pointer click이 먼저 버튼에 포커스를 두는 경로에만 의존했다. touch·AT·programmatic activation에서는 실제 열기 버튼을 보장하지 못했다.
+- Today의 headline, curated row, feed row, connection row가 모두 click event의 `currentTarget` 버튼을 typed callback으로 `ResearchWorkspacePage`에 전달하고, 페이지는 그 명시적 opener만 저장하도록 Stocks 계약과 맞춰다.
+- RED browser 계약은 원 버튼을 먼저 focus하지 않고 `HTMLElement.click()`으로 활성화한 뒤 모바일 상세를 닫았을 때 opener가 `inactive`인 문제를 재현했다. 보정 후 동일 계약이 desktop/mobile 2/2 통과했다.
+- 표준 4-worker Today·Stocks desktop/mobile 통합은 47건 통과·17건 viewport 조건 skip·0건 실패로 overlay, Escape, 선택 유지, Stocks opener 비회귀를 함께 확인했다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

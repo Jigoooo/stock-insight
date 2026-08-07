@@ -38,6 +38,8 @@ import type {
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
 
+type SelectRecord = (item: ResearchFeedItem, opener: HTMLButtonElement) => void;
+
 function headlineThumbnailUrl(item: ResearchFeedItem) {
   if (item.affectedEntityKeys.includes('KR:005930')) {
     return '/media/news/semiconductor-memory.jpg';
@@ -73,7 +75,7 @@ export function TodayView({
   selectedRecordKey?: string;
   onLaneChange: (lane: ResearchFeedLaneId) => void;
   onLoadMore: () => void;
-  onSelectRecord: (item: ResearchFeedItem) => void;
+  onSelectRecord: SelectRecord;
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
   const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
@@ -146,7 +148,7 @@ export function TodayView({
                   className={styles.headlineCard}
                   aria-current={selectedRecordKey === item.recordKey}
                   disabled={!interactive}
-                  onClick={() => onSelectRecord(item)}
+                  onClick={(event) => onSelectRecord(item, event.currentTarget)}
                 >
                   <span className={styles.headlineCardContent}>
                     <span className={styles.headlineThumbnail} aria-hidden="true">
@@ -324,7 +326,7 @@ export function TodayView({
                   className={styles.connectionRow}
                   aria-current={selectedRecordKey === item.recordKey}
                   disabled={!interactive}
-                  onClick={() => onSelectRecord(item)}
+                  onClick={(event) => onSelectRecord(item, event.currentTarget)}
                 >
                   <span>
                     <small>{item.affectedEntityKeys.join(' · ') || '시장 전반'}</small>
@@ -352,7 +354,7 @@ function NewsRowButton({
   appendKey?: string;
   interactive: boolean;
   item: ResearchFeedItem;
-  onSelect: (item: ResearchFeedItem) => void;
+  onSelect: SelectRecord;
   selected: boolean;
 }) {
   return (
@@ -364,7 +366,7 @@ function NewsRowButton({
       className={styles.feedRow}
       aria-current={selected}
       disabled={!interactive}
-      onClick={() => onSelect(item)}
+      onClick={(event) => onSelect(item, event.currentTarget)}
     >
       <span className={styles.feedRowLayout}>
         <span className={styles.market}>{marketLabel(item.market)}</span>

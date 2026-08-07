@@ -518,13 +518,11 @@ export function ResearchWorkspacePage({
     requestNavigation('lane', next, { lane: next, cursor: undefined });
   };
 
-  const selectRecord = async (item: ResearchFeedItem) => {
+  const selectRecord = async (item: ResearchFeedItem, opener: HTMLElement) => {
     setPendingRecordKey(item.recordKey);
     issuedInspectorRecordKeysRef.current.add(item.recordKey);
     setDismissedInspectorRecords(new Set());
-    if (document.activeElement instanceof HTMLElement) {
-      inspectorOpenerRef.current = document.activeElement;
-    }
+    inspectorOpenerRef.current = opener;
     setInspectorOpen(true);
     if (onUrlStateChange) {
       setDetailState(detail?.recordKey === item.recordKey ? 'ready' : 'loading');
@@ -742,7 +740,7 @@ export function ResearchWorkspacePage({
             }
           }}
           selectedRecordKey={requestedRecordKey ?? visibleDetail?.recordKey}
-          onSelectRecord={(item) => void selectRecord(item)}
+          onSelectRecord={(item, opener) => void selectRecord(item, opener)}
         />
       )}
       {section === 'radar' && data.view === 'radar' && (
