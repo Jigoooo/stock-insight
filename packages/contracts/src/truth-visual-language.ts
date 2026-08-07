@@ -157,3 +157,144 @@ export function resolveEdgeRenderSpec(input: EdgeRenderInput): EdgeRenderResolut
   const visible = spec.candidateOnly ? input.researchMode : spec.defaultVisible;
   return { visible, spec };
 }
+
+/* ------------------------------------------------------------------------- *
+ * Truth classes (v2-final canonical 00 §4) — REQ-SEM-010
+ *
+ * The six epistemic classes above are a *rendering* vocabulary and stay exactly
+ * as they were. The fourteen truth classes below are the *canonical* vocabulary
+ * frozen in contracts/truth-classes.json, and REQ-SEM-010 requires them to be
+ * visually distinguishable in the UI.
+ *
+ * They are NOT the same axis and are not merged:
+ *   - `candidate` is a lifecycle state, not a truth class. A candidate RELATION
+ *     and an accepted RELATION are the same class at different acceptance
+ *     stages, which is why it stays on the epistemic axis.
+ *   - Nine truth classes (SOURCE, ASSERTION, EVENT, RELATION, EXPOSURE,
+ *     NARRATIVE, RECOMMENDATION, PERSONAL_DECISION, OUTCOME) had no epistemic
+ *     class at all — they were unrenderable before this.
+ * ------------------------------------------------------------------------- */
+
+export const truthClassSchema = z.enum([
+  'SOURCE',
+  'ASSERTION',
+  'FACT',
+  'EVENT',
+  'RELATION',
+  'EXPOSURE',
+  'STATISTICAL_ESTIMATE',
+  'CAUSAL_ESTIMATE',
+  'FORECAST',
+  'HYPOTHESIS',
+  'NARRATIVE',
+  'RECOMMENDATION',
+  'PERSONAL_DECISION',
+  'OUTCOME',
+]);
+
+export type TruthClass = z.infer<typeof truthClassSchema>;
+
+export const truthClassRenderSpecSchema = z
+  .object({
+    truthClass: truthClassSchema,
+    lineStyle: z.enum(['solid', 'dashed', 'dotted']),
+    badge: z.string().min(1),
+    /** Causality is asserted through an explicit label, never through style. */
+    requiresCausalLabel: z.boolean(),
+    /** Drawn as a distribution rather than a false-precise point. */
+    distribution: z.boolean(),
+    /**
+     * REQ-SEM-003 / REQ-REC-001: user-private state must never be rendered into
+     * a common surface. A renderer that ignores this leaks a portfolio into the
+     * shared asset view.
+     */
+    privateScope: z.boolean(),
+    legendKey: z.string().min(1),
+  })
+  .strict();
+
+export type TruthClassRenderSpec = z.infer<typeof truthClassRenderSpecSchema>;
+
+const TRUTH_CLASS_RENDER_SPECS: Record<TruthClass, TruthClassRenderSpec> = {
+  // Ground truth: the artifact itself and what it claimed. ASSERTION is
+  // deliberately not styled as FACT — "reported but denied" is an assertion,
+  // and canonical/02 §4 (REQ-KERN-030) forbids collapsing the two.
+  SOURCE: s('SOURCE', 'solid', 'source'),
+  ASSERTION: s('ASSERTION', 'dashed', 'assertion'),
+  FACT: s('FACT', 'solid', 'none'),
+  EVENT: s('EVENT', 'solid', 'event'),
+
+  // Structure and sensitivity. RELATION is existence; EXPOSURE is magnitude.
+  // REQ-WORLD-010 keeps them apart, so they must not look alike.
+  RELATION: s('RELATION', 'solid', 'relation'),
+  EXPOSURE: s('EXPOSURE', 'solid', 'exposure'),
+
+  // Inference. Observational and causal estimates are different claims at very
+  // different prices; only the causal one carries the label requirement.
+  STATISTICAL_ESTIMATE: s('STATISTICAL_ESTIMATE', 'solid', 'estimate'),
+  CAUSAL_ESTIMATE: s('CAUSAL_ESTIMATE', 'solid', 'causal', { requiresCausalLabel: true }),
+  FORECAST: s('FORECAST', 'dotted', 'forecast', { distribution: true }),
+  HYPOTHESIS: s('HYPOTHESIS', 'dashed', 'hypothesis'),
+
+  // Attention is not economic truth. semantic-type-rules.json forbids
+  // NARRATIVE → FACT outright, so it is dashed and badged to keep a popular
+  // story from reading as an established one.
+  NARRATIVE: s('NARRATIVE', 'dashed', 'narrative'),
+
+  // Decisions. PERSONAL_DECISION is the only private-scope class.
+  RECOMMENDATION: s('RECOMMENDATION', 'solid', 'recommendation'),
+  PERSONAL_DECISION: s('PERSONAL_DECISION', 'solid', 'decision', { privateScope: true }),
+  OUTCOME: s('OUTCOME', 'solid', 'outcome'),
+};
+
+function s(
+  truthClass: TruthClass,
+  lineStyle: 'solid' | 'dashed' | 'dotted',
+  badge: string,
+  overrides: Partial<
+    Pick<TruthClassRenderSpec, 'requiresCausalLabel' | 'distribution' | 'privateScope'>
+  > = {},
+): TruthClassRenderSpec {
+  return {
+    truthClass,
+    lineStyle,
+    badge,
+    requiresCausalLabel: overrides.requiresCausalLabel ?? false,
+    distribution: overrides.distribution ?? false,
+    privateScope: overrides.privateScope ?? false,
+    legendKey: `truth.class.${truthClass.toLowerCase()}`,
+  };
+}
+
+for (const spec of Object.values(TRUTH_CLASS_RENDER_SPECS)) Object.freeze(spec);
+Object.freeze(TRUTH_CLASS_RENDER_SPECS);
+
+/** Fail-closed: an unknown class throws rather than defaulting to a fact style. */
+export function renderSpecForTruthClass(truthClass: TruthClass): TruthClassRenderSpec {
+  return TRUTH_CLASS_RENDER_SPECS[truthClassSchema.parse(truthClass)];
+}
+
+/**
+ * Where the two vocabularies overlap. Five truth classes have an epistemic
+ * equivalent; the other nine return null because they never had one. `candidate`
+ * has no truth class in the other direction — it is an acceptance stage.
+ *
+ * Provided so a surface already rendering epistemic classes can adopt truth
+ * classes incrementally instead of switching in one step.
+ */
+export function epistemicClassForTruthClass(truthClass: TruthClass): EpistemicClass | null {
+  switch (truthClassSchema.parse(truthClass)) {
+    case 'FACT':
+      return 'fact';
+    case 'STATISTICAL_ESTIMATE':
+      return 'estimate';
+    case 'CAUSAL_ESTIMATE':
+      return 'causal';
+    case 'HYPOTHESIS':
+      return 'hypothesis';
+    case 'FORECAST':
+      return 'forecast';
+    default:
+      return null;
+  }
+}

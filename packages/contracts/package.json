@@ -13,7 +13,8 @@
     "./truth-visual-language": "./src/truth-visual-language.ts",
     "./geo-api-contract": "./src/geo-api-contract.ts",
     "./crypto-research": "./src/crypto-research.ts",
-    "./internal-context": "./src/internal-context.ts"
+    "./internal-context": "./src/internal-context.ts",
+    "./analysis-information-set": "./src/analysis-information-set.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
