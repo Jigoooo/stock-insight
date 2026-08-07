@@ -174,7 +174,10 @@ describe('market connections workspace structure', () => {
     assert.match(inspector, /relation \|\| detail\.partialFailures\.relation/);
     assert.match(inspector, /<RelationSigmaGraph graph=\{relation\}/);
     assert.match(inspector, /const geoSnapshot = result\.geo/);
-    assert.match(inspector, /geoSnapshot \|\| detail\.partialFailures\.geo/);
+    assert.match(
+      inspector,
+      /hasMarketConnectionGeoSection\(geoSnapshot, detail\.partialFailures\.geo\)/,
+    );
     assert.doesNotMatch(inspector, /geoSnapshot: GeoSnapshot/);
     assert.match(inspector, /전체 영향 경로/);
     assert.match(

@@ -460,6 +460,30 @@ describe('market connections development preview', () => {
     ]);
   });
 
+  it('omits valid no-content Geo unless a localized failure owns the section', async () => {
+    const fixtureModule = await loadPreviewFixture();
+    if (!fixtureModule) return;
+
+    const partial = fixtureModule.resolveMarketConnectionsPreview('partial');
+    const partialItem = partial.marketConnections.priorityChanges[0]!;
+    const partialResult = await partial.loader(partialItem.connectionKey);
+    const model = await import('../src/pages/research-workspace/model/market-connections.ts');
+
+    assert.equal(geoSnapshotSchema.safeParse(partial.data.geoSnapshot).success, true);
+    assert.equal(partial.data.geoSnapshot.geojson.features.length, 0);
+    assert.equal(typeof model.hasMarketConnectionGeoSection, 'function');
+    if (typeof model.hasMarketConnectionGeoSection !== 'function') return;
+
+    assert.equal(model.hasMarketConnectionGeoSection(partial.data.geoSnapshot, undefined), false);
+    assert.equal(
+      model.hasMarketConnectionGeoSection(
+        partialResult.geo,
+        partialResult.detail.partialFailures.geo,
+      ),
+      true,
+    );
+  });
+
   it('keeps each preview scenario honest and never reaches a live loader', async () => {
     const fixtureModule = await loadPreviewFixture();
     if (!fixtureModule) return;

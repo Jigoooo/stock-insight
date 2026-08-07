@@ -126,6 +126,13 @@ export function marketConnectionGeoPrecisionLabel(value: MarketConnectionGeoPrec
   }[value];
 }
 
+export function hasMarketConnectionGeoSection(
+  geo: GeoSnapshot | null | undefined,
+  failure: string | undefined,
+): boolean {
+  return Boolean(geo?.geojson.features.length || failure);
+}
+
 export function createMarketConnectionsModel(
   model: MarketConnectionsModel,
 ): MarketConnectionsModel {

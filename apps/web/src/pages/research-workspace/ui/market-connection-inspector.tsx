@@ -6,6 +6,7 @@ import styles from './market-connection-inspector.module.css';
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import { formatDate, marketLabel, signalTypeLabel } from './workspace-presenters';
 import {
+  hasMarketConnectionGeoSection,
   marketConnectionGeoPrecisionLabel,
   marketConnectionStrength,
   marketConnectionStrengthLabel,
@@ -298,7 +299,7 @@ function MarketConnectionDetailContent({
             </section>
           )}
 
-          {(geoSnapshot || detail.partialFailures.geo) && (
+          {hasMarketConnectionGeoSection(geoSnapshot, detail.partialFailures.geo) && (
             <section aria-labelledby="market-inspector-geo">
               <h3 id="market-inspector-geo">세계 지도 위치와 정밀도</h3>
               {geoSnapshot && geoFeatures.length > 0 && (
