@@ -1898,6 +1898,80 @@ flowchart TB
     </p>
   </section>
 
+  <section class="s">
+    <h2>선행 조건을 풀었다 — 팩 예산과 시장 팩터</h2>
+    <div class="s-close">닫는 관측 — 스냅샷 36·37. 격리 531 이 되살아났고, 부풀려진 상관 3 이 사라졌다</div>
+    <p>
+      남은 항목이 전부 「선행 조건에 막혀 있다」 고 적었는데, 조사해 보니
+      <strong>선행 조건을 세 번 중 두 번 잘못 짚었다</strong>(위 정정 절).
+      실제로 막고 있던 하나는 팩 예산이었고, 그것을 풀자 나머지가 따라왔다.
+    </p>
+    <div class="tableWrap">
+      <table>
+        <thead><tr><th>세는 것</th><th class="n">전</th><th class="n">지금</th></tr></thead>
+        <tbody>
+          <tr class="row flow-s"><td>스냅샷 엣지</td><td class="n">5,671</td><td class="n"><strong>7,062</strong></td></tr>
+          <tr class="row flow-s"><td><code>COMMON_OWNER</code> accepted</td><td class="n">0</td><td class="n"><strong>1,391</strong></td></tr>
+          <tr class="row flow-s"><td>되살아난 레거시 격리 엣지</td><td class="n">—</td><td class="n"><strong>531</strong></td></tr>
+          <tr class="row dormant-s"><td>KR <code>MACRO_COMOVEMENT</code> accepted</td><td class="n">10</td><td class="n">7</td></tr>
+          <tr class="row flow-s"><td>발행 팩 최대 항목 (상한 512)</td><td class="n">417</td><td class="n"><strong>460</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      <strong>팩 예산은 라운드로빈이다.</strong> 임팩트 경로가 이미 같은 문제를 그렇게
+      풀었다 — 한 술어가 예산을 독식하는 것. 술어별로 버킷을 나눠 번갈아 채우고,
+      <strong>신뢰도는 건드리지 않는다.</strong> 예산을 <em>id 배열</em>이 아니라
+      <em>엣지</em>에 걸었는데, 그래야 서빙 그래프의 증거 수와 팩이 담은 증거 수가
+      한 집합에서 나온다. id 만 줄이면 <strong>그래프가 팩보다 많은 증거를 주장한다.</strong>
+      <br><br>
+      결과는 <code>max 460 · overCap 0</code> 이고 AMAT·F·JPM·PEP·PLD 가
+      <strong>정확히 460</strong>에 걸려 있다 — 예산이 실제로 물고 있다는 증거다.
+      <br><br>
+      <strong>그리고 세션 초반 진단이 그대로 입증됐다.</strong> 격리돼 있던 레거시
+      <code>COMMON_OWNER</code> 1,062 중 <strong>531 이 되살아났다</strong> —
+      「온톨로지 승인이 아니라 증거를 가진 새 accepted 개정이 유일한 출구」라고 적은
+      그 방식으로.
+    </p>
+    <div class="verdict good">
+      <span class="verdict-q">시장 팩터 교체 — 3 엣지를 잃었고, 그것이 옳다</span>
+      <span class="verdict-a">합성지수는 종목을 자기 자신에서 빼고 있었다</span>
+      <p>
+        한국 시장 팩터는 <strong>우리 보유 194종목의 동일가중 평균</strong>이었다.
+        즉 통제 대상 종목들의 평균이라 <strong>각 종목이 자기 자신에서 일부 빠진다.</strong>
+        그러면 종목-시장 상관이 부풀려지고, 부분상관의 분모 <code>√((1−r²)(1−r²))</code>
+        가 작아져 <strong>상관 자체가 과대평가된다.</strong>
+        <br><br>
+        append-only 원장이 옛 개정을 갖고 있어 직접 쟀다 — 종목-시장 상관이
+        합성지수 대비 KOSPI 에서 <strong>6/7 하락, 상승 0</strong>:
+        서울보증보험 0.545→0.212 · 047050 0.541→0.313 · 064350 0.641→0.495 ·
+        팬오션 0.519→0.370 · 003490 0.621→0.569.
+        <br><br>
+        <strong>잃은 3 엣지는 합성지수가 부풀려서 만들어낸 것이다.</strong>
+        이 교체는 팩터를 맞바꾼 게 아니라 측정 결함을 고친 것이다.
+        US 는 18 → 18 로 변화 없다(팩터를 안 바꿨으므로).
+      </p>
+    </div>
+    <p>
+      KOSPI 는 <code>macro_series_topic</code> 에 <strong>넣지 않았다.</strong> 통제 대상이
+      동시에 상관 후보가 되면 KOSPI 대비 KOSPI 라 구조적으로 0이고, 분모 가드가 퇴화로
+      버린다. 패리티 테스트 면제 목록에 <strong>「이 면제는 임시가 아니라 설계」</strong>
+      라고 적어 올렸다.
+      <br><br>
+      값의 정체도 확인하고 넣었다 — 단위 <code>1980.01.04=100</code>, 그리고 역사적 앵커가
+      맞는다: <strong>2020-03-19 = 1,458</strong>(코로나 저점) · 2015-01-02 = 1,926 ·
+      2024-01-02 = 2,670. 잘못된 항목을 팩터로 쓰면 하류가 전부 틀어진다.
+    </p>
+    <p>
+      <strong>보고할 것 하나.</strong> <code>HELD_BY</code> 경로 스텝이 3,124 → 40 으로
+      <code>COMMON_OWNER</code>(1,292)에 밀렸다. 구조적으로는 맞다 — 두 종목을 잇는 것은
+      COMMON_OWNER 이고 HELD_BY 는 종목과 기관을 잇는다. 다만 이 원천의 공동보유는
+      <strong>42종목 중 39종목을 대형 4곳이 모두 보유</strong>하는 인덱스 펀드라
+      「같은 기관 보유」 라는 설명이 대형주에선 거의 공허하다. 사건당 술어 분포는
+      나빠지지 않아(4종 162 → 175) 켠 채로 뒀고, 되돌리려면 한 줄이다.
+    </p>
+  </section>
+
   <footer>
     <p>
       숫자가 움직인 것에 대해 — 시장 어휘 매칭은
