@@ -46,6 +46,16 @@ const JOB_NAME = 'stock-insight-source-contract-audit';
  * revision. It is written by the same ensureSource path and carries the same
  * internal_derived / internal_only policy as the other five, so admitting it under
  * the same carve-out is consistent rather than an exception to it.
+ *
+ * WHO ELSE CAN MOVE THIS NUMBER, and why that is the intended trade.
+ * `research_app` is shared by four projects, so a SEVENTH exemption can arrive
+ * from a sibling repository without anyone here touching a file — and because this
+ * stage exits non-zero, that would fail the nightly analytics run until someone
+ * edits this constant. That is deliberate: the alternative is a carve-out that
+ * grows silently, which is the exact failure the ceiling exists to prevent. The
+ * cost is bounded — the run fails AFTER publishing, so the graph is already
+ * sealed, and the fix is one line plus the sentence saying why the seventh
+ * deserved it. Loud and cheap beats quiet and unbounded.
  */
 const EXPECTED_TRANSITIONAL_EXEMPTIONS = 6;
 
