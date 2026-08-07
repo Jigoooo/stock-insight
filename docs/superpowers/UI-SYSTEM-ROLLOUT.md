@@ -473,11 +473,11 @@
 - 결정론적 dev preview에 `surface=stocks`와 `scenario=default|no-holdings|empty|detail-error`를 추가했으며, 인증 loader나 live API 없이 보유 종목·관심 종목·상세 성공/실패 상태를 재현함
 - Today Evidence와 Stocks 상세가 서로 다른 session-storage key를 사용하고, 초기 hydration 전 종목 클릭을 비활성화해 사용자 입력이 유실되지 않도록 고정함. 768–807px modal 경계는 초기 자동 검증 뒤 review에서 subpixel 안정성 보강 대상으로 다시 열림
 - 종목 상세 문구는 `보유 논지 복기` 등 정보 제공 표현만 사용하고, 관련 뉴스는 유효한 HTTPS 출처 링크를 유지함
-- 자동 검증: Stocks Playwright desktop/mobile 21건 통과·조건부 7건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, web Node 684건, 전체 10개 테스트 task, format·lint·typecheck·build를 통과함. dark mode·reduced motion·Axe·선택 일관성·overlay close-only·resize/session memory·drawer/modal 무요청 전환·빈 상태·상세 오류 상태를 포함함
+- 최종 자동 검증: Stocks Playwright desktop/mobile 22건 통과·조건부 8건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, web Node 684건, 전체 10개 테스트 task, format·lint·typecheck·build를 통과함. dark mode·reduced motion·Axe·선택 일관성·overlay close-only·resize/session memory·drawer/modal 무요청 전환·빈 상태·상세 오류 상태를 포함함
 - `pnpm verify:release`는 lint·typecheck·fixture typecheck·전체 테스트·hard design gate까지 통과한 뒤, 현재 셸에 P6 DB rehearsal URL이 없어 `test:p6:db`에서 `ERR_INVALID_URL` (`input: ''`)로 중단됨
 - `graphify update .` 완료: 10,637 nodes, 18,093 edges, 744 communities. 기존 graphify 버전 차이·선택 SQL parser 부재 경고는 유지됨
-- Codex 인앱 브라우저 확인: controller가 `/__dev-preview?surface=stocks`를 desktop과 390px에서 별도 수행 예정
-- 구현·검증 커밋: Task 3–5 `f723d94`, `ead0364`, `d94abd9` 및 Task 6 커밋은 이 기록 다음 커밋으로 확정
+- Codex 인앱 브라우저 확인: `/__dev-preview?surface=stocks`를 1440×1000과 390×844에서 확인함. desktop drawer 요약값은 약 124px 유효 폭과 한 줄 높이를 유지했고, 넓은 modal 전환·390px 하단 modal·모바일 전환 버튼 미노출을 확인함. `no-holdings`는 `0개 / — / — / —`와 관심종목 우선 배치를 확인함
+- 구현·검증 커밋: Task 3–5 `f723d94`, `ead0364`, `d94abd9`, Task 6 `2d87732`, review 보정 `f60b8c9`, 최소 폭 회귀 `93c98cb`
 
 ### 2026-08-07 — 내 종목 브리핑 review 보정 1차
 
@@ -486,7 +486,7 @@
 - 768–807px modal은 quick motion이 안정된 두 animation frame 뒤 geometry를 측정하고 CSS 폭을 `100vw - 52px`로 보정해 양쪽 26px 설계 여유를 확보함. 경계 회귀 20회 반복에서 20/20 통과함
 - fresh 자동 검증: Stocks Playwright desktop/mobile 22건 통과·조건부 8건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, 전체 10개 테스트 task, format·lint·typecheck·build 통과
 - review 2차에서는 drawer 요약 회귀를 실제 separator와 session storage 경로로 확장해 기본 520px와 최소 420px 모두에서 inspector 폭, 각 값의 유효 폭, 가격·변화율 1줄과 분석 기준 최대 2줄을 검증함. 첫 실행부터 현재 구현이 계약을 만족했고 12회 반복 12/12, fresh Stocks desktop/mobile 22건 통과·조건부 8건 skip을 기록해 production 코드는 변경하지 않음
-- Codex 인앱 브라우저 재확인: controller가 drawer summary와 desktop/mobile 상태를 별도 수행 예정
+- Codex 인앱 브라우저 재확인: 1440×1000 drawer에서 가격·변화율·분석 기준이 모두 한 줄로 표시되고 `dd` 유효 폭이 약 124px임을 확인함. 390×844 하단 modal에서 동일 값이 한 줄로 유지되고 desktop 전환 버튼이 노출되지 않음을 확인했으며, `no-holdings`의 정직한 집계와 관심종목 우선 순서도 직접 확인함
 
 ## 실행 환경 메모
 
