@@ -57,12 +57,22 @@ const OWNED_SCHEMAS = [
  * a list like this stops meaning anything.
  */
 const ACCEPTED = new Map<string, string>([
-  // 폐기 예정, 부채가 아니다. v2 마스터 플랜이 theme_exposure_snapshot +
-  // theme_membership_evidence(배열 대신 FK)로 대체 설계를 이미 정했고, 마이그레이션
-  // 068 은 같은 이유로 Theme 타입 사용을 명시적으로 거부했다. 분류를 바꾸는 이유는
-  // "언젠가 읽겠다" 와 "안 읽기로 했다" 가 다른 상태이기 때문이다.
-  ['analytics.theme', '138행 — 폐기 예정. v2 가 theme_exposure_snapshot 으로 대체'],
-  ['analytics.theme_membership', '396행 — 폐기 예정. v2 는 배열 대신 FK 증거표'],
+  // 「폐기 예정」이었다. 2026-08-07 재측정으로 그 분류를 철회한다.
+  //
+  // 근거가 "v2 가 theme_exposure_snapshot 으로 대체" 였는데, 그 표는 존재하지 않는다.
+  // 마스터 플랜 문서(00-backend-db-master-plan.md:279)에 축이 적혀 있을 뿐 마이그레이션도
+  // 표도 없다. 즉 "대체품이 있으니 버려도 된다" 가 아니라 "대체품이 계획서에만 있고
+  // 원본은 아무도 안 읽는다" 였다. 둘은 전혀 다른 상태다.
+  //
+  // 그리고 이 534행은 지금 값이 있을 수 있다. 2026-08-07 실측: 미귀속 policy_event
+  // 611건 중 576건이 시장 어휘에 하나도 안 걸린다. 어휘가 못 잡는 사건을 종목에
+  // 잇는 경로로 database-ownership.md 가 지목한 것이 바로 이 두 표다
+  // (theme_membership 은 rationale_relation_ids 로 근거까지 들고 있다).
+  //
+  // 여기 남겨 두는 이유는 "읽히지 않는다" 가 사실이기 때문이고, 사유는 사실로 고쳤다.
+  // 폐기하려면 theme_exposure_snapshot 을 실제로 만들거나 폐기를 별도로 결정해야 한다.
+  ['analytics.theme', '138행 — 미사용. 대체 설계(theme_exposure_snapshot)는 표가 없다'],
+  ['analytics.theme_membership', '396행 — 미사용. 근거(rationale_relation_ids) 보유'],
   ['core.security_master', '297행 — listing_revision · ticker_history 와 함께 미사용'],
   ['knowledge.ontology_rfc', '22행 — ontology_revision 과 함께 미사용'],
   ['analytics.impact_channel', '17행 — 채널 분류가 경로에 붙지 않았다'],
