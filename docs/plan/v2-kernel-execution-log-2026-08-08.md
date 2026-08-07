@@ -185,6 +185,48 @@ diff 가 비어야 정상이고, 비어 있지 않으면 중단 조건 #10 이�
 
 ---
 
+## 🚨 P5 에서 발견한 것 — 기존 다이제스트 드리프트 (내 변경 아님)
+
+적용 **전에** repin 도구를 돌린 결과, 핀이 이미 어긋나 있었다.
+
+```
+stock_insight_app_reader   relation_privileges_digest ≠ · rls_contract_digest ≠
+stock_insight_app_writer   relation_privileges_digest ≠ · rls_contract_digest ≠
+```
+
+**즉 지금 api-server 를 재시작하면 이미 크래시루프한다.** 내 작업 이전부터 그렇다.
+
+### 원인 — 바이트 단위로 증명됨
+
+정확히 세 관계를 제외하면 핀 `f3a18fad…` 이 773 항목으로 재현된다:
+
+| 관계 | 원인 |
+| --- | --- |
+| `market.scheduled_event` | 마이그레이션 074 가 app_reader 에 GRANT 하고 **재핀하지 않았다** |
+| `_timescaledb_internal._hyper_1_826_chunk` | **TimescaleDB 가 자동 생성** |
+| `_timescaledb_internal.compress_hyper_2_825_chunk` | 〃 |
+
+### 두 번째가 구조적 결함이다
+
+guard 의 probe 는 `nspname NOT LIKE 'pg_%' AND nspname <> 'information_schema'` 만 거른다.
+`_timescaledb_internal` 은 걸러지지 않고, 청크 **775개 중 531개가 app_reader 도달 가능**하다.
+
+시계열 데이터가 늘면 청크가 자동으로 생기므로 **핀은 코드·마이그레이션 변경이 전혀 없어도
+스스로 어긋난다.** 재핀은 고침이 아니라 러닝머신이다. 제품이 읽는 것은 하이퍼테이블
+(`market_ts.ohlcv`)이지 개별 청크가 아니므로, 올바른 수정은 probe 에서
+`_timescaledb_internal` 을 제외하는 것이다.
+
+### 이번 실행에서 한 판단
+
+- **재핀하지 않는다.** 내가 만들지 않은 변경을 승인하는 것이고, 청크 때문에 어차피 다시
+  어긋난다. 도구 주석이 요구하는 규율 그대로 — *"설명할 수 없는 다이제스트 변경은 tripwire 가
+  일하는 중이다"* — 여기서는 설명이 되지만, 그 설명이 재핀보다 큰 문제를 드러낸다
+- **내 마이그레이션은 적용한다.** app 롤 도달을 바꾸지 않으므로(리허설 실증) 이 문제를
+  악화시키지 않고, 적용이 api-server 재시작을 요구하지도 않는다
+- **guard probe 수정은 이번 범위 밖이다** — 보안 가드 변경이고 K0/K1/K5 와 별건이다
+
+---
+
 ## 중단 조건 (11개)
 
 승인을 묻지 않는다. 아래만 멈추고 보고한다.
