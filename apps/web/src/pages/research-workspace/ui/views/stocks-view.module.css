@@ -1,0 +1,221 @@
+.workspace {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.briefingContent {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.briefingColumns {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.summaryGrid > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 17px 20px;
+  border-right: 1px solid var(--color-border);
+}
+
+.summaryGrid > div:last-child {
+  border-right: 0;
+}
+
+.summaryGrid dt,
+.summaryGrid dd {
+  margin: 0;
+}
+
+.summaryGrid dt {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.summaryGrid dd {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 21px;
+  font-weight: 690;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.summaryGrid time {
+  font-size: 14px;
+}
+
+.stockList {
+  min-width: 0;
+  display: grid;
+  gap: 0;
+}
+
+.stockRow[data-slot='button-control'] {
+  width: 100%;
+  min-width: 0;
+  min-height: 82px;
+  justify-content: stretch;
+  padding: 14px 18px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: 0 -1px 0 var(--color-border) inset;
+  text-align: left;
+}
+
+.stockRow [data-slot='button-label'] {
+  width: 100%;
+  min-width: 0;
+  display: block;
+}
+
+.stockRow[data-slot='button-control'][aria-current='true'] {
+  border-color: color-mix(in srgb, var(--color-accent) 36%, var(--color-border-strong));
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 10%, transparent) inset,
+    0 8px 22px rgb(20 21 19 / 6%);
+}
+
+.stockRowLayout {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr) minmax(92px, auto);
+  align-items: start;
+  gap: 16px;
+}
+
+.stockIdentity,
+.briefingCopy,
+.stockMetrics {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.stockIdentity strong,
+.briefingCopy strong,
+.stockMetrics strong {
+  overflow-wrap: anywhere;
+}
+
+.stockIdentity strong {
+  font-size: 14px;
+}
+
+.stockIdentity small,
+.briefingCopy small,
+.stockMetrics small {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.briefingCopy strong {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.5;
+}
+
+.stockMetrics {
+  justify-items: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.positive {
+  color: var(--color-positive) !important;
+}
+
+.negative {
+  color: var(--color-risk) !important;
+}
+
+.sectionState {
+  min-height: 176px;
+  display: grid;
+  align-items: stretch;
+}
+
+.pagination {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.searchState {
+  min-height: 240px;
+}
+
+.detailRegion {
+  min-width: 0;
+}
+
+@media (any-hover: hover) and (any-pointer: fine) {
+  .stockRow[data-slot='button-control']:hover:not([aria-current='true']) {
+    background: var(--color-surface-subtle);
+  }
+}
+
+@media (max-width: 1240px) {
+  .briefingColumns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summaryGrid > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .summaryGrid > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .stockRowLayout {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .briefingCopy {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 460px) {
+  .summaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summaryGrid > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .summaryGrid > div:last-child {
+    border-bottom: 0;
+  }
+}

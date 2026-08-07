@@ -94,7 +94,7 @@ describe('workspace search concurrency', () => {
     assert.match(stocksView, /pending:\s*boolean/);
     assert.match(stocksView, /data-pending=\{pending \|\| undefined\}/);
     assert.match(stocksView, /aria-busy=\{pending \|\| undefined\}/);
-    assert.match(stocksView, /!pending && stocks\.length === 0/);
+    assert.match(stocksView, /!pending && searchEmpty/);
   });
 
   it('submits Enter through client-side route navigation to the stocks view', async () => {

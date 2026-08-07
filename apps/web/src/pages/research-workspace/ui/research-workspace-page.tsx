@@ -17,6 +17,7 @@ import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
+import { buildStocksBriefingModel, type StocksBriefingModel } from '../model/stock-briefing';
 import type { StockDeepDiveLoader } from '../model/stock-deep-dive';
 import {
   resolveWorkspaceAuthoritativeOverride,
@@ -118,6 +119,7 @@ type ResearchWorkspacePageProps = {
   data: ResearchWorkspaceViewPayload;
   loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
   loadStockDeepDive?: StockDeepDiveLoader;
+  stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
   onNavigateSection?: (
@@ -169,6 +171,7 @@ export function ResearchWorkspacePage({
   data,
   loadResearchRecord,
   loadStockDeepDive,
+  stocksBriefing,
   navigationMode = 'route',
   onLogout,
   onNavigateSection,
@@ -418,6 +421,8 @@ export function ResearchWorkspacePage({
     () => (data.view === 'stocks' ? filterWorkspaceStocks(data.stocks.data, deferredQuery) : []),
     [data, deferredQuery],
   );
+  const resolvedStocksBriefing =
+    data.view === 'stocks' ? (stocksBriefing ?? buildStocksBriefingModel(data.stocks)) : undefined;
   const radarPaginationValue =
     data.view === 'radar'
       ? resolveWorkspaceAuthoritativeOverride(data.radar, radarPagination)
@@ -748,8 +753,9 @@ export function ResearchWorkspacePage({
           onLoadMore={() => void loadMoreRadar()}
         />
       )}
-      {section === 'stocks' && data.view === 'stocks' && (
+      {section === 'stocks' && data.view === 'stocks' && resolvedStocksBriefing && (
         <StocksView
+          briefing={resolvedStocksBriefing}
           data={data.stocks}
           loadStockDeepDive={loadStockDeepDive}
           pending={searchPending}

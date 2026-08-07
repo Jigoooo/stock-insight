@@ -1,5 +1,8 @@
 import { loadPreviewStockDeepDive } from '../model/stock-deep-dive-preview-fixture';
-import { stocksPreviewFixture } from '../model/stocks-preview-fixture';
+import {
+  stocksBriefingPreviewFixture,
+  stocksPreviewFixture,
+} from '../model/stocks-preview-fixture';
 import { loadTodayPreviewRecord, todayPreviewFixture } from '../model/today-preview-fixture';
 
 import {
@@ -97,6 +100,7 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
         <ResearchWorkspacePage
           data={stocksPreviewFixture}
           loadStockDeepDive={loadPreviewStockDeepDive}
+          stocksBriefing={stocksBriefingPreviewFixture}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}

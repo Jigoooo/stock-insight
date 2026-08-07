@@ -10,6 +10,10 @@ const stocksUrl = new URL(
   '../src/pages/research-workspace/ui/views/stocks-view.tsx',
   import.meta.url,
 );
+const stockSectionsUrl = new URL(
+  '../src/pages/research-workspace/ui/stock-briefing-sections.tsx',
+  import.meta.url,
+);
 const modelUrl = new URL(
   '../src/pages/research-workspace/model/stock-deep-dive.ts',
   import.meta.url,
@@ -54,20 +58,19 @@ describe('P3-WB Deep Dive UI structure', () => {
   });
 
   it('makes stock rows keyboard-selectable and loads detail+depth-2 relations together', async () => {
-    const source = await readFile(stocksUrl, 'utf8');
+    const [source, sections] = await Promise.all([
+      readFile(stocksUrl, 'utf8'),
+      readFile(stockSectionsUrl, 'utf8'),
+    ]);
     const modelSource = await readFile(modelUrl, 'utf8');
     assert.match(source, /api\.stockDetail\(key\)/);
     assert.match(source, /api\.entityRelations\(key, 2\)/);
     assert.match(modelSource, /Promise\.all/);
     assert.match(modelSource, /Entity relations failed with 404/);
-    assert.match(source, /selectionMode="single"/);
-    assert.match(source, /selectedKeys=\{selectedStockKey \? \[selectedStockKey\] : \[\]\}/);
-    assert.match(source, /<TableRow/);
-    assert.match(source, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
-    assert.match(source, /<DataTable/);
-    assert.match(source, /containerProps=\{\{/);
-    assert.match(source, /'aria-label': '종목 현황 표 가로 스크롤 영역'/);
-    assert.match(source, /tabIndex: 0/);
+    assert.match(source, /selectedStockKey/);
+    assert.match(sections, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.match(sections, /onClick=\{\(\) => onSelect\(stock\.entityKey\)\}/);
+    assert.match(sections, /className=\{styles\.stockRow\}/);
     assert.match(source, /StockDeepDivePanel/);
   });
 
@@ -80,16 +83,27 @@ describe('P3-WB Deep Dive UI structure', () => {
 
   it('keeps DOM, visual and keyboard order aligned at both responsive layouts', async () => {
     const stocksSource = await readFile(stocksUrl, 'utf8');
-    const panelStyles = await readFile(panelStylesUrl, 'utf8');
+    const [panelStyles, briefingStyles] = await Promise.all([
+      readFile(panelStylesUrl, 'utf8'),
+      readFile(
+        new URL('../src/pages/research-workspace/ui/views/stocks-view.module.css', import.meta.url),
+        'utf8',
+      ),
+    ]);
     assert.doesNotMatch(stocksSource, /useCompactWorkspaceLayout/);
     assert.doesNotMatch(stocksSource, /compactLayout \? detailRegion/);
     assert.match(stocksSource, /tabIndex=\{-1\}/);
     assert.match(stocksSource, /deepDiveRegionRef\.current\?\.focus/);
     assert.match(stocksSource, /scrollIntoView/);
     assert.match(stocksSource, /prefers-reduced-motion: reduce/);
-    assert.match(stocksSource, /caption="종목 현황"/);
-    assert.match(panelStyles, /grid-template-areas:\s*'table detail'/);
-    assert.match(panelStyles, /grid-template-areas:\s*'table'\s*'detail'/);
+    assert.match(stocksSource, /<PriorityHoldingsSection/);
+    assert.match(stocksSource, /<HoldingsSection/);
+    assert.match(stocksSource, /<WatchlistSection/);
+    assert.match(briefingStyles, /grid-template-columns:\s*minmax\(0, 1fr\) minmax\(0, 1fr\)/);
+    assert.match(
+      briefingStyles,
+      /@media \(max-width: 1240px\)[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
     assert.doesNotMatch(panelStyles, /\.deepDiveRegion\s*\{[^}]*order:\s*-1/);
     assert.match(panelStyles, /\.deepDiveRegion\s*\{[^}]*scroll-margin-top:\s*84px/);
     assert.match(
@@ -102,8 +116,7 @@ describe('P3-WB Deep Dive UI structure', () => {
     assert.match(panelStyles, /scrollbar-gutter:\s*stable/);
     assert.match(panelStyles, /any-pointer:\s*coarse/);
     assert.match(panelStyles, /\.retryButton\s*\{[^}]*min-height:\s*44px/);
-    assert.doesNotMatch(panelStyles, /\.stockTable thead\s*\{[^}]*clip:/);
-    assert.match(panelStyles, /\.stockTable\s*\{[^}]*min-width:/);
+    assert.doesNotMatch(stocksSource, /<DataTable|<TableRow/);
   });
 
   it('uses shared detail and property surfaces for the selected stock', async () => {

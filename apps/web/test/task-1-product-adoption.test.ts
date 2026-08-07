@@ -74,21 +74,23 @@ describe('Task 1 product shared UI adoption', () => {
     assert.doesNotMatch(inspectorFrame, /<dialog\b|useFocusTrap|focusableSelector/);
   });
 
-  it('uses ToggleGroup for display modes and shared Table selection for stock rows', async () => {
-    const [market, stocks, marketCss, stockCss] = await Promise.all([
+  it('uses ToggleGroup for display modes and shared Button selection for stock rows', async () => {
+    const [market, stocks, sections, marketCss, stockCss] = await Promise.all([
       read('pages/research-workspace/ui/market-overview-panel.tsx'),
       read('pages/research-workspace/ui/views/stocks-view.tsx'),
+      read('pages/research-workspace/ui/stock-briefing-sections.tsx'),
       read('pages/research-workspace/ui/market-overview.module.css'),
-      read('pages/research-workspace/ui/stock-deep-dive-panel.module.css'),
+      read('pages/research-workspace/ui/views/stocks-view.module.css'),
     ]);
 
     assert.match(market, /from '@\/shared\/ui\/toggle-group'/);
     assert.match(market, /<ToggleGroup\b/);
     assert.doesNotMatch(market, /from '@\/shared\/ui\/tabs'/);
     assert.doesNotMatch(marketCss, /\[aria-selected=['"]true['"]\]/);
-    assert.match(stocks, /selectionMode="single"/);
-    assert.match(stocks, /<TableRow\b/);
-    assert.doesNotMatch(stocks, /aria-pressed=|data-selected=/);
+    assert.match(stocks, /selectedStockKey/);
+    assert.match(sections, /<Button\b/);
+    assert.match(sections, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.doesNotMatch(`${stocks}\n${sections}`, /aria-pressed=|data-selected=/);
     assert.doesNotMatch(stockCss, /\[aria-pressed=['"]true['"]\]|tr\[data-selected=['"]true['"]\]/);
   });
 

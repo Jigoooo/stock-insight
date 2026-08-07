@@ -52,6 +52,10 @@ const workspace = [
     new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
     'utf8',
   ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/stock-briefing-sections.tsx', import.meta.url),
+    'utf8',
+  ),
   ...[
     'today-view.tsx',
     'radar-view.tsx',
@@ -304,10 +308,7 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /modal=\{isMobileViewport\}/);
     assert.match(page, /<Dialog\s+modal\s/);
     assert.match(page, /<DialogContent[\s\S]*?portalled/);
-    assert.match(
-      page,
-      /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/,
-    );
+    assert.match(page, /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/);
     assert.match(page, /\bshowOverlay\s/);
     assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);
@@ -413,10 +414,9 @@ describe('v3 research workspace structure', () => {
   });
 
   it('uses shared selected-row, detail, property, and evidence-list anatomy', () => {
-    assert.match(workspace, /selectionMode="single"/);
-    assert.match(workspace, /<TableRow/);
-    assert.match(workspace, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
-    assert.match(workspace, /<DataTable/);
+    assert.match(workspace, /className=\{styles\.stockRow\}/);
+    assert.match(workspace, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.match(workspace, /aria-label=\{`\$\{stock\.displayName\} 종목 브리핑 열기`\}/);
     assert.match(workspace, /<DetailSurface/);
     assert.match(workspace, /<PropertyList/);
     assert.match(workspace, /useWorkspaceRelationCrossfade/);
