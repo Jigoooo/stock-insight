@@ -76,17 +76,36 @@ format:check 통과
   tsc 는 거부(TS5097)하고 Node ESM 은 요구해 소비자 tsconfig 까지 번진다. 시도했다가
   되돌렸으니 다시 시도하지 말 것
 
-### P2 — K1: Canonical Kernel ⬜ 대기
+### P2 — K1: Canonical Kernel ✅ 완료
 
-- [ ] `078_analysis_information_set` → `governance.analysis_information_set`
-- [ ] `079_semantic_snapshot` → `governance.semantic_snapshot`
-- [ ] `080_source_pit_quality_class` → `ingestion.source_contract_revision.pit_quality_class` (**REQ-KERN-020**)
-- [ ] `packages/contracts/src/semantic-type-guard.ts`
-- [ ] `apps/api/src/ops/run-pit-now-audit.ts` (**REQ-PIT-003**, 위반 시 exit≠0)
-- [ ] `apps/api/src/kernel/temporal-kernel.ts` (7 연산, **신규 호출자만**)
-- [ ] 각 마이그레이션마다 `packages/db-schema/test/` 테스트 1개
+- [x] `078_semantic_snapshot` → `governance.semantic_snapshot` → **`421ca90`**
+- [x] `079_analysis_information_set` → `governance.analysis_information_set` → **`421ca90`**
+- [x] `080_source_pit_quality` → `governance.source_pit_quality` (+current 뷰) → **`421ca90`**
+- [x] `packages/contracts/src/semantic-type-guard.ts` → **`1b8db11`**
+- [x] `apps/api/src/ops/run-pit-now-audit.ts` → **`1b8db11`** (analytics 파이프라인 13번째 스테이지)
+- [x] `apps/api/src/kernel/temporal-kernel.ts` → **`1b8db11`**
+- [x] `packages/db-schema/test/canonical-kernel-migration.test.ts` (정적 27개)
+- [x] `apps/api/scripts/run-kernel-db-rehearsal.mjs` (실DB 리허설)
 
-> `run-v2-graph-publish.ts`(121KB)는 **열지 않는다.** 기존 호출자 이전은 K7 소관.
+> `run-v2-graph-publish.ts`(121KB)는 **열지 않았다.** K7 소관.
+
+**K1 에서 계획과 달라진 것 (근거 있음):**
+
+| 변경 | 이유 |
+| --- | --- |
+| 078↔079 번호 교체 | information set 이 semantic_snapshot 을 FK 로 참조. 번호는 의존 순서를 따른다 |
+| PIT 등급을 `source_contract_revision` 컬럼이 아니라 **별도 원장**으로 | 그 표에 `source_contract_revision_immutable` 트리거가 있고 각 행이 자기 계약에 대한 `content_hash` 를 갖는다. 백필하면 실패하거나 hash 가 내용을 기술하지 않는 리비전 69개가 남는다 |
+| **다이제스트 재핀 불필요** | guard 의 probe 가 전부 `has_table_privilege(current_user,…)` 로 걸린다 → app 롤에 GRANT 안 하면 핀이 안 움직인다. 리허설이 `noAppRoleReach: true` 로 실증 |
+| PIT 감사에 **알려진 예외 목록** | `run-v2-graph-publish.ts:1696-1697` 이 실제 위반인데 K7 소관. 순수 실패면 파이프라인을 즉시 깬다. 예외는 이유·담당과 함께 기록하고 신규 위반은 실패시키며, 예외 부패도 검사한다 |
+
+**리허설이 정적 테스트가 놓친 결함 2개를 잡았다:**
+1. `ARRAY(SELECT DISTINCT unnest(...))` — PostgreSQL 은 CHECK 안 서브쿼리 금지.
+   SQL 텍스트로는 멀쩡하고 실제 DB 가 표를 만들 때만 실패 → IMMUTABLE 함수로 분리
+2. 그 함수 파라미터명 `values` — 예약어라 SQL 함수 본문에서 식별자 불가
+
+**`job-wiring-inventory` 가 신규 감사 잡의 미배선을 즉시 잡았다** — 탐지기 층이 설계대로
+작동. analytics 파이프라인 스테이지 12 → 13, `core-identity-sync-runner.test.ts` 의
+목록도 함께 갱신.
 
 ### P3 — K5: Release / Safety / SLO ⬜ 대기
 
@@ -183,7 +202,9 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | 2 | `fc19147` | 목표 정본 재지시 + 대체된 계획문서 3개 SUPERSEDED |
 | 3 | `f1247e1` | analysis information set 계약 + truth class 14종 시각 구분 |
 | 4 | `5d35599` | portfolio-impact 404 → not_computed 봉투 (계약+서버+웹) |
-| 5 | (다음) | 계획서 §9 실행 모델 + 로그 갱신 |
+| 5 | `45a99bc` | 계획서 §9 실행 모델 + 실행 로그 |
+| 6 | `421ca90` | 마이그레이션 078~080 |
+| 7 | `1b8db11` | semantic type guard · PIT 감사 · temporal kernel |
 
 ---
 
@@ -197,4 +218,4 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 ---
 
-*최종 갱신: **P1(K0) 전부 완료.** 다음은 P2(K1 Canonical Kernel) — 마이그레이션 078 부터*
+*최종 갱신: **P1(K0)·P2(K1) 완료.** 다음은 P3(K5 Release/Safety/SLO) — 마이그레이션 081 부터*
