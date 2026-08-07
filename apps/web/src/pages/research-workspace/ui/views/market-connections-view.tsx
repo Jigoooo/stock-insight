@@ -148,12 +148,15 @@ export function MarketConnectionsView({
             description="시장 데이터가 들어오면 내 종목 연결과 시장 전반 변화를 함께 보여드립니다."
           />
         )}
-        <MarketExploration
-          data={radarPage}
-          geoSnapshot={geoSnapshot}
-          marketConnections={marketConnections}
-          onSelectConnection={(item, opener) => void loadConnection(item, opener)}
-        />
+        {hasItems ? (
+          <MarketExploration
+            data={radarPage}
+            geoSnapshot={geoSnapshot}
+            marketConnections={marketConnections}
+            selectedConnectionKey={selectedConnectionKey}
+            onSelectConnection={(item, opener) => void loadConnection(item, opener)}
+          />
+        ) : null}
       </fieldset>
       <MarketConnectionInspector
         mobile={isMobileViewport}

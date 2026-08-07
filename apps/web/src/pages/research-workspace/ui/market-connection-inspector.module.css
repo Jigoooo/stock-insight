@@ -78,7 +78,7 @@
 }
 
 .summary > span {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 11px;
 }
 

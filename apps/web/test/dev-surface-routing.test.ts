@@ -49,6 +49,12 @@ describe('development-only visual surface routes', () => {
       surface: 'market-connections',
       scenario: 'partial',
     });
+    for (const scenario of ['default', 'no-personalized', 'empty', 'detail-error'] as const) {
+      assert.deepEqual(resolve({ surface: 'market-connections', scenario }), {
+        surface: 'market-connections',
+        scenario,
+      });
+    }
     assert.deepEqual(resolve({ scenario: 'empty' }), {
       surface: undefined,
       scenario: 'empty',

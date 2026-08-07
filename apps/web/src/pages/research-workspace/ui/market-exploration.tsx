@@ -31,11 +31,13 @@ export function MarketExploration({
   geoSnapshot,
   marketConnections,
   onSelectConnection,
+  selectedConnectionKey,
 }: {
   data: RadarSignalPage;
   geoSnapshot: GeoSnapshot;
   marketConnections: MarketConnectionsModel;
   onSelectConnection: (item: MarketConnectionItem, opener: HTMLButtonElement) => void;
+  selectedConnectionKey?: string;
 }) {
   const overview = useMemo(
     () => buildMarketOverview(data.items, geoSnapshot),
@@ -191,6 +193,10 @@ export function MarketExploration({
                 motion="quiet"
                 variant="ghost"
                 className={styles.marketTimelineAction}
+                aria-current={
+                  selectedConnectionKey === connection.connectionKey ? 'true' : undefined
+                }
+                aria-label={`${connection.title} 시장 변화 상세 열기`}
                 onClick={(event) => onSelectConnection(connection, event.currentTarget)}
               >
                 {content}

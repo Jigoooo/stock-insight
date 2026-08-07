@@ -640,7 +640,7 @@ test.describe('v3 research workspace candidate', () => {
     }
 
     const sections = [
-      ['radar', '세계 레이더'],
+      ['radar', '내 종목에 영향을 줄 시장 변화'],
       ['stocks', '종목'],
       ['themes', '테마·관계'],
       ['research', '내 리서치'],
@@ -853,7 +853,9 @@ test.describe('v3 research workspace candidate', () => {
       document.querySelector<HTMLElement>('[aria-label="종목명 또는 티커 검색"]')?.focus();
     });
     await page.waitForURL(/view=radar/);
-    await expect(page.getByRole('heading', { name: '세계 레이더', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: '내 종목에 영향을 줄 시장 변화', exact: true }),
+    ).toBeVisible();
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>
@@ -876,7 +878,7 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByRole('heading', { name: '종목', exact: true })).toBeFocused();
   });
 
-  test('switches all eight market screens without fabricating unavailable data', async ({
+  test('renders the semantic market connection flow while retaining the live Radar payload', async ({
     page,
   }, testInfo) => {
     await page.goto('/workspace?view=today');
@@ -888,16 +890,18 @@ test.describe('v3 research workspace candidate', () => {
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
-    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
-    await expect(tabs).toHaveCount(8);
+    await expect(page.getByRole('heading', { name: '시장 변화 요약' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '내 종목에 연결된 주요 변화' })).toBeVisible();
+    const tabs = page.getByRole('radiogroup', { name: '시장 보조 탐색 선택' }).getByRole('radio');
+    await expect(tabs).toHaveCount(4);
     await expect(tabs.first()).toHaveAttribute('data-slot', 'toggle-group-item');
     await expect(tabs.first()).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('radar-row')).toHaveCount(2);
-    await expect(page.getByTestId('radar-row').first()).toHaveJSProperty('tagName', 'LI');
-    await expect(page.getByTestId('radar-row').first()).toContainText('보유 · 관심');
+    await expect(page.getByRole('button', { name: /시장 변화 상세 열기/ })).toHaveCount(2);
     const componentWatermark = page.getByTestId('market-component-watermark');
-    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
+    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'partial');
     await expect(componentWatermark).toContainText('3건');
+    await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
+    await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
 
     await tabs.first().focus();
     await page.keyboard.press('ArrowRight');
@@ -906,44 +910,18 @@ test.describe('v3 research workspace candidate', () => {
     await tabs.nth(1).press('Space');
     await expect(tabs.nth(1)).toHaveAttribute('aria-checked', 'true');
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'partial');
-    await expect(page.getByRole('note')).toContainText('인과 추정값이 아니라');
-    await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
-    await expect(page.getByTestId('market-factor-group').first()).toContainText('건 관측');
-
-    await tabs.nth(2).click();
     await expect(page.getByRole('note')).toContainText('인과관계를 뜻하지 않습니다');
     await expect(page.getByTestId('market-propagation-group')).toHaveCount(2);
-    await expect(page.getByTestId('market-propagation-group').first()).toContainText(
-      '동일 유형 관측',
-    );
 
-    await tabs.nth(3).click();
-    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'missing');
-    const themePanel = page.getByTestId('market-mode-theme_community');
-    await expect(themePanel).toContainText('테마 구성원 원천이 연결되지 않았습니다');
-    await expect(themePanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(themePanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
-    await expect(themePanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
-    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
-
-    await tabs.nth(4).click();
-    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
-    await expect(page.getByTestId('market-heatmap-row')).toHaveCount(2);
-    await expect(page.getByTestId('market-heatmap-row').first()).toBeVisible();
-    await expect(page.getByTestId('market-mode-heatmap_matrix').locator('table')).toHaveAttribute(
-      'data-slot',
-      'table',
-    );
-
-    await tabs.nth(5).click();
+    await tabs.nth(2).click();
     await expect(page.getByTestId('market-timeline-row')).toHaveCount(2);
     await expect(page.getByTestId('market-timeline-row').first()).toBeVisible();
     await expect(page.getByTestId('market-mode-timeline').locator('ul')).toHaveCount(1);
 
-    await tabs.nth(6).click();
+    await tabs.nth(3).click();
     await expect(componentWatermark).toHaveAttribute('data-component-availability', 'available');
     const mapPanel = page.getByTestId('market-mode-map_globe');
-    await expect(mapPanel).toHaveAttribute('data-display-state', 'content');
+    await expect(mapPanel).toHaveAttribute('data-display-state', 'available');
     await expect(page.getByTestId('geo-map-canvas')).toBeVisible();
     await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
     await expect(mapPanel).toContainText(positiveGeoSnapshotFixture().snapshotId);
@@ -988,25 +966,9 @@ test.describe('v3 research workspace candidate', () => {
         '2',
       );
     }
-    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
-
-    await tabs.last().click();
-    await expect(componentWatermark).toHaveAttribute('data-component-availability', 'missing');
-    const valueChainPanel = page.getByTestId('market-mode-value_chain');
-    await expect(valueChainPanel).toContainText(
-      '현재 레이더 응답에는 승인된 공급망 관계가 없습니다',
-    );
-    await expect(valueChainPanel).toHaveAttribute('data-display-state', 'missing');
-    await expect(valueChainPanel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
-    await expect(valueChainPanel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(
-      0,
-    );
-    await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
-
     await tabs.last().focus();
     await page.keyboard.press('Home');
     await expect(tabs.first()).toBeFocused();
-    await expect(page.getByTestId('radar-row')).toHaveCount(2);
 
     const geometry = await tabs.evaluateAll((elements) => ({
       minHeight: Math.min(...elements.map((element) => element.getBoundingClientRect().height)),
@@ -1015,7 +977,9 @@ test.describe('v3 research workspace candidate', () => {
     expect(geometry.minHeight).toBeGreaterThanOrEqual(44);
     expect(geometry.documentOverflow).toBe(0);
 
-    const results = await new AxeBuilder({ page }).include('[aria-label="시장 시각화"]').analyze();
+    const results = await new AxeBuilder({ page })
+      .include('[aria-label="시장 보조 탐색"]')
+      .analyze();
     expect(results.violations).toEqual([]);
   });
 
@@ -1038,8 +1002,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.getByTestId('workspace-nav-radar').click();
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
-    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
-    await tabs.nth(6).click();
+    await page.getByRole('radio', { name: '지도' }).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText(
       '지도 렌더링을 사용할 수 없어 근거 표를 유지합니다',
@@ -1077,8 +1040,7 @@ test.describe('v3 research workspace candidate', () => {
     await page.waitForURL(/view=radar/);
     await expect.poll(() => evidence.matched).toBe(true);
 
-    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
-    await tabs.nth(6).click();
+    await page.getByRole('radio', { name: '지도' }).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
     await expect(mapPanel.getByRole('status')).toContainText('지도 렌더링 준비됨');
     const mapStage = mapPanel.locator('[data-map-generation]');
@@ -1105,7 +1067,7 @@ test.describe('v3 research workspace candidate', () => {
     ).toBe(true);
   });
 
-  test('renders controlled empty Radar truth and unsupported market modes as distinct runtime states', async ({
+  test('renders controlled empty Radar truth as one honest market connection state', async ({
     page,
   }) => {
     await page.goto('/workspace?view=today');
@@ -1117,42 +1079,13 @@ test.describe('v3 research workspace candidate', () => {
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 0, scopeTotal: 0 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('0');
-    await expect(page.getByTestId('radar-row')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /시장 변화 상세 열기/ })).toHaveCount(0);
     await expect(page.getByTestId('radar-load-more')).toHaveCount(0);
-
-    const tabs = page.getByRole('radiogroup', { name: '시장 화면 선택' }).getByRole('radio');
-    for (const [index, title] of [
-      [0, '이벤트 레이더'],
-      [1, '팩터 맵'],
-      [2, '전파 맵'],
-      [4, '히트맵 매트릭스'],
-      [5, '타임라인'],
-    ] as const) {
-      await tabs.nth(index).click();
-      const panel = page.getByRole('region', { name: `${title} 화면` });
-      await expect(panel).toContainText(`${title}에 표시할 신호 없음`);
-      await expect(panel).toHaveAttribute('data-display-state', 'empty');
-      await expect(panel.locator(':scope > [data-kind="empty"]')).toHaveCount(1);
-      await expect(panel.locator(':scope > :not([data-kind="empty"])')).toHaveCount(0);
-      await expect(tabs.nth(index)).toContainText('신호 없음');
-    }
-
-    for (const [index, title] of [
-      [3, '테마 커뮤니티'],
-      [6, '지도·글로브'],
-      [7, '밸류체인'],
-    ] as const) {
-      await tabs.nth(index).click();
-      const panel = page.getByRole('tabpanel');
-      await expect(panel).toContainText(`${title} 데이터 준비 중`);
-      await expect(panel).toHaveAttribute('data-display-state', 'missing');
-      await expect(panel.locator(':scope > [data-kind="unavailable"]')).toHaveCount(1);
-      await expect(panel.locator(':scope > :not([data-kind="unavailable"])')).toHaveCount(0);
-      await expect(tabs.nth(index)).toContainText('원천 준비 중');
-      await expect(page.getByTestId('market-mode-footer')).toHaveCount(0);
-    }
-
-    const results = await new AxeBuilder({ page }).include('[aria-label="시장 시각화"]').analyze();
+    await expect(page.getByText('감지된 시장 변화가 없습니다', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('시장 보조 탐색')).toHaveCount(0);
+    const results = await new AxeBuilder({ page })
+      .include('[data-testid="workspace-content"]')
+      .analyze();
     expect(results.violations).toEqual([]);
   });
 
@@ -1230,18 +1163,18 @@ test.describe('v3 research workspace candidate', () => {
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
-    const radarRows = page.getByTestId('radar-row');
-    await expect(radarRows).toHaveCount(2);
-    const initialHolding = radarRows.filter({ hasText: 'P3-C 초기 보유 관심 신호' });
-    await expect(initialHolding).toContainText('보유 · 관심');
+    const marketChanges = page.getByRole('button', { name: /시장 변화 상세 열기/ });
+    await expect(marketChanges).toHaveCount(2);
+    const initialHolding = marketChanges.filter({ hasText: '가격 급등' }).first();
+    await expect(initialHolding).toContainText('보유종목');
     const radarLoadMore = page.getByTestId('radar-load-more');
     await expect(radarLoadMore).toBeVisible();
     await expect(radarLoadMore).toBeEnabled();
     await radarLoadMore.click();
-    await expect(radarRows).toHaveCount(3);
+    await expect(marketChanges).toHaveCount(3);
     await expect(initialHolding).toBeVisible();
-    const appended = radarRows.filter({ hasText: 'P3-C 회귀 신호' });
-    await expect(appended).toContainText('보유 · 관심');
+    const appended = marketChanges.filter({ hasText: 'P3-C 회귀 신호' });
+    await expect(appended).toContainText('보유종목');
     expect(requestedCursor).toBe('p3-c-fixture-cursor');
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
     await expect(radarLoadMore).toHaveCount(0);

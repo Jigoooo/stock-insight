@@ -97,6 +97,17 @@
     0 8px 20px rgb(20 21 19 / 10%);
 }
 
+.selectionSurface.selected .cardMeta,
+.selectionSurface.selected .cardMeta strong,
+.selectionSurface.selected .cardFooter,
+.selectionSurface.selected .supportingCopy,
+.selectionSurface.selected .entityList span,
+.selectionSurface.selected .rowMarket,
+.selectionSurface.selected .marketRow time,
+.selectionSurface.selected .rowStrength {
+  color: var(--color-text-secondary);
+}
+
 .priorityCard {
   min-width: 0;
   min-height: 100%;

@@ -120,11 +120,11 @@ describe('Task 1 product shared UI adoption', () => {
       'utf8',
     );
 
-    assert.match(e2e, /getByRole\('radiogroup', \{ name: '시장 화면 선택' \}\)/);
+    assert.match(e2e, /getByRole\('radiogroup', \{ name: '시장 보조 탐색 선택' \}\)/);
     assert.match(e2e, /getByRole\('radio'\)/);
     assert.match(e2e, /toHaveAttribute\('aria-checked', 'true'\)/);
     assert.match(e2e, /press\('ArrowRight'\)[\s\S]*?toBeFocused\(\)[\s\S]*?aria-checked', 'false'/);
     assert.match(e2e, /press\('Space'\)[\s\S]*?aria-checked', 'true'/);
-    assert.doesNotMatch(e2e, /getByRole\('group', \{ name: '시장 화면 선택' \}\)/);
+    assert.doesNotMatch(e2e, /getByRole\('group', \{ name: '시장 보조 탐색 선택' \}\)/);
   });
 });

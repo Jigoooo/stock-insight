@@ -611,8 +611,10 @@ function connectionGeoSnapshot(itemValue: MarketConnectionItem): GeoSnapshot | n
 function radarPreviewData(
   scopeTotal: number,
   geoSnapshot: GeoSnapshot = marketConnectionsGeoSnapshot,
+  model: MarketConnectionsModel = marketConnections,
 ): RadarPreviewPayload {
   const watermark = { availability: 'available' as const, watermarkAt: analyzedAt, rowCount: 0 };
+  const visibleItems = [...model.priorityChanges, ...model.marketChanges];
   return {
     view: 'radar',
     shell: { radarScopeTotal: scopeTotal, watchlistCount: 4 },
@@ -638,7 +640,26 @@ function radarPreviewData(
             : { availability: 'missing', watermarkAt: null, rowCount: 0 },
         value_chain: watermark,
       },
-      items: [],
+      items: visibleItems.map((story) => {
+        const connectedEntity = story.connectedEntities[0]!;
+        return {
+          signalKey: story.connectionKey,
+          entityKey: connectedEntity.entityKey,
+          market: connectedEntity.entityKey.startsWith('KR:') ? 'KR' : 'US',
+          symbol: connectedEntity.entityKey.split(':').at(-1) ?? connectedEntity.entityKey,
+          name: connectedEntity.displayName,
+          signalType: 'price_spike',
+          polarity: 'positive',
+          strength:
+            story.rawStrength ??
+            ({ high: 0.8, medium: 0.5, low: 0.2 } satisfies Record<string, number>)[story.strength],
+          summary: story.summary,
+          occurredAt: story.occurredAt,
+          sourceName: 'Market Connections deterministic preview',
+          watched: connectedEntity.watched,
+          holding: connectedEntity.holding,
+        };
+      }),
       nextCursor: null,
     },
   };
@@ -698,14 +719,18 @@ export function resolveMarketConnectionsPreview(scenario: MarketConnectionsPrevi
 } {
   if (scenario === 'no-personalized') {
     return {
-      data: radarPreviewData(noPersonalizedMarketConnections.summary.changeCount),
+      data: radarPreviewData(
+        noPersonalizedMarketConnections.summary.changeCount,
+        marketConnectionsGeoSnapshot,
+        noPersonalizedMarketConnections,
+      ),
       marketConnections: noPersonalizedMarketConnections,
       loader: loaderForVisibleItems(noPersonalizedMarketConnections, loadPreviewMarketConnection),
     };
   }
   if (scenario === 'empty') {
     return {
-      data: radarPreviewData(0),
+      data: radarPreviewData(0, marketConnectionsGeoSnapshot, emptyMarketConnections),
       marketConnections: emptyMarketConnections,
       loader: loaderForVisibleItems(emptyMarketConnections, loadPreviewMarketConnection),
     };

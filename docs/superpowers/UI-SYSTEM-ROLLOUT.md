@@ -511,6 +511,19 @@
 - 모바일 상세는 공용 Dialog의 명시적 `bottom-sheet` presentation을 사용해 아래에서 열리고, 종목 행은 공용 Button 내부 wrapper 전체 너비와 Today 계열의 둥근 선택 surface를 유지한다.
 - 다음 개편 대상은 기본 메뉴 순서의 `시장 연결` 탭으로 확정한다.
 
+### 2026-08-08 — 시장 연결 경험 구현·검증 완료
+
+- 승인 설계는 `docs/superpowers/specs/2026-08-07-market-connections-redesign-design.md`, 실행 계획은 `docs/superpowers/plans/2026-08-07-market-connections-redesign.md`이며, 요약 → 우선 변화 최대 3개 → 개인화 변화 → 더 넓은 시장 변화 → 보조 탐색 4종 → 공용 상세 인스펙터 순서를 실제 제품과 결정론적 preview에 고정함
+- `shared/ui`에는 새 공개 API나 의존성을 추가하지 않고 기존 Button, ToggleGroup, Panel, DataTable, Dialog 상세 프레임만 채택했다. Market Connections의 카드·탐색·fixture·presentation 스타일은 제품 로컬 경계에 유지함
+- TDD RED는 격리 서버 환경을 바로 전달하지 못한 첫 404를 분리한 뒤 6건 통과·5건 조건 skip·11건 실패로 fixture 탐색 데이터 누락, timeline 정확 선택 누락, empty의 보조 탐색 노출, dark contrast 4건과 locator/hydration/pointer-width 테스트 문제를 재현했다. 제품 결함은 fixture와 의미 구조·빈 상태·색 대비에서 좁게 수정하고 테스트 결함은 제품 계약을 숨기지 않는 selector/안정화로 정리함
+- 최종 preview 회귀는 Market Connections·Today·Stocks desktop/mobile 65건 통과·23건 viewport 조건 skip·0건 실패, focused Node 79건 통과·0건 실패다. live Radar E2E는 기존 동일 모드 수 가정을 제거하고 `시장 보조 탐색 선택` 의미 구조·payload·pagination 계약을 유지했으며, 인증 환경 변수가 없어 실제 live candidate 실행은 보류함
+- Codex 인앱 브라우저에서 1440×960 desktop은 우선 카드 3개·drawer overlay·overflow 0, 1240×900은 카드 단일 열 적층·overflow 0, 390×844는 아래에서 여는 bottom-sheet·overflow 0을 확인했다. light/dark와 reduced-motion을 확인하고, dark contrast 결함을 보정함
+- scenario 직접 확인은 `default`의 정확 선택·상세, `no-personalized`의 개인화 미제조·더 넓은 변화 우선, `empty`의 단일 정직한 빈 상태·보조 탐색 미노출, `partial`의 기본 story 보존·국소 관계/geo/history 실패, `detail-error`의 선택 보존·retry 노출을 모두 만족함
+- fresh 전체 gate는 format 1,327개 파일, lint 0 errors(기존 warning 6개), typecheck 11/11 tasks, 전체 test 통과, build 7/7 tasks를 통과함. `pnpm verify:release`도 lint·typecheck·P6 fixture typecheck·전체 test·hard design gate 17건까지 통과함
+- `pnpm verify:release`의 첫 미실행 환경 gate는 `pnpm test:p6:db`이며, 현재 셸에 `P6_REHEARSAL_ADMIN_DATABASE_URL`이 없어 `node scripts/run-p6-db-rehearsal.mjs`가 `ERR_INVALID_URL` (`input: ''`)로 종료됐다. 이후 `test:xg:db`, build, authenticated/production browser gate는 이 실행에서 시작되지 않았고 통과로 기록하지 않음
+- `graphify update .` 완료: 10,585 nodes, 18,192 edges, 715 communities. 기존 skill/package 버전 차이와 SQL parser 미설치 경고는 유지됐으며 `graphify-out/`은 ignore 상태로 staging에서 제외함
+- 이번 묶음은 DB, migration, API server, 공개 contract, route path, navigation section id를 변경하지 않았고, live adapter의 원시 Radar 행을 preview의 grouped story로 추론하지 않음
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
