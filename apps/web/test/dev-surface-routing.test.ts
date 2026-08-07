@@ -34,6 +34,45 @@ describe('development-only visual surface gates', () => {
 });
 
 describe('development-only visual surface routes', () => {
+  it('returns only valid discriminated preview requests and rejects cross-surface scenarios', async () => {
+    const requestModule =
+      await import('../src/pages/dev-preview/model/dev-preview-request.ts').catch(() => null);
+    assert.ok(requestModule, 'expected the dev preview request resolver to exist');
+    if (!requestModule) return;
+
+    const resolve = requestModule.resolveDevPreviewRequest;
+    assert.deepEqual(resolve({ surface: 'stocks', scenario: 'no-holdings' }), {
+      surface: 'stocks',
+      scenario: 'no-holdings',
+    });
+    assert.deepEqual(resolve({ surface: 'market-connections', scenario: 'partial' }), {
+      surface: 'market-connections',
+      scenario: 'partial',
+    });
+    assert.deepEqual(resolve({ scenario: 'empty' }), {
+      surface: undefined,
+      scenario: 'empty',
+    });
+    assert.deepEqual(resolve({ surface: 'today' }), { surface: 'today' });
+    assert.deepEqual(resolve({ surface: 'admin-invitations' }), {
+      surface: 'admin-invitations',
+    });
+
+    assert.throws(
+      () => resolve({ surface: 'market-connections', scenario: 'no-holdings' }),
+      /not valid for market-connections/,
+    );
+    assert.throws(
+      () => resolve({ surface: 'stocks', scenario: 'no-personalized' }),
+      /not valid for stocks/,
+    );
+    assert.throws(
+      () => resolve({ surface: 'stocks', scenario: 'partial' }),
+      /not valid for stocks/,
+    );
+    assert.throws(() => resolve({ surface: 'today', scenario: 'default' }), /not valid for today/);
+  });
+
   it('registers product preview and UI Lab as separate public routes', async () => {
     const routeTree = await readSource('../src/routeTree.gen.ts');
 
@@ -103,37 +142,35 @@ describe('development-only visual surface routes', () => {
     assert.ok(fixtureModule, 'expected the Today preview fixture to exist');
     if (!fixtureModule) return;
 
-    const [previewPage, previewRoute] = await Promise.all([
+    const [previewPage, previewRequest] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
-      readSource('../src/routes/[__dev-preview].tsx'),
+      readSource('../src/pages/dev-preview/model/dev-preview-request.ts'),
     ]);
     const fixture = fixtureModule.todayPreviewFixture;
 
     assert.equal(fixture.view, 'today');
     assert.equal(fixture.today.meta.visibility, 'internal');
     assert.ok(fixture.today.summary.laneItemCount >= 4);
-    assert.match(previewRoute, /search\.surface === 'today'/);
+    assert.match(previewRequest, /search\.surface === 'today'/);
     assert.match(previewPage, /todayPreviewFixture/);
     assert.match(previewPage, /surface === 'today'/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
   });
 
   it('routes deterministic Stocks preview scenarios without authenticated or network loaders', async () => {
-    const [previewPage, previewRoute] = await Promise.all([
+    const [previewPage, previewRequest, previewRoute] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/pages/dev-preview/model/dev-preview-request.ts'),
       readSource('../src/routes/[__dev-preview].tsx'),
     ]);
 
-    assert.match(previewRoute, /search\.surface === 'stocks'/);
-    assert.match(previewRoute, /search\.scenario === 'no-holdings'/);
-    assert.match(previewRoute, /search\.scenario === 'empty'/);
-    assert.match(previewRoute, /search\.scenario === 'detail-error'/);
+    assert.match(previewRequest, /search\.surface === 'stocks'/);
+    assert.match(previewRequest, /'no-holdings'/);
+    assert.match(previewRequest, /'empty'/);
+    assert.match(previewRequest, /'detail-error'/);
+    assert.match(previewRoute, /<DevPreviewPage \{\.\.\.previewRequest\} \/>/);
     assert.match(
-      previewRoute,
-      /<DevPreviewPage surface=\{surface \?\? 'workspace'\} scenario=\{scenario\}/,
-    );
-    assert.match(
-      previewPage,
+      previewRequest,
       /type StocksPreviewScenario = 'default' \| 'no-holdings' \| 'empty' \| 'detail-error'/,
     );
     assert.match(previewPage, /scenario === 'no-holdings'/);
@@ -144,32 +181,29 @@ describe('development-only visual surface routes', () => {
   });
 
   it('routes only the scenarios owned by the Market Connections preview surface', async () => {
-    const [previewPage, previewRoute] = await Promise.all([
+    const [previewPage, previewRequest, previewRoute] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/pages/dev-preview/model/dev-preview-request.ts'),
       readSource('../src/routes/[__dev-preview].tsx'),
     ]);
 
-    assert.match(previewRoute, /search\.surface === 'market-connections'/);
-    assert.match(previewRoute, /search\.scenario === 'no-personalized'/);
-    assert.match(previewRoute, /search\.scenario === 'partial'/);
-    assert.match(previewRoute, /surface === 'stocks' \|\| surface === undefined/);
-    assert.match(previewRoute, /surface === 'stocks'[\s\S]*?'no-holdings'/);
-    assert.match(previewRoute, /surface === 'market-connections'[\s\S]*?'no-personalized'/);
-    const scenarioStart = previewRoute.indexOf('const scenario =');
-    const marketScenarioStart = previewRoute.indexOf(
-      ": surface === 'market-connections'",
-      scenarioStart,
-    );
-    const scenarioEnd = previewRoute.indexOf('return { scenario, surface }', marketScenarioStart);
-    const stocksScenarioBranch = previewRoute.slice(scenarioStart, marketScenarioStart);
-    const marketScenarioBranch = previewRoute.slice(marketScenarioStart, scenarioEnd);
-    assert.doesNotMatch(stocksScenarioBranch, /no-personalized|partial/);
-    assert.doesNotMatch(marketScenarioBranch, /no-holdings/);
+    assert.match(previewRequest, /search\.surface === 'market-connections'/);
+    assert.match(previewRequest, /resolveStocksScenario/);
+    assert.match(previewRequest, /resolveMarketConnectionsScenario/);
+    assert.match(previewRequest, /'no-holdings'/);
+    assert.match(previewRequest, /'no-personalized'/);
+    assert.match(previewRequest, /'partial'/);
+    assert.match(previewRoute, /validateSearch: resolveDevPreviewRequest/);
     assert.match(previewPage, /surface === 'market-connections'/);
-    assert.match(previewPage, /resolveMarketConnectionsPreview\(scenario\)/);
+    assert.match(previewPage, /resolveMarketConnectionsPreview\(props\.scenario \?\? 'default'\)/);
     assert.match(previewPage, /loadMarketConnectionDetail=\{preview\.loader\}/);
     assert.match(previewPage, /marketConnections=\{preview\.marketConnections\}/);
     assert.match(previewPage, /urlState=\{\{ view: 'radar' \}\}/);
+    assert.match(previewRoute, /const previewRequest = Route\.useSearch\(\)/);
+    assert.match(previewRoute, /<DevPreviewPage \{\.\.\.previewRequest\} \/>/);
+    assert.doesNotMatch(previewPage, /requestedScenario === 'no-holdings'/);
+    assert.doesNotMatch(previewPage, /requestedScenario === 'no-personalized'/);
+    assert.doesNotMatch(previewPage, /requestedScenario === 'partial'/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
