@@ -78,16 +78,24 @@
   justify-content: stretch;
   padding: 14px 18px;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: var(--radius-md);
   color: var(--color-text-primary);
   background: var(--color-surface);
   box-shadow: 0 -1px 0 var(--color-border) inset;
   text-align: left;
 }
 
+.stockRow [data-slot='button-content'],
 .stockRow [data-slot='button-label'] {
   width: 100%;
   min-width: 0;
+}
+
+.stockRow [data-slot='button-content'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.stockRow [data-slot='button-label'] {
   display: block;
 }
 

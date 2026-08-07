@@ -504,6 +504,13 @@
 - RED browser 계약은 원 버튼을 먼저 focus하지 않고 `HTMLElement.click()`으로 활성화한 뒤 모바일 상세를 닫았을 때 opener가 `inactive`인 문제를 재현했다. 보정 후 동일 계약이 desktop/mobile 2/2 통과했다.
 - 표준 4-worker Today·Stocks desktop/mobile 통합은 47건 통과·17건 viewport 조건 skip·0건 실패로 overlay, Escape, 선택 유지, Stocks opener 비회귀를 함께 확인했다.
 
+### 2026-08-07 — 내 종목 브리핑 사용자 최종 승인
+
+- 사용자는 현재 프리뷰의 정보 구조와 상세 흐름을 `내 종목` 탭 확정안으로 승인했다. 추가 정보를 카드에 더 나열하지 않고 현재 밀도를 유지한다.
+- 실제 연결 뉴스·리스크·우선순위 집계는 진행 중인 백엔드 데이터 보강 이후 배치 read model 단계에서 다룬다. `마지막 분석 이후 변화`와 리스크 상태 같은 시간축 정보도 같은 단계로 유보한다.
+- 모바일 상세는 공용 Dialog의 명시적 `bottom-sheet` presentation을 사용해 아래에서 열리고, 종목 행은 공용 Button 내부 wrapper 전체 너비와 Today 계열의 둥근 선택 surface를 유지한다.
+- 다음 개편 대상은 기본 메뉴 순서의 `시장 연결` 탭으로 확정한다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

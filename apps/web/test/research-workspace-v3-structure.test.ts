@@ -308,7 +308,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /modal=\{isMobileViewport\}/);
     assert.match(page, /<Dialog\s+modal\s/);
     assert.match(page, /<DialogContent[\s\S]*?portalled/);
-    assert.match(page, /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/);
+    assert.match(
+      page,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
+    );
     assert.match(page, /\bshowOverlay\s/);
     assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);

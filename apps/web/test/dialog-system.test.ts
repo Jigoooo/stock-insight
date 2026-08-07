@@ -66,6 +66,24 @@ describe('shared dialog system', () => {
     assert.match(css, /\.overlay\[data-overlay-tone='light'\]/);
   });
 
+  it('gives bottom sheets a vertical motion axis without changing drawer motion', async () => {
+    const [source, frame] = await Promise.all([
+      read('shared/ui/dialog/dialog.tsx'),
+      read('pages/research-workspace/ui/detail-inspector-frame.tsx'),
+    ]);
+
+    assert.match(
+      source,
+      /export type DialogPresentation = 'modal' \| 'inspector' \| 'bottom-sheet'/,
+    );
+    assert.match(source, /presentation === 'bottom-sheet'[\s\S]*?\{ x: 0, y: \d+, opacity: 0 \}/);
+    assert.match(
+      source,
+      /presentation === 'bottom-sheet'[\s\S]*?y: \d+,[\s\S]*?pointerEvents: 'none'/,
+    );
+    assert.match(frame, /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'/);
+  });
+
   it('reserves a 32px close slot and stable action widths', async () => {
     const css = await read('shared/ui/dialog/dialog.module.css');
 

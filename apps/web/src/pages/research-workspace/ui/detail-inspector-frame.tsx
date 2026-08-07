@@ -70,7 +70,11 @@ export function DetailInspectorFrame({
     startX: number;
   } | null>(null);
   const presentation: DetailInspectorPresentation = mobile ? 'mobile' : desktopPresentation;
-  const dialogPresentation = !mobile && desktopPresentation === 'modal' ? 'modal' : 'inspector';
+  const dialogPresentation = mobile
+    ? 'bottom-sheet'
+    : desktopPresentation === 'modal'
+      ? 'modal'
+      : 'inspector';
 
   useEffect(() => {
     if (!open) return;

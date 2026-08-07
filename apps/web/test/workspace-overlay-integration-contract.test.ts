@@ -41,7 +41,7 @@ describe('workspace overlay integration', () => {
     assert.match(inspectorFrame, /\bportalled\b/);
     assert.match(
       inspectorFrame,
-      /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
     );
     assert.match(inspectorFrame, /\bshowOverlay\s/);
     assert.match(inspectorFrame, /motionPreset="quick"/);

@@ -103,6 +103,79 @@ test('places at most three priority holdings before the full holdings list', asy
   );
 });
 
+test('uses the full card width for stock row content in every entry section', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop stacked-card geometry contract');
+  await page.setViewportSize({ width: 1180, height: 900 });
+  await gotoPreview(page);
+  const entries = [
+    { panel: '우선 확인할 보유종목', stock: '삼성전자' },
+    { panel: '전체 보유종목', stock: '삼성전자' },
+    { panel: '변화가 있는 관심종목', stock: 'NVIDIA' },
+  ];
+
+  for (const entry of entries) {
+    await page
+      .getByRole('heading', { name: entry.panel })
+      .evaluate((heading) => heading.scrollIntoView({ block: 'center' }));
+    const row = panelForHeading(page, entry.panel).locator(
+      `button[aria-label="${entry.stock} 종목 브리핑 열기"]`,
+    );
+    await expect(row).toBeVisible();
+    await expect
+      .poll(() =>
+        row.evaluate((node) => {
+          const label = node.querySelector<HTMLElement>('[data-slot="button-label"]');
+          const layout = label?.firstElementChild as HTMLElement | null;
+          return layout ? getComputedStyle(layout).display : null;
+        }),
+      )
+      .toBe('grid');
+    const geometry = await row.evaluate((node) => {
+      const button = node.getBoundingClientRect();
+      const buttonStyle = getComputedStyle(node);
+      const content = node.querySelector<HTMLElement>('[data-slot="button-content"]');
+      const label = node.querySelector<HTMLElement>('[data-slot="button-label"]');
+      const layout = label?.firstElementChild as HTMLElement | null;
+      const metrics = layout?.lastElementChild as HTMLElement | null;
+
+      if (!content || !label || !layout || !metrics) return null;
+
+      const horizontalPadding =
+        Number.parseFloat(buttonStyle.paddingLeft) + Number.parseFloat(buttonStyle.paddingRight);
+      const horizontalBorder =
+        Number.parseFloat(buttonStyle.borderLeftWidth) +
+        Number.parseFloat(buttonStyle.borderRightWidth);
+      return {
+        availableWidth: button.width - horizontalPadding - horizontalBorder,
+        contentWidth: content.getBoundingClientRect().width,
+        labelWidth: label.getBoundingClientRect().width,
+        layoutWidth: layout.getBoundingClientRect().width,
+        metricsRightGap: button.right - metrics.getBoundingClientRect().right,
+        rightInset:
+          Number.parseFloat(buttonStyle.paddingRight) +
+          Number.parseFloat(buttonStyle.borderRightWidth),
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(geometry?.contentWidth ?? 0, `${entry.panel} content width`).toBeGreaterThanOrEqual(
+      (geometry?.availableWidth ?? Infinity) - 1,
+    );
+    expect(geometry?.labelWidth ?? 0, `${entry.panel} label width`).toBeGreaterThanOrEqual(
+      (geometry?.availableWidth ?? Infinity) - 1,
+    );
+    expect(geometry?.layoutWidth ?? 0, `${entry.panel} layout width`).toBeGreaterThanOrEqual(
+      (geometry?.availableWidth ?? Infinity) - 1,
+    );
+    expect(
+      geometry?.metricsRightGap ?? Infinity,
+      `${entry.panel} metrics right gap`,
+    ).toBeLessThanOrEqual((geometry?.rightInset ?? 0) + 1);
+  }
+});
+
 test('opens matching detail from priority, holdings, and watchlist entry points', async ({
   page,
 }) => {
@@ -315,6 +388,7 @@ test('does not clip the selected full-border shadow in any stock list', async ({
       const list = parent.getBoundingClientRect();
       const style = getComputedStyle(node);
       return {
+        borderRadius: style.borderRadius,
         borderWidths: [
           style.borderTopWidth,
           style.borderRightWidth,
@@ -328,6 +402,7 @@ test('does not clip the selected full-border shadow in any stock list', async ({
       };
     });
     expect(geometry).not.toBeNull();
+    expect(Number.parseFloat(geometry?.borderRadius ?? '0')).toBeGreaterThanOrEqual(10);
     expect(geometry?.borderWidths).toEqual(['1px', '1px', '1px', '1px']);
     expect(geometry?.boxShadow).not.toBe('none');
     expect(geometry?.insetLeft ?? 0).toBeGreaterThanOrEqual(10);
@@ -414,6 +489,7 @@ test('supports dark mode, reduced motion, accessibility, and 390px containment',
   expect(overflow).toBeLessThanOrEqual(1);
   if (testInfo.project.name === 'mobile') {
     await expect(inspector).toHaveAttribute('data-inspector-presentation', 'mobile');
+    await expect(inspector).toHaveAttribute('data-presentation', 'bottom-sheet');
     await expect(
       page.getByRole('separator', { name: '종목 브리핑 인스펙터 너비 조절' }),
     ).toHaveCount(0);

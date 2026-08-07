@@ -155,6 +155,10 @@ describe('stock briefing view structure', () => {
       css,
       /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\]\s*\{[\s\S]*?border-color:[\s\S]*?background:[\s\S]*?box-shadow:/,
     );
+    assert.match(
+      css,
+      /\.stockRow\[data-slot='button-control'\]\s*\{[\s\S]*?border-radius:\s*var\(--radius-md\)/,
+    );
     assert.doesNotMatch(
       css,
       /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\][\s\S]{0,320}?border-left/,

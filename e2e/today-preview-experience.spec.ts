@@ -454,10 +454,14 @@ test('keeps mobile evidence detail as the existing bottom modal', async ({ page 
 
   const inspector = page.getByTestId('evidence-inspector');
   await expect(inspector).toHaveAttribute('data-inspector-presentation', 'mobile');
+  await expect(inspector).toHaveAttribute('data-presentation', 'bottom-sheet');
   await expect(page.locator('[data-slot="dialog-overlay"]')).toBeVisible();
   await expect(page.getByTestId('workspace-content')).toHaveAttribute('inert', '');
   await expect(page.getByRole('separator', { name: '근거 인스펙터 너비 조절' })).toHaveCount(0);
   await expect(inspector.getByRole('button', { name: '넓게 보기' })).toHaveCount(0);
+  await expect
+    .poll(() => inspector.evaluate((element) => getComputedStyle(element).transform))
+    .toBe('none');
   const box = await inspector.boundingBox();
   expect(box).not.toBeNull();
   expect(Math.abs((box?.y ?? 0) + (box?.height ?? 0) - 844)).toBeLessThanOrEqual(1);

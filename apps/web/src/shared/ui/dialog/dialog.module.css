@@ -68,6 +68,22 @@
   border-radius: 0;
 }
 
+.content[data-presentation='bottom-sheet'][data-portalled='true'] {
+  position: fixed;
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: min(86dvh, 760px);
+  max-height: min(86dvh, 760px);
+  border-width: 1px 0 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--material-inspector);
+  translate: none;
+  box-shadow: var(--shadow-raised);
+}
+
 .content[data-composition='form'] {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }

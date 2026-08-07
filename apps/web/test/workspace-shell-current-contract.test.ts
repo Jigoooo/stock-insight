@@ -106,7 +106,7 @@ describe('current workspace shell behavior', () => {
     assert.match(inspectorFrame, /\bshowOverlay\s/);
     assert.match(
       inspectorFrame,
-      /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
     );
     assert.doesNotMatch(inspectorFrame, /useFocusTrap|event\.key !== 'Escape'/);
     assert.match(page, /opener\?\.isConnected/);
