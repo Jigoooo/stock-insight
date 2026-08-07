@@ -14,7 +14,7 @@
 // not a guess at them. Building a SQL parser to avoid asking the database would
 // have been the patchwork this audit exists to find.
 //
-// PITFALLS, from docs/operations/database-ownership.md and each confirmed the hard
+// PITFALLS, from docs/architecture/operations/database-ownership.md and each confirmed the hard
 // way on the same day:
 //   - pg_stat_user_tables.n_live_tup is an ESTIMATE. analytics.theme holds 138 rows
 //     and reports 0, so this uses count(*).

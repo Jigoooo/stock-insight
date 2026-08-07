@@ -631,7 +631,7 @@ export type ImpactSummaryResponse = z.infer<typeof impactSummaryResponseSchema>;
 
 // The v2 impact plane, served through content packs of kind `impact_brief`.
 // Distinct from impactSummaryItemSchema above, which aggregates the v1 plane and
-// is permanently empty (see docs/operations/impact-plane-v1-v2.md): these are
+// is permanently empty (see docs/architecture/operations/impact-plane-v1-v2.md): these are
 // individual paths, each anchored to a sealed analytics.impact_path_v2 row whose
 // steps carry real foreign keys into the graph snapshot.
 /**

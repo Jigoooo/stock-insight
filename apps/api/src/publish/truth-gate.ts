@@ -1,7 +1,7 @@
 // B0 — Product truth stop-line shared gate logic.
 // Single owner for: (1) verification-status -> public block type mapping,
 // (2) freshness-aware product availability resolution.
-// Master plan: docs/plan/insight-platform-backend-db-v2/00-backend-db-master-plan.md §B0.
+// Master plan: docs/architecture/backend-db-master-plan.md §B0.
 
 export type PublicBlockType = 'fact' | 'reported_claim';
 

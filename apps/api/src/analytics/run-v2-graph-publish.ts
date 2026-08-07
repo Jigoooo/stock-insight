@@ -297,7 +297,7 @@ const HOLDINGS_SOURCE: SourceDefinition = {
 const STOCK_PRICE_SOURCE: SourceDefinition = {
   providerKey: STOCK_PRICE_PROVIDER,
   displayName: 'Immutable daily close window used by the co-movement model',
-  // Owned by research-common (docs/operations/database-ownership.md). Read only:
+  // Owned by research-common (docs/architecture/operations/database-ownership.md). Read only:
   // this job never writes to market_ts.*, and verify-table-ownership.sh would
   // fail if it did.
   sourceTable: 'market_ts.ohlcv',
@@ -2285,8 +2285,9 @@ async function dryRun(client: Client): Promise<void> {
           candidates: dryRunOwnershipShipped.length,
           accepted: dryRunOwnershipShipped.filter((row) => row.targetRevisionStatus === 'accepted')
             .length,
-          quarantined: dryRunOwnershipShipped.filter((row) => row.targetRevisionStatus !== 'accepted')
-            .length,
+          quarantined: dryRunOwnershipShipped.filter(
+            (row) => row.targetRevisionStatus !== 'accepted',
+          ).length,
           builtByPredicate: Object.fromEntries(
             ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
               predicate,
@@ -2567,7 +2568,9 @@ async function apply(client: Client): Promise<void> {
     );
     const ownershipShipped = {
       ...ownershipBuilt,
-      candidates: ownershipBuilt.candidates.filter((row) => SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate)),
+      candidates: ownershipBuilt.candidates.filter((row) =>
+        SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate),
+      ),
     };
     // Confidence 1, same reasoning as the supply disclosure below: a filed
     // position is an assertion by the filer, not a measurement with a strength.
@@ -2844,7 +2847,8 @@ async function apply(client: Client): Promise<void> {
               ownershipBuilt.candidates.filter((row) => row.predicate === predicate).length,
             ]),
           ),
-          heldBackByPackBudget: ownershipBuilt.candidates.length - ownershipShipped.candidates.length,
+          heldBackByPackBudget:
+            ownershipBuilt.candidates.length - ownershipShipped.candidates.length,
           superhubExclusions: ownershipBuilt.exclusions.length,
           inserted: ownershipPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: ownershipPersisted.persisted.filter((row) => row.outcome === 'replayed').length,

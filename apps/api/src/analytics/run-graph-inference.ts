@@ -23,7 +23,7 @@ import pg, { type PoolClient, type QueryResultRow } from 'pg';
 // against the read-only truth contract. The servable impact plane is v2:
 // run-v2-analytics-publish.ts writes analytics.impact_path_v2 with real edge
 // foreign keys and publishes it as content packs of kind 'impact_brief'.
-// See migration 055 and docs/operations/impact-plane-v1-v2.md.
+// See migration 055 and docs/architecture/operations/impact-plane-v1-v2.md.
 
 const JOB_NAME = 'stock-insight-graph-inference';
 const RULE_VERSION = 'impact-v1';

@@ -52,7 +52,7 @@ This deployment is served from a Cloudflare PoP far from both the visitor and th
 - Do not add redirect hops to entry paths, and prefer client transitions over `window.location.assign`.
 - Do not let route styles or the edge strip `Cache-Control` from content-hashed `/assets/`.
 
-See `docs/operations/edge-and-login-performance.md` for the measurements and the Cloudflare routing checklist.
+See `docs/architecture/operations/edge-and-login-performance.md` for the measurements and the Cloudflare routing checklist.
 
 ## Graphify
 graphify project hooks may be installed locally for Claude and Codex. Generated graph files stay in `graphify-out/` and are ignored by git.

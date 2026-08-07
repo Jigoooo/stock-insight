@@ -41,14 +41,19 @@ const EXEMPT = new Map<string, string>([
   ['run-phase35.ts', 'one-shot backfill, ran 2026-07-07'],
   // Applying a migration is a decision, not a timer. Deliberately manual.
   ['run-schema-migrations.ts', 'manual by design — applying migrations is a decision'],
-  // Written 2026-08-07, deliberately not wired yet. Two things have to be decided
-  // before a timer runs it, and both are recorded in
-  // docs/plan/ecos-collector-2026-08-07.md: the first --apply is a production
-  // write the user has not approved, and the collected series cannot reach the
-  // graph at all until MACRO_SERIES_WINDOW_SQL stops joining on FRED_SERIES only.
-  // Wiring it now would schedule a job whose output nothing reads — which is the
-  // exact defect this file exists to catch, so it is not done quietly.
-  ['run-ecos-vintage.ts', 'pending first --apply approval and the FRED_SERIES-only graph join'],
+  // Written 2026-08-07, still run by hand. The two blockers recorded when it was
+  // written are BOTH resolved: the first --apply was approved and ran (18,508 rows
+  // across 6 series in market.macro_vintage at vintage_quality='approx_collected'),
+  // and MACRO_SERIES_WINDOW_SQL now joins identifier_type IN ('FRED_SERIES',
+  // 'ECOS_SERIES') so the collected series do reach the graph.
+  // What is left is not a blocker but an undecided cadence: ECOS publishes on no
+  // fixed schedule we have modelled, and nobody has picked one. Wiring it to a
+  // timer without that decision would schedule re-collection at an arbitrary
+  // interval, so it stays manual until the cadence is chosen.
+  [
+    'run-ecos-vintage.ts',
+    'manual — collector works and reaches the graph; timer cadence undecided',
+  ],
 ]);
 
 async function collectJobs(dir: URL, found: string[] = []): Promise<string[]> {

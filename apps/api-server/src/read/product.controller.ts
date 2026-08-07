@@ -44,7 +44,7 @@ export class ProductController {
   }
 
   // The v2 impact plane. `/impact` above reads serving.impact_summary_v1, which is
-  // permanently empty by construction — see docs/operations/impact-plane-v1-v2.md.
+  // permanently empty by construction — see docs/architecture/operations/impact-plane-v1-v2.md.
   // entityKey is required here: a content pack is built for one holding, and its
   // digest is what makes a rendered claim traceable.
   @Get('impact/brief')

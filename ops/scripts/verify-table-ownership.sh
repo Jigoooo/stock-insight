@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fails when this repository writes to a table another project owns.
 #
-# research_app is shared by four projects (see docs/operations/database-ownership.md).
+# research_app is shared by four projects (see docs/architecture/operations/database-ownership.md).
 # On 2026-08-03 a migration here registered two collectors in
 # ops.source_collection_policy without anyone knowing that table belongs to
 # research-app-db. It turned out harmless, but nothing would have caught it.

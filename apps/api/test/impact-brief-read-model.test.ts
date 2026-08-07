@@ -4,7 +4,7 @@ import test from 'node:test';
 import { getImpactBrief } from '../src/product/read-model.ts';
 
 // getImpactSummaries reads serving.impact_summary_v1, which is empty by
-// construction and will stay that way (docs/operations/impact-plane-v1-v2.md).
+// construction and will stay that way (docs/architecture/operations/impact-plane-v1-v2.md).
 // This read model serves the v2 plane through impact_brief content packs, which
 // is the surface the product should actually render.
 

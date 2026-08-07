@@ -63,8 +63,10 @@ const ECOS_BASE = 'https://ecos.bok.or.kr/api/StatisticSearch';
  *     COLLECTED_WITHOUT_TOPIC for exactly that reason.
  *     But swapping the KR market factor changes the beta control under EVERY
  *     Korean edge, which is a modelling decision with its own before/after
- *     measurement, not a line in a collector's series list. Recorded in
- *     docs/plan/ so it is claimed rather than lost.
+ *     measurement, not a line in a collector's series list. It was made on
+ *     2026-08-07: KOSPI replaced a synthetic index that averaged the very stocks
+ *     being controlled, and 6 of 7 stock-market correlations fell (서울보증보험
+ *     0.545 → 0.212). See docs/architecture/stock-insight-as-built-2026-08-07.md §6.
  *
  *   521Y001 뉴스심리지수 — daily, but BOK labels it 실험적 통계 (experimental).
  *     A series whose own publisher marks it provisional should not become
@@ -302,13 +304,7 @@ async function run(): Promise<void> {
     }
 
     for (const series of CORE_SERIES) {
-      const rows = await fetchSeries(
-        series.statCode,
-        series.itemCode,
-        apiKey,
-        startTime,
-        endTime,
-      );
+      const rows = await fetchSeries(series.statCode, series.itemCode, apiKey, startTime, endTime);
       const window: EcosWindow = {
         recordKey: `${series.statCode}:${series.itemCode}:${startTime}:${endTime}`,
         statCode: series.statCode,

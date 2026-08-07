@@ -313,7 +313,7 @@ export async function getImpactSummaries(
 
 // Serves the v2 impact plane. getImpactSummaries above reads
 // serving.impact_summary_v1, which is permanently empty by construction — see
-// docs/operations/impact-plane-v1-v2.md. This reads the impact_brief content
+// docs/architecture/operations/impact-plane-v1-v2.md. This reads the impact_brief content
 // packs instead, and goes through getServableContentPack so the pack's own
 // serving contract (published pack + sealed snapshot + fresh_until, re-checked in
 // process) applies rather than being re-implemented here.

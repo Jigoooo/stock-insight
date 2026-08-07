@@ -66,7 +66,10 @@ describe('claim quote binding parity', () => {
   it('the SQL still binds on the full lowered quote', () => {
     // Guards the other direction: if the SQL is ever loosened to a prefix match,
     // the helper above stops describing it and this file stops meaning anything.
-    assert.match(INSERT_CLAIM_EVIDENCE_SQL, /position\(lower\(trim\(\$3\)\) in lower\(chunk\.content\)\)/);
+    assert.match(
+      INSERT_CLAIM_EVIDENCE_SQL,
+      /position\(lower\(trim\(\$3\)\) in lower\(chunk\.content\)\)/,
+    );
     assert.match(INSERT_CLAIM_EVIDENCE_SQL, /chunk\.revision_no=\$4/);
   });
 });

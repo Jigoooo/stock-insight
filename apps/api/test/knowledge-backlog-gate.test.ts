@@ -8,9 +8,7 @@ function read(relative: string): string {
 
 const wrapper = read('../scripts/run_knowledge_pipeline.sh');
 const extraction = read('../src/ingest/run-knowledge-extraction.ts');
-const gates = JSON.parse(
-  read('../../../docs/plan/insight-platform-backend-db-v2/backend-db-gates.json'),
-) as {
+const gates = JSON.parse(read('../../../docs/architecture/backend-db-gates.json')) as {
   $schema_version: string;
   gates: Array<{
     id: string;
