@@ -435,10 +435,23 @@ function sealAvailableGeoSnapshot(material: GeoSnapshotSealMaterial): GeoSnapsho
     snapshotId,
     digest,
     generatedAt,
+    h3: {
+      resolution: material.h3.resolution,
+      cells: material.h3.cells.map((cell) => ({
+        cellId: cell.cellId,
+        featureCount: cell.featureCount,
+        geoEntityKeys: [...cell.geoEntityKeys],
+      })),
+    },
+    limitations: [...material.limitations],
     mvt: {
       ...material.mvt,
       available: true,
       urlTemplate: `https://preview.stock-insight.invalid/api/geo/tiles/{z}/{x}/{y}.mvt?snapshot=${snapshotId}&knownAt=${encodeURIComponent(material.knownAt)}&validAt=${encodeURIComponent(material.validAt)}`,
+    },
+    rejected: {
+      count: material.rejected.count,
+      reasons: material.rejected.reasons.map((reason) => ({ ...reason })),
     },
   } satisfies GeoSnapshot;
 }
