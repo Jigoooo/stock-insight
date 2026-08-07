@@ -103,6 +103,10 @@
   font-weight: 650;
 }
 
+.inspectorContent[data-inspector-presentation='drawer'] .summaryMeta > div {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .inspectorBody ul {
   display: grid;
   gap: 9px;

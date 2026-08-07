@@ -12,7 +12,7 @@
 .inspector[data-inspector-presentation='modal'] {
   --dialog-width: clamp(760px, 72vw, 960px);
 
-  width: min(calc(100vw - 48px), var(--dialog-width));
+  width: min(calc(100vw - 52px), var(--dialog-width));
 }
 
 .inspectorResizer {

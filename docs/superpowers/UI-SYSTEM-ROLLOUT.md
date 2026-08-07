@@ -471,13 +471,21 @@
 
 - 승인된 holdings-first 방향에 따라 기존 종목 표와 12축 상세를 `브리핑 요약 → 우선 확인 보유 종목 최대 3개 → 전체 보유 종목 → 변동 관심 종목` 구조와 공용 상세 인스펙터로 교체하고 실제 Stocks 제품 화면에 연결함
 - 결정론적 dev preview에 `surface=stocks`와 `scenario=default|no-holdings|empty|detail-error`를 추가했으며, 인증 loader나 live API 없이 보유 종목·관심 종목·상세 성공/실패 상태를 재현함
-- Today Evidence와 Stocks 상세가 서로 다른 session-storage key를 사용하고, 768–807px modal에서 좌우 24px 여백을 유지하며, 초기 hydration 전 종목 클릭을 비활성화해 사용자 입력이 유실되지 않도록 고정함
+- Today Evidence와 Stocks 상세가 서로 다른 session-storage key를 사용하고, 초기 hydration 전 종목 클릭을 비활성화해 사용자 입력이 유실되지 않도록 고정함. 768–807px modal 경계는 초기 자동 검증 뒤 review에서 subpixel 안정성 보강 대상으로 다시 열림
 - 종목 상세 문구는 `보유 논지 복기` 등 정보 제공 표현만 사용하고, 관련 뉴스는 유효한 HTTPS 출처 링크를 유지함
 - 자동 검증: Stocks Playwright desktop/mobile 21건 통과·조건부 7건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, web Node 684건, 전체 10개 테스트 task, format·lint·typecheck·build를 통과함. dark mode·reduced motion·Axe·선택 일관성·overlay close-only·resize/session memory·drawer/modal 무요청 전환·빈 상태·상세 오류 상태를 포함함
 - `pnpm verify:release`는 lint·typecheck·fixture typecheck·전체 테스트·hard design gate까지 통과한 뒤, 현재 셸에 P6 DB rehearsal URL이 없어 `test:p6:db`에서 `ERR_INVALID_URL` (`input: ''`)로 중단됨
 - `graphify update .` 완료: 10,637 nodes, 18,093 edges, 744 communities. 기존 graphify 버전 차이·선택 SQL parser 부재 경고는 유지됨
 - Codex 인앱 브라우저 확인: controller가 `/__dev-preview?surface=stocks`를 desktop과 390px에서 별도 수행 예정
 - 구현·검증 커밋: Task 3–5 `f723d94`, `ead0364`, `d94abd9` 및 Task 6 커밋은 이 기록 다음 커밋으로 확정
+
+### 2026-08-07 — 내 종목 브리핑 review 보정 1차
+
+- 520px drawer의 종목 요약 카드가 공용 `PropertyList`의 `92px + 나머지` 내부 열을 상속해 값 열이 0px에 가까워지던 원인을 확인하고, drawer presentation에서만 각 카드 내부를 한 열로 적층함. modal의 넓은 3카드 배치와 mobile 적층은 유지함
+- `no-holdings` fixture가 보유 수만 0으로 바꾸고 연결 뉴스 8건·리스크 3건·분석 시각을 남기던 모순을 제거해, 세 미지원 집계를 각각 `—`와 접근 가능한 unavailable label로 표시함
+- 768–807px modal은 quick motion이 안정된 두 animation frame 뒤 geometry를 측정하고 CSS 폭을 `100vw - 52px`로 보정해 양쪽 26px 설계 여유를 확보함. 경계 회귀 20회 반복에서 20/20 통과함
+- fresh 자동 검증: Stocks Playwright desktop/mobile 22건 통과·조건부 8건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, 전체 10개 테스트 task, format·lint·typecheck·build 통과
+- Codex 인앱 브라우저 재확인: controller가 drawer summary와 desktop/mobile 상태를 별도 수행 예정
 
 ## 실행 환경 메모
 

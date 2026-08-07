@@ -28,6 +28,31 @@ async function openStock(panel: Locator, name: string) {
   return { inspector, opener };
 }
 
+async function waitForStableGeometry(locator: Locator) {
+  await expect
+    .poll(() =>
+      locator.evaluate(
+        (node) =>
+          new Promise<boolean>((resolve) => {
+            const first = node.getBoundingClientRect();
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const second = node.getBoundingClientRect();
+                const style = getComputedStyle(node);
+                resolve(
+                  style.opacity === '1' &&
+                    style.transform === 'none' &&
+                    Math.abs(first.x - second.x) < 0.01 &&
+                    Math.abs(first.width - second.width) < 0.01,
+                );
+              });
+            });
+          }),
+      ),
+    )
+    .toBe(true);
+}
+
 test.beforeEach(async ({ page }) => {
   await gotoPreview(page);
 });
@@ -86,6 +111,31 @@ test('opens the stock drawer above the workspace without changing page geometry'
   expect(Math.abs((after?.width ?? 0) - (before?.width ?? 0))).toBeLessThanOrEqual(1);
   await expect(inspector).toHaveAttribute('data-inspector-presentation', 'drawer');
   expect(await inspector.evaluate((node) => getComputedStyle(node).position)).toBe('fixed');
+});
+
+test('keeps drawer summary values readable instead of collapsing the value column', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop drawer summary contract');
+  const { inspector } = await openStock(panelForHeading(page, '우선 확인할 보유종목'), '삼성전자');
+  const values = inspector.locator(
+    'section[aria-labelledby="stock-inspector-summary"] dl > div > dd',
+  );
+  await expect(values).toHaveCount(3);
+  const geometry = await values.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      return {
+        lineCount: range.getClientRects().length,
+        width: node.getBoundingClientRect().width,
+      };
+    }),
+  );
+  for (const value of geometry) expect(value.width).toBeGreaterThanOrEqual(64);
+  expect(geometry[0]?.lineCount).toBe(1);
+  expect(geometry[1]?.lineCount).toBe(1);
+  expect(geometry[2]?.lineCount ?? Infinity).toBeLessThanOrEqual(2);
 });
 
 test('overlay click closes only and does not activate the stock behind it', async ({
@@ -194,10 +244,11 @@ test('keeps centered detail modals at least 24px from 768–807px viewport edges
       '삼성전자',
     );
     await inspector.getByRole('button', { name: '넓게 보기' }).click();
+    await waitForStableGeometry(inspector);
     const box = await inspector.boundingBox();
     expect(box).not.toBeNull();
-    expect(box?.x ?? 0).toBeGreaterThanOrEqual(24);
-    expect(width - ((box?.x ?? 0) + (box?.width ?? width))).toBeGreaterThanOrEqual(24);
+    expect(box?.x ?? 0).toBeGreaterThanOrEqual(25);
+    expect(width - ((box?.x ?? 0) + (box?.width ?? width))).toBeGreaterThanOrEqual(25);
   }
 });
 
@@ -254,8 +305,24 @@ test('uses HTTPS original-source links in stock detail', async ({ page }) => {
 
 test('renders watched-only content before honest holdings guidance', async ({ page }) => {
   await gotoPreview(page, '/__dev-preview?surface=stocks&scenario=no-holdings');
+  const summary = page.locator('[aria-labelledby="stocks-briefing-summary-title"]');
   const watchlistHeading = page.getByRole('heading', { name: '변화가 있는 관심종목' });
   const guidance = page.getByText('보유종목 등록이 필요합니다', { exact: true });
+  expect(
+    await summary.locator('dl > div').evaluateAll((rows) =>
+      rows.map((row) => ({
+        label: row.querySelector('dt')?.textContent?.trim(),
+        value: row.querySelector('dd')?.textContent?.trim(),
+      })),
+    ),
+  ).toEqual([
+    { label: '보유종목', value: '0개' },
+    { label: '연결 뉴스', value: '—' },
+    { label: '확인할 리스크', value: '—' },
+    { label: '최근 분석', value: '—' },
+  ]);
+  await expect(summary.getByLabel('집계 데이터 없음')).toHaveCount(2);
+  await expect(summary.getByLabel('분석 시각 없음')).toHaveCount(1);
   await expect(watchlistHeading).toBeVisible();
   await expect(guidance).toBeVisible();
   expect(

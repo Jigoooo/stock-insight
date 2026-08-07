@@ -34,7 +34,12 @@ const watchedOnlyPreviewFixture = {
 
 const watchedOnlyBriefingFixture = {
   ...stocksBriefingPreviewFixture,
-  summary: { ...stocksBriefingPreviewFixture.summary, holdingCount: 0 },
+  summary: {
+    holdingCount: 0,
+    connectedNewsCount: null,
+    riskCount: null,
+    analyzedAt: null,
+  },
   priorityHoldings: [],
 } satisfies StocksBriefingModel;
 
