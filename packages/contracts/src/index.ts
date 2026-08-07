@@ -652,6 +652,7 @@ export const impactBriefStepSchema = z.object({
     'indicated_by',
     'issued_by',
     'held_by',
+    'common_owner',
   ]),
   /** Where the hop lands. Null when the entity vanished between sealing and read. */
   toName: z.string().min(1).nullable(),

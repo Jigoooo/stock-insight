@@ -170,7 +170,7 @@ const HOLDINGS_PROVIDER = 'internal-institutional-holdings-snapshot';
  * To enable: a per-security pack budget, or a holdings source with non-index
  * owners. HELD_BY is unaffected and ships.
  */
-const SHIPPED_OWNERSHIP_PREDICATES = new Set(['OWNS', 'HELD_BY']);
+const SHIPPED_OWNERSHIP_PREDICATES = new Set(['OWNS', 'HELD_BY', 'COMMON_OWNER']);
 
 type EtfHoldingRow = QueryResultRow & {
   etf_ticker: string;
@@ -2311,49 +2311,28 @@ async function dryRun(client: Client): Promise<void> {
         // source revisions multiply the second term: a COMMON_OWNER pair held by
         // five institutions carries ten evidence rows, so edge count alone cannot
         // predict pack size. Measure the thing the cap actually measures.
+        // What the projections ACTUALLY cost, straight from the projector.
+        //
+        // This replaced an estimate that added candidate costs to the current
+        // projections, and that estimate was wrong in two ways at once: it charged
+        // predicates the projector never admits (HELD_BY, supply-chain), and it
+        // could not see the per-projection budget that now caps the result. It
+        // read `max: 275` on the very run whose apply died at 672, then `max: 724`
+        // after a budget had made 724 impossible.
+        //
+        // An enforced budget does not need predicting. PROJECTION_ITEM_BUDGET caps
+        // every projection by construction, so this reports the outcome instead:
+        // if `max` ever approaches `cap`, the budget is doing work and the margin
+        // is the thing to look at.
         packItems: (() => {
-          // The projections above are built from the graph AS IT IS, so they do
-          // not contain this run's new candidates. Reporting their sizes alone
-          // would be the same lie in a new place — it read `max: 275` on the very
-          // run whose apply died at 672.
-          //
-          // So the candidates are added back in. Every candidate contributes one
-          // relation item and one evidence item per source revision, to the pack
-          // of BOTH endpoints.
-          //
-          // THIS OVER-COUNTS, deliberately and in the safe direction. Only the
-          // three predicates in relation-graph-projector-v2's DIRECT_PREDICATES
-          // (SAME_ETF_BASKET, PRODUCT_SIMILARITY, COMMON_OWNER) ever become pack
-          // items, but every shipped candidate is charged here — HELD_BY and the
-          // supply-chain pair reach impact paths, not packs, so their cost is
-          // counted and never materialises. The estimate is therefore an upper
-          // bound, not a prediction: `overCap: 0` is trustworthy, a non-zero
-          // `overCap` warrants checking which predicate it came from before
-          // treating it as a blocker.
-          const added = new Map<number, number>();
-          for (const candidate of [...dryRunOwnershipShipped, ...dryRunSupply.candidates]) {
-            const cost = 1 + candidate.evidence.length;
-            for (const entityId of [candidate.subjectEntityId, candidate.objectEntityId]) {
-              added.set(entityId, (added.get(entityId) ?? 0) + cost);
-            }
-          }
-          const sizes = projections.map((projection) => {
-            const entity = [...entityById.values()].find(
-              (row) => row.entityKey === projection.entityKey,
-            );
-            const current =
-              projection.relationRevisionIds.length + projection.relationEvidenceLedgerIds.length;
-            return {
-              entityKey: projection.entityKey,
-              items: current + (entity === undefined ? 0 : (added.get(entity.entityId) ?? 0)),
-            };
-          });
-          const overCap = sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS);
+          const sizes = projections.map((projection) => ({
+            entityKey: projection.entityKey,
+            items: projection.itemCount,
+          }));
           return {
             cap: CONTENT_PACK_MAX_ITEMS,
             max: sizes.reduce((most, row) => Math.max(most, row.items), 0),
-            overCap: overCap.length,
-            // Named, because "3 packs are over" is not something anyone can act on.
+            overCap: sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS).length,
             worst: sizes
               .sort((left, right) => right.items - left.items)
               .slice(0, 5)
@@ -2740,6 +2719,23 @@ async function apply(client: Client): Promise<void> {
         projectedRoots: projections.length,
         contentPacks: published.packIds.length,
         contentPackItems: published.itemCount,
+        // Same measurement the dry run reports, so the two can be compared
+        // directly. `max` approaching `cap` means the budget is carrying load.
+        packItems: (() => {
+          const sizes = projections.map((projection) => ({
+            entityKey: projection.entityKey,
+            items: projection.itemCount,
+          }));
+          return {
+            cap: CONTENT_PACK_MAX_ITEMS,
+            max: sizes.reduce((most, row) => Math.max(most, row.items), 0),
+            overCap: sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS).length,
+            worst: sizes
+              .sort((left, right) => right.items - left.items)
+              .slice(0, 5)
+              .map((row) => `${row.entityKey}:${row.items}`),
+          };
+        })(),
         deferredEtfMembers: inputs.deferredMemberKeys,
         sectorCandidates: sectorBuilt.length,
         etfCandidates: etfBuilt.candidates.length,

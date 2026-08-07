@@ -177,6 +177,13 @@ const STEP_RELATION_BY_PREDICATE: Readonly<Record<string, ImpactBriefStep['relat
   // exactly where the filing does — the same discipline that kept
   // MACRO_COMOVEMENT out of the word "영향".
   HELD_BY: 'held_by',
+  // Added 2026-08-07 with the pack budget, which is what let COMMON_OWNER ship.
+  // The measurement is "one institution reported holding both of these" and the
+  // wording stops there. It is NOT a claim that the two move together, that one
+  // affects the other, or that the holder did anything — and on this source the
+  // holders are index funds, so it is weaker still. Same discipline that kept
+  // MACRO_COMOVEMENT out of the word 영향.
+  COMMON_OWNER: 'common_owner',
 };
 
 /**

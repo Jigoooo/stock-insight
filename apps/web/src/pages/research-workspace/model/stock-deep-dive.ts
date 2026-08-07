@@ -218,6 +218,8 @@ const RELATION_LABELS: Readonly<Record<ImpactBriefStep['relation'], string>> = {
   issued_by: '발행',
   // 공시된 보유 사실 그대로. "기관이 밀었다" 가 아니다.
   held_by: '기관 보유',
+  // 한 기관이 둘 다 보유한다는 공시 사실. 둘이 닮았다는 뜻이 아니다.
+  common_owner: '같은 기관 보유',
 };
 
 /**
