@@ -195,6 +195,29 @@ test('opens the evidence drawer above the workspace without changing card geomet
   expect(metaColumns).toHaveLength(2);
 });
 
+test('moves focus into the desktop drawer and restores the opener after close', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop focus contract');
+  const opener = page
+    .getByTestId('today-headline-news')
+    .getByRole('button', { name: /메모리 가격 반등/ });
+
+  await opener.click();
+
+  const inspector = page.getByTestId('evidence-inspector');
+  await expect(inspector).toBeVisible();
+  await expect
+    .poll(() =>
+      inspector.evaluate((element) => element.contains(element.ownerDocument.activeElement)),
+    )
+    .toBe(true);
+
+  await inspector.getByRole('button', { name: '인스펙터 닫기' }).click();
+  await expect(inspector).toHaveCount(0);
+  await expect(opener).toBeFocused();
+});
+
 test('uses a drawer overlay that closes without activating the card behind it', async ({
   page,
 }, testInfo) => {
@@ -397,6 +420,24 @@ test('toggles the same evidence detail between drawer and centered modal', async
   await expect(overlay).toBeVisible();
   await page.mouse.click(8, 8);
   await expect(inspector).toHaveCount(0);
+});
+
+test('returns a replaced evidence detail to the desktop drawer', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop presentation reset contract');
+  const headlines = page.getByTestId('today-headline-news');
+  await headlines.getByRole('button', { name: /메모리 가격 반등/ }).click();
+
+  const inspector = page.getByTestId('evidence-inspector');
+  await inspector.getByRole('button', { name: '넓게 보기' }).click();
+  await expect(inspector).toHaveAttribute('data-inspector-presentation', 'modal');
+
+  await headlines
+    .locator('[aria-label="오늘의 핵심 카드 뉴스"] button')
+    .nth(1)
+    .evaluate((element: HTMLButtonElement) => element.click());
+
+  await expect(inspector).toContainText('북미 클라우드');
+  await expect(inspector).toHaveAttribute('data-inspector-presentation', 'drawer');
 });
 
 test('keeps mobile evidence detail as the existing bottom modal', async ({ page }, testInfo) => {

@@ -118,6 +118,11 @@ export function EvidenceInspector({
     startX: number;
   } | null>(null);
   const modalPresentation = modal || desktopPresentation === 'modal';
+  useEffect(() => {
+    if (!open) return;
+    const resetFrame = window.requestAnimationFrame(() => setDesktopPresentation('drawer'));
+    return () => window.cancelAnimationFrame(resetFrame);
+  }, [detail?.recordKey, open]);
   const commitDrawerWidth = useCallback((nextWidth: number) => {
     const clamped = clampEvidenceInspectorWidth(nextWidth, window.innerWidth);
     setDrawerWidth(clamped);
@@ -181,9 +186,6 @@ export function EvidenceInspector({
         size="lg"
         style={{ '--evidence-inspector-width': `${drawerWidth}px` } as CSSProperties}
         onCloseAutoFocus={(event) => event.preventDefault()}
-        onOpenAutoFocus={(event) => {
-          if (!modalPresentation) event.preventDefault();
-        }}
       >
         {!modal && desktopPresentation === 'drawer' && (
           <div
