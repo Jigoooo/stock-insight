@@ -107,23 +107,34 @@ format:check 통과
 작동. analytics 파이프라인 스테이지 12 → 13, `core-identity-sync-runner.test.ts` 의
 목록도 함께 갱신.
 
-### P3 — K5: Release / Safety / SLO ⬜ 대기
+### P3 — K5: Release / Safety / SLO ✅ 완료 (`0ad6649`)
 
-- [ ] `081_release_manifest` → `governance.release_manifest`
-- [ ] `082_safety_state` → `governance.safety_state`
-- [ ] `083_slo_ledger` → `governance.slo_definition` + `governance.slo_observation`
-- [ ] `run-table-reachability-audit.ts` 에 `pg_views` 스캔 추가 (as-built §10 구멍 ①)
+- [x] `081_release_manifest` → `governance.release_manifest` + `release_component` + `release_current_v1`
+- [x] `082_safety_state` → `governance.safety_state_transition` + `safety_state_current_v1`
+- [x] `083_slo_ledger` → `governance.slo_definition` + `slo_observation` + `slo_current_v1` (seed 8)
+- [x] `run-table-reachability-audit.ts` 에 뷰 스캔 추가
 
-> **`governance.slo_*` 는 정본(`ops.slo_*`) 대비 의도적 이탈.** `ops` 는 research-app-db 와
-> 표 단위로 갈려 있다. 사유를 마이그레이션 주석에 남긴다.
+**뷰 스캔 실측 (라이브 dry-run):** 소유 뷰 27개 중 **9개 미읽힘**.
+as-built 의 serving 7개를 확인하고 3개 추가 발견
+(`knowledge.v_signal_numeric`·`v_signal_quarantine`·`world.v_event_legacy_bridge_v1`).
+`serving.relation_current_v1` 은 이제 읽힌다.
 
-### P4 — 검증 ⬜ 대기
+> **`governance.slo_*` 는 정본(`ops.slo_*`) 대비 의도적 이탈.** 사유를 083 주석과
+> index.ts description 에 남겼다.
 
-- [ ] `pnpm --filter @stock-insight/db-schema test`
-- [ ] 리허설 DB (`run-kernel-db-rehearsal.mjs` 신규, p6 패턴 복제)
-- [ ] `pnpm format:check && lint && typecheck && test && build`
-- [ ] `pnpm test:xg:db` (리더 권한 회귀)
-- [ ] `schema:status` — pending 이 정확히 우리 6개인지
+### P4 — 검증 ✅ 완료
+
+```
+db-schema 정적 테스트   53/53 (078~083)
+리허설 DB               078~083 전 항목 true · roleStateRestored true
+                        digestSafety: governance 관계 24개, app 롤 도달 0
+typecheck               11/11 태스크
+test                    10/10 태스크
+build                   7/7 태스크
+lint · format:check     통과
+test:xg:db              reader/writer surface verified · role state restored
+schema:status           pending = 정확히 우리 6개 (078~083). 남의 것 없음
+```
 
 ### P5 — 착지 (라이브) ⬜ 대기
 
@@ -136,7 +147,20 @@ format:check 통과
 
 ---
 
-## ⚠️ P4.5 다이제스트 — 잊으면 브레인이 죽는다
+## ✅ P4.5 다이제스트 — 재핀 불필요로 판명
+
+**리허설이 실증했다: `noAppRoleReach: true` (governance 관계 24개, app_reader/writer 도달 0건).**
+
+guard 의 probe(`live-database-guard.ts`)는 relation·column·sequence·schema·RLS 배열을
+전부 `has_table_privilege(current_user, …)` / `has_schema_privilege` 로 거른다. 078~083 은
+파이프라인 롤(si_*)에만 GRANT 하고 app 롤 상속 체인
+(`app_reader → stock_insight_reader`, `app_writer → stock_insight_writer → reader`) 밖이므로
+핀이 움직이지 않는다.
+
+**그래도 P5 에서 repin 도구를 무조건 실행한다** — 예상이 아니라 결과로 판단한다.
+diff 가 비어야 정상이고, 비어 있지 않으면 중단 조건 #10 이다.
+
+<details><summary>원래 계획 (참고용)</summary>
 
 `apps/api-server/src/db/live-database-guard.ts:79` 의 `EXPECTED_CATALOG_DIGESTS` 는
 소스 하드코딩 상수다. api-server 는 `listen` 전에 라이브 카탈로그를 해싱해 대조하고
@@ -157,6 +181,7 @@ format:check 통과
 
 ②~④ 사이에 api-server 를 재시작하지 않는다.
 ```
+</details>
 
 ---
 
@@ -166,16 +191,16 @@ format:check 통과
 
 | # | 조건 | 상태 |
 | --- | --- | --- |
-| 1 | P4 검증 실패 | — |
-| 2 | 리허설 DB 생성 불가 | 실측상 `research_app` = `createdb:true` |
+| 1 | P4 검증 실패 | ✅ 전부 통과 |
+| 2 | 리허설 DB 생성 불가 | ✅ 생성·검증·정리 완료 |
 | 3 | 백업/복원 검증 실패 | — |
-| 4 | `schema:status` 에 우리 6개 외 pending | — |
+| 4 | `schema:status` 에 우리 6개 외 pending | ✅ 정확히 6개 |
 | 5 | in-flight 파이프라인 15분 초과 | — |
-| 6 | 마이그레이션이 non-additive | — |
+| 6 | 마이그레이션이 non-additive | ✅ 정적 테스트가 강제 |
 | 7 | freeze 체크섬 실패 | ✅ 통과 (31/31) |
 | 8 | 본 체크아웃 tree hash 이동 | ✅ 불변 확인 |
 | 9 | 078~083 번호 충돌 | ✅ 없음 |
-| 10 | 다이제스트 변경이 설명 안 됨 | — |
+| 10 | 다이제스트 변경이 설명 안 됨 | ✅ 리허설상 변경 없음 예상 |
 | 11 | 재핀 후 api-server 부팅 실패 | — |
 
 ---
@@ -205,6 +230,8 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | 5 | `45a99bc` | 계획서 §9 실행 모델 + 실행 로그 |
 | 6 | `421ca90` | 마이그레이션 078~080 |
 | 7 | `1b8db11` | semantic type guard · PIT 감사 · temporal kernel |
+| 8 | `5a13f0f` | K1 완료 로그 |
+| 9 | `0ad6649` | 마이그레이션 081~083 + reachability 뷰 스캔 |
 
 ---
 
@@ -218,4 +245,4 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 ---
 
-*최종 갱신: **P1(K0)·P2(K1) 완료.** 다음은 P3(K5 Release/Safety/SLO) — 마이그레이션 081 부터*
+*최종 갱신: **P1·P2·P3·P4 완료.** 다음은 P5 착지 — 백업 → in-flight 확인 → master 병합 → schema:apply*
