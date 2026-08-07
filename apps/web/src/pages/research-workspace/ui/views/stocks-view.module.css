@@ -8,6 +8,9 @@
   min-width: 0;
   display: grid;
   gap: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .briefingColumns {
@@ -94,6 +97,10 @@
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-accent) 10%, transparent) inset,
     0 6px 14px rgb(20 21 19 / 6%);
+}
+
+.stockRow[data-slot='button-control'][aria-current='true'] small {
+  color: var(--color-text-secondary);
 }
 
 .stockRowLayout {

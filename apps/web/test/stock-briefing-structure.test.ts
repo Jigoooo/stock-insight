@@ -113,7 +113,8 @@ describe('stock briefing view structure', () => {
     assert.match(page, /stocksBriefing \?\? buildStocksBriefingModel\(data\.stocks\)/);
     assert.match(page, /briefing=\{resolvedStocksBriefing\}/);
     assert.match(preview, /stocksBriefingPreviewFixture/);
-    assert.match(preview, /stocksBriefing=\{stocksBriefingPreviewFixture\}/);
+    assert.match(preview, /briefing: stocksBriefingPreviewFixture/);
+    assert.match(preview, /stocksBriefing=\{stocksPreview\.briefing\}/);
   });
 
   it('renders summary, priority, holdings, watchlist, and honest unavailable states without a data table', async () => {

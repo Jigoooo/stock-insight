@@ -10,7 +10,19 @@ export const Route = createFileRoute('/__dev-preview')({
         ? ('admin-invitations' as const)
         : search.surface === 'today'
           ? ('today' as const)
-          : undefined,
+          : search.surface === 'stocks'
+            ? ('stocks' as const)
+            : undefined,
+    scenario:
+      search.scenario === 'no-holdings'
+        ? ('no-holdings' as const)
+        : search.scenario === 'empty'
+          ? ('empty' as const)
+          : search.scenario === 'detail-error'
+            ? ('detail-error' as const)
+            : search.scenario === 'default'
+              ? ('default' as const)
+              : undefined,
   }),
   beforeLoad: () => {
     if (!isDevSurfaceEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_DEV_PREVIEW)) {
@@ -22,6 +34,6 @@ export const Route = createFileRoute('/__dev-preview')({
 });
 
 function DevPreviewRoute() {
-  const { surface } = Route.useSearch();
-  return <DevPreviewPage surface={surface ?? 'workspace'} />;
+  const { scenario, surface } = Route.useSearch();
+  return <DevPreviewPage surface={surface ?? 'workspace'} scenario={scenario} />;
 }

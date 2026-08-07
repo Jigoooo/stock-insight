@@ -11,10 +11,75 @@ import {
   type LogoutAction,
   type RevokeInvitationAction,
 } from '@/pages/admin-invitations/ui/admin-invitation-page';
+import type {
+  StockBriefingLoader,
+  StocksBriefingModel,
+} from '@/pages/research-workspace/model/stock-briefing';
+import type { ResearchWorkspaceViewPayload } from '@/pages/research-workspace/model/workspace-view-payload';
 import { ResearchWorkspacePage } from '@/pages/research-workspace/ui/research-workspace-page';
 import type { AdminInvitation } from '@/server/auth/admin-invitations';
 
-type DevPreviewSurface = 'workspace' | 'today' | 'admin-invitations';
+type DevPreviewSurface = 'workspace' | 'today' | 'stocks' | 'admin-invitations';
+type StocksPreviewScenario = 'default' | 'no-holdings' | 'empty' | 'detail-error';
+type StocksPreviewPayload = Extract<ResearchWorkspaceViewPayload, { view: 'stocks' }>;
+
+const watchedOnlyPreviewFixture = {
+  ...stocksPreviewFixture,
+  shell: { ...stocksPreviewFixture.shell, watchlistCount: 4 },
+  stocks: {
+    ...stocksPreviewFixture.stocks,
+    data: stocksPreviewFixture.stocks.data.filter(({ isHolding }) => !isHolding),
+  },
+} satisfies StocksPreviewPayload;
+
+const watchedOnlyBriefingFixture = {
+  ...stocksBriefingPreviewFixture,
+  summary: { ...stocksBriefingPreviewFixture.summary, holdingCount: 0 },
+  priorityHoldings: [],
+} satisfies StocksBriefingModel;
+
+const emptyStocksPreviewFixture = {
+  ...stocksPreviewFixture,
+  shell: { ...stocksPreviewFixture.shell, watchlistCount: 0 },
+  stocks: { ...stocksPreviewFixture.stocks, data: [] },
+} satisfies StocksPreviewPayload;
+
+const emptyStocksBriefingFixture = {
+  summary: {
+    holdingCount: 0,
+    connectedNewsCount: 0,
+    riskCount: 0,
+    analyzedAt: null,
+  },
+  priorityHoldings: [],
+  watchlistChanges: [],
+} satisfies StocksBriefingModel;
+
+const loadFailedPreviewStockBriefing: StockBriefingLoader = async () => {
+  throw new Error('개발 미리보기에서 종목 상세를 불러오지 못했습니다.');
+};
+
+function resolveStocksPreview(scenario: StocksPreviewScenario) {
+  if (scenario === 'no-holdings') {
+    return {
+      briefing: watchedOnlyBriefingFixture,
+      data: watchedOnlyPreviewFixture,
+      loader: loadPreviewStockBriefing,
+    };
+  }
+  if (scenario === 'empty') {
+    return {
+      briefing: emptyStocksBriefingFixture,
+      data: emptyStocksPreviewFixture,
+      loader: loadPreviewStockBriefing,
+    };
+  }
+  return {
+    briefing: stocksBriefingPreviewFixture,
+    data: stocksPreviewFixture,
+    loader: scenario === 'detail-error' ? loadFailedPreviewStockBriefing : loadPreviewStockBriefing,
+  };
+}
 
 const initialPreviewInvitations: AdminInvitation[] = [
   {
@@ -74,7 +139,14 @@ const revokePreviewInvitation: RevokeInvitationAction = async () => {
 };
 const previewLogout: LogoutAction = async () => ({ ok: true as const });
 
-export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreviewSurface }) {
+export function DevPreviewPage({
+  scenario = 'default',
+  surface = 'workspace',
+}: {
+  scenario?: StocksPreviewScenario;
+  surface?: DevPreviewSurface;
+}) {
+  const stocksPreview = resolveStocksPreview(scenario);
   return (
     <div data-testid="dev-preview-page">
       <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
@@ -98,9 +170,9 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
         />
       ) : (
         <ResearchWorkspacePage
-          data={stocksPreviewFixture}
-          loadStockBriefingDetail={loadPreviewStockBriefing}
-          stocksBriefing={stocksBriefingPreviewFixture}
+          data={stocksPreview.data}
+          loadStockBriefingDetail={stocksPreview.loader}
+          stocksBriefing={stocksPreview.briefing}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}

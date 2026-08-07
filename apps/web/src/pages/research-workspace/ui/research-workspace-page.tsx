@@ -760,6 +760,7 @@ export function ResearchWorkspacePage({
         <StocksView
           briefing={resolvedStocksBriefing}
           data={data.stocks}
+          interactive={hydrated}
           loadStockBriefingDetail={loadStockBriefingDetail}
           pending={searchPending}
           stocks={stocks}

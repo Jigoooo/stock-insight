@@ -23,7 +23,7 @@ describe('stock briefing inspector', () => {
       '영향 경로',
       '관련 뉴스',
       '확인할 리스크와 체크포인트',
-      '매수 당시 조건 복기',
+      '보유 논지 복기',
     ];
     const offsets = headings.map((heading) => source.indexOf(heading));
 

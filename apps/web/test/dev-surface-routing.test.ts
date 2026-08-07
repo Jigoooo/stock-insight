@@ -74,9 +74,11 @@ describe('development-only visual surface routes', () => {
     assert.ok(fixtureModule, 'expected the stocks preview fixture to exist');
     if (!fixtureModule) return;
 
-    const [previewPage, previewRoute] = await Promise.all([
+    const [previewPage, previewRoute, workspacePage, stocksView] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
       readSource('../src/routes/[__dev-preview].tsx'),
+      readSource('../src/pages/research-workspace/ui/research-workspace-page.tsx'),
+      readSource('../src/pages/research-workspace/ui/views/stocks-view.tsx'),
     ]);
     const fixture = fixtureModule.stocksPreviewFixture;
 
@@ -85,9 +87,12 @@ describe('development-only visual surface routes', () => {
     assert.equal(stockListResponseSchema.safeParse(fixture.stocks).success, true);
     assert.ok(fixture.stocks.data.length > 0);
     assert.match(previewPage, /<ResearchWorkspacePage/);
-    assert.match(previewPage, /loadStockBriefingDetail=\{loadPreviewStockBriefing\}/);
+    assert.match(previewPage, /loadStockBriefingDetail=\{stocksPreview\.loader\}/);
+    assert.match(previewPage, /loader: loadPreviewStockBriefing/);
     assert.match(previewPage, /navigationMode="static"/);
     assert.match(previewPage, /개발 전용 미리보기/);
+    assert.match(workspacePage, /<StocksView[\s\S]*?interactive=\{hydrated\}/);
+    assert.match(stocksView, /<fieldset[^>]*disabled=\{!interactive\}/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
@@ -111,6 +116,31 @@ describe('development-only visual surface routes', () => {
     assert.match(previewPage, /todayPreviewFixture/);
     assert.match(previewPage, /surface === 'today'/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
+  });
+
+  it('routes deterministic Stocks preview scenarios without authenticated or network loaders', async () => {
+    const [previewPage, previewRoute] = await Promise.all([
+      readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/routes/[__dev-preview].tsx'),
+    ]);
+
+    assert.match(previewRoute, /search\.surface === 'stocks'/);
+    assert.match(previewRoute, /search\.scenario === 'no-holdings'/);
+    assert.match(previewRoute, /search\.scenario === 'empty'/);
+    assert.match(previewRoute, /search\.scenario === 'detail-error'/);
+    assert.match(
+      previewRoute,
+      /<DevPreviewPage surface=\{surface \?\? 'workspace'\} scenario=\{scenario\}/,
+    );
+    assert.match(
+      previewPage,
+      /type StocksPreviewScenario = 'default' \| 'no-holdings' \| 'empty' \| 'detail-error'/,
+    );
+    assert.match(previewPage, /scenario === 'no-holdings'/);
+    assert.match(previewPage, /scenario === 'empty'/);
+    assert.match(previewPage, /scenario === 'detail-error'/);
+    assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
+    assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
 
   it('previews the real administrator form with local actions and no authenticated loader', async () => {

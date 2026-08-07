@@ -39,12 +39,14 @@ import type { EntityRelationGraph } from '@stock-insight/contracts/research-work
 export function StocksView({
   briefing,
   data,
+  interactive,
   loadStockBriefingDetail,
   pending,
   stocks,
 }: {
   briefing: StocksBriefingModel;
   data: StockListResponse;
+  interactive: boolean;
   loadStockBriefingDetail?: StockBriefingLoader;
   pending: boolean;
   stocks: StockListResponse['data'];
@@ -142,7 +144,7 @@ export function StocksView({
         data-pending={pending || undefined}
         aria-busy={pending || undefined}
       >
-        <div className={styles.briefingContent}>
+        <fieldset className={styles.briefingContent} disabled={!interactive}>
           <StockBriefingSummary summary={briefing.summary} />
           {!pending && searchEmpty ? (
             <WorkspaceState
@@ -254,7 +256,7 @@ export function StocksView({
               />
             </>
           )}
-        </div>
+        </fieldset>
       </div>
       <StockBriefingInspector
         detail={detail}

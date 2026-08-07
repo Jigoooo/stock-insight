@@ -230,7 +230,7 @@ export function StockBriefingInspector({
 
               {detail.primaryThesis && (
                 <section aria-labelledby="stock-inspector-thesis">
-                  <h3 id="stock-inspector-thesis">매수 당시 조건 복기</h3>
+                  <h3 id="stock-inspector-thesis">보유 논지 복기</h3>
                   <p>{detail.primaryThesis}</p>
                 </section>
               )}
