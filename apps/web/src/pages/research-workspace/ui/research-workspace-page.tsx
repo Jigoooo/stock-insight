@@ -829,6 +829,7 @@ export function ResearchWorkspacePage({
       </WorkspaceViewRegion>
       <EvidenceInspector
         detail={visibleDetail}
+        detailKey={requestedRecordKey ?? visibleDetail?.recordKey ?? null}
         relation={relation}
         state={visibleDetailState}
         modal={isMobileViewport}

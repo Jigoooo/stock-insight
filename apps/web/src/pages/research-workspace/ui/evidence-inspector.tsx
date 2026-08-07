@@ -1,36 +1,13 @@
-import { ExternalLink, FileText, Maximize2, PanelRight } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
+import { ExternalLink, FileText } from 'lucide-react';
 
+import { DetailInspectorFrame } from './detail-inspector-frame';
 import styles from './relation-detail.module.css';
 
-import {
-  clampEvidenceInspectorWidth,
-  evidenceInspectorDefaultWidth,
-  evidenceInspectorMaxWidth,
-  evidenceInspectorMinWidth,
-  evidenceInspectorWidthStorageKey,
-  parseStoredEvidenceInspectorWidth,
-} from '@/pages/research-workspace/model/evidence-inspector-layout';
+import { evidenceInspectorWidthStorageKey } from '@/pages/research-workspace/model/detail-inspector-layout';
 import {
   presentResearchSummary,
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
-import { Button } from '@/shared/ui/button';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
 import { TextLink } from '@/shared/ui/link';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
@@ -95,6 +72,7 @@ function sourceBindingLabel(value: string) {
 
 export function EvidenceInspector({
   detail,
+  detailKey,
   modal,
   onClose,
   open,
@@ -102,6 +80,7 @@ export function EvidenceInspector({
   state,
 }: {
   detail: ResearchRecordDetail | null;
+  detailKey: string | null;
   modal: boolean;
   onClose: () => void;
   open: boolean;
@@ -109,158 +88,24 @@ export function EvidenceInspector({
   state: 'error' | 'loading' | 'ready';
 }) {
   const primarySource = detail?.sources.find((source) => source.url);
-  const [desktopPresentation, setDesktopPresentation] = useState<'drawer' | 'modal'>('drawer');
-  const [drawerWidth, setDrawerWidth] = useState(evidenceInspectorDefaultWidth);
-  const [resizing, setResizing] = useState(false);
-  const resizeRef = useRef<{
-    pointerId: number;
-    startWidth: number;
-    startX: number;
-  } | null>(null);
-  const modalPresentation = modal || desktopPresentation === 'modal';
-  useEffect(() => {
-    if (!open) return;
-    const resetFrame = window.requestAnimationFrame(() => setDesktopPresentation('drawer'));
-    return () => window.cancelAnimationFrame(resetFrame);
-  }, [detail?.recordKey, open]);
-  const commitDrawerWidth = useCallback((nextWidth: number) => {
-    const clamped = clampEvidenceInspectorWidth(nextWidth, window.innerWidth);
-    setDrawerWidth(clamped);
-    try {
-      window.sessionStorage.setItem(evidenceInspectorWidthStorageKey, String(clamped));
-    } catch {
-      // The in-memory width remains usable in privacy-restricted contexts.
-    }
-  }, []);
-  useEffect(() => {
-    let restoreFrame = 0;
-    try {
-      const storedWidth = parseStoredEvidenceInspectorWidth(
-        window.sessionStorage.getItem(evidenceInspectorWidthStorageKey),
-        window.innerWidth,
-      );
-      restoreFrame = window.requestAnimationFrame(() => setDrawerWidth(storedWidth));
-    } catch {
-      // The default width already covers storage-restricted contexts.
-    }
-    return () => window.cancelAnimationFrame(restoreFrame);
-  }, []);
-  useEffect(() => {
-    const clampToViewport = () => {
-      setDrawerWidth((current) => clampEvidenceInspectorWidth(current, window.innerWidth));
-    };
-    window.addEventListener('resize', clampToViewport);
-    return () => window.removeEventListener('resize', clampToViewport);
-  }, []);
-  const finishResize = (event: ReactPointerEvent<HTMLDivElement>) => {
-    resizeRef.current = null;
-    setResizing(false);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
 
   return (
-    <Dialog
-      modal
+    <DetailInspectorFrame
+      bodyClassName={styles.inspectorContent}
+      closeLabel="인스펙터 닫기"
+      description="선택한 변화의 검증 근거와 출처"
+      detailKey={detailKey}
+      mobile={modal}
+      onClose={onClose}
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          setDesktopPresentation('drawer');
-          onClose();
-        }
-      }}
+      resizerLabel="근거 인스펙터 너비 조절"
+      storageKey={evidenceInspectorWidthStorageKey}
+      testId="evidence-inspector"
+      title="근거 인스펙터"
+      titleIcon={<FileText aria-hidden="true" />}
     >
-      <DialogContent
-        className={styles.inspector}
-        closeLabel="인스펙터 닫기"
-        composition="detail"
-        data-inspector-presentation={modal ? 'mobile' : desktopPresentation}
-        data-resizing={resizing || undefined}
-        data-testid="evidence-inspector"
-        portalled
-        presentation={modal ? 'inspector' : modalPresentation ? 'modal' : 'inspector'}
-        showOverlay
-        motionPreset="quick"
-        overlayTone="light"
-        size="lg"
-        style={{ '--evidence-inspector-width': `${drawerWidth}px` } as CSSProperties}
-        onCloseAutoFocus={(event) => event.preventDefault()}
-      >
-        {!modal && desktopPresentation === 'drawer' && (
-          <div
-            aria-label="근거 인스펙터 너비 조절"
-            aria-orientation="vertical"
-            aria-valuemax={evidenceInspectorMaxWidth}
-            aria-valuemin={evidenceInspectorMinWidth}
-            aria-valuenow={drawerWidth}
-            className={styles.inspectorResizer}
-            role="separator"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft') {
-                event.preventDefault();
-                commitDrawerWidth(drawerWidth + 16);
-              }
-              if (event.key === 'ArrowRight') {
-                event.preventDefault();
-                commitDrawerWidth(drawerWidth - 16);
-              }
-            }}
-            onPointerCancel={finishResize}
-            onPointerDown={(event) => {
-              resizeRef.current = {
-                pointerId: event.pointerId,
-                startWidth: drawerWidth,
-                startX: event.clientX,
-              };
-              setResizing(true);
-              event.currentTarget.setPointerCapture(event.pointerId);
-            }}
-            onPointerMove={(event) => {
-              const drag = resizeRef.current;
-              if (!drag || drag.pointerId !== event.pointerId) return;
-              commitDrawerWidth(drag.startWidth - (event.clientX - drag.startX));
-            }}
-            onPointerUp={finishResize}
-          />
-        )}
-        <DialogHeader className={styles.inspectorHeader}>
-          <DialogTitle asChild>
-            <strong className={styles.inspectorTitle}>
-              <FileText aria-hidden="true" />
-              <span>근거 인스펙터</span>
-            </strong>
-          </DialogTitle>
-          <DialogDescription className={styles.inspectorDescription}>
-            선택한 변화의 검증 근거와 출처
-          </DialogDescription>
-          {!modal && (
-            <Button
-              className={styles.inspectorPresentationToggle}
-              motion="quiet"
-              size="sm"
-              type="button"
-              variant="secondary"
-              onClick={() =>
-                setDesktopPresentation((current) => (current === 'drawer' ? 'modal' : 'drawer'))
-              }
-            >
-              {desktopPresentation === 'drawer' ? (
-                <>
-                  <Maximize2 aria-hidden="true" />
-                  <span>넓게 보기</span>
-                </>
-              ) : (
-                <>
-                  <PanelRight aria-hidden="true" />
-                  <span>옆에서 보기</span>
-                </>
-              )}
-            </Button>
-          )}
-        </DialogHeader>
-        <DialogBody className={styles.inspectorContent}>
+      {() => (
+        <>
           {state === 'loading' && (
             <div className={styles.inspectorState}>
               <WorkspaceState
@@ -392,8 +237,8 @@ export function EvidenceInspector({
               )}
             </div>
           )}
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    </DetailInspectorFrame>
   );
 }

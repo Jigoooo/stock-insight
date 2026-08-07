@@ -56,18 +56,22 @@ describe('Task 1 product shared UI adoption', () => {
   });
 
   it('uses the shared Dialog composition for the evidence inspector', async () => {
-    const inspector = await read('pages/research-workspace/ui/evidence-inspector.tsx');
+    const [inspector, inspectorFrame] = await Promise.all([
+      read('pages/research-workspace/ui/evidence-inspector.tsx'),
+      read('pages/research-workspace/ui/detail-inspector-frame.tsx'),
+    ]);
 
-    assert.match(inspector, /from '@\/shared\/ui\/dialog'/);
-    assert.match(inspector, /<Dialog\b/);
-    assert.match(inspector, /<DialogContent\b/);
-    assert.match(inspector, /<DialogHeader\b/);
-    assert.match(inspector, /<DialogBody\b/);
-    assert.match(inspector, /<Dialog\s+modal\s/);
-    assert.match(inspector, /\bshowOverlay\s/);
-    assert.doesNotMatch(inspector, /onPointerDownOutside=/);
-    assert.doesNotMatch(inspector, /onFocusOutside=/);
-    assert.doesNotMatch(inspector, /<dialog\b|useFocusTrap|focusableSelector/);
+    assert.match(inspector, /<DetailInspectorFrame\b/);
+    assert.match(inspectorFrame, /from '@\/shared\/ui\/dialog'/);
+    assert.match(inspectorFrame, /<Dialog\b/);
+    assert.match(inspectorFrame, /<DialogContent\b/);
+    assert.match(inspectorFrame, /<DialogHeader\b/);
+    assert.match(inspectorFrame, /<DialogBody\b/);
+    assert.match(inspectorFrame, /<Dialog\s+modal\s/);
+    assert.match(inspectorFrame, /\bshowOverlay\s/);
+    assert.doesNotMatch(inspectorFrame, /onPointerDownOutside=/);
+    assert.doesNotMatch(inspectorFrame, /onFocusOutside=/);
+    assert.doesNotMatch(inspectorFrame, /<dialog\b|useFocusTrap|focusableSelector/);
   });
 
   it('uses ToggleGroup for display modes and shared Table selection for stock rows', async () => {

@@ -36,6 +36,10 @@ const workspace = [
     'utf8',
   ),
   readFileSync(
+    new URL('../src/pages/research-workspace/ui/detail-inspector-frame.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
     new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
     'utf8',
   ),
@@ -302,7 +306,7 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /<DialogContent[\s\S]*?portalled/);
     assert.match(
       page,
-      /presentation=\{modal \? 'inspector' : modalPresentation \? 'modal' : 'inspector'\}/,
+      /!mobile && desktopPresentation === 'modal' \? 'modal' : 'inspector'/,
     );
     assert.match(page, /\bshowOverlay\s/);
     assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
