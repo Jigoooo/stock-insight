@@ -136,11 +136,22 @@ const HOLDINGS_PROVIDER = 'internal-institutional-holdings-snapshot';
  *
  * Measured 2026-08-07, the hard way. Enabling all three produced 1,641 candidates
  * with 0 quarantined, which read as healthy, and the apply died on
- * `pack US:AAPL exceeds lineage item cap: 672`. CONTENT_PACK_MAX_ITEMS is 512 and
- * enforced by migration 026; a pack counts relations PLUS their evidence, and
- * position-grain source revisions (required — see HOLDINGS_SOURCE) mean a pair
- * held by five institutions carries ten evidence rows. Edge count does not predict
- * pack size. Re-measured through the dry run once it accounted for candidates:
+ * `pack US:AAPL exceeds lineage item cap: 672`.
+ *
+ * TWO CORRECTIONS TO THE FIRST WRITE-UP OF THIS, both found by re-reading rather
+ * than re-measuring:
+ *   - CONTENT_PACK_MAX_ITEMS is 512 and is an APPLICATION constant, not something
+ *     migration 026 enforces. `512` appears in no migration. See the constant.
+ *   - It was not "ownership edges" that blew the cap. The projector admits only
+ *     SAME_ETF_BASKET, PRODUCT_SIMILARITY and COMMON_OWNER
+ *     (relation-graph-projector-v2.ts DIRECT_PREDICATES), so HELD_BY contributes
+ *     ZERO pack items — it reaches impact paths, which read graph_snapshot_edge
+ *     and have their own separate budget. The overflow was entirely COMMON_OWNER.
+ *
+ * A pack counts relations PLUS their evidence, and position-grain source revisions
+ * (required — see HOLDINGS_SOURCE) mean a pair held by five institutions carries
+ * ten evidence rows. Edge count does not predict pack size. Re-measured through
+ * the dry run once it accounted for candidates:
  *
  *   all three predicates   1,641 candidates · max pack 724 · 41 packs over cap
  *   HELD_BY only             250 candidates · max pack 285 ·  0 packs over cap
@@ -532,11 +543,18 @@ ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.col
 // market it actually trades in.
 //
 // US uses ^GSPC, which market_ts.ohlcv carries with full history (1,267 daily
-// bars, 2021-07 onward). KR has no usable index: ^KS11 exists only in
-// stock.market_snapshots and only for 141 days (2026-04-30 onward), far short of
-// the correlation window. So the KR factor is a daily-rebalanced equal-weighted
-// index built from the KR universe itself — the average of what our own Korean
-// holdings did each day.
+// bars, 2021-07 onward). KR has no usable index here: ^KS11 is absent from
+// market_ts.ohlcv entirely and exists only in stock.market_snapshots, where it
+// holds 141 ROWS spanning just 57 distinct dates (2026-04-30..2026-07-24, three
+// sessions per day) and has not advanced since 2026-07-24. The correlation window
+// this factor is loaded over is 1,095 days, so the gap is 57 vs 1,095.
+//
+// (An earlier version of this comment said "141 days". That was the row count
+// read as a date count, and it is repeated in run-ecos-vintage.ts and migration
+// 076 — corrected 2026-08-07.)
+//
+// So the KR factor is a daily-rebalanced equal-weighted index built from the KR
+// universe itself — the average of what our own Korean holdings did each day.
 //
 // The asymmetry is deliberate and recorded rather than smoothed over: using
 // ^GSPC for Korean stocks would subtract a factor they do not load on, and
@@ -2302,6 +2320,16 @@ async function dryRun(client: Client): Promise<void> {
           // So the candidates are added back in. Every candidate contributes one
           // relation item and one evidence item per source revision, to the pack
           // of BOTH endpoints.
+          //
+          // THIS OVER-COUNTS, deliberately and in the safe direction. Only the
+          // three predicates in relation-graph-projector-v2's DIRECT_PREDICATES
+          // (SAME_ETF_BASKET, PRODUCT_SIMILARITY, COMMON_OWNER) ever become pack
+          // items, but every shipped candidate is charged here — HELD_BY and the
+          // supply-chain pair reach impact paths, not packs, so their cost is
+          // counted and never materialises. The estimate is therefore an upper
+          // bound, not a prediction: `overCap: 0` is trustworthy, a non-zero
+          // `overCap` warrants checking which predicate it came from before
+          // treating it as a blocker.
           const added = new Map<number, number>();
           for (const candidate of [...dryRunOwnershipShipped, ...dryRunSupply.candidates]) {
             const cost = 1 + candidate.evidence.length;

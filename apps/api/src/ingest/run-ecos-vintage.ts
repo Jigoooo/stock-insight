@@ -57,9 +57,10 @@ const ECOS_BASE = 'https://ecos.bok.or.kr/api/StatisticSearch';
  *   802Y001 / 0001000 KOSPI지수 — daily since 1995-01-03, and deliberately NOT
  *     added here even though it is the most interesting thing on the list. The
  *     graph publisher builds its KR market factor as a daily-rebalanced
- *     equal-weighted index of our own Korean holdings, and says why in
- *     MARKET_FACTOR_SQL: "KR has no usable index: ^KS11 exists only in
- *     stock.market_snapshots and only for 141 days". ECOS refutes that premise.
+ *     equal-weighted index of our own Korean holdings, because ^KS11 is absent
+ *     from market_ts.ohlcv and the copy in stock.market_snapshots covers only 57
+ *     distinct dates (141 rows across three sessions a day, stalled at
+ *     2026-07-24) against a 1,095-day factor window. ECOS refutes that premise.
  *     But swapping the KR market factor changes the beta control under EVERY
  *     Korean edge, which is a modelling decision with its own before/after
  *     measurement, not a line in a collector's series list. Recorded in

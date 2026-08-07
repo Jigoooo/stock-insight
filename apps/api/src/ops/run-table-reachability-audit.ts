@@ -69,6 +69,15 @@ const ACCEPTED = new Map<string, string>([
   // 잇는 경로로 database-ownership.md 가 지목한 것이 바로 이 두 표다
   // (theme_membership 은 rationale_relation_ids 로 근거까지 들고 있다).
   //
+  // 그리고 마이그레이션 068 의 주석("evidence is 93% quarantined")도 틀렸다.
+  // 2026-08-07 실측: Theme 에 닿는 relation 1,145개가 **100%** quarantined 이고
+  // relation_evidence 행은 0개다. 93% 보다 나쁘다.
+  //
+  // 068 자체는 고치지 않았고 고칠 수 없다 — 적용된 마이그레이션의 SQL 을 편집하면
+  // run-schema-migrations 가 체크섬 drift 로 거부한다("the database and the
+  // repository disagree about what was run"). 그게 맞는 설계이므로, 정정은
+  // 체크섬 밖인 여기에 남긴다.
+  //
   // 여기 남겨 두는 이유는 "읽히지 않는다" 가 사실이기 때문이고, 사유는 사실로 고쳤다.
   // 폐기하려면 theme_exposure_snapshot 을 실제로 만들거나 폐기를 별도로 결정해야 한다.
   ['analytics.theme', '138행 — 미사용. 대체 설계(theme_exposure_snapshot)는 표가 없다'],
