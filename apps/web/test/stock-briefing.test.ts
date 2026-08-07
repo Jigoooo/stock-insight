@@ -7,6 +7,7 @@ import {
   loadStockBriefingData,
 } from '../src/pages/research-workspace/model/stock-briefing.ts';
 import {
+  loadPreviewStockDeepDive,
   loadPreviewStockBriefing,
   stockBriefingDetailPreviewFixtures,
 } from '../src/pages/dev-preview/model/stock-deep-dive-preview-fixture.ts';
@@ -347,5 +348,15 @@ describe('stock briefing model', () => {
     assert.equal(result.relation, null);
     assert.ok(urls.length >= 5);
     assert.ok(urls.every((url) => new URL(url).protocol === 'https:'));
+  });
+
+  it('keeps the legacy preview deep dive partial while most legacy sections are missing', async () => {
+    const result = await loadPreviewStockDeepDive('KR:005930');
+
+    assert.equal(result.deepDive.availability, 'partial');
+    assert.equal(
+      result.deepDive.sections.filter(({ availability }) => availability === 'missing').length,
+      9,
+    );
   });
 });

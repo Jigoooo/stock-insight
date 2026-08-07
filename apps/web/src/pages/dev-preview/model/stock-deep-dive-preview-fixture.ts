@@ -127,7 +127,7 @@ export const loadPreviewStockDeepDive: StockDeepDiveLoader = async (entityKey) =
     deepDive: {
       entityKey: detail.stock.entityKey,
       displayName: detail.stock.displayName,
-      availability: detail.availability,
+      availability: 'partial',
       generatedAt: detail.generatedAt,
       sections: DEEP_DIVE_SECTION_IDS.map((id) => {
         const items =
