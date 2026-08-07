@@ -98,6 +98,34 @@ const PORTFOLIO_IMPACT_SQL = `
   ORDER BY identifier.identifier_value, exposure.impact_exposure_revision_id
 `;
 
+/**
+ * The `selected` CTE of PORTFOLIO_IMPACT_SQL on its own.
+ *
+ * PORTFOLIO_IMPACT_SQL inner-joins the snapshot to `analytics.impact_exposure_revision`,
+ * which is empty on purpose (see run-portfolio-snapshot.ts): filling it would mean
+ * inventing sign, materiality and economic magnitude per holding. So the join
+ * yields nothing and the whole query returns zero rows — for a user who does have
+ * a sealed portfolio.
+ *
+ * Without this second lookup those two situations are indistinguishable, and both
+ * surfaced as 404 "portfolio_impact_not_found", which reads as "your portfolio has
+ * no impact". REQ-SRC-001 requires "none" and "not worked out" to differ. This
+ * query answers only "does a sealed snapshot exist", so the caller can say
+ * not_computed instead of asserting an absence it never measured.
+ */
+const SELECTED_SNAPSHOT_SQL = `
+  SELECT snapshot.portfolio_snapshot_id
+  FROM personalization.portfolio_snapshot snapshot
+  JOIN personalization.portfolio_snapshot_seal seal
+    ON seal.portfolio_snapshot_id = snapshot.portfolio_snapshot_id
+   AND seal.user_id = snapshot.user_id
+   AND seal.sealed_at <= $2::timestamptz
+  WHERE snapshot.user_id = $1::uuid
+    AND snapshot.source_known_at <= $2::timestamptz
+  ORDER BY snapshot.snapshot_as_of DESC, snapshot.portfolio_snapshot_id DESC
+  LIMIT 1
+`;
+
 function validateOptionalKey(value: string | null, field: string): void {
   if (value !== null && !boundedKeyPattern.test(value)) {
     throw new Error(`Portfolio impact ${field} is invalid`);
@@ -140,7 +168,32 @@ export async function getPersonalizationPortfolioImpact(
     options.knownAt.toISOString(),
   ]);
   const first = rows[0];
-  if (!first) return null;
+  if (!first) {
+    // Zero rows means either "no sealed snapshot" or "snapshot exists, exposure
+    // ledger empty". Only the first is genuinely not-found.
+    const snapshotRows = await executor.queryRows<{ portfolio_snapshot_id: string }>(
+      SELECTED_SNAPSHOT_SQL,
+      [options.userScope.userId, options.knownAt.toISOString()],
+    );
+    const snapshot = snapshotRows[0];
+    if (!snapshot) return null;
+
+    return personalizationPortfolioImpactSchema.parse({
+      schemaVersion: 'p4.v1',
+      availability: 'not_computed',
+      portfolioSnapshotId: snapshot.portfolio_snapshot_id,
+      eventId: options.eventId,
+      scenarioId: options.scenarioId,
+      horizon: options.horizon ?? 'all',
+      knownAt: options.knownAt.toISOString(),
+      generatedAt: options.knownAt.toISOString(),
+      // Zero here is the identity of an empty sum, not a measurement. The
+      // availability field is what tells a reader which one it is, which is why
+      // a consumer must branch on availability before rendering this number.
+      aggregateImpact: 0,
+      affectedPositions: [],
+    });
+  }
   if (rows.some((row) => row.portfolio_snapshot_id !== first.portfolio_snapshot_id)) {
     throw new Error('Portfolio impact crossed snapshot identity');
   }

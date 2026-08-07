@@ -70,12 +70,7 @@ describe('analysis information set — frozen schema parity', () => {
   // drift the freeze exists to prevent.
 
   it('accepts the four canonical modes and nothing else', () => {
-    assert.deepEqual(analysisModeSchema.options, [
-      'EX_ANTE',
-      'LIVE',
-      'EX_POST',
-      'RETROSPECTIVE',
-    ]);
+    assert.deepEqual(analysisModeSchema.options, ['EX_ANTE', 'LIVE', 'EX_POST', 'RETROSPECTIVE']);
     assert.throws(() => analysisModeSchema.parse('BACKTEST'));
   });
 });
@@ -131,7 +126,8 @@ describe('analysis information set — leak invariants', () => {
 
   it('rejects duplicate information classes', () => {
     assert.throws(
-      () => analysisInformationSetSchema.parse(base({ allowedInformationClasses: ['FACT', 'FACT'] })),
+      () =>
+        analysisInformationSetSchema.parse(base({ allowedInformationClasses: ['FACT', 'FACT'] })),
       /duplicates/,
     );
   });

@@ -82,13 +82,21 @@ export function PersonalizationWorkspacePanel({
 
         <section aria-labelledby="portfolio-impact-title">
           <h3 id="portfolio-impact-title">포트폴리오 영향</h3>
-          {data.impact ? (
+          {/*
+            Three states, not two. `not_computed` means the portfolio is sealed but
+            the exposure ledger is empty — we have not worked the number out. Showing
+            0% or "영향 데이터가 없습니다" there would assert an absence we never
+            measured (REQ-SRC-001), so the number is not rendered at all.
+          */}
+          {data.impact === null ? (
+            <p>봉인된 포트폴리오 스냅샷이 없습니다.</p>
+          ) : data.impact.availability === 'not_computed' ? (
+            <p>아직 계산하지 않았습니다. 영향이 없다는 뜻이 아닙니다.</p>
+          ) : (
             <>
               <strong>{signedPercent(data.impact.aggregateImpact)}</strong>
               <p>{data.impact.affectedPositions.length}개 보유 종목의 기준 시점 영향 합계입니다.</p>
             </>
-          ) : (
-            <p>연결된 영향 데이터가 없습니다.</p>
           )}
         </section>
 

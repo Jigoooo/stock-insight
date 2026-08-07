@@ -108,7 +108,9 @@ describe('truth classes — REQ-SEM-010 visual distinction', () => {
   );
 
   it('exposes exactly the 14 classes frozen in contracts/truth-classes.json', () => {
-    const frozen = JSON.parse(readFileSync(new URL('contracts/truth-classes.json', FREEZE), 'utf8'));
+    const frozen = JSON.parse(
+      readFileSync(new URL('contracts/truth-classes.json', FREEZE), 'utf8'),
+    );
     assert.deepEqual([...truthClassSchema.options], frozen.classes);
     assert.equal(truthClassSchema.options.length, 14);
   });

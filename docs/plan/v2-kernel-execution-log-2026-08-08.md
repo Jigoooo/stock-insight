@@ -46,14 +46,25 @@ git ls-files -z | while IFS= read -r -d '' f; do sha256sum --binary "$f"; done |
 - [x] **K0-1b2** `reference/README.md` 에 제거 사유 기록 + 연쇄 체크섬 갱신
 - [x] **K0-1c** 무결성 검증 — `sha256sum -c` **31/31 OK**, MANIFEST 30개 항목 디스크 일치
 - [x] **K0-1d** freeze 패키지 커밋 → **`600e419`**
-- [ ] **K0-1e** `docs/architecture/README.md` 를 freeze 패키지로 재지시
-- [ ] **K0-1f** superseded-by 헤더 3개 파일
+- [x] **K0-1e** `docs/architecture/README.md` 를 freeze 패키지로 재지시 → **`fc19147`**
+- [x] **K0-1f** superseded-by 헤더 3개 파일 → **`fc19147`**
       (`e2e-layers.md` · `v2-enhancement-master-roadmap.md` · `stock-insight-v2-enhancement-plan.md`)
-- [ ] **K0-2a** `packages/contracts/src/analysis-information-set.ts` 신규
-- [ ] **K0-2b** `truth-visual-language.ts` epistemic 6종 → truth class 14종 확장
+- [x] **K0-2a** `packages/contracts/src/analysis-information-set.ts` 신규 → **`f1247e1`**
+- [x] **K0-2b** `truth-visual-language.ts` truth class 14종 층 추가 → **`f1247e1`**
 - [ ] **K0-3** portfolio-impact 404 → `availability` 봉투
       (`contracts/personalization.ts` + `api-server` 컨트롤러 + 웹 표면 — **한 줄 아님**)
 - [ ] **K0-4** 계획서에 실행 설계 본문 복사
+
+**K0-2 에서 내린 결정 (되짚지 말 것):**
+- `temporal.ts` 는 **건드리지 않았다.** 읽기 표면 계약으로 유지하고
+  `informationSetFromTemporalQuery` 하나만 다리로 둔다
+- epistemic class 6종 렌더 스펙은 **바이트 단위로 불변** (테스트가 강제)
+- truth class 어휘의 단일 소유자는 `truth-visual-language.ts`.
+  `analysis-information-set.ts` 는 어휘를 갖지 않는다 — freeze 스키마가
+  `allowedInformationClasses` 를 plain string 으로 규정하기 때문
+- **contracts/src 에는 상호 import 선례가 없다.** 공용 모듈로 빼면 `.ts` 확장자를
+  tsc 는 거부(TS5097)하고 Node ESM 은 요구해 소비자 tsconfig 까지 번진다. 시도했다가
+  되돌렸으니 다시 시도하지 말 것
 
 ### P2 — K1: Canonical Kernel ⬜ 대기
 
@@ -159,7 +170,19 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | # | 해시 | 내용 |
 | --- | --- | --- |
 | 1 | `600e419` | freeze 패키지 편입 — zip 제거로 자립화 |
+| 2 | `fc19147` | 목표 정본 재지시 + 대체된 계획문서 3개 SUPERSEDED |
+| 3 | `f1247e1` | analysis information set 계약 + truth class 14종 시각 구분 |
 
 ---
 
-*최종 갱신: P1 진행 중 (K0-1 완료, K0-1e 착수 예정)*
+## 환경 메모 (이어받을 때 필요)
+
+- **worktree 에는 `node_modules` 가 없다.** 새로 만들었으면 `pnpm install --frozen-lockfile`
+  부터 해야 한다. 안 하면 기존 테스트까지 전부 실패해서 원인을 오해하게 된다
+- 리허설 DB admin DSN 은 `apps/api/scripts/run_analytics_pipeline.sh` 의 `DB_URL` 에서
+  database 만 `postgres` 로 바꾸면 된다 (`research_app` 롤이 `createdb=true super=true`)
+- 커밋 전 `pnpm --filter <pkg> format` 을 돌린다. `format:check` 가 게이트다
+
+---
+
+*최종 갱신: P1 진행 중 — K0-1·K0-2 완료, K0-3(portfolio-impact 봉투) 착수*

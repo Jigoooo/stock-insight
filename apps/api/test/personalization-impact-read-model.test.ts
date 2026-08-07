@@ -70,4 +70,68 @@ describe('P4-C portfolio impact read model', () => {
       null,
     );
   });
+
+  // REQ-SRC-001: "there is none" and "we have not worked it out" are different
+  // answers. analytics.impact_exposure_revision is empty on purpose, so this is
+  // the path every real user hits today.
+  it('reports not_computed when the snapshot is sealed but the exposure ledger is empty', async () => {
+    const queries: string[] = [];
+    const executor: PersonalizationImpactQueryExecutor = {
+      queryRows: async <TRow extends Record<string, unknown>>(query: string) => {
+        queries.push(query);
+        // First query joins the empty exposure ledger and yields nothing; the
+        // follow-up asks only whether a sealed snapshot exists.
+        if (queries.length === 1) return [] as unknown as TRow[];
+        return [
+          { portfolio_snapshot_id: '22222222-2222-4222-8222-222222222222' },
+        ] as unknown as TRow[];
+      },
+    };
+
+    const result = await getPersonalizationPortfolioImpact(executor, {
+      userScope,
+      eventId: null,
+      scenarioId: null,
+      horizon: null,
+      knownAt,
+    });
+
+    assert.ok(result, 'a sealed snapshot must not be reported as not-found');
+    assert.equal(result.availability, 'not_computed');
+    assert.equal(result.portfolioSnapshotId, '22222222-2222-4222-8222-222222222222');
+    assert.deepEqual(result.affectedPositions, []);
+    assert.equal(result.aggregateImpact, 0);
+    assert.equal(queries.length, 2, 'the fallback lookup runs only when the first query is empty');
+    // The fallback must not re-join the exposure ledger, or it would be empty too.
+    assert.doesNotMatch(queries[1] ?? '', /impact_exposure_revision/);
+  });
+
+  it('does not run the fallback lookup when impact rows exist', async () => {
+    let calls = 0;
+    const executor: PersonalizationImpactQueryExecutor = {
+      queryRows: async <TRow extends Record<string, unknown>>() => {
+        calls += 1;
+        return [
+          {
+            portfolio_snapshot_id: '11111111-1111-4111-8111-111111111111',
+            entity_key: 'US:NVDA',
+            portfolio_weight: '0.10000000',
+            sign: 'positive',
+            economic_magnitude: '0.20000000',
+            impact_exposure_revision_id: '78',
+            evidence_locator: { source_uri: 'source:filing:2' },
+          },
+        ] as unknown as TRow[];
+      },
+    };
+    const result = await getPersonalizationPortfolioImpact(executor, {
+      userScope,
+      eventId: null,
+      scenarioId: null,
+      horizon: null,
+      knownAt,
+    });
+    assert.equal(result?.availability, 'available');
+    assert.equal(calls, 1);
+  });
 });
