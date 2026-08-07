@@ -136,14 +136,35 @@ test:xg:db              reader/writer surface verified · role state restored
 schema:status           pending = 정확히 우리 6개 (078~083). 남의 것 없음
 ```
 
-### P5 — 착지 (라이브) ⬜ 대기
+### P5 — 착지 (라이브) ✅ 완료
 
-- [ ] 백업 + 복원 검증
-- [ ] in-flight 파이프라인 0 확인
-- [ ] news 타이머 직후(:01/:31) master 병합
-- [ ] `schema:apply`
-- [ ] **다이제스트 재핀** ← 가장 위험. 아래 참조
-- [ ] 사후 감사 4종
+- [x] 논리 백업 (exit 0, `logical-20260807T162655Z`)
+- [x] in-flight 0 확인
+- [x] master 병합 `6734a8c` (01:32 KST, news 창 안)
+- [x] `schema:apply` — 078~083 전부 적용, **pending 0 / 83 applied**
+- [x] 다이제스트 확인 — **내 변경으로 인한 이동 0** (바이트 동일, 773 항목)
+- [x] 사후 감사 4종 통과
+
+**라이브 실측 (적용 직후)**
+
+```
+governance 관계        1 → 13 (신규 12: 표 8 + 뷰 4)
+source_pit_quality     39행  A:1 B:3 C:13 D:5 E:17
+safety_state           NORMAL (recommendation_allowed=true)
+slo_definition         8행 (전부 report-only)
+semantic_snapshot      0행 ┐
+analysis_information_set 0행 ├ writer 는 K2+ 소관 (shadow 단계 설계대로)
+release_manifest       0행 ┘
+schema:status          83/83 applied · pending 0
+PIT 감사               violation 0 · stale 0 · 알려진 예외 2
+source contract 감사   uncovered 0 · violations 0
+reachability           표 171 · 뷰 31 · 미읽힘 뷰 13 (신규 4 포함, 아직 소비자 없음)
+```
+
+> **내 §2 기준으로 정직하게:** 신규 8표 중 **3표는 실데이터**(source_pit_quality 39 ·
+> slo_definition 8 · safety_state_transition 1), **5표는 writer 대기**(유형 C). K1·K5 는
+> 계약과 게이트를 세우는 shadow 단계로 명시 범위였으므로 설계대로지만, "완료" 를
+> "0행이 아님" 으로 읽으면 안 된다.
 
 ---
 
@@ -216,6 +237,44 @@ guard 의 probe 는 `nspname NOT LIKE 'pg_%' AND nspname <> 'information_schema'
 (`market_ts.ohlcv`)이지 개별 청크가 아니므로, 올바른 수정은 probe 에서
 `_timescaledb_internal` 을 제외하는 것이다.
 
+### 🔴 적용 후 확인: 브레인이 이미 크래시루프 중이었다 (약 24시간)
+
+```
+stock-insight-api-1   Restarting (1)   RestartCount=1357
+로그                  "live database verification failed for stock_insight_app_reader"
+컨테이너 생성          2026-08-03
+```
+
+**타임라인**
+
+| 시각 (KST) | 사건 |
+| --- | --- |
+| 2026-08-07 01:32 | 마이그레이션 **074** 적용 — app_reader 에 GRANT, 재핀 없음 |
+| (그 이후 어느 재시작) | 브레인이 부팅 검증에 실패하기 시작 |
+| 2026-08-08 01:33 | 내 마이그레이션 078~083 적용 |
+| 2026-08-08 01:40 | 발견. RestartCount **1357** |
+
+**1357회 재시작은 5분 만에 쌓일 수 없다.** 074 적용(24시간 전)이 기점이다.
+
+**내 변경이 원인이 아님을 두 번 증명했다:**
+1. 적용 **전** repin 도구 실행 → 이미 어긋나 있었음
+2. 적용 **후** 다이제스트가 바이트 동일 (773 항목, `f3a18fad…`) — 신규 12개 관계 전부
+   app 롤 도달 불가
+
+**복구에 필요한 것 — 내 범위 밖**
+
+`stock-insight-api-1` 은 소스 마운트가 아니라 **핀된 이미지**(`sha256:1264b009…`)로 돈다.
+즉 `live-database-guard.ts` 의 상수를 고치는 것만으로는 복구되지 않고 **이미지 재빌드 +
+재배포**가 필요하다. 보안 크리티컬한 브레인의 배포 작업이고 K0/K1/K5 와 별건이다.
+
+그리고 재핀만으로는 재발한다 — Timescale 청크가 자동으로 늘어나기 때문이다.
+**올바른 수정은 probe 에서 `_timescaledb_internal` 을 제외하는 것**이고, 그것은 보안 가드의
+검사 범위를 바꾸는 설계 결정이라 사람의 판단이 필요하다.
+
+(근거: 제품이 읽는 것은 하이퍼테이블 `market_ts.ohlcv` 이지 개별 청크가 아니다. 청크는
+하이퍼테이블 GRANT 가 자동 전파된 저장 구현이고, 청크 단위 항목은 "앱이 의미상 무엇에
+도달하는가" 에 대해 아무 신호도 더하지 않는다.)
+
 ### 이번 실행에서 한 판단
 
 - **재핀하지 않는다.** 내가 만들지 않은 변경을 승인하는 것이고, 청크 때문에 어차피 다시
@@ -243,7 +302,7 @@ guard 의 probe 는 `nspname NOT LIKE 'pg_%' AND nspname <> 'information_schema'
 | 8 | 본 체크아웃 tree hash 이동 | ✅ 불변 확인 |
 | 9 | 078~083 번호 충돌 | ✅ 없음 |
 | 10 | 다이제스트 변경이 설명 안 됨 | ✅ 리허설상 변경 없음 예상 |
-| 11 | 재핀 후 api-server 부팅 실패 | — |
+| 11 | 재핀 후 api-server 부팅 실패 | 🔴 **재핀 전부터 크래시루프 중** — 074 가 기점, 내 변경 무관 (§P5 발견 참조). 이미지 재배포 필요 = 범위 밖 |
 
 ---
 
@@ -287,4 +346,6 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 ---
 
-*최종 갱신: **P1·P2·P3·P4 완료.** 다음은 P5 착지 — 백업 → in-flight 확인 → master 병합 → schema:apply*
+*최종 갱신: **P0~P5 전부 완료.** K0+K1+K5 라이브 적용 완료.*
+*🔴 미해결(범위 밖): 브레인 크래시루프 — 마이그레이션 074 의 재핀 누락 + Timescale 청크 드리프트.*
+*다음 세션: (1) 브레인 복구 결정 (2) K2 Truth Foundation*
