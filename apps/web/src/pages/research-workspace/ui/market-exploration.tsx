@@ -100,7 +100,11 @@ export function MarketExploration({
       <DataTable
         caption="종목별 시장 신호 강도와 관심·보유 연결 상태"
         className={styles.marketHeatmap}
-        containerProps={{ className: styles.marketTableWrap }}
+        containerProps={{
+          className: styles.marketTableWrap,
+          'aria-label': '종목별 시장 신호 비교표 가로 스크롤 영역',
+          tabIndex: 0,
+        }}
       >
         <thead>
           <tr>

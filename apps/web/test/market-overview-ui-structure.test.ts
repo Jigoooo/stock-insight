@@ -31,13 +31,15 @@ describe('market secondary exploration UI structure', () => {
     assert.doesNotMatch(exploration, /event_radar|heatmap_matrix/);
   });
 
-  it('renders heatmap rows inside the factor comparison table', async () => {
+  it('renders heatmap rows inside a keyboard-scrollable factor comparison table', async () => {
     const exploration = await read('market-exploration.tsx');
     assert.match(exploration, /mode\.id === 'factor_map'/);
     assert.match(exploration, /overview\.signalTypeGroups\.map/);
     assert.match(exploration, /caption="종목별 시장 신호 강도와 관심·보유 연결 상태"/);
     assert.match(exploration, /data-testid="market-heatmap-row"/);
-    assert.match(exploration, /containerProps=\{\{ className: styles\.marketTableWrap \}\}/);
+    assert.match(exploration, /className: styles\.marketTableWrap/);
+    assert.match(exploration, /'aria-label': '종목별 시장 신호 비교표 가로 스크롤 영역'/);
+    assert.match(exploration, /tabIndex: 0/);
   });
 
   it('renders propagation, timeline and Geo snapshot from retained source data', async () => {
