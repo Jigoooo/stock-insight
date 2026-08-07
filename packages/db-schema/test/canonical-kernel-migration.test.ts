@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import { analysisInformationSetMigrationSql } from '../src/migrations/079_analysis_information_set.ts';
 import { semanticSnapshotMigrationSql } from '../src/migrations/078_semantic_snapshot.ts';
+import { analysisInformationSetMigrationSql } from '../src/migrations/079_analysis_information_set.ts';
 import { sourcePitQualityMigrationSql } from '../src/migrations/080_source_pit_quality.ts';
 
 const MIGRATIONS = [

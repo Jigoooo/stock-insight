@@ -106,6 +106,16 @@ pipeline_record_stage_success stock-insight-table-reachability-audit-stage "$RUN
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-source-contract-audit.ts --apply
 pipeline_record_stage_success stock-insight-source-contract-audit-stage "$RUN_STARTED_AT" || exit $?
 
+# REQ-PIT-003: now() must not be a business cutoff. A source audit rather than a
+# database one — the defect lives in SQL text, so it reads no database and could
+# run in CI. It runs here because the same reasoning applies as to the source
+# contract audit above: an assertion that only lives in a test suite is one
+# skipped environment away from being silently green, and this one guards the
+# property every backtest rests on. Two known exceptions are recorded in the job
+# itself with the phase that closes them; a new violation fails the pipeline.
+node apps/api/src/ops/run-pit-now-audit.ts
+pipeline_record_stage_success stock-insight-pit-now-audit-stage "$RUN_STARTED_AT" || exit $?
+
 DATABASE_URL="$DB_URL" node apps/api/src/ops/run-outbox-delivery.ts --apply --loop
 pipeline_record_stage_success stock-insight-outbox-delivery-stage "$RUN_STARTED_AT" || exit $?
 
