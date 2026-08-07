@@ -165,6 +165,17 @@ const dollarStory = item({
 const priorityChanges = [semiconductorStory, naverStory, macroStory];
 const marketChanges = [powerStory, freightStory, dollarStory];
 const allItems = [...priorityChanges, ...marketChanges];
+const previewSignalByConnectionKey = new Map<
+  string,
+  { polarity: 'positive' | 'negative' | 'neutral'; signalType: string }
+>([
+  [semiconductorStory.connectionKey, { signalType: 'ai_capex', polarity: 'positive' }],
+  [naverStory.connectionKey, { signalType: 'advertising_commerce', polarity: 'positive' }],
+  [macroStory.connectionKey, { signalType: 'rates_fx_commodities', polarity: 'neutral' }],
+  [powerStory.connectionKey, { signalType: 'power_infrastructure', polarity: 'neutral' }],
+  [freightStory.connectionKey, { signalType: 'oil_freight_cost', polarity: 'neutral' }],
+  [dollarStory.connectionKey, { signalType: 'dollar_liquidity', polarity: 'neutral' }],
+]);
 
 function relationFor(itemValue: MarketConnectionItem): EntityRelationGraph {
   const [root, ...connected] = itemValue.connectedEntities;
@@ -613,8 +624,12 @@ function radarPreviewData(
   geoSnapshot: GeoSnapshot = marketConnectionsGeoSnapshot,
   model: MarketConnectionsModel = marketConnections,
 ): RadarPreviewPayload {
-  const watermark = { availability: 'available' as const, watermarkAt: analyzedAt, rowCount: 0 };
   const visibleItems = [...model.priorityChanges, ...model.marketChanges];
+  const itemWatermark = {
+    availability: 'available' as const,
+    watermarkAt: analyzedAt,
+    rowCount: visibleItems.length,
+  };
   return {
     view: 'radar',
     shell: { radarScopeTotal: scopeTotal, watchlistCount: 4 },
@@ -624,12 +639,12 @@ function radarPreviewData(
       signalAsOf: analyzedAt,
       scopeTotal,
       componentWatermarks: {
-        event_radar: watermark,
-        factor_map: watermark,
-        propagation_map: watermark,
-        theme_community: watermark,
-        heatmap_matrix: watermark,
-        timeline: watermark,
+        event_radar: itemWatermark,
+        factor_map: itemWatermark,
+        propagation_map: itemWatermark,
+        theme_community: itemWatermark,
+        heatmap_matrix: itemWatermark,
+        timeline: itemWatermark,
         map_globe:
           geoSnapshot.availability === 'available'
             ? {
@@ -638,18 +653,22 @@ function radarPreviewData(
                 rowCount: geoSnapshot.geojson.features.length,
               }
             : { availability: 'missing', watermarkAt: null, rowCount: 0 },
-        value_chain: watermark,
+        value_chain: itemWatermark,
       },
       items: visibleItems.map((story) => {
         const connectedEntity = story.connectedEntities[0]!;
+        const signal = previewSignalByConnectionKey.get(story.connectionKey);
+        if (!signal) {
+          throw new Error(`Missing preview signal descriptor: ${story.connectionKey}`);
+        }
         return {
           signalKey: story.connectionKey,
           entityKey: connectedEntity.entityKey,
           market: connectedEntity.entityKey.startsWith('KR:') ? 'KR' : 'US',
           symbol: connectedEntity.entityKey.split(':').at(-1) ?? connectedEntity.entityKey,
           name: connectedEntity.displayName,
-          signalType: 'price_spike',
-          polarity: 'positive',
+          signalType: signal.signalType,
+          polarity: signal.polarity,
           strength:
             story.rawStrength ??
             ({ high: 0.8, medium: 0.5, low: 0.2 } satisfies Record<string, number>)[story.strength],

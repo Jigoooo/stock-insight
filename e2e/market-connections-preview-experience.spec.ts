@@ -31,6 +31,14 @@ async function openStory(page: Page, opener = storyOpener(page)) {
   return { inspector, opener };
 }
 
+async function closeInspectorWithKeyboard(page: Page, inspector: Locator) {
+  const close = inspector.getByRole('button', { name: '시장 연결 상세 인스펙터 닫기' });
+  await close.focus();
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(inspector).toHaveCount(0);
+}
+
 async function waitForStableGeometry(locator: Locator) {
   await expect
     .poll(() =>
@@ -84,6 +92,41 @@ test('orders summary, personalized stories, and broader changes without advisory
   expect(await broader.innerText()).not.toMatch(/0\.\d+|\d+%|목표가|손절가|익절가|가격 전망/);
 });
 
+test('reports rendered story counts and truthful signal types in deterministic exploration', async ({
+  page,
+}) => {
+  const watermark = page.getByTestId('market-component-watermark');
+  await expect(watermark).toContainText('6건');
+  await expect(page.getByTestId('market-factor-group')).toHaveCount(6);
+  for (const signalLabel of [
+    'AI 설비투자',
+    '광고·커머스',
+    '금리·환율·원자재',
+    '전력 인프라',
+    '유가·운임 원가',
+    '달러 유동성',
+  ]) {
+    await expect(
+      page.getByTestId('market-factor-group').filter({ hasText: signalLabel }),
+    ).toHaveCount(1);
+  }
+
+  await page.getByRole('radio', { name: '전파' }).click();
+  await expect(watermark).toContainText('6건');
+  await page.getByRole('radio', { name: '시간' }).click();
+  await expect(watermark).toContainText('6건');
+
+  await gotoPreview(page, 'no-personalized');
+  await expect(watermark).toContainText('2건');
+  await expect(page.getByTestId('market-factor-group')).toHaveCount(2);
+  await expect(
+    page.getByTestId('market-factor-group').filter({ hasText: '유가·운임 원가' }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByTestId('market-factor-group').filter({ hasText: '달러 유동성' }),
+  ).toHaveCount(1);
+});
+
 test('shares one exact selected story between priority, list, and timeline entry points', async ({
   page,
 }) => {
@@ -103,7 +146,14 @@ test('shares one exact selected story between priority, list, and timeline entry
       ),
   );
 
-  const { opener } = await openStory(page);
+  const priorityOpener = priorityPanel(page).locator(
+    `button[aria-label="${primaryStory} 시장 변화 상세 열기"]`,
+  );
+  const { inspector, opener } = await openStory(page, priorityOpener);
+  const priorityDetail = {
+    title: await inspector.locator('#market-inspector-summary + strong').innerText(),
+    summary: await inspector.locator('#market-inspector-summary + strong + p').innerText(),
+  };
   await expect(opener).toHaveAttribute('aria-current', 'true');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('market-connection-inspector')).toHaveCount(0);
@@ -113,10 +163,15 @@ test('shares one exact selected story between priority, list, and timeline entry
   const timelineOpener = page
     .getByTestId('market-mode-timeline')
     .locator(`button[aria-label="${primaryStory} 시장 변화 상세 열기"]`);
-  await openStory(page, timelineOpener);
   await expect(timelineOpener).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByTestId('market-connection-inspector')).toContainText(
-    '삼성전자와 SK하이닉스의 HBM 공급',
+  const { inspector: timelineInspector } = await openStory(page, timelineOpener);
+  await expect(timelineOpener).toHaveAttribute('aria-current', 'true');
+  await expect(priorityOpener).toHaveAttribute('aria-current', 'true');
+  await expect(timelineInspector.locator('#market-inspector-summary + strong')).toHaveText(
+    priorityDetail.title,
+  );
+  await expect(timelineInspector.locator('#market-inspector-summary + strong + p')).toHaveText(
+    priorityDetail.summary,
   );
 });
 
@@ -158,31 +213,61 @@ test('overlays a resizable desktop drawer and preserves its independent session 
   const resizer = page.getByRole('separator', { name: '시장 연결 상세 인스펙터 너비 조절' });
   await expect(resizer).toHaveAttribute('aria-valuemin', '420');
   await expect(resizer).toHaveAttribute('aria-valuemax', '760');
-  await resizer.press('ArrowLeft');
-  await expect(resizer).toHaveAttribute('aria-valuenow', '536');
-  const box = await resizer.boundingBox();
-  expect(box).not.toBeNull();
-  await resizer.hover({ position: { x: 6, y: 30 } });
-  await page.mouse.down();
-  await page.mouse.move((box?.x ?? 0) - 58, (box?.y ?? 0) + 30, { steps: 5 });
-  await page.mouse.up();
-  await expect
-    .poll(() => resizer.getAttribute('aria-valuenow').then((value) => Number(value)))
-    .toBeGreaterThan(536);
-  const pointerWidth = await resizer.getAttribute('aria-valuenow');
+  for (let expectedWidth = 536; expectedWidth <= 760; expectedWidth += 16) {
+    await resizer.press('ArrowLeft');
+    await expect(resizer).toHaveAttribute('aria-valuenow', String(expectedWidth));
+  }
+  for (let step = 0; step < 5; step += 1) {
+    await resizer.press('ArrowLeft');
+    await expect(resizer).toHaveAttribute('aria-valuenow', '760');
+  }
+  await expect(resizer).toHaveAttribute('aria-valuenow', '760');
+  await expect.poll(async () => (await inspector.boundingBox())?.width).toBeCloseTo(760, 0);
 
-  await inspector.getByRole('button', { name: '시장 연결 상세 인스펙터 닫기' }).click();
-  await openStory(page);
+  await closeInspectorWithKeyboard(page, inspector);
+  const { inspector: reopenedAtKeyboardMax } = await openStory(page);
+  const reopenedResizer = page.getByRole('separator', {
+    name: '시장 연결 상세 인스펙터 너비 조절',
+  });
+  await expect(reopenedResizer).toHaveAttribute('aria-valuenow', '760');
+  await expect
+    .poll(async () => (await reopenedAtKeyboardMax.boundingBox())?.width)
+    .toBeCloseTo(760, 0);
+
+  await closeInspectorWithKeyboard(page, reopenedAtKeyboardMax);
+  await page.evaluate(() =>
+    sessionStorage.setItem('stock-insight:market-connection-inspector-width', '520'),
+  );
+  await gotoPreview(page);
+  const { inspector: pointerInspector } = await openStory(page);
+  const pointerResizer = page.getByRole('separator', {
+    name: '시장 연결 상세 인스펙터 너비 조절',
+  });
+  await expect(pointerResizer).toHaveAttribute('aria-valuenow', '520');
+  const box = await pointerResizer.boundingBox();
+  expect(box).not.toBeNull();
+  await pointerResizer.hover({ position: { x: 6, y: 30 } });
+  await page.mouse.down();
+  await page.mouse.move((box?.x ?? 0) - 1_000, (box?.y ?? 0) + 30, { steps: 5 });
+  await page.mouse.up();
+  await expect(pointerResizer).toHaveAttribute('aria-valuenow', '760');
+  await expect.poll(async () => (await pointerInspector.boundingBox())?.width).toBeCloseTo(760, 0);
+
+  await closeInspectorWithKeyboard(page, pointerInspector);
+  const { inspector: reopenedAtPointerMax } = await openStory(page);
   await expect(
     page.getByRole('separator', { name: '시장 연결 상세 인스펙터 너비 조절' }),
-  ).toHaveAttribute('aria-valuenow', pointerWidth!);
+  ).toHaveAttribute('aria-valuenow', '760');
+  await expect
+    .poll(async () => (await reopenedAtPointerMax.boundingBox())?.width)
+    .toBeCloseTo(760, 0);
   expect(
     await page.evaluate(() => ({
       market: sessionStorage.getItem('stock-insight:market-connection-inspector-width'),
       evidence: sessionStorage.getItem('stock-insight:evidence-inspector-width'),
       stocks: sessionStorage.getItem('stock-insight:stock-inspector-width'),
     })),
-  ).toEqual({ market: pointerWidth, evidence: null, stocks: null });
+  ).toEqual({ market: '760', evidence: null, stocks: null });
 });
 
 test('closes only detail through overlay and Escape and restores the exact opener', async ({
@@ -243,18 +328,38 @@ test('keeps HTTPS source links safe and 420px drawer text readable', async ({ pa
   for (let step = 0; step < 7; step += 1) await resizer.press('ArrowRight');
   await expect(resizer).toHaveAttribute('aria-valuenow', '420');
   await expect.poll(async () => (await inspector.boundingBox())?.width).toBeCloseTo(420, 0);
-  const textGeometry = await inspector
-    .locator('section[aria-labelledby="market-inspector-summary"] p')
-    .evaluate((node) => ({
-      wordBreak: getComputedStyle(node).wordBreak,
-      lineCount: (() => {
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        return range.getClientRects().length;
-      })(),
-    }));
-  expect(textGeometry.wordBreak).not.toBe('break-all');
-  expect(textGeometry.lineCount).toBeLessThanOrEqual(8);
+  const representativeText = inspector.locator(
+    [
+      'section[aria-labelledby="market-inspector-summary"] > strong',
+      'section[aria-labelledby="market-inspector-why-now"] p',
+      'section[aria-labelledby="market-inspector-paths"] li',
+      'section[aria-labelledby="market-inspector-meta"] dd',
+      'section[aria-labelledby="market-inspector-sources"] a',
+    ].join(', '),
+  );
+  await expect(representativeText).toHaveCount(8);
+  const textGeometry = await representativeText.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const style = getComputedStyle(node);
+      return {
+        clientWidth: node.clientWidth,
+        scrollWidth: node.scrollWidth,
+        wordBreak: style.wordBreak,
+      };
+    }),
+  );
+  for (const geometry of textGeometry) {
+    expect(geometry.wordBreak).not.toBe('break-all');
+    expect(geometry.scrollWidth - geometry.clientWidth).toBeLessThanOrEqual(1);
+  }
+  const dialogBody = inspector.locator('[data-slot="dialog-body"]');
+  await expect(dialogBody).toHaveCount(1);
+  expect(
+    await inspector.evaluate((node) => node.scrollWidth - node.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  expect(
+    await dialogBody.evaluate((node) => node.scrollWidth - node.clientWidth),
+  ).toBeLessThanOrEqual(1);
 });
 
 test('localizes no-personalized, empty, partial, and permanent detail-error scenarios', async ({

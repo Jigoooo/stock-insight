@@ -524,6 +524,17 @@
 - `graphify update .` 완료: 10,585 nodes, 18,192 edges, 715 communities. 기존 skill/package 버전 차이와 SQL parser 미설치 경고는 유지됐으며 `graphify-out/`은 ignore 상태로 staging에서 제외함
 - 이번 묶음은 DB, migration, API server, 공개 contract, route path, navigation section id를 변경하지 않았고, live adapter의 원시 Radar 행을 preview의 grouped story로 추론하지 않음
 
+### 2026-08-08 — 시장 연결 경험 review 보정 1차
+
+- 결정론적 preview의 6개 story마다 `AI 설비투자`, `광고·커머스`, `금리·환율·원자재`, `전력 인프라`, `유가·운임 원가`, `달러 유동성` signal type과 긍정·중립 polarity를 명시했다. 공개 contract는 bounded string을 그대로 유지하며 fixture 표시 라벨만 보강함
+- factor·propagation·timeline 등 item 기반 component watermark는 실제 렌더링하는 visible item 수에서 계산해 default `6건`, `no-personalized` `2건`을 표시한다. Geo watermark의 feature 기반 row count는 유지함
+- TDD RED는 default watermark `0건`과 단일 `price_spike` flattening을 직접 재현했다. 이미 shared frame이 충족하던 760px clamp, wrapping, selected-key 동기화는 각각 최대 clamp 축소, `break-all`, timeline key 전달 제거 mutation으로 새 E2E가 실제 회귀를 잡는지 확인한 뒤 즉시 원복함
+- drawer는 keyboard와 pointer 모두 760px를 넘겨 입력해도 실제 폭·`aria-valuenow`가 760에 고정되고, 각 경로의 close/reopen 뒤 session 값 `760`이 유지됨을 검증했다. shared frame production 코드는 변경하지 않음
+- 420px drawer는 summary title, why-now paragraph, 영향 경로 list item, metadata definition, HTTPS source link 전체에서 `break-all` 부재와 개별·body·inspector overflow 1px 이하를 검증함
+- priority card에서 선택한 exact key가 timeline에 반영되고 timeline에서 연 상세가 같은 제목·요약을 유지하며 priority card도 계속 선택 상태임을 양방향으로 검증함
+- fresh Market Connections desktop/mobile은 19건 통과·5건 viewport 조건 skip·0건 실패, Today·Stocks 포함 비례 회귀는 67건 통과·23건 조건 skip·0건 실패임
+- focused Node 79건, format 1,327개 파일, lint 0 errors(기존 warning 6개), typecheck 11/11 tasks, `git diff --check`를 통과했고 `graphify update .`는 10,589 nodes·18,196 edges·713 communities로 갱신됨
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
