@@ -352,10 +352,74 @@
   -webkit-backdrop-filter: blur(28px) saturate(150%);
 }
 
+.inspector[data-resizing='true'] {
+  user-select: none;
+}
+
+.inspector[data-inspector-presentation='modal'] {
+  --dialog-width: clamp(760px, 72vw, 960px);
+}
+
+.inspectorResizer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: -6px;
+  width: 12px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.inspectorResizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 1px;
+  background: var(--color-border-strong);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.inspectorResizer:is(:hover, :focus-visible)::after,
+.inspector[data-resizing='true'] .inspectorResizer::after {
+  background: var(--color-focus);
+}
+
 .inspectorHeader {
+  padding-right: 178px;
   background: var(--material-inspector);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+.inspectorPresentationToggle {
+  width: auto;
+  min-width: 94px;
+  height: 36px;
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  right: 60px;
+  gap: 6px;
+  padding-inline: 12px;
+  border-color: color-mix(in srgb, var(--color-border-strong) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 48%) inset,
+    0 5px 14px rgb(20 21 19 / 9%);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.inspectorPresentationToggle svg {
+  width: 15px;
+  height: 15px;
 }
 
 .inspectorTitle {
@@ -405,6 +469,24 @@
   line-height: 1.3;
 }
 
+.primarySourceLink {
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.primarySourceLink > [data-slot='motion-visual'] {
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+}
+
+.primarySourceLink svg {
+  width: 14px;
+  height: 14px;
+}
+
 .bodyText {
   margin: 16px 0 22px;
   color: var(--color-text-secondary);
@@ -448,6 +530,14 @@
   font-weight: 660;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.inspector[data-inspector-presentation='drawer'] .evidenceMeta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.inspector[data-inspector-presentation='drawer'] .evidenceMeta div:nth-child(2n) {
+  border-right: 0;
 }
 
 .inspectorBody section {
@@ -546,6 +636,18 @@
 }
 
 @media (max-width: 767px) {
+  .inspectorResizer {
+    display: none;
+  }
+
+  .inspectorPresentationToggle {
+    display: none;
+  }
+
+  .inspectorHeader {
+    padding-right: 64px;
+  }
+
   .themeRow {
     grid-template-columns: 1fr;
   }

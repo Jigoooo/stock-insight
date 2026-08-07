@@ -72,13 +72,14 @@ const relationCss = readFileSync(
   new URL('../src/pages/research-workspace/ui/relation-detail.module.css', import.meta.url),
   'utf8',
 );
+const feedCss = readFileSync(
+  new URL('../src/pages/research-workspace/ui/feed-ledger.module.css', import.meta.url),
+  'utf8',
+);
 const workspaceStyles = [
   css,
   relationCss,
-  readFileSync(
-    new URL('../src/pages/research-workspace/ui/feed-ledger.module.css', import.meta.url),
-    'utf8',
-  ),
+  feedCss,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
     'utf8',
@@ -293,12 +294,17 @@ describe('v3 research workspace structure', () => {
     assert.doesNotMatch(css, /\.stateSurface\s*\{/);
   });
 
-  it('blocks pre-hydration clicks and keeps the inspector modal only on mobile', () => {
+  it('blocks pre-hydration clicks and lets the desktop inspector switch presentation', () => {
     assert.match(page, /useSyncExternalStore\(/);
     assert.match(page, /const inspectorModalOpen = isMobileViewport && inspectorVisible/);
     assert.match(page, /modal=\{isMobileViewport\}/);
-    assert.match(page, /<Dialog[\s\S]*?modal=\{modal\}/);
-    assert.match(page, /<DialogContent[\s\S]*?portalled=\{modal\}/);
+    assert.match(page, /<Dialog\s+modal\s/);
+    assert.match(page, /<DialogContent[\s\S]*?portalled/);
+    assert.match(
+      page,
+      /presentation=\{modal \? 'inspector' : modalPresentation \? 'modal' : 'inspector'\}/,
+    );
+    assert.match(page, /\bshowOverlay\s/);
     assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);
   });
@@ -431,6 +437,27 @@ describe('v3 research workspace structure', () => {
 
   it('keeps hover effects pointer-safe', () => {
     assert.match(workspaceStyles, /@media \(hover: hover\) and \(pointer: fine\)/);
+  });
+
+  it('uses one inset full-border selected surface for every Today evidence entry', () => {
+    assert.match(
+      page,
+      /className=\{styles\.connectionRow\}[\s\S]*?aria-current=\{selectedRecordKey === item\.recordKey\}/,
+    );
+    assert.match(
+      feedCss,
+      /\.headlineCard\[data-slot='button-control'\]\[aria-current='true'\],\s*\.feedRow\[data-slot='button-control'\]\[aria-current='true'\],\s*\.connectionRow\[data-slot='button-control'\]\[aria-current='true'\]\s*\{[\s\S]*?border-color:[\s\S]*?background:[\s\S]*?box-shadow:/,
+    );
+    assert.match(
+      feedCss,
+      /\.curatedList,\s*\.feedList,\s*\.connectionList\s*\{[\s\S]*?padding:\s*4px/,
+    );
+    assert.match(
+      feedCss,
+      /\.curatedList\s*>\s*li,\s*\.feedList\s*>\s*li,\s*\.connectionList\s*>\s*li\s*\{\s*border-bottom:\s*0/,
+    );
+    assert.doesNotMatch(feedCss, /box-shadow:\s*0\s+3px\s+0\s+var\(--color-accent\)\s+inset/);
+    assert.doesNotMatch(feedCss, /box-shadow:\s*3px\s+0\s+0\s+var\(--color-accent\)\s+inset/);
   });
 
   it('provides a reduced-motion safety fallback independent of layout recipe', () => {

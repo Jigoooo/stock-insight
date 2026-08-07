@@ -99,8 +99,13 @@ describe('current workspace shell behavior', () => {
     assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
     assert.match(sheet, /<motion\.div/);
     assert.doesNotMatch(shell, /useFocusTrap|previousFocus|event\.key !== 'Escape'/);
-    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
-    assert.match(inspector, /<DialogContent/);
+    assert.match(inspector, /<Dialog\s+modal\s/);
+    assert.match(inspector, /<DialogContent[\s\S]*?portalled/);
+    assert.match(inspector, /\bshowOverlay\s/);
+    assert.match(
+      inspector,
+      /presentation=\{modal \? 'inspector' : modalPresentation \? 'modal' : 'inspector'\}/,
+    );
     assert.doesNotMatch(inspector, /useFocusTrap|event\.key !== 'Escape'/);
     assert.match(page, /opener\?\.isConnected/);
     assert.match(e2e, /supports mobile navigation and keyboard-visible controls/);

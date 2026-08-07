@@ -23,14 +23,27 @@ const shellCssUrl = new URL(
 
 describe('workspace overlay integration', () => {
   it('delegates inspector presence, focus, escape, and modal truth to shared Dialog', async () => {
-    const inspector = await readFile(inspectorUrl, 'utf8');
+    const [inspector, shellCss] = await Promise.all([
+      readFile(inspectorUrl, 'utf8'),
+      readFile(shellCssUrl, 'utf8'),
+    ]);
 
     assert.match(inspector, /open:\s*boolean/);
-    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
+    assert.match(inspector, /<Dialog\s+modal\s/);
     assert.match(inspector, /<DialogContent/);
-    assert.match(inspector, /portalled=\{modal\}/);
-    assert.match(inspector, /presentation="inspector"/);
-    assert.match(inspector, /showOverlay=\{modal\}/);
+    assert.match(inspector, /data-inspector-presentation/);
+    assert.match(inspector, /\bportalled\b/);
+    assert.match(
+      inspector,
+      /presentation=\{modal \? 'inspector' : modalPresentation \? 'modal' : 'inspector'\}/,
+    );
+    assert.match(inspector, /\bshowOverlay\s/);
+    assert.match(inspector, /motionPreset="quick"/);
+    assert.match(inspector, /overlayTone="light"/);
+    assert.doesNotMatch(inspector, /onPointerDownOutside=/);
+    assert.match(inspector, /<Button[\s\S]*?넓게 보기[\s\S]*?옆에서 보기/);
+    assert.doesNotMatch(inspector, /<IconButton/);
+    assert.doesNotMatch(shellCss, /shell:has\(> \[data-testid='evidence-inspector'\]\)/);
     assert.doesNotMatch(inspector, /useFocusTrap|useWorkspaceOverlayMotion|<dialog\b/);
   });
 

@@ -116,6 +116,7 @@ export type ResearchWorkspaceUrlState = {
 type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
+  loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
   loadStockDeepDive?: StockDeepDiveLoader;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
@@ -166,6 +167,7 @@ const getServerHydrationSnapshot = () => false;
 export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
+  loadResearchRecord,
   loadStockDeepDive,
   navigationMode = 'route',
   onLogout,
@@ -292,6 +294,19 @@ export function ResearchWorkspacePage({
   );
   const inspectorVisible = section === 'today' && (inspectorOpen || urlInspectorVisible);
   const inspectorModalOpen = isMobileViewport && inspectorVisible;
+  const loadRecordDetail = useCallback(
+    async (recordKey: string) => {
+      if (loadResearchRecord) {
+        return { detail: await loadResearchRecord(recordKey), relation: null };
+      }
+      const api = await getWorkspaceApiClient();
+      const nextDetail = await api.researchRecord(recordKey);
+      const entityKey = nextDetail.affectedEntityKeys[0];
+      const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
+      return { detail: nextDetail, relation: nextRelation };
+    },
+    [loadResearchRecord],
+  );
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
     const syncViewport = () => {
@@ -311,11 +326,8 @@ export function ResearchWorkspacePage({
     const recordKey = urlState.record;
     if (!recordKey || recordKey === detail?.recordKey) return;
     let active = true;
-    void getWorkspaceApiClient()
-      .then(async (api) => {
-        const nextDetail = await api.researchRecord(recordKey);
-        const entityKey = nextDetail.affectedEntityKeys[0];
-        const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
+    void loadRecordDetail(recordKey)
+      .then(({ detail: nextDetail, relation: nextRelation }) => {
         if (!active) return;
         setDetail(nextDetail);
         setRelation(nextRelation);
@@ -330,7 +342,7 @@ export function ResearchWorkspacePage({
     return () => {
       active = false;
     };
-  }, [detail?.recordKey, urlState.record]);
+  }, [detail?.recordKey, loadRecordDetail, urlState.record]);
 
   const feedPaginationValue =
     data.view === 'today'
@@ -523,11 +535,9 @@ export function ResearchWorkspacePage({
     setDetailState('loading');
     setRelationState('loading');
     try {
-      const api = await getWorkspaceApiClient();
-      const nextDetail = await api.researchRecord(item.recordKey);
+      const { detail: nextDetail, relation: nextRelation } = await loadRecordDetail(item.recordKey);
       setDetail(nextDetail);
-      const entityKey = nextDetail.affectedEntityKeys[0];
-      setRelation(entityKey ? await api.entityRelations(entityKey, 1) : null);
+      setRelation(nextRelation);
       setRelationState('ready');
       setDetailState('ready');
       setPendingRecordKey((current) => (current === item.recordKey ? undefined : current));

@@ -38,6 +38,16 @@ import type {
   WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
 
+function headlineThumbnailUrl(item: ResearchFeedItem) {
+  if (item.affectedEntityKeys.includes('KR:005930')) {
+    return '/media/news/semiconductor-memory.jpg';
+  }
+  if (item.market === 'MACRO') {
+    return '/media/news/treasury-rates.jpg';
+  }
+  return '/media/news/ai-data-center.jpg';
+}
+
 export function TodayView({
   data,
   interactive,
@@ -90,7 +100,11 @@ export function TodayView({
       />
       <AvailabilityNotice availability={data.meta.freshness} />
 
-      <Panel data-testid="today-market-summary" aria-labelledby="today-market-summary-title">
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-market-summary"
+        aria-labelledby="today-market-summary-title"
+      >
         <PanelHeader meta={<span className={styles.sampleBadge}>샘플 데이터</span>}>
           <h2 id="today-market-summary-title">오늘의 시장 요약</h2>
           <p>하루의 배경을 빠르게 훑어보는 주요 지표입니다.</p>
@@ -107,7 +121,11 @@ export function TodayView({
         </ul>
       </Panel>
 
-      <Panel data-testid="today-headline-news" aria-labelledby="today-headline-news-title">
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-headline-news"
+        aria-labelledby="today-headline-news-title"
+      >
         <PanelHeader meta={`${headlineItems.length}건`}>
           <h2 id="today-headline-news-title">핵심 카드 뉴스</h2>
           <p>오늘 먼저 읽을 변화와 나에게 보인 이유를 함께 정리했습니다.</p>
@@ -131,6 +149,9 @@ export function TodayView({
                   onClick={() => onSelectRecord(item)}
                 >
                   <span className={styles.headlineCardContent}>
+                    <span className={styles.headlineThumbnail} aria-hidden="true">
+                      <img src={headlineThumbnailUrl(item)} alt="" decoding="async" />
+                    </span>
                     <span className={styles.headlineMeta}>
                       <span className={styles.market}>{marketLabel(item.market)}</span>
                       <time>{formatDate(item.publishedAt, true)}</time>
@@ -148,7 +169,11 @@ export function TodayView({
         )}
       </Panel>
 
-      <Panel data-testid="today-curated-news" aria-labelledby="today-curated-news-title">
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-curated-news"
+        aria-labelledby="today-curated-news-title"
+      >
         <PanelHeader meta={`관심종목 ${formatNumber(data.summary.watchlistCount)}개`}>
           <h2 id="today-curated-news-title">내 관심종목 큐레이터 뉴스</h2>
           <p>관심종목과 직접 또는 가까운 관계로 연결된 소식입니다.</p>
@@ -179,7 +204,11 @@ export function TodayView({
         )}
       </Panel>
 
-      <Panel data-testid="today-news-list" aria-labelledby="today-news-list-title">
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-news-list"
+        aria-labelledby="today-news-list-title"
+      >
         <PanelHeader
           meta={`${data.meta.sourceCoverage.clickable}/${data.meta.sourceCoverage.total} 출처 연결`}
         >
@@ -260,6 +289,7 @@ export function TodayView({
       </Panel>
 
       <Panel
+        className={styles.todayPanel}
         data-testid="today-connection-summary"
         aria-labelledby="today-connection-summary-title"
       >
@@ -292,6 +322,7 @@ export function TodayView({
                   type="button"
                   motion="quiet"
                   className={styles.connectionRow}
+                  aria-current={selectedRecordKey === item.recordKey}
                   disabled={!interactive}
                   onClick={() => onSelectRecord(item)}
                 >

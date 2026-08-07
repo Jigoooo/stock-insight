@@ -125,7 +125,6 @@
 }
 
 @media (max-width: 520px) {
-  .highlight,
   .list {
     min-height: 44px;
     overflow-x: auto;

@@ -50,6 +50,22 @@ describe('shared dialog system', () => {
     );
   });
 
+  it('keeps quick motion and light overlay opt-in while preserving dialog defaults', async () => {
+    const [source, css] = await Promise.all([
+      read('shared/ui/dialog/dialog.tsx'),
+      read('shared/ui/dialog/dialog.module.css'),
+    ]);
+
+    assert.match(source, /export type DialogMotionPreset = 'default' \| 'quick'/);
+    assert.match(source, /export type DialogOverlayTone = 'default' \| 'light'/);
+    assert.match(source, /motionPreset = 'default'/);
+    assert.match(source, /overlayTone = 'default'/);
+    assert.match(source, /dialogQuickTransition[\s\S]*?stiffness:\s*3\d\d/);
+    assert.match(source, /dialogQuickTransition[\s\S]*?damping:\s*3\d/);
+    assert.match(source, /data-overlay-tone=\{overlayTone\}/);
+    assert.match(css, /\.overlay\[data-overlay-tone='light'\]/);
+  });
+
   it('reserves a 32px close slot and stable action widths', async () => {
     const css = await read('shared/ui/dialog/dialog.module.css');
 

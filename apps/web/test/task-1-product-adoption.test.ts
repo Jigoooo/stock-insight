@@ -63,14 +63,10 @@ describe('Task 1 product shared UI adoption', () => {
     assert.match(inspector, /<DialogContent\b/);
     assert.match(inspector, /<DialogHeader\b/);
     assert.match(inspector, /<DialogBody\b/);
-    assert.match(
-      inspector,
-      /onPointerDownOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
-    );
-    assert.match(
-      inspector,
-      /onFocusOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
-    );
+    assert.match(inspector, /<Dialog\s+modal\s/);
+    assert.match(inspector, /\bshowOverlay\s/);
+    assert.doesNotMatch(inspector, /onPointerDownOutside=/);
+    assert.doesNotMatch(inspector, /onFocusOutside=/);
     assert.doesNotMatch(inspector, /<dialog\b|useFocusTrap|focusableSelector/);
   });
 

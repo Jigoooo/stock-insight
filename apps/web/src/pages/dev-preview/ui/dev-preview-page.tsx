@@ -1,6 +1,6 @@
 import { loadPreviewStockDeepDive } from '../model/stock-deep-dive-preview-fixture';
 import { stocksPreviewFixture } from '../model/stocks-preview-fixture';
-import { todayPreviewFixture } from '../model/today-preview-fixture';
+import { loadTodayPreviewRecord, todayPreviewFixture } from '../model/today-preview-fixture';
 
 import {
   AdminInvitationPage,
@@ -86,6 +86,7 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
       ) : surface === 'today' ? (
         <ResearchWorkspacePage
           data={todayPreviewFixture}
+          loadResearchRecord={loadTodayPreviewRecord}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}
