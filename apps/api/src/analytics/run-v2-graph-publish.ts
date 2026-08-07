@@ -38,7 +38,10 @@ import {
   type SupplyChainObservation,
 } from '../relations/builders/supply-chain.ts';
 import { type ContentPackSourceItem } from '../relations/content-pack-builder.ts';
-import { publishContentPacks } from '../relations/content-pack-publisher.ts';
+import {
+  CONTENT_PACK_MAX_ITEMS,
+  publishContentPacks,
+} from '../relations/content-pack-publisher.ts';
 import {
   MACRO_COMOVEMENT_MODEL_CONFIG,
   MACRO_SERIES_TRANSFORMS,
@@ -125,6 +128,38 @@ const STOCK_PRICE_PROVIDER = 'internal-stock-price-window-snapshot';
 // ceiling exists so a carve-out cannot grow without anyone deciding; this is the
 // deciding.
 const HOLDINGS_PROVIDER = 'internal-institutional-holdings-snapshot';
+
+/**
+ * Which ownership predicates actually reach the graph, and why COMMON_OWNER does
+ * not. The builder still produces it — the exclusion is operational, so it lives
+ * here next to the constraint rather than inside a tested builder.
+ *
+ * Measured 2026-08-07, the hard way. Enabling all three produced 1,641 candidates
+ * with 0 quarantined, which read as healthy, and the apply died on
+ * `pack US:AAPL exceeds lineage item cap: 672`. CONTENT_PACK_MAX_ITEMS is 512 and
+ * enforced by migration 026; a pack counts relations PLUS their evidence, and
+ * position-grain source revisions (required — see HOLDINGS_SOURCE) mean a pair
+ * held by five institutions carries ten evidence rows. Edge count does not predict
+ * pack size. Re-measured through the dry run once it accounted for candidates:
+ *
+ *   all three predicates   1,641 candidates · max pack 724 · 41 packs over cap
+ *   HELD_BY only             250 candidates · max pack 285 ·  0 packs over cap
+ *
+ * Why the builder's own superhubDegreeCap does not save it: the cap is 100
+ * holdings per owner and the largest holder here has 42, so it never fires.
+ * A threshold low enough to bite (~30) excludes BlackRock 42, T Rowe 41,
+ * State Street 41, FMR 41, Vanguard 39 and 국민연금 33 — every holder large enough
+ * to form pairs at all. What survives holds 1-3 positions and produces nothing.
+ * There is no threshold that keeps the predicate and fits the cap.
+ *
+ * So with THIS source COMMON_OWNER is entirely universal owners, which is the
+ * case Antón-Polk treats as carrying little information. Shipping it would spend
+ * every mega-cap's whole pack budget on "BlackRock holds both of these".
+ *
+ * To enable: a per-security pack budget, or a holdings source with non-index
+ * owners. HELD_BY is unaffected and ships.
+ */
+const SHIPPED_OWNERSHIP_PREDICATES = new Set(['OWNS', 'HELD_BY']);
 
 type EtfHoldingRow = QueryResultRow & {
   etf_ticker: string;
@@ -2055,6 +2090,11 @@ async function dryRun(client: Client): Promise<void> {
         .filter((row) => row.ownerEntityId !== row.ownedEntityId),
       { asOf: cutoff },
     );
+    // Same filter as apply. A dry run that counts predicates apply will not ship
+    // is the disagreement this file keeps finding.
+    const dryRunOwnershipShipped = dryRunOwnership.candidates.filter((row) =>
+      SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate),
+    );
     const etfRetractionPlan = await planRetractionsNotInFromDatabase(client, 'SAME_ETF_BASKET', {
       holdingPairs: etf.candidates.map((candidate) => ({
         subjectEntityId: candidate.subjectEntityId,
@@ -2226,24 +2266,72 @@ async function dryRun(client: Client): Promise<void> {
           ontologyApproved: dryRunOwnershipReady,
           sourceRows: inputs.institutionalHoldingsTotal,
           resolvedRows: inputs.institutionalHoldings.length,
-          candidates: dryRunOwnership.candidates.length,
-          accepted: dryRunOwnership.candidates.filter(
-            (row) => row.targetRevisionStatus === 'accepted',
-          ).length,
-          quarantined: dryRunOwnership.candidates.filter(
-            (row) => row.targetRevisionStatus !== 'accepted',
-          ).length,
-          byPredicate: Object.fromEntries(
+          candidates: dryRunOwnershipShipped.length,
+          accepted: dryRunOwnershipShipped.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          quarantined: dryRunOwnershipShipped.filter((row) => row.targetRevisionStatus !== 'accepted')
+            .length,
+          builtByPredicate: Object.fromEntries(
             ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
               predicate,
               dryRunOwnership.candidates.filter((row) => row.predicate === predicate).length,
             ]),
           ),
+          heldBackByPackBudget: dryRunOwnership.candidates.length - dryRunOwnershipShipped.length,
           superhubExclusions: dryRunOwnership.exclusions.length,
         },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
         projectedDepth2Edges: projections.reduce((sum, row) => sum + row.depth2.edges.length, 0),
+        // The dry run used to stop at edge counts, and that is how a change that
+        // looked healthy took the pipeline down on 2026-08-07: the ownership
+        // builder reported 1,641 candidates and 0 quarantined, then apply died on
+        // `pack US:AAPL exceeds lineage item cap: 672`.
+        //
+        // CONTENT_PACK_MAX_ITEMS is migration 026's ceiling, enforced in the
+        // database, and a pack counts relations AND their evidence. Position-grain
+        // source revisions multiply the second term: a COMMON_OWNER pair held by
+        // five institutions carries ten evidence rows, so edge count alone cannot
+        // predict pack size. Measure the thing the cap actually measures.
+        packItems: (() => {
+          // The projections above are built from the graph AS IT IS, so they do
+          // not contain this run's new candidates. Reporting their sizes alone
+          // would be the same lie in a new place — it read `max: 275` on the very
+          // run whose apply died at 672.
+          //
+          // So the candidates are added back in. Every candidate contributes one
+          // relation item and one evidence item per source revision, to the pack
+          // of BOTH endpoints.
+          const added = new Map<number, number>();
+          for (const candidate of [...dryRunOwnershipShipped, ...dryRunSupply.candidates]) {
+            const cost = 1 + candidate.evidence.length;
+            for (const entityId of [candidate.subjectEntityId, candidate.objectEntityId]) {
+              added.set(entityId, (added.get(entityId) ?? 0) + cost);
+            }
+          }
+          const sizes = projections.map((projection) => {
+            const entity = [...entityById.values()].find(
+              (row) => row.entityKey === projection.entityKey,
+            );
+            const current =
+              projection.relationRevisionIds.length + projection.relationEvidenceLedgerIds.length;
+            return {
+              entityKey: projection.entityKey,
+              items: current + (entity === undefined ? 0 : (added.get(entity.entityId) ?? 0)),
+            };
+          });
+          const overCap = sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS);
+          return {
+            cap: CONTENT_PACK_MAX_ITEMS,
+            max: sizes.reduce((most, row) => Math.max(most, row.items), 0),
+            overCap: overCap.length,
+            // Named, because "3 packs are over" is not something anyone can act on.
+            worst: sizes
+              .sort((left, right) => right.items - left.items)
+              .slice(0, 5)
+              .map((row) => `${row.entityKey}:${row.items}`),
+          };
+        })(),
       }),
     );
     await client.query('ROLLBACK');
@@ -2472,13 +2560,17 @@ async function apply(client: Client): Promise<void> {
       ownershipReady ? materialized.ownershipObservations : [],
       { asOf: capturedAt },
     );
+    const ownershipShipped = {
+      ...ownershipBuilt,
+      candidates: ownershipBuilt.candidates.filter((row) => SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate)),
+    };
     // Confidence 1, same reasoning as the supply disclosure below: a filed
     // position is an assertion by the filer, not a measurement with a strength.
     // COMMON_OWNER carries no correlation and makes no claim that the two
     // securities move together — only that one institution reported both.
     const ownershipPersisted = await persistRelationCandidates(
       client as unknown as PoolClient,
-      ownershipBuilt.candidates,
+      ownershipShipped.candidates,
       { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
     );
     const supplyBuilt = buildSupplyChainCandidates(supplyObservations, { asOf: capturedAt });
@@ -2715,19 +2807,22 @@ async function apply(client: Client): Promise<void> {
           sourceRows: inputs.institutionalHoldingsTotal,
           resolvedRows: inputs.institutionalHoldings.length,
           observations: materialized.ownershipObservations.length,
-          candidates: ownershipBuilt.candidates.length,
-          accepted: ownershipBuilt.candidates.filter(
+          candidates: ownershipShipped.candidates.length,
+          accepted: ownershipShipped.candidates.filter(
             (row) => row.targetRevisionStatus === 'accepted',
           ).length,
-          quarantined: ownershipBuilt.candidates.filter(
+          quarantined: ownershipShipped.candidates.filter(
             (row) => row.targetRevisionStatus !== 'accepted',
           ).length,
-          byPredicate: Object.fromEntries(
+          // Built vs shipped, both reported. A predicate held back by the pack
+          // budget must be a number here, not an absence.
+          builtByPredicate: Object.fromEntries(
             ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
               predicate,
               ownershipBuilt.candidates.filter((row) => row.predicate === predicate).length,
             ]),
           ),
+          heldBackByPackBudget: ownershipBuilt.candidates.length - ownershipShipped.candidates.length,
           superhubExclusions: ownershipBuilt.exclusions.length,
           inserted: ownershipPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: ownershipPersisted.persisted.filter((row) => row.outcome === 'replayed').length,

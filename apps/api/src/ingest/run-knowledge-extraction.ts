@@ -444,6 +444,40 @@ async function geminiExtract(
   throw lastError;
 }
 
+/**
+ * Does this quote bind? The SAME predicate INSERT_CLAIM_EVIDENCE_SQL uses.
+ *
+ * These were two different tests and that took the knowledge pipeline down from
+ * 2026-08-07 01:46 until it was found. Validation checked
+ * `docText.includes(quote.trim().slice(0, 40))` — the first 40 characters,
+ * case-sensitively. Binding requires
+ * `position(lower(trim(quote.slice(0,1000))) in lower(chunk.content)) > 0` — the
+ * whole quote, case-insensitively. A quote that is verbatim for 40 characters and
+ * drifts afterwards passes validation and then cannot bind, and the binding
+ * failure is a THROW rather than a rejection, so one such claim aborted the
+ * transaction and every run after it.
+ *
+ * The evidence it left is that `knowledge.claim` stopped at claim_id 348 while the
+ * error kept naming higher ids (349, 350, …): each run inserted, hit the
+ * unbindable claim, threw, and rolled back — the identity sequence advanced, the
+ * rows did not.
+ *
+ * chunk.content is `trim(title || E'\\n' || summary)` (run-knowledge-document-sync)
+ * and docText is `\`${title}\\n${summary}\`.trim()`, so the two texts are the same
+ * string. Only the two tests over it disagreed. One function now, used by both
+ * paths, so an unbindable quote is REJECTED and counted as no_quote instead of
+ * killing the pipeline.
+ */
+export function quoteBindsToDocument(quote: string | undefined, docText: string): boolean {
+  const trimmed = quote?.trim();
+  if (!trimmed) return false;
+  // Mirrors the SQL exactly: the parameter is quote.slice(0, 1000), the SQL trims
+  // it, and both sides are lowered.
+  const needle = trimmed.slice(0, 1000).trim().toLowerCase();
+  if (needle.length === 0) return false;
+  return docText.toLowerCase().includes(needle);
+}
+
 // V1 schema validation (04-A §3): allowlist + quote-must-exist-in-source.
 function validateClaim(
   claim: ExtractedClaim,
@@ -451,13 +485,13 @@ function validateClaim(
 ): 'ok' | 'bad_predicate' | 'bad_type' | 'no_quote' {
   if (!PREDICATE_ALLOWLIST.has(claim.predicate)) return 'bad_predicate';
   if (!CLAIM_TYPES.has(claim.claim_type)) return 'bad_type';
-  if (!claim.quote?.trim() || !docText.includes(claim.quote.trim().slice(0, 40))) return 'no_quote';
+  if (!quoteBindsToDocument(claim.quote, docText)) return 'no_quote';
   return 'ok';
 }
 
 function validateEvent(event: ExtractedEvent, docText: string): 'ok' | 'bad_type' | 'no_quote' {
   if (!EVENT_TYPES.has(event.event_type)) return 'bad_type';
-  if (!event.quote?.trim() || !docText.includes(event.quote.trim().slice(0, 40))) return 'no_quote';
+  if (!quoteBindsToDocument(event.quote, docText)) return 'no_quote';
   return 'ok';
 }
 

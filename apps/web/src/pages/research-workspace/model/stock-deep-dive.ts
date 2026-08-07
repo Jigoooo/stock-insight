@@ -216,6 +216,8 @@ const RELATION_LABELS: Readonly<Record<ImpactBriefStep['relation'], string>> = {
   moves_with: '함께 움직임',
   indicated_by: '지표',
   issued_by: '발행',
+  // 공시된 보유 사실 그대로. "기관이 밀었다" 가 아니다.
+  held_by: '기관 보유',
 };
 
 /**
