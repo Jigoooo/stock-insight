@@ -90,11 +90,6 @@
   word-break: keep-all;
 }
 
-.partialState {
-  min-height: 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
 .primarySections ul,
 .supplementarySections ul {
   display: grid;

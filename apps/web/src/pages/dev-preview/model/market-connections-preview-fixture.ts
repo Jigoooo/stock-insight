@@ -427,19 +427,23 @@ const geoSnapshotMaterial = {
   limitations: ['개발 미리보기 좌표는 지역 연결 표현을 위한 결정적 fixture입니다.'],
 } satisfies GeoSnapshotSealMaterial;
 
-const geoSnapshotDigest = computeGeoSnapshotDigest(geoSnapshotMaterial);
-const geoSnapshotId = deriveGeoSnapshotId(geoSnapshotDigest);
-const marketConnectionsGeoSnapshot = {
-  ...geoSnapshotMaterial,
-  snapshotId: geoSnapshotId,
-  digest: geoSnapshotDigest,
-  generatedAt,
-  mvt: {
-    ...geoSnapshotMaterial.mvt,
-    available: true,
-    urlTemplate: `https://preview.stock-insight.invalid/api/geo/tiles/{z}/{x}/{y}.mvt?snapshot=${geoSnapshotId}&knownAt=${encodeURIComponent(analyzedAt)}&validAt=${encodeURIComponent(analyzedAt)}`,
-  },
-} satisfies GeoSnapshot;
+function sealAvailableGeoSnapshot(material: GeoSnapshotSealMaterial): GeoSnapshot {
+  const digest = computeGeoSnapshotDigest(material);
+  const snapshotId = deriveGeoSnapshotId(digest);
+  return {
+    ...material,
+    snapshotId,
+    digest,
+    generatedAt,
+    mvt: {
+      ...material.mvt,
+      available: true,
+      urlTemplate: `https://preview.stock-insight.invalid/api/geo/tiles/{z}/{x}/{y}.mvt?snapshot=${snapshotId}&knownAt=${encodeURIComponent(material.knownAt)}&validAt=${encodeURIComponent(material.validAt)}`,
+    },
+  } satisfies GeoSnapshot;
+}
+
+const marketConnectionsGeoSnapshot = sealAvailableGeoSnapshot(geoSnapshotMaterial);
 
 const unavailableGeoSnapshotMaterial = {
   version: 1,
@@ -470,6 +474,126 @@ const unavailableGeoSnapshot = {
     urlTemplate: null,
   },
 } satisfies GeoSnapshot;
+
+type ConnectionGeoEvidence = {
+  coordinates: [number, number];
+  geoEntityKey: string;
+  geoKind: GeoSnapshot['geojson']['features'][number]['properties']['geoKind'];
+  h3CellId: string;
+  label: string;
+  precisionClass: GeoSnapshot['geojson']['features'][number]['properties']['precisionClass'];
+  uncertaintyRadiusKm?: number;
+};
+
+const connectionGeoEvidence = {
+  [semiconductorStory.connectionKey]: {
+    coordinates: [127.0276, 37.4979],
+    geoEntityKey: 'geo:region:semiconductor-supply-preview',
+    geoKind: 'region',
+    h3CellId: '8330e1fffffffff',
+    label: '한국·미국·대만 반도체 공급 경로',
+    precisionClass: 'approximate',
+    uncertaintyRadiusKm: 120,
+  },
+  [naverStory.connectionKey]: {
+    coordinates: [127.1054, 37.3595],
+    geoEntityKey: 'geo:facility:naver-preview',
+    geoKind: 'facility',
+    h3CellId: '8330e1fffffffff',
+    label: 'NAVER 플랫폼 운영 기준점',
+    precisionClass: 'exact',
+    uncertaintyRadiusKm: 2,
+  },
+  [macroStory.connectionKey]: {
+    coordinates: [-98.5795, 39.8283],
+    geoEntityKey: 'geo:country:us-macro-preview',
+    geoKind: 'country',
+    h3CellId: '83261bfffffffff',
+    label: '미국 금리·달러 기준 지역',
+    precisionClass: 'country',
+  },
+  [powerStory.connectionKey]: {
+    coordinates: [-77.4874, 37.4316],
+    geoEntityKey: 'geo:admin-area:virginia-power-preview',
+    geoKind: 'admin_area',
+    h3CellId: '832a8dfffffffff',
+    label: '버지니아 데이터센터 전력 지역',
+    precisionClass: 'admin_area',
+  },
+  [freightStory.connectionKey]: {
+    coordinates: [103.8198, 1.3521],
+    geoEntityKey: 'geo:city:singapore-freight-preview',
+    geoKind: 'city',
+    h3CellId: '836526fffffffff',
+    label: '싱가포르 운임 관측 기준점',
+    precisionClass: 'approximate',
+    uncertaintyRadiusKm: 25,
+  },
+  [dollarStory.connectionKey]: {
+    coordinates: [-98.5795, 39.8283],
+    geoEntityKey: 'geo:country:us-dollar-preview',
+    geoKind: 'country',
+    h3CellId: '83261bfffffffff',
+    label: '미국 달러 유동성 기준 지역',
+    precisionClass: 'country',
+  },
+} satisfies Record<string, ConnectionGeoEvidence>;
+
+function connectionGeoSnapshot(itemValue: MarketConnectionItem): GeoSnapshot | null {
+  const evidence = connectionGeoEvidence[itemValue.connectionKey];
+  if (!evidence) return null;
+  const [longitude, latitude] = evidence.coordinates;
+  const material = {
+    version: 1,
+    knownAt: analyzedAt,
+    validAt: analyzedAt,
+    sourceAsOf: itemValue.occurredAt,
+    availability: 'available',
+    geojson: {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: evidence.coordinates },
+          properties: {
+            geoEntityKey: evidence.geoEntityKey,
+            label: evidence.label,
+            geoKind: evidence.geoKind,
+            precisionClass: evidence.precisionClass,
+            longitude,
+            latitude,
+            ...(evidence.uncertaintyRadiusKm === undefined
+              ? {}
+              : { uncertaintyRadiusKm: evidence.uncertaintyRadiusKm }),
+            evidenceLocator: {
+              geoEntityRevisionId: `${itemValue.connectionKey}:geo-revision`,
+              sourceRevisionId: `${itemValue.connectionKey}:source-revision`,
+              sourceId: itemValue.connectionKey,
+            },
+          },
+        },
+      ],
+    },
+    mvt: {
+      contentType: 'application/vnd.mapbox-vector-tile',
+      minZoom: 0,
+      maxZoom: 14,
+    },
+    h3: {
+      resolution: 3,
+      cells: [
+        {
+          cellId: evidence.h3CellId,
+          featureCount: 1,
+          geoEntityKeys: [evidence.geoEntityKey],
+        },
+      ],
+    },
+    rejected: { count: 0, reasons: [] },
+    limitations: ['선택한 개발 미리보기 연결에 직접 귀속된 위치 근거만 표시합니다.'],
+  } satisfies GeoSnapshotSealMaterial;
+  return sealAvailableGeoSnapshot(material);
+}
 
 function radarPreviewData(
   scopeTotal: number,
@@ -512,6 +636,7 @@ const loadPreviewMarketConnection: MarketConnectionLoader = async (connectionKey
   if (!story) throw new Error(`Unknown Market Connections preview: ${connectionKey}`);
   return {
     detail: { ...story.detail, item: story.item },
+    geo: connectionGeoSnapshot(story.item),
     relation: story.relation,
   };
 };
@@ -529,6 +654,7 @@ const loadPartialPreviewMarketConnection: MarketConnectionLoader = async (connec
       },
       relatedEvents: [],
     },
+    geo: null,
     relation: null,
   };
 };

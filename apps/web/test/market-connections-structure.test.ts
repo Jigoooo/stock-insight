@@ -126,7 +126,7 @@ describe('market connections workspace structure', () => {
       /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?detail\.item\.connectedEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?detail\.counterEvidence\.length > 0 \|\|[\s\S]*?detail\.risks\.length > 0 \|\|[\s\S]*?detail\.checkpoints\.length > 0[\s\S]*?반대 근거와 확인할 리스크[\s\S]*?데이터 기준 시각과 근거 수준/,
     );
     assert.match(inspector, /detail\.availability === 'missing'/);
-    assert.match(inspector, /detail\.availability === 'partial'/);
+    assert.doesNotMatch(inspector, /일부 상세 데이터가 준비되지 않았습니다|styles\.partialState/);
   });
 
   it('keeps partial failures in their owning sections and links only valid HTTPS sources', async () => {
@@ -173,12 +173,16 @@ describe('market connections workspace structure', () => {
     assert.match(inspector, /presentation === 'modal'/);
     assert.match(inspector, /relation \|\| detail\.partialFailures\.relation/);
     assert.match(inspector, /<RelationSigmaGraph graph=\{relation\}/);
+    assert.match(inspector, /const geoSnapshot = result\.geo/);
+    assert.match(inspector, /geoSnapshot \|\| detail\.partialFailures\.geo/);
+    assert.doesNotMatch(inspector, /geoSnapshot: GeoSnapshot/);
+    assert.match(inspector, /전체 영향 경로/);
     assert.match(
       inspector,
-      /geoSnapshot\.geojson\.features\.length > 0 \|\| detail\.partialFailures\.geo/,
+      /relation\.nodes\.filter\(\(\{ entityKey \}\) => entityKey !== relation\.rootEntityKey\)/,
     );
-    assert.match(inspector, /전체 영향 경로/);
-    assert.match(inspector, /relation\.nodes\.length > 0[\s\S]*?연관 기업과 테마/);
+    assert.match(inspector, /relatedEntities\.length > 0[\s\S]*?연관 기업/);
+    assert.doesNotMatch(inspector, /연관 기업과 테마/);
     assert.match(
       inspector,
       /detail\.relatedEvents\.length > 0 \|\| detail\.partialFailures\.history/,
@@ -198,7 +202,15 @@ describe('market connections workspace structure', () => {
     assert.match(inspector, /result=\{result\}/);
     assert.doesNotMatch(inspector, /MarketConnectionLoader|loadMarketConnectionDetail/);
     assert.match(view, /<MarketConnectionInspector[\s\S]*?result=\{detailResult\}/);
+    assert.doesNotMatch(view, /<MarketConnectionInspector[\s\S]*?geoSnapshot=\{geoSnapshot\}/);
     assert.equal(view.match(/loadMarketConnectionDetail\(item\.connectionKey\)/g)?.length, 1);
+  });
+
+  it('uses the page-local contract precision mapper instead of invented values', async () => {
+    const inspector = await read('market-connection-inspector.tsx');
+
+    assert.match(inspector, /marketConnectionGeoPrecisionLabel/);
+    assert.doesNotMatch(inspector, /centroid|region_only/);
   });
 
   it('keeps Korean prose and metadata readable at the minimum drawer width', async () => {

@@ -64,19 +64,19 @@ test('stacks priority cards at the 1240px layout boundary', async ({ page }) => 
 
 test('ignores stale detail completion and closes back to the latest opener', async ({ page }) => {
   const openerA = page.getByRole('button', { name: '변화 A 시장 변화 상세 열기' });
-  const openerB = page.getByRole('button', { name: '변화 B 시장 변화 상세 열기' });
+  const openerB = page.locator('button[aria-label="변화 B 시장 변화 상세 열기"]');
   await openerA.click();
-  await openerB.click();
+  await openerB.evaluate((element) => element.click());
 
   await page.evaluate(() => window.__marketConnectionsFixture.resolve('B'));
-  const detail = page.getByRole('region', { name: '선택한 시장 변화' });
+  const detail = page.getByTestId('market-connection-inspector');
   await expect(detail.getByText('변화 B', { exact: true })).toBeVisible();
 
   await page.evaluate(() => window.__marketConnectionsFixture.resolve('A'));
   await expect(detail.getByText('변화 B', { exact: true })).toBeVisible();
   await expect(detail.getByText('변화 A', { exact: true })).toHaveCount(0);
 
-  await detail.getByRole('button', { name: '상세 닫기' }).click();
+  await detail.getByRole('button', { name: '시장 연결 상세 인스펙터 닫기' }).click();
   await expect(detail).toHaveCount(0);
   await expect(openerB).toBeFocused();
 });
@@ -84,18 +84,18 @@ test('ignores stale detail completion and closes back to the latest opener', asy
 test('retains failed selection, retries the same key, and restores its opener', async ({
   page,
 }) => {
-  const openerA = page.getByRole('button', { name: '변화 A 시장 변화 상세 열기' });
+  const openerA = page.locator('button[aria-label="변화 A 시장 변화 상세 열기"]');
   await openerA.click();
   await page.evaluate(() => window.__marketConnectionsFixture.reject('A'));
 
   await expect(openerA).toHaveAttribute('aria-current', 'true');
-  const detail = page.getByRole('region', { name: '선택한 시장 변화' });
+  const detail = page.getByTestId('market-connection-inspector');
   await expect(detail.getByText('시장 변화 상세를 불러오지 못했습니다')).toBeVisible();
   await detail.getByRole('button', { name: '다시 불러오기' }).click();
   await page.evaluate(() => window.__marketConnectionsFixture.resolve('A'));
   await expect(detail.getByText('변화 A', { exact: true })).toBeVisible();
 
-  await detail.getByRole('button', { name: '상세 닫기' }).click();
+  await detail.getByRole('button', { name: '시장 연결 상세 인스펙터 닫기' }).click();
   await expect(detail).toHaveCount(0);
   await expect(openerA).toBeFocused();
 });

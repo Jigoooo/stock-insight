@@ -6,6 +6,7 @@ import styles from './market-connection-inspector.module.css';
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import { formatDate, marketLabel, signalTypeLabel } from './workspace-presenters';
 import {
+  marketConnectionGeoPrecisionLabel,
   marketConnectionStrength,
   marketConnectionStrengthLabel,
   type MarketConnectionLoadResult,
@@ -15,7 +16,6 @@ import { marketConnectionInspectorWidthStorageKey } from '@/pages/research-works
 import { Button } from '@/shared/ui/button';
 import { TextLink } from '@/shared/ui/link';
 import { DataTable, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
-import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 type MarketConnectionInspectorState = 'error' | 'loading' | 'ready';
@@ -34,18 +34,6 @@ function evidenceLevelLabel(value: 'high' | 'medium' | 'low' | undefined) {
   if (value === 'medium') return '보통';
   if (value === 'low') return '낮음';
   return '명시적 데이터 없음';
-}
-
-function precisionLabel(value: string) {
-  return (
-    {
-      exact: '정확한 위치',
-      approximate: '근사 위치',
-      centroid: '대표 중심점',
-      region_only: '지역 단위',
-      unknown: '정밀도 미확인',
-    }[value] ?? '정밀도 미확인'
-  );
 }
 
 function LocalFailure({ description, title }: { description: string; title: string }) {
@@ -85,14 +73,12 @@ function EntityConnections({
 
 function MarketConnectionDetailContent({
   factorRows,
-  geoSnapshot,
   onRetry,
   presentation,
   result,
   state,
 }: {
   factorRows: RadarSignalPage['items'];
-  geoSnapshot: GeoSnapshot;
   onRetry: () => void;
   presentation: DetailInspectorPresentation;
   result: MarketConnectionLoadResult | null;
@@ -138,22 +124,17 @@ function MarketConnectionDetailContent({
   }
 
   const { detail, relation } = result;
+  const geoSnapshot = result.geo ?? null;
   const rawStrength = detail.item.rawStrength;
   const compactPaths = detail.paths.slice(0, 1);
-  const geoFeatures = geoSnapshot.geojson.features;
+  const geoFeatures = geoSnapshot?.geojson.features ?? [];
+  const relatedEntities = relation
+    ? relation.nodes.filter(({ entityKey }) => entityKey !== relation.rootEntityKey)
+    : [];
 
   return (
     <div className={styles.readyContent} data-presentation={presentation}>
       <div className={styles.primarySections}>
-        {detail.availability === 'partial' && (
-          <WorkspaceState
-            className={styles.partialState}
-            kind="partial"
-            title="일부 상세 데이터가 준비되지 않았습니다"
-            description="확인 가능한 기본 변화와 근거는 유지하고, 실패한 구역만 별도로 표시합니다."
-          />
-        )}
-
         <section className={styles.summary} aria-labelledby="market-inspector-summary">
           <span>
             {marketLabel(detail.item.market)}
@@ -317,10 +298,10 @@ function MarketConnectionDetailContent({
             </section>
           )}
 
-          {(geoSnapshot.geojson.features.length > 0 || detail.partialFailures.geo) && (
+          {(geoSnapshot || detail.partialFailures.geo) && (
             <section aria-labelledby="market-inspector-geo">
               <h3 id="market-inspector-geo">세계 지도 위치와 정밀도</h3>
-              {geoFeatures.length > 0 && (
+              {geoSnapshot && geoFeatures.length > 0 && (
                 <>
                   <div className={styles.geoMapRegion}>
                     <GeoMarketMap snapshot={geoSnapshot} />
@@ -329,7 +310,9 @@ function MarketConnectionDetailContent({
                     {geoFeatures.map((feature) => (
                       <li key={feature.properties.geoEntityKey}>
                         <strong>{feature.properties.label}</strong>
-                        <span>{precisionLabel(feature.properties.precisionClass)}</span>
+                        <span>
+                          {marketConnectionGeoPrecisionLabel(feature.properties.precisionClass)}
+                        </span>
                         {feature.properties.uncertaintyRadiusKm !== undefined && (
                           <small>불확실성 반경 {feature.properties.uncertaintyRadiusKm} km</small>
                         )}
@@ -361,11 +344,11 @@ function MarketConnectionDetailContent({
             </section>
           )}
 
-          {relation && relation.nodes.length > 0 && (
+          {relatedEntities.length > 0 && (
             <section aria-labelledby="market-inspector-related-entities">
-              <h3 id="market-inspector-related-entities">연관 기업과 테마</h3>
+              <h3 id="market-inspector-related-entities">연관 기업</h3>
               <StructuredList>
-                {relation.nodes.map((node) => (
+                {relatedEntities.map((node) => (
                   <li key={node.entityKey}>
                     <strong>{node.label}</strong>
                     <span>{marketLabel(node.market)}</span>
@@ -440,7 +423,6 @@ function MarketConnectionDetailContent({
 }
 
 export function MarketConnectionInspector({
-  geoSnapshot,
   mobile,
   onClose,
   onRetry,
@@ -450,7 +432,6 @@ export function MarketConnectionInspector({
   selectedConnectionKey,
   state,
 }: {
-  geoSnapshot: GeoSnapshot;
   mobile: boolean;
   onClose: () => void;
   onRetry: () => void;
@@ -483,7 +464,6 @@ export function MarketConnectionInspector({
       {(presentation) => (
         <MarketConnectionDetailContent
           factorRows={factorRows}
-          geoSnapshot={geoSnapshot}
           onRetry={onRetry}
           presentation={presentation}
           result={result}

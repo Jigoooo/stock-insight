@@ -156,7 +156,6 @@ export function MarketConnectionsView({
         />
       </fieldset>
       <MarketConnectionInspector
-        geoSnapshot={geoSnapshot}
         mobile={isMobileViewport}
         onClose={closeDetail}
         onRetry={() => selectedItem && void loadConnection(selectedItem)}

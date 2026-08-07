@@ -11,7 +11,7 @@ import {
 } from '../src/pages/research-workspace/model/market-connections.ts';
 
 import type { ImpactBriefResponse } from '@stock-insight/contracts';
-import { geoSnapshotSchema } from '@stock-insight/contracts/geo-api-contract';
+import { geoSnapshotSchema, precisionClassSchema } from '@stock-insight/contracts/geo-api-contract';
 import type {
   EntityRelationGraph,
   RadarSignalItem,
@@ -320,6 +320,7 @@ describe('market connection live detail loader', () => {
     assert.deepEqual(result.detail.relatedEvents, []);
     assert.deepEqual(result.detail.partialFailures, {});
     assert.equal(result.relation?.rootEntityKey, 'US:NVDA');
+    assert.equal(result.geo, null);
   });
 
   it('localizes relation and impact transport failures without losing base detail', async () => {
@@ -424,10 +425,39 @@ describe('market connections development preview', () => {
       assert.ok(result.detail.relatedEvents.length > 0);
       assert.ok(result.detail.evidenceLevel);
       assert.ok(result.relation);
+      assert.ok(result.geo);
+      assert.equal(geoSnapshotSchema.safeParse(result.geo).success, true);
+      assert.ok(
+        result.geo.geojson.features.every(
+          ({ properties }) => properties.evidenceLocator?.sourceId === item.connectionKey,
+        ),
+      );
       for (const source of result.detail.sources) {
         assert.equal(new URL(source.url ?? '').protocol, 'https:');
       }
     }
+
+    const firstResult = await first.loader(visibleItems[0]!.connectionKey);
+    const secondResult = await first.loader(visibleItems[1]!.connectionKey);
+    assert.notEqual(firstResult.geo?.snapshotId, secondResult.geo?.snapshotId);
+    assert.notDeepEqual(
+      firstResult.geo?.geojson.features.map(({ properties }) => properties.geoEntityKey),
+      secondResult.geo?.geojson.features.map(({ properties }) => properties.geoEntityKey),
+    );
+  });
+
+  it('maps every contract precision value without accepting invented values', async () => {
+    const model = await import('../src/pages/research-workspace/model/market-connections.ts');
+    assert.equal(typeof model.marketConnectionGeoPrecisionLabel, 'function');
+    if (typeof model.marketConnectionGeoPrecisionLabel !== 'function') return;
+
+    assert.deepEqual(precisionClassSchema.options.map(model.marketConnectionGeoPrecisionLabel), [
+      '정확한 위치',
+      '근사 위치',
+      '행정구역',
+      '국가 범위',
+      '정밀도 미확인',
+    ]);
   });
 
   it('keeps each preview scenario honest and never reaches a live loader', async () => {
@@ -481,6 +511,7 @@ describe('market connections development preview', () => {
         'relation',
       ]);
       assert.equal(partialResult.relation, null);
+      assert.equal(partialResult.geo, null);
 
       const detailError = fixtureModule.resolveMarketConnectionsPreview('detail-error');
       const selected = detailError.marketConnections.priorityChanges[0]!;

@@ -1,6 +1,7 @@
 import { signalTypeLabel } from '../ui/workspace-presenters.ts';
 
 import type { ImpactBriefPath, ImpactBriefResponse } from '@stock-insight/contracts';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type {
   EntityRelationGraph,
   RadarSignalPage,
@@ -72,6 +73,7 @@ export type MarketConnectionDetail = {
 
 export type MarketConnectionLoadResult = {
   detail: MarketConnectionDetail;
+  geo?: GeoSnapshot | null;
   relation: EntityRelationGraph | null;
 };
 
@@ -108,6 +110,19 @@ export function marketConnectionScopeLabel(value: MarketConnectionScope): string
     watchlist: '관심종목',
     indirect: '간접 연결',
     market: '시장 전체',
+  }[value];
+}
+
+type MarketConnectionGeoPrecision =
+  GeoSnapshot['geojson']['features'][number]['properties']['precisionClass'];
+
+export function marketConnectionGeoPrecisionLabel(value: MarketConnectionGeoPrecision): string {
+  return {
+    exact: '정확한 위치',
+    approximate: '근사 위치',
+    admin_area: '행정구역',
+    country: '국가 범위',
+    unknown: '정밀도 미확인',
   }[value];
 }
 
@@ -255,6 +270,7 @@ export async function loadMarketConnectionData(
   }
 
   return {
+    geo: null,
     relation,
     detail: {
       ...baseDetail,
