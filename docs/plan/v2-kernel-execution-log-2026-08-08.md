@@ -8,9 +8,53 @@
 
 ```
 worktree   /home/jigoo/.hermes/worktrees/stock-insight-v2-kernel
-branch     feat/v2-canonical-kernel   (base: e8938d4 on master)
-본 체크아웃  /home/jigoo/.hermes/workspace/stock-insight  ← 손대지 않는다 (P5 까지)
+branch     feat/v2-canonical-kernel                   → master 병합 완료 (6734a8c)
+           fix/live-database-guard-timescale-chunks   → master 병합 완료 (dad8652)
+본 체크아웃  /home/jigoo/.hermes/workspace/stock-insight  ← P5 이후 master 가 최신
 ```
+
+## 🔧 브레인 크래시루프 — 해소 (2026-08-08)
+
+P5 에서 발견한 24시간짜리 장애(§아래)를 고쳤다. 사용자 결정: **근본 수정**.
+
+| 단계 | 상태 |
+| --- | --- |
+| probe 에서 TimescaleDB 청크 제외 (`TIMESCALE_CHUNK_EXCLUSION`) | ✅ `e127680` |
+| 다이제스트 4개 재핀 (reader/writer × relation/rls) | ✅ 도구 검증 **14개 전부 일치** |
+| repin 도구의 `$'` 치환 확장 결함 수정 | ✅ 함수 치환 + 미해소 플레이스홀더 검사 |
+| `live-database-guard.test.ts` 픽스처 갱신 | ✅ |
+| master 병합 | ✅ `dad8652` |
+| 이미지 빌드 → 배포 → 부팅 확인 | ✅ **복구 완료** |
+
+**복구 확인 (2026-08-08 01:53 KST)**
+
+```
+이미지        stock-insight-api:dad8652  sha256:0ba24b96c049…
+              (이전 핀 sha256:1264b009… 은 archive/PREVIOUS_API_IMAGE_PIN.txt 에 보존)
+컨테이너      Up (healthy) · RestartCount=0 · ExitCode=0
+로그          "listening on http://0.0.0.0:6200"
+              "live database verification failed" 0건 — 가드는 활성 상태로 통과
+BFF → 브레인  {"ok":true,"db":{"status":"ok","latencyMs":1}}
+사용자 경로   /  307 · /login  200
+```
+
+**롤백 경로:** `.env.docker` 의 `STOCK_INSIGHT_API_IMAGE` 를 이전 핀으로 되돌리고
+`docker compose --env-file .env.docker -f docker-compose.prod.yml up -d api`.
+단 이전 이미지는 옛 핀을 갖고 있으므로 되돌리면 다시 크래시루프한다 — 롤백은
+가드 변경 자체가 잘못됐다고 판단될 때만 의미가 있고, 그때는 마이그레이션 074 의
+GRANT 를 되돌리는 쪽이 맞다.
+
+**핵심 수치:** 새 relation 배열은 **248 항목, 청크 0개**. 이전 핀은 773 항목 중 527개가
+청크였다. 청크는 하이퍼테이블이 자라면 자동 생성되므로 이전 구조에서는 핀이 유지될 수
+없었다 — 065 재핀(08-05) 이후 이틀 만에 둘이 생겼다.
+
+**가드를 약화시키지 않는 근거:** 앱이 읽는 것은 하이퍼테이블(`market_ts.ohlcv`)이고 청크는
+그 아래 저장 파티션이며 GRANT 는 하이퍼테이블의 기계적 귀결이다. `_timescaledb_internal`
+의 나머지 14개(연속 집계 내부, 잡 통계 뷰)는 범위에 남는다.
+
+**픽스처가 이 장애를 못 잡은 이유도 기록해 뒀다** — `live-database-guard.test.ts` 는
+가드가 *그 값과 일치하는 행* 을 받아들이는지만 단언하므로, 라이브와 어긋난 핀도 통과하고
+부팅에서만 실패한다. 잡을 수 있었던 것은 라이브 대상 repin 도구뿐이다.
 
 **왜 worktree 인가:** `ops/systemd/user/*.service` 의 `WorkingDirectory` 가 본 체크아웃
 절대경로다. 타이머는 master 만 실행하므로 worktree 작업은 운영에 영향이 0이다.
