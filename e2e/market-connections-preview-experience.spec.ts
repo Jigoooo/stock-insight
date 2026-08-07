@@ -22,12 +22,12 @@ function storyOpener(page: Page, title = primaryStory) {
   return page.locator(`button[aria-label="${title} 시장 변화 상세 열기"]`);
 }
 
-async function openStory(page: Page, opener = storyOpener(page)) {
+async function openStory(page: Page, opener = storyOpener(page), title = primaryStory) {
   await expect(opener).toBeEnabled();
   await opener.click();
   const inspector = page.getByTestId('market-connection-inspector');
   await expect(inspector).toBeVisible();
-  await expect(inspector.getByText(primaryStory, { exact: true })).toBeVisible();
+  await expect(inspector.getByText(title, { exact: true })).toBeVisible();
   return { inspector, opener };
 }
 
@@ -131,20 +131,40 @@ test('shares one exact selected story between priority, list, and timeline entry
   page,
 }) => {
   const broaderTitle = 'AI 데이터센터 전력 수요가 관심 종목의 공급 일정과 연결됩니다';
-  const broaderOpener = storyOpener(page, broaderTitle);
-  await broaderOpener.click();
-  await expect(
-    page.getByTestId('market-connection-inspector').getByText(broaderTitle),
-  ).toBeVisible();
+  const broaderOpener = marketList(page).locator(
+    `button[aria-label="${broaderTitle} 시장 변화 상세 열기"]`,
+  );
+  const { inspector: broaderInspector } = await openStory(page, broaderOpener, broaderTitle);
+  const broaderDetail = {
+    title: await broaderInspector.locator('#market-inspector-summary + strong').innerText(),
+    summary: await broaderInspector.locator('#market-inspector-summary + strong + p').innerText(),
+  };
+  await expect(broaderOpener).toHaveAttribute('aria-current', 'true');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('market-connection-inspector')).toHaveCount(0);
   await expect(broaderOpener).toBeFocused();
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-      ),
+
+  await page.getByRole('radio', { name: '시간' }).click();
+  const broaderTimelineOpener = page
+    .getByTestId('market-mode-timeline')
+    .locator(`button[aria-label="${broaderTitle} 시장 변화 상세 열기"]`);
+  await expect(broaderTimelineOpener).toHaveAttribute('aria-current', 'true');
+  const { inspector: broaderTimelineInspector } = await openStory(
+    page,
+    broaderTimelineOpener,
+    broaderTitle,
   );
+  await expect(broaderTimelineOpener).toHaveAttribute('aria-current', 'true');
+  await expect(broaderOpener).toHaveAttribute('aria-current', 'true');
+  await expect(broaderTimelineInspector.locator('#market-inspector-summary + strong')).toHaveText(
+    broaderDetail.title,
+  );
+  await expect(
+    broaderTimelineInspector.locator('#market-inspector-summary + strong + p'),
+  ).toHaveText(broaderDetail.summary);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('market-connection-inspector')).toHaveCount(0);
+  await expect(broaderTimelineOpener).toBeFocused();
 
   const priorityOpener = priorityPanel(page).locator(
     `button[aria-label="${primaryStory} 시장 변화 상세 열기"]`,
@@ -159,7 +179,6 @@ test('shares one exact selected story between priority, list, and timeline entry
   await expect(page.getByTestId('market-connection-inspector')).toHaveCount(0);
   await expect(opener).toBeFocused();
 
-  await page.getByRole('radio', { name: '시간' }).click();
   const timelineOpener = page
     .getByTestId('market-mode-timeline')
     .locator(`button[aria-label="${primaryStory} 시장 변화 상세 열기"]`);
