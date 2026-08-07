@@ -56,9 +56,13 @@ const workspace = [
     new URL('../src/pages/research-workspace/ui/stock-briefing-sections.tsx', import.meta.url),
     'utf8',
   ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/market-connection-sections.tsx', import.meta.url),
+    'utf8',
+  ),
   ...[
     'today-view.tsx',
-    'radar-view.tsx',
+    'market-connections-view.tsx',
     'stocks-view.tsx',
     'themes-view.tsx',
     'my-research-view.tsx',
@@ -153,7 +157,7 @@ describe('v3 research workspace structure', () => {
   it('exposes every real-data workspace section and the run-bound inspector', () => {
     for (const label of [
       '오늘',
-      '세계 레이더',
+      '내 종목에 영향을 줄 시장 변화',
       '종목',
       '테마·관계',
       '내 리서치',
@@ -204,7 +208,7 @@ describe('v3 research workspace structure', () => {
       'crypto-workspace-view',
       'history-view',
       'my-research-view',
-      'radar-view',
+      'market-connections-view',
       'status-view',
       'stocks-view',
       'themes-view',

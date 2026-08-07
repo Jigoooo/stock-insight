@@ -7,7 +7,7 @@ const read = (path: string) => readFile(new URL(path, uiRoot), 'utf8');
 
 const viewFiles = [
   ['TodayView', 'views/today-view.tsx'],
-  ['RadarView', 'views/radar-view.tsx'],
+  ['MarketConnectionsView', 'views/market-connections-view.tsx'],
   ['StocksView', 'views/stocks-view.tsx'],
   ['CryptoWorkspaceView', 'views/crypto-workspace-view.tsx'],
   ['ThemesView', 'views/themes-view.tsx'],

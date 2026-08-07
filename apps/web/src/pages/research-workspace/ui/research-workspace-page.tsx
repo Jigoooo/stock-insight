@@ -18,6 +18,11 @@ import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search'
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
 import {
+  buildMarketConnectionsModel,
+  type MarketConnectionLoader,
+  type MarketConnectionsModel,
+} from '../model/market-connections';
+import {
   buildStocksBriefingModel,
   type StockBriefingLoader,
   type StocksBriefingModel,
@@ -81,7 +86,9 @@ function createLazyWorkspaceViews() {
       })),
     ),
     radar: lazy(() =>
-      import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
+      import('./views/market-connections-view').then(({ MarketConnectionsView }) => ({
+        default: MarketConnectionsView,
+      })),
     ),
     research: lazy(() =>
       import('./views/my-research-view').then(({ MyResearchView }) => ({
@@ -120,8 +127,10 @@ export type ResearchWorkspaceUrlState = {
 type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
+  loadMarketConnectionDetail?: MarketConnectionLoader;
   loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
   loadStockBriefingDetail?: StockBriefingLoader;
+  marketConnections?: MarketConnectionsModel;
   stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
@@ -172,8 +181,10 @@ const getServerHydrationSnapshot = () => false;
 export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
+  loadMarketConnectionDetail,
   loadResearchRecord,
   loadStockBriefingDetail,
+  marketConnections,
   stocksBriefing,
   navigationMode = 'route',
   onLogout,
@@ -276,7 +287,7 @@ export function ResearchWorkspacePage({
     crypto: CryptoWorkspaceView,
     history: HistoryView,
     'market-topic-news': MarketTopicNewsView,
-    radar: RadarView,
+    radar: MarketConnectionsView,
     research: MyResearchView,
     status: StatusView,
     stocks: StocksView,
@@ -433,6 +444,10 @@ export function ResearchWorkspacePage({
   const visibleRadarPage =
     radarPaginationValue?.page ?? (data.view === 'radar' ? data.radar : null);
   const visibleRadarPageState = radarPaginationValue?.state ?? 'ready';
+  const resolvedMarketConnections =
+    data.view === 'radar'
+      ? (marketConnections ?? buildMarketConnectionsModel(visibleRadarPage ?? data.radar))
+      : null;
   const historyPaginationValue =
     data.view === 'history'
       ? resolveWorkspaceAuthoritativeOverride(data.history, historyPagination)
@@ -743,11 +758,12 @@ export function ResearchWorkspacePage({
           onSelectRecord={(item, opener) => void selectRecord(item, opener)}
         />
       )}
-      {section === 'radar' && data.view === 'radar' && (
-        <RadarView
-          data={visibleRadarPage ?? data.radar}
-          geoSnapshot={data.geoSnapshot}
+      {section === 'radar' && data.view === 'radar' && resolvedMarketConnections && (
+        <MarketConnectionsView
           interactive={hydrated}
+          loadMarketConnectionDetail={loadMarketConnectionDetail}
+          marketConnections={resolvedMarketConnections}
+          radarPage={visibleRadarPage ?? data.radar}
           pageState={visibleRadarPageState}
           onLoadMore={() => void loadMoreRadar()}
         />
