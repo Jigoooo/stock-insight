@@ -81,6 +81,7 @@ import { sourcePitQualityMigrationSql } from './migrations/080_source_pit_qualit
 import { releaseManifestMigrationSql } from './migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -930,6 +931,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: sloLedgerMigrationSql,
   },
+  {
+    id: '084_metric_definition_registry',
+    description:
+      "Creates governance.metric_definition and metric_comparability — the place canonical/02 §7 requires so 'what does this number mean' has an answer, and the precondition for REQ-PROD-020 (per-dimension rank shown with its definition and coverage) and REQ-PROD-021 (an incomparable KPI says so). Same KPI name under K-IFRS and US-GAAP is two numbers wearing one word, and a peer table that ranks them together measures nothing. canonical/04 §6 adds the temporal half — a changed issuer definition is a new revision with an effective interval and a supersession link, so a YoY spanning the change can be detected rather than silently computed. Comparability is a directed pair rather than a per-definition flag because NORMALIZABLE is frequently one-way: revenue reported excluding a disclosed rebate converts to the inclusive definition and not back, and an undirected edge silently claims a conversion that exists in one direction only. Constraints refuse the shapes that mislead: NORMALIZABLE without a normalization rule is a promise nobody can execute, PARTIALLY_COMPARABLE without a stated scope is UNKNOWN with a friendlier name, a non-GAAP definition stating no adjustment is indistinguishable from the GAAP one it claims to differ from, and COMPARABLE across different comparability groups is refused by trigger. governance.metric_comparability_state() resolves a pair for callers and falls back to UNKNOWN, never to COMPARABLE.",
+    tables: [],
+    sql: metricDefinitionRegistryMigrationSql,
+  },
 ];
 
 export {
@@ -1016,4 +1024,5 @@ export {
   releaseManifestMigrationSql,
   safetyStateMigrationSql,
   sloLedgerMigrationSql,
+  metricDefinitionRegistryMigrationSql,
 };

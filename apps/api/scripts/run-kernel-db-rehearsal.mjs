@@ -1,5 +1,5 @@
-// Rehearses migrations 078–083 (canonical kernel + release/safety/SLO) on a
-// disposable database.
+// Rehearses migrations 078–084 (canonical kernel + release/safety/SLO + metric
+// definition registry) on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
 // foreign-key targets the migrations under test need, apply them, assert the
@@ -26,6 +26,7 @@ import { sourcePitQualityMigrationSql } from '../../../packages/db-schema/src/mi
 import { releaseManifestMigrationSql } from '../../../packages/db-schema/src/migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from '../../../packages/db-schema/src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -123,6 +124,15 @@ try {
     CREATE TABLE knowledge.ontology_revision (ontology_revision_id BIGINT PRIMARY KEY);
     INSERT INTO knowledge.ontology_revision SELECT generate_series(1, 5);
 
+    -- 084 references core.entity for issuer-scoped definitions.
+    CREATE SCHEMA core;
+    CREATE TABLE core.entity (
+      entity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      canonical_name TEXT NOT NULL
+    );
+    INSERT INTO core.entity (entity_type, canonical_name) VALUES ('Company', 'Rehearsal Co');
+
     CREATE SCHEMA ingestion;
     CREATE TABLE ingestion.source (
       source_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -183,6 +193,7 @@ try {
     releaseManifestMigrationSql,
     safetyStateMigrationSql,
     sloLedgerMigrationSql,
+    metricDefinitionRegistryMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
@@ -473,6 +484,125 @@ try {
     ['P0001'],
   );
 
+  // ── 084 metric definition registry ──────────────────────────────────────────
+  const defn = (key, overrides = {}) => {
+    const columns = {
+      definition_key: `'${key}'`,
+      revision_no: '1',
+      concept_namespace: `'ifrs-full'`,
+      concept_key: `'Revenue'`,
+      canonical_concept: `'revenue'`,
+      display_name: `'Revenue'`,
+      definition_scope: `'canonical'`,
+      period_basis: `'duration_quarter'`,
+      accounting_basis: `'ifrs'`,
+      unit: `'currency'`,
+      currency: `'KRW'`,
+      comparability_group_key: `'revenue.quarter'`,
+      comparability_group_version: '1',
+      effective_from: `'2026-01-01T00:00:00Z'`,
+      created_by: `'rehearsal'`,
+      ...overrides,
+    };
+    return `INSERT INTO governance.metric_definition (${Object.keys(columns).join(', ')})
+            VALUES (${Object.values(columns).join(', ')}) RETURNING metric_definition_id`;
+  };
+
+  const defA = (await target.query(defn('rev.ifrs'))).rows[0].metric_definition_id;
+  const defB = (
+    await target.query(
+      defn('rev.gaap', {
+        concept_namespace: `'us-gaap'`,
+        accounting_basis: `'gaap'`,
+        currency: `'USD'`,
+      }),
+    )
+  ).rows[0].metric_definition_id;
+  const defC = (
+    await target.query(
+      defn('rev.adj', {
+        concept_namespace: `'issuer'`,
+        accounting_basis: `'non_gaap'`,
+        exclusions: `ARRAY['one-off rebate']`,
+        comparability_group_key: `'revenue.adjusted'`,
+      }),
+    )
+  ).rows[0].metric_definition_id;
+
+  const metric = {
+    sameGroupFallsBackToComparable: false,
+    differentGroupFallsBackToUnknown: false,
+    comparableAcrossGroupsRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defA}, ${defC}, 'COMPARABLE', 'wrong', 'rehearsal')`,
+      ['P0001'],
+    ),
+    normalizableWithoutRuleRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defC}, ${defA}, 'NORMALIZABLE', 'no rule given', 'rehearsal')`,
+    ),
+    partialWithoutScopeRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defC}, ${defB}, 'PARTIALLY_COMPARABLE', 'no scope given', 'rehearsal')`,
+    ),
+    nonGaapWithoutAdjustmentRejected: await expectRejected(
+      defn('rev.bad', { concept_namespace: `'issuer'`, accounting_basis: `'non_gaap'` }),
+    ),
+    ratioWithoutBothSidesRejected: await expectRejected(
+      defn('margin.bad', { unit: `'ratio'`, currency: 'NULL' }),
+    ),
+    currencyScopeEnforced: await expectRejected(defn('rev.nocur', { currency: 'NULL' })),
+    selfComparabilityRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defA}, ${defA}, 'COMPARABLE', 'self', 'rehearsal')`,
+    ),
+    normalizableNotMirrored: false,
+    definitionContentImmutable: await expectRejected(
+      `UPDATE governance.metric_definition SET unit = 'ratio' WHERE metric_definition_id = ${defA}`,
+      ['P0001'],
+    ),
+    definitionStateMayMove: false,
+    deleteRejected: await expectRejected(
+      `DELETE FROM governance.metric_definition WHERE metric_definition_id = ${defA}`,
+      ['P0001'],
+    ),
+  };
+
+  // Same group and version, no explicit assessment -> COMPARABLE.
+  metric.sameGroupFallsBackToComparable =
+    (await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defB}) AS s`))
+      .rows[0].s === 'COMPARABLE';
+  // Different group, no assessment -> UNKNOWN. Never COMPARABLE.
+  metric.differentGroupFallsBackToUnknown =
+    (await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defC}) AS s`))
+      .rows[0].s === 'UNKNOWN';
+
+  // One-way normalization: C converts to A, and asking A -> C must not inherit it.
+  await target.query(
+    `INSERT INTO governance.metric_comparability
+       (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale,
+        normalization_rule, assessed_by)
+     VALUES (${defC}, ${defA}, 'NORMALIZABLE', 'add back the disclosed rebate',
+             'value + rebate_disclosed', 'rehearsal')`,
+  );
+  const forward = (
+    await target.query(`SELECT governance.metric_comparability_state(${defC}, ${defA}) AS s`)
+  ).rows[0].s;
+  const reverse = (
+    await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defC}) AS s`)
+  ).rows[0].s;
+  metric.normalizableNotMirrored = forward === 'NORMALIZABLE' && reverse === 'UNKNOWN';
+
+  await target.query(
+    `UPDATE governance.metric_definition SET definition_state = 'superseded'
+      WHERE metric_definition_id = ${defB}`,
+  );
+  metric.definitionStateMayMove = true;
+
   // ── boot-digest safety: the app roles must not reach any new table ──────────
   const reach = await target.query(
     `SELECT role_name, relation, bool_or(reachable) AS reachable
@@ -502,6 +632,7 @@ try {
     release,
     safety,
     slo,
+    metric,
     digestSafety: {
       governanceRelationsChecked: reach.rows.length,
       appRoleReachableRelations: appRoleReachable.map((row) => `${row.role_name}:${row.relation}`),
@@ -516,6 +647,7 @@ try {
     release,
     safety,
     slo,
+    metric,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);

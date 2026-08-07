@@ -8,6 +8,7 @@ import { sourcePitQualityMigrationSql } from '../src/migrations/080_source_pit_q
 import { releaseManifestMigrationSql } from '../src/migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from '../src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../src/migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from '../src/migrations/084_metric_definition_registry.ts';
 
 const MIGRATIONS = [
   ['078_semantic_snapshot', semanticSnapshotMigrationSql],
@@ -16,6 +17,7 @@ const MIGRATIONS = [
   ['081_release_manifest', releaseManifestMigrationSql],
   ['082_safety_state', safetyStateMigrationSql],
   ['083_slo_ledger', sloLedgerMigrationSql],
+  ['084_metric_definition_registry', metricDefinitionRegistryMigrationSql],
 ] as const;
 
 // Same list migration 031's test uses. These migrations must be purely additive:
@@ -32,7 +34,7 @@ const destructiveTokens = [
 const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
 
 describe('K1 canonical kernel migrations — registration', () => {
-  it('registers 078 through 083 in dependency order', () => {
+  it('registers 078 through 084 in dependency order', () => {
     const positions = MIGRATIONS.map(([id]) => {
       const at = indexSource.indexOf(`id: '${id}'`);
       assert.notEqual(at, -1, `${id} is not registered`);
@@ -56,6 +58,7 @@ describe('K1 canonical kernel migrations — registration', () => {
       'releaseManifestMigrationSql',
       'safetyStateMigrationSql',
       'sloLedgerMigrationSql',
+      'metricDefinitionRegistryMigrationSql',
     ]) {
       assert.match(indexSource, new RegExp(`\\b${name}\\b`), `${name} is not exported`);
     }
@@ -348,5 +351,72 @@ describe('083 SLO ledger — the input REQ-SAFE-002 consumes', () => {
   it('records the ops.slo_* deviation and its reason', () => {
     assert.match(sloLedgerMigrationSql, /DELIBERATE DEVIATION FROM THE FREEZE/);
     assert.match(sloLedgerMigrationSql, /database-ownership/);
+  });
+});
+
+describe('084 metric definition registry — REQ-PROD-020 / REQ-PROD-021', () => {
+  it('refuses NORMALIZABLE without a stated method', () => {
+    // Without a rule it reads as "comparable, just do the conversion" to every
+    // caller, and nobody can execute it.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_normalizable_has_rule[\s\S]*normalization_rule/,
+    );
+  });
+
+  it('refuses PARTIALLY_COMPARABLE without a stated scope', () => {
+    // Otherwise it is UNKNOWN with a friendlier name, and the friendlier name is
+    // what gets it rendered as a comparison.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_partial_has_scope[\s\S]*partial_scope/,
+    );
+  });
+
+  it('refuses a non-GAAP definition that states no adjustment', () => {
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_definition_non_gaap_states_adjustment/,
+    );
+  });
+
+  it('refuses COMPARABLE across comparability groups, by trigger', () => {
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /COMPARABLE across different comparability groups/,
+    );
+  });
+
+  it('requires both sides of a ratio to be named', () => {
+    assert.match(metricDefinitionRegistryMigrationSql, /metric_definition_ratio_has_both_sides/);
+  });
+
+  it('models definition drift as a revision with a supersession link', () => {
+    // canonical/04 §6: a YoY spanning a definition change must be detectable.
+    assert.match(metricDefinitionRegistryMigrationSql, /supersedes_metric_definition_id/);
+    assert.match(metricDefinitionRegistryMigrationSql, /effective_from TIMESTAMPTZ NOT NULL/);
+    assert.match(metricDefinitionRegistryMigrationSql, /content is immutable; add a revision/);
+  });
+
+  it('resolves an unknown pair to UNKNOWN, never to COMPARABLE', () => {
+    // The default is the requirement: a caller that cannot establish comparability
+    // must render "not established", not a comparison.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_state[\s\S]*'UNKNOWN'\n\s*\);/,
+    );
+  });
+
+  it('does not mirror NORMALIZABLE when falling back to the reverse direction', () => {
+    // "B converts to A" does not make A convertible to B.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /comparability_state IN \('COMPARABLE', 'NOT_COMPARABLE', 'UNKNOWN'\)/,
+    );
+  });
+
+  it('keys definitions to world.numeric_fact so a fact can name its definition', () => {
+    assert.match(metricDefinitionRegistryMigrationSql, /concept_namespace TEXT NOT NULL/);
+    assert.match(metricDefinitionRegistryMigrationSql, /concept_key\s+TEXT NOT NULL/);
   });
 });
