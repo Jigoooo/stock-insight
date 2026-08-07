@@ -4,7 +4,11 @@ import { DetailInspectorFrame } from './detail-inspector-frame';
 import { RelationSigmaGraph } from './relation-sigma-graph';
 import styles from './stock-briefing-inspector.module.css';
 import { formatDate, formatNumber, marketLabel } from './workspace-presenters';
-import type { StockBriefingDetail } from '../model/stock-briefing';
+import {
+  stockBriefingEvidenceLevelLabel,
+  stockBriefingStatusLabel,
+  type StockBriefingDetail,
+} from '../model/stock-briefing';
 
 import {
   filterSourceBackedCompanyMetricGroups,
@@ -116,6 +120,15 @@ export function StockBriefingInspector({
                 <PropertyList
                   className={styles.summaryMeta}
                   items={[
+                    { label: '종목 상태', value: stockBriefingStatusLabel(detail.stock) },
+                    {
+                      label: '연결 뉴스',
+                      value: detail.whyNow ? `${detail.whyNow.newsCount}건` : '명시적 데이터 없음',
+                    },
+                    {
+                      label: '근거 수준',
+                      value: stockBriefingEvidenceLevelLabel(detail.evidenceLevel),
+                    },
                     { label: '현재 가격', value: priceLabel(detail) },
                     {
                       label: '변화율',

@@ -488,6 +488,15 @@
 - review 2차에서는 drawer 요약 회귀를 실제 separator와 session storage 경로로 확장해 기본 520px와 최소 420px 모두에서 inspector 폭, 각 값의 유효 폭, 가격·변화율 1줄과 분석 기준 최대 2줄을 검증함. 첫 실행부터 현재 구현이 계약을 만족했고 12회 반복 12/12, fresh Stocks desktop/mobile 22건 통과·조건부 8건 skip을 기록해 production 코드는 변경하지 않음
 - Codex 인앱 브라우저 재확인: 1440×1000 drawer에서 가격·변화율·분석 기준이 모두 한 줄로 표시되고 `dd` 유효 폭이 약 124px임을 확인함. 390×844 하단 modal에서 동일 값이 한 줄로 유지되고 desktop 전환 버튼이 노출되지 않음을 확인했으며, `no-holdings`의 정직한 집계와 관심종목 우선 순서도 직접 확인함
 
+### 2026-08-07 — 내 종목 브리핑 최종 전체 review 보정 완료
+
+- 종목 상세 요약에 `종목 상태`, `연결 뉴스`, `근거 수준`을 추가했다. 보유·관심 플래그는 독립적으로 표시해 두 상태가 함께인 종목을 `보유종목 · 관심종목`으로 보존한다.
+- 근거 수준은 페이지 로컬 optional union (`high|medium|low`)으로만 추가했다. 결정론적 preview의 보유 상세는 `높음`, 관심 상세는 `중간`으로 고정했고, 실제 상세 loader는 수준을 추론하지 않아 `명시적 데이터 없음`을 표시한다. 추가 request나 refetch는 없다.
+- Today 상세는 viewport에 관계없이 열기 버튼을 캡처하고 닫힌 후 연결된 원본 카드로 포커스를 되돌린다. Stocks의 기존 opener 계약과 공용 Dialog 프레임은 변경하지 않았다.
+- TDD RED는 preview 근거 수준 `undefined`, 상세 메타 미노출, 모바일 Today 닫기 후 opener `inactive`를 각각 재현했고, focused Node 20건과 포커스/상세 문맥 browser 계약이 GREEN으로 전환됨을 확인했다.
+- Today·Stocks desktop/mobile 표준 4-worker 통합 재검증은 47건 통과·17건 viewport 조건 skip·0건 실패다. 이전 병렬 실행에서 session-width 재열기 1건이 일회성으로 실패했지만 workers=1 격리 재실행과 표준 4-worker fresh 재실행에서 모두 통과해 재현되지 않았다.
+- fresh 전체 gate는 format 1,313개 파일, lint 0 errors(7개 기존 warning), typecheck 11/11 tasks, test 10/10 tasks(web 687/687), build 7/7 tasks를 통과했다. 이 보정은 DB·migration·API server·공개 contract·의존성을 변경하지 않아 기존 P6 환경 gate는 반복하지 않았다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

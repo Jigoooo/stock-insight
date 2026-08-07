@@ -32,10 +32,30 @@ export type StocksBriefingModel = {
   watchlistChanges: StockBriefingItem[];
 };
 
+export type StockBriefingEvidenceLevel = 'high' | 'medium' | 'low';
+
+export function stockBriefingStatusLabel(
+  stock: Pick<StockListItem, 'isHolding' | 'isWatched'>,
+): string {
+  const statuses = [
+    stock.isHolding ? '보유종목' : null,
+    stock.isWatched ? '관심종목' : null,
+  ].filter(Boolean);
+  return statuses.length > 0 ? statuses.join(' · ') : '명시적 데이터 없음';
+}
+
+export function stockBriefingEvidenceLevelLabel(level?: StockBriefingEvidenceLevel): string {
+  if (level === 'high') return '높음';
+  if (level === 'medium') return '중간';
+  if (level === 'low') return '낮음';
+  return '명시적 데이터 없음';
+}
+
 export type StockBriefingDetail = {
   stock: StockListItem;
   generatedAt: string;
   availability: 'available' | 'partial' | 'missing';
+  evidenceLevel?: StockBriefingEvidenceLevel;
   whyNow?: StockBriefingItem;
   paths: Array<{ id: string; label: string; summary?: string }>;
   news: Array<{

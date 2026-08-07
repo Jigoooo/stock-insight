@@ -195,10 +195,9 @@ test('opens the evidence drawer above the workspace without changing card geomet
   expect(metaColumns).toHaveLength(2);
 });
 
-test('moves focus into the desktop drawer and restores the opener after close', async ({
+test('moves focus into the inspector and restores the opener after close on every viewport', async ({
   page,
-}, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'desktop focus contract');
+}) => {
   const opener = page
     .getByTestId('today-headline-news')
     .getByRole('button', { name: /메모리 가격 반등/ });

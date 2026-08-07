@@ -522,7 +522,7 @@ export function ResearchWorkspacePage({
     setPendingRecordKey(item.recordKey);
     issuedInspectorRecordKeysRef.current.add(item.recordKey);
     setDismissedInspectorRecords(new Set());
-    if (!isMobileViewport && document.activeElement instanceof HTMLElement) {
+    if (document.activeElement instanceof HTMLElement) {
       inspectorOpenerRef.current = document.activeElement;
     }
     setInspectorOpen(true);
@@ -681,10 +681,8 @@ export function ResearchWorkspacePage({
     issuedInspectorRecordKeysRef.current.clear();
     setPendingRecordKey(undefined);
     setInspectorOpen(false);
-    if (!isMobileViewport) {
-      const opener = inspectorOpenerRef.current;
-      if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
-    }
+    const opener = inspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
     void onUrlStateChange?.({ record: undefined });
   };
 

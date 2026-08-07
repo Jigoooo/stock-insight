@@ -96,6 +96,7 @@ function detailFor(entityKey: string): StockBriefingDetail {
     stock,
     generatedAt,
     availability: whyNow ? 'available' : 'partial',
+    evidenceLevel: stock.isHolding ? 'high' : 'medium',
     whyNow,
     paths: whyNow?.primaryPath
       ? [{ id: `${entityKey}-primary-path`, label: whyNow.primaryPath }]

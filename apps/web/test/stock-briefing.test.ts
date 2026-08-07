@@ -14,6 +14,8 @@ import {
   buildStocksBriefingModel,
   createStocksBriefingModel,
   loadStockBriefingData,
+  stockBriefingEvidenceLevelLabel,
+  stockBriefingStatusLabel,
 } from '../src/pages/research-workspace/model/stock-briefing.ts';
 
 import type {
@@ -345,9 +347,39 @@ describe('stock briefing model', () => {
     );
 
     assert.equal(result.detail.stock.displayName, '삼성전자');
+    assert.equal(result.detail.evidenceLevel, 'high');
     assert.equal(result.relation, null);
     assert.ok(urls.length >= 5);
     assert.ok(urls.every((url) => new URL(url).protocol === 'https:'));
+  });
+
+  it('keeps live evidence level unavailable and gives preview holdings and watchlist deterministic levels', async () => {
+    const live = await loadStockBriefingData('KR:005930', {
+      loadDetail: async () => detailResponse,
+      loadRelation: async () => relation,
+      loadImpactBrief: async () => impactBrief(),
+      whyNow: {
+        entityKey: 'KR:005930',
+        changeSummary: 'HBM 수요 변화',
+        connectionReason: '보유 논지와 연결됩니다.',
+        newsCount: 1,
+      },
+    });
+    const holding = await loadPreviewStockBriefing('KR:005930');
+    const watchlist = await loadPreviewStockBriefing('US:NVDA');
+
+    assert.equal(live.detail.evidenceLevel, undefined);
+    assert.equal(stockBriefingEvidenceLevelLabel(live.detail.evidenceLevel), '명시적 데이터 없음');
+    assert.equal(holding.detail.evidenceLevel, 'high');
+    assert.equal(watchlist.detail.evidenceLevel, 'medium');
+  });
+
+  it('keeps held and watched identities independently visible', () => {
+    assert.equal(stockBriefingStatusLabel(stock()), '보유종목 · 관심종목');
+    assert.equal(
+      stockBriefingStatusLabel(stock({ isHolding: false, isWatched: false })),
+      '명시적 데이터 없음',
+    );
   });
 
   it('keeps the legacy preview deep dive partial while most legacy sections are missing', async () => {

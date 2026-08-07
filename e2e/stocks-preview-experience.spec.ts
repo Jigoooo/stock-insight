@@ -60,7 +60,7 @@ async function expectReadableSummaryMetrics(inspector: Locator, expectedDrawerWi
   const values = inspector.locator(
     'section[aria-labelledby="stock-inspector-summary"] dl > div > dd',
   );
-  await expect(values).toHaveCount(3);
+  await expect(values).toHaveCount(6);
   const geometry = await values.evaluateAll((nodes) =>
     nodes.map((node) => {
       const range = document.createRange();
@@ -72,9 +72,9 @@ async function expectReadableSummaryMetrics(inspector: Locator, expectedDrawerWi
     }),
   );
   for (const value of geometry) expect(value.width).toBeGreaterThanOrEqual(64);
-  expect(geometry[0]?.lineCount).toBe(1);
-  expect(geometry[1]?.lineCount).toBe(1);
-  expect(geometry[2]?.lineCount ?? Infinity).toBeLessThanOrEqual(2);
+  expect(geometry[3]?.lineCount).toBe(1);
+  expect(geometry[4]?.lineCount).toBe(1);
+  expect(geometry[5]?.lineCount ?? Infinity).toBeLessThanOrEqual(2);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -119,6 +119,28 @@ test('opens matching detail from priority, holdings, and watchlist entry points'
     await expect(inspector).toHaveCount(0);
     await expect(opener).toBeFocused();
   }
+});
+
+test('shows held, watched, linked-news, and evidence context in stock detail', async ({ page }) => {
+  const holding = await openStock(panelForHeading(page, '우선 확인할 보유종목'), '삼성전자');
+  const holdingSummary = holding.inspector.locator(
+    'section[aria-labelledby="stock-inspector-summary"]',
+  );
+  await expect(holdingSummary).toContainText('보유종목');
+  await expect(holdingSummary).not.toContainText('관심종목');
+  await expect(holdingSummary).toContainText('연결 뉴스');
+  await expect(holdingSummary).toContainText('3건');
+  await expect(holdingSummary).toContainText('근거 수준');
+  await expect(holdingSummary).toContainText('높음');
+  await holding.inspector.getByRole('button', { name: '종목 브리핑 인스펙터 닫기' }).click();
+
+  const watchlist = await openStock(panelForHeading(page, '변화가 있는 관심종목'), 'NVIDIA');
+  const watchlistSummary = watchlist.inspector.locator(
+    'section[aria-labelledby="stock-inspector-summary"]',
+  );
+  await expect(watchlistSummary).not.toContainText('보유종목');
+  await expect(watchlistSummary).toContainText('관심종목');
+  await expect(watchlistSummary).toContainText('중간');
 });
 
 test('opens the stock drawer above the workspace without changing page geometry', async ({

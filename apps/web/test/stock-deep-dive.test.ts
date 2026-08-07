@@ -54,6 +54,16 @@ describe('stock briefing inspector', () => {
     assert.doesNotMatch(source, /지금 사세요|매도하세요|목표가|손절가|익절가/);
   });
 
+  it('renders stock identity, linked-news count, and an honest evidence-level fallback', async () => {
+    const source = await read('ui/stock-briefing-inspector.tsx');
+
+    assert.match(source, /stockBriefingStatusLabel\(detail\.stock\)/);
+    assert.match(source, /stockBriefingEvidenceLevelLabel\(detail\.evidenceLevel\)/);
+    assert.match(source, /연결 뉴스/);
+    assert.match(source, /근거 수준/);
+    assert.match(source, /명시적 데이터 없음/);
+  });
+
   it('localizes relation and impact failures without hiding the base detail', async () => {
     const source = await read('ui/stock-briefing-inspector.tsx');
     const readyOffset = source.indexOf("state === 'ready' && detail");
