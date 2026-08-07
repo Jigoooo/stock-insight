@@ -1,5 +1,24 @@
 # Stock Insight — 웹에서 최종 끝단까지 전체 레이어 아키텍처 (완성형 V2 기준)
 
+> # ⛔ SUPERSEDED — 2026-08-07
+>
+> **이 문서는 더 이상 목표 정본이 아니다.**
+> 목표 정본은 `docs/plan/stock-crypto-investment-context-world-model-v2-final/` 의
+> `canonical/` 과 `contracts/` 다 (2026-08-07 동결).
+>
+> | 이 문서의 것 | 대체한 정본 |
+> | --- | --- |
+> | L0–L8 계층 · X1–X4 교차 | `canonical/09-platform-contract.md` |
+> | 구현 순서 | `canonical/11-delivery-launch-freeze.md` §1 |
+> | 서빙 팩(L6) 설계 | `canonical/09` §2 Versioned Serving Projections |
+>
+> freeze README 규칙 3: *"과거의 Baseline → 2차 → 3차 → 4차 → 5차 precedence 규칙은
+> 폐기한다. 구현자는 precedence 를 계산하지 않는다."*
+>
+> **이력 확인용으로만 읽어라.** 목표가 바뀌면 이 문서가 아니라 `canonical/` 을 고친다.
+> 실측은 `stock-insight-as-built-2026-08-07.md`, 격차와 실행 계획은
+> `docs/plan/v2-final-implementation-plan-2026-08-07.md`.
+
 > **문서 성격**: 본 문서는 승인된 complete-v2 로드맵(관계 수집 완성 · 다중 홉 분석 · Obsidian형 그래프 UI · V2 전체 전환 · Phase 0/1/3/4 보완 · 코인 연구 레이어)이 **모두 구현 완료된 시점을 가정한 목표 아키텍처 정본**이다.
 > 현재 실측 상태와의 차이는 문서 말미 [부록 A. 현재 실측 대비 상태](#부록-a-현재-실측-대비-상태)에 명시한다.
 >

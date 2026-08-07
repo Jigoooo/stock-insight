@@ -5,6 +5,30 @@
 
 ---
 
+## 🧭 목표 정본은 이 폴더 밖에 있다 — v2-final freeze (2026-08-07)
+
+**무엇을 지을 것인가의 정본은 `docs/plan/stock-crypto-investment-context-world-model-v2-final/`
+이다.** 2026-08-07 에 동결됐고 12 canonical family · 14 truth class · 56개 `REQ-*` 를 규정한다.
+`canonical/` 과 `contracts/` 만 구현 정본이며, 그 안의 `00-architecture-constitution.md` 가
+최종 ownership map 을 갖는다.
+
+이 폴더의 계획 문서들은 **그 freeze 에 의해 대체됐다.** 특히:
+
+```
+stock-insight-e2e-layers.md              → superseded by canonical/09 · 11
+v2-enhancement-master-roadmap.md         → superseded by canonical/11 §1~§5
+stock-insight-v2-enhancement-plan.md     → superseded by canonical/ 전체
+```
+
+freeze 는 스스로 못박는다 — *"과거의 Baseline → 2차 → 3차 → 4차 → 5차 precedence 규칙은
+폐기한다. 구현자는 precedence 를 계산하지 않는다."* 위 셋은 이제 **감사 자료**이지
+따라야 할 목표가 아니다.
+
+실측 시스템과 freeze 사이의 격차와 실행 계획은
+`docs/plan/v2-final-implementation-plan-2026-08-07.md` 에 있다(비정본 파생 문서).
+
+---
+
 ## ⚠️ 이 묶음을 읽기 전에 — 설계와 구현은 다르다
 
 **이 폴더의 문서 중 절반은 목표를 현재형으로 쓴 설계 문서다.** 특히
@@ -16,15 +40,21 @@
 
 | 문서 | 성격 | 시제 | 믿어도 되는가 |
 | --- | --- | --- | --- |
+| `../plan/stock-crypto…-v2-final/canonical/` | **목표 정본 (동결)** | 2026-08-07 freeze | ✅ **무엇을 지을 것인가의 정본** |
+| `../plan/stock-crypto…-v2-final/contracts/` | **기계 판독 계약** | 〃 | ✅ JSON Schema·규칙 |
 | `stock-insight-as-built-2026-08-07.md` | **실측** | 2026-08-07 현재 | ✅ 코드·DB 를 직접 잼 |
 | 이 README 의 구현 대조표 | **실측** | 2026-08-07 현재 | ✅ 아래 근거 참조 |
-| `stock-insight-e2e-layers.md` | 목표 정본 | **미래 완료 가정** | ❌ 설계 의도로만 |
+| `stock-insight-e2e-layers.md` | ~~목표 정본~~ **대체됨** | **미래 완료 가정** | ❌ 감사 자료로만 |
 | `stock-crypto-insight-platform-architecture.md` | 기준선 계획 | 계획 | ❌ 설계 의도로만 |
-| `stock-insight-v2-enhancement-plan.md` | 고도화 계획 | 계획 | ❌ 설계 의도로만 |
-| `v2-enhancement-master-roadmap.md` | 로드맵 | 계획 | ❌ 설계 의도로만 |
+| `stock-insight-v2-enhancement-plan.md` | ~~고도화 계획~~ **대체됨** | 계획 | ❌ 감사 자료로만 |
+| `v2-enhancement-master-roadmap.md` | ~~로드맵~~ **대체됨** | 계획 | ❌ 감사 자료로만 |
 | `backend-db-master-plan.md` | 백엔드 DB 계획 | 계획 | ❌ 설계 의도로만 |
 | `adr/ADR-00*.md` | 결정 기록 | 결정 시점 | ✅ 결정 자체는 유효 |
 | `operations/*.md` | 운영 런북 | 사건 시점 | ✅ 날짜 확인 후 |
+
+> **이 폴더의 "자립 묶음" 성질에 생긴 예외.** 목표 정본이 `docs/plan/` 으로 옮겨갔으므로
+> 이 폴더만으로는 *무엇을 지을 것인가* 를 알 수 없다. 외부 반출 시 freeze 패키지를 함께
+> 보내야 한다. 실측(as-built + 대조표)은 여전히 이 폴더 안에서 자립한다.
 
 ---
 
@@ -79,9 +109,12 @@ X4 의 "SLO 계측"은 표조차 없고, L6 의 "웹이 읽는 유일한 형태"
 1. 이 README 의 구현 대조표        ← 무엇이 진짜인지
 2. stock-insight-as-built-2026-08-07.md
      §3 원장(중심 설계) · §11 실패하는 방식
-3. stock-insight-e2e-layers.md    ← 설계 의도. 위 대조표를 옆에 두고 읽어라
-4. adr/                            ← 왜 그렇게 정했나
-5. operations/                     ← 실제로 어떻게 돌리나
+3. ../plan/stock-crypto…-v2-final/canonical/   ← 무엇을 지을 것인가 (목표 정본)
+     00 헌법 → 02 kernel → 11 delivery 순
+4. ../plan/v2-final-implementation-plan-2026-08-07.md  ← 정본과 실측의 격차
+5. adr/                            ← 왜 그렇게 정했나
+6. operations/                     ← 실제로 어떻게 돌리나
+7. stock-insight-e2e-layers.md    ← 대체됐다. 이력 확인용으로만
 ```
 
 ---
@@ -91,11 +124,19 @@ X4 의 "SLO 계측"은 표조차 없고, L6 의 "웹이 읽는 유일한 형태"
 ### 실측
 - `stock-insight-as-built-2026-08-07.md` — 지금 어떻게 지어져 있는가. 1,000줄, 12절
 
-### 설계 (목표·계획)
-- `stock-insight-e2e-layers.md` — 목표 아키텍처 정본 L0–L8 · X1–X4
+### 목표 정본 (이 폴더 밖)
+- `../plan/stock-crypto-investment-context-world-model-v2-final/` — **2026-08-07 동결.**
+  `canonical/` 12문서 + `contracts/` 12개 기계 판독 계약. 구현 정본은 이 둘뿐이고
+  `reference/` 는 비정본 감사 자료다
+- `../plan/v2-final-implementation-plan-2026-08-07.md` — 정본↔실측 격차와 K0~K8 실행 계획 (비정본)
+
+### 설계 (대체됨 — 감사 자료)
+- `stock-insight-e2e-layers.md` — ~~목표 아키텍처 정본~~ L0–L8 · X1–X4. **freeze 09·11 이 대체**
+- `stock-insight-v2-enhancement-plan.md` — ~~고도화 계획~~. **freeze canonical/ 전체가 대체**
+- `v2-enhancement-master-roadmap.md` — ~~V2 로드맵~~. **freeze 11 §1~§5 가 대체**
+
+### 설계 (유효)
 - `stock-crypto-insight-platform-architecture.md` — Phase 0~5 기준선
-- `stock-insight-v2-enhancement-plan.md` — 고도화 계획. 목표 정본이 §27 을 규범적으로 편입
-- `v2-enhancement-master-roadmap.md` — V2 로드맵
 - `backend-db-master-plan.md` — 백엔드 DB 마스터 플랜
 - `backend-db-gates.json` — 기계 판독 게이트 정의. **`knowledge-backlog-gate.test.ts` 가 읽는다**
 
@@ -131,7 +172,10 @@ docs/futur_insight_mockups.html                같음
 
 - **실측 문서는 수정 대상이 아니라 재작성 대상이다.** 낡으면 새 날짜로 새 파일을 만들고
   옛 파일은 그대로 둬라. 그래야 "그날엔 이랬다"가 계속 참으로 남는다.
-- **목표가 바뀌면 `e2e-layers.md` 를 고쳐라.** 실측 문서가 아니다.
+- **목표가 바뀌면 freeze 패키지의 `canonical/` 을 고쳐라** — `e2e-layers.md` 가 아니다.
+  단 freeze README 규칙 7 이 조건을 건다: *"새로운 canonical object family, truth class,
+  또는 제품 major contract 는 Architecture RFC 없이는 추가하지 않는다."* 그리고 freeze 11 §7 —
+  이후 변경은 *"더 좋아 보인다"* 가 아니라 **실제 구현 반례**를 요구한다.
 - **이 README 의 대조표는 실측 문서를 새로 쓸 때마다 같이 다시 재라.** 대조표가 낡으면
   이 묶음 전체가 "설계를 구현으로 읽히는" 바로 그 함정이 된다.
 

@@ -1,8 +1,29 @@
 # Stock Insight — V2 고도화 종합 계획 및 심층 검토 보고서
 
-> **이 문서는 설계 근거이지 진행 원장이 아니다.** "어디까지 왔나"의 답은
+> # ⛔ SUPERSEDED — 2026-08-07
+>
+> **이 문서의 설계 내용은 v2-final freeze 로 대체됐다.**
+> 정본은 `docs/plan/stock-crypto-investment-context-world-model-v2-final/canonical/` 12문서다.
+>
+> | 이 문서의 것 | 대체한 정본 |
+> | --- | --- |
+> | §0~§30 월드모델 설계 | `canonical/00`~`canonical/11` 전체 |
+> | 진리·증거·PIT 규율 | `canonical/00` §5~§7 · `canonical/02` |
+> | 영향·노출·시나리오 | `canonical/05` |
+> | 추천·개인화 | `canonical/06` · `canonical/07` |
+> | 평가·골든 픽스처 | `canonical/10` |
+>
+> 이 문서의 설계 사고 자체는 freeze 의 `reference/master-design-monolith.md` 와
+> `reference/historical-rationale.md` 에 보존돼 있다.
+>
+> 아래 링크(`v2-enhancement-roadmap/…`)는 **깨진 경로**다 — 문서 통합(`f16b43a`) 때
+> 같은 폴더로 옮겨졌고, 그 로드맵 또한 대체됐다.
+>
+> **이력·설계 근거 확인용으로만 읽어라.**
+
+> **이 문서는 설계 근거이지 진행 원장이 아니다.** ~~"어디까지 왔나"의 답은
 > [`v2-enhancement-roadmap/v2-enhancement-master-roadmap.md`](v2-enhancement-roadmap/v2-enhancement-master-roadmap.md)
-> 하나이며, 그 문서가 본 문서를 흡수해 실행 정본을 선언한다. 여기서는 §0~§30이 *왜*
+> 하나이며, 그 문서가 본 문서를 흡수해 실행 정본을 선언한다.~~ 여기서는 §0~§30이 *왜*
 > 그렇게 설계됐는지를 읽고, 무엇이 실제로 구현·배포됐는지는 로드맵에서 확인할 것.
 
 > **목표 명칭**: Evidence-Grounded Market World Model — 근거 기반 시장 월드모델  
