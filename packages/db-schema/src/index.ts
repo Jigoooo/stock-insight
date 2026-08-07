@@ -75,6 +75,12 @@ import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts'
 import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
 import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
 import { institutionalHolderEntitiesMigrationSql } from './migrations/077_institutional_holder_entities.ts';
+import { semanticSnapshotMigrationSql } from './migrations/078_semantic_snapshot.ts';
+import { analysisInformationSetMigrationSql } from './migrations/079_analysis_information_set.ts';
+import { sourcePitQualityMigrationSql } from './migrations/080_source_pit_quality.ts';
+import { releaseManifestMigrationSql } from './migrations/081_release_manifest.ts';
+import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
+import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -882,6 +888,48 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: institutionalHolderEntitiesMigrationSql,
   },
+  {
+    id: '078_semantic_snapshot',
+    description:
+      "Creates governance.semantic_snapshot, the version pin canonical/02 §9 requires so 'what did this number mean' has one answer per artifact, and REQ-REL-001 can ask whether two surfaces used compatible snapshots. Numbered before the information set because that table carries semantic_snapshot_id as a foreign key — numbering follows the dependency, not the order the plan listed them. Uses a TEXT primary key rather than the usual surrogate-plus-key pair because the snapshot id is quoted inside run manifests and artifacts that outlive the row, so a surrogate would force every consumer to join to translate. Append-only with one state-machine exception (open -> sealed -> superseded): editing a snapshot rewrites the meaning of artifacts already derived under it, which is REQ-SEM-002 applied to versioning. Granted to pipeline roles only; the boot guard's digests are all has_table_privilege-filtered, so a table the app roles cannot see does not move their pins and needs no re-pin — the discipline migration 059 lacked when it crashlooped the brain.",
+    tables: [],
+    sql: semanticSnapshotMigrationSql,
+  },
+  {
+    id: '079_analysis_information_set',
+    description:
+      "Creates governance.analysis_information_set — canonical/02 §1's record of what a derivation was allowed to see. Keeps four cutoffs separate (valid, source-available, system-known, market-observation) because canonical/00 §5 keeps the time axes separate; collapsing them loses the sentence a leak-free backtest depends on, 'this was true then but we could not have known it'. The cutoffs are NOT NULL with no default precisely because a default is how now() becomes a business cutoff without anyone deciding to, which REQ-PIT-003 forbids. Four CHECK constraints mirror packages/contracts/src/analysis-information-set.ts one for one — the contract rejects a bad request before work starts, the constraint rejects a bad row however it was produced, and a leak only the application can catch is a leak. Fully append-only with no state machine: an information set describes a boundary, and an editable boundary is not one (REQ-KERN-002).",
+    tables: [],
+    sql: analysisInformationSetMigrationSql,
+  },
+  {
+    id: '080_source_pit_quality',
+    description:
+      'Records the PIT reconstructability class (canonical/02 §3) per source, so REQ-KERN-020 — PIT_D/E data must not be a core input to past ex-ante evaluation — becomes enforceable instead of unstated. canonical/08 §1 puts the class in the source contract and that was the plan, but ingestion.source_contract_revision carries an immutability trigger and a content_hash over the contract it states: adding a column and backfilling would either fail or leave 69 revisions whose hash no longer describes their content. Grading is also revised as a source is learned, a different lifecycle from the contract, so it gets its own append-only ledger with a current-view mirroring source_contract_current_v1. Grades only what has a checkable reason — fred PIT_A (ALFRED vintages), SEC/DART PIT_B (immutable accession-addressed filings), internal snapshots and bok-ecos PIT_C (no source revision axis; run-ecos-vintage already marks vintage_quality approximate), quote APIs PIT_D — and leaves the remaining sources PIT_E_UNKNOWN because over-claiming replayability silently admits data the system could not have had.',
+    tables: [],
+    sql: sourcePitQualityMigrationSql,
+  },
+  {
+    id: '081_release_manifest',
+    description:
+      "Creates governance.release_manifest and release_component, the read pointer REQ-REL-001 needs so surfaces shown together cannot disagree. The failure it closes is already measured: content pack supersession is atomic within a pack_kind but not across kinds, so between two COMMITs entity_relation_graph serves snapshot N while impact_brief still serves N-1, and nothing errors — the panels just contradict each other. Components are rows rather than the frozen schema's JSONB array because the questions asked of them are relational ('which release last carried this kind', 'is any component stale'); the wire shape is rebuilt on read. safety_state is a plain column, not a foreign key, because it records the state the release was built under — a manifest built during CAUTION must keep saying CAUTION after recovery or the audit trail rewrites itself. Append-only with the same narrow state machine content packs use, and components may only be added while the release is still building.",
+    tables: [],
+    sql: releaseManifestMigrationSql,
+  },
+  {
+    id: '082_safety_state',
+    description:
+      "Creates the safety state transition ledger canonical/00 §8 defines (NORMAL -> CAUTION -> INFORMATION_ONLY -> HALTED) and the current-state view. REQ-SAFE-001 is the reason it exists: a pipeline exiting 0 says nothing about whether meaning is healthy, and this repository's canonical example is the 2026-08-07 knowledge stall — successful job, frozen table, found by a person asking why a count was flat. A transition ledger rather than a mutable current-state row because an incident review asks how we got here, and the reason for a downgrade outlives the downgrade. CAUTION's recommendation_allowed stays NULL rather than collapsing to a boolean: contracts/safety-state.json marks it policy-dependent, and defaulting it to allowed is exactly how a degraded product keeps recommending (REQ-SAFE-003). Seeds one NORMAL row so an empty view cannot be read as either NORMAL or, fail-closed, HALTED.",
+    tables: [],
+    sql: safetyStateMigrationSql,
+  },
+  {
+    id: '083_slo_ledger',
+    description:
+      "Creates governance.slo_definition and slo_observation, the input REQ-SAFE-002 needs — without a record of what the SLOs are and what they measured, migration 082's downgrade clause has nothing to consume and safety state is decoration, so the two ship together. Deliberate deviation from the freeze: canonical/09 §5 names ops.slo_*, but ops is split table by table with research-app-db (seventeen tables listed in operations/database-ownership.md), and REQ-ARCH-010 fixes the families as a logical classification without prescribing schema names, so ownership wins over naming. Observations store the threshold and comparison they were judged under so a later revision cannot rewrite a past verdict, and a CHECK forces the recorded verdict to follow from the recorded numbers. The eight seeded definitions are grounded in the measured silent failures of the 2026-08-07 as-built — including expected-versus-observed wrapper runs, which is the only way lock contention becomes visible at all, since it exits 75 before any audit row is written. All start report-only: a threshold with no observed baseline cannot be trusted to move the product's state.",
+    tables: [],
+    sql: sloLedgerMigrationSql,
+  },
 ];
 
 export {
@@ -962,4 +1010,10 @@ export {
   ecosMacroSeriesMigrationSql,
   institutionalHolderEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
+  semanticSnapshotMigrationSql,
+  analysisInformationSetMigrationSql,
+  sourcePitQualityMigrationSql,
+  releaseManifestMigrationSql,
+  safetyStateMigrationSql,
+  sloLedgerMigrationSql,
 };

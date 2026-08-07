@@ -42,7 +42,8 @@
     "ops:outbox:apply": "node src/ops/run-outbox-delivery.ts --apply --loop",
     "lint": "oxlint src",
     "format": "oxfmt src package.json tsconfig.json",
-    "format:check": "oxfmt --check src package.json tsconfig.json"
+    "format:check": "oxfmt --check src package.json tsconfig.json",
+    "test:kernel-db-rehearsal": "node scripts/run-kernel-db-rehearsal.mjs"
   },
   "dependencies": {
     "@stock-insight/contracts": "workspace:*",

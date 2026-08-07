@@ -1,0 +1,17 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "ownership": {
+    "architecture_constitution": "canonical/00-architecture-constitution.md",
+    "product_surfaces": "canonical/01-product-contract.md",
+    "truth_provenance_pit_semantics": "canonical/02-canonical-kernel.md",
+    "identity_world_state_economic_claim": "canonical/03-world-model.md",
+    "domain_playbooks_metrics_business_drivers": "canonical/04-domain-intelligence.md",
+    "expectation_exposure_valuation_theme_outcome": "canonical/05-market-intelligence.md",
+    "common_asset_opportunity_recommendation": "canonical/06-recommendation-contract.md",
+    "personalization_geo_news_crypto": "canonical/07-product-planes.md",
+    "sources_coverage_rights_connectors": "canonical/08-data-acquisition.md",
+    "storage_serving_ops_security_llm": "canonical/09-platform-contract.md",
+    "evaluation_gates_fixtures": "canonical/10-quality-evaluation.md",
+    "delivery_migration_launch_freeze": "canonical/11-delivery-launch-freeze.md"
+  }
+}

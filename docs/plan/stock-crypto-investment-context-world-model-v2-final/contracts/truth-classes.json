@@ -1,0 +1,19 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "classes": [
+    "SOURCE",
+    "ASSERTION",
+    "FACT",
+    "EVENT",
+    "RELATION",
+    "EXPOSURE",
+    "STATISTICAL_ESTIMATE",
+    "CAUSAL_ESTIMATE",
+    "FORECAST",
+    "HYPOTHESIS",
+    "NARRATIVE",
+    "RECOMMENDATION",
+    "PERSONAL_DECISION",
+    "OUTCOME"
+  ]
+}

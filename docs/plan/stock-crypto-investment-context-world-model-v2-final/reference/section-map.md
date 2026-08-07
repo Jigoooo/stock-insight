@@ -1,0 +1,287 @@
+# Master § → Split Document Map
+
+- §0 **Executive Summary** → `00-product-north-star.md`
+- §1 **제품이 해결해야 하는 사용자 문제** → `00-product-north-star.md`
+- §2 **제품의 핵심 질문** → `00-product-north-star.md`
+- §3 **명확한 비범위** → `00-product-north-star.md`
+- §4 **Market Home — “오늘 무엇을 봐야 하는가”** → `00-product-north-star.md`
+- §5 **Asset Deep Dive — “아예 모르는 종목을 클릭해도 이해된다”** → `13-peer-ranking-company-deep-dive.md`
+- §6 **Theme Explorer** → `10-theme-narrative-regime.md`
+- §7 **General Discovery / Recommendation** → `12-asset-opportunity-recommendation.md`
+- §8 **Related Asset Curation** → `12-asset-opportunity-recommendation.md`
+- §9 **News / Event Intelligence** → `15-news-event-information-gain.md`
+- §10 **Truth Class 분리** → `02-truth-provenance-pit.md`
+- §11 **Logical Graphs — 하나의 Hairball을 만들지 않는다** → `03-entity-world-ontology.md`
+- §12 **Entity / Identity Ontology** → `03-entity-world-ontology.md`
+- §13 **Source, Provenance, Rights** → `02-truth-provenance-pit.md`
+- §14 **Assertion / Numeric Fact** → `02-truth-provenance-pit.md`
+- §15 **Event & Reified Relationship** → `03-entity-world-ontology.md`
+- §16 **Relation Ledger** → `03-entity-world-ontology.md`
+- §17 **Coverage Ledger** → `02-truth-provenance-pit.md`
+- §18 **Conflict / Supersession** → `02-truth-provenance-pit.md`
+- §19 **Four-Time / PIT Model** → `02-truth-provenance-pit.md`
+- §20 **Expectation Ledger — 신규 핵심** → `05-event-expectation-surprise.md`
+- §21 **Priced-In State — 신규 핵심** → `05-event-expectation-surprise.md`
+- §22 **Peer Group & Relative Position — 신규 핵심** → `13-peer-ranking-company-deep-dive.md`
+- §23 **Entity Resource Registry — 신규 핵심** → `13-peer-ranking-company-deep-dive.md`
+- §24 **Narrative / Theme World Model — 신규 강화** → `10-theme-narrative-regime.md`
+- §25 **Outcome & Calibration Ledger — 신규 핵심** → `09-thesis-hypothesis-outcome.md`
+- §26 **Standard Impact Chain** → `07-exposure-impact-causal.md`
+- §27 **Exposure Model** → `07-exposure-impact-causal.md`
+- §28 **Supply / Production Network** → `07-exposure-impact-causal.md`
+- §29 **Analytics Method Router** → `07-exposure-impact-causal.md`
+- §30 **Market Regime Model** → `10-theme-narrative-regime.md`
+- §31 **Historical Analog Engine** → `09-thesis-hypothesis-outcome.md`
+- §32 **Forecast & Scenario** → `09-thesis-hypothesis-outcome.md`
+- §33 **Theme Strength Model** → `10-theme-narrative-regime.md`
+- §34 **Theme Detection** → `10-theme-narrative-regime.md`
+- §35 **Common Asset View** → `12-asset-opportunity-recommendation.md`
+- §36 **Asset Opportunity Snapshot** → `12-asset-opportunity-recommendation.md`
+- §37 **Curation Delivery** → `12-asset-opportunity-recommendation.md`
+- §38 **Personalized Portfolio Action** → `18-personalization-plane.md`
+- §39 **Recommendation Evaluation** → `12-asset-opportunity-recommendation.md`
+- §40 **Geo Roles** → `17-geo-plane.md`
+- §41 **Spatial Impact** → `17-geo-plane.md`
+- §42 **코인을 주식 ontology에 억지로 넣지 않는다** → `19-crypto-world-model.md`
+- §43 **Crypto Graphs** → `19-crypto-world-model.md`
+- §44 **Crypto Resource Registry** → `19-crypto-world-model.md`
+- §45 **Data Source Families** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §46 **Source Independence** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §47 **PostgreSQL은 정본이지 모든 byte의 저장소가 아니다** → `21-storage-serving.md`
+- §48 **Table Explosion 방지 규칙 — 구현 관점 신규 보강** → `21-storage-serving.md`
+- §49 **Derivation DAG** → `21-storage-serving.md`
+- §50 **현재 가장 큰 운영 리스크: 조용한 실패** → `22-orchestration-reliability.md`
+- §51 **Silent Failure Detection** → `22-orchestration-reliability.md`
+- §52 **Publication Consistency — 신규 보강** → `21-storage-serving.md`
+- §53 **Outbox / Eventing** → `22-orchestration-reliability.md`
+- §54 **L6 재정의** → `21-storage-serving.md`
+- §55 **API Families** → `21-storage-serving.md`
+- §56 **Retrieval Router** → `24-retrieval-llm-graphml.md`
+- §57 **LLM 역할** → `24-retrieval-llm-graphml.md`
+- §58 **Graph ML** → `24-retrieval-llm-graphml.md`
+- §59 **Narrative / Event Memory Research Track** → `24-retrieval-llm-graphml.md`
+- §60 **User Privacy** → `23-security-privacy-compliance.md`
+- §61 **Recommendation Compliance Plane** → `23-security-privacy-compliance.md`
+- §62 **External Link Safety** → `23-security-privacy-compliance.md`
+- §63 **Truth Gates** → `25-evaluation-adversarial-gates.md`
+- §64 **Expectation Gates** → `25-evaluation-adversarial-gates.md`
+- §65 **Theme Gates** → `25-evaluation-adversarial-gates.md`
+- §66 **Recommendation Gates** → `25-evaluation-adversarial-gates.md`
+- §67 **Peer Rank Gates** → `25-evaluation-adversarial-gates.md`
+- §68 **Outcome / Calibration Gates** → `25-evaluation-adversarial-gates.md`
+- §69 **Operational Gates** → `25-evaluation-adversarial-gates.md`
+- §70 **구현하면서 높은 확률로 만날 문제** → `28-implementation-risks-guardrails.md`
+- §71 **Schema Evolution Rule** → `28-implementation-risks-guardrails.md`
+- §72 **P0 — Reliability & Current Contract Closure** → `26-roadmap.md`
+- §73 **P1 — Truth Infrastructure + Expectation + Identity Enrichment** → `26-roadmap.md`
+- §74 **P2 — Exposure + Theme + Outcome Intelligence** → `26-roadmap.md`
+- §75 **P3 — Market Intelligence Product** → `26-roadmap.md`
+- §76 **P4 — Personalized Decision Support** → `26-roadmap.md`
+- §77 **P5 — Experimental ML Shadow** → `26-roadmap.md`
+- §78 **P6 — Crypto Vertical** → `26-roadmap.md`
+- §79 **Scenario A — 반도체 수출통제** → `27-acceptance-scenarios.md`
+- §80 **Scenario B — “AI 전력 인프라” 테마가 새로 강해진다** → `27-acceptance-scenarios.md`
+- §81 **Scenario C — 사용자가 모르는 종목 클릭** → `27-acceptance-scenarios.md`
+- §82 **Scenario D — 일반 추천** → `27-acceptance-scenarios.md`
+- §83 **Scenario E — 개인 보유 종목** → `27-acceptance-scenarios.md`
+- §84 **금지 목록** → `28-implementation-risks-guardrails.md`
+- §85 **플랫폼 성공 지표** → `00-product-north-star.md`
+- §86 **Catalyst Calendar — 미래지향 제품에 필요한 1급 객체** → `05-event-expectation-surprise.md`
+- §87 **Company / Protocol Profile Snapshot** → `13-peer-ranking-company-deep-dive.md`
+- §88 **Asset Comparison Engine** → `13-peer-ranking-company-deep-dive.md`
+- §89 **기본 원칙: 현재 강한 원장은 갈아엎지 않는다** → `26-roadmap.md`
+- §90 **현재 객체별 전환 방향** → `26-roadmap.md`
+- §91 **신규 객체의 Shadow Migration 순서** → `26-roadmap.md`
+- §92 **물리 Migration 안전 규칙** → `26-roadmap.md`
+- §93 **Sector Intelligence & Analyst Playbook Registry** → `04-sector-playbook-kpi-ontology.md`
+- §94 **Company Economic Model — Business Driver / Unit Economics Graph** → `06-business-driver-financial-bridge.md`
+- §95 **Financial Statement Bridge & Sector KPI Ontology** → `06-business-driver-financial-bridge.md`
+- §96 **Valuation & Implied Expectation Engine** → `08-valuation-market-implied.md`
+- §97 **Common Investment Thesis & Competing Hypothesis Ledger** → `09-thesis-hypothesis-outcome.md`
+- §98 **Market-Move Attribution & Unexplained Move Ledger** → `11-market-reaction-reverse-discovery.md`
+- §99 **Reverse Discovery / Anomaly-to-Evidence Pipeline** → `11-market-reaction-reverse-discovery.md`
+- §100 **Information Gain / Novelty as a First-Class Object** → `15-news-event-information-gain.md`
+- §101 **User Attention Budget & Editorial Set Optimization** → `15-news-event-information-gain.md`
+- §102 **Active Research / Evidence Gap Planner** → `16-active-research-source-utility.md`
+- §103 **Data Acquisition Portfolio — 무엇을 수집할지도 투자 문제다** → `16-active-research-source-utility.md`
+- §104 **Dynamic Source Reliability & Source Utility Memory** → `16-active-research-source-utility.md`
+- §105 **Knowledge Decay / Half-Life Policy** → `16-active-research-source-utility.md`
+- §106 **Market-Implied State & Positioning Plane** → `08-valuation-market-implied.md`
+- §107 **Market Microstructure & Tradability State** → `11-market-reaction-reverse-discovery.md`
+- §108 **Reflexivity / Endogenous Feedback Graph** → `11-market-reaction-reverse-discovery.md`
+- §109 **Capital Cycle & Claim-Supply Model** → `06-business-driver-financial-bridge.md`
+- §110 **Management, Governance & Capital Allocation Track Record** → `06-business-driver-financial-bridge.md`
+- §111 **Accounting Quality & Financial Forensics Layer** → `06-business-driver-financial-bridge.md`
+- §112 **Impact Graph Aggregation — Path Double Counting 방지** → `07-exposure-impact-causal.md`
+- §113 **Multi-Horizon Thesis Surface** → `09-thesis-hypothesis-outcome.md`
+- §114 **Model Council, Disagreement & Out-of-Domain Detection** → `24-retrieval-llm-graphml.md`
+- §115 **Information Fidelity Gate — 요약이 결론을 바꾸지 않는가** → `15-news-event-information-gain.md`
+- §116 **Progressive Disclosure & Learning Graph** → `00-product-north-star.md`
+- §117 **Natural-Language Screener / Thesis-to-Query Compiler** → `12-asset-opportunity-recommendation.md`
+- §118 **Recommendation = Relative Choice over an Opportunity Set** → `12-asset-opportunity-recommendation.md`
+- §119 **Coverage & Popularity Bias Correction** → `12-asset-opportunity-recommendation.md`
+- §120 **Crypto Venue Integrity & Manipulation-Risk Plane** → `19-crypto-world-model.md`
+- §121 **Adversarial Evaluation & Anti-Shortcut Tests** → `25-evaluation-adversarial-gates.md`
+- §122 **Research Quality Benchmark for the Product Itself** → `25-evaluation-adversarial-gates.md`
+- §123 **2차 검토에서 발견한 구현상 위험** → `28-implementation-risks-guardrails.md`
+- §124 **S0 — 추천/전문 분석 전에 반드시 필요한 것** → `26-roadmap.md`
+- §125 **S1 — 제품 차별화를 크게 만드는 것** → `26-roadmap.md`
+- §126 **S2 — 데이터가 쌓이면 강력해지는 것** → `26-roadmap.md`
+- §127 **S3 — Shadow Research Only** → `26-roadmap.md`
+- §128 **Updated Phase Mapping** → `26-roadmap.md`
+- §129 **Scenario F — 원인을 모르는 급등** → `27-acceptance-scenarios.md`
+- §130 **Scenario G — 사용자가 처음 보는 은행주** → `27-acceptance-scenarios.md`
+- §131 **Scenario H — 실적은 좋은데 주가가 하락** → `27-acceptance-scenarios.md`
+- §132 **Scenario I — 같은 테마 두 종목 중 무엇을 볼까** → `27-acceptance-scenarios.md`
+- §133 **지금 시스템에서 반드시 유지해야 하는 것** → `reference/historical-rationale.md`
+- §134 **2차 검토 후 가장 중요한 보강 순위** → `reference/historical-rationale.md`
+- §135 **2차 당시 제품 사고 사슬 — Historical** → `reference/historical-rationale.md`
+- §136 **2차 당시 제품 정의 — Historical** → `reference/historical-rationale.md`
+- §137 **목적과 테스트 방법** → `27-acceptance-scenarios.md`
+- §138 **Scenario J — 복합 반도체/AI 플랫폼 기업** → `27-acceptance-scenarios.md`
+- §139 **Scenario K — 은행/금융기관** → `27-acceptance-scenarios.md`
+- §140 **Scenario L — 임상단계 바이오텍** → `27-acceptance-scenarios.md`
+- §141 **Scenario M — 원자재 생산기업** → `27-acceptance-scenarios.md`
+- §142 **Scenario N — ETH형 스마트컨트랙트 네트워크와 토큰** → `27-acceptance-scenarios.md`
+- §143 **Metric Definition & Comparability Registry — 추천/랭킹 전에 필수** → `04-sector-playbook-kpi-ontology.md`
+- §144 **Capital Structure & Economic Claim Graph** → `03-entity-world-ontology.md`
+- §145 **Generic State Snapshot + Schedule / Maturity Model** → `03-entity-world-ontology.md`
+- §146 **Domain Adapter Architecture — 범용 모델과 도메인 특수성을 동시에 유지** → `04-sector-playbook-kpi-ontology.md`
+- §147 **“이 종목 어때?”를 위한 Typed Research Query Plane** → `12-asset-opportunity-recommendation.md`
+- §148 **Recommendation Candidate & Rejection Ledger** → `12-asset-opportunity-recommendation.md`
+- §149 **Peer Ranking의 “순위 불가” 상태** → `12-asset-opportunity-recommendation.md`
+- §150 **Definition Drift / Segment Drift Ledger** → `04-sector-playbook-kpi-ontology.md`
+- §151 **Cross-Asset Contagion & Underlying Exposure DAG** → `07-exposure-impact-causal.md`
+- §152 **Expectation Source Availability & Licensing Fallback** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §153 **Research Coverage Contract per Asset/Domain** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §154 **S0 신규 위험 — 데이터는 있는데 서로 비교할 수 없음** → `28-implementation-risks-guardrails.md`
+- §155 **S0 신규 위험 — Company 분석과 Investable Claim 분석 혼동** → `28-implementation-risks-guardrails.md`
+- §156 **S0 신규 위험 — 도메인별 중요한 상태를 JSONB에 숨김** → `28-implementation-risks-guardrails.md`
+- §157 **S1 신규 위험 — 추천 universe coverage가 불균형** → `28-implementation-risks-guardrails.md`
+- §158 **S1 신규 위험 — Domain Adapter 버전 불일치** → `28-implementation-risks-guardrails.md`
+- §159 **S1 신규 위험 — Deep Query가 product truth를 우회** → `28-implementation-risks-guardrails.md`
+- §160 **S1 신규 위험 — 과도한 domain schema explosion** → `28-implementation-risks-guardrails.md`
+- §161 **새 S0 — 추천을 열기 전에 추가로 완료할 것** → `26-roadmap.md`
+- §162 **Domain별 선행 구현 순서** → `26-roadmap.md`
+- §163 **Updated Phase Mapping — 3차** → `26-roadmap.md`
+- §164 **Scenario J Acceptance — 반도체** → `27-acceptance-scenarios.md`
+- §165 **Scenario K Acceptance — 은행** → `27-acceptance-scenarios.md`
+- §166 **Scenario L Acceptance — 바이오** → `27-acceptance-scenarios.md`
+- §167 **Scenario M Acceptance — 원자재** → `27-acceptance-scenarios.md`
+- §168 **Scenario N Acceptance — ETH형 자산** → `27-acceptance-scenarios.md`
+- §169 **이번 테스트로 바뀐 핵심 결론** → `reference/historical-rationale.md`
+- §170 **구현 시작 전 S0 Checklist — 3차 당시 기준** → `reference/historical-rationale.md`
+- §171 **3차 이후 권장 다음 작업** → `reference/historical-rationale.md`
+- §172 **목적: 이제 설계를 옳다고 가정하지 않는다** → `28-implementation-risks-guardrails.md`
+- §173 **Red-Team 요약 판정** → `25-evaluation-adversarial-gates.md`
+- §174 **Ex-Ante / Ex-Post Contamination Firewall** → `02-truth-provenance-pit.md`
+- §175 **Temporal Query Kernel — PIT를 개발자 규율에서 시스템 규율로** → `02-truth-provenance-pit.md`
+- §176 **Evidence Independence Graph — 기사 독립성과 정보 독립성은 다르다** → `02-truth-provenance-pit.md`
+- §177 **Model Genealogy — Model Council의 가짜 합의를 막는다** → `02-truth-provenance-pit.md`
+- §178 **Economic Invariants & Stock-Flow Consistency Engine** → `02-truth-provenance-pit.md`
+- §179 **Actionability Clock — 알게 된 시각과 행동 가능한 시각은 다르다** → `02-truth-provenance-pit.md`
+- §180 **Economic Continuity & Corporate-Action Bridge** → `02-truth-provenance-pit.md`
+- §181 **Semantic Snapshot & Dependency Invalidation** → `02-truth-provenance-pit.md`
+- §182 **Recommendation Counterfactual Ledger — 선택한 종목만 평가하지 않는다** → `12-asset-opportunity-recommendation.md`
+- §183 **Theme Constitution & Hindsight Firewall** → `10-theme-narrative-regime.md`
+- §184 **Global Product Safety State — 추천을 멈출 수 있어야 한다** → `22-orchestration-reliability.md`
+- §185 **Disclosure Regime & Informative Missingness** → `02-truth-provenance-pit.md`
+- §186 **Rights Transformation Graph — 원문 권리와 파생물 권리는 다를 수 있다** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §187 **Human Adjudication Ledger — 사람이 고쳐도 역사가 남아야 한다** → `02-truth-provenance-pit.md`
+- §188 **Recommendation Audience Capacity & Self-Impact Gate** → `12-asset-opportunity-recommendation.md`
+- §189 **Cross-Instrument Consistency / No-Arbitrage Observation Plane** → `11-market-reaction-reverse-discovery.md`
+- §190 **Multi-Objective Ranking — 종합점수의 거짓 정밀도 줄이기** → `12-asset-opportunity-recommendation.md`
+- §191 **Semantic Derivation Type System & Cycle Gate** → `02-truth-provenance-pit.md`
+- §192 **Analysis Protocol Registry — 연구자 자유도와 p-hacking 방지** → `07-exposure-impact-causal.md`
+- §193 **Information Attack / Data-Poisoning Episode** → `23-security-privacy-compliance.md`
+- §194 **Fault-Containment & Graceful-Degradation Matrix** → `22-orchestration-reliability.md`
+- §195 **Scenario O — 장마감 후 실적, 사후 기사 누수** → `27-acceptance-scenarios.md`
+- §196 **Scenario P — Spin-Off + Special Dividend + Ticker Change** → `27-acceptance-scenarios.md`
+- §197 **Scenario Q — 반복 공개 KPI가 갑자기 사라짐** → `27-acceptance-scenarios.md`
+- §198 **Scenario R — Meme / Short Squeeze, 펀더멘털 설명 불가** → `27-acceptance-scenarios.md`
+- §199 **Scenario S — 사후에 만들어진 테마** → `27-acceptance-scenarios.md`
+- §200 **Scenario T — 가짜 뉴스가 여러 매체에 복제** → `27-acceptance-scenarios.md`
+- §201 **Scenario U — 저유동성 소형주가 모델 1위** → `27-acceptance-scenarios.md`
+- §202 **Scenario V — Model Council 5개가 모두 같은 결론** → `27-acceptance-scenarios.md`
+- §203 **Scenario W — Stablecoin Depeg + 거래소 장애 + 체인 상태 불확실** → `27-acceptance-scenarios.md`
+- §204 **Scenario X — 경제적으로 같은 claim의 가격이 다름** → `27-acceptance-scenarios.md`
+- §205 **KEEP — 현재 설계의 핵심 자산** → `25-evaluation-adversarial-gates.md`
+- §206 **MODIFY — 의미는 맞지만 강제 계약을 높인다** → `25-evaluation-adversarial-gates.md`
+- §207 **MERGE — Architecture Inflation 억제** → `25-evaluation-adversarial-gates.md`
+- §208 **DELETE / 금지 강화** → `25-evaluation-adversarial-gates.md`
+- §209 **DEFER — 지금 canonical 구현에서 밀어낼 것** → `25-evaluation-adversarial-gates.md`
+- §210 **Semantic Type System** → `02-truth-provenance-pit.md`
+- §211 **Investment Analysis Intermediate Representation — 구현자용 공통 IR** → `02-truth-provenance-pit.md`
+- §212 **Common Asset View V2 내부 계약 강화** → `12-asset-opportunity-recommendation.md`
+- §213 **Recommendation Safety Contract** → `12-asset-opportunity-recommendation.md`
+- §214 **Recommendation 평가의 정본 지표** → `25-evaluation-adversarial-gates.md`
+- §215 **Golden Fixture Family** → `27-acceptance-scenarios.md`
+- §216 **Property-Based / Metamorphic Tests** → `27-acceptance-scenarios.md`
+- §217 **최근 연구에서 가져온 경고** → `reference/research-and-source-anchors.md`
+- §218 **과설계 방지를 위한 최종 12 Family** → `01-system-overview.md`
+- §219 **최종 Canonical 사고 사슬 — 4차 기준** → `01-system-overview.md`
+- §220 **4차 기준 구현 시작 전 S0 Checklist** → `01-system-overview.md`
+- §221 **4차 Red-Team 최종 판단** → `01-system-overview.md`
+- §222 **이제 다음 작업 — 구현 명세로 좁힌다** → `26-roadmap.md`
+- §223 **목적** → `28-implementation-risks-guardrails.md`
+- §224 **가장 위험한 구현 오해 8개** → `28-implementation-risks-guardrails.md`
+- §225 **As-Built 위 최소 Overlay 순서** → `26-roadmap.md`
+- §226 **Go / No-Go Gate — 사용자 추천 기능을 열기 위한 최소 조건** → `12-asset-opportunity-recommendation.md`
+- §227 **이제 만들어야 할 문서/명세** → `26-roadmap.md`
+- §228 **4차 작업 종료 기준** → `26-roadmap.md`
+- §229 **목적 — 좋은 추론 엔진보다 먼저 좋은 정보집합을 만든다** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §230 **Data Acquisition Plane의 논리 구조** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §231 **Source Authority Class — 출처의 종류를 먼저 분리한다** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §232 **Source Contract V2 — 모든 API·크롤러가 가져야 할 계약** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §233 **PIT Reconstructability Class — 과거를 재현할 수 있는 정도** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §234 **Source Acquisition Value — 무엇부터 붙일지 계산한다** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §235 **우선순위 정의** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §236 **S0 — 기업·증권·공시 Truth Backbone** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §237 **S0 — Company Official Web Intelligence Crawler** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §238 **S0 — Expectation / Consensus Data Strategy** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §239 **S0 — Macro / Rates / Release Vintage** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §240 **S0 — Regulation / Law / Sanctions / Trade Controls** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §241 **S0/S1 — Legal Entity / Ownership / Corporate Hierarchy** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §242 **S0/S1 — Supply Chain / Trade / Production Network** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §243 **S1 — Government Procurement / Contract Demand** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §244 **S1 — Market Microstructure / Positioning / Derivatives** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §245 **S1 — Credit / Funding / Capital Structure Signals** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §246 **S1 — Domain Adapter Source Packs** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §247 **S1/S2 — Geo / Physical World / Disaster Intelligence** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §248 **S0/S1 — Crypto Source Stack은 Aggregator보다 Raw Truth를 아래에 둔다** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §249 **S1 — News / Event Discovery Portfolio** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §250 **S2 — Alternative Data는 “먼저 많이”가 아니라 “질문이 있을 때” 붙인다** → `20-data-sources-rights/20-01-source-catalog-v1.md`
+- §251 **Coverage는 문서 수가 아니라 “질문을 답할 수 있는 정도”다** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §252 **Source Coverage Matrix — 객체별 최소 source bundle** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §253 **Coverage-Aware Recommendation Gate** → `12-asset-opportunity-recommendation.md`
+- §254 **Information Gain Budget — 홈 화면을 source volume으로 채우지 않는다** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §255 **Connector는 공통 상태기계를 사용한다** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §256 **Schema Drift Detector** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §257 **Incremental Fetch Contract** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §258 **Raw Capture Envelope** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §259 **Web Crawl Security** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §260 **Rights & Redisplay Matrix** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §261 **Source Independence Graph** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §262 **Source Redundancy는 Independence와 반대 개념이 아니다** → `20-data-sources-rights/20-02-source-coverage-rights-independence.md`
+- §263 **어떤 데이터에는 돈을 쓰는 것이 합리적이다** → `20-data-sources-rights/20-04-paid-data-trial-plan.md`
+- §264 **Vendor Trial은 Shadow Source로 시작한다** → `20-data-sources-rights/20-04-paid-data-trial-plan.md`
+- §265 **P0 — 현재 source inventory부터 측정한다** → `20-data-sources-rights/20-05-source-rollout-roadmap.md`
+- §266 **P1 — 무료/공식 S0 확장** → `20-data-sources-rights/20-05-source-rollout-roadmap.md`
+- §267 **P2 — Domain S0 확장** → `20-data-sources-rights/20-05-source-rollout-roadmap.md`
+- §268 **P3 — Expectation / Options Commercial Trial** → `20-data-sources-rights/20-05-source-rollout-roadmap.md`
+- §269 **P4 — Alternative Data는 Evidence Gap Driven으로만** → `20-data-sources-rights/20-05-source-rollout-roadmap.md`
+- §270 **Source Onboarding Gate** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §271 **Machine Gates 추가** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §272 **Source SLO는 `job success`보다 의미 있는 결과를 본다** → `20-data-sources-rights/20-03-connector-crawler-contract.md`
+- §273 **실패 시나리오 A — 뉴스 source를 20개 추가했는데 아무것도 좋아지지 않음** → `27-acceptance-scenarios.md`
+- §274 **실패 시나리오 B — 유료 consensus를 붙였는데 history가 current snapshot으로 덮임** → `27-acceptance-scenarios.md`
+- §275 **실패 시나리오 C — 회사 홈페이지 크롤러가 페이지 변경을 호재로 오인** → `27-acceptance-scenarios.md`
+- §276 **실패 시나리오 D — 정부계약 ceiling을 매출로 계산** → `27-acceptance-scenarios.md`
+- §277 **실패 시나리오 E — FAERS 신고건수 급증을 약물 부작용률 증가로 단정** → `27-acceptance-scenarios.md`
+- §278 **실패 시나리오 F — raw chain과 aggregator 수치가 다름** → `27-acceptance-scenarios.md`
+- §279 **실패 시나리오 G — API 약관이 바뀌었는데 계속 재표시** → `27-acceptance-scenarios.md`
+- §280 **실패 시나리오 H — source outage 때문에 분석 전체가 중단** → `27-acceptance-scenarios.md`
+- §281 **5차 이후 설계 충분성 평가** → `00-product-north-star.md`
+- §282 **5차 이후 Source 우선순위 최종 요약** → `20-data-sources-rights/20-00-acquisition-architecture.md`
+- §283 **이제 Master Design에 더 넣지 말고 분리할 Source 문서** → `26-roadmap.md`
+- §284 **5차 Source Expansion 종료 판정** → `26-roadmap.md`

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SourceContract",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sourceId",
+    "authorityClass",
+    "accessMode",
+    "pitClass",
+    "rights",
+    "cadence",
+    "coverageFamilies"
+  ],
+  "properties": {
+    "sourceId": {
+      "type": "string"
+    },
+    "authorityClass": {
+      "type": "string"
+    },
+    "accessMode": {
+      "enum": [
+        "API",
+        "BULK",
+        "RSS",
+        "CRAWL",
+        "RPC",
+        "LICENSED_FEED",
+        "FILE"
+      ]
+    },
+    "pitClass": {
+      "enum": [
+        "PIT_A_NATIVE_VINTAGE",
+        "PIT_B_VERSIONED_ARTIFACT",
+        "PIT_C_OUR_ARCHIVE",
+        "PIT_D_LATEST_ONLY",
+        "PIT_E_UNKNOWN"
+      ]
+    },
+    "cadence": {
+      "type": "string"
+    },
+    "coverageFamilies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rights": {
+      "type": "object",
+      "required": [
+        "canFetch",
+        "canStoreRaw",
+        "canExtractFacts",
+        "canRedisplay"
+      ],
+      "properties": {
+        "canFetch": {
+          "type": "boolean"
+        },
+        "canStoreRaw": {
+          "type": "boolean"
+        },
+        "canExtractFacts": {
+          "type": "boolean"
+        },
+        "canRedisplay": {
+          "type": "boolean"
+        },
+        "canTrainOrEvaluate": {
+          "type": "boolean"
+        },
+        "canShowFullText": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

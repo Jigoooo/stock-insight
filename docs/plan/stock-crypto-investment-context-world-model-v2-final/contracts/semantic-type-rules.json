@@ -1,0 +1,104 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "allowed_direction": [
+    [
+      "SOURCE",
+      "ASSERTION"
+    ],
+    [
+      "ASSERTION",
+      "FACT"
+    ],
+    [
+      "ASSERTION",
+      "EVENT"
+    ],
+    [
+      "FACT",
+      "EXPOSURE"
+    ],
+    [
+      "EVENT",
+      "EXPOSURE"
+    ],
+    [
+      "RELATION",
+      "EXPOSURE"
+    ],
+    [
+      "EXPOSURE",
+      "STATISTICAL_ESTIMATE"
+    ],
+    [
+      "EXPOSURE",
+      "CAUSAL_ESTIMATE"
+    ],
+    [
+      "FACT",
+      "STATISTICAL_ESTIMATE"
+    ],
+    [
+      "FACT",
+      "FORECAST"
+    ],
+    [
+      "EVENT",
+      "FORECAST"
+    ],
+    [
+      "STATISTICAL_ESTIMATE",
+      "FORECAST"
+    ],
+    [
+      "CAUSAL_ESTIMATE",
+      "FORECAST"
+    ],
+    [
+      "FORECAST",
+      "RECOMMENDATION"
+    ],
+    [
+      "FACT",
+      "RECOMMENDATION"
+    ],
+    [
+      "EXPOSURE",
+      "RECOMMENDATION"
+    ],
+    [
+      "RECOMMENDATION",
+      "PERSONAL_DECISION"
+    ],
+    [
+      "FORECAST",
+      "OUTCOME"
+    ],
+    [
+      "RECOMMENDATION",
+      "OUTCOME"
+    ]
+  ],
+  "forbidden": [
+    {
+      "from": "RECOMMENDATION",
+      "to": "FACT",
+      "reason": "decision output cannot become truth evidence"
+    },
+    {
+      "from": "PERSONAL_DECISION",
+      "to": "FACT",
+      "reason": "private action cannot mutate common truth"
+    },
+    {
+      "from": "FORECAST",
+      "to": "ASSERTION",
+      "reason": "forecast cannot overwrite historical assertion"
+    },
+    {
+      "from": "NARRATIVE",
+      "to": "FACT",
+      "reason": "attention is not economic truth"
+    }
+  ],
+  "acyclic": true
+}

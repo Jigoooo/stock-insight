@@ -1,5 +1,24 @@
 # Stock Insight — V2 고도화 마스터 로드맵 (100% 구현 목표)
 
+> # ⛔ SUPERSEDED — 2026-08-07
+>
+> **아래의 "정본 선언"은 더 이상 유효하지 않다.**
+> 실행 순서·출시 범위·전환 절차의 정본은
+> `docs/plan/stock-crypto-investment-context-world-model-v2-final/canonical/11-delivery-launch-freeze.md` 다.
+>
+> | 이 문서의 것 | 대체한 정본 |
+> | --- | --- |
+> | P0~P6 Phase 계획 | `canonical/11` §1 구현 dependency order (A~I) |
+> | "100%" 정의 | `canonical/11` §2 Launch Slice MUST / §3 SHADOW / §4 DEFER |
+> | Machine Gates 원장 | `contracts/requirement-index.json` (56개 `REQ-*`) |
+> | 금지 목록 | `canonical/06` §9 NO-GO · `canonical/00` §3 semantic type 금지 |
+>
+> 이 문서가 통합했다고 선언한 3개 문서 중 둘(`e2e-layers.md`,
+> `v2-enhancement-plan.md`)도 함께 대체됐다.
+>
+> **이력 확인용으로만 읽어라.** 현재 실행 계획은
+> `docs/plan/v2-final-implementation-plan-2026-08-07.md`.
+
 > **정본 선언**: 본 문서는 아래 3개 문서를 통합한 **유일한 실행 로드맵 정본**이다. 진행 상태 질문("어디까지 왔나")의 답은 이 문서 하나다.
 >
 > 1. `docs/architecture/stock-crypto-insight-platform-architecture.md` — 플랫폼 기준선 (Phase 0~5)

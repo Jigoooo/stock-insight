@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReleaseManifest",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "releaseId",
+    "semanticSnapshotId",
+    "builtAt",
+    "components",
+    "safetyState"
+  ],
+  "properties": {
+    "releaseId": {
+      "type": "string"
+    },
+    "semanticSnapshotId": {
+      "type": "string"
+    },
+    "builtAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "safetyState": {
+      "enum": [
+        "NORMAL",
+        "CAUTION",
+        "INFORMATION_ONLY",
+        "HALTED"
+      ]
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "snapshotId",
+          "digest",
+          "freshUntil"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "snapshotId": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "freshUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

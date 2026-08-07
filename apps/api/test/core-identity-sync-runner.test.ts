@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all twelve stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all thirteen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -209,6 +209,12 @@ test('analytics runs all twelve stages in order with an adjacent receipt per com
     // the same reason — depends on nothing, order-independent — but unlike it this
     // one throws, so a violation fails the run instead of landing in a summary.
     ['run-source-contract-audit.ts', 'stock-insight-source-contract-audit-stage'],
+    // Added 2026-08-08 (K1): REQ-PIT-003, now() must not be a business cutoff.
+    // Same placement logic again — depends on nothing and is order-independent —
+    // and like the source contract audit it throws rather than reporting a gauge.
+    // It is the only stage here that reads no database at all: the defect lives
+    // in SQL text, not in a row.
+    ['run-pit-now-audit.ts', 'stock-insight-pit-now-audit-stage'],
     ['run-outbox-delivery.ts', 'stock-insight-outbox-delivery-stage'],
   ] as const;
   const stageLines = lines.filter((line) => /node apps\/api\/src\/.+\.ts/.test(line));
