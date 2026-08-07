@@ -20,121 +20,75 @@ function extractCssBlock(source: string, marker: string): string {
   throw new Error(`${marker} block must close`);
 }
 
-describe('P3-WC market overview UI structure', () => {
-  it('connects RadarView to the eight-mode market overview owner', async () => {
-    const [radar, overview] = await Promise.all([
-      read('views/radar-view.tsx'),
-      read('market-overview-panel.tsx'),
+describe('market secondary exploration UI structure', () => {
+  it('owns one four-option local toggle with factor map as the default', async () => {
+    const exploration = await read('market-exploration.tsx');
+    assert.match(exploration, /useState<MarketExplorationId>\(MARKET_EXPLORATION_IDS\[0\]\)/);
+    assert.match(exploration, /<ToggleGroup/);
+    assert.match(exploration, /aria-label="시장 보조 탐색 선택"/);
+    assert.match(exploration, /items=\{overview\.explorations\.map/);
+    assert.doesNotMatch(exploration, /localStorage|sessionStorage/);
+    assert.doesNotMatch(exploration, /event_radar|heatmap_matrix/);
+  });
+
+  it('renders heatmap rows inside the factor comparison table', async () => {
+    const exploration = await read('market-exploration.tsx');
+    assert.match(exploration, /mode\.id === 'factor_map'/);
+    assert.match(exploration, /overview\.signalTypeGroups\.map/);
+    assert.match(exploration, /caption="종목별 시장 신호 강도와 관심·보유 연결 상태"/);
+    assert.match(exploration, /data-testid="market-heatmap-row"/);
+    assert.match(exploration, /containerProps=\{\{ className: styles\.marketTableWrap \}\}/);
+  });
+
+  it('renders propagation, timeline and Geo snapshot from retained source data', async () => {
+    const exploration = await read('market-exploration.tsx');
+    assert.match(exploration, /overview\.propagationItems\.map/);
+    assert.match(exploration, /data-testid="market-propagation-group"/);
+    assert.match(exploration, /<StructuredList className=\{styles\.marketTimeline\}/);
+    assert.match(exploration, /data-testid="market-timeline-row"/);
+    assert.match(exploration, /<GeoMarketMap snapshot=\{geoSnapshot\}/);
+  });
+
+  it('announces each active component state, row count and as-of time', async () => {
+    const exploration = await read('market-exploration.tsx');
+    assert.match(exploration, /resolveMarketExplorationState/);
+    assert.match(exploration, /data-testid="market-component-watermark"/);
+    assert.match(exploration, /data-component-availability=\{componentState\.availability\}/);
+    assert.match(exploration, /componentState\.watermarkAt/);
+    assert.match(exploration, /componentState\.rowCount/);
+    assert.match(exploration, /갱신 지연/);
+    assert.match(exploration, /kind="partial"/);
+    assert.match(exploration, /kind="error"/);
+    assert.match(exploration, /kind="unavailable"/);
+  });
+
+  it('keeps aggregates, heatmap cells and map markers read-only', async () => {
+    const [exploration, map] = await Promise.all([
+      read('market-exploration.tsx'),
+      read('geo-market-map.tsx'),
     ]);
-    assert.match(radar, /MarketOverviewPanel/);
-    assert.match(radar, /<MarketOverviewPanel[\s\S]*data=\{data\}/);
-    assert.match(radar, /marketConnectionLabel\(item\)/);
-    assert.doesNotMatch(radar, /item\.watched\s*\?/);
-    assert.match(overview, /MARKET_MODE_IDS/);
-    assert.match(overview, /buildMarketOverview\(data\.items, geoSnapshot\)/);
+    assert.match(exploration, /<article[\s\S]*?data-testid="market-factor-group"/);
+    assert.match(exploration, /<tr key=\{item\.signalKey\} data-testid="market-heatmap-row">/);
+    assert.doesNotMatch(map, /onSelectConnection|connectionKey/);
   });
 
-  it('uses a keyboard-addressable display toggle and a single labelled region', async () => {
-    const overview = await read('market-overview-panel.tsx');
-    assert.match(overview, /<ToggleGroup/);
-    assert.match(overview, /aria-label="시장 화면 선택"/);
-    assert.match(overview, /items=\{overview\.modes\.map/);
-    assert.match(overview, /value=\{activeMode\}/);
-    assert.match(overview, /onValueChange=\{onModeChange\}/);
-    assert.match(overview, /role="region"/);
-    assert.match(overview, /aria-label=\{`\$\{mode\.title\} 화면`\}/);
-    assert.doesNotMatch(overview, /role="tabpanel"|aria-selected=/);
+  it('only selects a timeline source item with an exact page-model key', async () => {
+    const exploration = await read('market-exploration.tsx');
+    assert.match(exploration, /connectionsByKey\.get\(item\.signalKey\)/);
+    assert.match(exploration, /connection \? \(/);
+    assert.match(exploration, /onSelectConnection\(connection, event\.currentTarget\)/);
+    assert.doesNotMatch(exploration, /connectionKey:\s*item\.signalKey/);
   });
 
-  it('announces the active component watermark without replacing the mode semantics', async () => {
-    const overview = await read('market-overview-panel.tsx');
-    assert.match(overview, /<output/);
-    assert.match(overview, /data-testid="market-component-watermark"/);
-    assert.match(overview, /data-component-availability=\{componentWatermark\.availability\}/);
-    assert.match(overview, /aria-live="polite"/);
-    assert.match(overview, /resolveMarketComponentWatermark/);
-  });
-
-  it('renders direct data with semantic table and timeline structures', async () => {
-    const [radar, overview] = await Promise.all([
-      read('views/radar-view.tsx'),
-      read('market-overview-panel.tsx'),
-    ]);
-    assert.match(overview, /<DataTable/);
-    assert.match(overview, /captionClassName=\{styles\.marketSrOnly\}/);
-    assert.match(overview, /<StructuredList className=\{styles\.marketTimeline\}/);
-    assert.match(radar, /<StructuredList className=\{styles\.ledger\}/);
-    assert.match(radar, /data-testid="radar-row"/);
-    assert.match(overview, /data-testid="market-heatmap-row"/);
-    assert.match(overview, /data-testid="market-timeline-row"/);
-  });
-
-  it('labels every production market-signal taxonomy without a generic collapse', async () => {
-    const presenters = await read('workspace-presenters.ts');
-    const labels = presenters.match(
-      /const signalTypeLabels: Record<string, string> = \{([\s\S]*?)\n\};/,
-    )?.[1];
-    assert.ok(labels, 'signalTypeLabels map must exist');
-    for (const signalType of [
-      'fundamental',
-      'insider_trade',
-      'analyst',
-      'sec_8k',
-      'price_mover',
-      'sentiment',
-      'short_volume',
-      'segment',
-      'market_news',
-      'earnings_event',
-      'attention_spike',
-      'gdelt_theme',
-      'policy_event',
-      'major_holder',
-      'policy_prob',
-      'valuation',
-      'growth',
-      'sec_filing',
-      'earnings_macro',
-      'price_stress',
-      'quake',
-      'dart_disclosure',
-      'macro_indicator',
-      'financial_conditions',
-      'volatility',
-    ]) {
-      assert.match(labels, new RegExp(`\\b${signalType}:`), `${signalType} label is required`);
-    }
-  });
-
-  it('keeps unavailable modes explicit instead of fabricating visual data', async () => {
-    const overview = await read('market-overview-panel.tsx');
-    assert.match(overview, /describeMarketModeState\(mode\)/);
-    assert.match(overview, /displayState\.kind !== 'content'/);
-    assert.match(overview, /<WorkspaceState/);
-    assert.match(overview, /description=\{displayState\.description\}/);
-    assert.match(overview, /data-display-state=\{displayState\.kind\}/);
-    assert.match(overview, /mode\.id === 'event_radar'/);
-    assert.match(overview, /data-testid="market-mode-footer"/);
-    assert.doesNotMatch(overview, /mock|placeholderData|Math\.random|dummy/i);
-  });
-
-  it('provides 44px mode targets, stable overflow and non-border-led grouping', async () => {
+  it('keeps stable overflow, 44px toggle targets and reduced motion', async () => {
     const css = await read('market-overview.module.css');
     assert.match(extractCssBlock(css, '.marketModeNav'), /overflow:\s*hidden/);
     const tab = extractCssBlock(css, ".marketModeNav [data-slot='toggle-group-item']");
     assert.match(tab, /min-height:\s*44px/);
-    assert.match(css, /\.marketModeOption > span\s*\{[\s\S]*?text-overflow:\s*ellipsis/);
-    assert.match(css, /\.marketModeOption > small\s*\{[\s\S]*?white-space:\s*nowrap/);
-    assert.doesNotMatch(css, /\[aria-selected='true'\]/);
-    assert.doesNotMatch(css, /\[data-slot='button-label'\]/);
     assert.match(extractCssBlock(css, '.marketModePanel'), /min-width:\s*0/);
-    const emptyBody = extractCssBlock(css, ".marketModeBody[data-display-state='empty']");
-    assert.match(emptyBody, /align-content:\s*center/);
-    assert.match(extractCssBlock(css, '.marketModeCard'), /box-shadow:\s*inset/);
+    assert.match(extractCssBlock(css, '.marketTableWrap'), /overflow-x:\s*auto/);
     const reducedMotion = extractCssBlock(css, '@media (prefers-reduced-motion: reduce)');
     const reducedStrength = extractCssBlock(reducedMotion, '.marketStrengthTrack > span');
     assert.match(reducedStrength, /animation:\s*none !important/);
-    assert.match(reducedStrength, /transform:\s*none !important/);
-    assert.match(reducedStrength, /opacity:\s*1 !important/);
   });
 });

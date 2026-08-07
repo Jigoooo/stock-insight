@@ -76,7 +76,7 @@ describe('Task 1 product shared UI adoption', () => {
 
   it('uses ToggleGroup for display modes and shared Button selection for stock rows', async () => {
     const [market, stocks, sections, marketCss, stockCss] = await Promise.all([
-      read('pages/research-workspace/ui/market-overview-panel.tsx'),
+      read('pages/research-workspace/ui/market-exploration.tsx'),
       read('pages/research-workspace/ui/views/stocks-view.tsx'),
       read('pages/research-workspace/ui/stock-briefing-sections.tsx'),
       read('pages/research-workspace/ui/market-overview.module.css'),

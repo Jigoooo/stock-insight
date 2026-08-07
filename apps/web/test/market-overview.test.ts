@@ -2,11 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  MARKET_MODE_IDS,
+  MARKET_EXPLORATION_IDS,
   buildMarketOverview,
-  describeMarketModeState,
-  marketConnectionLabel,
-  resolveMarketComponentWatermark,
+  resolveMarketExplorationState,
 } from '../src/pages/research-workspace/model/market-overview.ts';
 
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
@@ -63,46 +61,37 @@ const signals: RadarSignalItem[] = [
   },
 ];
 
-describe('P3-WC market overview model', () => {
-  it('exposes the eight canonical market screens in the roadmap order', () => {
-    assert.deepEqual(MARKET_MODE_IDS, [
-      'event_radar',
+const watermarks = {
+  event_radar: { availability: 'stale', watermarkAt: '2026-07-20T00:00:00.000Z', rowCount: 30 },
+  factor_map: { availability: 'partial', watermarkAt: '2026-07-21T00:00:00.000Z', rowCount: 3 },
+  propagation_map: {
+    availability: 'available',
+    watermarkAt: '2026-07-21T01:00:00.000Z',
+    rowCount: 2,
+  },
+  theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+  heatmap_matrix: {
+    availability: 'available',
+    watermarkAt: '2026-07-21T02:00:00.000Z',
+    rowCount: 99,
+  },
+  timeline: { availability: 'stale', watermarkAt: '2026-07-21T03:00:00.000Z', rowCount: 1 },
+  map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+  value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
+} satisfies MarketComponentWatermarks;
+
+describe('market secondary exploration model', () => {
+  it('exposes exactly four secondary explorations with factor map first', () => {
+    assert.deepEqual(MARKET_EXPLORATION_IDS, [
       'factor_map',
       'propagation_map',
-      'theme_community',
-      'heatmap_matrix',
       'timeline',
       'map_globe',
-      'value_chain',
     ]);
+    assert.equal(buildMarketOverview(signals).explorations[0]?.id, 'factor_map');
   });
 
-  it('marks direct, observational and unavailable modes truthfully', () => {
-    const overview = buildMarketOverview(signals);
-    assert.deepEqual(
-      overview.modes.map(({ id, availability, evidenceBasis }) => ({
-        id,
-        availability,
-        evidenceBasis,
-      })),
-      [
-        { id: 'event_radar', availability: 'available', evidenceBasis: 'direct' },
-        { id: 'factor_map', availability: 'partial', evidenceBasis: 'derived_observation' },
-        { id: 'propagation_map', availability: 'partial', evidenceBasis: 'derived_observation' },
-        { id: 'theme_community', availability: 'missing', evidenceBasis: 'unavailable' },
-        { id: 'heatmap_matrix', availability: 'available', evidenceBasis: 'direct' },
-        { id: 'timeline', availability: 'available', evidenceBasis: 'direct' },
-        { id: 'map_globe', availability: 'missing', evidenceBasis: 'unavailable' },
-        { id: 'value_chain', availability: 'missing', evidenceBasis: 'unavailable' },
-      ],
-    );
-    assert.equal(
-      overview.modes[2]?.limitation,
-      '동일 유형 관측 연결이며 전파 방향이나 인과관계를 뜻하지 않습니다.',
-    );
-  });
-
-  it('groups observed signal types without claiming factor coefficients or causality', () => {
+  it('retains the observed groups, heatmap rows, ordered propagation and chronology', () => {
     const overview = buildMarketOverview(signals);
     assert.deepEqual(overview.signalTypeGroups, [
       {
@@ -123,22 +112,20 @@ describe('P3-WC market overview model', () => {
         semantics: 'observed_association',
       },
     ]);
-  });
-
-  it('derives heatmap and timeline rows only from returned signal fields', () => {
-    const overview = buildMarketOverview(signals);
     assert.deepEqual(
-      overview.heatmapRows.map(({ signalKey, strengthPercent, watched, holding }) => ({
+      overview.heatmapRows.map(({ signalKey, strengthPercent }) => ({
         signalKey,
         strengthPercent,
-        watched,
-        holding,
       })),
       [
-        { signalKey: 'signal-1', strengthPercent: 90, watched: true, holding: false },
-        { signalKey: 'signal-2', strengthPercent: 70, watched: false, holding: true },
-        { signalKey: 'signal-3', strengthPercent: 50, watched: false, holding: false },
+        { signalKey: 'signal-1', strengthPercent: 90 },
+        { signalKey: 'signal-2', strengthPercent: 70 },
+        { signalKey: 'signal-3', strengthPercent: 50 },
       ],
+    );
+    assert.deepEqual(
+      overview.propagationItems.map(({ signalType }) => signalType),
+      ['price_spike', 'volume_spike'],
     );
     assert.deepEqual(
       overview.timelineItems.map(({ signalKey }) => signalKey),
@@ -146,95 +133,64 @@ describe('P3-WC market overview model', () => {
     );
   });
 
-  it('distinguishes supported empty results from unsupported sources', () => {
+  it('keeps empty derived collections honest', () => {
     const overview = buildMarketOverview([]);
-    assert.deepEqual(
-      overview.modes.map(({ id, availability }) => [id, availability]),
-      [
-        ['event_radar', 'empty'],
-        ['factor_map', 'empty'],
-        ['propagation_map', 'empty'],
-        ['theme_community', 'missing'],
-        ['heatmap_matrix', 'empty'],
-        ['timeline', 'empty'],
-        ['map_globe', 'missing'],
-        ['value_chain', 'missing'],
-      ],
-    );
     assert.deepEqual(overview.signalTypeGroups, []);
     assert.deepEqual(overview.heatmapRows, []);
+    assert.deepEqual(overview.propagationItems, []);
     assert.deepEqual(overview.timelineItems, []);
-    assert.deepEqual(describeMarketModeState(overview.modes[0]!), {
-      kind: 'empty',
-      title: '이벤트 레이더에 표시할 신호 없음',
-      description:
-        '현재 범위에서 관측된 시장 신호가 없습니다. 원천은 연결되어 있으며 새 신호가 들어오면 이 화면에 표시합니다.',
-    });
-    assert.deepEqual(describeMarketModeState(overview.modes[3]!), {
-      kind: 'missing',
-      title: '테마 커뮤니티 데이터 준비 중',
-      description: '현재 레이더 응답에 테마 구성원 원천이 연결되지 않았습니다.',
-    });
   });
 
-  it('derives the map mode from a sealed geo snapshot without promoting missing data', () => {
-    const snapshot = (availability: GeoSnapshot['availability'], featureCount: number) =>
-      ({
-        availability,
-        geojson: { features: Array.from({ length: featureCount }, () => ({})) },
-        rejected: { count: availability === 'partial' ? 1 : 0, reasons: [] },
-      }) as unknown as GeoSnapshot;
-
-    for (const [availability, featureCount, expected] of [
-      ['available', 1, 'available'],
-      ['partial', 1, 'partial'],
-      ['stale', 1, 'partial'],
-      ['empty', 0, 'empty'],
-      ['unavailable', 0, 'missing'],
-      ['error', 0, 'missing'],
-    ] as const) {
-      const overview = buildMarketOverview([], snapshot(availability, featureCount));
-      assert.equal(overview.modes[6]?.availability, expected);
-    }
-  });
-
-  it('uses API component clocks and lets the sealed Geo snapshot own the map clock', () => {
-    const watermarks = {
-      event_radar: { availability: 'stale', watermarkAt: '2026-07-20T00:00:00.000Z', rowCount: 3 },
-      factor_map: { availability: 'partial', watermarkAt: '2026-07-21T00:00:00.000Z', rowCount: 3 },
-      propagation_map: {
-        availability: 'partial',
-        watermarkAt: '2026-07-21T00:00:00.000Z',
-        rowCount: 3,
-      },
-      theme_community: { availability: 'missing', watermarkAt: null, rowCount: 0 },
-      heatmap_matrix: {
-        availability: 'available',
-        watermarkAt: '2026-07-21T00:00:00.000Z',
-        rowCount: 3,
-      },
-      timeline: { availability: 'available', watermarkAt: '2026-07-21T00:00:00.000Z', rowCount: 3 },
-      map_globe: { availability: 'missing', watermarkAt: null, rowCount: 0 },
-      value_chain: { availability: 'missing', watermarkAt: null, rowCount: 0 },
-    } satisfies MarketComponentWatermarks;
-    assert.equal(resolveMarketComponentWatermark('event_radar', watermarks).availability, 'stale');
-
-    const geoSnapshot = {
+  it('resolves each exploration from its own component clock', () => {
+    assert.deepEqual(resolveMarketExplorationState('factor_map', watermarks), {
       availability: 'partial',
-      sourceAsOf: '2026-07-21T03:00:00.000Z',
-      geojson: { features: [{}, {}] },
-    } as unknown as GeoSnapshot;
-    assert.deepEqual(resolveMarketComponentWatermark('map_globe', watermarks, geoSnapshot), {
-      availability: 'partial',
-      watermarkAt: '2026-07-21T03:00:00.000Z',
+      watermarkAt: '2026-07-21T00:00:00.000Z',
+      rowCount: 3,
+    });
+    assert.deepEqual(resolveMarketExplorationState('propagation_map', watermarks), {
+      availability: 'available',
+      watermarkAt: '2026-07-21T01:00:00.000Z',
       rowCount: 2,
     });
+    assert.deepEqual(resolveMarketExplorationState('timeline', watermarks), {
+      availability: 'stale',
+      watermarkAt: '2026-07-21T03:00:00.000Z',
+      rowCount: 1,
+    });
   });
 
-  it('preserves simultaneous holding and watchlist relationships', () => {
-    assert.equal(marketConnectionLabel({ watched: true, holding: true }), '보유 · 관심');
-    assert.equal(marketConnectionLabel({ watched: false, holding: true }), '보유');
-    assert.equal(marketConnectionLabel({ watched: true, holding: false }), '관심');
-    assert.equal(marketConnectionLabel({ watched: false, holding: false }), '일반');
+  it('lets the sealed Geo snapshot own only the map state', () => {
+    const geoSnapshot = {
+      availability: 'partial',
+      sourceAsOf: '2026-07-21T04:00:00.000Z',
+      geojson: { features: [{}, {}] },
+    } as unknown as GeoSnapshot;
+
+    assert.deepEqual(resolveMarketExplorationState('map_globe', watermarks, geoSnapshot), {
+      availability: 'partial',
+      watermarkAt: '2026-07-21T04:00:00.000Z',
+      rowCount: 2,
+    });
+    assert.equal(
+      resolveMarketExplorationState('factor_map', watermarks, geoSnapshot).watermarkAt,
+      '2026-07-21T00:00:00.000Z',
+    );
+  });
+
+  it('reports empty component clocks as missing without borrowing another clock', () => {
+    const emptyFactor = {
+      ...watermarks,
+      factor_map: { availability: 'empty', watermarkAt: null, rowCount: 0 },
+    } satisfies MarketComponentWatermarks;
+    assert.deepEqual(resolveMarketExplorationState('factor_map', emptyFactor), {
+      availability: 'missing',
+      watermarkAt: null,
+      rowCount: 0,
+    });
+    assert.deepEqual(resolveMarketExplorationState('map_globe', watermarks), {
+      availability: 'missing',
+      watermarkAt: null,
+      rowCount: 0,
+    });
   });
 });

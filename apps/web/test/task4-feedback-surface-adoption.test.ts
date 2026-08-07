@@ -13,7 +13,7 @@ const adoptionUrls = [
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/stock-briefing-inspector.tsx', import.meta.url),
-  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-exploration.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/geo-market-map.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/views/stocks-view.tsx', import.meta.url),

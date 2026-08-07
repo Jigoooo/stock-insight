@@ -13,11 +13,13 @@ import {
   MarketConnectionSummary,
   PriorityMarketChanges,
 } from '../market-connection-sections';
+import { MarketExploration } from '../market-exploration';
 import type { DetailState } from '../research-workspace-page';
 import styles from './market-connections-view.module.css';
 
 import { Button } from '@/shared/ui/button';
 import { PageHeader, WorkspaceState } from '@/shared/ui/workspace';
+import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 function createMarketConnectionApiClient() {
@@ -27,6 +29,7 @@ function createMarketConnectionApiClient() {
 const getMarketConnectionApiClient = createRetryablePromiseCache(createMarketConnectionApiClient);
 
 export function MarketConnectionsView({
+  geoSnapshot,
   interactive,
   loadMarketConnectionDetail,
   marketConnections,
@@ -34,6 +37,7 @@ export function MarketConnectionsView({
   pageState,
   radarPage,
 }: {
+  geoSnapshot: GeoSnapshot;
   interactive: boolean;
   loadMarketConnectionDetail?: MarketConnectionLoader;
   marketConnections: MarketConnectionsModel;
@@ -135,6 +139,12 @@ export function MarketConnectionsView({
             description="시장 데이터가 들어오면 내 종목 연결과 시장 전반 변화를 함께 보여드립니다."
           />
         )}
+        <MarketExploration
+          data={radarPage}
+          geoSnapshot={geoSnapshot}
+          marketConnections={marketConnections}
+          onSelectConnection={(item, opener) => void loadConnection(item, opener)}
+        />
       </fieldset>
       {detailOpen ? (
         <section

@@ -24,7 +24,28 @@ describe('market connections workspace structure', () => {
     assert.match(sections, /내 종목에 연결된 주요 변화/);
     assert.match(sections, /items\.slice\(0, 3\)/);
     assert.match(sections, /그 밖의 시장 변화/);
-    assert.doesNotMatch(view, /시장 흐름 더 살펴보기/);
+    assert.match(view, /<MarketExploration/);
+    assert.match(view, /<PriorityMarketChanges[\s\S]*?<MarketChangeList[\s\S]*?<MarketExploration/);
+  });
+
+  it('shares exact keyed selection with exploration without changing the Radar page contract', async () => {
+    const [page, view] = await Promise.all([
+      read('research-workspace-page.tsx'),
+      read('views/market-connections-view.tsx'),
+    ]);
+
+    assert.match(view, /geoSnapshot: GeoSnapshot/);
+    assert.match(view, /data=\{radarPage\}/);
+    assert.match(view, /geoSnapshot=\{geoSnapshot\}/);
+    assert.match(view, /marketConnections=\{marketConnections\}/);
+    assert.match(
+      view,
+      /onSelectConnection=\{\(item, opener\) => void loadConnection\(item, opener\)\}/,
+    );
+    assert.match(page, /geoSnapshot=\{data\.geoSnapshot\}/);
+    assert.match(page, /radarPage=\{visibleRadarPage \?\? data\.radar\}/);
+    assert.match(page, /pageState=\{visibleRadarPageState\}/);
+    assert.match(page, /onLoadMore=\{\(\) => void loadMoreRadar\(\)\}/);
   });
 
   it('shares one opener-aware selection contract without exposing advice or raw strength', async () => {

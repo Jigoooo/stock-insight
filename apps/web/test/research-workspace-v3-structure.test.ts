@@ -110,7 +110,7 @@ const workspaceState = readFileSync(
   'utf8',
 );
 const marketOverviewSource = readFileSync(
-  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-exploration.tsx', import.meta.url),
   'utf8',
 );
 const geoMarketMapSource = readFileSync(
@@ -344,7 +344,7 @@ describe('v3 research workspace structure', () => {
     assert.match(marketOverviewSource, /kind="partial"/);
     assert.match(marketOverviewSource, /kind="stale"/);
     assert.match(marketOverviewSource, /kind="error"/);
-    assert.match(marketOverviewSource, /kind=\{displayState\.kind === 'missing'/);
+    assert.match(marketOverviewSource, /kind="unavailable"/);
     assert.doesNotMatch(marketOverviewSource, /<TabsContent/);
   });
 

@@ -760,6 +760,7 @@ export function ResearchWorkspacePage({
       )}
       {section === 'radar' && data.view === 'radar' && resolvedMarketConnections && (
         <MarketConnectionsView
+          geoSnapshot={data.geoSnapshot}
           interactive={hydrated}
           loadMarketConnectionDetail={loadMarketConnectionDetail}
           marketConnections={resolvedMarketConnections}
