@@ -11,6 +11,7 @@ import {
 } from '../src/pages/research-workspace/model/market-connections.ts';
 
 import type { ImpactBriefResponse } from '@stock-insight/contracts';
+import { geoSnapshotSchema } from '@stock-insight/contracts/geo-api-contract';
 import type {
   EntityRelationGraph,
   RadarSignalItem,
@@ -362,5 +363,142 @@ describe('market connection live detail loader', () => {
     assert.match(result.detail.partialFailures.impact ?? '', /US:NVDA.*US:MSFT/);
     assert.equal(result.detail.item.connectionKey, 'identity-mismatch');
     assert.equal(result.detail.item.summary, '같은 시각에 관측된 같은 유형의 변화');
+  });
+});
+
+describe('market connections development preview', () => {
+  async function loadPreviewFixture() {
+    const fixtureModule =
+      await import('../src/pages/dev-preview/model/market-connections-preview-fixture.ts').catch(
+        () => null,
+      );
+    assert.ok(fixtureModule, 'expected the Market Connections preview fixture to exist');
+    return fixtureModule;
+  }
+
+  it('provides complete deterministic grouped stories with unique HTTPS evidence', async () => {
+    const fixtureModule = await loadPreviewFixture();
+    if (!fixtureModule) return;
+
+    const first = fixtureModule.resolveMarketConnectionsPreview('default');
+    const second = fixtureModule.resolveMarketConnectionsPreview('default');
+    const visibleItems = [
+      ...first.marketConnections.priorityChanges,
+      ...first.marketConnections.marketChanges,
+    ];
+
+    assert.equal(first.data.view, 'radar');
+    assert.equal(first.data.geoSnapshot.availability, 'available');
+    assert.equal(geoSnapshotSchema.safeParse(first.data.geoSnapshot).success, true);
+    assert.ok(first.data.geoSnapshot.geojson.features.length > 0);
+    assert.equal(new URL(first.data.geoSnapshot.mvt.urlTemplate ?? '').protocol, 'https:');
+    assert.equal(first.marketConnections.priorityChanges.length, 3);
+    assert.ok(first.marketConnections.marketChanges.some(({ scope }) => scope !== 'market'));
+    assert.ok(
+      first.marketConnections.marketChanges.filter(({ scope }) => scope === 'market').length >= 2,
+    );
+    assert.ok(visibleItems.some(({ connectedEntities }) => connectedEntities.length > 1));
+    assert.equal(
+      new Set(visibleItems.map(({ connectionKey }) => connectionKey)).size,
+      visibleItems.length,
+    );
+    assert.deepEqual(
+      first.marketConnections.priorityChanges.map(({ connectionKey, priority }) => [
+        connectionKey,
+        priority,
+      ]),
+      second.marketConnections.priorityChanges.map(({ connectionKey, priority }) => [
+        connectionKey,
+        priority,
+      ]),
+    );
+
+    for (const item of visibleItems) {
+      const result = await first.loader(item.connectionKey);
+      assert.equal(result.detail.item.connectionKey, item.connectionKey);
+      assert.ok(result.detail.paths.length > 0);
+      assert.ok(result.detail.sources.length > 0 && result.detail.sources.length <= 3);
+      assert.ok(result.detail.risks.length > 0);
+      assert.ok(result.detail.counterEvidence.length > 0);
+      assert.ok(result.detail.checkpoints.length > 0);
+      assert.ok(result.detail.relatedEvents.length > 0);
+      assert.ok(result.detail.evidenceLevel);
+      assert.ok(result.relation);
+      for (const source of result.detail.sources) {
+        assert.equal(new URL(source.url ?? '').protocol, 'https:');
+      }
+    }
+  });
+
+  it('keeps each preview scenario honest and never reaches a live loader', async () => {
+    const fixtureModule = await loadPreviewFixture();
+    if (!fixtureModule) return;
+
+    const originalFetch = globalThis.fetch;
+    let networkCallCount = 0;
+    globalThis.fetch = (() => {
+      networkCallCount += 1;
+      throw new Error('preview fixture attempted a network call');
+    }) as typeof fetch;
+
+    try {
+      const noPersonalized = fixtureModule.resolveMarketConnectionsPreview('no-personalized');
+      const noPersonalizedItems = [
+        ...noPersonalized.marketConnections.priorityChanges,
+        ...noPersonalized.marketConnections.marketChanges,
+      ];
+      assert.deepEqual(noPersonalized.marketConnections.priorityChanges, []);
+      assert.ok(noPersonalizedItems.length >= 2);
+      assert.ok(noPersonalizedItems.every(({ scope }) => scope === 'market'));
+      await noPersonalized.loader(noPersonalizedItems[0]!.connectionKey);
+      await assert.rejects(
+        noPersonalized.loader('preview:semiconductor-ai-supply'),
+        /Unknown Market Connections preview/,
+      );
+
+      const empty = fixtureModule.resolveMarketConnectionsPreview('empty');
+      assert.equal(empty.marketConnections.summary.changeCount, 0);
+      assert.deepEqual(empty.marketConnections.priorityChanges, []);
+      assert.deepEqual(empty.marketConnections.marketChanges, []);
+      await assert.rejects(
+        empty.loader('preview:semiconductor-ai-supply'),
+        /Unknown Market Connections preview/,
+      );
+
+      const partial = fixtureModule.resolveMarketConnectionsPreview('partial');
+      const partialItem = partial.marketConnections.priorityChanges[0]!;
+      const partialResult = await partial.loader(partialItem.connectionKey);
+      assert.equal(partialResult.detail.item.connectionKey, partialItem.connectionKey);
+      assert.equal(partial.data.geoSnapshot.availability, 'unavailable');
+      assert.equal(geoSnapshotSchema.safeParse(partial.data.geoSnapshot).success, true);
+      assert.equal(partialResult.detail.availability, 'partial');
+      assert.ok(partialResult.detail.paths.length > 0);
+      assert.ok(partialResult.detail.sources.length > 0);
+      assert.deepEqual(partialResult.detail.relatedEvents, []);
+      assert.deepEqual(Object.keys(partialResult.detail.partialFailures).sort(), [
+        'geo',
+        'history',
+        'relation',
+      ]);
+      assert.equal(partialResult.relation, null);
+
+      const detailError = fixtureModule.resolveMarketConnectionsPreview('detail-error');
+      const selected = detailError.marketConnections.priorityChanges[0]!;
+      await assert.rejects(detailError.loader(selected.connectionKey), /개발 미리보기/);
+      assert.equal(
+        detailError.marketConnections.priorityChanges.find(
+          ({ connectionKey }) => connectionKey === selected.connectionKey,
+        ),
+        selected,
+      );
+
+      const defaultPreview = fixtureModule.resolveMarketConnectionsPreview('default');
+      await defaultPreview.loader(
+        defaultPreview.marketConnections.priorityChanges[0]!.connectionKey,
+      );
+      assert.equal(networkCallCount, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

@@ -1,3 +1,7 @@
+import {
+  resolveMarketConnectionsPreview,
+  type MarketConnectionsPreviewScenario,
+} from '../model/market-connections-preview-fixture';
 import { loadPreviewStockBriefing } from '../model/stock-deep-dive-preview-fixture';
 import {
   stocksBriefingPreviewFixture,
@@ -19,8 +23,14 @@ import type { ResearchWorkspaceViewPayload } from '@/pages/research-workspace/mo
 import { ResearchWorkspacePage } from '@/pages/research-workspace/ui/research-workspace-page';
 import type { AdminInvitation } from '@/server/auth/admin-invitations';
 
-type DevPreviewSurface = 'workspace' | 'today' | 'stocks' | 'admin-invitations';
+type DevPreviewSurface =
+  | 'workspace'
+  | 'today'
+  | 'stocks'
+  | 'market-connections'
+  | 'admin-invitations';
 type StocksPreviewScenario = 'default' | 'no-holdings' | 'empty' | 'detail-error';
+type DevPreviewScenario = StocksPreviewScenario | MarketConnectionsPreviewScenario;
 type StocksPreviewPayload = Extract<ResearchWorkspaceViewPayload, { view: 'stocks' }>;
 
 const watchedOnlyPreviewFixture = {
@@ -145,13 +155,39 @@ const revokePreviewInvitation: RevokeInvitationAction = async () => {
 const previewLogout: LogoutAction = async () => ({ ok: true as const });
 
 export function DevPreviewPage({
-  scenario = 'default',
+  scenario: requestedScenario = 'default',
   surface = 'workspace',
 }: {
-  scenario?: StocksPreviewScenario;
+  scenario?: DevPreviewScenario;
   surface?: DevPreviewSurface;
 }) {
-  const stocksPreview = resolveStocksPreview(scenario);
+  if (surface === 'market-connections') {
+    const scenario: MarketConnectionsPreviewScenario =
+      requestedScenario === 'no-holdings' ? 'default' : requestedScenario;
+    const preview = resolveMarketConnectionsPreview(scenario);
+    return (
+      <div data-testid="dev-preview-page">
+        <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+        <ResearchWorkspacePage
+          data={preview.data}
+          marketConnections={preview.marketConnections}
+          loadMarketConnectionDetail={preview.loader}
+          navigationMode="static"
+          canManageInvitations={false}
+          onLogout={async () => false}
+          onPrefetchSection={() => undefined}
+          onUrlStateChange={async () => undefined}
+          urlState={{ view: 'radar' }}
+        />
+      </div>
+    );
+  }
+
+  const stocksScenario: StocksPreviewScenario =
+    requestedScenario === 'no-personalized' || requestedScenario === 'partial'
+      ? 'default'
+      : requestedScenario;
+  const stocksPreview = resolveStocksPreview(stocksScenario);
   return (
     <div data-testid="dev-preview-page">
       <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>

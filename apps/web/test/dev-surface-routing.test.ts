@@ -143,6 +143,37 @@ describe('development-only visual surface routes', () => {
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
   });
 
+  it('routes only the scenarios owned by the Market Connections preview surface', async () => {
+    const [previewPage, previewRoute] = await Promise.all([
+      readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/routes/[__dev-preview].tsx'),
+    ]);
+
+    assert.match(previewRoute, /search\.surface === 'market-connections'/);
+    assert.match(previewRoute, /search\.scenario === 'no-personalized'/);
+    assert.match(previewRoute, /search\.scenario === 'partial'/);
+    assert.match(previewRoute, /surface === 'stocks' \|\| surface === undefined/);
+    assert.match(previewRoute, /surface === 'stocks'[\s\S]*?'no-holdings'/);
+    assert.match(previewRoute, /surface === 'market-connections'[\s\S]*?'no-personalized'/);
+    const scenarioStart = previewRoute.indexOf('const scenario =');
+    const marketScenarioStart = previewRoute.indexOf(
+      ": surface === 'market-connections'",
+      scenarioStart,
+    );
+    const scenarioEnd = previewRoute.indexOf('return { scenario, surface }', marketScenarioStart);
+    const stocksScenarioBranch = previewRoute.slice(scenarioStart, marketScenarioStart);
+    const marketScenarioBranch = previewRoute.slice(marketScenarioStart, scenarioEnd);
+    assert.doesNotMatch(stocksScenarioBranch, /no-personalized|partial/);
+    assert.doesNotMatch(marketScenarioBranch, /no-holdings/);
+    assert.match(previewPage, /surface === 'market-connections'/);
+    assert.match(previewPage, /resolveMarketConnectionsPreview\(scenario\)/);
+    assert.match(previewPage, /loadMarketConnectionDetail=\{preview\.loader\}/);
+    assert.match(previewPage, /marketConnections=\{preview\.marketConnections\}/);
+    assert.match(previewPage, /urlState=\{\{ view: 'radar' \}\}/);
+    assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
+    assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
+  });
+
   it('previews the real administrator form with local actions and no authenticated loader', async () => {
     const [previewPage, previewRoute] = await Promise.all([
       readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
