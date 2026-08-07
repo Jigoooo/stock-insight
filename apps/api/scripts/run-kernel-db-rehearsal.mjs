@@ -1,4 +1,5 @@
-// Rehearses migrations 078–080 (canonical kernel) on a disposable database.
+// Rehearses migrations 078–083 (canonical kernel + release/safety/SLO) on a
+// disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
 // foreign-key targets the migrations under test need, apply them, assert the
@@ -22,6 +23,9 @@ import { createRequire } from 'node:module';
 import { semanticSnapshotMigrationSql } from '../../../packages/db-schema/src/migrations/078_semantic_snapshot.ts';
 import { analysisInformationSetMigrationSql } from '../../../packages/db-schema/src/migrations/079_analysis_information_set.ts';
 import { sourcePitQualityMigrationSql } from '../../../packages/db-schema/src/migrations/080_source_pit_quality.ts';
+import { releaseManifestMigrationSql } from '../../../packages/db-schema/src/migrations/081_release_manifest.ts';
+import { safetyStateMigrationSql } from '../../../packages/db-schema/src/migrations/082_safety_state.ts';
+import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/083_slo_ledger.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -172,14 +176,17 @@ try {
   `);
 
   // ── apply the migrations under test, in dependency order ────────────────────
-  await target.query(semanticSnapshotMigrationSql);
-  await target.query(analysisInformationSetMigrationSql);
-  await target.query(sourcePitQualityMigrationSql);
-
+  const MIGRATIONS = [
+    semanticSnapshotMigrationSql,
+    analysisInformationSetMigrationSql,
+    sourcePitQualityMigrationSql,
+    releaseManifestMigrationSql,
+    safetyStateMigrationSql,
+    sloLedgerMigrationSql,
+  ];
+  for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
-  await target.query(semanticSnapshotMigrationSql);
-  await target.query(analysisInformationSetMigrationSql);
-  await target.query(sourcePitQualityMigrationSql);
+  for (const sql of MIGRATIONS) await target.query(sql);
 
   await target.query(
     `INSERT INTO governance.semantic_snapshot (semantic_snapshot_id, created_by)
@@ -309,6 +316,163 @@ try {
   );
   pitQuality.noDuplicateOnReapply = afterReapply.rows[0]?.n === 8;
 
+  // ── 081 release manifest ────────────────────────────────────────────────────
+  await target.query(
+    `INSERT INTO governance.release_manifest
+       (release_id, semantic_snapshot_id, built_at, safety_state, created_by)
+     VALUES ('rel-1', 'snap-1', '2026-07-21T00:00:00Z', 'NORMAL', 'rehearsal')`,
+  );
+  await target.query(
+    `INSERT INTO governance.release_component (release_id, kind, snapshot_id, digest, fresh_until)
+     VALUES ('rel-1', 'impact_brief', 'snap-1', repeat('a', 64), '2026-07-30T00:00:00Z')`,
+  );
+  const release = {
+    duplicateKindRejected: await expectRejected(
+      `INSERT INTO governance.release_component (release_id, kind, snapshot_id, digest, fresh_until)
+       VALUES ('rel-1', 'impact_brief', 'snap-1', repeat('b', 64), '2026-07-30T00:00:00Z')`,
+      ['23505'],
+    ),
+    badDigestRejected: await expectRejected(
+      `INSERT INTO governance.release_component (release_id, kind, snapshot_id, digest, fresh_until)
+       VALUES ('rel-1', 'other', 'snap-1', 'not-a-digest', '2026-07-30T00:00:00Z')`,
+    ),
+    publishedWithoutTimestampRejected: await expectRejected(
+      `UPDATE governance.release_manifest SET release_state = 'published' WHERE release_id = 'rel-1'`,
+    ),
+    publishAllowed: false,
+    componentAfterPublishRejected: false,
+    componentCountFrozen: false,
+    illegalTransitionRejected: false,
+    currentViewResolves: false,
+    deleteRejected: false,
+  };
+  await target.query(
+    `UPDATE governance.release_manifest
+        SET release_state = 'published', published_at = now(), component_count = 1
+      WHERE release_id = 'rel-1'`,
+  );
+  release.publishAllowed = true;
+  release.componentAfterPublishRejected = await expectRejected(
+    `INSERT INTO governance.release_component (release_id, kind, snapshot_id, digest, fresh_until)
+     VALUES ('rel-1', 'entity_relation_graph', 'snap-1', repeat('c', 64), '2026-07-30T00:00:00Z')`,
+    ['P0001'],
+  );
+  release.componentCountFrozen = await expectRejected(
+    `UPDATE governance.release_manifest SET component_count = 9 WHERE release_id = 'rel-1'`,
+    ['P0001'],
+  );
+  release.illegalTransitionRejected = await expectRejected(
+    `UPDATE governance.release_manifest SET release_state = 'building' WHERE release_id = 'rel-1'`,
+    ['P0001'],
+  );
+  release.deleteRejected = await expectRejected(
+    `DELETE FROM governance.release_manifest WHERE release_id = 'rel-1'`,
+    ['P0001'],
+  );
+  const currentRelease = await target.query(
+    `SELECT kind, release_id, safety_state FROM governance.release_current_v1`,
+  );
+  release.currentViewResolves =
+    currentRelease.rows.length === 1 && currentRelease.rows[0].release_id === 'rel-1';
+
+  // ── 082 safety state ────────────────────────────────────────────────────────
+  const seeded = await target.query(
+    `SELECT safety_state, recommendation_allowed FROM governance.safety_state_current_v1
+      WHERE scope = 'global'`,
+  );
+  const safety = {
+    seededNormal: seeded.rows[0]?.safety_state === 'NORMAL',
+    normalAllowsRecommendation: seeded.rows[0]?.recommendation_allowed === true,
+    reasonRequired: await expectRejected(
+      `INSERT INTO governance.safety_state_transition
+         (from_state, to_state, trigger_kind, reason, decided_by)
+       VALUES ('NORMAL', 'CAUTION', 'slo', '   ', 'rehearsal')`,
+    ),
+    sameStateTransitionRejected: await expectRejected(
+      `INSERT INTO governance.safety_state_transition
+         (from_state, to_state, trigger_kind, reason, decided_by)
+       VALUES ('NORMAL', 'NORMAL', 'manual', 'noop', 'rehearsal')`,
+    ),
+    cautionLeavesRecommendationUndecided: false,
+    severityOrdered: false,
+    updateRejected: await expectRejected(
+      `UPDATE governance.safety_state_transition SET to_state = 'HALTED' WHERE scope = 'global'`,
+      ['P0001'],
+    ),
+  };
+  await target.query(
+    `INSERT INTO governance.safety_state_transition
+       (from_state, to_state, trigger_kind, reason, evidence_ref, decided_by)
+     VALUES ('NORMAL', 'CAUTION', 'slo', 'knowledge.claim.growth breached twice',
+             'knowledge.claim.growth', 'rehearsal')`,
+  );
+  const afterCaution = await target.query(
+    `SELECT safety_state, recommendation_allowed, severity
+       FROM governance.safety_state_current_v1 WHERE scope = 'global'`,
+  );
+  safety.cautionLeavesRecommendationUndecided =
+    afterCaution.rows[0]?.safety_state === 'CAUTION' &&
+    afterCaution.rows[0]?.recommendation_allowed === null;
+  const severities = await target.query(
+    `SELECT governance.safety_state_severity('NORMAL') AS n,
+            governance.safety_state_severity('HALTED') AS h`,
+  );
+  safety.severityOrdered = severities.rows[0]?.n === 0 && severities.rows[0]?.h === 3;
+
+  // ── 083 SLO ledger ──────────────────────────────────────────────────────────
+  const definitions = await target.query(
+    `SELECT count(*)::int AS n, count(*) FILTER (WHERE breach_safety_state IS NULL)::int AS report_only
+       FROM governance.slo_definition`,
+  );
+  const slo = {
+    seededDefinitions: definitions.rows[0]?.n === 8,
+    allReportOnly: definitions.rows[0]?.report_only === 8,
+    lyingVerdictRejected: await expectRejected(
+      `INSERT INTO governance.slo_observation
+         (slo_key, observed_value, threshold_at_observation, comparison_at_observation,
+          breached, window_start, window_end, observed_by)
+       VALUES ('knowledge.claim.growth', 0, 1, 'at_least', false,
+               '2026-07-20T00:00:00Z', '2026-07-21T00:00:00Z', 'rehearsal')`,
+    ),
+    invertedWindowRejected: await expectRejected(
+      `INSERT INTO governance.slo_observation
+         (slo_key, observed_value, threshold_at_observation, comparison_at_observation,
+          breached, window_start, window_end, observed_by)
+       VALUES ('knowledge.claim.growth', 5, 1, 'at_least', false,
+               '2026-07-21T00:00:00Z', '2026-07-20T00:00:00Z', 'rehearsal')`,
+    ),
+    consecutiveBreachesCounted: false,
+    updateRejected: false,
+  };
+  for (const [value, breached, day] of [
+    [5, false, '22'],
+    [0, true, '23'],
+    [0, true, '24'],
+  ]) {
+    await target.query(
+      `INSERT INTO governance.slo_observation
+         (slo_key, observed_value, threshold_at_observation, comparison_at_observation,
+          breached, window_start, window_end, observed_at, observed_by)
+       VALUES ('knowledge.claim.growth', $1, 1, 'at_least', $2,
+               '2026-07-${'$'}{day}T00:00:00Z'::timestamptz - interval '1 day',
+               '2026-07-${'$'}{day}T00:00:00Z', '2026-07-${'$'}{day}T00:00:00Z', 'rehearsal')`.replaceAll(
+        '${day}',
+        day,
+      ),
+      [value, breached],
+    );
+  }
+  const sloCurrent = await target.query(
+    `SELECT consecutive_breaches, breached FROM governance.slo_current_v1
+      WHERE slo_key = 'knowledge.claim.growth'`,
+  );
+  slo.consecutiveBreachesCounted =
+    Number(sloCurrent.rows[0]?.consecutive_breaches) === 2 && sloCurrent.rows[0]?.breached === true;
+  slo.updateRejected = await expectRejected(
+    `UPDATE governance.slo_observation SET breached = false WHERE slo_key = 'knowledge.claim.growth'`,
+    ['P0001'],
+  );
+
   // ── boot-digest safety: the app roles must not reach any new table ──────────
   const reach = await target.query(
     `SELECT role_name, relation, bool_or(reachable) AS reachable
@@ -335,6 +499,9 @@ try {
     snapshot,
     informationSet,
     pitQuality,
+    release,
+    safety,
+    slo,
     digestSafety: {
       governanceRelationsChecked: reach.rows.length,
       appRoleReachableRelations: appRoleReachable.map((row) => `${row.role_name}:${row.relation}`),
@@ -343,7 +510,13 @@ try {
   };
 
   const failures = [];
-  for (const [group, checks] of Object.entries({ snapshot, informationSet })) {
+  for (const [group, checks] of Object.entries({
+    snapshot,
+    informationSet,
+    release,
+    safety,
+    slo,
+  })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
     }

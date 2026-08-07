@@ -5,11 +5,17 @@ import { describe, it } from 'node:test';
 import { semanticSnapshotMigrationSql } from '../src/migrations/078_semantic_snapshot.ts';
 import { analysisInformationSetMigrationSql } from '../src/migrations/079_analysis_information_set.ts';
 import { sourcePitQualityMigrationSql } from '../src/migrations/080_source_pit_quality.ts';
+import { releaseManifestMigrationSql } from '../src/migrations/081_release_manifest.ts';
+import { safetyStateMigrationSql } from '../src/migrations/082_safety_state.ts';
+import { sloLedgerMigrationSql } from '../src/migrations/083_slo_ledger.ts';
 
 const MIGRATIONS = [
   ['078_semantic_snapshot', semanticSnapshotMigrationSql],
   ['079_analysis_information_set', analysisInformationSetMigrationSql],
   ['080_source_pit_quality', sourcePitQualityMigrationSql],
+  ['081_release_manifest', releaseManifestMigrationSql],
+  ['082_safety_state', safetyStateMigrationSql],
+  ['083_slo_ledger', sloLedgerMigrationSql],
 ] as const;
 
 // Same list migration 031's test uses. These migrations must be purely additive:
@@ -26,15 +32,20 @@ const destructiveTokens = [
 const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
 
 describe('K1 canonical kernel migrations — registration', () => {
-  it('registers 078, 079 and 080 in dependency order', () => {
+  it('registers 078 through 083 in dependency order', () => {
     const positions = MIGRATIONS.map(([id]) => {
       const at = indexSource.indexOf(`id: '${id}'`);
       assert.notEqual(at, -1, `${id} is not registered`);
       return at;
     });
-    // 079 references 078's table by foreign key, so it must run after it.
-    assert.ok(positions[0]! < positions[1]!, '078 must be registered before 079');
-    assert.ok(positions[1]! < positions[2]!, '079 must be registered before 080');
+    // Each references the previous by foreign key: 079 -> 078's snapshot,
+    // 081 -> 078's snapshot, 082 -> 081's release, 083 stands alone but follows.
+    for (let index = 1; index < positions.length; index += 1) {
+      assert.ok(
+        positions[index - 1]! < positions[index]!,
+        `${MIGRATIONS[index - 1]![0]} must be registered before ${MIGRATIONS[index]![0]}`,
+      );
+    }
   });
 
   it('exports every migration sql from the package index', () => {
@@ -42,6 +53,9 @@ describe('K1 canonical kernel migrations — registration', () => {
       'semanticSnapshotMigrationSql',
       'analysisInformationSetMigrationSql',
       'sourcePitQualityMigrationSql',
+      'releaseManifestMigrationSql',
+      'safetyStateMigrationSql',
+      'sloLedgerMigrationSql',
     ]) {
       assert.match(indexSource, new RegExp(`\\b${name}\\b`), `${name} is not exported`);
     }
@@ -227,4 +241,112 @@ describe('K1 migrations — boot digest safety', () => {
       }
     });
   }
+});
+
+describe('081 release manifest — REQ-REL-001', () => {
+  it('keeps safety_state as a recorded fact, not a pointer that follows the present', () => {
+    // A manifest built under CAUTION must keep saying CAUTION after recovery, or
+    // the audit trail rewrites itself.
+    assert.match(releaseManifestMigrationSql, /safety_state TEXT NOT NULL/);
+    assert.doesNotMatch(
+      releaseManifestMigrationSql,
+      /safety_state[\s\S]{0,80}REFERENCES governance\.safety_state/,
+    );
+  });
+
+  it('allows one component per kind per release', () => {
+    // Two rows for one kind makes "which snapshot is this release serving" —
+    // the question the manifest exists to answer — ambiguous.
+    assert.match(releaseManifestMigrationSql, /UNIQUE \(release_id, kind\)/);
+  });
+
+  it('refuses a component added to a release that is no longer building', () => {
+    assert.match(releaseManifestMigrationSql, /cannot be added to a % release/);
+  });
+
+  it('freezes component_count once the release leaves building', () => {
+    assert.match(releaseManifestMigrationSql, /component_count is frozen once built/);
+  });
+
+  it('publishes a current-release view so surfaces resolve one pointer', () => {
+    assert.match(
+      releaseManifestMigrationSql,
+      /CREATE OR REPLACE VIEW governance\.release_current_v1/,
+    );
+  });
+});
+
+describe('082 safety state — REQ-SAFE-001/002/003', () => {
+  it('models the four canonical states in severity order', () => {
+    for (const state of ['NORMAL', 'CAUTION', 'INFORMATION_ONLY', 'HALTED']) {
+      assert.match(safetyStateMigrationSql, new RegExp(`'${state}'`));
+    }
+    assert.match(safetyStateMigrationSql, /safety_state_severity/);
+  });
+
+  it('requires a reason for every transition', () => {
+    // A downgrade with no stated cause cannot be distinguished from a mistake,
+    // and nobody can tell later whether the condition cleared.
+    assert.match(
+      safetyStateMigrationSql,
+      /reason TEXT NOT NULL CHECK \(length\(btrim\(reason\)\) > 0\)/,
+    );
+  });
+
+  it('names the four REQ-SAFE-002 trigger kinds', () => {
+    for (const kind of ['slo', 'coverage', 'freshness', 'invariant']) {
+      assert.match(safetyStateMigrationSql, new RegExp(`'${kind}'`));
+    }
+  });
+
+  it('leaves CAUTION recommendation_allowed as NULL rather than picking a side', () => {
+    // contracts/safety-state.json marks it policy-dependent. Defaulting it to
+    // true is how a degraded product keeps recommending (REQ-SAFE-003).
+    assert.match(safetyStateMigrationSql, /WHEN 'CAUTION' THEN NULL/);
+  });
+
+  it('seeds an explicit NORMAL so an empty view is not read as a state', () => {
+    assert.match(safetyStateMigrationSql, /INSERT INTO governance\.safety_state_transition/);
+    assert.match(safetyStateMigrationSql, /WHERE NOT EXISTS/);
+  });
+
+  it('is fully append-only', () => {
+    assert.match(safetyStateMigrationSql, /record a new transition instead/);
+  });
+});
+
+describe('083 SLO ledger — the input REQ-SAFE-002 consumes', () => {
+  it('stores the threshold and comparison each observation was judged under', () => {
+    // A revised threshold must not rewrite a past verdict — the same rule
+    // REQ-KERN-002 applies to retrospective results.
+    assert.match(sloLedgerMigrationSql, /threshold_at_observation/);
+    assert.match(sloLedgerMigrationSql, /comparison_at_observation/);
+  });
+
+  it('forces the recorded verdict to follow from the recorded numbers', () => {
+    assert.match(sloLedgerMigrationSql, /slo_observation_verdict_matches/);
+  });
+
+  it('requires consecutive breaches before a state move', () => {
+    // One noisy sample must not walk the product into INFORMATION_ONLY.
+    assert.match(sloLedgerMigrationSql, /breach_consecutive_required INTEGER NOT NULL DEFAULT 2/);
+  });
+
+  it('seeds every definition as report-only', () => {
+    // A threshold with no observed baseline cannot be trusted to move the
+    // product's state.
+    assert.doesNotMatch(sloLedgerMigrationSql, /'CAUTION', 'migration-083'/);
+    assert.match(sloLedgerMigrationSql, /NULL, 'migration-083'/);
+  });
+
+  it('measures the wrapper-run gap that lock contention leaves invisible', () => {
+    // pipeline_acquire_lock exits 75 before any audit row is written, so a
+    // skipped run leaves neither success nor failure (as-built §11 ①).
+    assert.match(sloLedgerMigrationSql, /ops\.pipeline\.expected_runs/);
+  });
+
+  it('records the ops.slo_* deviation and its reason', () => {
+    assert.match(sloLedgerMigrationSql, /DELIBERATE DEVIATION FROM THE FREEZE/);
+    assert.match(sloLedgerMigrationSql, /database-ownership/);
+  });
 });
