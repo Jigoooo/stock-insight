@@ -474,7 +474,7 @@
 - Today Evidence와 Stocks 상세가 서로 다른 session-storage key를 사용하고, 초기 hydration 전 종목 클릭을 비활성화해 사용자 입력이 유실되지 않도록 고정함. 768–807px modal 경계는 초기 자동 검증 뒤 review에서 subpixel 안정성 보강 대상으로 다시 열림
 - 종목 상세 문구는 `보유 논지 복기` 등 정보 제공 표현만 사용하고, 관련 뉴스는 유효한 HTTPS 출처 링크를 유지함
 - 최종 자동 검증: Stocks Playwright desktop/mobile 22건 통과·조건부 8건 skip, Today 회귀 22건 통과·조건부 10건 skip, focused Node 38건, web Node 684건, 전체 10개 테스트 task, format·lint·typecheck·build를 통과함. dark mode·reduced motion·Axe·선택 일관성·overlay close-only·resize/session memory·drawer/modal 무요청 전환·빈 상태·상세 오류 상태를 포함함
-- `pnpm verify:release`는 lint·typecheck·fixture typecheck·전체 테스트·hard design gate까지 통과한 뒤, 현재 셸에 P6 DB rehearsal URL이 없어 `test:p6:db`에서 `ERR_INVALID_URL` (`input: ''`)로 중단됨
+- `pnpm verify:release`는 lint·typecheck·fixture typecheck·전체 테스트·hard design gate까지 통과한 뒤, 현재 셸에 `P6_REHEARSAL_ADMIN_DATABASE_URL`이 없어 `test:p6:db`에서 `ERR_INVALID_URL` (`input: ''`)로 중단됨. 그 뒤의 `test:xg:db`·build·browser/production visual gate는 이 실행에서 시작되지 않음
 - `graphify update .` 완료: 10,637 nodes, 18,093 edges, 744 communities. 기존 graphify 버전 차이·선택 SQL parser 부재 경고는 유지됨
 - Codex 인앱 브라우저 확인: `/__dev-preview?surface=stocks`를 1440×1000과 390×844에서 확인함. desktop drawer 요약값은 약 124px 유효 폭과 한 줄 높이를 유지했고, 넓은 modal 전환·390px 하단 modal·모바일 전환 버튼 미노출을 확인함. `no-holdings`는 `0개 / — / — / —`와 관심종목 우선 배치를 확인함
 - 구현·검증 커밋: Task 3–5 `f723d94`, `ead0364`, `d94abd9`, Task 6 `2d87732`, review 보정 `f60b8c9`, 최소 폭 회귀 `93c98cb`
