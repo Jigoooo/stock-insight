@@ -834,3 +834,107 @@ K8   Recommendation Shadow  ← 유형 B. writer 는 있고 호출자만 붙이�
 ```
 
 **"표를 만들었다"는 어떤 유형에서도 완료가 아니다.**
+
+---
+
+## 9. 실행 모델 — 무중단 자율 실행을 가능하게 하는 것
+
+*2026-08-08 K0+K1+K5 실행에서 확립. 이후 모든 K 단계가 같은 모델을 쓴다.*
+
+### 9.1 worktree 격리 — "파일 편집 = 배포" 를 개발 중에는 무력화한다
+
+```
+ops/systemd/user/*.service
+  WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight   ← 절대경로, 본 체크아웃
+```
+
+타이머는 **본 체크아웃만** 실행한다. 그러므로 별도 worktree 에서 작업하면 as-built §1 의
+제약이 개발 중에는 적용되지 않는다. 착지 창 계산이 필요한 것은 master 병합 순간 한 번뿐이다.
+
+**착수 전에 반드시 증명한다** — 이 모델 전체가 이 한 가지 가정 위에 서 있다:
+
+```bash
+BEFORE=$(git ls-files -z | while IFS= read -r -d '' f; do sha256sum --binary "$f"; done | sha256sum)
+git worktree add <path> -b <branch>
+AFTER=$(...)   # BEFORE 와 같아야 한다
+```
+
+2026-08-08 측정: `ccb1ddb5…` 불변 확인.
+
+### 9.2 `git ls-files` 는 추적된 파일만 센다
+
+| 행위 | `source_tree_hash` | 안전한가 |
+| --- | --- | --- |
+| 추적되지 않은 새 파일 작성 | 불변 | ✅ |
+| 추적된 파일 수정 | 변한다 | ❌ 실행 중이면 그 실행이 못 닫힌다 |
+| **`git add`** (새 파일을 추적으로 승격) | **변한다** | ❌ |
+
+"작성은 안전"만 기억하고 `git add` 를 안전으로 착각하면 첫 단계에서 파이프라인을 깬다.
+
+### 9.3 레포는 이미 자율 실행에 맞게 설계돼 있다
+
+`schema:status`/`schema:apply` · `backfill:*`/`:apply` · `ingest:*:dry-run`/`:apply` —
+**안전한 쪽이 기본값**이다. 사고를 내려면 명시적으로 `--apply` 를 써야 한다.
+
+리허설 DB 하니스도 있다(`run-p6-db-rehearsal.mjs`): 폐기용 DB 를 만들고 마이그레이션을
+적용한 뒤 역할 상태 복원까지 확인하고 DROP 한다. 라이브 적용 전 검증 경로다.
+admin DSN 은 `run_analytics_pipeline.sh` 의 `DB_URL` 에서 database 만 `postgres` 로 바꾼다
+(`research_app` 롤 실측: `createdb=true`).
+
+### 9.4 ⚠️ 부팅 다이제스트 — 마이그레이션마다 반드시 따라오는 절차
+
+`apps/api-server/src/db/live-database-guard.ts` 의 `EXPECTED_CATALOG_DIGESTS` 는 **소스
+하드코딩 상수**다. api-server 는 `listen` 이전에 라이브 카탈로그를 해싱해 대조하고,
+불일치면 죽는다.
+
+`ops/scripts/repin-live-database-digests.mjs` 헤더에 사고 이력이 있다 — 마이그레이션 059 가
+2026-08-03 에 **브레인을 크래시루프**시켰고 그래서 이 도구가 생겼다. guard 주석은 065 가
+**표 하나** 추가로 `relation_privileges_digest` 를 움직였다고 적는다(773 entries 중 1개).
+그리고 *"this array is about **which tables exist** and what policies they carry"*.
+
+```
+① schema:apply
+② DATABASE_URL=… node ops/scripts/repin-live-database-digests.mjs
+③ diff 가 내 마이그레이션으로 설명되는지 판독   ← 설명 안 되면 중단
+④ live-database-guard.ts 상수 갱신 후 커밋
+⑤ api-server 재시작 성공 확인
+
+②~④ 사이에 api-server 를 재시작하지 않는다. 죽는 것은 다음 부팅이다.
+```
+
+`pnpm test:xg:db`(리더 권한 리허설)를 P4 게이트에 넣는 이유도 이것이다.
+
+### 9.5 되돌리기 — "마이그레이션 롤백" 은 이 레포에 없는 연산이다
+
+마이그레이션은 추가 전용이고 `down` 이 없다. 적용된 것을 고치면 체크섬 드리프트로 거부된다.
+
+```
+1. 병합 커밋을 git revert       ← 코드만 되돌린다
+2. 새 표는 그대로 둔다           ← 비어 있고 아무도 안 읽는다. 무해
+3. 다이제스트 재핀은 되돌리지 않는다  ← 표가 남아 있으므로 재핀 값이 여전히 맞다
+```
+
+제품 읽기 경로를 바꾸지 않는 단계(K0·K1·K5)는 이것으로 충분하다.
+
+### 9.6 중단 조건 — 이것만 멈춘다
+
+| # | 조건 |
+| --- | --- |
+| 1 | 검증(테스트·lint·typecheck·format) 실패 |
+| 2 | 리허설 DB 생성 불가 → 검증되지 않은 마이그레이션을 공유 운영 DB 에 적용하지 않는다 |
+| 3 | 백업/복원 검증 실패 |
+| 4 | `schema:status` 에 내 것 외 pending 존재 (공유 DB — 남의 마이그레이션일 수 있다) |
+| 5 | in-flight 파이프라인이 15분 넘게 안 끝남 |
+| 6 | 마이그레이션이 non-additive (DROP / 기존 컬럼 ALTER) |
+| 7 | worktree 격리 증명 실패 (`BEFORE ≠ AFTER`) |
+| 8 | 마이그레이션 번호 충돌 |
+| 9 | 다이제스트 변경이 내 마이그레이션으로 설명 안 됨 |
+| 10 | 재핀 후 api-server 부팅 실패 |
+
+그 외 — 린트 실패, 타입 에러, 테스트 수정, 마이그레이션 재작성 — 은 전부 자율 처리한다.
+
+### 9.7 진행 기록
+
+각 실행의 진행 상태는 날짜별 실행 로그에 남긴다. 다른 세션에서 이어받을 수 있도록
+worktree 경로·브랜치·기준 tree hash·완료 항목·커밋 해시·환경 메모를 담는다.
+첫 사례: [`v2-kernel-execution-log-2026-08-08.md`](./v2-kernel-execution-log-2026-08-08.md)

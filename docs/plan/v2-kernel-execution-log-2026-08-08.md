@@ -51,9 +51,19 @@ git ls-files -z | while IFS= read -r -d '' f; do sha256sum --binary "$f"; done |
       (`e2e-layers.md` · `v2-enhancement-master-roadmap.md` · `stock-insight-v2-enhancement-plan.md`)
 - [x] **K0-2a** `packages/contracts/src/analysis-information-set.ts` 신규 → **`f1247e1`**
 - [x] **K0-2b** `truth-visual-language.ts` truth class 14종 층 추가 → **`f1247e1`**
-- [ ] **K0-3** portfolio-impact 404 → `availability` 봉투
-      (`contracts/personalization.ts` + `api-server` 컨트롤러 + 웹 표면 — **한 줄 아님**)
-- [ ] **K0-4** 계획서에 실행 설계 본문 복사
+- [x] **K0-3** portfolio-impact 404 → `not_computed` 봉투 → **`5d35599`**
+      (계약 enum + read model 폴백 조회 + 웹 3분기 — 예상대로 한 줄이 아니었다)
+- [x] **K0-4** 계획서 §9 에 실행 모델 반영 → **`5d35599` 이후 커밋**
+
+### ✅ P1(K0) 완료 — 게이트 통과 증거
+
+```
+typecheck   11/11 태스크
+test        10/10 태스크 (contracts 103, api·web·api-server 포함)
+lint        통과
+format:check 통과
+본 체크아웃 tree hash  ccb1ddb5… 불변 (타이머 무영향)
+```
 
 **K0-2 에서 내린 결정 (되짚지 말 것):**
 - `temporal.ts` 는 **건드리지 않았다.** 읽기 표면 계약으로 유지하고
@@ -172,6 +182,8 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | 1 | `600e419` | freeze 패키지 편입 — zip 제거로 자립화 |
 | 2 | `fc19147` | 목표 정본 재지시 + 대체된 계획문서 3개 SUPERSEDED |
 | 3 | `f1247e1` | analysis information set 계약 + truth class 14종 시각 구분 |
+| 4 | `5d35599` | portfolio-impact 404 → not_computed 봉투 (계약+서버+웹) |
+| 5 | (다음) | 계획서 §9 실행 모델 + 로그 갱신 |
 
 ---
 
@@ -185,4 +197,4 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 ---
 
-*최종 갱신: P1 진행 중 — K0-1·K0-2 완료, K0-3(portfolio-impact 봉투) 착수*
+*최종 갱신: **P1(K0) 전부 완료.** 다음은 P2(K1 Canonical Kernel) — 마이그레이션 078 부터*
