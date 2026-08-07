@@ -54,13 +54,13 @@ const ECOS_BASE = 'https://ecos.bok.or.kr/api/StatisticSearch';
  *     Metric entity for one exchange rate, and any correlation computed against
  *     both would double-count it.
  *
- *   802Y001 / 0001000 KOSPI지수 — daily since 1995-01-03, and deliberately NOT
- *     added here even though it is the most interesting thing on the list. The
- *     graph publisher builds its KR market factor as a daily-rebalanced
- *     equal-weighted index of our own Korean holdings, because ^KS11 is absent
- *     from market_ts.ohlcv and the copy in stock.market_snapshots covers only 57
- *     distinct dates (141 rows across three sessions a day, stalled at
- *     2026-07-24) against a 1,095-day factor window. ECOS refutes that premise.
+ *   802Y001 / 0001000 KOSPI지수 — ADDED 2026-08-07, and it is the one series here
+ *     that is NOT a correlation target. It is the KR MARKET FACTOR: the thing
+ *     every Korean pair is controlled FOR. Mapping it into
+ *     analytics.macro_series_topic would make it both the control and a candidate,
+ *     and a Korean stock correlated against KOSPI while controlling for KOSPI is
+ *     zero by construction. It is listed in the parity test's
+ *     COLLECTED_WITHOUT_TOPIC for exactly that reason.
  *     But swapping the KR market factor changes the beta control under EVERY
  *     Korean edge, which is a modelling decision with its own before/after
  *     measurement, not a line in a collector's series list. Recorded in
@@ -119,6 +119,22 @@ const CORE_SERIES = [
     // 금통위 — not because the co-movement model is expected to make pairs from
     // it. If it produces none, that is the expected result and not a failure.
     displayName: '한국은행 기준금리',
+  },
+  {
+    seriesKey: 'ecos:802Y001:0001000',
+    statCode: '802Y001',
+    itemCode: '0001000',
+    // KOSPI, daily since 1995-01-03. Collected as the KR MARKET FACTOR, not as a
+    // correlation target — see the exclusions note above for why it must not gain
+    // a macro_series_topic row.
+    //
+    // It replaces a synthetic index. MARKET_FACTOR_SQL built the KR control as a
+    // daily-rebalanced equal-weighted average of our own 194 Korean holdings,
+    // because ^KS11 is absent from market_ts.ohlcv and the copy in
+    // stock.market_snapshots holds 141 rows across only 57 distinct dates,
+    // stalled at 2026-07-24, against a 1,095-day factor window. That premise was
+    // true when it was written and ECOS ends it.
+    displayName: 'KOSPI지수',
   },
 ] as const;
 

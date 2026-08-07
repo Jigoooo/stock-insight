@@ -43,6 +43,7 @@ import {
   publishContentPacks,
 } from '../relations/content-pack-publisher.ts';
 import {
+  MARKET_FACTOR_SOURCE,
   MACRO_COMOVEMENT_MODEL_CONFIG,
   MACRO_SERIES_TRANSFORMS,
   MACRO_WINDOW_DAYS_BY_FREQUENCY,
@@ -542,58 +543,48 @@ ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.col
 // Market factors, one per market, so a stock is only ever controlled for the
 // market it actually trades in.
 //
-// US uses ^GSPC, which market_ts.ohlcv carries with full history (1,267 daily
-// bars, 2021-07 onward). KR has no usable index here: ^KS11 is absent from
-// market_ts.ohlcv entirely and exists only in stock.market_snapshots, where it
-// holds 141 ROWS spanning just 57 distinct dates (2026-04-30..2026-07-24, three
-// sessions per day) and has not advanced since 2026-07-24. The correlation window
-// this factor is loaded over is 1,095 days, so the gap is 57 vs 1,095.
+// US uses ^GSPC from market_ts.ohlcv (1,267 daily bars, 2021-07 onward).
+// KR uses KOSPI from market.macro_vintage, collected through ECOS 802Y001.
 //
-// (An earlier version of this comment said "141 days". That was the row count
-// read as a date count, and it is repeated in run-ecos-vintage.ts and migration
-// 076 — corrected 2026-08-07.)
+// KR WAS a daily-rebalanced equal-weighted index of our own 194 Korean holdings.
+// That was written because ^KS11 was unavailable — absent from market_ts.ohlcv,
+// and the copy in stock.market_snapshots holds 141 ROWS over just 57 distinct
+// dates (2026-04-30..2026-07-24, three sessions a day), stalled since 2026-07-24,
+// against the 1,095-day window this factor is loaded over. An earlier version of
+// this comment said "141 days", reading the row count as a date count.
 //
-// So the KR factor is a daily-rebalanced equal-weighted index built from the KR
-// universe itself — the average of what our own Korean holdings did each day.
+// ECOS ended that constraint: KOSPI daily from 1995-01-03, checked against its
+// historical anchors (2020-03-19 = 1,458, the COVID bottom) rather than assumed.
+// The synthetic index also had a defect availability never fixed — it was the
+// average of the very stocks being controlled, so each Korean stock was partly
+// subtracted from itself. KOSPI is exogenous to any one holding.
 //
-// The asymmetry is deliberate and recorded rather than smoothed over: using
-// ^GSPC for Korean stocks would subtract a factor they do not load on, and
-// waiting for KOSPI history would leave every Korean edge restating beta in the
-// meantime.
+// Both sources are named in MACRO_COMOVEMENT_MODEL_CONFIG.marketFactorByMarket
+// and passed in as parameters, so a correlation can be traced to the factor that
+// produced it. A test pins the two together.
 const MARKET_FACTOR_SQL = `
-WITH bars AS (
-  SELECT DISTINCT ON (universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date)
-         universe.security_entity_id,
-         universe.market,
-         (bar.ts AT TIME ZONE 'UTC')::date AS bar_date,
-         bar.close::float8 AS close
-  FROM market_ts.ohlcv bar
-  JOIN core.v_security_universe universe
-    ON universe.ticker = regexp_replace(upper(bar.symbol), '\\.(KS|KQ)$', '')
-   AND universe.market = CASE WHEN bar.exchange IN ('KOSPI','KOSDAQ') THEN 'KR' ELSE 'US' END
-  WHERE bar.domain = 'stock' AND bar.timeframe = '1D' AND bar.close > 0
-    AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
-    AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
-  ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
-), stock_returns AS (
-  SELECT market, bar_date,
-         ln(close / lag(close) OVER (PARTITION BY security_entity_id ORDER BY bar_date)) AS r
-  FROM bars
-), mean_returns AS (
-  SELECT market, bar_date, avg(r) AS mean_r
-  FROM stock_returns WHERE r IS NOT NULL GROUP BY 1,2
-), kr_index AS (
-  -- Daily-rebalanced equal weight: the level is the running product of the
-  -- cross-sectional mean return, so its log return IS the average stock's.
-  SELECT 'KR'::text AS market_key, bar_date::text AS bar_date,
-         exp(sum(mean_r) OVER (ORDER BY bar_date))::float8 AS close
-  FROM mean_returns WHERE market = 'KR'
+WITH kr_index AS (
+  -- KOSPI, point-in-time. Same vintage rule as MACRO_SERIES_WINDOW_SQL: the
+  -- greatest vintage_date whose available_at is at or before the cutoff, so the
+  -- factor is what was knowable then rather than what is known now.
+  SELECT DISTINCT ON (vintage.observation_date)
+         'KR'::text AS market_key,
+         vintage.observation_date::text AS bar_date,
+         vintage.value::float8 AS close
+  FROM market.macro_vintage vintage
+  WHERE vintage.series_key = $3
+    AND vintage.value IS NOT NULL
+    AND vintage.value > 0
+    AND vintage.available_at <= $1::timestamptz
+    AND vintage.observation_date >= ($1::timestamptz - make_interval(days => $2))::date
+    AND vintage.observation_date <= $1::timestamptz::date
+  ORDER BY vintage.observation_date, vintage.vintage_date DESC, vintage.available_at DESC
 ), us_index AS (
   SELECT 'US'::text AS market_key,
          ((bar.ts AT TIME ZONE 'UTC')::date)::text AS bar_date,
          bar.close::float8 AS close
   FROM market_ts.ohlcv bar
-  WHERE bar.symbol = '^GSPC' AND bar.timeframe = '1D' AND bar.close > 0
+  WHERE bar.symbol = $4 AND bar.timeframe = '1D' AND bar.close > 0
     AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
     AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
 )
@@ -804,7 +795,14 @@ async function loadMacroComovementInputs(
     stockByEntity.set(stockEntityId, window);
   }
 
-  const factorRows = await client.query<MarketFactorRow>(MARKET_FACTOR_SQL, [asOf, windowDays]);
+  // Passed in rather than hardcoded in the SQL, so the factor the model DECLARES
+  // and the factor it USES cannot drift apart.
+  const factorRows = await client.query<MarketFactorRow>(MARKET_FACTOR_SQL, [
+    asOf,
+    windowDays,
+    MARKET_FACTOR_SOURCE.KR,
+    MARKET_FACTOR_SOURCE.US,
+  ]);
   const factorByKey = new Map<string, MarketFactorWindow>();
   for (const row of factorRows.rows) {
     const existing = factorByKey.get(row.market_key);

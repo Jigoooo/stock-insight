@@ -50,7 +50,17 @@ const MIGRATIONS = new URL('../../../packages/db-schema/src/migrations/', import
  * FRED_SERIES only; migration 076 and that join's widening landed together and the
  * exemption came straight back off.
  */
-const COLLECTED_WITHOUT_TOPIC = new Map<string, string>([]);
+const COLLECTED_WITHOUT_TOPIC = new Map<string, string>([
+  // KOSPI is the KR MARKET FACTOR, not a correlation target. Every Korean pair is
+  // controlled FOR it, so mapping it would make it both the control and a
+  // candidate — and a Korean stock correlated against KOSPI while controlling for
+  // KOSPI is zero by construction, which the partial-correlation denominator
+  // guard would reject as degenerate.
+  //
+  // This is the one exemption that must NEVER be cleared by adding a mapping. The
+  // others on this list were temporary; this one is the design.
+  ['ecos:802Y001:0001000', 'KR market factor — controlled for, never correlated against'],
+]);
 
 async function collectorSeries(): Promise<Set<string>> {
   const found = new Set<string>();
