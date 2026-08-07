@@ -1,0 +1,21 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "states": [
+    "NORMAL",
+    "CAUTION",
+    "INFORMATION_ONLY",
+    "HALTED"
+  ],
+  "order": {
+    "NORMAL": 0,
+    "CAUTION": 1,
+    "INFORMATION_ONLY": 2,
+    "HALTED": 3
+  },
+  "recommendation_allowed": {
+    "NORMAL": true,
+    "CAUTION": "policy-dependent",
+    "INFORMATION_ONLY": false,
+    "HALTED": false
+  }
+}

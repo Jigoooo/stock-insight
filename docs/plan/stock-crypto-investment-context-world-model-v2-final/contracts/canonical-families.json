@@ -1,0 +1,53 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "families": [
+    {
+      "id": "F01",
+      "name": "Source & Evidence"
+    },
+    {
+      "id": "F02",
+      "name": "Identity & Economic Claim"
+    },
+    {
+      "id": "F03",
+      "name": "Metric & Observation"
+    },
+    {
+      "id": "F04",
+      "name": "Event & World State"
+    },
+    {
+      "id": "F05",
+      "name": "Relation & Exposure"
+    },
+    {
+      "id": "F06",
+      "name": "Expectation & Hypothesis"
+    },
+    {
+      "id": "F07",
+      "name": "Analysis / Estimate / Scenario"
+    },
+    {
+      "id": "F08",
+      "name": "Theme / Narrative / Regime"
+    },
+    {
+      "id": "F09",
+      "name": "Outcome / Evaluation / Calibration"
+    },
+    {
+      "id": "F10",
+      "name": "Opportunity / Recommendation / Decision"
+    },
+    {
+      "id": "F11",
+      "name": "Definition / Policy / Provenance"
+    },
+    {
+      "id": "F12",
+      "name": "Operations / Release / Safety"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CommonAssetView",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "assetViewId",
+    "economicClaimId",
+    "informationSetId",
+    "semanticSnapshotId",
+    "coverageState",
+    "thesis",
+    "risks",
+    "derivationIds"
+  ],
+  "properties": {
+    "assetViewId": {
+      "type": "string"
+    },
+    "economicClaimId": {
+      "type": "string"
+    },
+    "informationSetId": {
+      "type": "string"
+    },
+    "semanticSnapshotId": {
+      "type": "string"
+    },
+    "coverageState": {
+      "type": "string"
+    },
+    "thesis": {
+      "type": "array"
+    },
+    "risks": {
+      "type": "array"
+    },
+    "catalysts": {
+      "type": "array"
+    },
+    "counterEvidence": {
+      "type": "array"
+    },
+    "valuation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "pricedIn": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "derivationIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
