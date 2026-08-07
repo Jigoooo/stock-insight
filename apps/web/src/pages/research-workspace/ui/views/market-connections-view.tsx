@@ -8,6 +8,7 @@ import {
   type MarketConnectionsModel,
 } from '../../model/market-connections';
 import { createRetryablePromiseCache } from '../../model/workspace-lazy-recovery';
+import { MarketConnectionInspector } from '../market-connection-inspector';
 import {
   MarketChangeList,
   MarketConnectionSummary,
@@ -17,7 +18,6 @@ import { MarketExploration } from '../market-exploration';
 import type { DetailState } from '../research-workspace-page';
 import styles from './market-connections-view.module.css';
 
-import { Button } from '@/shared/ui/button';
 import { PageHeader, WorkspaceState } from '@/shared/ui/workspace';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
@@ -49,6 +49,7 @@ export function MarketConnectionsView({
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailState, setDetailState] = useState<DetailState>('error');
   const [detailResult, setDetailResult] = useState<MarketConnectionLoadResult | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(true);
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const requestSequenceRef = useRef(0);
 
@@ -58,6 +59,14 @@ export function MarketConnectionsView({
     },
     [],
   );
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncViewport = () => setIsMobileViewport(media.matches);
+    syncViewport();
+    media.addEventListener('change', syncViewport);
+    return () => media.removeEventListener('change', syncViewport);
+  }, []);
 
   async function loadConnection(item: MarketConnectionItem, opener?: HTMLButtonElement) {
     const sequence = ++requestSequenceRef.current;
@@ -146,54 +155,17 @@ export function MarketConnectionsView({
           onSelectConnection={(item, opener) => void loadConnection(item, opener)}
         />
       </fieldset>
-      {detailOpen ? (
-        <section
-          className={styles.detailStatus}
-          aria-labelledby="market-connection-detail-status-title"
-          aria-live="polite"
-        >
-          <div>
-            <h2 id="market-connection-detail-status-title">선택한 시장 변화</h2>
-            {detailState === 'loading' ? (
-              <WorkspaceState
-                delayMs={0}
-                kind="loading"
-                title="시장 변화 상세를 준비하고 있습니다"
-                description="연결 관계와 영향 경로를 확인하는 중입니다."
-              />
-            ) : detailState === 'error' ? (
-              <WorkspaceState
-                kind="error"
-                title="시장 변화 상세를 불러오지 못했습니다"
-                description="선택은 유지됩니다. 같은 변화를 다시 불러올 수 있습니다."
-                action={
-                  selectedItem ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => void loadConnection(selectedItem)}
-                    >
-                      다시 불러오기
-                    </Button>
-                  ) : null
-                }
-              />
-            ) : (
-              <div className={styles.readyState}>
-                <strong>
-                  {detailResult?.detail.item.title ?? '시장 변화 상세가 준비됐습니다'}
-                </strong>
-                <span className={styles.readyDescription}>
-                  전체 상세 인스펙터는 다음 구현 단계에서 이 선택 상태를 이어받습니다.
-                </span>
-              </div>
-            )}
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={closeDetail}>
-            상세 닫기
-          </Button>
-        </section>
-      ) : null}
+      <MarketConnectionInspector
+        geoSnapshot={geoSnapshot}
+        mobile={isMobileViewport}
+        onClose={closeDetail}
+        onRetry={() => selectedItem && void loadConnection(selectedItem)}
+        open={detailOpen}
+        radarItems={radarPage.items}
+        result={detailResult}
+        selectedConnectionKey={selectedConnectionKey ?? null}
+        state={detailState}
+      />
     </div>
   );
 }

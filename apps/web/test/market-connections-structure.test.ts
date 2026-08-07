@@ -117,4 +117,97 @@ describe('market connections workspace structure', () => {
     assert.match(view, /opener\.focus\(\)/);
     assert.match(view, /interactive=\{interactive\}/);
   });
+
+  it('renders the approved compact inspector sections in order and omits absent optional data', async () => {
+    const inspector = await read('market-connection-inspector.tsx');
+
+    assert.match(
+      inspector,
+      /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?detail\.item\.connectedEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?detail\.counterEvidence\.length > 0 \|\|[\s\S]*?detail\.risks\.length > 0 \|\|[\s\S]*?detail\.checkpoints\.length > 0[\s\S]*?반대 근거와 확인할 리스크[\s\S]*?데이터 기준 시각과 근거 수준/,
+    );
+    assert.match(inspector, /detail\.availability === 'missing'/);
+    assert.match(inspector, /detail\.availability === 'partial'/);
+  });
+
+  it('keeps partial failures in their owning sections and links only valid HTTPS sources', async () => {
+    const inspector = await read('market-connection-inspector.tsx');
+
+    assert.match(
+      inspector,
+      /detail\.partialFailures\.impact[\s\S]*?영향 경로를 확인하지 못했습니다/,
+    );
+    assert.match(
+      inspector,
+      /detail\.partialFailures\.relation[\s\S]*?관계 그래프를 확인하지 못했습니다/,
+    );
+    assert.match(inspector, /detail\.partialFailures\.geo[\s\S]*?지역 정보를 확인하지 못했습니다/);
+    assert.match(
+      inspector,
+      /detail\.partialFailures\.history[\s\S]*?이전 사건을 확인하지 못했습니다/,
+    );
+    assert.match(
+      inspector,
+      /function isValidHttpsUrl\([\s\S]*?new URL\([\s\S]*?protocol === 'https:'/,
+    );
+    assert.match(inspector, /isValidHttpsUrl\(source\.url\) \? \(/);
+    assert.match(inspector, /target="_blank" rel="noreferrer"/);
+  });
+
+  it('shows raw strength only in metadata with the non-forecast boundary', async () => {
+    const [inspector, sections] = await Promise.all([
+      read('market-connection-inspector.tsx'),
+      read('market-connection-sections.tsx'),
+    ]);
+
+    assert.equal(inspector.match(/detail\.item\.rawStrength/g)?.length, 1);
+    assert.match(
+      inspector,
+      /관측된 신호의 상대 강도이며 상승·하락 확률이나 가격 전망이 아닙니다\./,
+    );
+    assert.doesNotMatch(sections, /rawStrength/);
+  });
+
+  it('adds data-backed relation, geo, path, company, history, and factor detail only in modal', async () => {
+    const inspector = await read('market-connection-inspector.tsx');
+
+    assert.match(inspector, /presentation === 'modal'/);
+    assert.match(inspector, /relation \|\| detail\.partialFailures\.relation/);
+    assert.match(inspector, /<RelationSigmaGraph graph=\{relation\}/);
+    assert.match(
+      inspector,
+      /geoSnapshot\.geojson\.features\.length > 0 \|\| detail\.partialFailures\.geo/,
+    );
+    assert.match(inspector, /전체 영향 경로/);
+    assert.match(inspector, /relation\.nodes\.length > 0[\s\S]*?연관 기업과 테마/);
+    assert.match(
+      inspector,
+      /detail\.relatedEvents\.length > 0 \|\| detail\.partialFailures\.history/,
+    );
+    assert.match(inspector, /같은 유형의 이전 사건/);
+    assert.match(inspector, /factorRows\.length > 0[\s\S]*?요인별 비교/);
+  });
+
+  it('connects every presentation to the same loaded result without moving loading into the frame', async () => {
+    const [inspector, view] = await Promise.all([
+      read('market-connection-inspector.tsx'),
+      read('views/market-connections-view.tsx'),
+    ]);
+
+    assert.match(inspector, /<DetailInspectorFrame/);
+    assert.match(inspector, /\{\(presentation\) => \(/);
+    assert.match(inspector, /result=\{result\}/);
+    assert.doesNotMatch(inspector, /MarketConnectionLoader|loadMarketConnectionDetail/);
+    assert.match(view, /<MarketConnectionInspector[\s\S]*?result=\{detailResult\}/);
+    assert.equal(view.match(/loadMarketConnectionDetail\(item\.connectionKey\)/g)?.length, 1);
+  });
+
+  it('keeps Korean prose and metadata readable at the minimum drawer width', async () => {
+    const css = await read('market-connection-inspector.module.css');
+
+    assert.match(css, /word-break:\s*keep-all/);
+    assert.match(
+      css,
+      /\.readyContent\[data-presentation='drawer'\] \.metadata\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+  });
 });

@@ -27,7 +27,19 @@ describe('detail inspector frame', () => {
     assert.equal(layout.parseStoredDetailInspectorWidth('invalid', 1440), 520);
     assert.equal(layout.evidenceInspectorWidthStorageKey, 'stock-insight:evidence-inspector-width');
     assert.equal(layout.stockInspectorWidthStorageKey, 'stock-insight:stock-inspector-width');
+    assert.equal(
+      layout.marketConnectionInspectorWidthStorageKey,
+      'stock-insight:market-connection-inspector-width',
+    );
     assert.notEqual(layout.evidenceInspectorWidthStorageKey, layout.stockInspectorWidthStorageKey);
+    assert.notEqual(
+      layout.marketConnectionInspectorWidthStorageKey,
+      layout.evidenceInspectorWidthStorageKey,
+    );
+    assert.notEqual(
+      layout.marketConnectionInspectorWidthStorageKey,
+      layout.stockInspectorWidthStorageKey,
+    );
   });
 
   it('requires an explicit detail identity and exposes the resolved presentation to content', () => {

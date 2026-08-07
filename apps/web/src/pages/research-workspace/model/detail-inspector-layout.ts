@@ -3,6 +3,8 @@ export const detailInspectorMinWidth = 420;
 export const detailInspectorMaxWidth = 760;
 export const evidenceInspectorWidthStorageKey = 'stock-insight:evidence-inspector-width';
 export const stockInspectorWidthStorageKey = 'stock-insight:stock-inspector-width';
+export const marketConnectionInspectorWidthStorageKey =
+  'stock-insight:market-connection-inspector-width';
 
 const viewportMargin = 24;
 
