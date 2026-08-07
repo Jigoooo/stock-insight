@@ -64,7 +64,8 @@
 .stockList {
   min-width: 0;
   display: grid;
-  gap: 0;
+  gap: 8px;
+  padding: 10px 12px 20px;
 }
 
 .stockRow[data-slot='button-control'] {
@@ -92,7 +93,7 @@
   background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--color-accent) 10%, transparent) inset,
-    0 8px 22px rgb(20 21 19 / 6%);
+    0 6px 14px rgb(20 21 19 / 6%);
 }
 
 .stockRowLayout {
@@ -137,6 +138,22 @@
   line-height: 1.5;
 }
 
+.priorityRank {
+  width: fit-content;
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.briefingCopy .riskSummary,
+.briefingCopy .analysisTime,
+.briefingCopy .analysisTime time {
+  color: var(--color-text-secondary);
+}
+
 .stockMetrics {
   justify-items: end;
   text-align: right;
@@ -164,6 +181,10 @@
 
 .searchState {
   min-height: 240px;
+}
+
+.holdingGuidance {
+  min-height: 176px;
 }
 
 .detailRegion {

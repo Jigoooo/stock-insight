@@ -135,6 +135,7 @@ export function StocksView({
 
   const searchEmpty = data.data.length > 0 && stocks.length === 0;
   const portfolioEmpty = data.data.length === 0;
+  const hasUnfilteredHoldings = data.data.some(({ isHolding }) => isHolding);
 
   return (
     <>
@@ -165,6 +166,23 @@ export function StocksView({
               title="아직 보유·관심 종목이 없습니다"
               description="보유 또는 관심 종목이 연결되면 개인 브리핑을 확인할 수 있습니다."
             />
+          ) : !hasUnfilteredHoldings ? (
+            <>
+              <WatchlistSection
+                expanded={showAllWatchlist}
+                items={visible.watchlist}
+                onExpandedChange={setShowAllWatchlist}
+                onSelect={(entityKey) => void loadDeepDive(entityKey)}
+                selectedStockKey={selectedStockKey}
+                watchedCount={visible.watchedNonHoldings.length}
+              />
+              <WorkspaceState
+                className={styles.holdingGuidance}
+                kind="empty"
+                title="보유종목 등록이 필요합니다"
+                description="보유종목이 연결되면 우선 브리핑과 전체 보유종목 목록을 확인할 수 있습니다."
+              />
+            </>
           ) : (
             <>
               <div className={styles.briefingColumns}>

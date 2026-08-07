@@ -60,6 +60,10 @@ function priceLabel(stock: StockListItem) {
   return `${formatNumber(stock.latestPrice)}${unit ? ` ${unit}` : ''}`;
 }
 
+function priorityLabel(briefing: StockBriefingItem) {
+  return briefing.priority ? `우선 ${briefing.priority}` : undefined;
+}
+
 function StockRow({
   briefing,
   context,
@@ -79,6 +83,7 @@ function StockRow({
       : stock.changePct < 0
         ? styles.negative
         : styles.positive;
+  const rank = briefing ? priorityLabel(briefing) : undefined;
   return (
     <Button
       type="button"
@@ -99,9 +104,13 @@ function StockRow({
         </span>
         {briefing ? (
           <span className={styles.briefingCopy}>
+            {rank ? <span className={styles.priorityRank}>{rank}</span> : null}
             <strong>{briefing.changeSummary}</strong>
             <small>{briefing.connectionReason}</small>
             {briefing.primaryPath ? <small>{briefing.primaryPath}</small> : null}
+            {briefing.riskSummary ? (
+              <small className={styles.riskSummary}>확인할 리스크 · {briefing.riskSummary}</small>
+            ) : null}
           </span>
         ) : (
           <span className={styles.briefingCopy}>
@@ -112,6 +121,18 @@ function StockRow({
                   : '최근 종목 상태를 확인합니다.')}
             </strong>
             <small>{analysisStatusLabel(stock.analysisStatus)}</small>
+            {context === 'holding' ? (
+              <small className={styles.analysisTime}>
+                최근 분석 ·{' '}
+                {stock.lastAnalyzedAt ? (
+                  <time dateTime={stock.lastAnalyzedAt}>
+                    {formatDate(stock.lastAnalyzedAt, true)}
+                  </time>
+                ) : (
+                  <span aria-label="분석 시각 없음">분석 시각 없음</span>
+                )}
+              </small>
+            ) : null}
           </span>
         )}
         <span className={styles.stockMetrics}>

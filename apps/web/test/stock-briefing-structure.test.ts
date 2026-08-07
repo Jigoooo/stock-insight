@@ -159,4 +159,42 @@ describe('stock briefing view structure', () => {
       /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\][\s\S]{0,320}?border-left/,
     );
   });
+
+  it('puts the watchlist before holding registration guidance when the unfiltered portfolio has no holdings', async () => {
+    const view = await readFile(stocksViewUrl, 'utf8');
+
+    assert.match(
+      view,
+      /const hasUnfilteredHoldings = data\.data\.some\(\(\{ isHolding \}\) => isHolding\)/,
+    );
+    assert.match(
+      view,
+      /!hasUnfilteredHoldings\s*\?\s*\([\s\S]*?<WatchlistSection[\s\S]*?<WorkspaceState[\s\S]*?title="보유종목 등록이 필요합니다"/,
+    );
+  });
+
+  it('keeps priority rank, risk, and holding analysis time visible without inventing missing timestamps', async () => {
+    const sections = await readFile(sectionsUrl, 'utf8');
+
+    assert.match(sections, /briefing\.priority \? `우선 \$\{briefing\.priority\}`/);
+    assert.match(sections, /briefing\.riskSummary/);
+    assert.match(sections, /확인할 리스크/);
+    assert.match(sections, /<time dateTime=\{stock\.lastAnalyzedAt\}>/);
+    assert.match(sections, /aria-label="분석 시각 없음"/);
+  });
+
+  it('insets selectable rows enough to preserve the full selected shadow without moving pagination', async () => {
+    const css = await readFile(stocksStylesUrl, 'utf8');
+
+    assert.match(css, /\.stockList\s*\{[\s\S]*?padding:\s*10px 12px 20px/);
+    assert.match(css, /\.stockList\s*\{[\s\S]*?gap:\s*8px/);
+    assert.match(
+      css,
+      /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\][\s\S]*?0 6px 14px rgb\(20 21 19 \/ 6%\)/,
+    );
+    assert.match(
+      css,
+      /\.pagination\s*\{\s*padding:\s*12px 16px 16px;\s*border-top:\s*1px solid var\(--color-border\)/,
+    );
+  });
 });
