@@ -75,6 +75,9 @@ import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts'
 import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
 import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
 import { institutionalHolderEntitiesMigrationSql } from './migrations/077_institutional_holder_entities.ts';
+import { semanticSnapshotMigrationSql } from './migrations/078_semantic_snapshot.ts';
+import { analysisInformationSetMigrationSql } from './migrations/079_analysis_information_set.ts';
+import { sourcePitQualityMigrationSql } from './migrations/080_source_pit_quality.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -882,6 +885,27 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: institutionalHolderEntitiesMigrationSql,
   },
+  {
+    id: '078_semantic_snapshot',
+    description:
+      "Creates governance.semantic_snapshot, the version pin canonical/02 §9 requires so 'what did this number mean' has one answer per artifact, and REQ-REL-001 can ask whether two surfaces used compatible snapshots. Numbered before the information set because that table carries semantic_snapshot_id as a foreign key — numbering follows the dependency, not the order the plan listed them. Uses a TEXT primary key rather than the usual surrogate-plus-key pair because the snapshot id is quoted inside run manifests and artifacts that outlive the row, so a surrogate would force every consumer to join to translate. Append-only with one state-machine exception (open -> sealed -> superseded): editing a snapshot rewrites the meaning of artifacts already derived under it, which is REQ-SEM-002 applied to versioning. Granted to pipeline roles only; the boot guard's digests are all has_table_privilege-filtered, so a table the app roles cannot see does not move their pins and needs no re-pin — the discipline migration 059 lacked when it crashlooped the brain.",
+    tables: [],
+    sql: semanticSnapshotMigrationSql,
+  },
+  {
+    id: '079_analysis_information_set',
+    description:
+      "Creates governance.analysis_information_set — canonical/02 §1's record of what a derivation was allowed to see. Keeps four cutoffs separate (valid, source-available, system-known, market-observation) because canonical/00 §5 keeps the time axes separate; collapsing them loses the sentence a leak-free backtest depends on, 'this was true then but we could not have known it'. The cutoffs are NOT NULL with no default precisely because a default is how now() becomes a business cutoff without anyone deciding to, which REQ-PIT-003 forbids. Four CHECK constraints mirror packages/contracts/src/analysis-information-set.ts one for one — the contract rejects a bad request before work starts, the constraint rejects a bad row however it was produced, and a leak only the application can catch is a leak. Fully append-only with no state machine: an information set describes a boundary, and an editable boundary is not one (REQ-KERN-002).",
+    tables: [],
+    sql: analysisInformationSetMigrationSql,
+  },
+  {
+    id: '080_source_pit_quality',
+    description:
+      'Records the PIT reconstructability class (canonical/02 §3) per source, so REQ-KERN-020 — PIT_D/E data must not be a core input to past ex-ante evaluation — becomes enforceable instead of unstated. canonical/08 §1 puts the class in the source contract and that was the plan, but ingestion.source_contract_revision carries an immutability trigger and a content_hash over the contract it states: adding a column and backfilling would either fail or leave 69 revisions whose hash no longer describes their content. Grading is also revised as a source is learned, a different lifecycle from the contract, so it gets its own append-only ledger with a current-view mirroring source_contract_current_v1. Grades only what has a checkable reason — fred PIT_A (ALFRED vintages), SEC/DART PIT_B (immutable accession-addressed filings), internal snapshots and bok-ecos PIT_C (no source revision axis; run-ecos-vintage already marks vintage_quality approximate), quote APIs PIT_D — and leaves the remaining sources PIT_E_UNKNOWN because over-claiming replayability silently admits data the system could not have had.',
+    tables: [],
+    sql: sourcePitQualityMigrationSql,
+  },
 ];
 
 export {
@@ -962,4 +986,7 @@ export {
   ecosMacroSeriesMigrationSql,
   institutionalHolderEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
+  semanticSnapshotMigrationSql,
+  analysisInformationSetMigrationSql,
+  sourcePitQualityMigrationSql,
 };
