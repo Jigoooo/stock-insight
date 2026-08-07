@@ -17,8 +17,11 @@ import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
-import { buildStocksBriefingModel, type StocksBriefingModel } from '../model/stock-briefing';
-import type { StockDeepDiveLoader } from '../model/stock-deep-dive';
+import {
+  buildStocksBriefingModel,
+  type StockBriefingLoader,
+  type StocksBriefingModel,
+} from '../model/stock-briefing';
 import {
   resolveWorkspaceAuthoritativeOverride,
   type WorkspaceAuthoritativeOverride,
@@ -118,7 +121,7 @@ type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
   loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
-  loadStockDeepDive?: StockDeepDiveLoader;
+  loadStockBriefingDetail?: StockBriefingLoader;
   stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
@@ -170,7 +173,7 @@ export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
   loadResearchRecord,
-  loadStockDeepDive,
+  loadStockBriefingDetail,
   stocksBriefing,
   navigationMode = 'route',
   onLogout,
@@ -757,7 +760,7 @@ export function ResearchWorkspacePage({
         <StocksView
           briefing={resolvedStocksBriefing}
           data={data.stocks}
-          loadStockDeepDive={loadStockDeepDive}
+          loadStockBriefingDetail={loadStockBriefingDetail}
           pending={searchPending}
           stocks={stocks}
         />

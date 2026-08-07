@@ -49,7 +49,7 @@ const workspace = [
     'utf8',
   ),
   readFileSync(
-    new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+    new URL('../src/pages/research-workspace/ui/stock-briefing-inspector.tsx', import.meta.url),
     'utf8',
   ),
   readFileSync(

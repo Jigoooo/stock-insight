@@ -2,11 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  buildStocksBriefingModel,
-  createStocksBriefingModel,
-  loadStockBriefingData,
-} from '../src/pages/research-workspace/model/stock-briefing.ts';
-import {
   loadPreviewStockDeepDive,
   loadPreviewStockBriefing,
   stockBriefingDetailPreviewFixtures,
@@ -15,6 +10,11 @@ import {
   stocksBriefingPreviewFixture,
   stocksPreviewFixture,
 } from '../src/pages/dev-preview/model/stocks-preview-fixture.ts';
+import {
+  buildStocksBriefingModel,
+  createStocksBriefingModel,
+  loadStockBriefingData,
+} from '../src/pages/research-workspace/model/stock-briefing.ts';
 
 import type {
   ImpactBriefResponse,

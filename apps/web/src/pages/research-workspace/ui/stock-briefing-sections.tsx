@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import type { VisibleWatchlistItem } from './stock-briefing-sections-model';
 import styles from './views/stocks-view.module.css';
@@ -9,7 +9,7 @@ import { Button } from '@/shared/ui/button';
 import { Panel, PanelHeader, WorkspaceState } from '@/shared/ui/workspace';
 import type { StockListItem } from '@stock-insight/contracts';
 
-type SelectStock = (entityKey: string) => void;
+type SelectStock = (entityKey: string, opener: HTMLElement) => void;
 
 function UnavailableValue({ label }: { label: string }) {
   return <span aria-label={label}>—</span>;
@@ -93,7 +93,9 @@ function StockRow({
       data-context={context}
       aria-current={selected ? 'true' : undefined}
       aria-label={`${stock.displayName} 종목 브리핑 열기`}
-      onClick={() => onSelect(stock.entityKey)}
+      onClick={(event: MouseEvent<HTMLButtonElement>) =>
+        onSelect(stock.entityKey, event.currentTarget)
+      }
     >
       <span className={styles.stockRowLayout}>
         <span className={styles.stockIdentity}>

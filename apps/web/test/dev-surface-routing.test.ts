@@ -85,7 +85,7 @@ describe('development-only visual surface routes', () => {
     assert.equal(stockListResponseSchema.safeParse(fixture.stocks).success, true);
     assert.ok(fixture.stocks.data.length > 0);
     assert.match(previewPage, /<ResearchWorkspacePage/);
-    assert.match(previewPage, /loadStockDeepDive=/);
+    assert.match(previewPage, /loadStockBriefingDetail=\{loadPreviewStockBriefing\}/);
     assert.match(previewPage, /navigationMode="static"/);
     assert.match(previewPage, /개발 전용 미리보기/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
@@ -148,14 +148,16 @@ describe('development-only visual surface routes', () => {
     assert.doesNotMatch(uiLabPage, /ResearchWorkspacePage|stocksPreviewFixture|StocksView/);
   });
 
-  it('keeps compact Deep Dive metadata from inheriting wide property-list columns', async () => {
-    const deepDiveStyles = await readSource(
-      '../src/pages/research-workspace/ui/stock-deep-dive-panel.module.css',
+  it('keeps compact stock inspector metadata from inheriting wide property-list columns', async () => {
+    const inspectorStyles = await readSource(
+      '../src/pages/research-workspace/ui/stock-briefing-inspector.module.css',
     );
 
+    assert.match(inspectorStyles, /\.summaryMeta\s*\{[^}]*repeat\(3, minmax\(0, 1fr\)\)/);
+    assert.match(inspectorStyles, /\.summaryMeta > div,[\s\S]*?min-width:\s*0/);
     assert.match(
-      deepDiveStyles,
-      /\.headerMeta div\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
+      inspectorStyles,
+      /@media \(max-width: 767px\)[\s\S]*?\.summaryMeta,[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
     );
   });
 });

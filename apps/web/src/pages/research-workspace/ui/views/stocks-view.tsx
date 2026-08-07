@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { StocksBriefingModel } from '../../model/stock-briefing';
 import {
-  createLatestRequestGate,
-  loadStockDeepDiveData,
-  type StockDeepDive,
-  type StockDeepDiveLoader,
-} from '../../model/stock-deep-dive';
+  loadStockBriefingData,
+  type StockBriefingDetail,
+  type StockBriefingLoader,
+  type StocksBriefingModel,
+} from '../../model/stock-briefing';
+import { createLatestRequestGate } from '../../model/stock-deep-dive';
 import { paginateStockRows } from '../../model/stock-table-pagination';
+import {
+  StockBriefingInspector,
+  type StockBriefingInspectorState,
+} from '../stock-briefing-inspector';
 import {
   HoldingRows,
   HoldingsSection,
@@ -16,8 +20,6 @@ import {
   WatchlistSection,
 } from '../stock-briefing-sections';
 import { selectVisibleStockBriefing } from '../stock-briefing-sections-model';
-import { StockDeepDivePanel, type StockDeepDivePanelState } from '../stock-deep-dive-panel';
-import stockDetailStyles from '../stock-deep-dive-panel.module.css';
 import styles from './stocks-view.module.css';
 
 import {
@@ -34,29 +36,29 @@ import { createApiClient } from '@stock-insight/api-client';
 import type { StockListResponse } from '@stock-insight/contracts';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
-const compactWorkspaceQuery = '(max-width: 1240px)';
-
 export function StocksView({
   briefing,
   data,
-  loadStockDeepDive,
+  loadStockBriefingDetail,
   pending,
   stocks,
 }: {
   briefing: StocksBriefingModel;
   data: StockListResponse;
-  loadStockDeepDive?: StockDeepDiveLoader;
+  loadStockBriefingDetail?: StockBriefingLoader;
   pending: boolean;
   stocks: StockListResponse['data'];
 }) {
   const api = useMemo(() => createApiClient(), []);
   const requestGateRef = useRef(createLatestRequestGate());
-  const deepDiveRegionRef = useRef<HTMLDivElement>(null);
+  const inspectorOpenerRef = useRef<HTMLElement | null>(null);
   const [selectedStockKey, setSelectedStockKey] = useState<string>();
-  const [deepDive, setDeepDive] = useState<StockDeepDive | null>(null);
+  const [detail, setDetail] = useState<StockBriefingDetail | null>(null);
   const [relation, setRelation] = useState<EntityRelationGraph | null>(null);
-  const [detailState, setDetailState] = useState<StockDeepDivePanelState>('idle');
+  const [detailState, setDetailState] = useState<StockBriefingInspectorState>('loading');
   const [detailError, setDetailError] = useState<string>();
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAllWatchlist, setShowAllWatchlist] = useState(false);
   const [pageRows, setPageRows] = useState(stocks);
@@ -77,34 +79,37 @@ export function StocksView({
     [],
   );
 
-  async function loadDeepDive(entityKey: string) {
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const syncViewport = () => setIsMobileViewport(media.matches);
+    syncViewport();
+    media.addEventListener('change', syncViewport);
+    return () => media.removeEventListener('change', syncViewport);
+  }, []);
+
+  async function loadBriefing(entityKey: string, opener?: HTMLElement) {
     const sequence = requestGateRef.current.next();
+    if (opener) inspectorOpenerRef.current = opener;
     setSelectedStockKey(entityKey);
+    setInspectorOpen(true);
     setDetailState('loading');
     setDetailError(undefined);
-    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? 'auto'
-      : 'smooth';
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        deepDiveRegionRef.current?.focus({ preventScroll: true });
-        if (window.matchMedia(compactWorkspaceQuery).matches) {
-          deepDiveRegionRef.current?.scrollIntoView({ behavior, block: 'start' });
-        }
-      });
-    });
 
     try {
-      const result = loadStockDeepDive
-        ? await loadStockDeepDive(entityKey)
-        : await loadStockDeepDiveData(entityKey, {
+      const whyNow = [...briefing.priorityHoldings, ...briefing.watchlistChanges].find(
+        (item) => item.entityKey === entityKey,
+      );
+      const result = loadStockBriefingDetail
+        ? await loadStockBriefingDetail(entityKey)
+        : await loadStockBriefingData(entityKey, {
             loadDetail: (key) => api.stockDetail(key),
             loadRelation: (key) => api.entityRelations(key, 2),
             loadImpactBrief: (key) => api.impactBrief(key),
+            whyNow,
           });
       if (!requestGateRef.current.isCurrent(sequence)) return;
       setRelation(result.relation);
-      setDeepDive(result.deepDive);
+      setDetail(result.detail);
       setDetailState('ready');
     } catch (error) {
       if (!requestGateRef.current.isCurrent(sequence)) return;
@@ -114,24 +119,11 @@ export function StocksView({
     }
   }
 
-  const detailRegion = (
-    <div
-      ref={deepDiveRegionRef}
-      className={`${styles.detailRegion} ${stockDetailStyles.deepDiveRegion}`}
-      data-state={detailState}
-      data-testid="stock-deep-dive-region"
-      tabIndex={-1}
-    >
-      <StockDeepDivePanel
-        deepDive={deepDive}
-        errorMessage={detailError}
-        relation={relation}
-        state={detailState}
-        onRetry={() => selectedStockKey && void loadDeepDive(selectedStockKey)}
-        onSelectEntity={(entityKey) => void loadDeepDive(entityKey)}
-      />
-    </div>
-  );
+  function closeInspector() {
+    setInspectorOpen(false);
+    const opener = inspectorOpenerRef.current;
+    if (opener?.isConnected) requestAnimationFrame(() => opener.focus());
+  }
 
   const searchEmpty = data.data.length > 0 && stocks.length === 0;
   const portfolioEmpty = data.data.length === 0;
@@ -172,7 +164,7 @@ export function StocksView({
                 expanded={showAllWatchlist}
                 items={visible.watchlist}
                 onExpandedChange={setShowAllWatchlist}
-                onSelect={(entityKey) => void loadDeepDive(entityKey)}
+                onSelect={(entityKey, opener) => void loadBriefing(entityKey, opener)}
                 selectedStockKey={selectedStockKey}
                 watchedCount={visible.watchedNonHoldings.length}
               />
@@ -189,7 +181,7 @@ export function StocksView({
                 <PriorityHoldingsSection
                   hasBriefing={briefing.priorityHoldings.length > 0}
                   items={visible.priorityHoldings}
-                  onSelect={(entityKey) => void loadDeepDive(entityKey)}
+                  onSelect={(entityKey, opener) => void loadBriefing(entityKey, opener)}
                   selectedStockKey={selectedStockKey}
                 />
                 <HoldingsSection
@@ -203,7 +195,7 @@ export function StocksView({
                 >
                   <HoldingRows
                     items={page.items}
-                    onSelect={(entityKey) => void loadDeepDive(entityKey)}
+                    onSelect={(entityKey, opener) => void loadBriefing(entityKey, opener)}
                     selectedStockKey={selectedStockKey}
                   />
                   {visible.holdings.length > 0 ? (
@@ -256,15 +248,26 @@ export function StocksView({
                 expanded={showAllWatchlist}
                 items={visible.watchlist}
                 onExpandedChange={setShowAllWatchlist}
-                onSelect={(entityKey) => void loadDeepDive(entityKey)}
+                onSelect={(entityKey, opener) => void loadBriefing(entityKey, opener)}
                 selectedStockKey={selectedStockKey}
                 watchedCount={visible.watchedNonHoldings.length}
               />
             </>
           )}
         </div>
-        {detailRegion}
       </div>
+      <StockBriefingInspector
+        detail={detail}
+        detailKey={selectedStockKey ?? null}
+        errorMessage={detailError}
+        mobile={isMobileViewport}
+        onClose={closeInspector}
+        onRetry={() => selectedStockKey && void loadBriefing(selectedStockKey)}
+        onSelectEntity={(entityKey) => void loadBriefing(entityKey)}
+        open={inspectorOpen}
+        relation={relation}
+        state={detailState}
+      />
     </>
   );
 }

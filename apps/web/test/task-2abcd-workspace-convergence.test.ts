@@ -24,16 +24,15 @@ describe('2A-D product UI convergence', () => {
   });
 
   it('keeps stock layout and interaction states in one owning stylesheet', async () => {
-    const [pageCss, stockCss, briefingCss] = await Promise.all([
+    const [pageCss, inspectorCss, briefingCss] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.module.css'),
-      read('pages/research-workspace/ui/stock-deep-dive-panel.module.css'),
+      read('pages/research-workspace/ui/stock-briefing-inspector.module.css'),
       read('pages/research-workspace/ui/views/stocks-view.module.css'),
     ]);
 
     assert.doesNotMatch(pageCss, /\.(?:stocksWorkspace|deepDiveRegion|stockTable|tableWrap)\b/);
-    for (const selector of ['.stocksWorkspace', '.deepDiveRegion:focus-visible']) {
-      assert.match(stockCss, new RegExp(selector.replaceAll('.', '\\.')));
-    }
+    assert.match(inspectorCss, /\.inspectorBody/);
+    assert.match(inspectorCss, /\.graphRegion/);
     assert.match(briefingCss, /\.briefingColumns/);
     assert.match(briefingCss, /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\]/);
   });

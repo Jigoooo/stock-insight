@@ -1,0 +1,210 @@
+.inspectorContent {
+  min-width: 0;
+  padding: 0;
+}
+
+.state {
+  min-height: 280px;
+  padding: 32px;
+}
+
+.inspectorBody {
+  min-width: 0;
+  display: grid;
+}
+
+.inspectorBody > section,
+.modalDetails > section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inspectorBody h2,
+.inspectorBody h3,
+.inspectorBody p,
+.inspectorBody ul,
+.inspectorBody article {
+  margin: 0;
+}
+
+.inspectorBody h2,
+.inspectorBody h3 {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inspectorBody p,
+.inspectorBody li,
+.inspectorBody small {
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.inspectorBody p,
+.inspectorBody li {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.summary {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+}
+
+.summary > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.summary > div:first-child > span,
+.summary small {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.summary > div:first-child > strong {
+  font-size: 21px;
+  letter-spacing: -0.035em;
+}
+
+.summaryMeta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryMeta > div,
+.metricGroups article {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.summaryMeta dt,
+.summaryMeta dd {
+  margin: 0;
+}
+
+.summaryMeta dt {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.summaryMeta dd {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.inspectorBody ul {
+  display: grid;
+  gap: 9px;
+  padding: 0;
+  list-style: none;
+}
+
+.inspectorBody li {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.newsList a {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.newsList a svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.riskColumns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.riskColumns > div {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.localFailure {
+  min-height: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.modalDetails {
+  min-width: 0;
+  display: grid;
+}
+
+.graphRegion {
+  min-height: 430px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.metricGroups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metricGroups article > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.metricGroups dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.metricGroups dt,
+.metricGroups dd {
+  margin: 0;
+}
+
+.metricGroups dt {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.metricGroups dd {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 767px) {
+  .inspectorBody > section,
+  .modalDetails > section {
+    padding-inline: 18px;
+  }
+
+  .summaryMeta,
+  .riskColumns,
+  .metricGroups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

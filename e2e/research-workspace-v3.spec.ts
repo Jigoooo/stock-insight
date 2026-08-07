@@ -655,20 +655,12 @@ test.describe('v3 research workspace candidate', () => {
       await expect(page).toHaveURL(new RegExp(`view=${id}`));
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
       if (id === 'stocks') {
-        const stockScrollOwner = page.getByLabel('종목 현황 표 가로 스크롤 영역');
-        await expect(stockScrollOwner).toHaveAttribute('data-slot', 'table-container');
-        await expect(stockScrollOwner.getByRole('table', { name: '종목 현황' })).toBeVisible();
-        const firstStock = stockScrollOwner.getByRole('radio').first();
+        const firstStock = page.getByRole('button', { name: /종목 브리핑 열기/ }).first();
         await firstStock.click();
-        await expect(firstStock).toBeChecked();
-        await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
-        expect(
-          await page.evaluate(() => {
-            const table = document.querySelector('[aria-label="종목 현황 표 가로 스크롤 영역"]');
-            const detail = document.querySelector('[data-testid="stock-deep-dive-region"]');
-            return Boolean(table && detail && table.compareDocumentPosition(detail) & 4);
-          }),
-        ).toBe(true);
+        await expect(firstStock).toHaveAttribute('aria-current', 'true');
+        await expect(page.getByTestId('stock-briefing-inspector')).toBeVisible();
+        await page.getByRole('button', { name: '종목 브리핑 인스펙터 닫기' }).click();
+        await expect(firstStock).toBeFocused();
       }
     }
 
@@ -1319,50 +1311,23 @@ test.describe('v3 research workspace candidate', () => {
     await expect(asOf).toContainText('기준 시각');
   });
 
-  test('preserves Deep Dive focus when crossing the compact-layout breakpoint', async ({
+  test('preserves the stock inspector and restores its opener across viewport changes', async ({
     page,
   }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'desktop breakpoint transition contract');
+    test.skip(testInfo.project.name !== 'desktop', 'desktop inspector transition contract');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/workspace?view=stocks');
-    const region = page.getByTestId('stock-deep-dive-region');
-    await expect(region).toBeVisible();
-    await page.getByRole('table').locator('tbody button').first().click();
-    await expect(region).not.toHaveAttribute('data-state', 'idle');
-    await region.focus();
-    await expect(region).toBeFocused();
+    const opener = page.getByRole('button', { name: /종목 브리핑 열기/ }).first();
+    await opener.click();
+    const inspector = page.getByTestId('stock-briefing-inspector');
+    await expect(inspector).toBeVisible();
 
     await page.setViewportSize({ width: 1200, height: 900 });
-    await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
+    await expect(inspector).toBeVisible();
     await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(page.getByTestId('stock-deep-dive-region')).toBeFocused();
-
-    await page.evaluate(() => {
-      const target = window as typeof window & {
-        __stockInsightNativeRaf?: typeof window.requestAnimationFrame;
-      };
-      target.__stockInsightNativeRaf = window.requestAnimationFrame;
-      window.requestAnimationFrame = ((callback: FrameRequestCallback) =>
-        window.setTimeout(
-          () => callback(performance.now()),
-          250,
-        )) as typeof window.requestAnimationFrame;
-    });
-    await page.setViewportSize({ width: 1200, height: 900 });
-    const search = page.getByRole('textbox', { name: '종목명 또는 티커 검색' });
-    await search.focus();
-    await expect(search).toBeFocused();
-    await page.waitForTimeout(650);
-    await expect(search).toBeFocused();
-    await page.evaluate(() => {
-      const target = window as typeof window & {
-        __stockInsightNativeRaf?: typeof window.requestAnimationFrame;
-      };
-      if (target.__stockInsightNativeRaf) {
-        window.requestAnimationFrame = target.__stockInsightNativeRaf;
-        delete target.__stockInsightNativeRaf;
-      }
-    });
+    await expect(inspector).toBeVisible();
+    await page.getByRole('button', { name: '종목 브리핑 인스펙터 닫기' }).click();
+    await expect(opener).toBeFocused();
   });
 
   test('keeps the relation panel reachable at short desktop heights and narrow widths', async ({
