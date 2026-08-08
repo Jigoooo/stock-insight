@@ -179,11 +179,18 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all thirteen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all fourteen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
     ['run-core-identity-sync.ts', 'stock-insight-core-identity-sync-stage'],
+    // Added 2026-08-08 (K2): one economic claim per security, almost all of them
+    // undetermined. It follows the identity sync because the master is what that
+    // stage maintains, and it is the first stage here that exists to remove an
+    // assumption rather than to produce data — canonical/03 §2 says a security is
+    // not automatically common equity in its issuer, and until this table is
+    // joinable nothing downstream can tell.
+    ['run-economic-claim.ts', 'stock-insight-economic-claim-stage'],
     ['run-feature-snapshot.ts', 'stock-insight-feature-snapshot-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
     // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected

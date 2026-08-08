@@ -81,6 +81,9 @@ import { sourcePitQualityMigrationSql } from './migrations/080_source_pit_qualit
 import { releaseManifestMigrationSql } from './migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -926,9 +929,30 @@ export const additiveAppMigrations: AppMigration[] = [
   {
     id: '083_slo_ledger',
     description:
-      "Creates governance.slo_definition and slo_observation, the input REQ-SAFE-002 needs — without a record of what the SLOs are and what they measured, migration 082's downgrade clause has nothing to consume and safety state is decoration, so the two ship together. Deliberate deviation from the freeze: canonical/09 §5 names ops.slo_*, but ops is split table by table with research-app-db (seventeen tables listed in operations/database-ownership.md), and REQ-ARCH-010 fixes the families as a logical classification without prescribing schema names, so ownership wins over naming. Observations store the threshold and comparison they were judged under so a later revision cannot rewrite a past verdict, and a CHECK forces the recorded verdict to follow from the recorded numbers. The eight seeded definitions are grounded in the measured silent failures of the 2026-08-07 as-built — including expected-versus-observed wrapper runs, which is the only way lock contention becomes visible at all, since it exits 75 before any audit row is written. All start report-only: a threshold with no observed baseline cannot be trusted to move the product's state.",
+      "Creates governance.slo_definition and slo_observation, the input REQ-SAFE-002 needs — without a record of what the SLOs are and what they measured, migration 082's downgrade clause has nothing to consume and safety state is decoration, so the two ship together. CORRECTION 2026-08-08: the SQL comment in 083 calls governance.slo_* a deliberate deviation and cites canonical/09 §5 as naming ops.slo_*. That citation is wrong and this description previously repeated it. The freeze names no schema for SLO anywhere — canonical/09 §5 is Silent Failure Detection and does not use the word, and a search of canonical/ and contracts/ for ops.slo returns nothing. ops.slo_* comes from e2e-layers.md X4, which this repository superseded on 2026-08-08. So governance.slo_* is not a deviation at all; the freeze left the name open and ownership decided it, since ops is split table by table with research-app-db (seventeen tables listed in operations/database-ownership.md). The comment inside 083 cannot be corrected in place: run-schema-migrations checksums migration.sql, 083 is already applied, and editing it would be rejected as drift. This description is not part of that checksum, which is why the correction lives here. Observations store the threshold and comparison they were judged under so a later revision cannot rewrite a past verdict, and a CHECK forces the recorded verdict to follow from the recorded numbers. The eight seeded definitions are grounded in the measured silent failures of the 2026-08-07 as-built — including expected-versus-observed wrapper runs, which is the only way lock contention becomes visible at all, since it exits 75 before any audit row is written. All start report-only: a threshold with no observed baseline cannot be trusted to move the product's state.",
     tables: [],
     sql: sloLedgerMigrationSql,
+  },
+  {
+    id: '084_metric_definition_registry',
+    description:
+      "Creates governance.metric_definition and metric_comparability — the place canonical/02 §7 requires so 'what does this number mean' has an answer, and the precondition for REQ-PROD-020 (per-dimension rank shown with its definition and coverage) and REQ-PROD-021 (an incomparable KPI says so). Same KPI name under K-IFRS and US-GAAP is two numbers wearing one word, and a peer table that ranks them together measures nothing. canonical/04 §6 adds the temporal half — a changed issuer definition is a new revision with an effective interval and a supersession link, so a YoY spanning the change can be detected rather than silently computed. Comparability is a directed pair rather than a per-definition flag because NORMALIZABLE is frequently one-way: revenue reported excluding a disclosed rebate converts to the inclusive definition and not back, and an undirected edge silently claims a conversion that exists in one direction only. Constraints refuse the shapes that mislead: NORMALIZABLE without a normalization rule is a promise nobody can execute, PARTIALLY_COMPARABLE without a stated scope is UNKNOWN with a friendlier name, a non-GAAP definition stating no adjustment is indistinguishable from the GAAP one it claims to differ from, and COMPARABLE across different comparability groups is refused by trigger. governance.metric_comparability_state() resolves a pair for callers and falls back to UNKNOWN, never to COMPARABLE.",
+    tables: [],
+    sql: metricDefinitionRegistryMigrationSql,
+  },
+  {
+    id: '085_truth_class_binding',
+    description:
+      "Creates governance.truth_class_binding and serving.content_pack_item_truth_v1, the truth class metadata canonical/11 §5 lists as ADDITIVE and the only thing that makes REQ-SEM-010 satisfiable. Measured 2026-08-08, the projection the UI reads carries item_kind with three values — evidence 2,282,119, relation 912,988, impact_path 207,486 — which is the storage vocabulary, not one of the fourteen classes in contracts/truth-classes.json, so nothing downstream can tell a source from a hypothesis and nothing can render them differently. A binding table rather than a column on content_pack_item: the classification is a judgement about what a kind of object is, it belongs where it can be reviewed and revised rather than in 3.4M rows of a table the product reads, and the view resolves it at read time. impact_path binds to HYPOTHESIS and deliberately not to EXPOSURE — all 248,236 impact_path_v2 rows are inference_kind=rule_derived with direction=unknown, and run-portfolio-snapshot.ts:18 already refuses to promote them into impact_exposure_revision because filling it would mean inventing sign, materiality and economic magnitude; labelling them EXPOSURE in the UI would make the claim the pipeline declines to make in the data. Evidence splits by evidence_kind: source_revision (58,801) is SOURCE, while model_config (8,645) and identity_mapping (254) are recorded as not_a_truth_object because a model configuration is provenance of an inference and an identity mapping is a statement about which record is which, and none of the fourteen classes describes either. An unbound kind resolves to NULL rather than to a default: a reader can render 'unclassified' honestly but cannot un-see a wrong badge. This is the one migration in the 078-085 series where stock_insight_app_reader gains reach, because REQ-SEM-010 is a rendering requirement, so the boot digest moves and must be re-pinned.",
+    tables: [],
+    sql: truthClassBindingMigrationSql,
+  },
+  {
+    id: '086_economic_claim',
+    description:
+      "Creates core.economic_claim and core.economic_claim_coverage_v1, the claim model canonical/03 §2 requires. Four of the eight expressions it names already have homes — the issuer in core.security_issuer_identity, and venue, currency and effective dates in core.listing — so this adds the four that have none: holder and right type, seniority, the voting/dividend/cash-flow rights, and the conversion, redemption and dilution mechanics. It matters while mostly empty. Measured 2026-08-08 all 297 securities carry entity_type='Stock', including SMH which is the VanEck Semiconductor ETF, so nothing distinguishes a common share from a fund unit, a preferred share, an ADR or a convertible and every consumer is free to assume it holds common equity in the issuer. canonical/03 §2 says that assumption is wrong — the same company prospect can carry different claim-level valuations. The value today is the assumption removed rather than the rows filled: a consumer that joins here gets NULL and has to decide, where before it got nothing and carried on. Only XLE and XLK can be determined, from their ETF holdings snapshots; the other 295 have no claim-type evidence anywhere, since all 188 Korean six-digit tickers end in 0 which rules out a preferred share but not a fund, and the 107 US listings carry nothing. Those are written undetermined with a basis stating what was looked at, because a COMMON_EQUITY default is precisely the assumption the table exists to remove. A CHECK stops an undetermined claim from carrying determined rights, which would read as the uncertainty being a formality. Pipeline roles only — this is a kernel object rather than a rendering surface, so the boot digest does not move for it.",
+    tables: [],
+    sql: economicClaimMigrationSql,
   },
 ];
 
@@ -1016,4 +1040,7 @@ export {
   releaseManifestMigrationSql,
   safetyStateMigrationSql,
   sloLedgerMigrationSql,
+  metricDefinitionRegistryMigrationSql,
+  truthClassBindingMigrationSql,
+  economicClaimMigrationSql,
 };

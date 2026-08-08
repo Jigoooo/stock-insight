@@ -157,3 +157,49 @@ ingestion.raw_object 출처별
   `run-knowledge-document-sync.ts` 가 그 코드다
 - numeric_fact 는 문서 스택을 **거치지 않는다**. opendart/sec-edgar raw object 를 직접 읽어라
 - `public.company_financials` 를 쓰지 마라. 남의 표이고 계보가 없다
+
+---
+
+## 추가 실측 (2026-08-08, 러너 착수 직전)
+
+### `market.financial_fact` 가 이미 있다 — 중복인가?
+
+러너를 쓰려다 `apps/api/src/ingest/run-dart-financial-facts.ts` 를 발견했다. 같은 DART
+엔드포인트(`fnlttSinglAcntAll`)를 호출하고 `market.financial_fact` 에 쓴다. 89,765행.
+
+**중복이 아니다.** 둘은 다른 것을 담는다.
+
+| | `market.financial_fact` | `world.numeric_fact` (정본) |
+| --- | --- | --- |
+| 개념 | **12개** 정규화 이름 (`TotalAssets`·`Revenues`·`NetIncome`…) | XBRL 태그 전체 (`ifrs-full`·`dart`·issuer) |
+| 셀 위치 | 없음 (`filing_ref` 만) | `original_cell_or_xbrl_locator` **필수** |
+| 계보 | 89,765 중 **11,411**(13%) 만 `source_revision_id` | 100% 필수 |
+| 정정 | `amends_fact_id` — **사용 0건** | `restatement_group_key` + revision, CHECK 강제 |
+| 시점/기간 | `period_start`/`period_end` 만 | `instant_at` vs duration 구분 |
+| 차원 | 없음 | `dimensions_json` (SCE 자본 구성요소 등) |
+
+`market.financial_fact` 는 서빙용 큐레이션 표다. 원 계정 256,024행을 12개 개념으로 접었고,
+그 과정에서 셀 주소·차원·정정 계보를 버렸다. 정본 11 §2 가 요구하는 "comparable numeric
+fact + **definition registry**" 는 접기 **전** 의 것이다 — 접은 결과로는 정의 레지스트리를
+만들 수 없다. 어떤 계정이 어떤 개념으로 접혔는지가 남아 있지 않기 때문이다.
+
+### 기존 파이프라인은 12월 결산을 하드코딩한다
+
+```ts
+export function periodEndFor(year, period, _fiscalClose = 12) {
+  // Standard Dec-close assumption; non-Dec closers keep metadata flag.
+  if (period === 'Q1') return `${year}-03-31`;
+```
+
+`_fiscalClose` 파라미터가 있는데 **본문에서 쓰이지 않는다**(밑줄 접두가 그 사실을 표시한다).
+지금은 opendart 프로필 194/194 가 12월 결산이라 무해하다. 고치지 않는다 — 다른 파이프라인이고
+K2 범위 밖이다. 다만 K2-b 가 `acc_mt` 를 회사별로 조회하기로 한 판단이 옳았음을 확인해 준다.
+
+### 여기서 얻은 것 — 패리티 기준선
+
+겹치는 12개 개념에서 내 writer 의 값이 `market.financial_fact` 와 달라야 할 이유가 없다.
+다르면 둘 중 하나가 틀린 것이다. 러너의 dry-run 이 그 대조를 보고하게 한다 — 공짜로 얻는
+검증이고, 새 파이프라인이 처음부터 기존 것과 대질된다.
+
+단 겹치는 범위는 좁다: `market.financial_fact` 의 계보 보유분(11,411)과 12개 개념 안에서만
+비교 가능하다.

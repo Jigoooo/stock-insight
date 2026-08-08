@@ -1,5 +1,5 @@
-// Rehearses migrations 078–083 (canonical kernel + release/safety/SLO) on a
-// disposable database.
+// Rehearses migrations 078–084 (canonical kernel + release/safety/SLO + metric
+// definition registry) on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
 // foreign-key targets the migrations under test need, apply them, assert the
@@ -26,6 +26,9 @@ import { sourcePitQualityMigrationSql } from '../../../packages/db-schema/src/mi
 import { releaseManifestMigrationSql } from '../../../packages/db-schema/src/migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from '../../../packages/db-schema/src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from '../../../packages/db-schema/src/migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from '../../../packages/db-schema/src/migrations/086_economic_claim.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -123,6 +126,15 @@ try {
     CREATE TABLE knowledge.ontology_revision (ontology_revision_id BIGINT PRIMARY KEY);
     INSERT INTO knowledge.ontology_revision SELECT generate_series(1, 5);
 
+    -- 084 references core.entity for issuer-scoped definitions.
+    CREATE SCHEMA core;
+    CREATE TABLE core.entity (
+      entity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      canonical_name TEXT NOT NULL
+    );
+    INSERT INTO core.entity (entity_type, canonical_name) VALUES ('Company', 'Rehearsal Co');
+
     CREATE SCHEMA ingestion;
     CREATE TABLE ingestion.source (
       source_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -175,6 +187,41 @@ try {
     $roles$;
   `);
 
+  // 085 projects over the serving item table and the evidence ledger it joins to.
+  // Only the columns the view names — the point is that the view resolves, not
+  // that these two tables are reproduced.
+  await target.query(`
+    CREATE SCHEMA serving;
+    CREATE TABLE serving.content_pack_item (
+      content_pack_item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      content_pack_id BIGINT NOT NULL,
+      item_no INTEGER NOT NULL,
+      item_kind TEXT NOT NULL,
+      relation_evidence_ledger_id BIGINT
+    );
+    CREATE TABLE knowledge.relation_evidence_ledger (
+      relation_evidence_ledger_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      evidence_kind TEXT NOT NULL
+    );
+    INSERT INTO knowledge.relation_evidence_ledger (evidence_kind)
+      VALUES ('source_revision'), ('model_config'), ('identity_mapping');
+    -- 086 hangs its claims off the security master.
+    CREATE TABLE core.security_master (
+      security_master_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      security_key TEXT NOT NULL
+    );
+    INSERT INTO core.security_master (security_key) VALUES ('rehearsal-security');
+
+    INSERT INTO serving.content_pack_item
+      (content_pack_id, item_no, item_kind, relation_evidence_ledger_id)
+    VALUES (1, 1, 'relation', NULL),
+           (1, 2, 'impact_path', NULL),
+           (1, 3, 'evidence', 1),
+           (1, 4, 'evidence', 2),
+           (1, 5, 'evidence', 3),
+           (1, 6, 'something_new', NULL);
+  `);
+
   // ── apply the migrations under test, in dependency order ────────────────────
   const MIGRATIONS = [
     semanticSnapshotMigrationSql,
@@ -183,6 +230,9 @@ try {
     releaseManifestMigrationSql,
     safetyStateMigrationSql,
     sloLedgerMigrationSql,
+    metricDefinitionRegistryMigrationSql,
+    truthClassBindingMigrationSql,
+    economicClaimMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
@@ -192,6 +242,110 @@ try {
     `INSERT INTO governance.semantic_snapshot (semantic_snapshot_id, created_by)
      VALUES ('snap-1', 'rehearsal') ON CONFLICT DO NOTHING`,
   );
+
+  // ── 086 economic claim ──────────────────────────────────────────────────────
+  const claimInsert = async (columns, values) => {
+    try {
+      await target.query(`INSERT INTO core.economic_claim (${columns}) VALUES (${values})`);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const CLAIM_BASE =
+    "1, 'rehearsal basis', TIMESTAMPTZ '2020-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'";
+  const economicClaim = {
+    // The default is the whole point: a row that says nothing must not say
+    // 'common equity in the issuer'.
+    defaultsToUndetermined:
+      (await claimInsert(
+        'security_master_id, determination_basis, valid_from, known_at, determined_by',
+        CLAIM_BASE,
+      )) &&
+      (await target.query(`SELECT claim_type, claim_type_state FROM core.economic_claim LIMIT 1`))
+        .rows[0].claim_type === null,
+    determinedWithoutTypeRejected: !(await claimInsert(
+      'security_master_id, claim_type_state, determination_basis, valid_from, known_at, determined_by',
+      "1, 'determined', 'b', TIMESTAMPTZ '2021-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    // "We do not know what this is" and "this is how it votes" cannot share a row.
+    undeterminedStatingRightsRejected: !(await claimInsert(
+      'security_master_id, voting_rights, determination_basis, valid_from, known_at, determined_by',
+      "1, '{\"votes\":1}'::jsonb, 'b', TIMESTAMPTZ '2022-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    determinedMayStateRights: await claimInsert(
+      'security_master_id, claim_type, claim_type_state, voting_rights, determination_basis, valid_from, known_at, determined_by',
+      "1, 'FUND_UNIT', 'determined', '{\"votes\":0}'::jsonb, 'b', TIMESTAMPTZ '2023-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    ),
+    unknownClaimTypeRejected: !(await claimInsert(
+      'security_master_id, claim_type, claim_type_state, determination_basis, valid_from, known_at, determined_by',
+      "1, 'MYSTERY', 'determined', 'b', TIMESTAMPTZ '2024-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    intervalMustBeOrdered: !(await claimInsert(
+      'security_master_id, determination_basis, valid_from, valid_to, known_at, determined_by',
+      "1, 'b', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2024-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    coverageViewReports:
+      (
+        await target.query(
+          'SELECT determined, undetermined, securities FROM core.economic_claim_coverage_v1',
+        )
+      ).rows[0].securities === '1',
+  };
+
+  // ── 085 truth class binding ─────────────────────────────────────────────────
+  const resolved = Object.fromEntries(
+    (
+      await target.query(
+        `SELECT item_kind, item_subkind, truth_class, truth_binding_state
+           FROM serving.content_pack_item_truth_v1 ORDER BY content_pack_item_id`,
+      )
+    ).rows.map((row) => [
+      row.item_subkind ? `${row.item_kind}:${row.item_subkind}` : row.item_kind,
+      `${row.truth_class ?? 'null'}/${row.truth_binding_state}`,
+    ]),
+  );
+  const truthClass = {
+    relationIsRelation: resolved.relation === 'RELATION/bound',
+    // Not EXPOSURE: rule-derived, direction unknown, no magnitude established.
+    impactPathIsHypothesis: resolved.impact_path === 'HYPOTHESIS/bound',
+    sourceEvidenceIsSource: resolved['evidence:source_revision'] === 'SOURCE/bound',
+    modelConfigIsNotATruthObject: resolved['evidence:model_config'] === 'null/not_a_truth_object',
+    identityMappingIsNotATruthObject:
+      resolved['evidence:identity_mapping'] === 'null/not_a_truth_object',
+    // An unbound kind must stay unclassified rather than take a default.
+    unknownKindStaysUndecided: resolved.something_new === 'null/undecided',
+    seedIsIdempotent:
+      (await target.query('SELECT count(*)::int AS n FROM governance.truth_class_binding')).rows[0]
+        .n === 5,
+    stateAndClassCannotDisagree: await (async () => {
+      try {
+        await target.query(
+          `INSERT INTO governance.truth_class_binding
+             (object_domain, object_kind, truth_class, binding_state, basis, declared_by)
+           VALUES ('t', 'k', 'FACT', 'not_a_truth_object', 'b', 'rehearsal')`,
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    })(),
+    appReaderSeesTheViewOnly:
+      (
+        await target.query(
+          `SELECT has_table_privilege('stock_insight_app_reader',
+                    'serving.content_pack_item_truth_v1', 'SELECT') AS view_ok,
+                  has_table_privilege('stock_insight_app_reader',
+                    'governance.truth_class_binding', 'SELECT') AS table_ok`,
+        )
+      ).rows[0].view_ok === true &&
+      (
+        await target.query(
+          `SELECT has_table_privilege('stock_insight_app_reader',
+                    'governance.truth_class_binding', 'SELECT') AS table_ok`,
+        )
+      ).rows[0].table_ok === false,
+  };
 
   // ── 078 semantic snapshot ───────────────────────────────────────────────────
   const snapshot = {
@@ -473,6 +627,125 @@ try {
     ['P0001'],
   );
 
+  // ── 084 metric definition registry ──────────────────────────────────────────
+  const defn = (key, overrides = {}) => {
+    const columns = {
+      definition_key: `'${key}'`,
+      revision_no: '1',
+      concept_namespace: `'ifrs-full'`,
+      concept_key: `'Revenue'`,
+      canonical_concept: `'revenue'`,
+      display_name: `'Revenue'`,
+      definition_scope: `'canonical'`,
+      period_basis: `'duration_quarter'`,
+      accounting_basis: `'ifrs'`,
+      unit: `'currency'`,
+      currency: `'KRW'`,
+      comparability_group_key: `'revenue.quarter'`,
+      comparability_group_version: '1',
+      effective_from: `'2026-01-01T00:00:00Z'`,
+      created_by: `'rehearsal'`,
+      ...overrides,
+    };
+    return `INSERT INTO governance.metric_definition (${Object.keys(columns).join(', ')})
+            VALUES (${Object.values(columns).join(', ')}) RETURNING metric_definition_id`;
+  };
+
+  const defA = (await target.query(defn('rev.ifrs'))).rows[0].metric_definition_id;
+  const defB = (
+    await target.query(
+      defn('rev.gaap', {
+        concept_namespace: `'us-gaap'`,
+        accounting_basis: `'gaap'`,
+        currency: `'USD'`,
+      }),
+    )
+  ).rows[0].metric_definition_id;
+  const defC = (
+    await target.query(
+      defn('rev.adj', {
+        concept_namespace: `'issuer'`,
+        accounting_basis: `'non_gaap'`,
+        exclusions: `ARRAY['one-off rebate']`,
+        comparability_group_key: `'revenue.adjusted'`,
+      }),
+    )
+  ).rows[0].metric_definition_id;
+
+  const metric = {
+    sameGroupFallsBackToComparable: false,
+    differentGroupFallsBackToUnknown: false,
+    comparableAcrossGroupsRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defA}, ${defC}, 'COMPARABLE', 'wrong', 'rehearsal')`,
+      ['P0001'],
+    ),
+    normalizableWithoutRuleRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defC}, ${defA}, 'NORMALIZABLE', 'no rule given', 'rehearsal')`,
+    ),
+    partialWithoutScopeRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defC}, ${defB}, 'PARTIALLY_COMPARABLE', 'no scope given', 'rehearsal')`,
+    ),
+    nonGaapWithoutAdjustmentRejected: await expectRejected(
+      defn('rev.bad', { concept_namespace: `'issuer'`, accounting_basis: `'non_gaap'` }),
+    ),
+    ratioWithoutBothSidesRejected: await expectRejected(
+      defn('margin.bad', { unit: `'ratio'`, currency: 'NULL' }),
+    ),
+    currencyScopeEnforced: await expectRejected(defn('rev.nocur', { currency: 'NULL' })),
+    selfComparabilityRejected: await expectRejected(
+      `INSERT INTO governance.metric_comparability
+         (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale, assessed_by)
+       VALUES (${defA}, ${defA}, 'COMPARABLE', 'self', 'rehearsal')`,
+    ),
+    normalizableNotMirrored: false,
+    definitionContentImmutable: await expectRejected(
+      `UPDATE governance.metric_definition SET unit = 'ratio' WHERE metric_definition_id = ${defA}`,
+      ['P0001'],
+    ),
+    definitionStateMayMove: false,
+    deleteRejected: await expectRejected(
+      `DELETE FROM governance.metric_definition WHERE metric_definition_id = ${defA}`,
+      ['P0001'],
+    ),
+  };
+
+  // Same group and version, no explicit assessment -> COMPARABLE.
+  metric.sameGroupFallsBackToComparable =
+    (await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defB}) AS s`))
+      .rows[0].s === 'COMPARABLE';
+  // Different group, no assessment -> UNKNOWN. Never COMPARABLE.
+  metric.differentGroupFallsBackToUnknown =
+    (await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defC}) AS s`))
+      .rows[0].s === 'UNKNOWN';
+
+  // One-way normalization: C converts to A, and asking A -> C must not inherit it.
+  await target.query(
+    `INSERT INTO governance.metric_comparability
+       (from_metric_definition_id, to_metric_definition_id, comparability_state, rationale,
+        normalization_rule, assessed_by)
+     VALUES (${defC}, ${defA}, 'NORMALIZABLE', 'add back the disclosed rebate',
+             'value + rebate_disclosed', 'rehearsal')`,
+  );
+  const forward = (
+    await target.query(`SELECT governance.metric_comparability_state(${defC}, ${defA}) AS s`)
+  ).rows[0].s;
+  const reverse = (
+    await target.query(`SELECT governance.metric_comparability_state(${defA}, ${defC}) AS s`)
+  ).rows[0].s;
+  metric.normalizableNotMirrored = forward === 'NORMALIZABLE' && reverse === 'UNKNOWN';
+
+  await target.query(
+    `UPDATE governance.metric_definition SET definition_state = 'superseded'
+      WHERE metric_definition_id = ${defB}`,
+  );
+  metric.definitionStateMayMove = true;
+
   // ── boot-digest safety: the app roles must not reach any new table ──────────
   const reach = await target.query(
     `SELECT role_name, relation, bool_or(reachable) AS reachable
@@ -484,7 +757,7 @@ try {
            JOIN pg_namespace n ON n.oid = c.relnamespace
           CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('REFERENCES'),('TRIGGER')) p(name)
           CROSS JOIN pg_roles r
-          WHERE n.nspname = 'governance'
+          WHERE n.nspname IN ('governance', 'serving')
             AND c.relkind IN ('r','v')
             AND r.rolname IN ('stock_insight_app_reader','stock_insight_app_writer')
        ) reachability
@@ -492,6 +765,18 @@ try {
       ORDER BY role_name, relation`,
   );
   const appRoleReachable = reach.rows.filter((row) => row.reachable);
+
+  // 085 deliberately widens the app reader by exactly one relation, because
+  // REQ-SEM-010 is a rendering requirement and the reader the product serves from
+  // has to see the resolved class. The gauge is not "nothing moved" but "only this
+  // moved" — and either way the boot digest must be re-pinned in the same landing.
+  //
+  // The probe covers serving as well as governance for the same reason: a check
+  // that only looks where nothing changed reports success by looking away.
+  const DECLARED_APP_ROLE_REACH = ['stock_insight_app_reader:serving.content_pack_item_truth_v1'];
+  const observedAppRoleReach = appRoleReachable
+    .map((row) => `${row.role_name}:${row.relation}`)
+    .sort();
 
   result = {
     database: databaseName,
@@ -502,10 +787,17 @@ try {
     release,
     safety,
     slo,
+    metric,
+    truthClass,
+    economicClaim,
     digestSafety: {
-      governanceRelationsChecked: reach.rows.length,
-      appRoleReachableRelations: appRoleReachable.map((row) => `${row.role_name}:${row.relation}`),
-      noAppRoleReach: appRoleReachable.length === 0,
+      relationsChecked: reach.rows.length,
+      appRoleReachableRelations: observedAppRoleReach,
+      declaredAppRoleReach: DECLARED_APP_ROLE_REACH,
+      appRoleReachIsExactlyWhatWasDeclared:
+        JSON.stringify(observedAppRoleReach) ===
+        JSON.stringify([...DECLARED_APP_ROLE_REACH].sort()),
+      bootDigestMustBeRepinned: observedAppRoleReach.length > 0,
     },
   };
 
@@ -516,6 +808,9 @@ try {
     release,
     safety,
     slo,
+    metric,
+    truthClass,
+    economicClaim,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
@@ -530,7 +825,9 @@ try {
   ]) {
     if (pitQuality[name] !== true) failures.push(`pitQuality.${name}`);
   }
-  if (!result.digestSafety.noAppRoleReach) failures.push('digestSafety.noAppRoleReach');
+  if (!result.digestSafety.appRoleReachIsExactlyWhatWasDeclared) {
+    failures.push('digestSafety.appRoleReachIsExactlyWhatWasDeclared');
+  }
   if (failures.length > 0) {
     throw new Error(`Kernel rehearsal assertions failed: ${failures.join(', ')}`);
   }

@@ -393,3 +393,147 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 *최종 갱신: **P0~P5 전부 완료.** K0+K1+K5 라이브 적용 완료.*
 *🔴 미해결(범위 밖): 브레인 크래시루프 — 마이그레이션 074 의 재핀 누락 + Timescale 청크 드리프트.*
 *다음 세션: (1) 브레인 복구 결정 (2) K2 Truth Foundation*
+
+---
+
+## K2-b — numeric_fact writer (완료, 라이브 미적용)
+
+커밋 `2219848`(순수 매핑) · `d8a5bfe`(계획 모듈) · `20dea52`(조사 기록) · `e1238ac`(러너).
+게이트 전부 통과: format · lint · typecheck · test(10/10 태스크, api 951건) · build(7/7).
+
+### 산출
+
+| 파일 | 역할 |
+| --- | --- |
+| `apps/api/src/backfill/dart-numeric-fact.ts` | 순수 매핑 — 기간·개념·셀 주소·시간축 |
+| `apps/api/src/backfill/dart-numeric-fact-plan.ts` | 순수 계획 — fact/definition 행, revision 배정, 패리티 |
+| `apps/api/src/backfill/run-dart-numeric-fact.ts` | I/O 만 |
+| `apps/api/scripts/run_market_enrichment.sh` | DART 단계 뒤에 배선 |
+| 테스트 3개 | 64건 |
+
+`pnpm --filter @stock-insight/api backfill:dart-numeric-fact:dry-run` / `:apply`
+
+### dry-run 실측 (2026-08-08, 라이브 읽기 전용)
+
+```
+신고 1,362건 · 발행사 86 · fact 168,417 · definition 6,100 · 정정 0
+패리티 11,139건 비교 → 전부 일치, 불일치 0
+```
+
+### dry-run 이 잡아낸 결함 셋
+
+정적 테스트가 못 잡고 실 데이터가 잡았다. 셋 다 고쳤고 회귀 테스트를 붙였다.
+
+1. **정정 1,005건이 가짜였다.** 같은 신고서가 손익계산서와 포괄손익계산서에 같은
+   `ProfitLoss` 를 같은 값으로 싣는다. `restatement_group_key` 에 명세서 구분을 넣었다.
+2. **남은 599건도 가짜였다.** 비표준 계정의 한국어 이름이 한 명세서 안에서 유일하지
+   않다. 충당부채가 ord 40 에 12.9억, ord 51 에 830억(유동/비유동). 549건은 값도 다르다.
+   비표준 계정에만 `statementOrdinal` 차원을 넣었다.
+3. **패리티가 0건 비교였다.** `date` 를 JS `Date` 로 받아 `toISOString()` 하면 UTC 동쪽
+   시간대에서 하루가 밀린다. SQL 에서 `to_char` 로 뽑는다.
+
+### 정본 대비 판단
+
+| 판단 | 분류 | 근거 |
+| --- | --- | --- |
+| numeric_fact 를 raw object 에서 채움 | **A** | K2 조사 결론 그대로 |
+| `market.financial_fact` 재사용 안 함 | **A** | 접힌 표로는 definition registry 를 못 만든다 |
+| `available_at` 을 `rcept_no` 에서 도출 | **B** | `source_revision.available_at` 은 수집 시각. 그대로 쓰면 컬럼이 무의미 |
+| 결산월을 profile snapshot 에서 읽음 | **A** | `public` 은 우리 소유 스키마가 아니다 |
+| 정정 그룹에 명세서 구분 추가 | **B** | 실 데이터가 가짜 정정 988건을 만들었다 |
+| 비표준 계정에 ordinal 차원 추가 | **B** | 실 데이터가 서로 다른 항목 599쌍을 합쳤다 |
+| 분기 CF/SCE 거부 | **A** | 실측: 111,935행 중 누적 필드 보유 0건 |
+| `run_market_enrichment.sh` 에 배선 | **A** | 일회성 백필이 아니다. `job-wiring-inventory` 가 강제 |
+
+### 다음이 알아야 할 것
+
+- **084 가 라이브에 미적용이다.** `schema:status` pending = `084_metric_definition_registry`
+  하나. 러너는 `governance.metric_definition` 에 쓰므로 084 적용이 선행돼야 한다.
+  파이프라인에 배선해 뒀으니 **084 없이 병합하면 매 실행 실패한다** — 병합과 084 적용은
+  같은 착지에서 함께 해야 한다.
+- 첫 `--apply` 는 168,417행 단일 트랜잭션이다. 이후 실행은 fact_key 로 멱등이라 작다.
+- `world.numeric_fact` 현재 0행. `governance.metric_definition` 은 표 자체가 없다.
+- 기존 `periodEndFor`(run-dart-financial-facts.ts)는 12월 결산을 하드코딩하고
+  `_fiscalClose` 를 안 쓴다. 지금은 194/194 가 12월이라 무해. K2 범위 밖 — 고치지 않았다.
+
+### 남은 K2
+
+| # | 작업 | 상태 |
+| --- | --- | --- |
+| K2-a | metric_definition 레지스트리 | 마이그레이션 084 작성 완료, **라이브 미적용** |
+| K2-b | numeric_fact writer | **완료**, 라이브 미적용 |
+| K2-c | `core.economic_claim` | 미착수 |
+| K2-d | corporate action 백필 | 미착수 (원천 미확인) |
+| K2-e | truth_class 메타데이터 | 미착수 |
+| K2-f | assertion writer | **차단** — 계보 스택 연결이 별도 슬라이스 |
+
+### 적재 경로 실증 (커밋 `b0e5d10`)
+
+dry-run 은 어떤 행이 될지만 증명한다. 그 행을 나르는 문장은 트랜잭션이 열리기 전까지
+한 번도 안 돈다. 셋으로 메웠다.
+
+**① 트랜잭션 전 제약 검사.** 168,417 fact + 6,100 definition 전부를 031·084 의 CHECK 에
+대조한다. **즉시 진짜 결함을 잡았다** — `definition_key` 89개가 128자 제한 초과(최장
+160자). 이것 없이 `--apply` 했으면 첫 적재가 통째로 롤백되고 한 행만 보고됐다.
+128자 초과 시 앞을 자르고 head 해시를 붙인다(자르기만 하면 긴 접두를 공유하는 IFRS
+개념들이 충돌한다).
+
+**② revision 단계별 배치 적재.** revision N 이 대체할 대상은 전부 N-1 에 있고, 한 단계
+안에서 같은 그룹이 둘일 수 없다(UNIQUE). 그래서 한 단계가 한 문장으로 들어간다.
+
+**③ 폐기용 DB 리허설** — `pnpm --filter @stock-insight/api rehearse:dart-numeric-fact:db`
+
+```
+13개 검사 전부 통과 (612행)
+  적재 수치 = 표 수치 · 현재 뷰 해소 · 재실행 0행(멱등)
+  revision↔supersedes 일치 · known_at >= available_at
+  612/612 가 접수일 기준 (수집 시각 아님)
+```
+
+`--rehearse` 는 실제로 쓰고 ROLLBACK 한다. `--limit N` 으로 트랜잭션을 줄일 수 있다.
+
+> 리허설 DB 접속은 `.pgpass` 가 `db=research_app` 하나로 고정돼 있어 새 DB 이름에 안
+> 맞는다. 호출할 때 admin DSN 을 조립해 `DART_REHEARSAL_ADMIN_DATABASE_URL` 로 넘긴다.
+> `.pgpass` 를 고치지 않는다.
+
+### K2-b 착지 절차 — 순서를 바꿀 수 없다
+
+계획 §P4.5 가 부팅 다이제스트를 "이 계획에서 가장 위험한 지점"으로 잡았고, 2026-08-08 에
+실제로 그 부류의 크래시루프(재시작 1,357회)를 고쳤다. 084 는 표 2개와 뷰 1개를 만든다.
+
+```bash
+# 1. 백업
+ops/scripts/backup-research-app-logical.sh && ops/scripts/verify-research-app-restore.sh
+
+# 2. pending 이 084 하나인지 확인 — 아니면 중단(공유 DB, 남의 마이그레이션일 수 있다)
+pnpm --filter @stock-insight/api schema:status
+
+# 3. 병합 후 적용
+pnpm --filter @stock-insight/api schema:apply
+
+# 4. 다이제스트 재핀 — 지체 없이 이어서 한다
+DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
+#    → diff 판독. 084 의 표/뷰로 설명되면 상수 갱신 후 커밋.
+#      설명 안 되는 변경이 하나라도 있으면 중단 — tripwire 가 일하는 중이다.
+
+# 5. api-server 재시작하고 부팅 성공 확인
+curl -sS localhost:<port>/health
+
+# 6. 첫 적재는 손으로. 타이머에 맡기지 않는다.
+#    --rehearse 로 한 번 확인하고(쓰고 롤백) --apply 한다. 경과 시간을 이 문서에 적는다.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --rehearse
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --apply
+```
+
+**④를 건너뛰면 안 된다.** 084 의 GRANT 는 `si_*` 파이프라인 롤 전용이고
+(`si_knowledge`·`si_analytics`·`si_publisher`·`si_readapi`), 앱 롤
+(`stock_insight_app_reader`/`_writer`)에는 아무것도 주지 않는다. 078–083 이 같은 이유로
+다이제스트를 안 움직였으므로 084 도 무변동이 예상된다. **그래도 실행한다** — 계획이
+"②를 무조건 실행하고 결과로 판단한다"로 못박았고, 065 는 표 하나를 추가했는데 움직였다.
+
+**⑥이 손이어야 하는 이유.** `stock-insight-market-enrichment.timer` 는 매일 05:20 KST,
+유닛 예산은 `TimeoutStartSec=90min` 이고 그 안에서 DART 수집·SEC·FINRA 가 이미 돈다.
+첫 적재는 168,417행 단일 트랜잭션이라 예산을 잠식할 수 있고, 타임아웃으로 죽으면
+롤백된 뒤 다음 날 같은 168K 를 다시 시도한다. 084 적용과 다음 타이머 발화 사이에
+손으로 한 번 돌리고 **경과 시간을 이 문서에 기록한다.** 그 뒤 타이머가 도는 것은
+증분뿐이다.

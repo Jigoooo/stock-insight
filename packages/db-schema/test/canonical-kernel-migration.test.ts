@@ -8,6 +8,9 @@ import { sourcePitQualityMigrationSql } from '../src/migrations/080_source_pit_q
 import { releaseManifestMigrationSql } from '../src/migrations/081_release_manifest.ts';
 import { safetyStateMigrationSql } from '../src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../src/migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from '../src/migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from '../src/migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from '../src/migrations/086_economic_claim.ts';
 
 const MIGRATIONS = [
   ['078_semantic_snapshot', semanticSnapshotMigrationSql],
@@ -16,6 +19,9 @@ const MIGRATIONS = [
   ['081_release_manifest', releaseManifestMigrationSql],
   ['082_safety_state', safetyStateMigrationSql],
   ['083_slo_ledger', sloLedgerMigrationSql],
+  ['084_metric_definition_registry', metricDefinitionRegistryMigrationSql],
+  ['085_truth_class_binding', truthClassBindingMigrationSql],
+  ['086_economic_claim', economicClaimMigrationSql],
 ] as const;
 
 // Same list migration 031's test uses. These migrations must be purely additive:
@@ -32,7 +38,7 @@ const destructiveTokens = [
 const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
 
 describe('K1 canonical kernel migrations — registration', () => {
-  it('registers 078 through 083 in dependency order', () => {
+  it('registers 078 through 084 in dependency order', () => {
     const positions = MIGRATIONS.map(([id]) => {
       const at = indexSource.indexOf(`id: '${id}'`);
       assert.notEqual(at, -1, `${id} is not registered`);
@@ -56,6 +62,7 @@ describe('K1 canonical kernel migrations — registration', () => {
       'releaseManifestMigrationSql',
       'safetyStateMigrationSql',
       'sloLedgerMigrationSql',
+      'metricDefinitionRegistryMigrationSql',
     ]) {
       assert.match(indexSource, new RegExp(`\\b${name}\\b`), `${name} is not exported`);
     }
@@ -220,25 +227,73 @@ describe('K1 migrations — boot digest safety', () => {
   // reach, and every array in its probe is has_table_privilege-filtered. Granting
   // to an app role moves the pin and crashloops the brain on next boot unless it
   // is re-pinned in the same change — which is exactly how migration 059 took the
-  // brain down on 2026-08-03. These migrations grant to pipeline roles only.
-  for (const [id, sql] of MIGRATIONS) {
-    it(`${id} grants nothing to the app roles`, () => {
-      // Strip `--` comments first. The migration prose names these roles to
-      // explain why they are excluded, and matching that would fail the check
-      // for saying the right thing.
-      const executable = sql
-        .split('\n')
-        .map((line) => line.replace(/--.*$/, ''))
-        .join('\n');
+  // brain down on 2026-08-03.
+  //
+  // One migration in this series does need to widen that reach, so the rule is
+  // not "never" but "only deliberately, and only as far as stated here". A
+  // migration that grants to an app role without an entry fails, and an entry
+  // that grants more than it declared fails too.
+  const APP_ROLE_GRANTS = new Map<string, { relation: string; why: string }>([
+    [
+      '085_truth_class_binding',
+      {
+        relation: 'serving.content_pack_item_truth_v1',
+        why:
+          'REQ-SEM-010 asks for a visible distinction between truth classes, which is a ' +
+          'rendering requirement: the reader the product serves from has to be able to see ' +
+          'the resolved class. Only the view is granted — the binding table stays behind the ' +
+          'pipeline roles — and the boot digest must be re-pinned in the same landing.',
+      },
+    ],
+  ]);
 
-      for (const role of [
-        'stock_insight_app_reader',
-        'stock_insight_app_writer',
-        'stock_insight_reader',
-        'stock_insight_writer',
-      ]) {
+  const APP_ROLES = [
+    'stock_insight_app_reader',
+    'stock_insight_app_writer',
+    'stock_insight_reader',
+    'stock_insight_writer',
+  ];
+
+  // Strip `--` comments first. The migration prose names these roles to explain
+  // why they are excluded, and matching that would fail the check for saying the
+  // right thing.
+  const executableOf = (sql: string): string =>
+    sql
+      .split('\n')
+      .map((line) => line.replace(/--.*$/, ''))
+      .join('\n');
+
+  for (const [id, sql] of MIGRATIONS) {
+    const declared = APP_ROLE_GRANTS.get(id);
+    if (!declared) {
+      it(`${id} grants nothing to the app roles`, () => {
+        const executable = executableOf(sql);
+        for (const role of APP_ROLES) {
+          assert.doesNotMatch(executable, new RegExp(`\\b${role}\\b`), `${id} grants to ${role}`);
+        }
+      });
+      continue;
+    }
+
+    it(`${id} widens app-role reach only as far as it declared`, () => {
+      const executable = executableOf(sql);
+
+      // The writer roles are never a rendering requirement.
+      for (const role of ['stock_insight_app_writer', 'stock_insight_writer']) {
         assert.doesNotMatch(executable, new RegExp(`\\b${role}\\b`), `${id} grants to ${role}`);
       }
+
+      const grants = [...executable.matchAll(/GRANT\s+([\s\S]*?);/g)]
+        .map((match) => match[1] ?? '')
+        .filter((grant) => APP_ROLES.some((role) => grant.includes(role)));
+
+      assert.equal(grants.length, 1, `${id} should widen app-role reach exactly once`);
+      assert.ok(
+        grants[0]?.includes(declared.relation),
+        `${id} grants an app role something other than ${declared.relation}`,
+      );
+      assert.doesNotMatch(grants[0] ?? '', /\b(INSERT|UPDATE|DELETE|ALL)\b/);
+      assert.ok(declared.why.length > 80, 'a widening needs a stated reason');
     });
   }
 });
@@ -345,8 +400,224 @@ describe('083 SLO ledger — the input REQ-SAFE-002 consumes', () => {
     assert.match(sloLedgerMigrationSql, /ops\.pipeline\.expected_runs/);
   });
 
-  it('records the ops.slo_* deviation and its reason', () => {
+  it('carries its schema-choice rationale, and the correction to it', () => {
+    // 083 says governance.slo_* is a deliberate deviation and cites canonical/09 §5
+    // as naming ops.slo_*. The citation is wrong: the freeze names no schema for
+    // SLO anywhere, and ops.slo_* comes from the superseded e2e-layers.md X4.
+    // The SQL cannot be corrected in place — run-schema-migrations checksums
+    // migration.sql and 083 is applied — so the correction lives in the registry
+    // description, and this test pins both halves so neither drifts away alone.
     assert.match(sloLedgerMigrationSql, /DELIBERATE DEVIATION FROM THE FREEZE/);
     assert.match(sloLedgerMigrationSql, /database-ownership/);
+
+    const registry = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(registry, /CORRECTION 2026-08-08/);
+    assert.match(registry, /the freeze names no schema for SLO anywhere/i);
+  });
+});
+
+describe('084 metric definition registry — REQ-PROD-020 / REQ-PROD-021', () => {
+  it('refuses NORMALIZABLE without a stated method', () => {
+    // Without a rule it reads as "comparable, just do the conversion" to every
+    // caller, and nobody can execute it.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_normalizable_has_rule[\s\S]*normalization_rule/,
+    );
+  });
+
+  it('refuses PARTIALLY_COMPARABLE without a stated scope', () => {
+    // Otherwise it is UNKNOWN with a friendlier name, and the friendlier name is
+    // what gets it rendered as a comparison.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_partial_has_scope[\s\S]*partial_scope/,
+    );
+  });
+
+  it('refuses a non-GAAP definition that states no adjustment', () => {
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_definition_non_gaap_states_adjustment/,
+    );
+  });
+
+  it('refuses COMPARABLE across comparability groups, by trigger', () => {
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /COMPARABLE across different comparability groups/,
+    );
+  });
+
+  it('requires both sides of a ratio to be named', () => {
+    assert.match(metricDefinitionRegistryMigrationSql, /metric_definition_ratio_has_both_sides/);
+  });
+
+  it('models definition drift as a revision with a supersession link', () => {
+    // canonical/04 §6: a YoY spanning a definition change must be detectable.
+    assert.match(metricDefinitionRegistryMigrationSql, /supersedes_metric_definition_id/);
+    assert.match(metricDefinitionRegistryMigrationSql, /effective_from TIMESTAMPTZ NOT NULL/);
+    assert.match(metricDefinitionRegistryMigrationSql, /content is immutable; add a revision/);
+  });
+
+  it('resolves an unknown pair to UNKNOWN, never to COMPARABLE', () => {
+    // The default is the requirement: a caller that cannot establish comparability
+    // must render "not established", not a comparison.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /metric_comparability_state[\s\S]*'UNKNOWN'\n\s*\);/,
+    );
+  });
+
+  it('does not mirror NORMALIZABLE when falling back to the reverse direction', () => {
+    // "B converts to A" does not make A convertible to B.
+    assert.match(
+      metricDefinitionRegistryMigrationSql,
+      /comparability_state IN \('COMPARABLE', 'NOT_COMPARABLE', 'UNKNOWN'\)/,
+    );
+  });
+
+  it('keys definitions to world.numeric_fact so a fact can name its definition', () => {
+    assert.match(metricDefinitionRegistryMigrationSql, /concept_namespace TEXT NOT NULL/);
+    assert.match(metricDefinitionRegistryMigrationSql, /concept_key\s+TEXT NOT NULL/);
+  });
+});
+
+describe('085 truth class binding — REQ-SEM-010', () => {
+  const sql = truthClassBindingMigrationSql;
+
+  it('accepts only the fourteen classes the freeze names', () => {
+    // contracts/truth-classes.json is the machine list. The prose table in
+    // canonical/00 §4 shows thirteen — it omits OUTCOME, which §3's chain and the
+    // contract both carry — so the contract is what a CHECK follows.
+    const classes = [
+      'SOURCE',
+      'ASSERTION',
+      'FACT',
+      'EVENT',
+      'RELATION',
+      'EXPOSURE',
+      'STATISTICAL_ESTIMATE',
+      'CAUSAL_ESTIMATE',
+      'FORECAST',
+      'HYPOTHESIS',
+      'NARRATIVE',
+      'RECOMMENDATION',
+      'PERSONAL_DECISION',
+      'OUTCOME',
+    ];
+    const check = /truth_class IN \(([\s\S]*?)\)/.exec(sql)?.[1] ?? '';
+    for (const truthClass of classes) {
+      assert.ok(check.includes(`'${truthClass}'`), `${truthClass} is not accepted`);
+    }
+    assert.equal((check.match(/'/g) ?? []).length / 2, classes.length, 'accepts an extra class');
+  });
+
+  it('binds an impact path to HYPOTHESIS rather than to EXPOSURE', () => {
+    // All 248,236 impact_path_v2 rows are rule_derived with direction unknown, and
+    // run-portfolio-snapshot.ts:18 refuses to promote them into exposure because
+    // that would mean inventing sign, materiality and magnitude. Binding them to
+    // EXPOSURE would make in the UI the claim the pipeline declines to make.
+    const row = /'impact_path'[\s\S]*?'migration-085'/.exec(sql)?.[0] ?? '';
+    assert.ok(row.includes("'HYPOTHESIS'"));
+    assert.ok(!row.includes("'EXPOSURE'"));
+    assert.match(row, /direction=unknown/);
+  });
+
+  it('refuses to invent a class for an object that has none', () => {
+    // A model config is provenance of an inference and an identity mapping says
+    // which record is which. Defaulting either to SOURCE would tell a reader that
+    // a model config is evidence somebody filed.
+    for (const kind of ['model_config', 'identity_mapping']) {
+      const row = new RegExp(`'${kind}'[\\s\\S]*?'migration-085'`).exec(sql)?.[0] ?? '';
+      assert.ok(row.includes('not_a_truth_object'), `${kind} is bound to a class`);
+      assert.ok(row.includes('NULL'), `${kind} carries a class it should not`);
+    }
+  });
+
+  it('makes the state and the class agree, so neither can drift', () => {
+    assert.match(sql, /binding_state = 'bound' AND truth_class IS NOT NULL/);
+    assert.match(sql, /binding_state <> 'bound' AND truth_class IS NULL/);
+  });
+
+  it('every binding states what it was read from', () => {
+    const bases = [...sql.matchAll(/'migration-085'/g)];
+    assert.equal(bases.length, 5, 'five bindings are seeded');
+    assert.match(sql, /basis TEXT NOT NULL CHECK \(length\(btrim\(basis\)\) > 0\)/);
+  });
+
+  it('leaves an unbound kind null instead of defaulting it', () => {
+    // A reader can render "unclassified" honestly; it cannot un-see a wrong badge.
+    assert.match(sql, /LEFT JOIN governance\.truth_class_binding/);
+    assert.doesNotMatch(sql, /coalesce\(binding\.truth_class/);
+  });
+
+  it('addresses a null subkind as a value, not as unknown', () => {
+    // Three of the five bindings have no subkind, and a plain UNIQUE would let
+    // them all be inserted again.
+    assert.match(sql, /UNIQUE NULLS NOT DISTINCT/);
+    assert.match(sql, /IS NOT DISTINCT FROM/);
+  });
+});
+
+describe('086 economic claim — canonical/03 §2', () => {
+  const sql = economicClaimMigrationSql;
+
+  it('never lets a claim default to common equity', () => {
+    // All 297 securities are entity_type='Stock' today, including an ETF. A
+    // default here would reinstate exactly the assumption the table removes.
+    assert.doesNotMatch(sql, /DEFAULT\s+'COMMON_EQUITY'/);
+    assert.match(sql, /claim_type_state TEXT NOT NULL DEFAULT 'undetermined'/);
+  });
+
+  it('makes the state and the claim type agree', () => {
+    assert.match(sql, /claim_type_state = 'determined' AND claim_type IS NOT NULL/);
+    assert.match(sql, /claim_type_state = 'undetermined' AND claim_type IS NULL/);
+  });
+
+  it('stops an undetermined claim from stating rights it cannot know', () => {
+    // A row saying "we do not know what this is" while also saying how it votes
+    // would have the second statement read as the first being a formality.
+    const guard =
+      /economic_claim_undetermined_states_nothing CHECK \(([\s\S]*?)\n    \)/.exec(sql)?.[1] ?? '';
+    for (const column of [
+      'voting_rights',
+      'dividend_rights',
+      'cash_flow_rights',
+      'conversion_terms',
+      'redemption_terms',
+      'dilution_mechanics',
+      'seniority_rank',
+    ]) {
+      assert.ok(guard.includes(`${column} IS NULL`), `${column} escapes the guard`);
+    }
+  });
+
+  it('requires every row to say what it was determined from', () => {
+    // Otherwise a later reader cannot tell a gap in the data from a gap in the
+    // effort.
+    assert.match(
+      sql,
+      /determination_basis TEXT NOT NULL CHECK \(length\(btrim\(determination_basis\)\) > 0\)/,
+    );
+  });
+
+  it('covers the claim kinds canonical/03 §2 separates', () => {
+    // "보통주·우선주·ADR·전환증권·토큰은 회사 전망을 공유해도 claim-level valuation이 다를 수 있다."
+    for (const kind of [
+      'COMMON_EQUITY',
+      'PREFERRED_EQUITY',
+      'DEPOSITARY_RECEIPT',
+      'CONVERTIBLE',
+      'TOKEN',
+      'FUND_UNIT',
+    ]) {
+      assert.ok(sql.includes(`'${kind}'`), `${kind} has no place`);
+    }
+  });
+
+  it('states its own coverage rather than leaving it to be counted', () => {
+    assert.match(sql, /CREATE OR REPLACE VIEW core\.economic_claim_coverage_v1/);
+    assert.match(sql, /FILTER \(WHERE claim_type_state = 'determined'\)/);
   });
 });
