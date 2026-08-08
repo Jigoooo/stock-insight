@@ -1,0 +1,244 @@
+.workspace {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.overallPanel {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 22px 24px;
+  overflow: hidden;
+}
+
+.overallPanel p,
+.generatedAt,
+.noLimitations {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.overallHeader {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.overallHeader > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.overallHeader > span:first-child > strong {
+  font-size: clamp(22px, 2.5vw, 32px);
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow,
+.generatedAt {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.surfaceGrid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 18px;
+}
+
+.surfaceCard[data-slot='button-control'] {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  justify-content: stretch;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(20 21 19 / 5%);
+  text-align: left;
+  overflow: hidden;
+}
+
+.surfaceCard [data-slot='button-content'],
+.surfaceCard [data-slot='button-label'] {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+}
+
+.surfaceCard [data-slot='button-content'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.surfaceCard [data-slot='button-label'] {
+  display: block;
+}
+
+.surfaceCard[data-slot='button-control'][aria-current='true'] {
+  border-color: color-mix(in srgb, var(--color-accent) 52%, var(--color-border-strong));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent) inset,
+    0 10px 24px rgb(20 21 19 / 10%);
+}
+
+.cardLayout {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto repeat(3, minmax(0, auto));
+}
+
+.cardHeader {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 20px 20px 17px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cardHeader > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.cardHeader > span:first-child > strong {
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.cardHeader > span:first-child > span {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.cardHeader strong,
+.cardHeader span,
+.cardSection strong,
+.cardValues span,
+.commonLimitations li {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.levelBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 4px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-subtle);
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 1;
+}
+
+.levelBadge[data-level='ready'] {
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+  color: var(--color-success-text);
+  background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface));
+}
+
+.levelBadge[data-level='limited'] {
+  border-color: color-mix(in srgb, var(--color-warning) 38%, var(--color-border));
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+}
+
+.levelBadge[data-level='attention'] {
+  border-color: color-mix(in srgb, var(--color-danger) 34%, var(--color-border));
+  color: var(--color-danger-text);
+  background: color-mix(in srgb, var(--color-danger) 7%, var(--color-surface));
+}
+
+.cardSection {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(112px, 0.36fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cardSection:last-child {
+  border-bottom: 0;
+}
+
+.cardSection > strong {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.cardValues {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.commonLimitations {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 15px 22px 20px 40px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.noLimitations {
+  padding: 15px 20px 20px;
+}
+
+@media (any-hover: hover) and (any-pointer: fine) {
+  .surfaceCard[data-slot='button-control']:hover:not([aria-current='true']) {
+    background: var(--color-surface-subtle);
+  }
+}
+
+@media (max-width: 1240px) {
+  .surfaceGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .overallPanel {
+    padding: 19px 18px;
+  }
+
+  .cardHeader {
+    align-items: flex-start;
+    padding-inline: 17px;
+  }
+
+  .cardSection {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+    padding-inline: 17px;
+  }
+}

@@ -34,6 +34,11 @@ import {
   type MarketConnectionsModel,
 } from '../model/market-connections';
 import {
+  buildReliabilityBriefingModel,
+  type ReliabilityBriefingItem,
+  type ReliabilityBriefingModel,
+} from '../model/reliability-briefing';
+import {
   buildStocksBriefingModel,
   type StockBriefingLoader,
   type StocksBriefingModel,
@@ -145,6 +150,7 @@ type ResearchWorkspacePageProps = {
   historyBriefing?: HistoryBriefingModel;
   loadHistoryBriefingDetail?: HistoryBriefingLoader;
   marketConnections?: MarketConnectionsModel;
+  reliabilityBriefing?: ReliabilityBriefingModel;
   stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
@@ -201,6 +207,7 @@ export function ResearchWorkspacePage({
   historyBriefing,
   loadHistoryBriefingDetail,
   marketConnections,
+  reliabilityBriefing,
   stocksBriefing,
   navigationMode = 'route',
   onLogout,
@@ -225,6 +232,7 @@ export function ResearchWorkspacePage({
   const themeRelationSequenceRef = useRef(0);
   const inspectorOpenerRef = useRef<HTMLElement | null>(null);
   const historyInspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const reliabilityInspectorOpenerRef = useRef<HTMLElement | null>(null);
   const historyDetailSequenceRef = useRef(0);
   const issuedInspectorRecordKeysRef = useRef(new Set<string>());
   const [, startNavigationTransition] = useTransition();
@@ -240,6 +248,8 @@ export function ResearchWorkspacePage({
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
   const [historyInspectorOpen, setHistoryInspectorOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryBriefingItem | null>(null);
+  const [selectedReliabilityItem, setSelectedReliabilityItem] =
+    useState<ReliabilityBriefingItem | null>(null);
   const [historyDetail, setHistoryDetail] = useState<HistoryBriefingDetail | null>(null);
   const [historyDetailState, setHistoryDetailState] =
     useState<HistoryBriefingInspectorState>('ready');
@@ -486,6 +496,13 @@ export function ResearchWorkspacePage({
         : null,
     [historyBriefing, visibleHistoryPage],
   );
+  const resolvedReliabilityBriefing = useMemo(
+    () =>
+      data.view === 'status'
+        ? (reliabilityBriefing ?? buildReliabilityBriefingModel(data.status))
+        : null,
+    [data, reliabilityBriefing],
+  );
   const visibleDetail = detail ?? (data.view === 'today' ? data.defaultRecord : null);
   const visibleThemeRelation =
     themeRelation !== undefined ? themeRelation : data.view === 'themes' ? data.relation : null;
@@ -632,6 +649,11 @@ export function ResearchWorkspacePage({
 
   const retryHistoryDetail = () => {
     if (selectedHistoryItem) void loadSelectedHistoryDetail(selectedHistoryItem);
+  };
+
+  const selectReliability = (item: ReliabilityBriefingItem, opener: HTMLElement) => {
+    reliabilityInspectorOpenerRef.current = opener;
+    setSelectedReliabilityItem(item);
   };
 
   const selectThemeEntity = async (entityKey: string) => {
@@ -874,7 +896,15 @@ export function ResearchWorkspacePage({
           selectedHistoryId={selectedHistoryItem?.historyId}
         />
       )}
-      {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
+      {section === 'status' && data.view === 'status' && resolvedReliabilityBriefing && (
+        <StatusView
+          briefing={resolvedReliabilityBriefing}
+          data={data.status}
+          interactive={hydrated}
+          onOpenReliability={selectReliability}
+          selectedSurface={selectedReliabilityItem?.surface}
+        />
+      )}
       {section === 'market-topic-news' && data.view === 'market-topic-news' && (
         <MarketTopicNewsView data={data.marketTopicNews} />
       )}

@@ -162,7 +162,7 @@ describe('v3 research workspace structure', () => {
       '테마·관계',
       '내 리서치',
       '판단 복기',
-      '데이터 상태',
+      '데이터 신뢰도',
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
@@ -272,7 +272,6 @@ describe('v3 research workspace structure', () => {
       /\{source\.bindingState\}/,
       /\{dataset\.datasetName\}/,
       /\{dataset\.domain\}/,
-      /\{item\.summary\}/,
       /\{item\.thesis\}/,
       /\{detail\.body\}/,
       /\{item\.claim\}/,
@@ -325,7 +324,6 @@ describe('v3 research workspace structure', () => {
     assert.match(workspace, /<Tabs[^>]*value=\{lane\}/);
     assert.match(workspace, /<MetricStrip/);
     assert.match(workspace, /<StructuredList/);
-    assert.match(workspace, /<DataTable/);
     assert.match(workspace, /useWorkspaceAppendReveal/);
     assert.match(page, /activationMode="manual"/);
     assert.match(page, /<TabsTrigger/);
@@ -359,16 +357,17 @@ describe('v3 research workspace structure', () => {
     assert.doesNotMatch(historySource, /전체 \{data\.scopeTotal\}건/);
   });
 
-  it('keeps status counts separate from honest availability and limitation detail', () => {
-    assert.match(statusSource, /<StatusSummary/);
-    assert.match(statusSource, /label: '연결 출처'/);
-    assert.match(statusSource, /label: '클릭 가능 출처'/);
-    assert.match(statusSource, /<PropertyList[\s\S]*?aria-label="데이터 상태 세부 정보"/);
-    assert.match(statusSource, /label: '전체 가용성'/);
-    assert.match(statusSource, /label: '최신 확인 시각'/);
-    assert.match(statusSource, /label: '제약'/);
-    assert.match(statusSource, /<DataTable caption="데이터 영역별 상태"/);
-    assert.doesNotMatch(statusSource, /StatusSummary[\s\S]*?label: '전체 상태'/);
+  it('presents status as user-facing reliability guidance rather than an operations table', () => {
+    assert.match(statusSource, /title="데이터 신뢰도"/);
+    assert.match(statusSource, /전체 신뢰 상태/);
+    assert.match(statusSource, /기능별 데이터 신뢰도/);
+    assert.match(statusSource, /현재 확인 가능/);
+    assert.match(statusSource, /부족한 정보/);
+    assert.match(statusSource, /이용 시 주의점/);
+    assert.match(statusSource, /공통 제한 사항/);
+    assert.match(statusSource, /reliabilityLevelLabels/);
+    assert.doesNotMatch(statusSource, /<StatusSummary|<PropertyList|<DataTable/);
+    assert.doesNotMatch(statusSource, /datasetName|rowCount|analysisRunId|domain/);
   });
 
   it('keeps the relation graph bounded, accessible, and text-readable', () => {
