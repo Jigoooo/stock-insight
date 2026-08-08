@@ -1,4 +1,5 @@
 import type { DevPreviewPageProps, StocksPreviewScenario } from '../model/dev-preview-request';
+import { resolveHistoryPreview } from '../model/history-preview-fixture';
 import { resolveMarketConnectionsPreview } from '../model/market-connections-preview-fixture';
 import { loadPreviewStockBriefing } from '../model/stock-deep-dive-preview-fixture';
 import {
@@ -146,6 +147,23 @@ const previewLogout: LogoutAction = async () => ({ ok: true as const });
 
 export function DevPreviewPage(props: DevPreviewPageProps) {
   const surface = props.surface ?? 'workspace';
+  if (props.surface === 'history') {
+    const preview = resolveHistoryPreview(props.scenario ?? 'default');
+    return (
+      <div data-testid="dev-preview-page">
+        <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+        <ResearchWorkspacePage
+          data={preview.data}
+          navigationMode="static"
+          canManageInvitations={false}
+          onLogout={async () => false}
+          onPrefetchSection={() => undefined}
+          onUrlStateChange={async () => undefined}
+          urlState={{ view: 'history' }}
+        />
+      </div>
+    );
+  }
   if (props.surface === 'market-connections') {
     const preview = resolveMarketConnectionsPreview(props.scenario ?? 'default');
     return (

@@ -1,7 +1,12 @@
+import type { HistoryPreviewScenario } from './history-preview-fixture';
 import type { MarketConnectionsPreviewScenario } from './market-connections-preview-fixture';
 
 export type StocksPreviewScenario = 'default' | 'no-holdings' | 'empty' | 'detail-error';
 export type DevPreviewPageProps =
+  | {
+      scenario?: HistoryPreviewScenario;
+      surface: 'history';
+    }
   | {
       scenario?: MarketConnectionsPreviewScenario;
       surface: 'market-connections';
@@ -28,7 +33,19 @@ const marketConnectionsScenarios = new Set<MarketConnectionsPreviewScenario>([
   'partial',
   'detail-error',
 ]);
-const knownScenarios = new Set([...stockScenarios, ...marketConnectionsScenarios]);
+const historyScenarios = new Set<HistoryPreviewScenario>([
+  'default',
+  'no-user-judgments',
+  'no-due',
+  'empty',
+  'partial',
+  'detail-error',
+]);
+const knownScenarios = new Set([
+  ...stockScenarios,
+  ...marketConnectionsScenarios,
+  ...historyScenarios,
+]);
 
 function invalidScenario(surface: string, scenario: unknown): never {
   throw new Error(`Scenario ${String(scenario)} is not valid for ${surface}`);
@@ -58,7 +75,23 @@ function resolveMarketConnectionsScenario(
   return undefined;
 }
 
+function resolveHistoryScenario(scenario: unknown): HistoryPreviewScenario | undefined {
+  if (historyScenarios.has(scenario as HistoryPreviewScenario)) {
+    return scenario as HistoryPreviewScenario;
+  }
+  if (knownScenarios.has(scenario as StocksPreviewScenario | MarketConnectionsPreviewScenario)) {
+    invalidScenario('history', scenario);
+  }
+  return undefined;
+}
+
 export function resolveDevPreviewRequest(search: Record<string, unknown>): DevPreviewPageProps {
+  if (search.surface === 'history') {
+    return {
+      scenario: resolveHistoryScenario(search.scenario),
+      surface: 'history',
+    };
+  }
   if (search.surface === 'market-connections') {
     return {
       scenario: resolveMarketConnectionsScenario(search.scenario),
