@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all fourteen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all fifteen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -191,6 +191,11 @@ test('analytics runs all fourteen stages in order with an adjacent receipt per c
     // not automatically common equity in its issuer, and until this table is
     // joinable nothing downstream can tell.
     ['run-economic-claim.ts', 'stock-insight-economic-claim-stage'],
+    // Added 2026-08-08 (K3): gives every governed company a playbook revision to
+    // cite. Follows the identity sync because it reads taxonomy membership, and
+    // precedes everything analytical because REQ-DOM-001 is about what those
+    // stages are allowed to assume.
+    ['run-playbook-assignment.ts', 'stock-insight-playbook-assignment-stage'],
     ['run-feature-snapshot.ts', 'stock-insight-feature-snapshot-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
     // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected

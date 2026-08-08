@@ -29,6 +29,7 @@ import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migration
 import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from '../../../packages/db-schema/src/migrations/085_truth_class_binding.ts';
 import { economicClaimMigrationSql } from '../../../packages/db-schema/src/migrations/086_economic_claim.ts';
+import { sectorPlaybookMigrationSql } from '../../../packages/db-schema/src/migrations/087_sector_playbook.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -205,6 +206,13 @@ try {
     );
     INSERT INTO knowledge.relation_evidence_ledger (evidence_kind)
       VALUES ('source_revision'), ('model_config'), ('identity_mapping');
+    -- 087 assigns playbooks against the taxonomy.
+    CREATE TABLE core.taxonomy_node (
+      taxonomy_node_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      code TEXT NOT NULL
+    );
+    INSERT INTO core.taxonomy_node (code) VALUES ('3674'), ('264');
+
     -- 086 hangs its claims off the security master.
     CREATE TABLE core.security_master (
       security_master_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -233,6 +241,7 @@ try {
     metricDefinitionRegistryMigrationSql,
     truthClassBindingMigrationSql,
     economicClaimMigrationSql,
+    sectorPlaybookMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
@@ -291,6 +300,63 @@ try {
           'SELECT determined, undetermined, securities FROM core.economic_claim_coverage_v1',
         )
       ).rows[0].securities === '1',
+  };
+
+  // ── 087 sector playbook ─────────────────────────────────────────────────────
+  const playbookInsert = async (columns, values, table = 'governance.playbook_assignment') => {
+    try {
+      await target.query(`INSERT INTO ${table} (${columns}) VALUES (${values})`);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const playbookRow = (
+    await target.query(
+      `SELECT sector_playbook_id, jsonb_array_length(key_indicators) AS indicators
+         FROM governance.sector_playbook WHERE playbook_key = 'semiconductor' AND revision_no = 1`,
+    )
+  ).rows[0];
+  const drivers = await target.query(
+    `SELECT chain_stage, affects_stage, affects_direction FROM governance.business_driver`,
+  );
+  const sectorPlaybook = {
+    seedApplied: playbookRow !== undefined && Number(playbookRow.indicators) === 6,
+    // canonical/04 §5 lists six minimums for this sector; the seed must cover the
+    // whole chain of §3 rather than only the parts with easy data.
+    driversCoverTheChain:
+      new Set(drivers.rows.map((row) => row.chain_stage)).size >= 6 && drivers.rows.length === 8,
+    everyBridgeHasADirection: drivers.rows.every(
+      (row) => (row.affects_stage === null) === (row.affects_direction === null),
+    ),
+    // An adapter missing an interface is the gap the model fills silently.
+    partialAdapterRejected: !(await playbookInsert(
+      'playbook_key, revision_no, display_name, value_chain, unit_of_analysis, key_indicators, financial_bridge, catalysts_and_risks, valuation_methods, peer_dimensions, source_requirements, adapter_interfaces, effective_from, authored_by',
+      `'partial', 1, 'Partial', '[]'::jsonb, 'u', '[1]'::jsonb, '[1]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '{"identity_extensions":[]}'::jsonb, now(), 'rehearsal'`,
+      'governance.sector_playbook',
+    )),
+    emptyIndicatorsRejected: !(await playbookInsert(
+      'playbook_key, revision_no, display_name, value_chain, unit_of_analysis, key_indicators, financial_bridge, catalysts_and_risks, valuation_methods, peer_dimensions, source_requirements, adapter_interfaces, effective_from, authored_by',
+      `'empty', 1, 'Empty', '[]'::jsonb, 'u', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '{"identity_extensions":[],"metric_concepts":[],"world_state_event_types":[],"business_driver_transforms":[],"valuation_methods":[],"peer_dimensions":[],"acceptance_fixtures":[],"source_pack":[]}'::jsonb, now(), 'rehearsal'`,
+      'governance.sector_playbook',
+    )),
+    // A revision above one has to name what it replaced (canonical/04 §6).
+    orphanRevisionRejected: !(await playbookInsert(
+      'playbook_key, revision_no, display_name, value_chain, unit_of_analysis, key_indicators, financial_bridge, catalysts_and_risks, valuation_methods, peer_dimensions, source_requirements, adapter_interfaces, effective_from, authored_by',
+      `'semiconductor', 2, 'Rev2', '[]'::jsonb, 'u', '[1]'::jsonb, '[1]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '{"identity_extensions":[],"metric_concepts":[],"world_state_event_types":[],"business_driver_transforms":[],"valuation_methods":[],"peer_dimensions":[],"acceptance_fixtures":[],"source_pack":[]}'::jsonb, now(), 'rehearsal'`,
+      'governance.sector_playbook',
+    )),
+    taxonomyAssignmentMustNameANode: !(await playbookInsert(
+      'sector_playbook_id, entity_id, assignment_basis, rationale, valid_from, assigned_by',
+      `${playbookRow?.sector_playbook_id ?? 0}, 1, 'taxonomy', 'r', now(), 'rehearsal'`,
+    )),
+    curatedAssignmentMayDisagreeWithTheCode: await playbookInsert(
+      'sector_playbook_id, entity_id, assignment_basis, rationale, valid_from, assigned_by',
+      `${playbookRow?.sector_playbook_id ?? 0}, 1, 'curated', 'largest memory maker, classified under communications equipment', now(), 'rehearsal'`,
+    ),
+    currentViewResolves:
+      (await target.query('SELECT count(*)::int AS n FROM governance.entity_playbook_current_v1'))
+        .rows[0].n === 1,
   };
 
   // ── 085 truth class binding ─────────────────────────────────────────────────
@@ -790,6 +856,7 @@ try {
     metric,
     truthClass,
     economicClaim,
+    sectorPlaybook,
     digestSafety: {
       relationsChecked: reach.rows.length,
       appRoleReachableRelations: observedAppRoleReach,
@@ -811,6 +878,7 @@ try {
     metric,
     truthClass,
     economicClaim,
+    sectorPlaybook,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);

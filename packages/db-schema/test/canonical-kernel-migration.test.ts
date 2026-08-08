@@ -11,6 +11,7 @@ import { sloLedgerMigrationSql } from '../src/migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from '../src/migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from '../src/migrations/085_truth_class_binding.ts';
 import { economicClaimMigrationSql } from '../src/migrations/086_economic_claim.ts';
+import { sectorPlaybookMigrationSql } from '../src/migrations/087_sector_playbook.ts';
 
 const MIGRATIONS = [
   ['078_semantic_snapshot', semanticSnapshotMigrationSql],
@@ -22,6 +23,7 @@ const MIGRATIONS = [
   ['084_metric_definition_registry', metricDefinitionRegistryMigrationSql],
   ['085_truth_class_binding', truthClassBindingMigrationSql],
   ['086_economic_claim', economicClaimMigrationSql],
+  ['087_sector_playbook', sectorPlaybookMigrationSql],
 ] as const;
 
 // Same list migration 031's test uses. These migrations must be purely additive:
@@ -619,5 +621,103 @@ describe('086 economic claim — canonical/03 §2', () => {
   it('states its own coverage rather than leaving it to be counted', () => {
     assert.match(sql, /CREATE OR REPLACE VIEW core\.economic_claim_coverage_v1/);
     assert.match(sql, /FILTER \(WHERE claim_type_state = 'determined'\)/);
+  });
+});
+
+describe('087 sector playbook — REQ-DOM-001', () => {
+  const sql = sectorPlaybookMigrationSql;
+
+  it('requires all eight adapter interfaces canonical/04 §2 names', () => {
+    // An adapter missing one is the case the requirement exists to prevent: the
+    // model fills the gap and nothing records that it did.
+    for (const iface of [
+      'identity_extensions',
+      'metric_concepts',
+      'world_state_event_types',
+      'business_driver_transforms',
+      'valuation_methods',
+      'peer_dimensions',
+      'acceptance_fixtures',
+      'source_pack',
+    ]) {
+      assert.ok(
+        new RegExp(`adapter_interfaces \\?& ARRAY\\[[\\s\\S]*'${iface}'`).test(sql),
+        `${iface} is not enforced`,
+      );
+    }
+  });
+
+  it('refuses a playbook that names nothing to look at', () => {
+    assert.match(sql, /jsonb_array_length\(key_indicators\) > 0/);
+    assert.match(sql, /jsonb_array_length\(financial_bridge\) > 0/);
+  });
+
+  it('lets an assignment disagree with the industry code, in writing', () => {
+    // Samsung Electronics is KSIC 264; assignment by code alone would drop it.
+    assert.match(sql, /assignment_basis IN \('taxonomy', 'curated'\)/);
+    assert.match(sql, /rationale TEXT NOT NULL CHECK \(length\(btrim\(rationale\)\) > 0\)/);
+    assert.match(sql, /assignment_basis <> 'taxonomy' OR taxonomy_node_id IS NOT NULL/);
+  });
+
+  it('gives every driver the seven properties canonical/04 §3 lists', () => {
+    for (const column of [
+      'source_requirement',
+      'horizon',
+      'sensitivity_note',
+      'lag_note',
+      'regime_note',
+      'uncertainty_note',
+    ]) {
+      assert.ok(new RegExp(`${column} TEXT NOT NULL`).test(sql), `${column} may be left empty`);
+    }
+  });
+
+  it('refuses a bridge that names a target without a direction', () => {
+    // An exposure that cannot state a sign is exactly what
+    // run-portfolio-snapshot.ts:18 refuses to invent, so the definition must
+    // carry the sign or K4 will have to guess it.
+    assert.match(sql, /affects_stage IS NOT NULL AND affects_direction IS NOT NULL/);
+    assert.match(sql, /affects_stage IS NULL OR affects_stage <> chain_stage/);
+  });
+
+  it('seeds a semiconductor revision 1 covering every canonical/04 §5 minimum', () => {
+    for (const key of [
+      'product_generation_node',
+      'design_win_qualification',
+      'capacity_wafer_fab_hbm',
+      'customer_product_concentration',
+      'backlog_commitment_quality',
+      'technology_transition_substitution',
+    ]) {
+      assert.ok(sql.includes(key), `${key} is missing from the playbook`);
+    }
+  });
+
+  it('covers the whole chain of canonical/04 §3 with its drivers', () => {
+    // Demand × Price × Mix → Revenue − Cost → Margin − Capital → FCF. A chain
+    // with a hole is a bridge an analysis has to jump.
+    for (const stage of [
+      'demand',
+      'price',
+      'mix',
+      'variable_cost',
+      'fixed_cost',
+      'working_capital',
+      'capex',
+    ]) {
+      assert.ok(new RegExp(`'${stage}',`).test(sql), `no driver sits at ${stage}`);
+    }
+  });
+
+  it('states what has to be examined and never what to conclude', () => {
+    // A playbook that carried a view would be the invention REQ-DOM-001 forbids,
+    // wearing a revision number.
+    for (const verdict of ['undervalued', 'overvalued', 'buy', 'sell', 'attractive']) {
+      assert.doesNotMatch(
+        sql,
+        new RegExp(`\\b${verdict}\\b`, 'i'),
+        `playbook states a view: ${verdict}`,
+      );
+    }
   });
 });

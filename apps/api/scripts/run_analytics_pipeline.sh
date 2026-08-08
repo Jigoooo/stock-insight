@@ -58,6 +58,12 @@ pipeline_record_stage_success stock-insight-core-identity-sync-stage "$RUN_START
 # and assuming common equity (canonical/03 §2).
 DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-economic-claim.ts --apply
 pipeline_record_stage_success stock-insight-economic-claim-stage "$RUN_STARTED_AT" || exit $?
+# Must follow the identity sync for the same reason: it reads taxonomy membership,
+# which that stage maintains. Gives every governed company a playbook revision to
+# cite, which is the whole of REQ-DOM-001 — without one an analysis reinvents the
+# sector's KPIs each run and nothing records that the list moved.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-playbook-assignment.ts --apply
+pipeline_record_stage_success stock-insight-playbook-assignment-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
