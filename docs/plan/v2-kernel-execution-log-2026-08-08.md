@@ -537,3 +537,96 @@ DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --app
 롤백된 뒤 다음 날 같은 168K 를 다시 시도한다. 084 적용과 다음 타이머 발화 사이에
 손으로 한 번 돌리고 **경과 시간을 이 문서에 기록한다.** 그 뒤 타이머가 도는 것은
 증분뿐이다.
+
+---
+
+## K2 완료 — 라이브 착지 (2026-08-08)
+
+병합 `e5d1a95`, 재핀 `424d2c6`. 게이트 전부 통과.
+
+### 라이브 상태
+
+```
+world.numeric_fact              168,417   (0 → 168,417)
+governance.metric_definition      6,100
+governance.truth_class_binding        5
+core.security_corporate_action      483   (0 → 483)
+core.economic_claim                 297   (판정 2 / 미판정 295)
+schema_migration                  86/86, pending 0
+```
+
+`serving.content_pack_item_truth_v1` 해소 결과 — UI 가 받게 될 것:
+
+```
+SOURCE       1,730,287
+RELATION       912,988
+(미분류)       551,832   not_a_truth_object
+HYPOTHESIS     207,486
+```
+
+합이 3,402,593 으로 파생 그래프 전체와 일치한다.
+
+### 다이제스트 재핀 — 예측대로 하나만 움직였다
+
+`stock_insight_app_reader.relation_privileges_digest` 하나. 085 가 예고한 그대로다.
+`rls_contract_digest` 는 안 움직였다 — 뷰가 자기 정책을 갖지 않는다.
+
+**증명**(065 재핀과 같은 방식): 라이브에서 reader 로 배열을 다시 계산하되
+`serving.content_pack_item_truth_v1` 만 제외하면 이전 핀 `ae1c09cdc…a9914` 가 바이트
+단위로 재현된다. 248 → 249. 084·086 은 `si_*` 롤에만 GRANT 해서 안 움직인다.
+
+새 이미지 `sha256:06865eddd8c2…` 배포, 부팅 성공, RestartCount=0, healthy.
+
+### 첫 적재 소요 시간
+
+| 잡 | 행 | 시간 |
+| --- | --- | --- |
+| numeric_fact | 168,417 | **9초** |
+| 연속성 bridge | 483 | 0초 |
+| economic claim | 297 | 0초 |
+
+**계획이 걱정한 90분 예산 잠식은 없다.** revision 단계별 배치 적재가 168K 를 9초로
+줄였다. 손으로 돌린 것은 여전히 옳은 선택이었지만 — 시간을 모른 채 타이머에 맡기는
+것과 알고 맡기는 것은 다르다. 이제 알았으니 이후 증분 실행은 타이머가 해도 된다.
+
+### 사후 감사
+
+```
+run-schema-migrations        exit 0
+run-source-contract-audit    exit 0
+run-pit-now-audit            exit 0   (REQ-PIT-003 위반 0)
+run-table-reachability-audit 안 읽히는 뷰 16개 보고
+```
+
+### 남은 것 — 정직하게
+
+**REQ-SEM-010 은 충족 *가능*해졌을 뿐 충족되지 않았다.** `content_pack_item_truth_v1`
+이 도달성 감사의 '안 읽히는 뷰' 16개에 들어 있다. 데이터 원천은 생겼지만 UI 가 아직
+소비하지 않는다. 이걸 "REQ-SEM-010 완료"로 적으면 거짓이다.
+
+새로 만든 다른 뷰들도 같은 상태다 — `economic_claim_coverage_v1`,
+`metric_definition_current_v1`, `release_current_v1`, `safety_state_current_v1`,
+`slo_current_v1`, `source_pit_quality_current_v1`. K1·K5 가 세운 계약을 K6 이후가
+소비하게 돼 있으므로 예정된 순서지만, 지금 시점의 사실로 기록해 둔다.
+
+### K2 최종 상태
+
+| # | 작업 | 상태 |
+| --- | --- | --- |
+| K2-a | metric_definition 레지스트리 (084) | ✅ 라이브, 6,100건 |
+| K2-b | numeric_fact writer | ✅ 라이브, 168,417건 |
+| K2-c | economic_claim (086) | ✅ 라이브, 297건 (판정 2) |
+| K2-d | 연속성 bridge | ✅ 라이브, 483건 |
+| K2-e | truth class 바인딩 (085) | ✅ 라이브, 340만건 해소 |
+| K2-f | assertion writer | ❌ **차단** — 계보 스택 단절 |
+
+### K2-f 를 여는 조건 (다음 세션 입력)
+
+`knowledge.document` 7,746행이 전부 `legacy:` 접두이고 원천이 `public.source_documents`
+(남의 표)다. `document_chunk.source_revision_id` 9,041행 전부 NULL 이고 채울 값이 없다.
+`assertion.source_revision_id` 는 NOT NULL 이라 만족시킬 방법이 없다.
+
+**완화하지 마라.** REQ-EVD-001·004 를 정면으로 어긴다. 필요한 것은 별도 슬라이스다 —
+`ingestion` 스택이 수집한 rss-news-bundle raw object 가 `knowledge.document` 가 되게
+하고 레거시는 레거시로 남기는 것. canonical/11 §2 가 *"raw/source revision + PIT quality"*
+다음에 *"event/assertion/conflict"* 를 둔 이유와 같다.
