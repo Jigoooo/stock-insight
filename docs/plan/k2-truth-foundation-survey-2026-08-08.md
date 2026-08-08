@@ -14,11 +14,47 @@
 | `world.numeric_fact` writer | ✅ **구현 가능** | DART 1,178 · SEC 158 raw object 가 계보와 함께 보관돼 있다 |
 | `governance.metric_definition` / `_comparability` | ✅ **구현 가능** | 신규 표. 의존 없음 |
 | `core.economic_claim` | ✅ **구현 가능** | `core.security_master` 297행이 있다 |
-| `knowledge.assertion` writer | ❌ **막혀 있다** | 계보 스택이 둘로 갈라져 있다 (아래) |
+| `knowledge.assertion` writer | ⚠️ **이 문서가 틀렸다** | 아래 §정정 참조 — 다리가 있다 |
 
 ---
 
-## assertion 이 막힌 이유 — 계보 스택 단절
+## ⚠️ 정정 (2026-08-08 저녁) — 이 절의 결론이 틀렸다
+
+**아래 "막혀 있다"는 결론은 틀렸다.** 다리를 두 개만 시도하고 그만뒀다:
+`content_hash` 와 `source_record_identity.provider_record_key`. 둘 다 0건이라 "다리가
+없다"로 결론냈는데, **양쪽 스택이 모두 들고 있는 기사 URL 을 시도하지 않았다** —
+`knowledge.document.canonical_url` 과 rss-news-bundle raw object 안 각 항목의 `url`.
+
+재측정:
+
+```
+canonical_url 보유 document                     6,171
+URL 로 보관된 번들 항목에 닿는 document          6,794 (chunk 기준)
+  chunk 본문이 title+summary 로 정확 재구성      6,196 (91.2%)
+  다른 캡처 (발행사가 헤드라인 수정)               598 (8.8%)
+
+evidence 를 가진 claim                            374
+  URL 로 번들에 닿음                              356
+  바이트 단위 재구성됨 → assertion 가능           332
+```
+
+**정확 재구성이 핵심이다.** URL 공유만으로는 "같은 기사"일 뿐 "그 바이트에서 나왔다"가
+아니다. 실측 예: `"18 tech stocks that have fallen at least 30%"` 와
+`"19 (mostly) tech stocks that have fallen at least 25%"` — 같은 URL, 다른 캡처.
+여기에 source revision 을 붙이면 REQ-EVD-004 재실행 가능성을 거짓으로 약속하게 된다.
+그래서 chunk 마다 재구성을 다시 계산하고 재현 안 되는 598건은 건드리지 않는다.
+
+구현: `run-news-assertion.ts`. `document_chunk.source_revision_id` 6,113건을 채우고
+assertion 253건을 쓴다. 253 < 332 인 이유는 modality 때문이다 — opinion 41 건과
+reported_claim 39 건은 정본의 5개 modality(factual·planned·possible·alleged·forecast)에
+자리가 없어 거부한다.
+
+**이 문서의 나머지는 사실로서 여전히 맞다** — `document_chunk.source_revision_id` 가
+전부 NULL 이었던 것도, 두 스택이 갈라져 있던 것도. 틀린 것은 "이을 수 없다"는 결론이다.
+
+---
+
+## assertion 이 막힌 이유 — 계보 스택 단절 (이 절의 결론은 위에서 정정됨)
 
 `knowledge.assertion.source_revision_id` 는 `NOT NULL REFERENCES ingestion.source_revision`
 이다(마이그레이션 031). 현재 claim 코퍼스는 이 조건을 **하나도** 만족할 수 없다.

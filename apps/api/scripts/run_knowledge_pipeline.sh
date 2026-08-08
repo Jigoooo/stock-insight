@@ -124,6 +124,17 @@ pipeline_record_stage_success stock-insight-claim-merge-stage "$RUN_STARTED_AT" 
 DATABASE_URL="$DB_URL" node apps/api/src/knowledge/run-claim-corroboration.ts --apply
 pipeline_record_stage_success stock-insight-claim-corroboration-stage "$RUN_STARTED_AT" || exit $?
 
+# Must follow claim corroboration: it places corroborated claims on the source
+# revision their evidence reproduces from, which is what knowledge.assertion
+# requires and what the K2 survey wrongly concluded was impossible. It also fills
+# document_chunk.source_revision_id, so the two stacks stop being disjoint.
+#
+# Both halves are idempotent — the chunk link only fills a null column and the
+# assertion is keyed by claim — so a daily pass costs two queries once the backlog
+# is gone and picks up the day's new claims.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-news-assertion.ts --apply
+pipeline_record_stage_success stock-insight-news-assertion-stage "$RUN_STARTED_AT" || exit $?
+
 DATABASE_URL="$DB_URL" node apps/api/src/publish/run-event-brief.ts --apply
 
 # B0: record the known backlog as an explicit gauge — never hidden by success.
