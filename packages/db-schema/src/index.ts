@@ -75,6 +75,16 @@ import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts'
 import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
 import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
 import { institutionalHolderEntitiesMigrationSql } from './migrations/077_institutional_holder_entities.ts';
+import { semanticSnapshotMigrationSql } from './migrations/078_semantic_snapshot.ts';
+import { analysisInformationSetMigrationSql } from './migrations/079_analysis_information_set.ts';
+import { sourcePitQualityMigrationSql } from './migrations/080_source_pit_quality.ts';
+import { releaseManifestMigrationSql } from './migrations/081_release_manifest.ts';
+import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
+import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
+import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
+import { sectorPlaybookMigrationSql } from './migrations/087_sector_playbook.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -882,6 +892,76 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: institutionalHolderEntitiesMigrationSql,
   },
+  {
+    id: '078_semantic_snapshot',
+    description:
+      "Creates governance.semantic_snapshot, the version pin canonical/02 §9 requires so 'what did this number mean' has one answer per artifact, and REQ-REL-001 can ask whether two surfaces used compatible snapshots. Numbered before the information set because that table carries semantic_snapshot_id as a foreign key — numbering follows the dependency, not the order the plan listed them. Uses a TEXT primary key rather than the usual surrogate-plus-key pair because the snapshot id is quoted inside run manifests and artifacts that outlive the row, so a surrogate would force every consumer to join to translate. Append-only with one state-machine exception (open -> sealed -> superseded): editing a snapshot rewrites the meaning of artifacts already derived under it, which is REQ-SEM-002 applied to versioning. Granted to pipeline roles only; the boot guard's digests are all has_table_privilege-filtered, so a table the app roles cannot see does not move their pins and needs no re-pin — the discipline migration 059 lacked when it crashlooped the brain.",
+    tables: [],
+    sql: semanticSnapshotMigrationSql,
+  },
+  {
+    id: '079_analysis_information_set',
+    description:
+      "Creates governance.analysis_information_set — canonical/02 §1's record of what a derivation was allowed to see. Keeps four cutoffs separate (valid, source-available, system-known, market-observation) because canonical/00 §5 keeps the time axes separate; collapsing them loses the sentence a leak-free backtest depends on, 'this was true then but we could not have known it'. The cutoffs are NOT NULL with no default precisely because a default is how now() becomes a business cutoff without anyone deciding to, which REQ-PIT-003 forbids. Four CHECK constraints mirror packages/contracts/src/analysis-information-set.ts one for one — the contract rejects a bad request before work starts, the constraint rejects a bad row however it was produced, and a leak only the application can catch is a leak. Fully append-only with no state machine: an information set describes a boundary, and an editable boundary is not one (REQ-KERN-002).",
+    tables: [],
+    sql: analysisInformationSetMigrationSql,
+  },
+  {
+    id: '080_source_pit_quality',
+    description:
+      'Records the PIT reconstructability class (canonical/02 §3) per source, so REQ-KERN-020 — PIT_D/E data must not be a core input to past ex-ante evaluation — becomes enforceable instead of unstated. canonical/08 §1 puts the class in the source contract and that was the plan, but ingestion.source_contract_revision carries an immutability trigger and a content_hash over the contract it states: adding a column and backfilling would either fail or leave 69 revisions whose hash no longer describes their content. Grading is also revised as a source is learned, a different lifecycle from the contract, so it gets its own append-only ledger with a current-view mirroring source_contract_current_v1. Grades only what has a checkable reason — fred PIT_A (ALFRED vintages), SEC/DART PIT_B (immutable accession-addressed filings), internal snapshots and bok-ecos PIT_C (no source revision axis; run-ecos-vintage already marks vintage_quality approximate), quote APIs PIT_D — and leaves the remaining sources PIT_E_UNKNOWN because over-claiming replayability silently admits data the system could not have had.',
+    tables: [],
+    sql: sourcePitQualityMigrationSql,
+  },
+  {
+    id: '081_release_manifest',
+    description:
+      "Creates governance.release_manifest and release_component, the read pointer REQ-REL-001 needs so surfaces shown together cannot disagree. The failure it closes is already measured: content pack supersession is atomic within a pack_kind but not across kinds, so between two COMMITs entity_relation_graph serves snapshot N while impact_brief still serves N-1, and nothing errors — the panels just contradict each other. Components are rows rather than the frozen schema's JSONB array because the questions asked of them are relational ('which release last carried this kind', 'is any component stale'); the wire shape is rebuilt on read. safety_state is a plain column, not a foreign key, because it records the state the release was built under — a manifest built during CAUTION must keep saying CAUTION after recovery or the audit trail rewrites itself. Append-only with the same narrow state machine content packs use, and components may only be added while the release is still building.",
+    tables: [],
+    sql: releaseManifestMigrationSql,
+  },
+  {
+    id: '082_safety_state',
+    description:
+      "Creates the safety state transition ledger canonical/00 §8 defines (NORMAL -> CAUTION -> INFORMATION_ONLY -> HALTED) and the current-state view. REQ-SAFE-001 is the reason it exists: a pipeline exiting 0 says nothing about whether meaning is healthy, and this repository's canonical example is the 2026-08-07 knowledge stall — successful job, frozen table, found by a person asking why a count was flat. A transition ledger rather than a mutable current-state row because an incident review asks how we got here, and the reason for a downgrade outlives the downgrade. CAUTION's recommendation_allowed stays NULL rather than collapsing to a boolean: contracts/safety-state.json marks it policy-dependent, and defaulting it to allowed is exactly how a degraded product keeps recommending (REQ-SAFE-003). Seeds one NORMAL row so an empty view cannot be read as either NORMAL or, fail-closed, HALTED.",
+    tables: [],
+    sql: safetyStateMigrationSql,
+  },
+  {
+    id: '083_slo_ledger',
+    description:
+      "Creates governance.slo_definition and slo_observation, the input REQ-SAFE-002 needs — without a record of what the SLOs are and what they measured, migration 082's downgrade clause has nothing to consume and safety state is decoration, so the two ship together. CORRECTION 2026-08-08: the SQL comment in 083 calls governance.slo_* a deliberate deviation and cites canonical/09 §5 as naming ops.slo_*. That citation is wrong and this description previously repeated it. The freeze names no schema for SLO anywhere — canonical/09 §5 is Silent Failure Detection and does not use the word, and a search of canonical/ and contracts/ for ops.slo returns nothing. ops.slo_* comes from e2e-layers.md X4, which this repository superseded on 2026-08-08. So governance.slo_* is not a deviation at all; the freeze left the name open and ownership decided it, since ops is split table by table with research-app-db (seventeen tables listed in operations/database-ownership.md). The comment inside 083 cannot be corrected in place: run-schema-migrations checksums migration.sql, 083 is already applied, and editing it would be rejected as drift. This description is not part of that checksum, which is why the correction lives here. Observations store the threshold and comparison they were judged under so a later revision cannot rewrite a past verdict, and a CHECK forces the recorded verdict to follow from the recorded numbers. The eight seeded definitions are grounded in the measured silent failures of the 2026-08-07 as-built — including expected-versus-observed wrapper runs, which is the only way lock contention becomes visible at all, since it exits 75 before any audit row is written. All start report-only: a threshold with no observed baseline cannot be trusted to move the product's state.",
+    tables: [],
+    sql: sloLedgerMigrationSql,
+  },
+  {
+    id: '084_metric_definition_registry',
+    description:
+      "Creates governance.metric_definition and metric_comparability — the place canonical/02 §7 requires so 'what does this number mean' has an answer, and the precondition for REQ-PROD-020 (per-dimension rank shown with its definition and coverage) and REQ-PROD-021 (an incomparable KPI says so). Same KPI name under K-IFRS and US-GAAP is two numbers wearing one word, and a peer table that ranks them together measures nothing. canonical/04 §6 adds the temporal half — a changed issuer definition is a new revision with an effective interval and a supersession link, so a YoY spanning the change can be detected rather than silently computed. Comparability is a directed pair rather than a per-definition flag because NORMALIZABLE is frequently one-way: revenue reported excluding a disclosed rebate converts to the inclusive definition and not back, and an undirected edge silently claims a conversion that exists in one direction only. Constraints refuse the shapes that mislead: NORMALIZABLE without a normalization rule is a promise nobody can execute, PARTIALLY_COMPARABLE without a stated scope is UNKNOWN with a friendlier name, a non-GAAP definition stating no adjustment is indistinguishable from the GAAP one it claims to differ from, and COMPARABLE across different comparability groups is refused by trigger. governance.metric_comparability_state() resolves a pair for callers and falls back to UNKNOWN, never to COMPARABLE.",
+    tables: [],
+    sql: metricDefinitionRegistryMigrationSql,
+  },
+  {
+    id: '085_truth_class_binding',
+    description:
+      "Creates governance.truth_class_binding and serving.content_pack_item_truth_v1, the truth class metadata canonical/11 §5 lists as ADDITIVE and the only thing that makes REQ-SEM-010 satisfiable. Measured 2026-08-08, the projection the UI reads carries item_kind with three values — evidence 2,282,119, relation 912,988, impact_path 207,486 — which is the storage vocabulary, not one of the fourteen classes in contracts/truth-classes.json, so nothing downstream can tell a source from a hypothesis and nothing can render them differently. A binding table rather than a column on content_pack_item: the classification is a judgement about what a kind of object is, it belongs where it can be reviewed and revised rather than in 3.4M rows of a table the product reads, and the view resolves it at read time. impact_path binds to HYPOTHESIS and deliberately not to EXPOSURE — all 248,236 impact_path_v2 rows are inference_kind=rule_derived with direction=unknown, and run-portfolio-snapshot.ts:18 already refuses to promote them into impact_exposure_revision because filling it would mean inventing sign, materiality and economic magnitude; labelling them EXPOSURE in the UI would make the claim the pipeline declines to make in the data. Evidence splits by evidence_kind: source_revision (58,801) is SOURCE, while model_config (8,645) and identity_mapping (254) are recorded as not_a_truth_object because a model configuration is provenance of an inference and an identity mapping is a statement about which record is which, and none of the fourteen classes describes either. An unbound kind resolves to NULL rather than to a default: a reader can render 'unclassified' honestly but cannot un-see a wrong badge. This is the one migration in the 078-085 series where stock_insight_app_reader gains reach, because REQ-SEM-010 is a rendering requirement, so the boot digest moves and must be re-pinned.",
+    tables: [],
+    sql: truthClassBindingMigrationSql,
+  },
+  {
+    id: '086_economic_claim',
+    description:
+      "Creates core.economic_claim and core.economic_claim_coverage_v1, the claim model canonical/03 §2 requires. Four of the eight expressions it names already have homes — the issuer in core.security_issuer_identity, and venue, currency and effective dates in core.listing — so this adds the four that have none: holder and right type, seniority, the voting/dividend/cash-flow rights, and the conversion, redemption and dilution mechanics. It matters while mostly empty. Measured 2026-08-08 all 297 securities carry entity_type='Stock', including SMH which is the VanEck Semiconductor ETF, so nothing distinguishes a common share from a fund unit, a preferred share, an ADR or a convertible and every consumer is free to assume it holds common equity in the issuer. canonical/03 §2 says that assumption is wrong — the same company prospect can carry different claim-level valuations. The value today is the assumption removed rather than the rows filled: a consumer that joins here gets NULL and has to decide, where before it got nothing and carried on. Only XLE and XLK can be determined, from their ETF holdings snapshots; the other 295 have no claim-type evidence anywhere, since all 188 Korean six-digit tickers end in 0 which rules out a preferred share but not a fund, and the 107 US listings carry nothing. Those are written undetermined with a basis stating what was looked at, because a COMMON_EQUITY default is precisely the assumption the table exists to remove. A CHECK stops an undetermined claim from carrying determined rights, which would read as the uncertainty being a formality. Pipeline roles only — this is a kernel object rather than a rendering surface, so the boot digest does not move for it.",
+    tables: [],
+    sql: economicClaimMigrationSql,
+  },
+  {
+    id: '087_sector_playbook',
+    description:
+      "Creates governance.sector_playbook, playbook_assignment, business_driver and entity_playbook_current_v1 — the versioned per-sector definition REQ-DOM-001 requires an analysis to cite, so a changed KPI set is a revision somebody made rather than a model sampling differently. Assignment is a separate table because a playbook applies to a company for what it does and an industry code is only evidence of that: measured 2026-08-08, Samsung Electronics sits under KSIC 264 (communications equipment) while Hanwha Systems and Intellian sit under 26x, so attaching by code alone would exclude the largest memory maker and include a defence electronics firm — an assignment therefore carries its own basis and may disagree with the code in writing. Drivers are defined here and measured elsewhere: canonical/04 §3 gives each one a source, horizon, sensitivity, lag, regime and uncertainty, which are properties of the concept, and putting a company's value beside them would conflate the definition with the observation that K4 has to produce. Constraints refuse the partial shapes: an adapter missing any of canonical/04 §2's eight interfaces is rejected, a playbook with no indicators or no financial bridge is a name rather than a playbook, a driver naming a target with no direction leaves K4 to guess the sign, and a driver that affects its own chain stage is a definition eating itself. Seeds semiconductor revision 1 from canonical/04 §5 inside the migration so the citable revision is checksummed — a revision a later job can rewrite is not one. Pipeline roles only; the boot digest does not move.",
+    tables: [],
+    sql: sectorPlaybookMigrationSql,
+  },
 ];
 
 export {
@@ -962,4 +1042,14 @@ export {
   ecosMacroSeriesMigrationSql,
   institutionalHolderEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
+  semanticSnapshotMigrationSql,
+  analysisInformationSetMigrationSql,
+  sourcePitQualityMigrationSql,
+  releaseManifestMigrationSql,
+  safetyStateMigrationSql,
+  sloLedgerMigrationSql,
+  metricDefinitionRegistryMigrationSql,
+  truthClassBindingMigrationSql,
+  economicClaimMigrationSql,
+  sectorPlaybookMigrationSql,
 };

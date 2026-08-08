@@ -106,6 +106,34 @@ SELECT schemaname AS schema, tablename AS name
 FROM pg_tables WHERE schemaname = ANY($1::text[]) ORDER BY 1, 2
 `;
 
+/**
+ * Views and materialised views, added 2026-08-08.
+ *
+ * This audit scanned pg_tables only, which is why the seven unread views in the
+ * serving schema (impact_summary_v1, latest_split_factor_v1, relation_current_v1,
+ * v_geo_entity_exposure_v1, v_pit_universe_current_v1, v_truth_assertion_pit_v1,
+ * v_world_event_current_v1) appeared on no gauge at all — recorded as hole ① of
+ * the detector layer in the 2026-08-07 as-built.
+ *
+ * An unread view is not the same defect as an unread table and is not merged into
+ * that count. A table with rows and no reader means something wrote data nobody
+ * consumes. A view with no reader is dead projection logic — cheaper, but it is
+ * also how serving.impact_summary_v1 sat structurally empty from 2026-07-19 while
+ * the product LEFT JOINed it and read 0 as a measurement.
+ *
+ * Row counts are deliberately not taken for views: counting one executes its
+ * definition, which for a multi-join projection is a real query, and "0 rows"
+ * from a view says nothing about whether anyone reads it.
+ */
+const VIEWS_SQL = `
+SELECT namespace.nspname AS schema, class.relname AS name,
+       class.relkind::text AS kind
+FROM pg_class class
+JOIN pg_namespace namespace ON namespace.oid = class.relnamespace
+WHERE namespace.nspname = ANY($1::text[]) AND class.relkind IN ('v', 'm')
+ORDER BY 1, 2
+`;
+
 /** The definitions themselves, not a parse of them. */
 const DB_READERS_SQL = `
 SELECT coalesce((SELECT string_agg(pg_get_viewdef(oid), ' ') FROM pg_class WHERE relkind IN ('v','m')), '')
@@ -190,11 +218,37 @@ async function run(): Promise<void> {
       orphans.push({ table, rows: Number(counted.rows[0]?.n ?? 0) });
     }
 
+    // Views, scanned against the same haystack. A view read only by another view
+    // still counts as read — DB_READERS_SQL includes every view definition — so
+    // this measures reachability, not direct application use.
+    const viewRows = await client.query<
+      QueryResultRow & { schema: string; name: string; kind: string }
+    >(VIEWS_SQL, [OWNED_SCHEMAS]);
+
+    const unreadViews: string[] = [];
+    const acceptedViewsNowRead: string[] = [];
+    for (const row of viewRows.rows) {
+      const view = `${row.schema}.${row.name}`;
+      const queried = isQueried(row.schema, row.name, haystack);
+      if (ACCEPTED.has(view)) {
+        if (queried) acceptedViewsNowRead.push(view);
+        continue;
+      }
+      if (!queried) unreadViews.push(view);
+    }
+
     const withRows = orphans.filter((row) => row.rows > 0);
     const summary = {
       job: JOB_NAME,
       mode: apply ? 'apply' : 'dry-run',
       ownedTables: rows.length,
+      // Views were invisible to this audit until 2026-08-08 — as-built §10 hole ①.
+      // Kept apart from the table counts: an unread table means data nobody
+      // consumes, an unread view means projection logic nobody runs.
+      ownedViews: viewRows.rows.length,
+      unreadViews: unreadViews.length,
+      unreadViewDetail: unreadViews,
+      acceptedViewsNowRead,
       // Never read by repository code, by a view, or by a function.
       unreadTables: orphans.length,
       // The ones that matter: something filled them and nothing consumes them.

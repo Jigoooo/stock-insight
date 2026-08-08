@@ -12,7 +12,15 @@ const finiteSchema = z.number().finite();
 const entityKeySchema = z
   .string()
   .regex(/^(?:KR:\d{6}|US:[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,2})?)$/);
-const availabilitySchema = z.enum(['available', 'missing', 'stale', 'error']);
+/**
+ * `not_computed` is not a synonym for `missing`. REQ-SRC-001 requires "there is
+ * none" and "we have not worked it out" to be different answers, because a user
+ * reading "no impact" as a measurement makes a decision on a number we never
+ * calculated. It is emitted when the inputs a surface depends on are legitimately
+ * empty — see `analytics.impact_exposure_revision`, held empty on purpose because
+ * filling it would mean inventing sign, materiality and economic magnitude.
+ */
+const availabilitySchema = z.enum(['available', 'missing', 'not_computed', 'stale', 'error']);
 
 export const personalizationDecisionReasonCodeSchema = z.enum([
   'THESIS_WEAKENED',

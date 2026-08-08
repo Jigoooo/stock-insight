@@ -47,10 +47,26 @@ function templateLiteral(name) {
 }
 
 const aclSql = templateLiteral('SECURITY_DEFINER_ACL_JSON_SQL');
-const identitySql = templateLiteral('IDENTITY_SQL').replaceAll(
-  '${SECURITY_DEFINER_ACL_JSON_SQL}',
-  aclSql,
-);
+const chunkExclusionSql = templateLiteral('TIMESCALE_CHUNK_EXCLUSION');
+
+// Function replacements, not string ones. A replacement *string* expands `$&`,
+// `$'`, "$`" and `$n` — and the chunk exclusion contains `_chunk$'` from its regex
+// anchor, where `$'` means "everything after the match" and silently splices the
+// rest of the query back in. The result still parses as text and fails only when
+// Postgres sees it. A function replacement is returned verbatim.
+// aclSql goes through the same form because a SECURITY DEFINER body probe is
+// exactly the kind of SQL that grows a `$$` quote later.
+const identitySql = templateLiteral('IDENTITY_SQL')
+  .replaceAll('${SECURITY_DEFINER_ACL_JSON_SQL}', () => aclSql)
+  .replaceAll('${TIMESCALE_CHUNK_EXCLUSION}', () => chunkExclusionSql);
+
+if (/\$\{[A-Z_]+\}/.test(identitySql)) {
+  // A placeholder that survives reaches Postgres as a syntax error at some
+  // unrelated position. Naming it here costs one line and saves the hunt.
+  throw new Error(
+    `unresolved placeholder in IDENTITY_SQL: ${identitySql.match(/\$\{[A-Z_]+\}/g).join(', ')}`,
+  );
+}
 
 const DIGEST_KEYS = [
   'reachable_roles_digest',

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RecommendationRun",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "runId",
+    "informationSetId",
+    "opportunitySetId",
+    "candidates",
+    "safetyState"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "informationSetId": {
+      "type": "string"
+    },
+    "opportunitySetId": {
+      "type": "string"
+    },
+    "safetyState": {
+      "enum": [
+        "NORMAL",
+        "CAUTION",
+        "INFORMATION_ONLY",
+        "HALTED"
+      ]
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "economicClaimId",
+          "eligibility",
+          "selected",
+          "reasonCodes"
+        ],
+        "properties": {
+          "economicClaimId": {
+            "type": "string"
+          },
+          "eligibility": {
+            "type": "string"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "reasonCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rankComponents": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

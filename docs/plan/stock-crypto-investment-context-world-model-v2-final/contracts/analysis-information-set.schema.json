@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnalysisInformationSet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "informationSetId",
+    "mode",
+    "validCutoff",
+    "sourceAvailableCutoff",
+    "systemKnownCutoff",
+    "marketObservationCutoff",
+    "semanticSnapshotId"
+  ],
+  "properties": {
+    "informationSetId": {
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "EX_ANTE",
+        "LIVE",
+        "EX_POST",
+        "RETROSPECTIVE"
+      ]
+    },
+    "validCutoff": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceAvailableCutoff": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "systemKnownCutoff": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "marketObservationCutoff": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "outcomeEmbargoUntil": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "marketCalendar": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "semanticSnapshotId": {
+      "type": "string"
+    },
+    "allowedInformationClasses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

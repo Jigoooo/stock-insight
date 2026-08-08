@@ -1,0 +1,52 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "dependencies": {
+    "canonical/00-architecture-constitution.md": [],
+    "canonical/01-product-contract.md": [
+      "canonical/00-architecture-constitution.md"
+    ],
+    "canonical/02-canonical-kernel.md": [
+      "canonical/00-architecture-constitution.md"
+    ],
+    "canonical/03-world-model.md": [
+      "canonical/02-canonical-kernel.md"
+    ],
+    "canonical/04-domain-intelligence.md": [
+      "canonical/02-canonical-kernel.md",
+      "canonical/03-world-model.md"
+    ],
+    "canonical/05-market-intelligence.md": [
+      "canonical/02-canonical-kernel.md",
+      "canonical/03-world-model.md",
+      "canonical/04-domain-intelligence.md"
+    ],
+    "canonical/06-recommendation-contract.md": [
+      "canonical/05-market-intelligence.md",
+      "canonical/08-data-acquisition.md",
+      "canonical/09-platform-contract.md"
+    ],
+    "canonical/07-product-planes.md": [
+      "canonical/03-world-model.md",
+      "canonical/05-market-intelligence.md",
+      "canonical/06-recommendation-contract.md"
+    ],
+    "canonical/08-data-acquisition.md": [
+      "canonical/02-canonical-kernel.md",
+      "canonical/03-world-model.md"
+    ],
+    "canonical/09-platform-contract.md": [
+      "canonical/02-canonical-kernel.md",
+      "canonical/08-data-acquisition.md"
+    ],
+    "canonical/10-quality-evaluation.md": [
+      "canonical/00-architecture-constitution.md",
+      "canonical/02-canonical-kernel.md",
+      "canonical/05-market-intelligence.md",
+      "canonical/06-recommendation-contract.md",
+      "canonical/09-platform-contract.md"
+    ],
+    "canonical/11-delivery-launch-freeze.md": [
+      "canonical/10-quality-evaluation.md"
+    ]
+  }
+}

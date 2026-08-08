@@ -1,0 +1,341 @@
+{
+  "version": "v2-freeze-2026-08-07",
+  "requirements": [
+    {
+      "id": "REQ-ARCH-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "모든 사용자 노출 분석은 원문·데이터·계산·모델·시점으로 역추적 가능해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "Graph는 내부 표현 및 탐색 수단이며 제품의 truth 그 자체가 아니다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-003",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "자동 주문·자동 리밸런싱은 V2 canonical 범위가 아니다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-004",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "LLM은 truth 승인자나 trade-action 결정자가 될 수 없다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-010",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "12 family는 논리 분류이며 12개의 신규 PostgreSQL schema를 뜻하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-011",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "기존 append-only relation ledger를 복제한 병렬 truth store를 만들지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ARCH-012",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "새 객체는 기존 family로 표현 불가능하다는 golden fixture가 있어야 추가 가능하다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SEM-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "semantic dependency graph는 cycle-free여야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SEM-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "하위 truth class가 상위 추론 결과에 의해 수정되어서는 안 된다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SEM-003",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "사용자 private state는 공통 graph/RAG/training truth로 역류할 수 없다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SEM-010",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "truth class는 UI에서 시각적으로 구분해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PIT-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "ex-ante 분석에는 cutoff 이후 artifact를 사용할 수 없다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PIT-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "backtest는 당시 존재했던 universe, corporate action, delisting, first-release/vintage를 사용한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PIT-003",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "`now()`를 business cutoff로 직접 사용하는 구현은 금지한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PIT-004",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "모든 중요한 조회는 Temporal Query Kernel을 사용한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EVD-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "accepted fact/relation은 자격을 갖춘 evidence가 있어야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EVD-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "기사 수가 아니라 independent primary root 수를 신뢰도에 사용한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EVD-003",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "번역문은 증거 정본이 아니며 원문 anchor를 보존한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EVD-004",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "숫자는 원표/XBRL/cell/program inputs까지 재실행 가능해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EVD-005",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "반대근거 검색 여부와 coverage를 보존한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-UNC-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "정보 부족·calibration 실패·모델 충돌·stale 상태는 `INSUFFICIENT_DATA` 또는 제한 모드로 내려가야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-UNC-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "불확실성을 숨기기 위해 LLM이 자연어 확신을 높일 수 없다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SAFE-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "pipeline exit code 성공은 제품 의미 상태의 건강함을 뜻하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SAFE-002",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "semantic SLO/coverage/freshness/invariant 실패는 safety state를 낮출 수 있다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SAFE-003",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "추천은 safety state가 허용하는 경우에만 발행한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-REL-001",
+      "owner": "canonical/00-architecture-constitution.md",
+      "requirement": "동일 사용자 surface의 공통 view/impact/theme/recommendation은 호환되는 semantic snapshot/release manifest를 사용해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-001",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "동일 사건의 재배포 기사들은 하나의 canonical event/timeline으로 묶는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-002",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "초보/표준/연구 모드는 분석 결과가 아니라 설명 깊이만 바꾼다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-003",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "사용자가 처음 보는 종목도 5분 이내에 “무엇을 하는 회사/프로토콜인지, 업계 위치, 핵심 KPI, 최근 사건, 리스크, 대안”을 파악할 수 있어야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-010",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "홈 화면은 기사량·mention 수가 아니라 information gain과 economic materiality로 배치한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-011",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "동일 root 정보의 반복 노출을 제한한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-020",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "“업계 몇 등”은 단일 임의 점수가 아니라 차원별 rank와 정의·coverage를 보여준다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-021",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "비교 불가능한 KPI는 `NOT_COMPARABLE/INSUFFICIENT_COVERAGE`로 표시한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PROD-030",
+      "owner": "canonical/01-product-contract.md",
+      "requirement": "embedding proximity만으로 “관련 기업” 또는 economic exposure라고 표현하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-001",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "ex-ante derivation이 cutoff 이후 market outcome/후속 해설을 참조하면 hard fail.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-002",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "retrospective result는 과거 recommendation record를 overwrite하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-010",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "selected revision IDs와 query trace를 run manifest에 저장한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-020",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "PIT_D/E 데이터는 과거 ex-ante 평가의 핵심 입력으로 소급 사용하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-030",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "“계약했다 / 계약하지 않았다 / 검토 중 / 보도됐으나 부인”을 같은 assertion으로 처리하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-031",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "LLM이 계산한 숫자를 직접 발행하지 않고 executable calculation/program과 input facts를 저장한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-040",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "derivation DAG는 acyclic이고 모든 input이 semantic type 규칙을 통과해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-KERN-050",
+      "owner": "canonical/02-canonical-kernel.md",
+      "requirement": "hard invariant 실패 artifact는 quarantine/safety downgrade한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ID-001",
+      "owner": "canonical/03-world-model.md",
+      "requirement": "Company와 tradable Security는 다른 entity다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ID-002",
+      "owner": "canonical/03-world-model.md",
+      "requirement": "identifier는 namespace와 valid interval을 가진다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-ID-003",
+      "owner": "canonical/03-world-model.md",
+      "requirement": "ticker reuse, rename, merger, spin-off를 identity merge로 오인하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-WORLD-010",
+      "owner": "canonical/03-world-model.md",
+      "requirement": "recommendation eligibility는 관계 존재 여부가 아니라 economic materiality/exposure policy를 별도로 통과해야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-DOM-001",
+      "owner": "canonical/04-domain-intelligence.md",
+      "requirement": "LLM이 매 실행마다 “이 업종에서 무엇이 중요한가”를 새로 발명하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-EXP-001",
+      "owner": "canonical/05-market-intelligence.md",
+      "requirement": "actual이 좋아도 expectation 대비 나쁘면 positive fact와 negative surprise를 동시에 표현할 수 있어야 한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-IMP-001",
+      "owner": "canonical/05-market-intelligence.md",
+      "requirement": "evidence confidence와 economic magnitude를 곱해 하나의 impact score로 축약하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-MKT-001",
+      "owner": "canonical/05-market-intelligence.md",
+      "requirement": "원인을 찾지 못한 움직임에 억지 causal story를 생성하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-REC-001",
+      "owner": "canonical/06-recommendation-contract.md",
+      "requirement": "Common Asset View는 private user data를 포함하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-REC-020",
+      "owner": "canonical/06-recommendation-contract.md",
+      "requirement": "추천된 후보만 평가하는 것을 금지한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-SRC-001",
+      "owner": "canonical/08-data-acquisition.md",
+      "requirement": "“데이터 없음”과 “수집하지 않음”을 구분한다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-PLAT-001",
+      "owner": "canonical/09-platform-contract.md",
+      "requirement": "“PostgreSQL이 정본”은 모든 byte와 모든 analytics intermediate를 PG에 넣는다는 뜻이 아니다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-OPS-001",
+      "owner": "canonical/09-platform-contract.md",
+      "requirement": "“프로세스 exit 0”만으로 pipeline success를 선언하지 않는다.",
+      "status": "FROZEN"
+    },
+    {
+      "id": "REQ-COST-001",
+      "owner": "canonical/11-delivery-launch-freeze.md",
+      "requirement": "신규 기능은 expected daily compute/storage/cardinality estimate 없이 production gate를 통과하지 못한다.",
+      "status": "FROZEN"
+    }
+  ]
+}

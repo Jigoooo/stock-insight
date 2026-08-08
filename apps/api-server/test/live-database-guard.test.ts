@@ -8,27 +8,40 @@ const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
-    // Kept in step with EXPECTED_CATALOG_DIGESTS in the guard. Moved 2026-08-05
-    // by migration 065 (analytics.macro_series_topic); before that, 2026-08-04 by
-    // 062 (serving.v_knowledge_event_current_v1) and 063
+    // Kept in step with EXPECTED_CATALOG_DIGESTS in the guard. Moved 2026-08-08 by
+    // the TimescaleDB chunk exclusion and migration 074 (market.scheduled_event);
+    // before that 2026-08-05 by 065 (analytics.macro_series_topic), and 2026-08-04
+    // by 062 (serving.v_knowledge_event_current_v1) and 063
     // (analytics.market_topic_term).
-    relation_privileges_digest: 'f3a18fadeefa4bf742db17b5f0b6b3a6ca497dae6be9d4bc30792f90c55ef822',
+    //
+    // 074 landed on 2026-08-07 and was never re-pinned, so the brain crashlooped
+    // for about 24 hours. This fixture did not catch it: it asserts that the guard
+    // accepts a row matching these values, so a pin that no longer matches the live
+    // database passes here and fails only at boot. The check that would have caught
+    // it is ops/scripts/repin-live-database-digests.mjs against the live database.
+    // Re-pinned 2026-08-08 by migration 085, which grants the reader SELECT on
+    // serving.content_pack_item_truth_v1 — the one relation REQ-SEM-010 needs a
+    // rendering surface to see. This fixture is a literal mirror of the guard's
+    // constant rather than an import, so moving the pin fails here and forces a
+    // conscious update. That failure is the mechanism, not an inconvenience: it is
+    // the last checkpoint before a re-pin ships without anyone looking at it.
+    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    rls_contract_digest: '71956bd4706e6c7e9322ffafbf4d20e643feb5d3ab35f636a8dc87bbc196a09d',
+    rls_contract_digest: '34eccc2166cefbcd7701ee5f3fe1c4fd907b8e04fc6f393313fc295ee2263326',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
   stock_insight_app_writer: {
     reachable_roles_digest: 'cbff6d032ebb3896e50c3dd128d7210a9a61d43ba8621bb0ff4f39387dec4909',
-    relation_privileges_digest: '3ab97bda6e34d6c53d4f394b7d47fb1f9926327d3b365750791f4476d0a3ff39',
+    relation_privileges_digest: '718daead8c22bd6e5de5a93d8630da26f31450352c983e59ef9add653a285bbc',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '49ce5f147110b657e27887ecd8602cccf6925afb93b7b6c5d8757fa507799913',
     schema_privileges_digest: '1c643e5c1f9cffb3b8f3ca63c1292f53c719f855a5bcc9d4b0cb45560f44da2c',
-    rls_contract_digest: '6ed879300313b1b012371afaa8081c48a6b53123faff05ba592ec586ea2db77c',
+    rls_contract_digest: 'e53a17df640e4ec647cdea2d97817ff91cbcc5ab376cc064f291db16133a1860',
     security_definer_body_digest:
       '595890696572a24b461b34797ebd4e5f5377cee555651e65ce772b78da809252',
   },

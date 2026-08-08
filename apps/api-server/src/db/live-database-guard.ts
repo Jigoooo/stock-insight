@@ -76,6 +76,41 @@ type LiveDatabaseVerifierDependencies = {
 const DEFAULT_VERIFICATION_TIMEOUT_MS = 12_000;
 const DEFAULT_CLEANUP_TIMEOUT_MS = 2_000;
 const EXPECTED_POSTGRES_SYSTEM_IDENTIFIER = '7666128738310115356';
+/**
+ * TimescaleDB chunk tables, excluded from every relation-scoped probe below.
+ *
+ * WHY. The digests pin what each application role can reach, so that a change to
+ * it has to be re-pinned by a human rather than picked up silently. TimescaleDB
+ * creates a chunk table per time interval as a hypertable grows, inherits the
+ * hypertable's grants onto it, and does so with no code, migration or human
+ * involved. Measured 2026-08-08: 767 chunks exist and 528 are reachable by
+ * stock_insight_app_reader.
+ *
+ * That made the pin unhold-able. It is not a hypothetical — the brain crashlooped
+ * for roughly 24 hours (RestartCount 1357) with "live database verification failed
+ * for stock_insight_app_reader", and reproducing the pinned digest required
+ * excluding exactly three relations: market.scheduled_event (migration 074 granted
+ * it and nobody re-pinned) and two chunks that had simply appeared. Re-pinning
+ * alone would have bought days at most.
+ *
+ * WHY THIS DOES NOT WEAKEN THE CHECK. What the application reads is the
+ * hypertable (market_ts.ohlcv); a chunk is storage partitioning underneath it,
+ * and its grants are a mechanical consequence of the hypertable's. A chunk-level
+ * entry therefore adds no signal about what the app can semantically reach, while
+ * making the array change on its own. Everything else in _timescaledb_internal
+ * stays in scope — the 14 continuous-aggregate and job-stat objects there are
+ * created by deliberate action and are exactly the kind of change worth catching.
+ *
+ * Matched by name rather than through _timescaledb_catalog.chunk so the probe has
+ * no dependency on the extension being installed: on a database without
+ * TimescaleDB this pattern matches nothing.
+ */
+const TIMESCALE_CHUNK_EXCLUSION = `
+         AND NOT (
+           namespace.nspname = '_timescaledb_internal'
+           AND relation.relname ~ '^(_hyper|compress_hyper)_[0-9]+_[0-9]+_chunk$'
+         )`;
+
 const EXPECTED_CATALOG_DIGESTS = {
   stock_insight_app_reader: {
     reachable_roles_digest: '63b21c9e8b590e4ad121480eda1abb1204850caa7c3e949a1cfa1d64066e1f6d',
@@ -89,7 +124,33 @@ const EXPECTED_CATALOG_DIGESTS = {
     // a row into knowledge.predicate_ontology_revision, and the live value was
     // identical before and after applying it. So the drift that was sitting here
     // unresolved belonged entirely to 065.
-    relation_privileges_digest: 'f3a18fadeefa4bf742db17b5f0b6b3a6ca497dae6be9d4bc30792f90c55ef822',
+    //
+    // Re-pinned 2026-08-08 for the chunk exclusion above and for migration 074
+    // (market.scheduled_event, granted to the reader and never re-pinned). Proof
+    // by the same method: excluding market.scheduled_event and exactly two chunks
+    // reproduced the previous pin f3a18fad… byte for byte at 773 entries, so the
+    // old array was this one plus 527 chunk rows plus that grant.
+    //
+    // The new array is 248 entries and holds no chunk row, which is the property
+    // that makes it hold at all. Migrations 078-083 contributed nothing — they
+    // grant to pipeline roles only, and governance.coverage_ledger (031) is still
+    // the single governance entry the reader can see.
+    // Re-pinned 2026-08-08 for migration 085. It grants the reader SELECT on
+    // serving.content_pack_item_truth_v1 and nothing else, because REQ-SEM-010
+    // asks for truth classes to be visually distinguished and that is a rendering
+    // requirement — the reader the product serves from has to see the resolved
+    // class. The binding table behind the view stays with the pipeline roles.
+    //
+    // Proved the same way as the 065 re-pin above: recomputing this array on the
+    // live database as the reader while excluding exactly
+    // serving.content_pack_item_truth_v1 reproduces the previous pin
+    // ae1c09cdc…a9914 byte for byte. One view, one relation, nothing else moved.
+    // 248 entries became 249, and rls_contract_digest did not move because the
+    // view carries no policy of its own.
+    //
+    // 084 and 086 were applied in the same landing and do NOT move this digest —
+    // both grant to si_* pipeline roles only.
+    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
@@ -99,18 +160,24 @@ const EXPECTED_CATALOG_DIGESTS = {
     // exactly. 065 also inserted rows into core.entity and core.entity_identifier,
     // and neither moved anything here — this array is about which tables exist and
     // what policies they carry, not what is in them.
-    rls_contract_digest: '71956bd4706e6c7e9322ffafbf4d20e643feb5d3ab35f636a8dc87bbc196a09d',
+    //
+    // Re-pinned 2026-08-08 with the relation array above and for the same two
+    // reasons. This array is gated on the same has_table_privilege test, so every
+    // excluded chunk left it too.
+    rls_contract_digest: '34eccc2166cefbcd7701ee5f3fe1c4fd907b8e04fc6f393313fc295ee2263326',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
   stock_insight_app_writer: {
     reachable_roles_digest: 'cbff6d032ebb3896e50c3dd128d7210a9a61d43ba8621bb0ff4f39387dec4909',
-    relation_privileges_digest: '3ab97bda6e34d6c53d4f394b7d47fb1f9926327d3b365750791f4476d0a3ff39',
+    // Re-pinned 2026-08-08, same change as the reader above: chunk exclusion plus
+    // migration 074. The writer inherits the reader, so it moved identically.
+    relation_privileges_digest: '718daead8c22bd6e5de5a93d8630da26f31450352c983e59ef9add653a285bbc',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '49ce5f147110b657e27887ecd8602cccf6925afb93b7b6c5d8757fa507799913',
     schema_privileges_digest: '1c643e5c1f9cffb3b8f3ca63c1292f53c719f855a5bcc9d4b0cb45560f44da2c',
-    rls_contract_digest: '6ed879300313b1b012371afaa8081c48a6b53123faff05ba592ec586ea2db77c',
+    rls_contract_digest: 'e53a17df640e4ec647cdea2d97817ff91cbcc5ab376cc064f291db16133a1860',
     security_definer_body_digest:
       '595890696572a24b461b34797ebd4e5f5377cee555651e65ce772b78da809252',
   },
@@ -201,7 +268,7 @@ WITH catalog AS (
        ) privilege(name)
        WHERE namespace.nspname NOT LIKE 'pg_%'
          AND namespace.nspname <> 'information_schema'
-         AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+         AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')${TIMESCALE_CHUNK_EXCLUSION}
          AND pg_catalog.has_table_privilege(current_user, relation.oid, privilege.name)
        ORDER BY 1
     ) AS relation_privileges,
@@ -222,7 +289,7 @@ WITH catalog AS (
        CROSS JOIN (VALUES ('SELECT'), ('INSERT'), ('UPDATE'), ('REFERENCES')) privilege(name)
        WHERE namespace.nspname NOT LIKE 'pg_%'
          AND namespace.nspname <> 'information_schema'
-         AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+         AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')${TIMESCALE_CHUNK_EXCLUSION}
          AND pg_catalog.has_column_privilege(
            current_user,
            relation.oid,
@@ -281,7 +348,7 @@ WITH catalog AS (
         JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace
        WHERE namespace.nspname NOT LIKE 'pg_%'
          AND namespace.nspname <> 'information_schema'
-         AND relation.relkind IN ('r', 'p')
+         AND relation.relkind IN ('r', 'p')${TIMESCALE_CHUNK_EXCLUSION}
          AND EXISTS (
            SELECT 1
              FROM (
