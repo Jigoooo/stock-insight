@@ -79,10 +79,8 @@ function resolveHistoryScenario(scenario: unknown): HistoryPreviewScenario | und
   if (historyScenarios.has(scenario as HistoryPreviewScenario)) {
     return scenario as HistoryPreviewScenario;
   }
-  if (knownScenarios.has(scenario as StocksPreviewScenario | MarketConnectionsPreviewScenario)) {
-    invalidScenario('history', scenario);
-  }
-  return undefined;
+  if (scenario === undefined) return undefined;
+  return invalidScenario('history', scenario);
 }
 
 export function resolveDevPreviewRequest(search: Record<string, unknown>): DevPreviewPageProps {

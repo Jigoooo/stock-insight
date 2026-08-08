@@ -62,6 +62,14 @@ describe('development-only visual surface routes', () => {
         scenario,
       });
     }
+    assert.deepEqual(resolve({ surface: 'history' }), {
+      surface: 'history',
+      scenario: undefined,
+    });
+    assert.deepEqual(resolve({ surface: 'history', scenario: undefined }), {
+      surface: 'history',
+      scenario: undefined,
+    });
     for (const scenario of ['default', 'no-personalized', 'empty', 'detail-error'] as const) {
       assert.deepEqual(resolve({ surface: 'market-connections', scenario }), {
         surface: 'market-connections',
@@ -91,6 +99,10 @@ describe('development-only visual surface routes', () => {
     );
     assert.throws(
       () => resolve({ surface: 'history', scenario: 'no-holdings' }),
+      /not valid for history/,
+    );
+    assert.throws(
+      () => resolve({ surface: 'history', scenario: 'bogus' }),
       /not valid for history/,
     );
     assert.throws(() => resolve({ surface: 'stocks', scenario: 'no-due' }), /not valid for stocks/);

@@ -6,3 +6,8 @@
 - GREEN: the same focused command passed 21/21.
 - Static verification: `pnpm --filter @stock-insight/web typecheck` passed; changed-file `oxlint` passed; changed-file `oxfmt --check` passed. The web-wide lint passed with six pre-existing `prefer-tag-over-role` warnings outside Task 1 files.
 - Scope note: the existing `apps/web/src/routes/[__dev-preview].tsx` already delegates search validation and spreads the discriminated preview request, so History support required no route-component edit.
+
+## Review fix
+
+- Added a regression for `{ surface: 'history', scenario: 'bogus' }`: RED failed 1/21 with `Missing expected exception`; GREEN passed 21/21 after allowing only an omitted/`undefined` scenario or one of the exact six History scenarios.
+- Re-ran the focused tests, web typecheck, changed-file lint/format checks, and diff check before the scoped follow-up commit.
