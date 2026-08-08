@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { buildDartFactPlan, type DartFactContext } from '../src/backfill/dart-numeric-fact-plan.ts';
+import {
+  buildDartFactPlan,
+  findSchemaViolations,
+  type DartFactContext,
+} from '../src/backfill/dart-numeric-fact-plan.ts';
 import { type DartStatementRow } from '../src/backfill/dart-numeric-fact.ts';
 
 const context: DartFactContext = {
@@ -278,5 +282,50 @@ describe('DART fact plan — one concept stated in two statements', () => {
     ).definitions[0];
 
     assert.equal(income.comparabilityGroupKey, comprehensive.comparabilityGroupKey);
+  });
+});
+
+describe('DART fact plan — definition keys fit what the table accepts', () => {
+  const LONG_IFRS_CONCEPT =
+    'ShareOfOtherComprehensiveIncomeOfAssociatesAndJointVenturesAccountedForUsingEquityMethodThatWillBeReclassifiedToProfitOrLossNetOfTax';
+
+  it('keeps a long IFRS concept inside the 128 character limit', () => {
+    // Migration 084's CHECK is ^[a-z0-9][a-z0-9._:-]{0,127}$. Measured
+    // 2026-08-08, 89 of 6,100 keys overflowed it, and a violation inside the
+    // insert aborts all 168,417 rows while naming one.
+    const { definitions } = buildDartFactPlan(
+      [row({ sj_div: 'CIS', reprt_code: '11011', account_id: `ifrs-full_${LONG_IFRS_CONCEPT}` })],
+      context,
+    );
+    assert.match(definitions[0].definitionKey, /^[a-z0-9][a-z0-9._:-]{0,127}$/);
+  });
+
+  it('does not collide two long concepts that share a prefix', () => {
+    // Truncation alone would merge them, and IFRS has several such families.
+    const keys = [`${LONG_IFRS_CONCEPT}Gross`, `${LONG_IFRS_CONCEPT}NetOfTax`].map(
+      (concept) =>
+        buildDartFactPlan(
+          [row({ sj_div: 'CIS', reprt_code: '11011', account_id: `ifrs-full_${concept}` })],
+          context,
+        ).definitions[0].definitionKey,
+    );
+    assert.notEqual(keys[0], keys[1]);
+  });
+
+  it('leaves a short key untouched so it stays readable', () => {
+    assert.equal(
+      buildDartFactPlan([row()], context).definitions[0].definitionKey,
+      'dart.ifrs-full.assets.instant.krw',
+    );
+  });
+
+  it('reports every rule a planned row would break instead of the first', () => {
+    const { facts, definitions } = buildDartFactPlan([row()], context);
+    assert.deepEqual(findSchemaViolations(facts, definitions), []);
+
+    const broken = [{ ...facts[0], currency: 'won', knownAt: '2000-01-01T00:00:00.000Z' }];
+    const rules = findSchemaViolations(broken, definitions).map((v) => v.rule);
+    assert.ok(rules.includes('currency must be three upper-case letters'));
+    assert.ok(rules.includes('known_at before available_at'));
   });
 });

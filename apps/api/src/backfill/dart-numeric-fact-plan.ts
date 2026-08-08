@@ -137,14 +137,30 @@ function accountingBasisFor(namespace: string): string {
   return 'internal';
 }
 
+/**
+ * Migration 084 caps definition_key at 128 characters, and IFRS concept names go
+ * past it. Measured 2026-08-08: 89 of 6,100 keys overflowed, the worst being
+ * ShareOfOtherComprehensiveIncomeOfAssociatesAndJointVenturesAccountedForUsing
+ * EquityMethodThatWillBeReclassifiedToProfitOrLossNetOfTax at 160 characters.
+ */
+const DEFINITION_KEY_MAX_LENGTH = 128;
+
 export function definitionKeyFor(draft: NumericFactDraft): string {
   const basis = periodBasisFor(draft);
   const scoped = draft.standardConcept
     ? `${draft.conceptNamespace}.${draft.conceptKey}`
     : `${draft.conceptNamespace}.${stableHash(draft.conceptKey)}`;
-  return `dart.${scoped}.${basis}.${(draft.currency ?? 'pure').toLowerCase()}`
-    .toLowerCase()
-    .replace(/[^a-z0-9._:-]/g, '-');
+  const head = `dart.${scoped}`.toLowerCase().replace(/[^a-z0-9._:-]/g, '-');
+  const tail = `.${basis}.${(draft.currency ?? 'pure').toLowerCase()}`;
+
+  if (head.length + tail.length <= DEFINITION_KEY_MAX_LENGTH) return head + tail;
+
+  // Truncating alone would collide two concepts sharing a long prefix — IFRS has
+  // several — so the digest of the whole head carries the identity and the
+  // truncation only keeps the key legible.
+  const digest = `.${stableHash(head)}`;
+  const room = DEFINITION_KEY_MAX_LENGTH - tail.length - digest.length;
+  return head.slice(0, room) + digest + tail;
 }
 
 /**
@@ -401,4 +417,100 @@ export function checkParity(
   }
 
   return result;
+}
+
+/**
+ * Checks every planned row against the constraints the tables actually declare,
+ * before a transaction is opened.
+ *
+ * A CHECK violation inside a 168,417-row insert aborts the whole transaction and
+ * reports one row, which tells you nothing about how many others are wrong. This
+ * runs in the dry-run, over every row, and names each rule that failed with a
+ * count — so a data problem is a report rather than a rollback.
+ *
+ * The rules are transcribed from migrations 031 (numeric_fact) and 084
+ * (metric_definition). They are a copy, and a copy can drift: the migration is
+ * the authority and this is an early warning, not a substitute.
+ */
+export type SchemaViolation = { rule: string; count: number; example: string };
+
+const DEFINITION_KEY_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
+const CURRENCY_PATTERN = /^[A-Z]{3}$/;
+const PERIOD_BASES = new Set([
+  'instant',
+  'duration_quarter',
+  'duration_ytd',
+  'duration_ttm',
+  'duration_annual',
+]);
+const ACCOUNTING_BASES = new Set([
+  'gaap',
+  'ifrs',
+  'k_ifrs',
+  'non_gaap',
+  'statutory',
+  'internal',
+  'unknown',
+]);
+
+export function findSchemaViolations(
+  facts: readonly NumericFactRow[],
+  definitions: readonly MetricDefinitionRow[],
+): SchemaViolation[] {
+  const found = new Map<string, { count: number; example: string }>();
+  const record = (rule: string, example: string): void => {
+    const entry = found.get(rule);
+    if (entry) entry.count += 1;
+    else found.set(rule, { count: 1, example });
+  };
+
+  for (const fact of facts) {
+    const at = fact.factKey;
+    if (fact.factKey.trim() === '') record('fact_key must not be blank', at);
+    if (fact.restatementGroupKey.trim() === '') record('restatement_group_key blank', at);
+    if (fact.conceptNamespace.trim() === '') record('concept_namespace blank', at);
+    if (fact.conceptKey.trim() === '') record('concept_key blank', at);
+    if (fact.unit.trim() === '') record('unit blank', at);
+    if (!Number.isFinite(fact.value)) record('value not a finite number', at);
+    if (fact.currency !== null && !CURRENCY_PATTERN.test(fact.currency)) {
+      record('currency must be three upper-case letters', at);
+    }
+    if (fact.scalePower < -18 || fact.scalePower > 18) record('scale_power out of range', at);
+    if (fact.knownAt < fact.availableAt) record('known_at before available_at', at);
+
+    const hasInstant = fact.instantAt !== null;
+    const hasPeriod = fact.periodEnd !== null;
+    if (hasInstant === hasPeriod) record('must fill exactly one of instant or period', at);
+    if (hasInstant && (fact.periodStart !== null || fact.periodEnd !== null)) {
+      record('an instant must not carry a period', at);
+    }
+    if (hasPeriod && fact.periodStart !== null && fact.periodEnd! < fact.periodStart) {
+      record('period ends before it starts', at);
+    }
+    if (fact.fiscalYear < 1800 || fact.fiscalYear > 3000) record('fiscal_year out of range', at);
+    if (fact.fiscalQuarter < 1 || fact.fiscalQuarter > 4) record('fiscal_quarter out of range', at);
+  }
+
+  for (const definition of definitions) {
+    const at = definition.definitionKey;
+    if (!DEFINITION_KEY_PATTERN.test(definition.definitionKey)) {
+      record('definition_key fails its pattern', at);
+    }
+    if (definition.canonicalConcept.trim() === '') record('canonical_concept blank', at);
+    if (definition.displayName.trim() === '') record('display_name blank', at);
+    if (definition.comparabilityGroupKey.trim() === '') record('comparability_group_key blank', at);
+    if (!PERIOD_BASES.has(definition.periodBasis)) record('period_basis not in the enum', at);
+    if (!ACCOUNTING_BASES.has(definition.accountingBasis)) {
+      record('accounting_basis not in the enum', at);
+    }
+    // A scope that names nobody is not a scope (084's scope_target constraint).
+    if (definition.definitionScope === 'issuer' && definition.issuerEntityId === null) {
+      record('issuer-scoped definition names no issuer', at);
+    }
+    if (definition.comparabilityGroupVersion < 1) record('comparability_group_version below 1', at);
+  }
+
+  return [...found.entries()]
+    .map(([rule, { count, example }]) => ({ rule, count, example }))
+    .sort((left, right) => right.count - left.count);
 }

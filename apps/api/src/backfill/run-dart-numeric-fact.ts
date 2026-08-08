@@ -7,6 +7,7 @@ import {
   assignRevisions,
   buildDartFactPlan,
   checkParity,
+  findSchemaViolations,
   type DartFactContext,
   type GroupState,
   type MetricDefinitionRow,
@@ -66,27 +67,6 @@ SELECT identifier_value AS corp_code, entity_id
 const EXISTING_FACTS_SQL = `
 SELECT fact_key, restatement_group_key, revision_no, numeric_fact_id
   FROM world.numeric_fact
-`;
-
-const INSERT_DEFINITION_SQL = `
-INSERT INTO governance.metric_definition (
-  definition_key, revision_no, concept_namespace, concept_key, canonical_concept,
-  display_name, definition_scope, issuer_entity_id, period_basis, accounting_basis,
-  unit, currency, comparability_group_key, comparability_group_version,
-  effective_from, created_by
-) VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-ON CONFLICT (definition_key, revision_no) DO NOTHING
-`;
-
-const INSERT_FACT_SQL = `
-INSERT INTO world.numeric_fact (
-  fact_key, revision_no, entity_id, concept_namespace, concept_key, value, unit,
-  currency, scale_power, period_start, period_end, instant_at, fiscal_year,
-  fiscal_quarter, dimensions_json, restatement_group_key,
-  original_cell_or_xbrl_locator, source_revision_id, available_at, known_at,
-  supersedes_numeric_fact_id, metadata
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
-RETURNING numeric_fact_id
 `;
 
 /**
@@ -170,7 +150,10 @@ async function loadEntities(client: PoolClient): Promise<Map<string, number>> {
   return new Map(rows.map((row) => [row.corp_code, Number(row.entity_id)]));
 }
 
-async function collectFacts(client: PoolClient): Promise<{
+async function collectFacts(
+  client: PoolClient,
+  limitFilings: number | null,
+): Promise<{
   facts: NumericFactRow[];
   definitions: MetricDefinitionRow[];
   skips: Skip[];
@@ -196,6 +179,7 @@ async function collectFacts(client: PoolClient): Promise<{
   let withRows = 0;
 
   for (const filing of filings.rows) {
+    if (limitFilings !== null && withRows >= limitFilings) break;
     let rows = payloadCache.get(filing.object_uri);
     if (rows === undefined) {
       try {
@@ -347,13 +331,47 @@ async function loadParityInputs(client: PoolClient): Promise<{
   return { conceptByAccount, theirs };
 }
 
+/**
+ * Rows per statement. Postgres caps a statement at 65,535 bindings; a fact binds
+ * 22, so a thousand rows is well under and keeps the statement text small enough
+ * to stay cheap to parse.
+ */
+const INSERT_CHUNK_ROWS = 1000;
+
+function placeholders(rowCount: number, columnCount: number): string {
+  const rows: string[] = [];
+  for (let row = 0; row < rowCount; row += 1) {
+    const cells: string[] = [];
+    for (let column = 0; column < columnCount; column += 1) {
+      cells.push(`$${row * columnCount + column + 1}`);
+    }
+    rows.push(`(${cells.join(',')})`);
+  }
+  return rows.join(',');
+}
+
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+const DEFINITION_COLUMNS = `
+  definition_key, revision_no, concept_namespace, concept_key, canonical_concept,
+  display_name, definition_scope, issuer_entity_id, period_basis, accounting_basis,
+  unit, currency, comparability_group_key, comparability_group_version,
+  effective_from, created_by`;
+
 async function writeDefinitions(
   client: PoolClient,
   definitions: readonly MetricDefinitionRow[],
 ): Promise<void> {
-  for (const definition of definitions) {
-    await client.query(INSERT_DEFINITION_SQL, [
+  for (const batch of chunk(definitions, INSERT_CHUNK_ROWS)) {
+    const params = batch.flatMap((definition) => [
       definition.definitionKey,
+      1,
       definition.conceptNamespace,
       definition.conceptKey,
       definition.canonicalConcept,
@@ -369,75 +387,146 @@ async function writeDefinitions(
       definition.effectiveFrom,
       JOB_NAME,
     ]);
+    await client.query(
+      `INSERT INTO governance.metric_definition (${DEFINITION_COLUMNS})
+       VALUES ${placeholders(batch.length, 16)}
+       ON CONFLICT (definition_key, revision_no) DO NOTHING`,
+      params,
+    );
   }
 }
 
+const FACT_COLUMNS = `
+  fact_key, revision_no, entity_id, concept_namespace, concept_key, value, unit,
+  currency, scale_power, period_start, period_end, instant_at, fiscal_year,
+  fiscal_quarter, dimensions_json, restatement_group_key,
+  original_cell_or_xbrl_locator, source_revision_id, available_at, known_at,
+  supersedes_numeric_fact_id, metadata`;
+
+/**
+ * Writes the facts, one revision level at a time.
+ *
+ * The level is what makes batching safe. A revision above 1 has to name the row
+ * it replaces, and numeric_fact refuses it otherwise — but everything a level N
+ * fact could supersede sits at level N-1, and the UNIQUE on
+ * (restatement_group_key, revision_no) means no two facts in one level share a
+ * group. So a whole level goes in as one statement with no intra-batch
+ * dependency, and the ids come back in insertion order to seed the next.
+ *
+ * Row at a time would also be correct; it is just slow enough to matter. The
+ * first run is 168,417 facts and the pipeline unit it is wired into has a 90
+ * minute budget it already shares with the DART, SEC and FINRA collectors.
+ */
 async function writeFacts(
   client: PoolClient,
   writes: readonly PlannedWrite[],
   existingGroups: ReadonlyMap<string, GroupState>,
 ): Promise<number> {
-  // A revision above 1 has to name the row it replaces. That row is either
-  // already in the table from an earlier run or was inserted moments ago in this
-  // one, so seed from the former and keep updating with the latter.
   const latestByGroup = new Map<string, number>();
   for (const [group, state] of existingGroups) {
     if (state.latestFactId !== null) latestByGroup.set(group, state.latestFactId);
   }
-  let written = 0;
 
+  const byLevel = new Map<number, PlannedWrite[]>();
   for (const write of writes) {
-    const { fact } = write;
-    const supersedes = write.supersedesKey
-      ? (latestByGroup.get(write.supersedesKey) ?? null)
-      : null;
-    if (write.revisionNo > 1 && supersedes === null) {
-      throw new Error(
-        `revision ${write.revisionNo} of ${fact.restatementGroupKey} has nothing to supersede`,
-      );
-    }
+    const level = byLevel.get(write.revisionNo);
+    if (level) level.push(write);
+    else byLevel.set(write.revisionNo, [write]);
+  }
 
-    const result = await client.query<{ numeric_fact_id: string }>(INSERT_FACT_SQL, [
-      fact.factKey,
-      write.revisionNo,
-      fact.entityId,
-      fact.conceptNamespace,
-      fact.conceptKey,
-      fact.value,
-      fact.unit,
-      fact.currency,
-      fact.scalePower,
-      fact.periodStart,
-      fact.periodEnd,
-      fact.instantAt,
-      fact.fiscalYear,
-      fact.fiscalQuarter,
-      JSON.stringify(fact.dimensionsJson),
-      fact.restatementGroupKey,
-      JSON.stringify(fact.locator),
-      fact.sourceRevisionId,
-      fact.availableAt,
-      fact.knownAt,
-      supersedes,
-      JSON.stringify(fact.metadata),
-    ]);
-    const inserted = result.rows[0];
-    if (!inserted) throw new Error(`insert of ${fact.factKey} returned no id`);
-    latestByGroup.set(fact.restatementGroupKey, Number(inserted.numeric_fact_id));
-    written += 1;
+  let written = 0;
+  for (const revisionNo of [...byLevel.keys()].sort((left, right) => left - right)) {
+    for (const batch of chunk(byLevel.get(revisionNo) ?? [], INSERT_CHUNK_ROWS)) {
+      const params = batch.flatMap((write) => {
+        const { fact } = write;
+        const supersedes = write.supersedesKey
+          ? (latestByGroup.get(write.supersedesKey) ?? null)
+          : null;
+        if (write.revisionNo > 1 && supersedes === null) {
+          throw new Error(
+            `revision ${write.revisionNo} of ${fact.restatementGroupKey} has nothing to supersede`,
+          );
+        }
+        return [
+          fact.factKey,
+          write.revisionNo,
+          fact.entityId,
+          fact.conceptNamespace,
+          fact.conceptKey,
+          fact.value,
+          fact.unit,
+          fact.currency,
+          fact.scalePower,
+          fact.periodStart,
+          fact.periodEnd,
+          fact.instantAt,
+          fact.fiscalYear,
+          fact.fiscalQuarter,
+          JSON.stringify(fact.dimensionsJson),
+          fact.restatementGroupKey,
+          JSON.stringify(fact.locator),
+          fact.sourceRevisionId,
+          fact.availableAt,
+          fact.knownAt,
+          supersedes,
+          JSON.stringify(fact.metadata),
+        ];
+      });
+
+      const result = await client.query<{ numeric_fact_id: string }>(
+        `INSERT INTO world.numeric_fact (${FACT_COLUMNS})
+         VALUES ${placeholders(batch.length, 22)}
+         RETURNING numeric_fact_id`,
+        params,
+      );
+      if (result.rows.length !== batch.length) {
+        throw new Error(
+          `inserted ${result.rows.length} of ${batch.length} facts at revision ${revisionNo}`,
+        );
+      }
+      // RETURNING preserves the order the rows were supplied in, so the ids line
+      // up with the batch and the next level can point at them.
+      batch.forEach((write, index) => {
+        latestByGroup.set(
+          write.fact.restatementGroupKey,
+          Number(result.rows[index]?.numeric_fact_id),
+        );
+      });
+      written += batch.length;
+    }
   }
 
   return written;
 }
 
+/**
+ * `--rehearse` performs the whole write and then rolls it back.
+ *
+ * dry-run proves what the rows would be; it never executes the statements that
+ * carry them. The insert is built by hand — placeholder arithmetic, column order,
+ * JSON casting — and none of that is exercised until a transaction opens. This
+ * opens one, writes, and undoes it, so the SQL is proven against the real tables
+ * without leaving a row behind. Pair it with `--limit` to keep the transaction
+ * small; the statement shape does not depend on how many filings feed it.
+ */
+function parseLimit(argv: readonly string[]): number | null {
+  const index = argv.indexOf('--limit');
+  if (index === -1) return null;
+  const value = Number(argv[index + 1]);
+  if (!Number.isInteger(value) || value <= 0) throw new Error('--limit needs a positive integer');
+  return value;
+}
+
 async function run(): Promise<void> {
   const apply = process.argv.includes('--apply');
+  const rehearse = process.argv.includes('--rehearse');
+  const limitFilings = parseLimit(process.argv);
   const Pool = (pg as PgModule).Pool;
   const pool = new Pool({ connectionString: getDatabaseUrl(), max: 1 });
   const client = await pool.connect();
 
   try {
-    const collected = await collectFacts(client);
+    const collected = await collectFacts(client, limitFilings);
     const existing = await loadExisting(client);
     const { writes, skips: revisionSkips } = assignRevisions(collected.facts, existing);
     const parityInputs = await loadParityInputs(client);
@@ -447,9 +536,17 @@ async function run(): Promise<void> {
       parityInputs.theirs,
     );
 
+    // Every row is checked before a transaction opens: a CHECK violation inside a
+    // 168,417-row insert aborts the lot and names one row.
+    const violations = findSchemaViolations(
+      writes.map((write) => write.fact),
+      collected.definitions,
+    );
+
     const summary = {
       job: JOB_NAME,
-      mode: apply ? 'apply' : 'dry-run',
+      mode: apply ? 'apply' : rehearse ? 'rehearse' : 'dry-run',
+      limitFilings,
       filingsWithRows: collected.filings,
       issuers: collected.issuers,
       factsPlanned: collected.facts.length,
@@ -457,20 +554,35 @@ async function run(): Promise<void> {
       restatements: writes.filter((write) => write.revisionNo > 1).length,
       definitions: collected.definitions.length,
       parity,
+      schemaViolations: violations,
       skips: [...collected.skips, ...revisionSkips],
     };
 
-    if (!apply) {
-      console.log(JSON.stringify({ ...summary, hint: 'rerun with --apply' }, null, 2));
+    if (!apply && !rehearse) {
+      console.log(
+        JSON.stringify({ ...summary, hint: 'rerun with --rehearse, then --apply' }, null, 2),
+      );
       return;
+    }
+
+    if (violations.length > 0) {
+      throw new Error(
+        `refusing to write: ${violations.length} constraint rules would be violated — ${JSON.stringify(violations)}`,
+      );
     }
 
     await client.query('BEGIN');
     try {
       await writeDefinitions(client, collected.definitions);
       const written = await writeFacts(client, writes, existing.groups);
-      await client.query('COMMIT');
-      console.log(JSON.stringify({ ...summary, factsWritten: written }, null, 2));
+      await client.query(rehearse ? 'ROLLBACK' : 'COMMIT');
+      console.log(
+        JSON.stringify(
+          { ...summary, [rehearse ? 'factsRolledBack' : 'factsWritten']: written },
+          null,
+          2,
+        ),
+      );
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
