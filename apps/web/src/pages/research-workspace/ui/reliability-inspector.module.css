@@ -1,0 +1,171 @@
+.inspectorBody,
+.content,
+.comparisonGrid,
+.comparisonColumn {
+  min-width: 0;
+}
+
+.inspectorBody {
+  overflow-x: hidden;
+}
+
+.content,
+.comparisonColumn {
+  display: grid;
+  gap: 16px;
+}
+
+.content {
+  padding: 18px;
+}
+
+.content section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.content h2,
+.content h3,
+.content p,
+.content li,
+.content dt,
+.content dd {
+  overflow-wrap: anywhere;
+}
+
+.content h2,
+.content h3,
+.content p,
+.content ul,
+.content dl {
+  margin-top: 0;
+}
+
+.content h2,
+.content h3 {
+  margin-bottom: 10px;
+}
+
+.content p,
+.content li,
+.traceability dt {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.summary {
+  display: grid;
+  gap: 7px;
+}
+
+.summary > span {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.summary > strong {
+  font-size: 16px;
+}
+
+.summary > strong[data-level='ready'] {
+  color: var(--color-success-text);
+}
+
+.summary > strong[data-level='limited'] {
+  color: var(--color-warning);
+}
+
+.summary > strong[data-level='attention'] {
+  color: var(--color-danger-text);
+}
+
+.comparisonGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.content[data-presentation='modal'] .comparisonGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.comparisonColumn > h2 {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.evidenceList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.evidenceList li > span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.evidenceList li > span:first-child > span,
+.evidenceList li > span:last-child {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.traceability {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.traceability > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+}
+
+.traceability dt,
+.traceability dd {
+  margin: 0;
+}
+
+.traceability dt {
+  font-size: 11px;
+}
+
+.traceability dd {
+  font-weight: 680;
+}
+
+@media (max-width: 767px) {
+  .content {
+    padding: 14px;
+  }
+
+  .content[data-presentation='modal'] .comparisonGrid,
+  .traceability {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .evidenceList li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content * {
+    scroll-behavior: auto;
+  }
+}

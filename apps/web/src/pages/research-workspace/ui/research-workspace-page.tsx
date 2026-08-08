@@ -17,6 +17,7 @@ import {
   HistoryBriefingInspector,
   type HistoryBriefingInspectorState,
 } from './history-briefing-inspector';
+import { ReliabilityInspector } from './reliability-inspector';
 import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
@@ -247,6 +248,7 @@ export function ResearchWorkspacePage({
   const [detailState, setDetailState] = useState<DetailState>(initialDetail ? 'ready' : 'error');
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
   const [historyInspectorOpen, setHistoryInspectorOpen] = useState(false);
+  const [reliabilityInspectorOpen, setReliabilityInspectorOpen] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryBriefingItem | null>(null);
   const [selectedReliabilityItem, setSelectedReliabilityItem] =
     useState<ReliabilityBriefingItem | null>(null);
@@ -345,6 +347,7 @@ export function ResearchWorkspacePage({
   const inspectorVisible = section === 'today' && (inspectorOpen || urlInspectorVisible);
   const inspectorModalOpen = isMobileViewport && inspectorVisible;
   const historyInspectorVisible = section === 'history' && historyInspectorOpen;
+  const reliabilityInspectorVisible = section === 'status' && reliabilityInspectorOpen;
   const loadRecordDetail = useCallback(
     async (recordKey: string) => {
       if (loadResearchRecord) {
@@ -654,6 +657,7 @@ export function ResearchWorkspacePage({
   const selectReliability = (item: ReliabilityBriefingItem, opener: HTMLElement) => {
     reliabilityInspectorOpenerRef.current = opener;
     setSelectedReliabilityItem(item);
+    setReliabilityInspectorOpen(true);
   };
 
   const selectThemeEntity = async (entityKey: string) => {
@@ -792,6 +796,12 @@ export function ResearchWorkspacePage({
     if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
   };
 
+  const closeReliabilityInspector = () => {
+    setReliabilityInspectorOpen(false);
+    const opener = reliabilityInspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
+  };
+
   const contextualActions = canManageInvitations ? (
     <Button
       type="button"
@@ -915,7 +925,10 @@ export function ResearchWorkspacePage({
     <WorkspaceShell
       activeSection={visualSection}
       contextualActions={contextualActions}
-      mobileModalInert={inspectorModalOpen || (isMobileViewport && historyInspectorVisible)}
+      mobileModalInert={
+        inspectorModalOpen ||
+        (isMobileViewport && (historyInspectorVisible || reliabilityInspectorVisible))
+      }
       navigationItems={navigationItems}
       navigationMode={navigationMode}
       navigationPending={navigationIntent.pendingSection as WorkspaceSectionId | null}
@@ -971,6 +984,12 @@ export function ResearchWorkspacePage({
         onRetry={retryHistoryDetail}
         open={historyInspectorVisible}
         state={historyDetailState}
+      />
+      <ReliabilityInspector
+        item={selectedReliabilityItem}
+        mobile={isMobileViewport}
+        onClose={closeReliabilityInspector}
+        open={reliabilityInspectorVisible}
       />
     </WorkspaceShell>
   );
