@@ -348,9 +348,19 @@ describe('083 SLO ledger — the input REQ-SAFE-002 consumes', () => {
     assert.match(sloLedgerMigrationSql, /ops\.pipeline\.expected_runs/);
   });
 
-  it('records the ops.slo_* deviation and its reason', () => {
+  it('carries its schema-choice rationale, and the correction to it', () => {
+    // 083 says governance.slo_* is a deliberate deviation and cites canonical/09 §5
+    // as naming ops.slo_*. The citation is wrong: the freeze names no schema for
+    // SLO anywhere, and ops.slo_* comes from the superseded e2e-layers.md X4.
+    // The SQL cannot be corrected in place — run-schema-migrations checksums
+    // migration.sql and 083 is applied — so the correction lives in the registry
+    // description, and this test pins both halves so neither drifts away alone.
     assert.match(sloLedgerMigrationSql, /DELIBERATE DEVIATION FROM THE FREEZE/);
     assert.match(sloLedgerMigrationSql, /database-ownership/);
+
+    const registry = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(registry, /CORRECTION 2026-08-08/);
+    assert.match(registry, /the freeze names no schema for SLO anywhere/i);
   });
 });
 
