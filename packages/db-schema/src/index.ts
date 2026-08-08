@@ -84,6 +84,7 @@ import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
 import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
+import { sectorPlaybookMigrationSql } from './migrations/087_sector_playbook.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -954,6 +955,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: economicClaimMigrationSql,
   },
+  {
+    id: '087_sector_playbook',
+    description:
+      "Creates governance.sector_playbook, playbook_assignment, business_driver and entity_playbook_current_v1 — the versioned per-sector definition REQ-DOM-001 requires an analysis to cite, so a changed KPI set is a revision somebody made rather than a model sampling differently. Assignment is a separate table because a playbook applies to a company for what it does and an industry code is only evidence of that: measured 2026-08-08, Samsung Electronics sits under KSIC 264 (communications equipment) while Hanwha Systems and Intellian sit under 26x, so attaching by code alone would exclude the largest memory maker and include a defence electronics firm — an assignment therefore carries its own basis and may disagree with the code in writing. Drivers are defined here and measured elsewhere: canonical/04 §3 gives each one a source, horizon, sensitivity, lag, regime and uncertainty, which are properties of the concept, and putting a company's value beside them would conflate the definition with the observation that K4 has to produce. Constraints refuse the partial shapes: an adapter missing any of canonical/04 §2's eight interfaces is rejected, a playbook with no indicators or no financial bridge is a name rather than a playbook, a driver naming a target with no direction leaves K4 to guess the sign, and a driver that affects its own chain stage is a definition eating itself. Seeds semiconductor revision 1 from canonical/04 §5 inside the migration so the citable revision is checksummed — a revision a later job can rewrite is not one. Pipeline roles only; the boot digest does not move.",
+    tables: [],
+    sql: sectorPlaybookMigrationSql,
+  },
 ];
 
 export {
@@ -1043,4 +1051,5 @@ export {
   metricDefinitionRegistryMigrationSql,
   truthClassBindingMigrationSql,
   economicClaimMigrationSql,
+  sectorPlaybookMigrationSql,
 };
