@@ -27,6 +27,7 @@ import { releaseManifestMigrationSql } from '../../../packages/db-schema/src/mig
 import { safetyStateMigrationSql } from '../../../packages/db-schema/src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from '../../../packages/db-schema/src/migrations/085_truth_class_binding.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -185,6 +186,34 @@ try {
     $roles$;
   `);
 
+  // 085 projects over the serving item table and the evidence ledger it joins to.
+  // Only the columns the view names — the point is that the view resolves, not
+  // that these two tables are reproduced.
+  await target.query(`
+    CREATE SCHEMA serving;
+    CREATE TABLE serving.content_pack_item (
+      content_pack_item_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      content_pack_id BIGINT NOT NULL,
+      item_no INTEGER NOT NULL,
+      item_kind TEXT NOT NULL,
+      relation_evidence_ledger_id BIGINT
+    );
+    CREATE TABLE knowledge.relation_evidence_ledger (
+      relation_evidence_ledger_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      evidence_kind TEXT NOT NULL
+    );
+    INSERT INTO knowledge.relation_evidence_ledger (evidence_kind)
+      VALUES ('source_revision'), ('model_config'), ('identity_mapping');
+    INSERT INTO serving.content_pack_item
+      (content_pack_id, item_no, item_kind, relation_evidence_ledger_id)
+    VALUES (1, 1, 'relation', NULL),
+           (1, 2, 'impact_path', NULL),
+           (1, 3, 'evidence', 1),
+           (1, 4, 'evidence', 2),
+           (1, 5, 'evidence', 3),
+           (1, 6, 'something_new', NULL);
+  `);
+
   // ── apply the migrations under test, in dependency order ────────────────────
   const MIGRATIONS = [
     semanticSnapshotMigrationSql,
@@ -194,6 +223,7 @@ try {
     safetyStateMigrationSql,
     sloLedgerMigrationSql,
     metricDefinitionRegistryMigrationSql,
+    truthClassBindingMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
@@ -203,6 +233,60 @@ try {
     `INSERT INTO governance.semantic_snapshot (semantic_snapshot_id, created_by)
      VALUES ('snap-1', 'rehearsal') ON CONFLICT DO NOTHING`,
   );
+
+  // ── 085 truth class binding ─────────────────────────────────────────────────
+  const resolved = Object.fromEntries(
+    (
+      await target.query(
+        `SELECT item_kind, item_subkind, truth_class, truth_binding_state
+           FROM serving.content_pack_item_truth_v1 ORDER BY content_pack_item_id`,
+      )
+    ).rows.map((row) => [
+      row.item_subkind ? `${row.item_kind}:${row.item_subkind}` : row.item_kind,
+      `${row.truth_class ?? 'null'}/${row.truth_binding_state}`,
+    ]),
+  );
+  const truthClass = {
+    relationIsRelation: resolved.relation === 'RELATION/bound',
+    // Not EXPOSURE: rule-derived, direction unknown, no magnitude established.
+    impactPathIsHypothesis: resolved.impact_path === 'HYPOTHESIS/bound',
+    sourceEvidenceIsSource: resolved['evidence:source_revision'] === 'SOURCE/bound',
+    modelConfigIsNotATruthObject: resolved['evidence:model_config'] === 'null/not_a_truth_object',
+    identityMappingIsNotATruthObject:
+      resolved['evidence:identity_mapping'] === 'null/not_a_truth_object',
+    // An unbound kind must stay unclassified rather than take a default.
+    unknownKindStaysUndecided: resolved.something_new === 'null/undecided',
+    seedIsIdempotent:
+      (await target.query('SELECT count(*)::int AS n FROM governance.truth_class_binding')).rows[0]
+        .n === 5,
+    stateAndClassCannotDisagree: await (async () => {
+      try {
+        await target.query(
+          `INSERT INTO governance.truth_class_binding
+             (object_domain, object_kind, truth_class, binding_state, basis, declared_by)
+           VALUES ('t', 'k', 'FACT', 'not_a_truth_object', 'b', 'rehearsal')`,
+        );
+        return false;
+      } catch {
+        return true;
+      }
+    })(),
+    appReaderSeesTheViewOnly:
+      (
+        await target.query(
+          `SELECT has_table_privilege('stock_insight_app_reader',
+                    'serving.content_pack_item_truth_v1', 'SELECT') AS view_ok,
+                  has_table_privilege('stock_insight_app_reader',
+                    'governance.truth_class_binding', 'SELECT') AS table_ok`,
+        )
+      ).rows[0].view_ok === true &&
+      (
+        await target.query(
+          `SELECT has_table_privilege('stock_insight_app_reader',
+                    'governance.truth_class_binding', 'SELECT') AS table_ok`,
+        )
+      ).rows[0].table_ok === false,
+  };
 
   // ── 078 semantic snapshot ───────────────────────────────────────────────────
   const snapshot = {
@@ -614,7 +698,7 @@ try {
            JOIN pg_namespace n ON n.oid = c.relnamespace
           CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('REFERENCES'),('TRIGGER')) p(name)
           CROSS JOIN pg_roles r
-          WHERE n.nspname = 'governance'
+          WHERE n.nspname IN ('governance', 'serving')
             AND c.relkind IN ('r','v')
             AND r.rolname IN ('stock_insight_app_reader','stock_insight_app_writer')
        ) reachability
@@ -622,6 +706,18 @@ try {
       ORDER BY role_name, relation`,
   );
   const appRoleReachable = reach.rows.filter((row) => row.reachable);
+
+  // 085 deliberately widens the app reader by exactly one relation, because
+  // REQ-SEM-010 is a rendering requirement and the reader the product serves from
+  // has to see the resolved class. The gauge is not "nothing moved" but "only this
+  // moved" — and either way the boot digest must be re-pinned in the same landing.
+  //
+  // The probe covers serving as well as governance for the same reason: a check
+  // that only looks where nothing changed reports success by looking away.
+  const DECLARED_APP_ROLE_REACH = ['stock_insight_app_reader:serving.content_pack_item_truth_v1'];
+  const observedAppRoleReach = appRoleReachable
+    .map((row) => `${row.role_name}:${row.relation}`)
+    .sort();
 
   result = {
     database: databaseName,
@@ -633,10 +729,15 @@ try {
     safety,
     slo,
     metric,
+    truthClass,
     digestSafety: {
-      governanceRelationsChecked: reach.rows.length,
-      appRoleReachableRelations: appRoleReachable.map((row) => `${row.role_name}:${row.relation}`),
-      noAppRoleReach: appRoleReachable.length === 0,
+      relationsChecked: reach.rows.length,
+      appRoleReachableRelations: observedAppRoleReach,
+      declaredAppRoleReach: DECLARED_APP_ROLE_REACH,
+      appRoleReachIsExactlyWhatWasDeclared:
+        JSON.stringify(observedAppRoleReach) ===
+        JSON.stringify([...DECLARED_APP_ROLE_REACH].sort()),
+      bootDigestMustBeRepinned: observedAppRoleReach.length > 0,
     },
   };
 
@@ -648,6 +749,7 @@ try {
     safety,
     slo,
     metric,
+    truthClass,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
@@ -662,7 +764,9 @@ try {
   ]) {
     if (pitQuality[name] !== true) failures.push(`pitQuality.${name}`);
   }
-  if (!result.digestSafety.noAppRoleReach) failures.push('digestSafety.noAppRoleReach');
+  if (!result.digestSafety.appRoleReachIsExactlyWhatWasDeclared) {
+    failures.push('digestSafety.appRoleReachIsExactlyWhatWasDeclared');
+  }
   if (failures.length > 0) {
     throw new Error(`Kernel rehearsal assertions failed: ${failures.join(', ')}`);
   }

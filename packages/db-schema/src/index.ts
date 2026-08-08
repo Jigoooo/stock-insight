@@ -82,6 +82,7 @@ import { releaseManifestMigrationSql } from './migrations/081_release_manifest.t
 import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
+import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -938,6 +939,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: metricDefinitionRegistryMigrationSql,
   },
+  {
+    id: '085_truth_class_binding',
+    description:
+      "Creates governance.truth_class_binding and serving.content_pack_item_truth_v1, the truth class metadata canonical/11 §5 lists as ADDITIVE and the only thing that makes REQ-SEM-010 satisfiable. Measured 2026-08-08, the projection the UI reads carries item_kind with three values — evidence 2,282,119, relation 912,988, impact_path 207,486 — which is the storage vocabulary, not one of the fourteen classes in contracts/truth-classes.json, so nothing downstream can tell a source from a hypothesis and nothing can render them differently. A binding table rather than a column on content_pack_item: the classification is a judgement about what a kind of object is, it belongs where it can be reviewed and revised rather than in 3.4M rows of a table the product reads, and the view resolves it at read time. impact_path binds to HYPOTHESIS and deliberately not to EXPOSURE — all 248,236 impact_path_v2 rows are inference_kind=rule_derived with direction=unknown, and run-portfolio-snapshot.ts:18 already refuses to promote them into impact_exposure_revision because filling it would mean inventing sign, materiality and economic magnitude; labelling them EXPOSURE in the UI would make the claim the pipeline declines to make in the data. Evidence splits by evidence_kind: source_revision (58,801) is SOURCE, while model_config (8,645) and identity_mapping (254) are recorded as not_a_truth_object because a model configuration is provenance of an inference and an identity mapping is a statement about which record is which, and none of the fourteen classes describes either. An unbound kind resolves to NULL rather than to a default: a reader can render 'unclassified' honestly but cannot un-see a wrong badge. This is the one migration in the 078-085 series where stock_insight_app_reader gains reach, because REQ-SEM-010 is a rendering requirement, so the boot digest moves and must be re-pinned.",
+    tables: [],
+    sql: truthClassBindingMigrationSql,
+  },
 ];
 
 export {
@@ -1025,4 +1033,5 @@ export {
   safetyStateMigrationSql,
   sloLedgerMigrationSql,
   metricDefinitionRegistryMigrationSql,
+  truthClassBindingMigrationSql,
 };
