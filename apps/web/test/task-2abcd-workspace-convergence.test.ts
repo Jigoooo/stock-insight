@@ -7,32 +7,34 @@ const read = (path: string) => readFile(new URL(path, sourceRoot), 'utf8');
 
 describe('2A-D product UI convergence', () => {
   it('keeps workspace search and selection on shared public UI', async () => {
-    const [search, graph, stocks] = await Promise.all([
+    const [search, graph, stocks, stockSections] = await Promise.all([
       read('pages/research-workspace/ui/workspace-search.tsx'),
       read('pages/research-workspace/ui/relation-sigma-graph.tsx'),
       read('pages/research-workspace/ui/views/stocks-view.tsx'),
+      read('pages/research-workspace/ui/stock-briefing-sections.tsx'),
     ]);
 
     assert.match(search, /from '@\/shared\/ui\/input'/);
     assert.match(search, /<SearchField/);
     assert.match(graph, /from '@\/shared\/ui\/combobox'/);
     assert.match(graph, /<Combobox/);
-    assert.match(stocks, /<DataTable/);
-    assert.match(stocks, /<TableRow/);
-    assert.doesNotMatch(`${search}\n${graph}\n${stocks}`, /<(?:input|select)\b/);
+    assert.match(stockSections, /<Button/);
+    assert.match(stockSections, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.doesNotMatch(`${search}\n${graph}\n${stocks}\n${stockSections}`, /<(?:input|select)\b/);
   });
 
   it('keeps stock layout and interaction states in one owning stylesheet', async () => {
-    const [pageCss, stockCss] = await Promise.all([
+    const [pageCss, inspectorCss, briefingCss] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.module.css'),
-      read('pages/research-workspace/ui/stock-deep-dive-panel.module.css'),
+      read('pages/research-workspace/ui/stock-briefing-inspector.module.css'),
+      read('pages/research-workspace/ui/views/stocks-view.module.css'),
     ]);
 
     assert.doesNotMatch(pageCss, /\.(?:stocksWorkspace|deepDiveRegion|stockTable|tableWrap)\b/);
-    for (const selector of ['.stocksWorkspace', '.deepDiveRegion:focus-visible', '.stockTable']) {
-      assert.match(stockCss, new RegExp(selector.replaceAll('.', '\\.')));
-    }
-    assert.match(stockCss, /data-pending='true'/);
+    assert.match(inspectorCss, /\.inspectorBody/);
+    assert.match(inspectorCss, /\.graphRegion/);
+    assert.match(briefingCss, /\.briefingColumns/);
+    assert.match(briefingCss, /\.stockRow\[data-slot='button-control'\]\[aria-current='true'\]/);
   });
 
   it('removes showcase copy and keeps compact logout behavior', async () => {

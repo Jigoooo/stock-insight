@@ -68,6 +68,12 @@ const signalTypeLabels: Record<string, string> = {
   disclosure: '공시 변화',
   macro: '거시경제 변화',
   earnings: '실적 변화',
+  ai_capex: 'AI 설비투자',
+  advertising_commerce: '광고·커머스',
+  rates_fx_commodities: '금리·환율·원자재',
+  power_infrastructure: '전력 인프라',
+  oil_freight_cost: '유가·운임 원가',
+  dollar_liquidity: '달러 유동성',
 };
 
 const analysisStatusLabels: Record<string, string> = {

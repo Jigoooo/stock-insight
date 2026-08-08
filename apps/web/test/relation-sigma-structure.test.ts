@@ -165,8 +165,8 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(buttonGroupStyles, /min-height:\s*44px/);
     assert.match(styles, /\.graphNodeList button\s*\{[\s\S]*?min-height:\s*44px/);
     // Vertical page scroll must survive over the canvas on touch devices.
-    assert.match(styles, /\.sigmaCanvas\s*\{[\s\S]*?touch-action:\s*pan-y/);
-    assert.doesNotMatch(styles, /\.sigmaCanvas\s*\{[\s\S]*?touch-action:\s*none/);
+    assert.match(styles, /\.sigmaCanvas\s*\{[^}]*touch-action:\s*pan-y/);
+    assert.doesNotMatch(styles, /\.sigmaCanvas\s*\{[^}]*touch-action:\s*none/);
     assert.match(rootPackage, /"test:sigma:browser:production"/);
     assert.match(rootPackage, /"verify:release"[^\n]*test:sigma:browser:production/);
     // The release runner must hash the client bundle (not only the server

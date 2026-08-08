@@ -13,11 +13,37 @@ import {
 } from 'react';
 
 import { EvidenceInspector } from './evidence-inspector';
+import {
+  HistoryBriefingInspector,
+  type HistoryBriefingInspectorState,
+} from './history-briefing-inspector';
+import { ReliabilityInspector } from './reliability-inspector';
 import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
-import type { StockDeepDiveLoader } from '../model/stock-deep-dive';
+import {
+  buildHistoryBriefingDetail,
+  buildHistoryBriefingModel,
+  type HistoryBriefingDetail,
+  type HistoryBriefingItem,
+  type HistoryBriefingModel,
+} from '../model/history-briefing';
+import {
+  buildMarketConnectionsModel,
+  type MarketConnectionLoader,
+  type MarketConnectionsModel,
+} from '../model/market-connections';
+import {
+  buildReliabilityBriefingModel,
+  type ReliabilityBriefingItem,
+  type ReliabilityBriefingModel,
+} from '../model/reliability-briefing';
+import {
+  buildStocksBriefingModel,
+  type StockBriefingLoader,
+  type StocksBriefingModel,
+} from '../model/stock-briefing';
 import {
   resolveWorkspaceAuthoritativeOverride,
   type WorkspaceAuthoritativeOverride,
@@ -57,6 +83,7 @@ import type {
 
 export type SectionId = WorkspaceSectionId;
 export type DetailState = 'ready' | 'loading' | 'error';
+export type HistoryBriefingLoader = (historyId: string) => Promise<HistoryBriefingDetail>;
 
 export { AvailabilityNotice, PageHeader } from '@/shared/ui/workspace';
 export { WorkspaceState };
@@ -77,7 +104,9 @@ function createLazyWorkspaceViews() {
       })),
     ),
     radar: lazy(() =>
-      import('./views/radar-view').then(({ RadarView }) => ({ default: RadarView })),
+      import('./views/market-connections-view').then(({ MarketConnectionsView }) => ({
+        default: MarketConnectionsView,
+      })),
     ),
     research: lazy(() =>
       import('./views/my-research-view').then(({ MyResearchView }) => ({
@@ -116,7 +145,14 @@ export type ResearchWorkspaceUrlState = {
 type ResearchWorkspacePageProps = {
   canManageInvitations?: boolean;
   data: ResearchWorkspaceViewPayload;
-  loadStockDeepDive?: StockDeepDiveLoader;
+  loadMarketConnectionDetail?: MarketConnectionLoader;
+  loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
+  loadStockBriefingDetail?: StockBriefingLoader;
+  historyBriefing?: HistoryBriefingModel;
+  loadHistoryBriefingDetail?: HistoryBriefingLoader;
+  marketConnections?: MarketConnectionsModel;
+  reliabilityBriefing?: ReliabilityBriefingModel;
+  stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
   onLogout?: () => Promise<boolean>;
   onNavigateSection?: (
@@ -124,6 +160,7 @@ type ResearchWorkspacePageProps = {
     next?: Partial<ResearchWorkspaceUrlState>,
   ) => Promise<void>;
   onPrefetchSection?: (section: SectionId) => void;
+  onRetryViewLoad?: () => void;
   urlState?: ResearchWorkspaceUrlState;
   viewLoadError?: SectionId;
   viewLoadFailureKind?: WorkspaceViewFailureKind;
@@ -166,11 +203,19 @@ const getServerHydrationSnapshot = () => false;
 export function ResearchWorkspacePage({
   canManageInvitations = false,
   data,
-  loadStockDeepDive,
+  loadMarketConnectionDetail,
+  loadResearchRecord,
+  loadStockBriefingDetail,
+  historyBriefing,
+  loadHistoryBriefingDetail,
+  marketConnections,
+  reliabilityBriefing,
+  stocksBriefing,
   navigationMode = 'route',
   onLogout,
   onNavigateSection,
   onPrefetchSection,
+  onRetryViewLoad,
   urlState = {},
   viewLoadError,
   viewLoadFailureKind,
@@ -189,6 +234,9 @@ export function ResearchWorkspacePage({
   const navigationSequenceRef = useRef(0);
   const themeRelationSequenceRef = useRef(0);
   const inspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const historyInspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const reliabilityInspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const historyDetailSequenceRef = useRef(0);
   const issuedInspectorRecordKeysRef = useRef(new Set<string>());
   const [, startNavigationTransition] = useTransition();
   const initialDetail = data.view === 'today' ? data.defaultRecord : null;
@@ -201,6 +249,14 @@ export function ResearchWorkspacePage({
   const [themeRelationState, setThemeRelationState] = useState<DetailState>('ready');
   const [detailState, setDetailState] = useState<DetailState>(initialDetail ? 'ready' : 'error');
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
+  const [historyInspectorOpen, setHistoryInspectorOpen] = useState(false);
+  const [reliabilityInspectorOpen, setReliabilityInspectorOpen] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryBriefingItem | null>(null);
+  const [selectedReliabilityItem, setSelectedReliabilityItem] =
+    useState<ReliabilityBriefingItem | null>(null);
+  const [historyDetail, setHistoryDetail] = useState<HistoryBriefingDetail | null>(null);
+  const [historyDetailState, setHistoryDetailState] =
+    useState<HistoryBriefingInspectorState>('ready');
   const [dismissedInspectorRecords, setDismissedInspectorRecords] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -268,7 +324,7 @@ export function ResearchWorkspacePage({
     crypto: CryptoWorkspaceView,
     history: HistoryView,
     'market-topic-news': MarketTopicNewsView,
-    radar: RadarView,
+    radar: MarketConnectionsView,
     research: MyResearchView,
     status: StatusView,
     stocks: StocksView,
@@ -292,6 +348,21 @@ export function ResearchWorkspacePage({
   );
   const inspectorVisible = section === 'today' && (inspectorOpen || urlInspectorVisible);
   const inspectorModalOpen = isMobileViewport && inspectorVisible;
+  const historyInspectorVisible = section === 'history' && historyInspectorOpen;
+  const reliabilityInspectorVisible = section === 'status' && reliabilityInspectorOpen;
+  const loadRecordDetail = useCallback(
+    async (recordKey: string) => {
+      if (loadResearchRecord) {
+        return { detail: await loadResearchRecord(recordKey), relation: null };
+      }
+      const api = await getWorkspaceApiClient();
+      const nextDetail = await api.researchRecord(recordKey);
+      const entityKey = nextDetail.affectedEntityKeys[0];
+      const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
+      return { detail: nextDetail, relation: nextRelation };
+    },
+    [loadResearchRecord],
+  );
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
     const syncViewport = () => {
@@ -311,11 +382,8 @@ export function ResearchWorkspacePage({
     const recordKey = urlState.record;
     if (!recordKey || recordKey === detail?.recordKey) return;
     let active = true;
-    void getWorkspaceApiClient()
-      .then(async (api) => {
-        const nextDetail = await api.researchRecord(recordKey);
-        const entityKey = nextDetail.affectedEntityKeys[0];
-        const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
+    void loadRecordDetail(recordKey)
+      .then(({ detail: nextDetail, relation: nextRelation }) => {
         if (!active) return;
         setDetail(nextDetail);
         setRelation(nextRelation);
@@ -330,7 +398,7 @@ export function ResearchWorkspacePage({
     return () => {
       active = false;
     };
-  }, [detail?.recordKey, urlState.record]);
+  }, [detail?.recordKey, loadRecordDetail, urlState.record]);
 
   const feedPaginationValue =
     data.view === 'today'
@@ -406,6 +474,8 @@ export function ResearchWorkspacePage({
     () => (data.view === 'stocks' ? filterWorkspaceStocks(data.stocks.data, deferredQuery) : []),
     [data, deferredQuery],
   );
+  const resolvedStocksBriefing =
+    data.view === 'stocks' ? (stocksBriefing ?? buildStocksBriefingModel(data.stocks)) : undefined;
   const radarPaginationValue =
     data.view === 'radar'
       ? resolveWorkspaceAuthoritativeOverride(data.radar, radarPagination)
@@ -413,6 +483,10 @@ export function ResearchWorkspacePage({
   const visibleRadarPage =
     radarPaginationValue?.page ?? (data.view === 'radar' ? data.radar : null);
   const visibleRadarPageState = radarPaginationValue?.state ?? 'ready';
+  const resolvedMarketConnections =
+    data.view === 'radar'
+      ? (marketConnections ?? buildMarketConnectionsModel(visibleRadarPage ?? data.radar))
+      : null;
   const historyPaginationValue =
     data.view === 'history'
       ? resolveWorkspaceAuthoritativeOverride(data.history, historyPagination)
@@ -420,6 +494,20 @@ export function ResearchWorkspacePage({
   const visibleHistoryPage =
     historyPaginationValue?.page ?? (data.view === 'history' ? data.history : null);
   const visibleHistoryPageState = historyPaginationValue?.state ?? 'ready';
+  const visibleHistoryBriefing = useMemo(
+    () =>
+      visibleHistoryPage
+        ? (historyBriefing ?? buildHistoryBriefingModel(visibleHistoryPage))
+        : null,
+    [historyBriefing, visibleHistoryPage],
+  );
+  const resolvedReliabilityBriefing = useMemo(
+    () =>
+      data.view === 'status'
+        ? (reliabilityBriefing ?? buildReliabilityBriefingModel(data.status))
+        : null,
+    [data, reliabilityBriefing],
+  );
   const visibleDetail = detail ?? (data.view === 'today' ? data.defaultRecord : null);
   const visibleThemeRelation =
     themeRelation !== undefined ? themeRelation : data.view === 'themes' ? data.relation : null;
@@ -498,13 +586,11 @@ export function ResearchWorkspacePage({
     requestNavigation('lane', next, { lane: next, cursor: undefined });
   };
 
-  const selectRecord = async (item: ResearchFeedItem) => {
+  const selectRecord = async (item: ResearchFeedItem, opener: HTMLElement) => {
     setPendingRecordKey(item.recordKey);
     issuedInspectorRecordKeysRef.current.add(item.recordKey);
     setDismissedInspectorRecords(new Set());
-    if (!isMobileViewport && document.activeElement instanceof HTMLElement) {
-      inspectorOpenerRef.current = document.activeElement;
-    }
+    inspectorOpenerRef.current = opener;
     setInspectorOpen(true);
     if (onUrlStateChange) {
       setDetailState(detail?.recordKey === item.recordKey ? 'ready' : 'loading');
@@ -523,11 +609,9 @@ export function ResearchWorkspacePage({
     setDetailState('loading');
     setRelationState('loading');
     try {
-      const api = await getWorkspaceApiClient();
-      const nextDetail = await api.researchRecord(item.recordKey);
+      const { detail: nextDetail, relation: nextRelation } = await loadRecordDetail(item.recordKey);
       setDetail(nextDetail);
-      const entityKey = nextDetail.affectedEntityKeys[0];
-      setRelation(entityKey ? await api.entityRelations(entityKey, 1) : null);
+      setRelation(nextRelation);
       setRelationState('ready');
       setDetailState('ready');
       setPendingRecordKey((current) => (current === item.recordKey ? undefined : current));
@@ -536,6 +620,46 @@ export function ResearchWorkspacePage({
       setRelationState('error');
       setDetailState('error');
     }
+  };
+
+  const loadSelectedHistoryDetail = useCallback(
+    async (item: HistoryBriefingItem) => {
+      const sequence = ++historyDetailSequenceRef.current;
+      const baseDetail = buildHistoryBriefingDetail(item);
+      setHistoryDetail(baseDetail);
+      if (!loadHistoryBriefingDetail) {
+        setHistoryDetailState('ready');
+        return;
+      }
+      setHistoryDetailState('loading');
+      try {
+        const nextDetail = await loadHistoryBriefingDetail(item.historyId);
+        if (historyDetailSequenceRef.current !== sequence) return;
+        setHistoryDetail(nextDetail);
+        setHistoryDetailState('ready');
+      } catch {
+        if (historyDetailSequenceRef.current !== sequence) return;
+        setHistoryDetailState('error');
+      }
+    },
+    [loadHistoryBriefingDetail],
+  );
+
+  const selectHistory = (item: HistoryBriefingItem, opener: HTMLElement) => {
+    historyInspectorOpenerRef.current = opener;
+    setSelectedHistoryItem(item);
+    setHistoryInspectorOpen(true);
+    void loadSelectedHistoryDetail(item);
+  };
+
+  const retryHistoryDetail = () => {
+    if (selectedHistoryItem) void loadSelectedHistoryDetail(selectedHistoryItem);
+  };
+
+  const selectReliability = (item: ReliabilityBriefingItem, opener: HTMLElement) => {
+    reliabilityInspectorOpenerRef.current = opener;
+    setSelectedReliabilityItem(item);
+    setReliabilityInspectorOpen(true);
   };
 
   const selectThemeEntity = async (entityKey: string) => {
@@ -663,11 +787,21 @@ export function ResearchWorkspacePage({
     issuedInspectorRecordKeysRef.current.clear();
     setPendingRecordKey(undefined);
     setInspectorOpen(false);
-    if (!isMobileViewport) {
-      const opener = inspectorOpenerRef.current;
-      if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
-    }
+    const opener = inspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
     void onUrlStateChange?.({ record: undefined });
+  };
+
+  const closeHistoryInspector = () => {
+    setHistoryInspectorOpen(false);
+    const opener = historyInspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
+  };
+
+  const closeReliabilityInspector = () => {
+    setReliabilityInspectorOpen(false);
+    const opener = reliabilityInspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
   };
 
   const contextualActions = canManageInvitations ? (
@@ -693,7 +827,11 @@ export function ResearchWorkspacePage({
             </strong>
             <p>{workspaceViewFailureMessage(viewLoadFailureKind ?? 'unknown')}</p>
           </div>
-          <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
+          <Button
+            motion="pressable"
+            type="button"
+            onClick={onRetryViewLoad ?? (() => window.location.reload())}
+          >
             다시 시도
           </Button>
         </ErrorState>
@@ -726,22 +864,26 @@ export function ResearchWorkspacePage({
             }
           }}
           selectedRecordKey={requestedRecordKey ?? visibleDetail?.recordKey}
-          onSelectRecord={(item) => void selectRecord(item)}
+          onSelectRecord={(item, opener) => void selectRecord(item, opener)}
         />
       )}
-      {section === 'radar' && data.view === 'radar' && (
-        <RadarView
-          data={visibleRadarPage ?? data.radar}
+      {section === 'radar' && data.view === 'radar' && resolvedMarketConnections && (
+        <MarketConnectionsView
           geoSnapshot={data.geoSnapshot}
           interactive={hydrated}
+          loadMarketConnectionDetail={loadMarketConnectionDetail}
+          marketConnections={resolvedMarketConnections}
+          radarPage={visibleRadarPage ?? data.radar}
           pageState={visibleRadarPageState}
           onLoadMore={() => void loadMoreRadar()}
         />
       )}
-      {section === 'stocks' && data.view === 'stocks' && (
+      {section === 'stocks' && data.view === 'stocks' && resolvedStocksBriefing && (
         <StocksView
+          briefing={resolvedStocksBriefing}
           data={data.stocks}
-          loadStockDeepDive={loadStockDeepDive}
+          interactive={hydrated}
+          loadStockBriefingDetail={loadStockBriefingDetail}
           pending={searchPending}
           stocks={stocks}
         />
@@ -759,15 +901,26 @@ export function ResearchWorkspacePage({
       {section === 'research' && data.view === 'research' && (
         <MyResearchView data={data.myResearch} personalization={data.personalization} />
       )}
-      {section === 'history' && data.view === 'history' && (
+      {section === 'history' && data.view === 'history' && visibleHistoryBriefing && (
         <HistoryView
+          briefing={visibleHistoryBriefing}
           data={visibleHistoryPage ?? data.history}
           interactive={hydrated}
           pageState={visibleHistoryPageState}
           onLoadMore={() => void loadMoreHistory()}
+          onOpenHistory={selectHistory}
+          selectedHistoryId={selectedHistoryItem?.historyId}
         />
       )}
-      {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
+      {section === 'status' && data.view === 'status' && resolvedReliabilityBriefing && (
+        <StatusView
+          briefing={resolvedReliabilityBriefing}
+          data={data.status}
+          interactive={hydrated}
+          onOpenReliability={selectReliability}
+          selectedSurface={selectedReliabilityItem?.surface}
+        />
+      )}
       {section === 'market-topic-news' && data.view === 'market-topic-news' && (
         <MarketTopicNewsView data={data.marketTopicNews} />
       )}
@@ -778,7 +931,10 @@ export function ResearchWorkspacePage({
     <WorkspaceShell
       activeSection={visualSection}
       contextualActions={contextualActions}
-      mobileModalInert={inspectorModalOpen}
+      mobileModalInert={
+        inspectorModalOpen ||
+        (isMobileViewport && (historyInspectorVisible || reliabilityInspectorVisible))
+      }
       navigationItems={navigationItems}
       navigationMode={navigationMode}
       navigationPending={navigationIntent.pendingSection as WorkspaceSectionId | null}
@@ -819,11 +975,27 @@ export function ResearchWorkspacePage({
       </WorkspaceViewRegion>
       <EvidenceInspector
         detail={visibleDetail}
+        detailKey={requestedRecordKey ?? visibleDetail?.recordKey ?? null}
         relation={relation}
         state={visibleDetailState}
         modal={isMobileViewport}
         onClose={closeInspector}
         open={inspectorVisible}
+      />
+      <HistoryBriefingInspector
+        detail={historyDetail}
+        detailKey={selectedHistoryItem?.historyId ?? null}
+        mobile={isMobileViewport}
+        onClose={closeHistoryInspector}
+        onRetry={retryHistoryDetail}
+        open={historyInspectorVisible}
+        state={historyDetailState}
+      />
+      <ReliabilityInspector
+        item={selectedReliabilityItem}
+        mobile={isMobileViewport}
+        onClose={closeReliabilityInspector}
+        open={reliabilityInspectorVisible}
       />
     </WorkspaceShell>
   );

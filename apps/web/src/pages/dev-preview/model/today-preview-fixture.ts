@@ -1,5 +1,8 @@
 import type { ResearchWorkspaceViewPayload } from '@/pages/research-workspace/model/workspace-view-payload';
-import type { ResearchFeedItem } from '@stock-insight/contracts/research-workspace';
+import type {
+  ResearchFeedItem,
+  ResearchRecordDetail,
+} from '@stock-insight/contracts/research-workspace';
 
 type TodayPreviewPayload = Extract<ResearchWorkspaceViewPayload, { view: 'today' }>;
 
@@ -166,3 +169,49 @@ export const todayPreviewFixture = {
   },
   defaultRecord: null,
 } satisfies TodayPreviewPayload;
+
+const previewItemsByRecordKey = new Map(
+  [...mustKnowItems, ...forYouItems, ...exploreItems].map((item) => [item.recordKey, item]),
+);
+
+function previewSourceUrl(item: ResearchFeedItem) {
+  if (item.market === 'MACRO') return 'https://www.reuters.com/markets/rates-bonds/';
+  if (item.title.includes('AI') || item.title.includes('생성형')) {
+    return 'https://www.reuters.com/technology/artificial-intelligence/';
+  }
+  if (item.affectedEntityKeys.length > 0) return 'https://www.reuters.com/technology/';
+  return 'https://www.reuters.com/markets/';
+}
+
+export async function loadTodayPreviewRecord(recordKey: string): Promise<ResearchRecordDetail> {
+  const item = previewItemsByRecordKey.get(recordKey);
+  if (!item) throw new Error(`Unknown Today preview record: ${recordKey}`);
+
+  const sourceKey = `${recordKey}:source`;
+  return {
+    ...item,
+    meta: todayPreviewFixture.today.meta,
+    body: `${item.summary}\n\n${item.whySurfaced}된 변화입니다. 원문과 후속 지표를 함께 확인해 맥락을 판단하세요.`,
+    category: 'news',
+    sourceCoverage: { linked: 1, clickable: 1, total: 1 },
+    limitations: ['개발 미리보기 데이터이므로 실제 기사 제목과 분석 결과가 아닙니다.'],
+    evidence: [
+      {
+        evidenceId: `${recordKey}:evidence`,
+        claim: item.summary,
+        sourceKeys: [sourceKey],
+        quality: item.confidence,
+      },
+    ],
+    sources: [
+      {
+        sourceKey,
+        attributionText: 'Reuters 관련 시장 뉴스 (미리보기)',
+        url: previewSourceUrl(item),
+        publishedAt: item.publishedAt,
+        sourceContentHash: 'a'.repeat(64),
+        bindingState: 'verified',
+      },
+    ],
+  };
+}

@@ -12,7 +12,7 @@ const stocksViewUrl = new URL(
   import.meta.url,
 );
 const stockCssUrl = new URL(
-  '../src/pages/research-workspace/ui/stock-deep-dive-panel.module.css',
+  '../src/pages/research-workspace/ui/views/stocks-view.module.css',
   import.meta.url,
 );
 const stockReadModelUrl = new URL('../../api/src/stocks/read-model.ts', import.meta.url);
@@ -26,15 +26,15 @@ describe('workspace stock table pagination', () => {
     ]);
 
     assert.match(readModel, /LIMIT 300/);
-    assert.match(view, /paginateStockRows\(stocks, currentPage\)/);
+    assert.match(view, /paginateStockRows\(visible\.holdings, currentPage\)/);
     assert.match(
       view,
       /if \(pageRows !== stocks\) \{\s*setPageRows\(stocks\);\s*setCurrentPage\(1\);\s*\}/,
     );
-    assert.match(view, /page\.items\.map/);
+    assert.match(view, /items=\{page\.items\}/);
     assert.match(view, /<Pagination/);
-    assert.match(stockCss, /\.stockTable\s*\{[\s\S]*?min-width:\s*720px/);
-    assert.doesNotMatch(stockCss, /\.stockTable(?:\s*,|\s+tbody|\s+tr)\s*\{\s*display:\s*block/);
+    assert.match(stockCss, /\.stockRow\[data-slot='button-control'\]/);
+    assert.doesNotMatch(stockCss, /position:\s*absolute/);
   });
 
   it('clamps pages and exposes at most one page of rows', () => {
@@ -48,14 +48,11 @@ describe('workspace stock table pagination', () => {
     assert.deepEqual(last.items, rows.slice(100));
   });
 
-  it('preserves the semantic table without JavaScript row virtualization', async () => {
+  it('renders selectable rows without a data table or JavaScript row virtualization', async () => {
     const view = await readFile(stocksViewUrl, 'utf8');
 
-    assert.match(view, /<DataTable/);
-    assert.match(view, /className=\{stockStyles\.stockTable\}/);
-    assert.match(view, /containerProps=\{\{/);
-    assert.match(view, /<thead>/);
-    assert.match(view, /<tbody>/);
+    assert.match(view, /<HoldingRows/);
+    assert.doesNotMatch(view, /<DataTable|<TableRow|<thead>|<tbody>/);
     assert.doesNotMatch(view, /react-window|react-virtual|translateY\(|position:\s*absolute/);
   });
 });

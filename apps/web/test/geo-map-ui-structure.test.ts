@@ -7,7 +7,7 @@ const mapSource = readFileSync(
   'utf8',
 );
 const panelSource = readFileSync(
-  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-exploration.tsx', import.meta.url),
   'utf8',
 );
 const css = readFileSync(

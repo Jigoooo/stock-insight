@@ -56,39 +56,41 @@ describe('Task 1 product shared UI adoption', () => {
   });
 
   it('uses the shared Dialog composition for the evidence inspector', async () => {
-    const inspector = await read('pages/research-workspace/ui/evidence-inspector.tsx');
+    const [inspector, inspectorFrame] = await Promise.all([
+      read('pages/research-workspace/ui/evidence-inspector.tsx'),
+      read('pages/research-workspace/ui/detail-inspector-frame.tsx'),
+    ]);
 
-    assert.match(inspector, /from '@\/shared\/ui\/dialog'/);
-    assert.match(inspector, /<Dialog\b/);
-    assert.match(inspector, /<DialogContent\b/);
-    assert.match(inspector, /<DialogHeader\b/);
-    assert.match(inspector, /<DialogBody\b/);
-    assert.match(
-      inspector,
-      /onPointerDownOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
-    );
-    assert.match(
-      inspector,
-      /onFocusOutside=\{\(event\) => \{[\s\S]*?if \(!modal\) event\.preventDefault\(\)/,
-    );
-    assert.doesNotMatch(inspector, /<dialog\b|useFocusTrap|focusableSelector/);
+    assert.match(inspector, /<DetailInspectorFrame\b/);
+    assert.match(inspectorFrame, /from '@\/shared\/ui\/dialog'/);
+    assert.match(inspectorFrame, /<Dialog\b/);
+    assert.match(inspectorFrame, /<DialogContent\b/);
+    assert.match(inspectorFrame, /<DialogHeader\b/);
+    assert.match(inspectorFrame, /<DialogBody\b/);
+    assert.match(inspectorFrame, /<Dialog\s+modal\s/);
+    assert.match(inspectorFrame, /\bshowOverlay\s/);
+    assert.doesNotMatch(inspectorFrame, /onPointerDownOutside=/);
+    assert.doesNotMatch(inspectorFrame, /onFocusOutside=/);
+    assert.doesNotMatch(inspectorFrame, /<dialog\b|useFocusTrap|focusableSelector/);
   });
 
-  it('uses ToggleGroup for display modes and shared Table selection for stock rows', async () => {
-    const [market, stocks, marketCss, stockCss] = await Promise.all([
-      read('pages/research-workspace/ui/market-overview-panel.tsx'),
+  it('uses ToggleGroup for display modes and shared Button selection for stock rows', async () => {
+    const [market, stocks, sections, marketCss, stockCss] = await Promise.all([
+      read('pages/research-workspace/ui/market-exploration.tsx'),
       read('pages/research-workspace/ui/views/stocks-view.tsx'),
+      read('pages/research-workspace/ui/stock-briefing-sections.tsx'),
       read('pages/research-workspace/ui/market-overview.module.css'),
-      read('pages/research-workspace/ui/stock-deep-dive-panel.module.css'),
+      read('pages/research-workspace/ui/views/stocks-view.module.css'),
     ]);
 
     assert.match(market, /from '@\/shared\/ui\/toggle-group'/);
     assert.match(market, /<ToggleGroup\b/);
     assert.doesNotMatch(market, /from '@\/shared\/ui\/tabs'/);
     assert.doesNotMatch(marketCss, /\[aria-selected=['"]true['"]\]/);
-    assert.match(stocks, /selectionMode="single"/);
-    assert.match(stocks, /<TableRow\b/);
-    assert.doesNotMatch(stocks, /aria-pressed=|data-selected=/);
+    assert.match(stocks, /selectedStockKey/);
+    assert.match(sections, /<Button\b/);
+    assert.match(sections, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.doesNotMatch(`${stocks}\n${sections}`, /aria-pressed=|data-selected=/);
     assert.doesNotMatch(stockCss, /\[aria-pressed=['"]true['"]\]|tr\[data-selected=['"]true['"]\]/);
   });
 
@@ -118,11 +120,11 @@ describe('Task 1 product shared UI adoption', () => {
       'utf8',
     );
 
-    assert.match(e2e, /getByRole\('radiogroup', \{ name: '시장 화면 선택' \}\)/);
+    assert.match(e2e, /getByRole\('radiogroup', \{ name: '시장 보조 탐색 선택' \}\)/);
     assert.match(e2e, /getByRole\('radio'\)/);
     assert.match(e2e, /toHaveAttribute\('aria-checked', 'true'\)/);
     assert.match(e2e, /press\('ArrowRight'\)[\s\S]*?toBeFocused\(\)[\s\S]*?aria-checked', 'false'/);
     assert.match(e2e, /press\('Space'\)[\s\S]*?aria-checked', 'true'/);
-    assert.doesNotMatch(e2e, /getByRole\('group', \{ name: '시장 화면 선택' \}\)/);
+    assert.doesNotMatch(e2e, /getByRole\('group', \{ name: '시장 보조 탐색 선택' \}\)/);
   });
 });

@@ -1,17 +1,11 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 
+import { resolveDevPreviewRequest } from '@/pages/dev-preview/model/dev-preview-request';
 import { DevPreviewPage } from '@/pages/dev-preview/ui/dev-preview-page';
 import { isDevSurfaceEnabled } from '@/shared/config/dev-surface-gate';
 
 export const Route = createFileRoute('/__dev-preview')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    surface:
-      search.surface === 'admin-invitations'
-        ? ('admin-invitations' as const)
-        : search.surface === 'today'
-          ? ('today' as const)
-          : undefined,
-  }),
+  validateSearch: resolveDevPreviewRequest,
   beforeLoad: () => {
     if (!isDevSurfaceEnabled(import.meta.env.DEV, import.meta.env.VITE_ENABLE_DEV_PREVIEW)) {
       throw notFound();
@@ -22,6 +16,6 @@ export const Route = createFileRoute('/__dev-preview')({
 });
 
 function DevPreviewRoute() {
-  const { surface } = Route.useSearch();
-  return <DevPreviewPage surface={surface ?? 'workspace'} />;
+  const previewRequest = Route.useSearch();
+  return <DevPreviewPage {...previewRequest} />;
 }

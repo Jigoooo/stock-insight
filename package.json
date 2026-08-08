@@ -35,6 +35,7 @@
     "test:workspace:visual:production": "PLAYWRIGHT_USE_PRODUCTION_BUILD=1 PLAYWRIGHT_PORT=18098 playwright test e2e/workspace-visual.spec.ts",
     "typecheck:p6:fixture": "tsc -p e2e/fixtures/p6-crypto-ui/tsconfig.json --noEmit",
     "typecheck:controls:fixture": "tsc -p e2e/fixtures/control-public-props/tsconfig.json --noEmit",
+    "typecheck:market-connections:fixture": "tsc -p e2e/fixtures/market-connections-view/tsconfig.json --noEmit",
     "test:p6:db": "pnpm --filter @stock-insight/api test:p6-db-rehearsal",
     "test:xg:db": "pnpm --filter @stock-insight/api test:xg-reader-privileges",
     "test:p6:browser": "node scripts/run-p6-crypto-ui-browser-gate.mjs",

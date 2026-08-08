@@ -1,6 +1,15 @@
-import { loadPreviewStockDeepDive } from '../model/stock-deep-dive-preview-fixture';
-import { stocksPreviewFixture } from '../model/stocks-preview-fixture';
-import { todayPreviewFixture } from '../model/today-preview-fixture';
+import { useState } from 'react';
+
+import type { DevPreviewPageProps, StocksPreviewScenario } from '../model/dev-preview-request';
+import { resolveHistoryPreview } from '../model/history-preview-fixture';
+import { resolveMarketConnectionsPreview } from '../model/market-connections-preview-fixture';
+import { resolveStatusPreview } from '../model/status-preview-fixture';
+import { loadPreviewStockBriefing } from '../model/stock-deep-dive-preview-fixture';
+import {
+  stocksBriefingPreviewFixture,
+  stocksPreviewFixture,
+} from '../model/stocks-preview-fixture';
+import { loadTodayPreviewRecord, todayPreviewFixture } from '../model/today-preview-fixture';
 
 import {
   AdminInvitationPage,
@@ -8,10 +17,78 @@ import {
   type LogoutAction,
   type RevokeInvitationAction,
 } from '@/pages/admin-invitations/ui/admin-invitation-page';
+import type {
+  StockBriefingLoader,
+  StocksBriefingModel,
+} from '@/pages/research-workspace/model/stock-briefing';
+import type { ResearchWorkspaceViewPayload } from '@/pages/research-workspace/model/workspace-view-payload';
 import { ResearchWorkspacePage } from '@/pages/research-workspace/ui/research-workspace-page';
 import type { AdminInvitation } from '@/server/auth/admin-invitations';
 
-type DevPreviewSurface = 'workspace' | 'today' | 'admin-invitations';
+type StocksPreviewPayload = Extract<ResearchWorkspaceViewPayload, { view: 'stocks' }>;
+
+const watchedOnlyPreviewFixture = {
+  ...stocksPreviewFixture,
+  shell: { ...stocksPreviewFixture.shell, watchlistCount: 4 },
+  stocks: {
+    ...stocksPreviewFixture.stocks,
+    data: stocksPreviewFixture.stocks.data.filter(({ isHolding }) => !isHolding),
+  },
+} satisfies StocksPreviewPayload;
+
+const watchedOnlyBriefingFixture = {
+  ...stocksBriefingPreviewFixture,
+  summary: {
+    holdingCount: 0,
+    connectedNewsCount: null,
+    riskCount: null,
+    analyzedAt: null,
+  },
+  priorityHoldings: [],
+} satisfies StocksBriefingModel;
+
+const emptyStocksPreviewFixture = {
+  ...stocksPreviewFixture,
+  shell: { ...stocksPreviewFixture.shell, watchlistCount: 0 },
+  stocks: { ...stocksPreviewFixture.stocks, data: [] },
+} satisfies StocksPreviewPayload;
+
+const emptyStocksBriefingFixture = {
+  summary: {
+    holdingCount: 0,
+    connectedNewsCount: 0,
+    riskCount: 0,
+    analyzedAt: null,
+  },
+  priorityHoldings: [],
+  watchlistChanges: [],
+} satisfies StocksBriefingModel;
+
+const loadFailedPreviewStockBriefing: StockBriefingLoader = async () => {
+  throw new Error('개발 미리보기에서 종목 상세를 불러오지 못했습니다.');
+};
+
+function resolveStocksPreview(scenario: StocksPreviewScenario) {
+  if (scenario === 'no-holdings') {
+    return {
+      briefing: watchedOnlyBriefingFixture,
+      data: watchedOnlyPreviewFixture,
+      loader: loadPreviewStockBriefing,
+    };
+  }
+  if (scenario === 'empty') {
+    return {
+      briefing: emptyStocksBriefingFixture,
+      data: emptyStocksPreviewFixture,
+      loader: loadPreviewStockBriefing,
+    };
+  }
+  return {
+    briefing: stocksBriefingPreviewFixture,
+    data: stocksPreviewFixture,
+    loader: scenario === 'detail-error' ? loadFailedPreviewStockBriefing : loadPreviewStockBriefing,
+  };
+}
 
 const initialPreviewInvitations: AdminInvitation[] = [
   {
@@ -71,7 +148,76 @@ const revokePreviewInvitation: RevokeInvitationAction = async () => {
 };
 const previewLogout: LogoutAction = async () => ({ ok: true as const });
 
-export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreviewSurface }) {
+type StatusPreviewProps = Extract<DevPreviewPageProps, { surface: 'status' }>;
+
+function StatusPreviewExperience({ scenario }: { scenario: StatusPreviewProps['scenario'] }) {
+  const preview = resolveStatusPreview(scenario === undefined ? 'default' : scenario);
+  const [loadFailed, setLoadFailed] = useState(preview.initialError);
+
+  return (
+    <div data-testid="dev-preview-page">
+      <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+      <ResearchWorkspacePage
+        data={preview.data}
+        reliabilityBriefing={preview.briefing}
+        navigationMode="static"
+        canManageInvitations={false}
+        onLogout={async () => false}
+        onPrefetchSection={() => undefined}
+        onRetryViewLoad={() => setLoadFailed(false)}
+        onUrlStateChange={async () => undefined}
+        urlState={{ view: 'status' }}
+        viewLoadError={loadFailed ? 'status' : undefined}
+      />
+    </div>
+  );
+}
+
+export function DevPreviewPage(props: DevPreviewPageProps) {
+  const surface = props.surface ?? 'workspace';
+  if (props.surface === 'status') {
+    return <StatusPreviewExperience scenario={props.scenario} />;
+  }
+  if (props.surface === 'history') {
+    const preview = resolveHistoryPreview(props.scenario ?? 'default');
+    return (
+      <div data-testid="dev-preview-page">
+        <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+        <ResearchWorkspacePage
+          data={preview.data}
+          historyBriefing={preview.briefing}
+          loadHistoryBriefingDetail={preview.loader}
+          navigationMode="static"
+          canManageInvitations={false}
+          onLogout={async () => false}
+          onPrefetchSection={() => undefined}
+          onUrlStateChange={async () => undefined}
+          urlState={{ view: 'history' }}
+        />
+      </div>
+    );
+  }
+  if (props.surface === 'market-connections') {
+    const preview = resolveMarketConnectionsPreview(props.scenario ?? 'default');
+    return (
+      <div data-testid="dev-preview-page">
+        <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+        <ResearchWorkspacePage
+          data={preview.data}
+          marketConnections={preview.marketConnections}
+          loadMarketConnectionDetail={preview.loader}
+          navigationMode="static"
+          canManageInvitations={false}
+          onLogout={async () => false}
+          onPrefetchSection={() => undefined}
+          onUrlStateChange={async () => undefined}
+          urlState={{ view: 'radar' }}
+        />
+      </div>
+    );
+  }
+
+  const stocksPreview = resolveStocksPreview(props.scenario ?? 'default');
   return (
     <div data-testid="dev-preview-page">
       <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
@@ -86,6 +232,7 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
       ) : surface === 'today' ? (
         <ResearchWorkspacePage
           data={todayPreviewFixture}
+          loadResearchRecord={loadTodayPreviewRecord}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}
@@ -94,8 +241,9 @@ export function DevPreviewPage({ surface = 'workspace' }: { surface?: DevPreview
         />
       ) : (
         <ResearchWorkspacePage
-          data={stocksPreviewFixture}
-          loadStockDeepDive={loadPreviewStockDeepDive}
+          data={stocksPreview.data}
+          loadStockBriefingDetail={stocksPreview.loader}
+          stocksBriefing={stocksPreview.briefing}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}

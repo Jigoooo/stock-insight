@@ -12,8 +12,8 @@ const toastCssUrl = new URL('../src/shared/ui/toast/toast.module.css', import.me
 const adoptionUrls = [
   new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/research-workspace-page.tsx', import.meta.url),
-  new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
-  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/stock-briefing-inspector.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-exploration.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/geo-market-map.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/relation-sigma-graph.tsx', import.meta.url),
   new URL('../src/pages/research-workspace/ui/views/stocks-view.tsx', import.meta.url),
@@ -141,19 +141,19 @@ describe('Task 4 shared feedback and surface contract', () => {
       );
     }
 
-    const [workspaceState, inspector, deepDive] = await Promise.all([
+    const [workspaceState, inspector, stockInspector] = await Promise.all([
       readFile(new URL('../src/shared/ui/workspace/workspace-state.tsx', import.meta.url), 'utf8'),
       readFile(
         new URL('../src/pages/research-workspace/ui/evidence-inspector.tsx', import.meta.url),
         'utf8',
       ),
       readFile(
-        new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+        new URL('../src/pages/research-workspace/ui/stock-briefing-inspector.tsx', import.meta.url),
         'utf8',
       ),
     ]);
     assert.match(workspaceState, /<Skeleton\b/);
     assert.match(inspector, /<WorkspaceState\b/);
-    assert.match(deepDive, /<WorkspaceState\b/);
+    assert.match(stockInspector, /<WorkspaceState\b/);
   });
 });

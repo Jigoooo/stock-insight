@@ -36,6 +36,10 @@ const workspace = [
     'utf8',
   ),
   readFileSync(
+    new URL('../src/pages/research-workspace/ui/detail-inspector-frame.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
     new URL('../src/pages/research-workspace/ui/workspace-search.tsx', import.meta.url),
     'utf8',
   ),
@@ -45,12 +49,20 @@ const workspace = [
     'utf8',
   ),
   readFileSync(
-    new URL('../src/pages/research-workspace/ui/stock-deep-dive-panel.tsx', import.meta.url),
+    new URL('../src/pages/research-workspace/ui/stock-briefing-inspector.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/stock-briefing-sections.tsx', import.meta.url),
+    'utf8',
+  ),
+  readFileSync(
+    new URL('../src/pages/research-workspace/ui/market-connection-sections.tsx', import.meta.url),
     'utf8',
   ),
   ...[
     'today-view.tsx',
-    'radar-view.tsx',
+    'market-connections-view.tsx',
     'stocks-view.tsx',
     'themes-view.tsx',
     'my-research-view.tsx',
@@ -72,13 +84,14 @@ const relationCss = readFileSync(
   new URL('../src/pages/research-workspace/ui/relation-detail.module.css', import.meta.url),
   'utf8',
 );
+const feedCss = readFileSync(
+  new URL('../src/pages/research-workspace/ui/feed-ledger.module.css', import.meta.url),
+  'utf8',
+);
 const workspaceStyles = [
   css,
   relationCss,
-  readFileSync(
-    new URL('../src/pages/research-workspace/ui/feed-ledger.module.css', import.meta.url),
-    'utf8',
-  ),
+  feedCss,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
     'utf8',
@@ -97,7 +110,7 @@ const workspaceState = readFileSync(
   'utf8',
 );
 const marketOverviewSource = readFileSync(
-  new URL('../src/pages/research-workspace/ui/market-overview-panel.tsx', import.meta.url),
+  new URL('../src/pages/research-workspace/ui/market-exploration.tsx', import.meta.url),
   'utf8',
 );
 const geoMarketMapSource = readFileSync(
@@ -144,12 +157,12 @@ describe('v3 research workspace structure', () => {
   it('exposes every real-data workspace section and the run-bound inspector', () => {
     for (const label of [
       '오늘',
-      '세계 레이더',
+      '내 종목에 영향을 줄 시장 변화',
       '종목',
       '테마·관계',
       '내 리서치',
-      '판단 이력',
-      '데이터 상태',
+      '판단 복기',
+      '데이터 신뢰도',
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
@@ -195,7 +208,7 @@ describe('v3 research workspace structure', () => {
       'crypto-workspace-view',
       'history-view',
       'my-research-view',
-      'radar-view',
+      'market-connections-view',
       'status-view',
       'stocks-view',
       'themes-view',
@@ -259,7 +272,6 @@ describe('v3 research workspace structure', () => {
       /\{source\.bindingState\}/,
       /\{dataset\.datasetName\}/,
       /\{dataset\.domain\}/,
-      /\{item\.summary\}/,
       /\{item\.thesis\}/,
       /\{detail\.body\}/,
       /\{item\.claim\}/,
@@ -293,12 +305,17 @@ describe('v3 research workspace structure', () => {
     assert.doesNotMatch(css, /\.stateSurface\s*\{/);
   });
 
-  it('blocks pre-hydration clicks and keeps the inspector modal only on mobile', () => {
+  it('blocks pre-hydration clicks and lets the desktop inspector switch presentation', () => {
     assert.match(page, /useSyncExternalStore\(/);
     assert.match(page, /const inspectorModalOpen = isMobileViewport && inspectorVisible/);
     assert.match(page, /modal=\{isMobileViewport\}/);
-    assert.match(page, /<Dialog[\s\S]*?modal=\{modal\}/);
-    assert.match(page, /<DialogContent[\s\S]*?portalled=\{modal\}/);
+    assert.match(page, /<Dialog\s+modal\s/);
+    assert.match(page, /<DialogContent[\s\S]*?portalled/);
+    assert.match(
+      page,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
+    );
+    assert.match(page, /\bshowOverlay\s/);
     assert.doesNotMatch(page, /useFocusTrap|aria-modal=/);
     assert.doesNotMatch(page, /inert=\{mobileNavHidden \|\| inspectorVisible/);
   });
@@ -307,7 +324,6 @@ describe('v3 research workspace structure', () => {
     assert.match(workspace, /<Tabs[^>]*value=\{lane\}/);
     assert.match(workspace, /<MetricStrip/);
     assert.match(workspace, /<StructuredList/);
-    assert.match(workspace, /<DataTable/);
     assert.match(workspace, /useWorkspaceAppendReveal/);
     assert.match(page, /activationMode="manual"/);
     assert.match(page, /<TabsTrigger/);
@@ -326,7 +342,7 @@ describe('v3 research workspace structure', () => {
     assert.match(marketOverviewSource, /kind="partial"/);
     assert.match(marketOverviewSource, /kind="stale"/);
     assert.match(marketOverviewSource, /kind="error"/);
-    assert.match(marketOverviewSource, /kind=\{displayState\.kind === 'missing'/);
+    assert.match(marketOverviewSource, /kind="unavailable"/);
     assert.doesNotMatch(marketOverviewSource, /<TabsContent/);
   });
 
@@ -335,22 +351,23 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /api\.decisionHistory\(\{ cursor, limit: 30 \}\)/);
     assert.match(page, /data-testid="radar-load-more"/);
     assert.match(page, /data-testid="history-load-more"/);
-    assert.match(page, /data\.items\.length\}건 표시 · 전체/);
-    assert.match(historySource, /<Timeline ref=\{ledgerRef\}/);
-    assert.match(historySource, /<li[\s\S]*?data-append-key=\{item\.historyId\}/);
-    assert.doesNotMatch(historySource, /<Timeline[\s\S]*?<div\s+key=\{item\.historyId\}/);
+    assert.match(historySource, /현재 \{data\.items\.length\}건 불러옴/);
+    assert.match(historySource, /<ul className=\{styles\.itemList\}>/);
+    assert.match(historySource, /<li data-append-key=\{item\.historyId\}/);
+    assert.doesNotMatch(historySource, /전체 \{data\.scopeTotal\}건/);
   });
 
-  it('keeps status counts separate from honest availability and limitation detail', () => {
-    assert.match(statusSource, /<StatusSummary/);
-    assert.match(statusSource, /label: '연결 출처'/);
-    assert.match(statusSource, /label: '클릭 가능 출처'/);
-    assert.match(statusSource, /<PropertyList[\s\S]*?aria-label="데이터 상태 세부 정보"/);
-    assert.match(statusSource, /label: '전체 가용성'/);
-    assert.match(statusSource, /label: '최신 확인 시각'/);
-    assert.match(statusSource, /label: '제약'/);
-    assert.match(statusSource, /<DataTable caption="데이터 영역별 상태"/);
-    assert.doesNotMatch(statusSource, /StatusSummary[\s\S]*?label: '전체 상태'/);
+  it('presents status as user-facing reliability guidance rather than an operations table', () => {
+    assert.match(statusSource, /title="데이터 신뢰도"/);
+    assert.match(statusSource, /전체 신뢰 상태/);
+    assert.match(statusSource, /기능별 데이터 신뢰도/);
+    assert.match(statusSource, /현재 확인 가능/);
+    assert.match(statusSource, /부족한 정보/);
+    assert.match(statusSource, /이용 시 주의점/);
+    assert.match(statusSource, /공통 제한 사항/);
+    assert.match(statusSource, /reliabilityLevelLabels/);
+    assert.doesNotMatch(statusSource, /<StatusSummary|<PropertyList|<DataTable/);
+    assert.doesNotMatch(statusSource, /datasetName|rowCount|analysisRunId|domain/);
   });
 
   it('keeps the relation graph bounded, accessible, and text-readable', () => {
@@ -403,10 +420,9 @@ describe('v3 research workspace structure', () => {
   });
 
   it('uses shared selected-row, detail, property, and evidence-list anatomy', () => {
-    assert.match(workspace, /selectionMode="single"/);
-    assert.match(workspace, /<TableRow/);
-    assert.match(workspace, /selectionLabel=\{`\$\{stock\.displayName\} 종목 선택`\}/);
-    assert.match(workspace, /<DataTable/);
+    assert.match(workspace, /className=\{styles\.stockRow\}/);
+    assert.match(workspace, /aria-current=\{selected \? 'true' : undefined\}/);
+    assert.match(workspace, /aria-label=\{`\$\{stock\.displayName\} 종목 브리핑 열기`\}/);
     assert.match(workspace, /<DetailSurface/);
     assert.match(workspace, /<PropertyList/);
     assert.match(workspace, /useWorkspaceRelationCrossfade/);
@@ -431,6 +447,27 @@ describe('v3 research workspace structure', () => {
 
   it('keeps hover effects pointer-safe', () => {
     assert.match(workspaceStyles, /@media \(hover: hover\) and \(pointer: fine\)/);
+  });
+
+  it('uses one inset full-border selected surface for every Today evidence entry', () => {
+    assert.match(
+      page,
+      /className=\{styles\.connectionRow\}[\s\S]*?aria-current=\{selectedRecordKey === item\.recordKey\}/,
+    );
+    assert.match(
+      feedCss,
+      /\.headlineCard\[data-slot='button-control'\]\[aria-current='true'\],\s*\.feedRow\[data-slot='button-control'\]\[aria-current='true'\],\s*\.connectionRow\[data-slot='button-control'\]\[aria-current='true'\]\s*\{[\s\S]*?border-color:[\s\S]*?background:[\s\S]*?box-shadow:/,
+    );
+    assert.match(
+      feedCss,
+      /\.curatedList,\s*\.feedList,\s*\.connectionList\s*\{[\s\S]*?padding:\s*4px/,
+    );
+    assert.match(
+      feedCss,
+      /\.curatedList\s*>\s*li,\s*\.feedList\s*>\s*li,\s*\.connectionList\s*>\s*li\s*\{\s*border-bottom:\s*0/,
+    );
+    assert.doesNotMatch(feedCss, /box-shadow:\s*0\s+3px\s+0\s+var\(--color-accent\)\s+inset/);
+    assert.doesNotMatch(feedCss, /box-shadow:\s*3px\s+0\s+0\s+var\(--color-accent\)\s+inset/);
   });
 
   it('provides a reduced-motion safety fallback independent of layout recipe', () => {

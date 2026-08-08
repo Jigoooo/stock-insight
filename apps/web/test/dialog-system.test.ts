@@ -50,6 +50,40 @@ describe('shared dialog system', () => {
     );
   });
 
+  it('keeps quick motion and light overlay opt-in while preserving dialog defaults', async () => {
+    const [source, css] = await Promise.all([
+      read('shared/ui/dialog/dialog.tsx'),
+      read('shared/ui/dialog/dialog.module.css'),
+    ]);
+
+    assert.match(source, /export type DialogMotionPreset = 'default' \| 'quick'/);
+    assert.match(source, /export type DialogOverlayTone = 'default' \| 'light'/);
+    assert.match(source, /motionPreset = 'default'/);
+    assert.match(source, /overlayTone = 'default'/);
+    assert.match(source, /dialogQuickTransition[\s\S]*?stiffness:\s*3\d\d/);
+    assert.match(source, /dialogQuickTransition[\s\S]*?damping:\s*3\d/);
+    assert.match(source, /data-overlay-tone=\{overlayTone\}/);
+    assert.match(css, /\.overlay\[data-overlay-tone='light'\]/);
+  });
+
+  it('gives bottom sheets a vertical motion axis without changing drawer motion', async () => {
+    const [source, frame] = await Promise.all([
+      read('shared/ui/dialog/dialog.tsx'),
+      read('pages/research-workspace/ui/detail-inspector-frame.tsx'),
+    ]);
+
+    assert.match(
+      source,
+      /export type DialogPresentation = 'modal' \| 'inspector' \| 'bottom-sheet'/,
+    );
+    assert.match(source, /presentation === 'bottom-sheet'[\s\S]*?\{ x: 0, y: \d+, opacity: 0 \}/);
+    assert.match(
+      source,
+      /presentation === 'bottom-sheet'[\s\S]*?y: \d+,[\s\S]*?pointerEvents: 'none'/,
+    );
+    assert.match(frame, /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'/);
+  });
+
   it('reserves a 32px close slot and stable action widths', async () => {
     const css = await read('shared/ui/dialog/dialog.module.css');
 

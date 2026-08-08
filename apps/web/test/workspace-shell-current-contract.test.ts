@@ -86,9 +86,10 @@ describe('current workspace shell behavior', () => {
   });
 
   it('keeps mobile navigation and evidence focus ownership explicit', async () => {
-    const [page, inspector, shell, sheet, e2e] = await Promise.all([
+    const [page, inspector, inspectorFrame, shell, sheet, e2e] = await Promise.all([
       read('pages/research-workspace/ui/research-workspace-page.tsx'),
       read('pages/research-workspace/ui/evidence-inspector.tsx'),
+      read('pages/research-workspace/ui/detail-inspector-frame.tsx'),
       read('widgets/workspace-shell/ui/workspace-shell.tsx'),
       read('shared/ui/sheet/sheet.tsx'),
       readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
@@ -99,9 +100,15 @@ describe('current workspace shell behavior', () => {
     assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
     assert.match(sheet, /<motion\.div/);
     assert.doesNotMatch(shell, /useFocusTrap|previousFocus|event\.key !== 'Escape'/);
-    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
-    assert.match(inspector, /<DialogContent/);
-    assert.doesNotMatch(inspector, /useFocusTrap|event\.key !== 'Escape'/);
+    assert.match(inspector, /<DetailInspectorFrame/);
+    assert.match(inspectorFrame, /<Dialog\s+modal\s/);
+    assert.match(inspectorFrame, /<DialogContent[\s\S]*?portalled/);
+    assert.match(inspectorFrame, /\bshowOverlay\s/);
+    assert.match(
+      inspectorFrame,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
+    );
+    assert.doesNotMatch(inspectorFrame, /useFocusTrap|event\.key !== 'Escape'/);
     assert.match(page, /opener\?\.isConnected/);
     assert.match(e2e, /supports mobile navigation and keyboard-visible controls/);
     assert.match(e2e, /await page\.keyboard\.press\('Escape'\)/);

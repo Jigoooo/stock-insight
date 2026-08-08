@@ -1,0 +1,118 @@
+.inspector {
+  --evidence-inspector-width: var(--detail-inspector-width);
+
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+
+.inspector[data-resizing='true'] {
+  user-select: none;
+}
+
+.inspector[data-inspector-presentation='modal'] {
+  --dialog-width: clamp(760px, 72vw, 960px);
+
+  width: min(calc(100vw - 52px), var(--dialog-width));
+}
+
+.inspectorResizer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: -6px;
+  width: 12px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  cursor: col-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.inspectorResizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 1px;
+  background: var(--color-border-strong);
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.inspectorResizer:is(:hover, :focus-visible)::after,
+.inspector[data-resizing='true'] .inspectorResizer::after {
+  background: var(--color-focus);
+}
+
+.inspectorHeader {
+  padding-right: 178px;
+  background: var(--material-inspector);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+.inspectorPresentationToggle {
+  width: auto;
+  min-width: 94px;
+  height: 36px;
+  position: absolute;
+  z-index: 2;
+  top: 15px;
+  right: 60px;
+  gap: 6px;
+  padding-inline: 12px;
+  border-color: color-mix(in srgb, var(--color-border-strong) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 48%) inset,
+    0 5px 14px rgb(20 21 19 / 9%);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.inspectorPresentationToggle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.inspectorTitle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.inspectorTitle svg {
+  width: 16px;
+  color: var(--color-text-tertiary);
+}
+
+.inspectorDescription {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .inspectorResizer,
+  .inspectorPresentationToggle {
+    display: none;
+  }
+
+  .inspectorHeader {
+    padding-right: 64px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .inspector,
+  .inspectorHeader {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

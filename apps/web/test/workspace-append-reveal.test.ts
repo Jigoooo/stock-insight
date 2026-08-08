@@ -53,14 +53,23 @@ describe('workspace append reveal', () => {
   });
 
   it('integrates only with appendable Today, Radar, and History row owners', async () => {
-    const sources = await Promise.all(
-      ['today-view.tsx', 'radar-view.tsx', 'history-view.tsx'].map((fileName) =>
-        readFile(
-          new URL(`../src/pages/research-workspace/ui/views/${fileName}`, import.meta.url),
-          'utf8',
-        ),
+    const sources = await Promise.all([
+      readFile(
+        new URL('../src/pages/research-workspace/ui/views/today-view.tsx', import.meta.url),
+        'utf8',
       ),
-    );
+      readFile(
+        new URL(
+          '../src/pages/research-workspace/ui/market-connection-sections.tsx',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+      readFile(
+        new URL('../src/pages/research-workspace/ui/views/history-view.tsx', import.meta.url),
+        'utf8',
+      ),
+    ]);
 
     for (const source of sources) {
       assert.match(source, /useWorkspaceAppendReveal\(/);

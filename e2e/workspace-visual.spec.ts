@@ -329,11 +329,11 @@ test.describe('authenticated workspace visual matrix', () => {
     expect(labelBox!.width).toBeGreaterThan(recordBox!.width * 0.8);
   });
 
-  test('captures Stocks selected row and deep dive', async ({ page }, testInfo) => {
+  test('captures Stocks selected row and briefing inspector', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
     await gotoAuthenticatedRoute(page, '/workspace/stocks');
-    const stockRegion = page.getByLabel('종목 현황 표 가로 스크롤 영역');
-    const stock = stockRegion.getByRole('radio').first();
+    const stockRegion = page.locator('main');
+    const stock = page.getByRole('button', { name: /종목 브리핑 열기/ }).first();
     await skipAfterCanonicalAbsence({
       canonicalTitle: '조건에 맞는 종목이 없습니다',
       reason: 'canonical empty stock table has no selectable stock',
@@ -341,9 +341,9 @@ test.describe('authenticated workspace visual matrix', () => {
       target: stock,
     });
     await stock.click();
-    await expect(stock).toBeChecked();
-    await expect(page.getByTestId('stock-deep-dive-region')).toBeVisible();
-    await capture(page, testInfo, 'workspace-stocks-selected-deep-dive', [page.locator('time')]);
+    await expect(stock).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByTestId('stock-briefing-inspector')).toBeVisible();
+    await capture(page, testInfo, 'workspace-stocks-selected-briefing', [page.locator('time')]);
   });
 
   test('captures Themes relation graph and accessible text fallback', async ({

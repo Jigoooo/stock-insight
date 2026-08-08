@@ -1,0 +1,258 @@
+.inspectorContent {
+  min-width: 0;
+  padding: 0;
+}
+
+.state {
+  min-height: 280px;
+  padding: 32px;
+}
+
+.readyContent,
+.primarySections,
+.supplementarySections {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+}
+
+.readyContent[data-presentation='modal'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.primarySections > section,
+.supplementarySections > section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.readyContent[data-presentation='modal'] .primarySections {
+  border-right: 1px solid var(--color-border);
+}
+
+.primarySections h2,
+.primarySections h3,
+.supplementarySections h3,
+.primarySections p,
+.supplementarySections p,
+.primarySections ul,
+.supplementarySections ul,
+.primarySections dl {
+  margin: 0;
+}
+
+.primarySections h2,
+.primarySections h3,
+.supplementarySections h3 {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.primarySections p,
+.primarySections li,
+.supplementarySections p,
+.supplementarySections li,
+.primarySections small,
+.supplementarySections small,
+.primarySections dd {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.primarySections p,
+.primarySections li,
+.supplementarySections p,
+.supplementarySections li {
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.summary {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+}
+
+.summary > span {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
+
+.summary > strong {
+  font-size: 20px;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+.primarySections ul,
+.supplementarySections ul {
+  display: grid;
+  gap: 9px;
+  padding: 0;
+  list-style: none;
+}
+
+.primarySections li,
+.supplementarySections li {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.entityList > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.entityList > li > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.entityStates {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.entityStates span {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  background: var(--color-canvas);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.sourceList a {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sourceList a svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.riskBlocks {
+  display: grid;
+  gap: 14px;
+}
+
+.riskBlocks > div {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.readyContent[data-presentation='drawer'] .metadata {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.metadata > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.metadata dt,
+.metadata dd {
+  margin: 0;
+}
+
+.metadata dt {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.metadata dd {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.strengthBoundary {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
+}
+
+.localFailure {
+  min-height: 0;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.graphRegion,
+.geoMapRegion {
+  min-width: 0;
+  min-height: 360px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.geoList > li {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.factorTableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+  outline: none;
+}
+
+.factorTable {
+  min-width: 540px;
+}
+
+@media (max-width: 767px) {
+  .readyContent[data-presentation='modal'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .primarySections > section,
+  .supplementarySections > section {
+    padding-inline: 18px;
+  }
+
+  .metadata {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

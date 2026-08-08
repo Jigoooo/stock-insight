@@ -18,13 +18,13 @@ const productControlUrls = [
 
 const researchWorkspaceUrls = [
   'pages/research-workspace/ui/research-workspace-page.tsx',
-  'pages/research-workspace/ui/market-overview-panel.tsx',
-  'pages/research-workspace/ui/stock-deep-dive-panel.tsx',
+  'pages/research-workspace/ui/market-exploration.tsx',
+  'pages/research-workspace/ui/stock-briefing-inspector.tsx',
   'pages/research-workspace/ui/evidence-inspector.tsx',
   'pages/research-workspace/ui/geo-market-map.tsx',
   'pages/research-workspace/ui/workspace-search.tsx',
   'pages/research-workspace/ui/views/today-view.tsx',
-  'pages/research-workspace/ui/views/radar-view.tsx',
+  'pages/research-workspace/ui/views/market-connections-view.tsx',
   'pages/research-workspace/ui/views/stocks-view.tsx',
   'pages/research-workspace/ui/views/crypto-workspace-view.tsx',
   'pages/research-workspace/ui/views/themes-view.tsx',

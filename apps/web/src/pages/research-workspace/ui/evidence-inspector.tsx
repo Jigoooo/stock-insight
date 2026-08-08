@@ -1,19 +1,13 @@
-import { FileText } from 'lucide-react';
+import { ExternalLink, FileText } from 'lucide-react';
 
+import { DetailInspectorFrame } from './detail-inspector-frame';
 import styles from './relation-detail.module.css';
 
+import { evidenceInspectorWidthStorageKey } from '@/pages/research-workspace/model/detail-inspector-layout';
 import {
   presentResearchSummary,
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/ui/dialog';
 import { TextLink } from '@/shared/ui/link';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
@@ -78,6 +72,7 @@ function sourceBindingLabel(value: string) {
 
 export function EvidenceInspector({
   detail,
+  detailKey,
   modal,
   onClose,
   open,
@@ -85,52 +80,32 @@ export function EvidenceInspector({
   state,
 }: {
   detail: ResearchRecordDetail | null;
+  detailKey: string | null;
   modal: boolean;
   onClose: () => void;
   open: boolean;
   relation: EntityRelationGraph | null;
   state: 'error' | 'loading' | 'ready';
 }) {
+  const primarySource = detail?.sources.find((source) => source.url);
+
   return (
-    <Dialog
-      modal={modal}
+    <DetailInspectorFrame
+      bodyClassName={styles.inspectorContent}
+      closeLabel="인스펙터 닫기"
+      description="선택한 변화의 검증 근거와 출처"
+      detailKey={detailKey}
+      mobile={modal}
+      onClose={onClose}
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) onClose();
-      }}
+      resizerLabel="근거 인스펙터 너비 조절"
+      storageKey={evidenceInspectorWidthStorageKey}
+      testId="evidence-inspector"
+      title="근거 인스펙터"
+      titleIcon={<FileText aria-hidden="true" />}
     >
-      <DialogContent
-        className={styles.inspector}
-        closeLabel="인스펙터 닫기"
-        composition="detail"
-        data-testid="evidence-inspector"
-        portalled={modal}
-        presentation="inspector"
-        showOverlay={modal}
-        size="lg"
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        onFocusOutside={(event) => {
-          if (!modal) event.preventDefault();
-        }}
-        onOpenAutoFocus={(event) => {
-          if (!modal) event.preventDefault();
-        }}
-        onPointerDownOutside={(event) => {
-          if (!modal) event.preventDefault();
-        }}
-      >
-        <DialogHeader className={styles.inspectorHeader}>
-          <DialogTitle asChild>
-            <strong className={styles.inspectorTitle}>
-              <FileText aria-hidden="true" />
-              <span>근거 인스펙터</span>
-            </strong>
-          </DialogTitle>
-          <DialogDescription className={styles.inspectorDescription}>
-            선택한 변화의 검증 근거와 출처
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className={styles.inspectorContent}>
+      {() => (
+        <>
           {state === 'loading' && (
             <div className={styles.inspectorState}>
               <WorkspaceState
@@ -155,6 +130,19 @@ export function EvidenceInspector({
                 {marketLabel(detail.market)} · {categoryLabel(detail.category)}
               </span>
               <h2>{detail.title}</h2>
+              {primarySource?.url && (
+                <TextLink
+                  className={styles.primarySourceLink}
+                  href={primarySource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  motion="quiet"
+                  tone="accent"
+                >
+                  <span>원문 뉴스 보기</span>
+                  <ExternalLink aria-hidden="true" />
+                </TextLink>
+              )}
               <p className={styles.bodyText}>{presentResearchSummary(detail.body)}</p>
               <PropertyList
                 className={styles.evidenceMeta}
@@ -249,8 +237,8 @@ export function EvidenceInspector({
               )}
             </div>
           )}
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    </DetailInspectorFrame>
   );
 }

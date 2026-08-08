@@ -1,0 +1,338 @@
+.workspace {
+  --space-4: 16px;
+
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.content {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.summaryGrid > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 17px 20px;
+  border-right: 1px solid var(--color-border);
+}
+
+.summaryGrid > div:last-child {
+  border-right: 0;
+}
+
+.summaryGrid dt,
+.summaryGrid dd {
+  margin: 0;
+}
+
+.summaryGrid dt {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.summaryGrid dd {
+  color: var(--color-text-primary);
+  font-size: 21px;
+  font-weight: 690;
+  font-variant-numeric: tabular-nums;
+}
+
+.summaryGrid time {
+  font-size: 14px;
+}
+
+.priorityGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  padding: 16px;
+}
+
+.selectionSurface[data-slot='button-control'] {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: stretch;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px rgb(20 21 19 / 5%);
+  text-align: left;
+}
+
+.selectionSurface [data-slot='button-content'],
+.selectionSurface [data-slot='button-label'] {
+  width: 100%;
+  min-width: 0;
+}
+
+.selectionSurface [data-slot='button-content'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.selectionSurface [data-slot='button-label'] {
+  display: block;
+}
+
+.selectionSurface.selected[data-slot='button-control'] {
+  border-color: color-mix(in srgb, var(--color-accent) 52%, var(--color-border-strong));
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent) inset,
+    0 8px 20px rgb(20 21 19 / 10%);
+}
+
+.selectionSurface.selected .cardMeta,
+.selectionSurface.selected .cardMeta strong,
+.selectionSurface.selected .cardFooter,
+.selectionSurface.selected .supportingCopy,
+.selectionSurface.selected .entityList span,
+.selectionSurface.selected .rowMarket,
+.selectionSurface.selected .marketRow time,
+.selectionSurface.selected .rowStrength {
+  color: var(--color-text-secondary);
+}
+
+.priorityCard {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+}
+
+.cardMeta,
+.cardFooter {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.cardMeta strong,
+.rowScope {
+  color: var(--color-accent-text);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.itemTitle,
+.itemSummary,
+.supportingCopy,
+.riskCopy,
+.entityState,
+.entityList strong,
+.entityList span {
+  min-width: 0;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+.itemTitle {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.itemSummary {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.supportingCopy,
+.riskCopy,
+.entityState {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.riskCopy {
+  color: var(--color-text-secondary);
+}
+
+.entityList {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 0;
+  border-block: 1px solid var(--color-border);
+  list-style: none;
+}
+
+.entityList li {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  font-size: 12px;
+}
+
+.entityList span {
+  color: var(--color-text-tertiary);
+}
+
+.marketList {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+
+.marketRow {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(86px, auto) minmax(0, 1fr) minmax(90px, auto) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+}
+
+.rowMarket,
+.marketRow time,
+.rowStrength {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+}
+
+.rowMarket,
+.marketRow time,
+.rowStrength,
+.rowScope {
+  white-space: nowrap;
+}
+
+.personalizationState,
+.emptyState {
+  min-height: 176px;
+}
+
+.detailStatus {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.detailStatus > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.detailStatus h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.readyState {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--color-text-secondary);
+}
+
+.readyDescription {
+  line-height: 1.6;
+}
+
+@media (any-hover: hover) and (any-pointer: fine) {
+  .selectionSurface[data-slot='button-control']:hover:not([aria-current='true']) {
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-subtle);
+  }
+}
+
+@media (max-width: 1240px) {
+  .priorityGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summaryGrid > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .summaryGrid > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .marketRow {
+    min-height: 44px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .rowScope,
+  .rowMarket,
+  .marketRow time,
+  .rowStrength {
+    white-space: normal;
+  }
+
+  .rowScope,
+  .rowMarket {
+    grid-column: 1;
+  }
+
+  .rowStrength,
+  .marketRow time {
+    grid-column: 2;
+    text-align: right;
+  }
+
+  .detailStatus {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 460px) {
+  .summaryGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summaryGrid > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .summaryGrid > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectionSurface {
+    scroll-behavior: auto;
+  }
+}

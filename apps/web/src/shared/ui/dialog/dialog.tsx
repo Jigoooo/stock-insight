@@ -15,7 +15,9 @@ import { Button, type ButtonProps } from '@/shared/ui/button';
 export type DialogSize = 'sm' | 'md' | 'lg';
 export type DialogComposition = 'form' | 'detail' | 'decision';
 export type DialogActionTone = 'secondary' | 'primary' | 'danger';
-export type DialogPresentation = 'modal' | 'inspector';
+export type DialogPresentation = 'modal' | 'inspector' | 'bottom-sheet';
+export type DialogMotionPreset = 'default' | 'quick';
+export type DialogOverlayTone = 'default' | 'light';
 
 type DialogContextValue = {
   open: boolean;
@@ -27,6 +29,13 @@ export const dialogTransition = {
   type: 'spring',
   stiffness: 150,
   damping: 25,
+} as const;
+
+export const dialogQuickTransition = {
+  type: 'spring',
+  stiffness: 340,
+  damping: 34,
+  mass: 0.72,
 } as const;
 
 export const dialogExitTransition = { duration: 0.08, ease: 'easeIn' } as const;
@@ -66,6 +75,8 @@ export type DialogContentProps = Omit<
 > & {
   closeLabel?: string;
   composition?: DialogComposition;
+  motionPreset?: DialogMotionPreset;
+  overlayTone?: DialogOverlayTone;
   portalled?: boolean;
   presentation?: DialogPresentation;
   showClose?: boolean;
@@ -78,6 +89,8 @@ export function DialogContent({
   className,
   closeLabel = '닫기',
   composition = 'detail',
+  motionPreset = 'default',
+  overlayTone = 'default',
   portalled = true,
   presentation = 'modal',
   showClose = true,
@@ -87,8 +100,22 @@ export function DialogContent({
 }: DialogContentProps) {
   const { open } = useDialogContext();
   const reducedMotion = useReducedMotion();
-  const initial = reducedMotion ? false : { x: 72, opacity: 0 };
-  const exit = reducedMotion
+  const quickMotion = motionPreset === 'quick';
+  const defaultInitial = reducedMotion ? false : { x: 72, opacity: 0 };
+  const bottomSheetInitial = reducedMotion ? false : { x: 0, y: 72, opacity: 0 };
+  const quickInitial = reducedMotion
+    ? false
+    : presentation === 'modal'
+      ? { x: 0, y: 10, opacity: 0 }
+      : presentation === 'bottom-sheet'
+        ? { x: 0, y: 36, opacity: 0 }
+        : { x: 44, y: 0, opacity: 0 };
+  const initial = quickMotion
+    ? quickInitial
+    : presentation === 'bottom-sheet'
+      ? bottomSheetInitial
+      : defaultInitial;
+  const defaultExit = reducedMotion
     ? { opacity: 0, pointerEvents: 'none' as const, transition: { duration: 0 } }
     : {
         x: 24,
@@ -96,11 +123,51 @@ export function DialogContent({
         pointerEvents: 'none' as const,
         transition: dialogExitTransition,
       };
+  const bottomSheetExit = reducedMotion
+    ? defaultExit
+    : {
+        x: 0,
+        y: 36,
+        opacity: 0,
+        pointerEvents: 'none' as const,
+        transition: dialogExitTransition,
+      };
+  const quickExit = reducedMotion
+    ? defaultExit
+    : presentation === 'modal'
+      ? {
+          x: 0,
+          y: 6,
+          opacity: 0,
+          pointerEvents: 'none' as const,
+          transition: dialogExitTransition,
+        }
+      : presentation === 'bottom-sheet'
+        ? {
+            x: 0,
+            y: 24,
+            opacity: 0,
+            pointerEvents: 'none' as const,
+            transition: dialogExitTransition,
+          }
+        : {
+            x: 16,
+            y: 0,
+            opacity: 0,
+            pointerEvents: 'none' as const,
+            transition: dialogExitTransition,
+          };
+  const exit = quickMotion
+    ? quickExit
+    : presentation === 'bottom-sheet'
+      ? bottomSheetExit
+      : defaultExit;
+  const transition = quickMotion ? dialogQuickTransition : dialogTransition;
 
   const content = (
     <DialogPrimitive.Content asChild forceMount {...props}>
       <motion.div
-        animate={{ x: 0, opacity: 1 }}
+        animate={{ x: 0, y: 0, opacity: 1 }}
         className={cn(styles.content, className)}
         data-composition={composition}
         data-motion-owner="motion"
@@ -110,7 +177,7 @@ export function DialogContent({
         data-slot="dialog-content"
         exit={exit}
         initial={initial}
-        transition={dialogTransition}
+        transition={transition}
       >
         {children}
         {showClose ? (
@@ -134,6 +201,7 @@ export function DialogContent({
                   animate={{ opacity: 1 }}
                   className={styles.overlay}
                   data-motion-owner="motion"
+                  data-overlay-tone={overlayTone}
                   data-slot="dialog-overlay"
                   exit={{ opacity: 0, pointerEvents: 'none' }}
                   initial={reducedMotion ? false : { opacity: 0 }}

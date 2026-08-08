@@ -76,11 +76,11 @@ describe('location navigation shared UI adoption', () => {
   });
 
   it('uses shared cursor pagination without changing product cursor contracts', async () => {
-    const views = await Promise.all(
-      ['today-view.tsx', 'radar-view.tsx', 'history-view.tsx'].map((file) =>
-        read(`pages/research-workspace/ui/views/${file}`),
-      ),
-    );
+    const views = await Promise.all([
+      read('pages/research-workspace/ui/views/today-view.tsx'),
+      read('pages/research-workspace/ui/market-connection-sections.tsx'),
+      read('pages/research-workspace/ui/views/history-view.tsx'),
+    ]);
 
     for (const source of views) {
       assert.match(source, /from '@\/shared\/ui\/pagination'/);
@@ -94,10 +94,7 @@ describe('location navigation shared UI adoption', () => {
     assert.match(today, /disabled=\{!interactive \|\| cursorLoading \|\| !nextCursor\}/);
     assert.match(today, /onClick=\{onLoadMore\}/);
     assert.match(radar, /data-testid="radar-load-more"/);
-    assert.match(
-      radar,
-      /disabled=\{!interactive \|\| pageState === 'loading' \|\| !data\.nextCursor\}/,
-    );
+    assert.match(radar, /disabled=\{!interactive \|\| pageState === 'loading' \|\| !hasNextPage\}/);
     assert.match(radar, /onClick=\{onLoadMore\}/);
     assert.match(history, /data-testid="history-load-more"/);
     assert.match(

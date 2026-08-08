@@ -6,6 +6,10 @@ const inspectorUrl = new URL(
   '../src/pages/research-workspace/ui/evidence-inspector.tsx',
   import.meta.url,
 );
+const inspectorFrameUrl = new URL(
+  '../src/pages/research-workspace/ui/detail-inspector-frame.tsx',
+  import.meta.url,
+);
 const pageUrl = new URL(
   '../src/pages/research-workspace/ui/research-workspace-page.tsx',
   import.meta.url,
@@ -23,15 +27,30 @@ const shellCssUrl = new URL(
 
 describe('workspace overlay integration', () => {
   it('delegates inspector presence, focus, escape, and modal truth to shared Dialog', async () => {
-    const inspector = await readFile(inspectorUrl, 'utf8');
+    const [inspector, inspectorFrame, shellCss] = await Promise.all([
+      readFile(inspectorUrl, 'utf8'),
+      readFile(inspectorFrameUrl, 'utf8'),
+      readFile(shellCssUrl, 'utf8'),
+    ]);
 
     assert.match(inspector, /open:\s*boolean/);
-    assert.match(inspector, /<Dialog[\s\S]*?modal=\{modal\}/);
-    assert.match(inspector, /<DialogContent/);
-    assert.match(inspector, /portalled=\{modal\}/);
-    assert.match(inspector, /presentation="inspector"/);
-    assert.match(inspector, /showOverlay=\{modal\}/);
-    assert.doesNotMatch(inspector, /useFocusTrap|useWorkspaceOverlayMotion|<dialog\b/);
+    assert.match(inspector, /<DetailInspectorFrame/);
+    assert.match(inspectorFrame, /<Dialog\s+modal\s/);
+    assert.match(inspectorFrame, /<DialogContent/);
+    assert.match(inspectorFrame, /data-inspector-presentation/);
+    assert.match(inspectorFrame, /\bportalled\b/);
+    assert.match(
+      inspectorFrame,
+      /mobile\s*\?\s*'bottom-sheet'\s*:\s*desktopPresentation === 'modal'[\s\S]*?\?\s*'modal'[\s\S]*?:\s*'inspector'/,
+    );
+    assert.match(inspectorFrame, /\bshowOverlay\s/);
+    assert.match(inspectorFrame, /motionPreset="quick"/);
+    assert.match(inspectorFrame, /overlayTone="light"/);
+    assert.doesNotMatch(inspectorFrame, /onPointerDownOutside=/);
+    assert.match(inspectorFrame, /<Button[\s\S]*?넓게 보기[\s\S]*?옆에서 보기/);
+    assert.doesNotMatch(inspectorFrame, /<IconButton/);
+    assert.doesNotMatch(shellCss, /shell:has\(> \[data-testid='evidence-inspector'\]\)/);
+    assert.doesNotMatch(inspectorFrame, /useFocusTrap|useWorkspaceOverlayMotion|<dialog\b/);
   });
 
   it('uses the shared Sheet for mobile navigation and removes ad-hoc GSAP ownership', async () => {

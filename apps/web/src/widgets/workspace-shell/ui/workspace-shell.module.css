@@ -18,10 +18,6 @@
   word-break: keep-all;
 }
 
-.shell:has(> [data-testid='evidence-inspector']) {
-  grid-template-columns: auto minmax(0, 1fr) 400px;
-}
-
 .shell *,
 .shell *::before,
 .shell *::after {
@@ -333,8 +329,7 @@
 }
 
 @media (max-width: 767px) {
-  .shell,
-  .shell:has(> [data-testid='evidence-inspector']) {
+  .shell {
     display: block;
   }
 
