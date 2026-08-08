@@ -3,8 +3,10 @@ import pg, { type PoolClient } from 'pg';
 import {
   buildEconomicClaims,
   findClaimViolations,
+  planClaimWrites,
   type EconomicClaimRow,
   type SecurityReading,
+  type StoredClaim,
 } from './economic-claim.ts';
 
 /**
@@ -64,9 +66,33 @@ SELECT sm.security_master_id,
 `;
 
 const EXISTING_SQL = `
-SELECT security_master_id, claim_type_state
+SELECT economic_claim_id, security_master_id, claim_type, claim_type_state
   FROM core.economic_claim
  WHERE valid_to IS NULL
+`;
+
+/**
+ * Fills in a determination on a claim we already opened as undetermined.
+ *
+ * In place rather than as a new interval: the claim did not change, our knowledge
+ * of it did. XLE was a fund unit before we held a snapshot proving it, and
+ * closing the old row to open one starting today would state that it became one
+ * today. known_at moves because that part *is* about us, and the previous state
+ * goes into metadata so the fill stays auditable.
+ */
+const FILL_SQL = `
+UPDATE core.economic_claim
+   SET claim_type = $2,
+       claim_type_state = $3,
+       determination_basis = $4,
+       known_at = $5,
+       metadata = metadata || jsonb_build_object(
+         'filledFrom', $6::text,
+         'filledAt', $5::text,
+         'filledBy', $7::text
+       )
+ WHERE economic_claim_id = $1
+   AND valid_to IS NULL
 `;
 
 const INSERT_COLUMNS = `
@@ -147,7 +173,12 @@ async function run(): Promise<void> {
         listed_from: Date | null;
         has_holdings_snapshot: boolean;
       }>(SECURITIES_SQL),
-      client.query<{ security_master_id: string; claim_type_state: string }>(EXISTING_SQL),
+      client.query<{
+        economic_claim_id: string;
+        security_master_id: string;
+        claim_type: string | null;
+        claim_type_state: string;
+      }>(EXISTING_SQL),
     ]);
 
     const readings: SecurityReading[] = securities.rows.map((row) => ({
@@ -161,9 +192,18 @@ async function run(): Promise<void> {
     }));
 
     const built = buildEconomicClaims(readings, knownAt);
-    const alreadyOpen = new Set(existing.rows.map((row) => Number(row.security_master_id)));
-    const toWrite = built.rows.filter((row) => !alreadyOpen.has(row.securityMasterId));
-    const violations = findClaimViolations(toWrite);
+    const stored: StoredClaim[] = existing.rows.map((row) => ({
+      economicClaimId: Number(row.economic_claim_id),
+      securityMasterId: Number(row.security_master_id),
+      claimType: row.claim_type,
+      claimTypeState: row.claim_type_state as StoredClaim['claimTypeState'],
+    }));
+    const plan = planClaimWrites(built.rows, stored);
+    const toWrite = plan.inserts;
+    const violations = findClaimViolations([
+      ...plan.inserts,
+      ...plan.fills.map((fill) => fill.row),
+    ]);
 
     const summary = {
       job: JOB_NAME,
@@ -171,8 +211,16 @@ async function run(): Promise<void> {
       securities: readings.length,
       determined: built.determined,
       undetermined: built.undetermined,
-      alreadyOpen: alreadyOpen.size,
+      alreadyOpen: stored.length,
       toWrite: toWrite.length,
+      // A determination arriving for a claim we opened as undetermined. Without
+      // this the first load would be the only load and every unknown permanent.
+      fills: plan.fills.length,
+      unchanged: plan.unchanged,
+      // A stated claim contradicted. The current rules cannot produce one, so if
+      // it appears the cause is upstream and rewriting silently would be worse
+      // than stopping.
+      conflicts: plan.conflicts,
       determinedTickers: built.rows
         .filter((row) => row.claimTypeState === 'determined')
         .map(
@@ -190,13 +238,35 @@ async function run(): Promise<void> {
     if (violations.length > 0) {
       throw new Error(`refusing to write: ${JSON.stringify(violations)}`);
     }
+    if (plan.conflicts.length > 0) {
+      throw new Error(
+        `refusing to overwrite a stated claim: ${JSON.stringify(plan.conflicts.slice(0, 5))}`,
+      );
+    }
 
     await client.query('BEGIN');
     try {
       const written = await write(client, toWrite);
+      let filled = 0;
+      for (const fill of plan.fills) {
+        const result = await client.query(FILL_SQL, [
+          fill.economicClaimId,
+          fill.row.claimType,
+          fill.row.claimTypeState,
+          fill.row.determinationBasis,
+          fill.row.knownAt,
+          fill.previousState,
+          JOB_NAME,
+        ]);
+        filled += result.rowCount ?? 0;
+      }
       await client.query(rehearse ? 'ROLLBACK' : 'COMMIT');
       console.log(
-        JSON.stringify({ ...summary, [rehearse ? 'rolledBack' : 'written']: written }, null, 2),
+        JSON.stringify(
+          { ...summary, [rehearse ? 'rolledBack' : 'written']: written, filled },
+          null,
+          2,
+        ),
       );
     } catch (error) {
       await client.query('ROLLBACK');

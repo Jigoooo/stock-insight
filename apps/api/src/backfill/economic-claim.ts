@@ -128,3 +128,90 @@ export function findClaimViolations(
 
   return [...found.entries()].map(([rule, entry]) => ({ rule, ...entry }));
 }
+
+export type StoredClaim = {
+  economicClaimId: number;
+  securityMasterId: number;
+  claimType: string | null;
+  claimTypeState: 'determined' | 'undetermined';
+};
+
+/**
+ * What to do about a security that already has an open claim.
+ *
+ * The first version of this writer skipped every security that had one, which
+ * made the 295 undetermined rows permanent: `etf:` holdings documents number 231
+ * and grow, so the day a snapshot arrives for a security we could not classify,
+ * the FUND_UNIT the builder correctly derives would be discarded on the way to
+ * the database.
+ *
+ * The transitions are not symmetric and must not be treated as one thing:
+ *
+ *   undetermined → determined   Filling in what we did not know. The claim itself
+ *                               did not change — XLE was a fund unit before we
+ *                               held a snapshot proving it — so valid_from stays
+ *                               where it is and the row is updated in place.
+ *                               Closing it and opening a new interval would state
+ *                               that the security *became* a fund unit today,
+ *                               which is false.
+ *
+ *   determined → different      A stated claim being contradicted. Nothing in the
+ *                               current rules can produce this: there is one
+ *                               determination rule and it only ever adds. If it
+ *                               happens anyway the cause is upstream, and
+ *                               silently rewriting a stated claim is the worst
+ *                               available response — so it is reported and
+ *                               refused.
+ *
+ *   unchanged                   Left alone.
+ */
+export function planClaimWrites(
+  built: readonly EconomicClaimRow[],
+  stored: readonly StoredClaim[],
+): {
+  inserts: EconomicClaimRow[];
+  fills: { economicClaimId: number; row: EconomicClaimRow; previousState: string }[];
+  conflicts: {
+    economicClaimId: number;
+    storedClaimType: string | null;
+    builtClaimType: string | null;
+  }[];
+  unchanged: number;
+} {
+  const openBySecurity = new Map(stored.map((claim) => [claim.securityMasterId, claim]));
+  const inserts: EconomicClaimRow[] = [];
+  const fills: { economicClaimId: number; row: EconomicClaimRow; previousState: string }[] = [];
+  const conflicts: {
+    economicClaimId: number;
+    storedClaimType: string | null;
+    builtClaimType: string | null;
+  }[] = [];
+  let unchanged = 0;
+
+  for (const row of built) {
+    const open = openBySecurity.get(row.securityMasterId);
+    if (!open) {
+      inserts.push(row);
+      continue;
+    }
+    if (open.claimType === row.claimType && open.claimTypeState === row.claimTypeState) {
+      unchanged += 1;
+      continue;
+    }
+    if (open.claimTypeState === 'undetermined' && row.claimTypeState === 'determined') {
+      fills.push({
+        economicClaimId: open.economicClaimId,
+        row,
+        previousState: open.claimTypeState,
+      });
+      continue;
+    }
+    conflicts.push({
+      economicClaimId: open.economicClaimId,
+      storedClaimType: open.claimType,
+      builtClaimType: row.claimType,
+    });
+  }
+
+  return { inserts, fills, conflicts, unchanged };
+}
