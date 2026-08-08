@@ -7,7 +7,7 @@ const activeTitle = '서비스 매출 구성 변화 확인';
 const observationTitle = '환율 변동 자동 관찰';
 const pastTitle = '이전 수요 판단 복기';
 const forbiddenCopy =
-  /지금 사세요|매도하세요|목표가|손절가|익절가|내일 오를 종목|성공(?:한|입니다|판단)|실패(?:한|입니다|판단)|수익 성공|손실 실패/;
+  /지금 사세요|매도하세요|목표가|손절가|익절가|내일 오를 종목|수익률|성공(?:한|입니다|판단)|실패(?:한|입니다|판단)|수익 성공|손실 실패/;
 
 async function gotoPreview(page: Page, scenario = 'default') {
   await page.goto(`/__dev-preview?surface=history&scenario=${scenario}`);
@@ -17,6 +17,10 @@ async function gotoPreview(page: Page, scenario = 'default') {
 
 function opener(page: Page, title: string) {
   return page.getByTestId('history-select-surface').filter({ hasText: title });
+}
+
+async function expectBodyToExcludeForbiddenCopy(page: Page) {
+  await expect(page.locator('body')).not.toContainText(forbiddenCopy);
 }
 
 async function openHistory(page: Page, title = priorityTitle, target = opener(page, title)) {
@@ -55,6 +59,7 @@ async function waitForStableGeometry(locator: Locator) {
 
 test.beforeEach(async ({ page }) => {
   await gotoPreview(page);
+  await expectBodyToExcludeForbiddenCopy(page);
 });
 
 test('keeps the approved sections in fixed order without advice or performance verdicts', async ({
@@ -79,7 +84,7 @@ test('keeps the approved sections in fixed order without advice or performance v
     'history-past-title',
   ]);
   await expect(page.getByTestId('history-priority-item')).toHaveCount(3);
-  expect(await page.getByTestId('workspace-content').innerText()).not.toMatch(forbiddenCopy);
+  await expectBodyToExcludeForbiddenCopy(page);
 });
 
 test('shares exact selection across judgment observation and past entry points', async ({
@@ -90,7 +95,9 @@ test('shares exact selection across judgment observation and past entry points',
     const { inspector } = await openHistory(page, title, target);
     await expect(target).toHaveAttribute('aria-current', 'true');
     await expect(inspector.getByText(title, { exact: true })).toBeVisible();
+    if (title === observationTitle) await expectBodyToExcludeForbiddenCopy(page);
     await page.keyboard.press('Escape');
+    await expect(inspector).toHaveCount(0);
     await expect(target).toBeFocused();
   }
 
@@ -172,6 +179,7 @@ test('switches the same loaded detail to a wide modal without another request', 
     if (['fetch', 'xhr'].includes(request.resourceType())) requests.push(request.url());
   });
   const { inspector } = await openHistory(page);
+  await expectBodyToExcludeForbiddenCopy(page);
   const before = requests.length;
   await inspector.getByRole('button', { name: '넓게 보기' }).click();
   await expect(inspector).toHaveAttribute('data-inspector-presentation', 'modal');
@@ -182,6 +190,7 @@ test('switches the same loaded detail to a wide modal without another request', 
   expect(1440 - ((box?.x ?? 0) + (box?.width ?? 1440))).toBeGreaterThanOrEqual(25.5);
   await expect(inspector.getByRole('heading', { name: '당시 판단' })).toBeVisible();
   await expect(inspector.getByRole('heading', { name: '지금 달라진 점' })).toBeVisible();
+  await expectBodyToExcludeForbiddenCopy(page);
 });
 
 test('clamps and remembers History width under an independent session key', async ({
@@ -279,42 +288,50 @@ test('keeps 420px drawer and wide modal copy wrapped with HTTPS-only links', asy
 
 test('covers observation-only no-due and empty scenarios honestly', async ({ page }) => {
   await gotoPreview(page, 'no-user-judgments');
+  await expectBodyToExcludeForbiddenCopy(page);
   await expect(page.getByText('오늘 예정된 복기가 없습니다', { exact: true })).toBeVisible();
   await expect(page.getByText('진행 중인 판단이 없습니다', { exact: true })).toBeVisible();
   await expect(opener(page, observationTitle)).toBeVisible();
   await expect(page.getByText('최근 기록을 대신 올리지 않고', { exact: false })).toBeVisible();
 
   await gotoPreview(page, 'no-due');
+  await expectBodyToExcludeForbiddenCopy(page);
   await expect(page.getByText('오늘 예정된 복기가 없습니다', { exact: true })).toBeVisible();
   await expect(page.getByTestId('history-active-item')).toHaveCount(4);
   await expect(page.getByTestId('history-priority-item')).toHaveCount(0);
 
   await gotoPreview(page, 'empty');
+  await expectBodyToExcludeForbiddenCopy(page);
   await expect(page.getByText('아직 복기 기록이 없습니다', { exact: true })).toBeVisible();
   await expect(page.getByTestId('history-select-surface')).toHaveCount(0);
 });
 
 test('keeps localized partial failures beside the selected base detail', async ({ page }) => {
   await gotoPreview(page, 'partial');
+  await expectBodyToExcludeForbiddenCopy(page);
   const { inspector } = await openHistory(page);
   await expect(inspector.getByText(priorityTitle, { exact: true })).toBeVisible();
   await expect(inspector.getByText('현재 변화 요약을 불러오지 못했습니다.')).toBeVisible();
   await expect(inspector.getByText('연결 근거를 불러오지 못했습니다.')).toBeVisible();
   await expect(inspector.getByRole('heading', { name: '당시 판단' })).toBeVisible();
+  await expectBodyToExcludeForbiddenCopy(page);
 });
 
 test('preserves detail-error selection and retries the same item successfully', async ({
   page,
 }) => {
   await gotoPreview(page, 'detail-error');
+  await expectBodyToExcludeForbiddenCopy(page);
   const target = opener(page, priorityTitle);
   await target.click();
   const inspector = page.getByTestId('history-briefing-inspector');
   await expect(inspector.getByText('복기 상세를 불러오지 못했습니다')).toBeVisible();
   await expect(target).toHaveAttribute('aria-current', 'true');
+  await expectBodyToExcludeForbiddenCopy(page);
   await inspector.getByRole('button', { name: '다시 불러오기' }).click();
   await expect(inspector.getByText(priorityTitle, { exact: true })).toBeVisible();
   await expect(inspector.getByRole('heading', { name: '당시 판단' })).toBeVisible();
+  await expectBodyToExcludeForbiddenCopy(page);
 });
 
 test('supports dark reduced-motion Axe and the 390px bottom-sheet geometry', async ({
