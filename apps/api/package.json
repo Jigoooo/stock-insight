@@ -35,6 +35,7 @@
     "backfill:sec-numeric-fact:rehearse": "node src/backfill/run-sec-numeric-fact.ts --rehearse",
     "backfill:sec-numeric-fact:apply": "node src/backfill/run-sec-numeric-fact.ts --apply",
     "rehearse:dart-numeric-fact:db": "node scripts/run-dart-numeric-fact-rehearsal.mjs",
+    "rehearse:sec-numeric-fact:db": "node scripts/run-sec-numeric-fact-rehearsal.mjs",
     "backfill:corporate-action-bridge:dry-run": "node src/backfill/run-security-corporate-action.ts",
     "backfill:corporate-action-bridge:rehearse": "node src/backfill/run-security-corporate-action.ts --rehearse",
     "backfill:corporate-action-bridge:apply": "node src/backfill/run-security-corporate-action.ts --apply",
