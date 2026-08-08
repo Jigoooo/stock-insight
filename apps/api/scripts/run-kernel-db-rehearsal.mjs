@@ -28,6 +28,7 @@ import { safetyStateMigrationSql } from '../../../packages/db-schema/src/migrati
 import { sloLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from '../../../packages/db-schema/src/migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from '../../../packages/db-schema/src/migrations/086_economic_claim.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -204,6 +205,13 @@ try {
     );
     INSERT INTO knowledge.relation_evidence_ledger (evidence_kind)
       VALUES ('source_revision'), ('model_config'), ('identity_mapping');
+    -- 086 hangs its claims off the security master.
+    CREATE TABLE core.security_master (
+      security_master_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      security_key TEXT NOT NULL
+    );
+    INSERT INTO core.security_master (security_key) VALUES ('rehearsal-security');
+
     INSERT INTO serving.content_pack_item
       (content_pack_id, item_no, item_kind, relation_evidence_ledger_id)
     VALUES (1, 1, 'relation', NULL),
@@ -224,6 +232,7 @@ try {
     sloLedgerMigrationSql,
     metricDefinitionRegistryMigrationSql,
     truthClassBindingMigrationSql,
+    economicClaimMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
@@ -233,6 +242,56 @@ try {
     `INSERT INTO governance.semantic_snapshot (semantic_snapshot_id, created_by)
      VALUES ('snap-1', 'rehearsal') ON CONFLICT DO NOTHING`,
   );
+
+  // ── 086 economic claim ──────────────────────────────────────────────────────
+  const claimInsert = async (columns, values) => {
+    try {
+      await target.query(`INSERT INTO core.economic_claim (${columns}) VALUES (${values})`);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const CLAIM_BASE =
+    "1, 'rehearsal basis', TIMESTAMPTZ '2020-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'";
+  const economicClaim = {
+    // The default is the whole point: a row that says nothing must not say
+    // 'common equity in the issuer'.
+    defaultsToUndetermined:
+      (await claimInsert(
+        'security_master_id, determination_basis, valid_from, known_at, determined_by',
+        CLAIM_BASE,
+      )) &&
+      (await target.query(`SELECT claim_type, claim_type_state FROM core.economic_claim LIMIT 1`))
+        .rows[0].claim_type === null,
+    determinedWithoutTypeRejected: !(await claimInsert(
+      'security_master_id, claim_type_state, determination_basis, valid_from, known_at, determined_by',
+      "1, 'determined', 'b', TIMESTAMPTZ '2021-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    // "We do not know what this is" and "this is how it votes" cannot share a row.
+    undeterminedStatingRightsRejected: !(await claimInsert(
+      'security_master_id, voting_rights, determination_basis, valid_from, known_at, determined_by',
+      "1, '{\"votes\":1}'::jsonb, 'b', TIMESTAMPTZ '2022-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    determinedMayStateRights: await claimInsert(
+      'security_master_id, claim_type, claim_type_state, voting_rights, determination_basis, valid_from, known_at, determined_by',
+      "1, 'FUND_UNIT', 'determined', '{\"votes\":0}'::jsonb, 'b', TIMESTAMPTZ '2023-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    ),
+    unknownClaimTypeRejected: !(await claimInsert(
+      'security_master_id, claim_type, claim_type_state, determination_basis, valid_from, known_at, determined_by',
+      "1, 'MYSTERY', 'determined', 'b', TIMESTAMPTZ '2024-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    intervalMustBeOrdered: !(await claimInsert(
+      'security_master_id, determination_basis, valid_from, valid_to, known_at, determined_by',
+      "1, 'b', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2024-01-01Z', TIMESTAMPTZ '2026-01-01Z', 'rehearsal'",
+    )),
+    coverageViewReports:
+      (
+        await target.query(
+          'SELECT determined, undetermined, securities FROM core.economic_claim_coverage_v1',
+        )
+      ).rows[0].securities === '1',
+  };
 
   // ── 085 truth class binding ─────────────────────────────────────────────────
   const resolved = Object.fromEntries(
@@ -730,6 +789,7 @@ try {
     slo,
     metric,
     truthClass,
+    economicClaim,
     digestSafety: {
       relationsChecked: reach.rows.length,
       appRoleReachableRelations: observedAppRoleReach,
@@ -750,6 +810,7 @@ try {
     slo,
     metric,
     truthClass,
+    economicClaim,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
