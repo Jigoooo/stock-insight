@@ -464,6 +464,32 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | 8 | `5a13f0f` | K1 완료 로그 |
 | 9 | `0ad6649` | 마이그레이션 081~083 + reachability 뷰 스캔 |
 
+### K2 · K3 (2026-08-08)
+
+| 10 | `fea0ac4` | K2 착수 전 실측 조사 — **이 커밋의 assertion 차단 결론은 나중에 틀린 것으로 판명됨** |
+| 11 | `2219848` | feat(backfill): DART 재무제표 → world.numeric_fact 순수 매핑 (K2-b 1/2) |
+| 12 | `d8a5bfe` | feat(backfill): DART 팩트 계획 — restatement 키와 comparability group 결정 (K2-b 2/3) |
+| 13 | `20dea52` | docs: market.financial_fact 와의 관계를 K2 조사에 기록 — 중복이 아니라 접기 전후 |
+| 14 | `e1238ac` | feat(kernel): DART 신고를 world.numeric_fact 로 적재하는 러너 (K2-b) |
+| 15 | `d4792fc` | docs: K2-b 실행 로그 — dry-run 이 잡아낸 결함 셋과 084 선행 조건 |
+| 16 | `0f64017` | docs: K2-b 착지 절차 — 다이제스트 재핀을 절차에 박는다 |
+| 17 | `b0e5d10` | feat(kernel): 적재 경로 실증 — 제약 검사·배치 적재·리허설 (K2-b) |
+| 18 | `d4deb3f` | docs: 적재 경로 실증 결과를 로그에 기록 |
+| 19 | `a167eb3` | feat(kernel): 청구권 연속성 bridge — core.security_corporate_action (K2-d) |
+| 20 | `2dddf4e` | feat(kernel): truth class 메타데이터 — 마이그레이션 085 (K2-e) |
+| 21 | `7e77c9e` | feat(kernel): core.economic_claim — 마이그레이션 086 과 writer (K2-c) |
+| 22 | `bb220e1` | test(kernel): 086 을 커널 리허설에 추가 |
+| 23 | `424d2c6` | fix(api-server): 마이그레이션 085 를 위한 부팅 다이제스트 재핀 |
+| 24 | `951aaf6` | docs: K2 라이브 착지 기록 — 재핀 증명, 소요 시간, 남은 것 |
+| 25 | `30bc2d4` | fix(kernel): economic_claim 이 판정을 나중에 받아들이게 한다 |
+| 26 | `ac1f0e5` | fix(api-server): 재핀에 맞춰 다이제스트 픽스처 갱신 |
+| 27 | `cafb914` | docs: 착지 후 고친 결함 둘과 릴리즈 게이트 결과 |
+| 28 | `87d024a` | feat(kernel): news assertion — 계보 다리를 찾아 K2-f 를 연다 (K2-f) |
+| 29 | `1f3887f` | docs: K2-f 는 차단이 아니었다 — 기록 정정 |
+| 30 | `6687b04` | feat(kernel): 섹터 playbook 과 반도체 v1 — 마이그레이션 087 (K3) |
+| 31 | `e69cb02` | docs: K3 착지 기록 — 배정이 별도 표여야 했던 실측 근거 |
+| 32 | `af93f8e` | docs: 실행 로그를 이어받을 수 있는 형태로 정리 |
+
 ---
 
 ## 환경 메모 (이어받을 때 필요)
