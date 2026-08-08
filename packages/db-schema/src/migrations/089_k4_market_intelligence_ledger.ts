@@ -270,6 +270,75 @@ CREATE TRIGGER impact_outcome_revision_append_only
   BEFORE UPDATE OR DELETE ON analytics.impact_outcome_revision
   FOR EACH ROW EXECUTE FUNCTION analytics.reject_k4_ledger_mutation();
 
+-- Every versioned K4 ledger uses the same exact logical-key/revision invariant.
+-- Table-specific trigger arguments keep the validator generic without dynamic
+-- application code or duplicated PL/pgSQL branches.
+CREATE OR REPLACE FUNCTION analytics.validate_k4_exact_revision_chain()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $revision_guard$
+DECLARE
+  row_data JSONB := to_jsonb(NEW);
+  new_key TEXT;
+  prior_key TEXT;
+  prior_revision INTEGER;
+  supersedes_id BIGINT;
+BEGIN
+  IF NEW.revision_no > 1 THEN
+    new_key := row_data ->> TG_ARGV[0];
+    supersedes_id := (row_data ->> TG_ARGV[1])::BIGINT;
+    EXECUTE format(
+      'SELECT %I::text, revision_no FROM %I.%I WHERE %I = $1',
+      TG_ARGV[0], TG_TABLE_SCHEMA, TG_TABLE_NAME, TG_ARGV[2]
+    ) INTO prior_key, prior_revision USING supersedes_id;
+    IF prior_key IS DISTINCT FROM new_key
+       OR prior_revision IS DISTINCT FROM NEW.revision_no - 1 THEN
+      RAISE EXCEPTION '% supersession must cite the preceding revision of the same key',
+        TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME;
+    END IF;
+  END IF;
+  RETURN NEW;
+END
+$revision_guard$;
+
+DROP TRIGGER IF EXISTS expectation_revision_exact_revision_chain
+  ON analytics.expectation_revision;
+CREATE TRIGGER expectation_revision_exact_revision_chain
+  BEFORE INSERT ON analytics.expectation_revision
+  FOR EACH ROW EXECUTE FUNCTION analytics.validate_k4_exact_revision_chain(
+    'expectation_key', 'supersedes_expectation_revision_id', 'expectation_revision_id'
+  );
+DROP TRIGGER IF EXISTS surprise_revision_exact_revision_chain
+  ON analytics.surprise_revision;
+CREATE TRIGGER surprise_revision_exact_revision_chain
+  BEFORE INSERT ON analytics.surprise_revision
+  FOR EACH ROW EXECUTE FUNCTION analytics.validate_k4_exact_revision_chain(
+    'surprise_key', 'supersedes_surprise_revision_id', 'surprise_revision_id'
+  );
+DROP TRIGGER IF EXISTS valuation_estimate_revision_exact_revision_chain
+  ON analytics.valuation_estimate_revision;
+CREATE TRIGGER valuation_estimate_revision_exact_revision_chain
+  BEFORE INSERT ON analytics.valuation_estimate_revision
+  FOR EACH ROW EXECUTE FUNCTION analytics.validate_k4_exact_revision_chain(
+    'valuation_estimate_key', 'supersedes_valuation_estimate_revision_id',
+    'valuation_estimate_revision_id'
+  );
+DROP TRIGGER IF EXISTS impact_evaluation_revision_exact_revision_chain
+  ON analytics.impact_evaluation_revision;
+CREATE TRIGGER impact_evaluation_revision_exact_revision_chain
+  BEFORE INSERT ON analytics.impact_evaluation_revision
+  FOR EACH ROW EXECUTE FUNCTION analytics.validate_k4_exact_revision_chain(
+    'evaluation_key', 'supersedes_impact_evaluation_revision_id',
+    'impact_evaluation_revision_id'
+  );
+DROP TRIGGER IF EXISTS impact_outcome_revision_exact_revision_chain
+  ON analytics.impact_outcome_revision;
+CREATE TRIGGER impact_outcome_revision_exact_revision_chain
+  BEFORE INSERT ON analytics.impact_outcome_revision
+  FOR EACH ROW EXECUTE FUNCTION analytics.validate_k4_exact_revision_chain(
+    'outcome_key', 'supersedes_impact_outcome_revision_id', 'impact_outcome_revision_id'
+  );
+
 -- Accepted evidence may use only the current exact PIT A/B/C grade for the
 -- source revision behind the cited numeric fact. D/E remains available on a
 -- rejected evaluation as a diagnostic receipt, but can never support acceptance.
@@ -279,14 +348,23 @@ LANGUAGE plpgsql
 AS $evidence_guard$
 DECLARE
   disposition TEXT;
+  exposure_state TEXT;
   fact_source_revision_id BIGINT;
   quality_source_id BIGINT;
   revision_source_id BIGINT;
   quality_class TEXT;
 BEGIN
-  SELECT evaluation_disposition INTO disposition
-    FROM analytics.impact_evaluation_revision
-   WHERE impact_evaluation_revision_id = NEW.impact_evaluation_revision_id;
+  SELECT evaluation.evaluation_disposition, exposure.exposure_state
+    INTO disposition, exposure_state
+    FROM analytics.impact_evaluation_revision evaluation
+    LEFT JOIN analytics.impact_exposure_revision exposure
+      ON exposure.impact_exposure_revision_id = evaluation.impact_exposure_revision_id
+   WHERE evaluation.impact_evaluation_revision_id = NEW.impact_evaluation_revision_id;
+
+  IF disposition = 'accepted' AND exposure_state = 'sealed' THEN
+    RAISE EXCEPTION 'cannot append evidence after the accepted exposure is sealed';
+  END IF;
+
   SELECT source_revision_id INTO fact_source_revision_id
     FROM world.numeric_fact WHERE numeric_fact_id = NEW.numeric_fact_id;
   SELECT quality.source_id, quality.pit_quality_class
@@ -376,6 +454,210 @@ CREATE CONSTRAINT TRIGGER impact_evaluation_acceptance_guard
   AFTER INSERT ON analytics.impact_evaluation_revision
   DEFERRABLE INITIALLY DEFERRED
   FOR EACH ROW EXECUTE FUNCTION analytics.validate_accepted_evaluation_sealed();
+-- The single K4 economic-evidence validation boundary. Exposure lifecycle code
+-- delegates here; this function owns canonical governance resolution, executable
+-- measurement semantics, derivation lineage, and PIT evidence admission.
+CREATE OR REPLACE FUNCTION analytics.validate_k4_evaluation_basis(
+  p_evaluation_id BIGINT,
+  p_exposure_id BIGINT,
+  p_exposure_unit TEXT
+) RETURNS VOID
+LANGUAGE plpgsql
+AS $basis_guard$
+DECLARE
+  evaluation analytics.impact_evaluation_revision%ROWTYPE;
+  information_set governance.analysis_information_set%ROWTYPE;
+  rule governance.business_driver_measurement_rule%ROWTYPE;
+  current_fact world.numeric_fact%ROWTYPE;
+  comparison_fact world.numeric_fact%ROWTYPE;
+  v_evidence_count INTEGER;
+  v_current_count INTEGER;
+  v_comparison_count INTEGER;
+BEGIN
+  SELECT candidate.* INTO evaluation
+    FROM analytics.impact_evaluation_revision candidate
+    JOIN analytics.impact_exposure_revision exposure
+      ON exposure.impact_exposure_revision_id = p_exposure_id
+     AND exposure.entity_id = candidate.security_entity_id
+   WHERE candidate.impact_evaluation_revision_id = p_evaluation_id
+     AND candidate.impact_exposure_revision_id = p_exposure_id
+     AND candidate.evaluation_disposition = 'accepted';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'accepted evaluation does not resolve to the exposure security';
+  END IF;
+
+  SELECT * INTO information_set
+    FROM governance.analysis_information_set
+   WHERE information_set_id = evaluation.information_set_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'accepted evaluation has no analysis information set';
+  END IF;
+  SELECT * INTO rule
+    FROM governance.business_driver_measurement_rule
+   WHERE business_driver_measurement_rule_id =
+         evaluation.business_driver_measurement_rule_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'accepted evaluation has no executable measurement rule';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM governance.sector_playbook playbook
+      JOIN governance.playbook_assignment assignment
+        ON assignment.sector_playbook_id = evaluation.sector_playbook_id
+       AND assignment.entity_id = evaluation.issuer_entity_id
+       AND assignment.valid_from <= information_set.valid_cutoff
+       AND (assignment.valid_to IS NULL
+            OR assignment.valid_to > information_set.valid_cutoff)
+       AND assignment.known_at <= information_set.system_known_cutoff
+       AND (assignment.security_issuer_identity_id IS NULL
+            OR assignment.security_issuer_identity_id =
+               evaluation.security_issuer_identity_id)
+      JOIN governance.business_driver driver
+        ON driver.sector_playbook_id = playbook.sector_playbook_id
+       AND driver.business_driver_id = evaluation.business_driver_id
+      JOIN governance.business_driver_measurement_rule measurement_rule
+        ON measurement_rule.business_driver_id = driver.business_driver_id
+       AND measurement_rule.business_driver_measurement_rule_id =
+           evaluation.business_driver_measurement_rule_id
+      JOIN core.security_issuer_identity identity
+        ON identity.security_issuer_identity_id = evaluation.security_issuer_identity_id
+       AND identity.security_entity_id = evaluation.security_entity_id
+       AND identity.issuer_entity_id = evaluation.issuer_entity_id
+      JOIN knowledge.derivation derivation
+        ON derivation.derivation_id = evaluation.derivation_id
+       AND derivation.status = 'sealed'
+     WHERE playbook.sector_playbook_id = evaluation.sector_playbook_id
+       AND playbook.playbook_state = 'active'
+       AND playbook.effective_from <= information_set.valid_cutoff
+       AND (playbook.effective_to IS NULL
+            OR playbook.effective_to > information_set.valid_cutoff)
+       AND playbook.known_at <= information_set.system_known_cutoff
+       AND measurement_rule.effective_from <= information_set.valid_cutoff
+       AND (measurement_rule.effective_to IS NULL
+            OR measurement_rule.effective_to > information_set.valid_cutoff)
+       AND measurement_rule.known_at <= information_set.system_known_cutoff
+       AND identity.valid_from <= information_set.valid_cutoff
+       AND identity.known_from <= information_set.system_known_cutoff
+  ) THEN
+    RAISE EXCEPTION 'accepted evaluation does not resolve through canonical governance at AIS cutoffs';
+  END IF;
+
+  SELECT count(DISTINCT evidence.numeric_fact_id),
+         count(*) FILTER (WHERE evidence.input_role = 'current'),
+         count(*) FILTER (WHERE evidence.input_role = 'comparison')
+    INTO v_evidence_count, v_current_count, v_comparison_count
+    FROM analytics.impact_evaluation_evidence evidence
+   WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id;
+  IF v_evidence_count < rule.minimum_history_observations
+     OR v_current_count <> 1
+     OR v_comparison_count <> 1 THEN
+    RAISE EXCEPTION 'accepted evaluation requires minimum history and one current/comparison pair';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM analytics.impact_evaluation_evidence evidence
+      JOIN world.numeric_fact fact ON fact.numeric_fact_id = evidence.numeric_fact_id
+      JOIN governance.source_pit_quality quality
+        ON quality.source_pit_quality_id = evidence.source_pit_quality_id
+      JOIN ingestion.source_revision revision
+        ON revision.source_revision_id = evidence.source_revision_id
+      JOIN ingestion.source_record_identity source_identity
+        ON source_identity.source_record_identity_id = revision.source_record_identity_id
+     WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id
+       AND (
+         fact.entity_id IS DISTINCT FROM evaluation.issuer_entity_id
+         OR NOT EXISTS (
+           SELECT 1
+             FROM jsonb_array_elements(rule.input_concept_selectors) selector
+            WHERE selector ->> 'concept_namespace' = fact.concept_namespace
+              AND selector -> 'concept_keys' ? fact.concept_key
+         )
+         OR NOT EXISTS (
+           SELECT 1
+             FROM knowledge.derivation_step step
+             JOIN knowledge.derivation_input input
+               ON input.derivation_step_id = step.derivation_step_id
+              AND input.input_kind = 'numeric_fact'
+              AND input.numeric_fact_id = fact.numeric_fact_id
+            WHERE step.derivation_id = evaluation.derivation_id
+         )
+         OR fact.source_revision_id IS DISTINCT FROM evidence.source_revision_id
+         OR quality.source_id IS DISTINCT FROM source_identity.source_id
+         OR quality.pit_quality_class NOT IN (
+           'PIT_A_NATIVE_VINTAGE','PIT_B_VERSIONED_ARTIFACT','PIT_C_OUR_ARCHIVE'
+         )
+         OR NOT (quality.pit_quality_class = ANY(rule.allowed_pit_classes))
+         OR quality.known_at > information_set.system_known_cutoff
+         OR fact.unit IS DISTINCT FROM evaluation.measurement_unit
+         OR fact.available_at > information_set.source_available_cutoff
+         OR fact.known_at > information_set.system_known_cutoff
+       )
+  ) THEN
+    RAISE EXCEPTION 'accepted evidence fails issuer, selector, derivation, PIT, unit, or AIS policy';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM knowledge.derivation_step step
+      JOIN knowledge.derivation_input input
+        ON input.derivation_step_id = step.derivation_step_id
+       AND input.input_kind = 'numeric_fact'
+     WHERE step.derivation_id = evaluation.derivation_id
+       AND NOT EXISTS (
+         SELECT 1
+           FROM analytics.impact_evaluation_evidence evidence
+          WHERE evidence.impact_evaluation_revision_id =
+                evaluation.impact_evaluation_revision_id
+            AND evidence.numeric_fact_id = input.numeric_fact_id
+       )
+  ) THEN
+    RAISE EXCEPTION 'accepted evidence must exactly cover derivation numeric-fact inputs';
+  END IF;
+
+  SELECT fact.* INTO current_fact
+    FROM analytics.impact_evaluation_evidence evidence
+    JOIN world.numeric_fact fact ON fact.numeric_fact_id = evidence.numeric_fact_id
+   WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id
+     AND evidence.input_role = 'current';
+  SELECT fact.* INTO comparison_fact
+    FROM analytics.impact_evaluation_evidence evidence
+    JOIN world.numeric_fact fact ON fact.numeric_fact_id = evidence.numeric_fact_id
+   WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id
+     AND evidence.input_role = 'comparison';
+
+  IF current_fact.concept_namespace IS DISTINCT FROM comparison_fact.concept_namespace
+     OR current_fact.concept_key IS DISTINCT FROM comparison_fact.concept_key THEN
+    RAISE EXCEPTION 'current and comparison evidence must measure the same concept';
+  END IF;
+  IF rule.comparison_method = 'period_end_year_over_year_delta' THEN
+    IF current_fact.instant_at IS NULL
+       OR comparison_fact.instant_at IS NULL
+       OR current_fact.instant_at IS DISTINCT FROM comparison_fact.instant_at + interval '1 year' THEN
+      RAISE EXCEPTION 'period-end YoY requires exactly one-year-separated instant facts';
+    END IF;
+  ELSIF rule.comparison_method = 'duration_year_over_year_delta' THEN
+    IF current_fact.period_start IS NULL OR current_fact.period_end IS NULL
+       OR comparison_fact.period_start IS NULL OR comparison_fact.period_end IS NULL
+       OR current_fact.period_start IS DISTINCT FROM comparison_fact.period_start + interval '1 year'
+       OR current_fact.period_end IS DISTINCT FROM comparison_fact.period_end + interval '1 year' THEN
+      RAISE EXCEPTION 'duration YoY requires one-year-separated matching periods';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'unsupported executable comparison method %', rule.comparison_method;
+  END IF;
+
+  IF evaluation.measurement_value IS DISTINCT FROM current_fact.value - comparison_fact.value THEN
+    RAISE EXCEPTION 'evaluation measurement does not equal the executable comparison result';
+  END IF;
+  IF rule.output_unit IS DISTINCT FROM evaluation.measurement_unit
+     OR p_exposure_unit IS DISTINCT FROM evaluation.measurement_unit THEN
+    RAISE EXCEPTION 'exposure, evaluation, and rule units must match';
+  END IF;
+END
+$basis_guard$;
+
 
 -- Forward replacement for migration 037's trigger function. It retains every
 -- original append-only/state rule and adds the exact K4 citation gate.
@@ -389,10 +671,6 @@ DECLARE
   v_component_count INTEGER;
   v_evaluation_count INTEGER;
   v_evaluation_id BIGINT;
-  v_evidence_count INTEGER;
-  evaluation analytics.impact_evaluation_revision%ROWTYPE;
-  information_set governance.analysis_information_set%ROWTYPE;
-  rule governance.business_driver_measurement_rule%ROWTYPE;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'analytics.impact_exposure_revision is append-only' USING ERRCODE = '55000';
@@ -440,76 +718,12 @@ BEGIN
     IF v_evaluation_count <> 1 THEN
       RAISE EXCEPTION 'exposure requires exactly one accepted evaluation basis before sealing';
     END IF;
-    SELECT * INTO evaluation
-      FROM analytics.impact_evaluation_revision
-     WHERE impact_evaluation_revision_id = v_evaluation_id;
-    SELECT * INTO information_set
-      FROM governance.analysis_information_set
-     WHERE information_set_id = evaluation.information_set_id;
-    SELECT * INTO rule
-      FROM governance.business_driver_measurement_rule
-     WHERE business_driver_measurement_rule_id = evaluation.business_driver_measurement_rule_id;
 
-    IF NOT EXISTS (
-      SELECT 1
-        FROM governance.sector_playbook playbook
-        JOIN governance.business_driver driver
-          ON driver.sector_playbook_id = playbook.sector_playbook_id
-        JOIN governance.business_driver_measurement_rule measurement_rule
-          ON measurement_rule.business_driver_id = driver.business_driver_id
-        JOIN core.security_issuer_identity identity
-          ON identity.security_issuer_identity_id = evaluation.security_issuer_identity_id
-        JOIN knowledge.derivation derivation
-          ON derivation.derivation_id = evaluation.derivation_id
-       WHERE playbook.sector_playbook_id = evaluation.sector_playbook_id
-         AND driver.business_driver_id = evaluation.business_driver_id
-         AND measurement_rule.business_driver_measurement_rule_id =
-             evaluation.business_driver_measurement_rule_id
-         AND identity.security_entity_id = evaluation.security_entity_id
-         AND identity.issuer_entity_id = evaluation.issuer_entity_id
-         AND identity.valid_from <= information_set.valid_cutoff
-         AND identity.known_from <= information_set.system_known_cutoff
-         AND derivation.status = 'sealed'
-         AND evaluation.security_entity_id = OLD.entity_id
-    ) THEN
-      RAISE EXCEPTION 'exposure evaluation citations do not resolve exactly';
-    END IF;
-
-    SELECT count(DISTINCT evidence.numeric_fact_id) INTO v_evidence_count
-      FROM analytics.impact_evaluation_evidence evidence
-     WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id;
-    IF v_evidence_count < rule.minimum_history_observations THEN
-      RAISE EXCEPTION 'exposure evaluation has insufficient PIT history';
-    END IF;
-
-    IF EXISTS (
-      SELECT 1
-        FROM analytics.impact_evaluation_evidence evidence
-        JOIN world.numeric_fact fact ON fact.numeric_fact_id = evidence.numeric_fact_id
-        JOIN governance.source_pit_quality quality
-          ON quality.source_pit_quality_id = evidence.source_pit_quality_id
-        JOIN ingestion.source_revision revision
-          ON revision.source_revision_id = evidence.source_revision_id
-        JOIN ingestion.source_record_identity source_identity
-          ON source_identity.source_record_identity_id = revision.source_record_identity_id
-       WHERE evidence.impact_evaluation_revision_id = evaluation.impact_evaluation_revision_id
-         AND (
-           fact.source_revision_id IS DISTINCT FROM evidence.source_revision_id
-           OR quality.source_id IS DISTINCT FROM source_identity.source_id
-           OR quality.pit_quality_class NOT IN ('PIT_A_NATIVE_VINTAGE','PIT_B_VERSIONED_ARTIFACT','PIT_C_OUR_ARCHIVE')
-           OR NOT (quality.pit_quality_class = ANY(rule.allowed_pit_classes))
-           OR fact.unit IS DISTINCT FROM evaluation.measurement_unit
-           OR fact.available_at > information_set.source_available_cutoff
-           OR fact.known_at > information_set.system_known_cutoff
-         )
-    ) THEN
-      RAISE EXCEPTION 'exposure evaluation evidence fails exact source, PIT, unit, or cutoff checks';
-    END IF;
-
-    IF rule.output_unit IS DISTINCT FROM evaluation.measurement_unit
-       OR NEW.economic_magnitude_unit IS DISTINCT FROM evaluation.measurement_unit THEN
-      RAISE EXCEPTION 'exposure, evaluation, and rule units must match';
-    END IF;
+    PERFORM analytics.validate_k4_evaluation_basis(
+      v_evaluation_id,
+      OLD.impact_exposure_revision_id,
+      NEW.economic_magnitude_unit
+    );
 
     SELECT count(DISTINCT component_kind) INTO v_component_count
       FROM analytics.impact_score_component
@@ -542,6 +756,33 @@ CREATE TRIGGER impact_exposure_write_guard
   BEFORE INSERT OR UPDATE OR DELETE ON analytics.impact_exposure_revision
   FOR EACH ROW EXECUTE FUNCTION analytics.guard_k4_impact_exposure_write();
 
+-- Serving exposes only accepted evaluations whose exposure passed the complete
+-- validation boundary, and only their admitted A/B/C evidence. Rejected and D/E
+-- diagnostic receipts remain available solely to pipeline roles.
+CREATE OR REPLACE VIEW analytics.accepted_impact_evaluation_v1 AS
+SELECT evaluation.*
+  FROM analytics.impact_evaluation_revision evaluation
+  JOIN analytics.impact_exposure_revision exposure
+    ON exposure.impact_exposure_revision_id = evaluation.impact_exposure_revision_id
+ WHERE evaluation.evaluation_disposition = 'accepted'
+   AND exposure.exposure_state = 'sealed';
+
+CREATE OR REPLACE VIEW analytics.accepted_impact_evaluation_evidence_v1 AS
+SELECT evidence.*
+  FROM analytics.impact_evaluation_evidence evidence
+  JOIN analytics.accepted_impact_evaluation_v1 evaluation
+    ON evaluation.impact_evaluation_revision_id = evidence.impact_evaluation_revision_id
+  JOIN governance.source_pit_quality quality
+    ON quality.source_pit_quality_id = evidence.source_pit_quality_id
+ WHERE quality.pit_quality_class IN (
+   'PIT_A_NATIVE_VINTAGE','PIT_B_VERSIONED_ARTIFACT','PIT_C_OUR_ARCHIVE'
+ );
+
+REVOKE SELECT ON
+  analytics.impact_evaluation_revision,
+  analytics.impact_evaluation_evidence
+  FROM si_readapi;
+
 GRANT SELECT, INSERT ON
   analytics.expectation_revision,
   analytics.surprise_revision,
@@ -555,11 +796,21 @@ GRANT SELECT ON
   analytics.expectation_revision,
   analytics.surprise_revision,
   analytics.valuation_estimate_revision,
-  analytics.impact_evaluation_revision,
-  analytics.impact_evaluation_evidence,
   analytics.impact_path_step_exposure_citation,
   analytics.impact_outcome_revision
   TO si_knowledge, si_publisher, si_readapi;
+GRANT SELECT ON
+  analytics.impact_evaluation_revision,
+  analytics.impact_evaluation_evidence
+  TO si_knowledge, si_publisher;
+GRANT SELECT ON
+  analytics.accepted_impact_evaluation_v1,
+  analytics.accepted_impact_evaluation_evidence_v1
+  TO si_readapi;
+GRANT SELECT ON
+  analytics.accepted_impact_evaluation_v1,
+  analytics.accepted_impact_evaluation_evidence_v1
+  TO si_knowledge, si_analytics, si_publisher;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA analytics
   TO si_analytics, si_knowledge, si_publisher;
 `;

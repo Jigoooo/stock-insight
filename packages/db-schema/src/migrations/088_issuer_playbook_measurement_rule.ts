@@ -13,14 +13,31 @@ CREATE INDEX IF NOT EXISTS ix_playbook_assignment_identity
   ON governance.playbook_assignment (security_issuer_identity_id)
   WHERE security_issuer_identity_id IS NOT NULL;
 
--- Migrate only open semiconductor assignments whose subject is a Stock and whose
--- exact Stock -> Company identity is already known. Rows with no identity remain
--- closed over neither side; K4 records missing_identity rather than guessing.
+-- Migrate only open semiconductor Stock assignments with an exact identity.
+-- Any unresolved row aborts: canonicalization never guesses or silently skips.
 DO $migration$
 DECLARE
   candidate RECORD;
   transition_at TIMESTAMPTZ;
 BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM governance.playbook_assignment assignment
+      JOIN governance.sector_playbook playbook
+        ON playbook.sector_playbook_id = assignment.sector_playbook_id
+       AND playbook.playbook_key = 'semiconductor'
+      JOIN core.entity subject ON subject.entity_id = assignment.entity_id
+       AND subject.entity_type = 'Stock'
+     WHERE assignment.valid_to IS NULL
+       AND NOT EXISTS (
+         SELECT 1
+           FROM core.security_issuer_identity identity
+          WHERE identity.security_entity_id = assignment.entity_id
+       )
+  ) THEN
+    RAISE EXCEPTION 'migration 088 cannot resolve open security playbook assignment';
+  END IF;
+
   FOR candidate IN
     SELECT assignment.*, identity.security_issuer_identity_id AS exact_identity_id,
            identity.issuer_entity_id, identity.valid_from AS identity_valid_from,
@@ -170,7 +187,43 @@ CREATE INDEX IF NOT EXISTS ix_business_driver_measurement_rule_current
     (business_driver_id, rule_key, revision_no DESC)
   WHERE effective_to IS NULL;
 
+-- A non-initial rule revision must replace exactly the preceding revision of
+-- the same driver/rule logical key. The FK/non-null shape alone cannot say that.
+CREATE OR REPLACE FUNCTION governance.validate_exact_revision_chain()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $revision_guard$
+DECLARE
+  prior_key TEXT;
+  new_key TEXT;
+  prior_revision INTEGER;
+BEGIN
+  IF NEW.revision_no > 1 THEN
+    new_key := NEW.business_driver_id::text || ':' || NEW.rule_key;
+    SELECT previous.business_driver_id::text || ':' || previous.rule_key,
+           previous.revision_no
+      INTO prior_key, prior_revision
+      FROM governance.business_driver_measurement_rule previous
+     WHERE previous.business_driver_measurement_rule_id =
+           NEW.supersedes_business_driver_measurement_rule_id;
+    IF prior_key IS DISTINCT FROM new_key
+       OR prior_revision IS DISTINCT FROM NEW.revision_no - 1 THEN
+      RAISE EXCEPTION
+        'measurement-rule supersession must cite the preceding revision of the same driver/rule';
+    END IF;
+  END IF;
+  RETURN NEW;
+END
+$revision_guard$;
+
+DROP TRIGGER IF EXISTS business_driver_measurement_rule_exact_revision_chain
+  ON governance.business_driver_measurement_rule;
+CREATE TRIGGER business_driver_measurement_rule_exact_revision_chain
+  BEFORE INSERT ON governance.business_driver_measurement_rule
+  FOR EACH ROW EXECUTE FUNCTION governance.validate_exact_revision_chain();
+
 INSERT INTO governance.business_driver_measurement_rule (
+
   business_driver_id, rule_key, revision_no, input_concept_selectors,
   comparison_method, output_unit, direction_policy, materiality_policy,
   minimum_history_observations, allowed_pit_classes,

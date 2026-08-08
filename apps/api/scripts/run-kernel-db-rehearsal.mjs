@@ -133,7 +133,8 @@ try {
       derivation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       status TEXT NOT NULL
     );
-    INSERT INTO knowledge.derivation (status) VALUES ('sealed');
+    INSERT INTO knowledge.derivation (status)
+    SELECT 'sealed' FROM generate_series(1, 7);
 
     CREATE SCHEMA world;
     CREATE TABLE world.event_revision (
@@ -158,7 +159,10 @@ try {
     INSERT INTO core.entity (entity_type, canonical_name) VALUES
       ('Company', 'Rehearsal Co'),
       ('Stock', 'Rehearsal Security'),
-      ('Company', 'Second Rehearsal Co');
+      ('Company', 'Second Rehearsal Co'),
+      ('Stock', 'Unassigned Rehearsal Security'),
+      ('Company', 'Unassigned Rehearsal Issuer'),
+      ('Stock', 'Identityless Rehearsal Security');
     CREATE TABLE core.security_issuer_identity (
       security_issuer_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       security_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
@@ -170,7 +174,9 @@ try {
     );
     INSERT INTO core.security_issuer_identity
       (security_entity_id, issuer_entity_id, identity_match_key, mapping_basis, valid_from, known_from)
-    VALUES (2, 1, 'rehearsal', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z');
+    VALUES
+      (2, 1, 'rehearsal', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z'),
+      (4, 5, 'unassigned', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z');
 
     CREATE SCHEMA ingestion;
     CREATE TABLE ingestion.source (
@@ -208,23 +214,86 @@ try {
 
     CREATE TABLE world.numeric_fact (
       numeric_fact_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      fact_key TEXT NOT NULL,
       entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      concept_namespace TEXT NOT NULL,
+      concept_key TEXT NOT NULL,
       value NUMERIC NOT NULL,
       unit TEXT NOT NULL,
+      period_start DATE,
+      period_end DATE,
+      instant_at TIMESTAMPTZ,
       source_revision_id BIGINT NOT NULL REFERENCES ingestion.source_revision(source_revision_id),
       available_at TIMESTAMPTZ NOT NULL,
       known_at TIMESTAMPTZ NOT NULL
     );
     INSERT INTO world.numeric_fact
-      (entity_id, value, unit, source_revision_id, available_at, known_at)
-    SELECT 1, fixture.value, fixture.unit, revision.source_revision_id,
+      (fact_key, entity_id, concept_namespace, concept_key, value, unit,
+       period_start, period_end, instant_at, source_revision_id, available_at, known_at)
+    SELECT fixture.fact_key, fixture.entity_id, fixture.concept_namespace,
+           fixture.concept_key, fixture.value, 'USD', fixture.period_start,
+           fixture.period_end, fixture.instant_at, revision.source_revision_id,
            TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z'
-      FROM (VALUES (100::numeric, 'USD'), (120::numeric, 'USD')) fixture(value, unit)
+      FROM (VALUES
+        ('valid-comparison', 1, 'us-gaap', 'InventoryNet', 100::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2025-06-30Z'),
+        ('valid-current', 1, 'us-gaap', 'InventoryNet', 120::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2026-06-30Z'),
+        ('valid-corroboration', 1, 'us-gaap', 'InventoryNet', 90::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2024-06-30Z'),
+        ('wrong-issuer-comparison', 3, 'us-gaap', 'InventoryNet', 100::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2025-06-30Z'),
+        ('wrong-issuer-current', 3, 'us-gaap', 'InventoryNet', 120::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2026-06-30Z'),
+        ('wrong-concept-comparison', 1, 'us-gaap', 'Revenue', 100::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2025-06-30Z'),
+        ('wrong-concept-current', 1, 'us-gaap', 'Revenue', 120::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2026-06-30Z'),
+        ('wrong-period-comparison', 1, 'us-gaap', 'InventoryNet', 100::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2025-03-31Z'),
+        ('wrong-period-current', 1, 'us-gaap', 'InventoryNet', 120::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2026-06-30Z'),
+        ('duration-comparison', 1, 'us-gaap', 'PaymentsToAcquirePropertyPlantAndEquipment',
+         100::numeric, DATE '2024-01-01', DATE '2024-06-30', NULL::timestamptz),
+        ('duration-current', 1, 'us-gaap', 'PaymentsToAcquirePropertyPlantAndEquipment',
+         120::numeric, DATE '2025-01-01', DATE '2025-06-30', NULL::timestamptz),
+        ('unassigned-comparison', 5, 'us-gaap', 'InventoryNet', 100::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2025-06-30Z'),
+        ('unassigned-current', 5, 'us-gaap', 'InventoryNet', 120::numeric,
+         NULL::date, NULL::date, TIMESTAMPTZ '2026-06-30Z')
+      ) fixture(
+        fact_key, entity_id, concept_namespace, concept_key, value,
+        period_start, period_end, instant_at
+      )
       CROSS JOIN ingestion.source_revision revision
       JOIN ingestion.source_record_identity identity
         ON identity.source_record_identity_id = revision.source_record_identity_id
       JOIN ingestion.source source ON source.source_id = identity.source_id
      WHERE source.provider_key = 'bok-ecos';
+
+    CREATE TABLE knowledge.derivation_step (
+      derivation_step_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      derivation_id BIGINT NOT NULL REFERENCES knowledge.derivation(derivation_id)
+    );
+    CREATE TABLE knowledge.derivation_input (
+      derivation_input_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      derivation_step_id BIGINT NOT NULL REFERENCES knowledge.derivation_step(derivation_step_id),
+      input_kind TEXT NOT NULL,
+      numeric_fact_id BIGINT REFERENCES world.numeric_fact(numeric_fact_id)
+    );
+    INSERT INTO knowledge.derivation_step (derivation_id)
+    SELECT generate_series(1, 7);
+    INSERT INTO knowledge.derivation_input (derivation_step_id, input_kind, numeric_fact_id)
+    SELECT fixture.derivation_id, 'numeric_fact', fact.numeric_fact_id
+      FROM (VALUES
+        (1, 'valid-comparison'), (1, 'valid-current'),
+        (3, 'wrong-issuer-comparison'), (3, 'wrong-issuer-current'),
+        (4, 'wrong-concept-comparison'), (4, 'wrong-concept-current'),
+        (5, 'wrong-period-comparison'), (5, 'wrong-period-current'),
+        (6, 'unassigned-comparison'), (6, 'unassigned-current'),
+        (7, 'duration-comparison'), (7, 'duration-current')
+      ) fixture(derivation_id, fact_key)
+      JOIN world.numeric_fact fact ON fact.fact_key = fixture.fact_key;
 
     INSERT INTO analytics.impact_path_step (to_entity_id) VALUES (2);
 
@@ -304,18 +373,37 @@ try {
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
 
-  // 087 historically allowed a Stock assignment. Seed that exact old shape so
-  // 088 must close it and create the issuer-subject successor through identity 1.
+  // 087 historically allowed Stock assignments. One has an exact identity and
+  // must migrate; the other has none and must make 088 fail closed.
   await target.query(`
     INSERT INTO governance.playbook_assignment (
       sector_playbook_id, entity_id, assignment_basis, taxonomy_node_id,
       rationale, valid_from, known_at, assigned_by
     )
-    SELECT sector_playbook_id, 2, 'taxonomy', 1,
-           'legacy security assignment', TIMESTAMPTZ '2026-01-01Z',
+    SELECT playbook.sector_playbook_id, legacy.entity_id, 'taxonomy', 1,
+           legacy.rationale, TIMESTAMPTZ '2026-01-01Z',
            TIMESTAMPTZ '2026-01-01Z', 'rehearsal'
-      FROM governance.sector_playbook
-     WHERE playbook_key = 'semiconductor' AND revision_no = 1;
+      FROM governance.sector_playbook playbook
+      CROSS JOIN (VALUES
+        (2, 'legacy security assignment'),
+        (6, 'identityless legacy security assignment')
+      ) legacy(entity_id, rationale)
+     WHERE playbook.playbook_key = 'semiconductor' AND playbook.revision_no = 1;
+  `);
+
+  let unresolvedAssignmentMigrationRejected = false;
+  await target.query('BEGIN');
+  try {
+    await target.query(issuerPlaybookMeasurementRuleMigrationSql);
+    await target.query('ROLLBACK');
+  } catch (error) {
+    unresolvedAssignmentMigrationRejected = error?.code === 'P0001';
+    await target.query('ROLLBACK');
+  }
+  await target.query(`
+    DELETE FROM governance.playbook_assignment
+     WHERE entity_id = 6
+       AND valid_to IS NULL
   `);
 
   MIGRATIONS.push(
@@ -446,9 +534,9 @@ try {
       system_known_cutoff, market_observation_cutoff,
       semantic_snapshot_id, created_by
     ) VALUES (
-      'ais-k4', 'EX_ANTE', TIMESTAMPTZ '2026-08-09T12:00:00Z',
-      TIMESTAMPTZ '2026-08-09T12:00:00Z', TIMESTAMPTZ '2026-08-09T12:00:00Z',
-      TIMESTAMPTZ '2026-08-09T12:00:00Z', 'snap-1', 'rehearsal'
+      'ais-k4', 'EX_ANTE', TIMESTAMPTZ '2026-08-10T12:00:00Z',
+      TIMESTAMPTZ '2026-08-10T12:00:00Z', TIMESTAMPTZ '2026-08-10T12:00:00Z',
+      TIMESTAMPTZ '2026-08-10T12:00:00Z', 'snap-1', 'rehearsal'
     );
     INSERT INTO analytics.impact_shock (
       shock_key, event_revision_id, shock_type, evidence_locator, available_at, known_at
@@ -472,6 +560,21 @@ try {
          AND rule.rule_key = 'inventory_yoy'
     `)
   ).rows[0];
+  const durationMeasurement = (
+    await target.query(`
+      SELECT driver.business_driver_id,
+             rule.business_driver_measurement_rule_id
+        FROM governance.sector_playbook playbook
+        JOIN governance.business_driver driver
+          ON driver.sector_playbook_id = playbook.sector_playbook_id
+        JOIN governance.business_driver_measurement_rule rule
+          ON rule.business_driver_id = driver.business_driver_id
+       WHERE playbook.playbook_key = 'semiconductor'
+         AND driver.driver_key = 'capex_cycle'
+         AND rule.rule_key = 'capex_yoy'
+    `)
+  ).rows[0];
+
   const shockId = (
     await target.query(
       `SELECT impact_shock_id FROM analytics.impact_shock WHERE shock_key = 'k4-rehearsal-shock'`,
@@ -510,30 +613,125 @@ try {
        WHERE source.provider_key = 'yfinance'
     `)
   ).rows[0];
-  const numericFacts = (
-    await target.query(`SELECT numeric_fact_id FROM world.numeric_fact ORDER BY numeric_fact_id`)
-  ).rows;
+  const pitCFuture = {
+    source_revision_id: pitC.source_revision_id,
+    ...(
+      await target.query(
+        `INSERT INTO governance.source_pit_quality (
+           source_id, revision_no, pit_quality_class, rationale,
+           archive_pit_from, known_at, created_by
+         )
+         SELECT source_id, 2, pit_quality_class, 'future-known rehearsal grade',
+                archive_pit_from, TIMESTAMPTZ '2026-08-11Z', 'rehearsal'
+           FROM governance.source_pit_quality
+          WHERE source_pit_quality_id = $1
+         RETURNING source_pit_quality_id`,
+        [pitC.source_pit_quality_id],
+      )
+    ).rows[0],
+  };
+
+  const otherRuleId = (
+    await target.query(
+      `SELECT business_driver_measurement_rule_id
+         FROM governance.business_driver_measurement_rule
+        WHERE rule_key = 'net_ppe_yoy'`,
+    )
+  ).rows[0].business_driver_measurement_rule_id;
+  const ruleRevisionInsert = (supersedesId, knownAt) =>
+    target.query(
+      `INSERT INTO governance.business_driver_measurement_rule (
+         business_driver_id, rule_key, revision_no, input_concept_selectors,
+         comparison_method, output_unit, direction_policy, materiality_policy,
+         minimum_history_observations, allowed_pit_classes,
+         score_component_formula_inputs, effective_from, known_at,
+         supersedes_business_driver_measurement_rule_id, authored_by, metadata
+       )
+       SELECT business_driver_id, rule_key, 2, input_concept_selectors,
+              comparison_method, output_unit, direction_policy, materiality_policy,
+              minimum_history_observations, allowed_pit_classes,
+              score_component_formula_inputs, TIMESTAMPTZ '2026-08-01Z', $2,
+              $1, 'rehearsal', metadata
+         FROM governance.business_driver_measurement_rule
+        WHERE business_driver_measurement_rule_id = $3
+       RETURNING business_driver_measurement_rule_id`,
+      [supersedesId, knownAt, measurement.business_driver_measurement_rule_id],
+    );
+
+  let exactRuleRevisionChainRejected = false;
+  await target.query('BEGIN');
+  try {
+    exactRuleRevisionChainRejected = await (async () => {
+      try {
+        await ruleRevisionInsert(otherRuleId, '2026-08-09T00:00:00Z');
+        return false;
+      } catch (error) {
+        if (error?.code === 'P0001') return true;
+        throw error;
+      }
+    })();
+  } finally {
+    await target.query('ROLLBACK');
+  }
+  const futureRuleId = (
+    await ruleRevisionInsert(
+      measurement.business_driver_measurement_rule_id,
+      '2026-08-11T00:00:00Z',
+    )
+  ).rows[0].business_driver_measurement_rule_id;
+
+  const baseEvaluationRevisionId = (
+    await target.query(
+      `INSERT INTO analytics.impact_evaluation_revision (
+         evaluation_key, revision_no, security_entity_id, information_set_id,
+         evaluation_disposition, reason_detail
+       ) VALUES ('revision-chain-base', 1, 2, 'ais-k4', 'missing_identity', 'fixture')
+       RETURNING impact_evaluation_revision_id`,
+    )
+  ).rows[0].impact_evaluation_revision_id;
+  let exactLedgerRevisionChainRejected = false;
+  await target.query('BEGIN');
+  try {
+    exactLedgerRevisionChainRejected = await expectRejected(
+      `INSERT INTO analytics.impact_evaluation_revision (
+         evaluation_key, revision_no, security_entity_id, information_set_id,
+         evaluation_disposition, reason_detail, supersedes_impact_evaluation_revision_id
+       ) VALUES ('different-revision-key', 2, 2, 'ais-k4', 'missing_identity',
+                 'fixture', ${baseEvaluationRevisionId})`,
+      ['P0001'],
+    );
+  } finally {
+    await target.query('ROLLBACK');
+  }
+  const numericFacts = new Map(
+    (await target.query(`SELECT fact_key, numeric_fact_id FROM world.numeric_fact`)).rows.map(
+      (fact) => [fact.fact_key, fact.numeric_fact_id],
+    ),
+  );
   const pitDFact = (
     await target.query(
       `INSERT INTO world.numeric_fact
-         (entity_id, value, unit, source_revision_id, available_at, known_at)
-       VALUES (1, 130, 'USD', $1, TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z')
+         (fact_key, entity_id, concept_namespace, concept_key, value, unit,
+          instant_at, source_revision_id, available_at, known_at)
+       VALUES ('pit-d-current', 1, 'us-gaap', 'InventoryNet', 130, 'USD',
+               TIMESTAMPTZ '2026-06-30Z', $1,
+               TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z')
        RETURNING numeric_fact_id`,
       [pitD.source_revision_id],
     )
   ).rows[0].numeric_fact_id;
 
-  const insertExposure = async (key, unit = 'USD') => {
+  const insertExposure = async (key, { unit = 'USD', securityEntityId = 2 } = {}) => {
     const exposure = (
       await target.query(
         `INSERT INTO analytics.impact_exposure_revision (
            exposure_key, revision_no, impact_shock_id, impact_channel_id,
            entity_id, sign, economic_magnitude, economic_magnitude_unit,
            evidence_locator, available_at, known_at
-         ) VALUES ($1, 1, $2, $3, 2, 'negative', 20, $4, '{}'::jsonb,
+         ) VALUES ($1, 1, $2, $3, $4, 'negative', 20, $5, '{}'::jsonb,
                    TIMESTAMPTZ '2026-08-09T00:00:00Z', TIMESTAMPTZ '2026-08-09T00:00:00Z')
          RETURNING impact_exposure_revision_id`,
-        [key, shockId, channelId, unit],
+        [key, shockId, channelId, securityEntityId, unit],
       )
     ).rows[0].impact_exposure_revision_id;
     await target.query(
@@ -549,8 +747,19 @@ try {
     return exposure;
   };
 
-  const insertAcceptedEvaluation = async (key, exposure, unit = 'USD') =>
-    (
+  const insertAcceptedEvaluation = async (key, exposure, overrides = {}) => {
+    const options = {
+      securityEntityId: 2,
+      issuerEntityId: 1,
+      driverId: measurement.business_driver_id,
+      identityId: 1,
+      ruleId: measurement.business_driver_measurement_rule_id,
+      informationSetId: 'ais-k4',
+      derivationId: 1,
+      unit: 'USD',
+      ...overrides,
+    };
+    return (
       await target.query(
         `INSERT INTO analytics.impact_evaluation_revision (
            evaluation_key, revision_no, security_entity_id, issuer_entity_id,
@@ -558,19 +767,25 @@ try {
            business_driver_measurement_rule_id, information_set_id, derivation_id,
            evaluation_disposition, measurement_value, measurement_unit,
            direction, materiality, impact_exposure_revision_id
-         ) VALUES ($1, 1, 2, 1, 1, $2, $3, $4, 'ais-k4', 1,
-                   'accepted', 20, $5, 'negative', 0.2, $6)
+         ) VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9,
+                   'accepted', 20, $10, 'negative', 0.2, $11)
          RETURNING impact_evaluation_revision_id`,
         [
           key,
+          options.securityEntityId,
+          options.issuerEntityId,
+          options.identityId,
           measurement.sector_playbook_id,
-          measurement.business_driver_id,
-          measurement.business_driver_measurement_rule_id,
-          unit,
+          options.driverId,
+          options.ruleId,
+          options.informationSetId,
+          options.derivationId,
+          options.unit,
           exposure,
         ],
       )
     ).rows[0].impact_evaluation_revision_id;
+  };
 
   const addEvidence = (evaluationId, factId, source, role) =>
     target.query(
@@ -581,14 +796,124 @@ try {
       [evaluationId, factId, source.source_revision_id, source.source_pit_quality_id, role],
     );
 
+  const expectEvaluationBasisRejected = async ({
+    key,
+    comparisonFactKey,
+    currentFactKey,
+    source = pitC,
+    exposureOptions = {},
+    evaluationOverrides = {},
+  }) => {
+    let rejected = false;
+    await target.query('BEGIN');
+    try {
+      const exposure = await insertExposure(key, exposureOptions);
+      const evaluation = await insertAcceptedEvaluation(
+        `${key}-evaluation`,
+        exposure,
+        evaluationOverrides,
+      );
+      await addEvidence(evaluation, numericFacts.get(comparisonFactKey), source, 'comparison');
+      await addEvidence(evaluation, numericFacts.get(currentFactKey), source, 'current');
+      rejected = await expectRejected(
+        `UPDATE analytics.impact_exposure_revision
+            SET exposure_state = 'sealed', sealed_at = now()
+          WHERE impact_exposure_revision_id = ${exposure}`,
+        ['P0001'],
+      );
+    } catch (error) {
+      if (error?.code === 'P0001') rejected = true;
+      else throw error;
+    } finally {
+      await target.query('ROLLBACK');
+    }
+    return rejected;
+  };
+
+  const unassignedIssuerRejected = await expectEvaluationBasisRejected({
+    key: 'k4-unassigned-issuer',
+    comparisonFactKey: 'unassigned-comparison',
+    currentFactKey: 'unassigned-current',
+    exposureOptions: { securityEntityId: 4 },
+    evaluationOverrides: {
+      securityEntityId: 4,
+      issuerEntityId: 5,
+      identityId: 2,
+      derivationId: 6,
+    },
+  });
+  const wrongIssuerRejected = await expectEvaluationBasisRejected({
+    key: 'k4-wrong-issuer',
+    comparisonFactKey: 'wrong-issuer-comparison',
+    currentFactKey: 'wrong-issuer-current',
+    evaluationOverrides: { derivationId: 3 },
+  });
+  const wrongConceptRejected = await expectEvaluationBasisRejected({
+    key: 'k4-wrong-concept',
+    comparisonFactKey: 'wrong-concept-comparison',
+    currentFactKey: 'wrong-concept-current',
+    evaluationOverrides: { derivationId: 4 },
+  });
+  const wrongPeriodRejected = await expectEvaluationBasisRejected({
+    key: 'k4-wrong-period',
+    comparisonFactKey: 'wrong-period-comparison',
+    currentFactKey: 'wrong-period-current',
+    evaluationOverrides: { derivationId: 5 },
+  });
+  const unrelatedDerivationRejected = await expectEvaluationBasisRejected({
+    key: 'k4-unrelated-derivation',
+    comparisonFactKey: 'valid-comparison',
+    currentFactKey: 'valid-current',
+    evaluationOverrides: { derivationId: 2 },
+  });
+  const futureKnownRuleRejected = await expectEvaluationBasisRejected({
+    key: 'k4-future-known-rule',
+    comparisonFactKey: 'valid-comparison',
+    currentFactKey: 'valid-current',
+    evaluationOverrides: { ruleId: futureRuleId },
+  });
+  const futureKnownQualityRejected = await expectEvaluationBasisRejected({
+    key: 'k4-future-known-quality',
+    comparisonFactKey: 'valid-comparison',
+    currentFactKey: 'valid-current',
+    source: pitCFuture,
+  });
   let acceptedExposure;
   let acceptedEvaluation;
+  let durationYearOverYearAccepted = false;
+  await target.query('BEGIN');
+  try {
+    const exposure = await insertExposure('k4-duration-year-over-year');
+    const evaluation = await insertAcceptedEvaluation(
+      'k4-duration-year-over-year-evaluation',
+      exposure,
+      {
+        driverId: durationMeasurement.business_driver_id,
+        ruleId: durationMeasurement.business_driver_measurement_rule_id,
+        derivationId: 7,
+      },
+    );
+    await addEvidence(evaluation, numericFacts.get('duration-comparison'), pitC, 'comparison');
+    await addEvidence(evaluation, numericFacts.get('duration-current'), pitC, 'current');
+    await target.query(
+      `UPDATE analytics.impact_exposure_revision
+          SET exposure_state = 'sealed', sealed_at = now()
+        WHERE impact_exposure_revision_id = $1`,
+      [exposure],
+    );
+    durationYearOverYearAccepted = true;
+  } catch (error) {
+    if (error?.code !== 'P0001') throw error;
+  } finally {
+    await target.query('ROLLBACK');
+  }
+
   await target.query('BEGIN');
   try {
     acceptedExposure = await insertExposure('k4-accepted');
     acceptedEvaluation = await insertAcceptedEvaluation('k4-accepted-evaluation', acceptedExposure);
-    await addEvidence(acceptedEvaluation, numericFacts[0].numeric_fact_id, pitC, 'comparison');
-    await addEvidence(acceptedEvaluation, numericFacts[1].numeric_fact_id, pitC, 'current');
+    await addEvidence(acceptedEvaluation, numericFacts.get('valid-comparison'), pitC, 'comparison');
+    await addEvidence(acceptedEvaluation, numericFacts.get('valid-current'), pitC, 'current');
     await target.query(
       `UPDATE analytics.impact_exposure_revision
           SET exposure_state = 'sealed', sealed_at = now()
@@ -601,6 +926,15 @@ try {
     throw error;
   }
 
+  const sealedEvidenceAppendRejected = await expectRejected(
+    `INSERT INTO analytics.impact_evaluation_evidence (
+       impact_evaluation_revision_id, numeric_fact_id, source_revision_id,
+       source_pit_quality_id, input_role
+     ) VALUES (${acceptedEvaluation}, ${numericFacts.get('valid-corroboration')},
+               ${pitC.source_revision_id}, ${pitC.source_pit_quality_id}, 'corroboration')`,
+    ['P0001'],
+  );
+
   const missingEvaluationExposure = await insertExposure('k4-missing-evaluation');
   const citationRejected = await expectRejected(
     `UPDATE analytics.impact_exposure_revision SET exposure_state = 'sealed', sealed_at = now()
@@ -611,14 +945,12 @@ try {
   let unitRejected = false;
   await target.query('BEGIN');
   try {
-    const exposure = await insertExposure('k4-unit-mismatch');
-    const evaluation = await insertAcceptedEvaluation(
-      'k4-unit-mismatch-evaluation',
-      exposure,
-      'KRW',
-    );
-    await addEvidence(evaluation, numericFacts[0].numeric_fact_id, pitC, 'comparison');
-    await addEvidence(evaluation, numericFacts[1].numeric_fact_id, pitC, 'current');
+    const exposure = await insertExposure('k4-unit-mismatch', { unit: 'KRW' });
+    const evaluation = await insertAcceptedEvaluation('k4-unit-mismatch-evaluation', exposure, {
+      unit: 'KRW',
+    });
+    await addEvidence(evaluation, numericFacts.get('valid-comparison'), pitC, 'comparison');
+    await addEvidence(evaluation, numericFacts.get('valid-current'), pitC, 'current');
     unitRejected = await expectRejected(
       `UPDATE analytics.impact_exposure_revision SET exposure_state = 'sealed', sealed_at = now()
         WHERE impact_exposure_revision_id = ${exposure}`,
@@ -663,8 +995,28 @@ try {
      ) VALUES ('bad-rejection-shape', 1, 2, 'ais-k4', 'missing_identity',
                'identity absent', ${acceptedExposure})`,
   );
+  const servingPrivileges = (
+    await target.query(`
+      SELECT
+        has_table_privilege('si_readapi', 'analytics.impact_evaluation_revision', 'SELECT')
+          AS raw_evaluation_visible,
+        has_table_privilege('si_readapi', 'analytics.impact_evaluation_evidence', 'SELECT')
+          AS raw_evidence_visible,
+        CASE WHEN to_regclass('analytics.accepted_impact_evaluation_v1') IS NULL THEN false
+             ELSE has_table_privilege(
+               'si_readapi', 'analytics.accepted_impact_evaluation_v1', 'SELECT'
+             ) END AS accepted_view_visible,
+        CASE WHEN to_regclass('analytics.accepted_impact_evaluation_evidence_v1') IS NULL THEN false
+             ELSE has_table_privilege(
+               'si_readapi', 'analytics.accepted_impact_evaluation_evidence_v1', 'SELECT'
+             ) END AS evidence_view_visible
+    `)
+  ).rows[0];
 
   const k4 = {
+    unresolvedAssignmentMigrationRejected,
+    exactRuleRevisionChainRejected,
+    exactLedgerRevisionChainRejected,
     securityAssignmentClosed:
       (
         await target.query(`SELECT count(*)::int AS n FROM governance.playbook_assignment
@@ -676,14 +1028,14 @@ try {
                             WHERE entity_id = 1 AND valid_to IS NULL
                               AND security_issuer_identity_id = 1`)
       ).rows[0].n === 1,
-    threeExecutableRules:
+    threeExecutableRuleKeys:
       (
-        await target.query(`SELECT count(*)::int AS n
+        await target.query(`SELECT count(DISTINCT rule_key)::int AS n
                              FROM governance.business_driver_measurement_rule`)
       ).rows[0].n === 3,
     v2ResolvesSecurityRules:
       (
-        await target.query(`SELECT count(*)::int AS n
+        await target.query(`SELECT count(DISTINCT rule_key)::int AS n
                              FROM governance.security_playbook_measurement_rule_current_v2
                             WHERE security_entity_id = 2`)
       ).rows[0].n === 3,
@@ -695,6 +1047,20 @@ try {
           [acceptedExposure],
         )
       ).rows[0].exposure_state === 'sealed',
+    unassignedIssuerRejected,
+    wrongIssuerRejected,
+    wrongConceptRejected,
+    wrongPeriodRejected,
+    unrelatedDerivationRejected,
+    futureKnownRuleRejected,
+    futureKnownQualityRejected,
+    sealedEvidenceAppendRejected,
+    rawDiagnosticsHidden:
+      servingPrivileges.raw_evaluation_visible === false &&
+      servingPrivileges.raw_evidence_visible === false,
+    acceptedServingViewsVisible:
+      servingPrivileges.accepted_view_visible === true &&
+      servingPrivileges.evidence_view_visible === true,
     citationRejected,
     unitRejected,
     pitDERejected,
@@ -705,6 +1071,7 @@ try {
         await target.query(`SELECT count(*)::int AS n
                              FROM analytics.impact_path_step_exposure_citation`)
       ).rows[0].n === 1,
+    durationYearOverYearAccepted,
   };
 
   // ── 085 truth class binding ─────────────────────────────────────────────────
@@ -882,7 +1249,8 @@ try {
   const afterReapply = await target.query(
     'SELECT count(*)::int AS n FROM governance.source_pit_quality',
   );
-  pitQuality.noDuplicateOnReapply = afterReapply.rows[0]?.n === 8;
+  // Eight seeded sources plus the deliberate future-known K4 quality revision.
+  pitQuality.noDuplicateOnReapply = afterReapply.rows[0]?.n === 9;
 
   // ── 081 release manifest ────────────────────────────────────────────────────
   await target.query(
