@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fails when this repository writes to a table another project owns.
 #
-# research_app is shared by four projects (see docs/operations/database-ownership.md).
+# research_app is shared by four projects (see docs/architecture/operations/database-ownership.md).
 # On 2026-08-03 a migration here registered two collectors in
 # ops.source_collection_policy without anyone knowing that table belongs to
 # research-app-db. It turned out harmless, but nothing would have caught it.
@@ -45,6 +45,16 @@ EXTERNAL_TABLES=(
 # governance records. Anything else appearing here is a mistake, not an exception.
 ALLOWED_EXTERNAL_WRITES=(
   ops.source_collection_policy
+  # Shared, not theirs — and that is why it is declared here rather than in
+  # EXTERNAL_TABLES. research-common writes source_id='ict-bot' (bitget crypto)
+  # and run-ohlcv.ts writes source_id='yfinance' (KOSPI/KOSDAQ/US equities);
+  # measured 2026-08-07 the two key spaces intersect in exactly 0 rows.
+  #
+  # Name-based grepping cannot tell a legitimate write here from a collision, so
+  # the real guard is the disjointness assertion in run_ohlcv_daily.sh. This entry
+  # exists so the write is DECLARED: it was undeclared and undetected for months
+  # while the ownership doc claimed this repo only read the table.
+  market_ts.ohlcv
 )
 
 writes=$(grep -ohrE --include=*.ts --include=*.mjs --include=*.sh \

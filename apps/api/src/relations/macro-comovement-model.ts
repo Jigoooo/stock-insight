@@ -137,6 +137,17 @@ export const MACRO_SERIES_TRANSFORMS: Readonly<Record<string, 'level_difference'
     'fred:ICSA': 'log_return',
     // Daily. A price level, so a log return — the same treatment as DEXKOUS.
     'fred:DCOILWTICO': 'log_return',
+    // Daily gas price level; same treatment as WTI beside it.
+    'fred:DHHNGSP': 'log_return',
+    // Korean yields, quoted in 연% exactly like DGS10/DGS2, so the change is the
+    // level difference in percentage points. A log return of a yield is not a
+    // return of anything — and a yield can legitimately approach zero (CD 91일
+    // bottomed at 0.630), which a log transform handles badly.
+    'ecos:817Y002:010200000': 'level_difference',
+    'ecos:817Y002:010210000': 'level_difference',
+    'ecos:817Y002:010300000': 'level_difference',
+    'ecos:817Y002:010502000': 'level_difference',
+    'ecos:722Y001:0101000': 'level_difference',
   });
 
 /**
@@ -158,6 +169,25 @@ export const MACRO_SERIES_FREQUENCY: Readonly<Record<string, 'daily' | 'weekly'>
   'fred:WALCL': 'weekly',
   'fred:ICSA': 'weekly',
   'fred:DCOILWTICO': 'daily',
+  // Added 2026-08-07. Collected 2026-08-06 and left out of both tables, which made
+  // it invisible here: loadMacroComovementInputs asks for exactly the keys of
+  // MACRO_SERIES_TRANSFORMS, so a series missing from it is not a crash but a
+  // silent no-op. It held 680 vintages and zero relations of any predicate.
+  'fred:DHHNGSP': 'daily',
+  // Korean daily series (migration 076). All five are 시장금리/정책금리, and the
+  // `rates` vocabulary already carried 국채·금리·기준금리·한국은행 while every
+  // mapped series was American.
+  'ecos:817Y002:010200000': 'daily',
+  'ecos:817Y002:010210000': 'daily',
+  'ecos:817Y002:010300000': 'daily',
+  'ecos:817Y002:010502000': 'daily',
+  // Calendar-daily, not trading-daily: 4,233 rows over the same span where the
+  // market rates have 2,857, because the policy rate is published every day
+  // including weekends. That is fine for alignment (it covers every trading day)
+  // but it is a step function, so its change series is zero almost everywhere.
+  // Expected to produce few pairs or none; `varianceLeft === 0` returns null and
+  // it drops out quietly rather than inventing a correlation.
+  'ecos:722Y001:0101000': 'daily',
 });
 
 /** How far back a resampled grid may reach for the last close at or before a date. */
@@ -213,6 +243,29 @@ export const MACRO_SERIES_EXCLUSIONS: Readonly<Record<string, string>> = Object.
   'fred:UMCSENT': 'monthly: 58 resampled observations, below the 60 minimum',
 });
 
+/**
+ * The market factor each market's stocks are controlled for, named so the number
+ * on an edge can be traced to what produced it.
+ *
+ * KR moved from a synthetic index to KOSPI on 2026-08-07. The synthetic one was a
+ * daily-rebalanced equal-weighted average of our own 194 Korean holdings, built
+ * because ^KS11 was unavailable — absent from market_ts.ohlcv, and the copy in
+ * stock.market_snapshots holds 141 rows over just 57 distinct dates, stalled at
+ * 2026-07-24, against a 1,095-day window. ECOS 802Y001 supplies KOSPI daily from
+ * 1995-01-03, verified against its historical anchors (2020-03-19 = 1,458, the
+ * COVID bottom) rather than assumed.
+ *
+ * Why that matters beyond availability: the synthetic index was the average of the
+ * very stocks being controlled, so a stock was partly subtracted from itself, and
+ * more so the smaller the universe. KOSPI is exogenous to any one holding.
+ *
+ * MARKET_FACTOR_SQL must read exactly these. A test pins the pair together.
+ */
+export const MARKET_FACTOR_SOURCE: Readonly<Record<'KR' | 'US', string>> = Object.freeze({
+  KR: 'ecos:802Y001:0001000',
+  US: '^GSPC',
+});
+
 export const MACRO_COMOVEMENT_MODEL_CONFIG = Object.freeze({
   model: 'pearson-macro-comovement-v1',
   // 365 days, not the 45 that run-v2-analytics-publish uses for its measurement
@@ -258,6 +311,20 @@ export const MACRO_COMOVEMENT_MODEL_CONFIG = Object.freeze({
   // on the relation so the subtraction can be checked rather than trusted.
   correlationKind: 'partial_controlling_for_market_factor',
   marketFactorTransform: 'log_return',
+  // WHICH factor each market is controlled for. This was missing, and its absence
+  // was the real prerequisite for changing the KR one.
+  //
+  // The builder's contract is that a correlation must cite the configuration that
+  // produced it — "a correlation without the configuration that produced it cannot
+  // be re-run, and one that cannot be re-run cannot be contradicted". The config
+  // recorded that a market factor was subtracted and the transform used, but not
+  // WHAT was subtracted. Swapping the KR factor without this would have left every
+  // Korean edge citing a config that does not describe how it was computed.
+  //
+  // Adding these fields changes the config digest, so every MACRO_COMOVEMENT edge
+  // takes a fresh revision — US ones too, whose numbers do not move. That is the
+  // honest signal: the model changed.
+  marketFactorByMarket: MARKET_FACTOR_SOURCE,
   stockPriceField: 'market_ts.ohlcv.close',
   // Not adj_close: measured 2026-08-04, adj_close is populated on 0 of 298,754
   // stock 1D rows and adjustment_version is empty on all of them. close is

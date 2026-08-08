@@ -41,3 +41,7 @@ graphify-out/
 
 # OS/editor
 .DS_Store
+
+# 외부 반출용 압축본 — 저장소에 넣지 않는다 (2026-08-07 실수로 f16b43a 에 섞였음)
+docs/*.zip
+docs/**/*.zip

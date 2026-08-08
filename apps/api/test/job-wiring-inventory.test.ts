@@ -16,6 +16,11 @@ import { describe, it } from 'node:test';
  * the one nobody wrote. Counting the inventory catches the NEXT one.
  *
  * Measured 2026-08-06: 38 jobs, 32 wired, 6 exempt.
+ * Measured 2026-08-07: 43 jobs, 36 wired, 7 exempt. The count is re-measured
+ * rather than edited in place, because the drift between the two lines is itself
+ * the thing worth seeing.
+ * Measured 2026-08-07 (later): 44 jobs, 37 wired, 7 exempt — run-source-contract-audit
+ * joined the analytics pipeline.
  */
 
 const SRC = new URL('../src/', import.meta.url);
@@ -36,6 +41,19 @@ const EXEMPT = new Map<string, string>([
   ['run-phase35.ts', 'one-shot backfill, ran 2026-07-07'],
   // Applying a migration is a decision, not a timer. Deliberately manual.
   ['run-schema-migrations.ts', 'manual by design — applying migrations is a decision'],
+  // Written 2026-08-07, still run by hand. The two blockers recorded when it was
+  // written are BOTH resolved: the first --apply was approved and ran (18,508 rows
+  // across 6 series in market.macro_vintage at vintage_quality='approx_collected'),
+  // and MACRO_SERIES_WINDOW_SQL now joins identifier_type IN ('FRED_SERIES',
+  // 'ECOS_SERIES') so the collected series do reach the graph.
+  // What is left is not a blocker but an undecided cadence: ECOS publishes on no
+  // fixed schedule we have modelled, and nobody has picked one. Wiring it to a
+  // timer without that decision would schedule re-collection at an arbitrary
+  // interval, so it stays manual until the cadence is chosen.
+  [
+    'run-ecos-vintage.ts',
+    'manual — collector works and reaches the graph; timer cadence undecided',
+  ],
 ]);
 
 async function collectJobs(dir: URL, found: string[] = []): Promise<string[]> {

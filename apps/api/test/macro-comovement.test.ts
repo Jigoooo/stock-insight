@@ -229,12 +229,20 @@ describe('macro co-movement model', () => {
   it('documents every series it declines to measure', () => {
     const measured = Object.keys(MACRO_SERIES_TRANSFORMS);
     const excluded = Object.keys(MACRO_SERIES_EXCLUSIONS);
-    // 065 registered 13 series and 067 added fred:DCOILWTICO for the energy
-    // topic. Each of the 14 is either measured or carries a stated reason — the
+    // Every collected series is either measured or carries a stated reason. The
     // count is asserted so a series cannot be added to one map and forgotten in
     // the other, which is how a series ends up silently unmeasured.
-    assert.equal(measured.length + excluded.length, 14);
-    assert.equal(new Set([...measured, ...excluded]).size, 14);
+    //
+    // 14 → 20 on 2026-08-07, and the gap between those numbers is the point:
+    //   +1  fred:DHHNGSP — collected 2026-08-06, in NEITHER map. This assertion
+    //       counted 14 and passed, because 14 was also the number of series that
+    //       had been thought about. A count only catches drift when it is the
+    //       count of what EXISTS, so it is now 15 FRED + 5 ECOS = 20 collected.
+    //   +5  the ECOS series (migration 076).
+    // macro-series-list-parity.test.ts checks the same invariant against the
+    // collector files themselves, which is the version that cannot go stale.
+    assert.equal(measured.length + excluded.length, 20);
+    assert.equal(new Set([...measured, ...excluded]).size, 20);
     for (const reason of Object.values(MACRO_SERIES_EXCLUSIONS)) {
       assert.ok(reason.length > 20, 'an exclusion must say why, not just that');
     }

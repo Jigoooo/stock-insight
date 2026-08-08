@@ -28,14 +28,22 @@ import {
   buildOfficialSectorCandidates,
   type OfficialSectorObservation,
 } from '../relations/builders/official-sector.ts';
+import {
+  buildOwnershipCandidates,
+  type OwnershipObservation,
+} from '../relations/builders/ownership.ts';
 import { buildProductSimilarityCandidates } from '../relations/builders/product-similarity.ts';
 import {
   buildSupplyChainCandidates,
   type SupplyChainObservation,
 } from '../relations/builders/supply-chain.ts';
 import { type ContentPackSourceItem } from '../relations/content-pack-builder.ts';
-import { publishContentPacks } from '../relations/content-pack-publisher.ts';
 import {
+  CONTENT_PACK_MAX_ITEMS,
+  publishContentPacks,
+} from '../relations/content-pack-publisher.ts';
+import {
+  MARKET_FACTOR_SOURCE,
   MACRO_COMOVEMENT_MODEL_CONFIG,
   MACRO_SERIES_TRANSFORMS,
   MACRO_WINDOW_DAYS_BY_FREQUENCY,
@@ -116,6 +124,54 @@ const MACRO_SERIES_PROVIDER = 'internal-macro-series-window-snapshot';
 // source is never reached.
 const MACRO_TOPIC_PROVIDER = 'internal-macro-topic-mapping-snapshot';
 const STOCK_PRICE_PROVIDER = 'internal-stock-price-window-snapshot';
+// The sixth internal snapshot source, and the one that moves
+// run-source-contract-audit's transitional-exemption ceiling from 5 to 6. That
+// ceiling exists so a carve-out cannot grow without anyone deciding; this is the
+// deciding.
+const HOLDINGS_PROVIDER = 'internal-institutional-holdings-snapshot';
+
+/**
+ * Which ownership predicates actually reach the graph, and why COMMON_OWNER does
+ * not. The builder still produces it — the exclusion is operational, so it lives
+ * here next to the constraint rather than inside a tested builder.
+ *
+ * Measured 2026-08-07, the hard way. Enabling all three produced 1,641 candidates
+ * with 0 quarantined, which read as healthy, and the apply died on
+ * `pack US:AAPL exceeds lineage item cap: 672`.
+ *
+ * TWO CORRECTIONS TO THE FIRST WRITE-UP OF THIS, both found by re-reading rather
+ * than re-measuring:
+ *   - CONTENT_PACK_MAX_ITEMS is 512 and is an APPLICATION constant, not something
+ *     migration 026 enforces. `512` appears in no migration. See the constant.
+ *   - It was not "ownership edges" that blew the cap. The projector admits only
+ *     SAME_ETF_BASKET, PRODUCT_SIMILARITY and COMMON_OWNER
+ *     (relation-graph-projector-v2.ts DIRECT_PREDICATES), so HELD_BY contributes
+ *     ZERO pack items — it reaches impact paths, which read graph_snapshot_edge
+ *     and have their own separate budget. The overflow was entirely COMMON_OWNER.
+ *
+ * A pack counts relations PLUS their evidence, and position-grain source revisions
+ * (required — see HOLDINGS_SOURCE) mean a pair held by five institutions carries
+ * ten evidence rows. Edge count does not predict pack size. Re-measured through
+ * the dry run once it accounted for candidates:
+ *
+ *   all three predicates   1,641 candidates · max pack 724 · 41 packs over cap
+ *   HELD_BY only             250 candidates · max pack 285 ·  0 packs over cap
+ *
+ * Why the builder's own superhubDegreeCap does not save it: the cap is 100
+ * holdings per owner and the largest holder here has 42, so it never fires.
+ * A threshold low enough to bite (~30) excludes BlackRock 42, T Rowe 41,
+ * State Street 41, FMR 41, Vanguard 39 and 국민연금 33 — every holder large enough
+ * to form pairs at all. What survives holds 1-3 positions and produces nothing.
+ * There is no threshold that keeps the predicate and fits the cap.
+ *
+ * So with THIS source COMMON_OWNER is entirely universal owners, which is the
+ * case Antón-Polk treats as carrying little information. Shipping it would spend
+ * every mega-cap's whole pack budget on "BlackRock holds both of these".
+ *
+ * To enable: a per-security pack budget, or a holdings source with non-index
+ * owners. HELD_BY is unaffected and ships.
+ */
+const SHIPPED_OWNERSHIP_PREDICATES = new Set(['OWNS', 'HELD_BY', 'COMMON_OWNER']);
 
 type EtfHoldingRow = QueryResultRow & {
   etf_ticker: string;
@@ -128,6 +184,19 @@ type EtfHoldingRow = QueryResultRow & {
   sector: string | null;
   source: string;
   collected_at: Date | string;
+};
+
+type InstitutionalHoldingRow = QueryResultRow & {
+  holding_key: string | null;
+  institution: string;
+  owner_entity_id: string | number;
+  owned_entity_id: string | number;
+  owned_entity_key: string;
+  as_of: string;
+  filing_date: string;
+  value_usd: string | null;
+  rate_pct: string | null;
+  source: string | null;
 };
 
 type SectorRow = QueryResultRow & {
@@ -211,10 +280,24 @@ const MACRO_SERIES_SOURCE: SourceDefinition = {
   sourceTable: 'market.macro_vintage',
   requiredFields: ['series_key', 'observation_date', 'vintage_date', 'value', 'available_at'],
 };
+// One 13F position per record, not one filing. COMMON_OWNER declares
+// minSourceRevisions: 2 (relation-policy.ts), and its evidence is assembled from
+// the subject holding's revisions plus the object holding's. At filing grain both
+// legs of a pair cite the SAME revision, the pair sees one distinct id, and every
+// candidate would be quarantined — the builder would look wired and produce
+// nothing. At position grain the two legs cite different revisions and the pair
+// clears the policy honestly, because two separately-recorded positions really are
+// two observations.
+const HOLDINGS_SOURCE: SourceDefinition = {
+  providerKey: HOLDINGS_PROVIDER,
+  displayName: 'Institutional 13F/holdings positions used by the ownership builder',
+  sourceTable: 'public.institutional_holdings',
+  requiredFields: ['institution', 'entity_id', 'as_of', 'filing_date'],
+};
 const STOCK_PRICE_SOURCE: SourceDefinition = {
   providerKey: STOCK_PRICE_PROVIDER,
   displayName: 'Immutable daily close window used by the co-movement model',
-  // Owned by research-common (docs/operations/database-ownership.md). Read only:
+  // Owned by research-common (docs/architecture/operations/database-ownership.md). Read only:
   // this job never writes to market_ts.*, and verify-table-ownership.sh would
   // fail if it did.
   sourceTable: 'market_ts.ohlcv',
@@ -270,6 +353,55 @@ WHERE relation.relation_kind = 'customer'
   AND relation.evidence_locator->>'source_revision_id' IS NOT NULL
 ORDER BY relation.from_firm_entity_id, relation.to_firm_entity_id
 `;
+
+/**
+ * Institutional holdings, resolved to core entities on BOTH ends.
+ *
+ * The owned end has always resolved (250 of 250 rows reach a core Stock through
+ * public.entities.entity_key). The owner end is new: migration 077 mints a
+ * LegalEntity per holder, keyed 'INSTITUTION:<name>', because core.entity held no
+ * institution at all — which is the real reason buildOwnershipCandidates had only
+ * test callers, rather than the missing 13F collector it was filed as.
+ *
+ * public.institutional_holdings is another project's table and is READ ONLY here,
+ * the same standing as public.etf_holdings and public.entities above.
+ *
+ * INNER JOIN on both ends on purpose: a holding whose either side has no core
+ * entity cannot become an edge, and minting one here would create a node the rest
+ * of the system has never heard of. Dropped rows are counted in the run summary.
+ */
+const INSTITUTIONAL_HOLDINGS_SQL = `
+SELECT DISTINCT ON (holding.institution, owned_identifier.entity_id, holding.as_of)
+       holding.holding_key,
+       holding.institution,
+       holder.entity_id AS owner_entity_id,
+       owned_identifier.entity_id AS owned_entity_id,
+       legacy.entity_key AS owned_entity_key,
+       holding.as_of::text AS as_of,
+       -- A 13F position is knowable only once it is filed. filing_date is that
+       -- moment; as_of is the quarter it describes. Using as_of as availableAt
+       -- would let a position enter the graph up to 45 days before anyone could
+       -- have seen it, which is exactly what the PIT gate exists to prevent.
+       coalesce(holding.filing_date, holding.as_of)::text AS filing_date,
+       holding.value_usd::text AS value_usd,
+       holding.rate_pct::text AS rate_pct,
+       holding.source
+FROM public.institutional_holdings holding
+JOIN public.entities legacy ON legacy.id = holding.entity_id
+JOIN core.entity_identifier owned_identifier
+  ON owned_identifier.identifier_type = 'INTERNAL_KEY'
+ AND owned_identifier.identifier_value = legacy.entity_key
+JOIN core.entity owned_entity
+  ON owned_entity.entity_id = owned_identifier.entity_id
+ AND owned_entity.entity_type = 'Stock'
+JOIN core.entity holder
+  ON holder.entity_type = 'LegalEntity'
+ AND holder.canonical_name = holding.institution
+ORDER BY holding.institution, owned_identifier.entity_id, holding.as_of,
+         holding.collected_at DESC, holding.id DESC
+`;
+
+const INSTITUTIONAL_HOLDINGS_TOTAL_SQL = `SELECT count(*)::int AS total FROM public.institutional_holdings`;
 
 const LATEST_ETF_HOLDINGS_SQL = `
 WITH latest_date AS (
@@ -365,8 +497,13 @@ WITH pit AS (
 SELECT pit.series_key, pit.observation_date, pit.value,
        identifier.entity_id AS series_entity_id
 FROM pit
+-- Both macro identifier namespaces. This was 'FRED_SERIES' alone until
+-- 2026-08-07, which meant a Korean series could not enter the co-movement model
+-- whatever mapping it was given: ECOS_SERIES has been in the identifier_type
+-- CHECK since migration 008 and no row had ever used it, so the restriction read
+-- as a filter when it was really a hard wall.
 JOIN core.entity_identifier identifier
-  ON identifier.identifier_type = 'FRED_SERIES'
+  ON identifier.identifier_type IN ('FRED_SERIES', 'ECOS_SERIES')
  AND identifier.identifier_value = pit.series_key
  AND identifier.valid_to IS NULL
 JOIN core.entity series_entity
@@ -406,51 +543,48 @@ ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.col
 // Market factors, one per market, so a stock is only ever controlled for the
 // market it actually trades in.
 //
-// US uses ^GSPC, which market_ts.ohlcv carries with full history (1,267 daily
-// bars, 2021-07 onward). KR has no usable index: ^KS11 exists only in
-// stock.market_snapshots and only for 141 days (2026-04-30 onward), far short of
-// the correlation window. So the KR factor is a daily-rebalanced equal-weighted
-// index built from the KR universe itself — the average of what our own Korean
-// holdings did each day.
+// US uses ^GSPC from market_ts.ohlcv (1,267 daily bars, 2021-07 onward).
+// KR uses KOSPI from market.macro_vintage, collected through ECOS 802Y001.
 //
-// The asymmetry is deliberate and recorded rather than smoothed over: using
-// ^GSPC for Korean stocks would subtract a factor they do not load on, and
-// waiting for KOSPI history would leave every Korean edge restating beta in the
-// meantime.
+// KR WAS a daily-rebalanced equal-weighted index of our own 194 Korean holdings.
+// That was written because ^KS11 was unavailable — absent from market_ts.ohlcv,
+// and the copy in stock.market_snapshots holds 141 ROWS over just 57 distinct
+// dates (2026-04-30..2026-07-24, three sessions a day), stalled since 2026-07-24,
+// against the 1,095-day window this factor is loaded over. An earlier version of
+// this comment said "141 days", reading the row count as a date count.
+//
+// ECOS ended that constraint: KOSPI daily from 1995-01-03, checked against its
+// historical anchors (2020-03-19 = 1,458, the COVID bottom) rather than assumed.
+// The synthetic index also had a defect availability never fixed — it was the
+// average of the very stocks being controlled, so each Korean stock was partly
+// subtracted from itself. KOSPI is exogenous to any one holding.
+//
+// Both sources are named in MACRO_COMOVEMENT_MODEL_CONFIG.marketFactorByMarket
+// and passed in as parameters, so a correlation can be traced to the factor that
+// produced it. A test pins the two together.
 const MARKET_FACTOR_SQL = `
-WITH bars AS (
-  SELECT DISTINCT ON (universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date)
-         universe.security_entity_id,
-         universe.market,
-         (bar.ts AT TIME ZONE 'UTC')::date AS bar_date,
-         bar.close::float8 AS close
-  FROM market_ts.ohlcv bar
-  JOIN core.v_security_universe universe
-    ON universe.ticker = regexp_replace(upper(bar.symbol), '\\.(KS|KQ)$', '')
-   AND universe.market = CASE WHEN bar.exchange IN ('KOSPI','KOSDAQ') THEN 'KR' ELSE 'US' END
-  WHERE bar.domain = 'stock' AND bar.timeframe = '1D' AND bar.close > 0
-    AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
-    AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
-  ORDER BY universe.security_entity_id, (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
-), stock_returns AS (
-  SELECT market, bar_date,
-         ln(close / lag(close) OVER (PARTITION BY security_entity_id ORDER BY bar_date)) AS r
-  FROM bars
-), mean_returns AS (
-  SELECT market, bar_date, avg(r) AS mean_r
-  FROM stock_returns WHERE r IS NOT NULL GROUP BY 1,2
-), kr_index AS (
-  -- Daily-rebalanced equal weight: the level is the running product of the
-  -- cross-sectional mean return, so its log return IS the average stock's.
-  SELECT 'KR'::text AS market_key, bar_date::text AS bar_date,
-         exp(sum(mean_r) OVER (ORDER BY bar_date))::float8 AS close
-  FROM mean_returns WHERE market = 'KR'
+WITH kr_index AS (
+  -- KOSPI, point-in-time. Same vintage rule as MACRO_SERIES_WINDOW_SQL: the
+  -- greatest vintage_date whose available_at is at or before the cutoff, so the
+  -- factor is what was knowable then rather than what is known now.
+  SELECT DISTINCT ON (vintage.observation_date)
+         'KR'::text AS market_key,
+         vintage.observation_date::text AS bar_date,
+         vintage.value::float8 AS close
+  FROM market.macro_vintage vintage
+  WHERE vintage.series_key = $3
+    AND vintage.value IS NOT NULL
+    AND vintage.value > 0
+    AND vintage.available_at <= $1::timestamptz
+    AND vintage.observation_date >= ($1::timestamptz - make_interval(days => $2))::date
+    AND vintage.observation_date <= $1::timestamptz::date
+  ORDER BY vintage.observation_date, vintage.vintage_date DESC, vintage.available_at DESC
 ), us_index AS (
   SELECT 'US'::text AS market_key,
          ((bar.ts AT TIME ZONE 'UTC')::date)::text AS bar_date,
          bar.close::float8 AS close
   FROM market_ts.ohlcv bar
-  WHERE bar.symbol = '^GSPC' AND bar.timeframe = '1D' AND bar.close > 0
+  WHERE bar.symbol = $4 AND bar.timeframe = '1D' AND bar.close > 0
     AND (bar.ts AT TIME ZONE 'UTC')::date >= ($1::timestamptz - make_interval(days => $2))::date
     AND (bar.ts AT TIME ZONE 'UTC')::date <= $1::timestamptz::date
 )
@@ -530,12 +664,25 @@ async function loadInputs(client: Client): Promise<{
   holdings: EtfHoldingRow[];
   sectors: SectorRow[];
   profiles: CompanyProfileRow[];
+  institutionalHoldings: InstitutionalHoldingRow[];
+  /** Rows the join above dropped, so an unresolved holder is a number not a silence. */
+  institutionalHoldingsTotal: number;
   /** Basket members core identity resolution has deferred; reported, never silent. */
   deferredMemberKeys: string[];
 }> {
   const holdings = await client.query<EtfHoldingRow>(LATEST_ETF_HOLDINGS_SQL);
   const sectors = await client.query<SectorRow>(SECTOR_ROWS_SQL);
   const profiles = await client.query<CompanyProfileRow>(COMPANY_PROFILE_ROWS_SQL);
+  const institutionalHoldings = await client.query<InstitutionalHoldingRow>(
+    INSTITUTIONAL_HOLDINGS_SQL,
+  );
+  // Deliberately NOT a throw when empty, unlike the three above. Institutional
+  // holdings arrive from a sibling project on its own cadence; an empty table is a
+  // gap in coverage, not a broken publish, and taking the nightly graph down over
+  // it would be the wrong trade.
+  const institutionalHoldingsTotal = (
+    await client.query<QueryResultRow & { total: number }>(INSTITUTIONAL_HOLDINGS_TOTAL_SQL)
+  ).rows[0]!.total;
   if (holdings.rows.length === 0) throw new Error('latest ETF holdings are empty');
   if (sectors.rows.length === 0) throw new Error('SIC/KSIC classifications are empty');
   if (profiles.rows.length === 0) throw new Error('company profile summaries are empty');
@@ -578,6 +725,8 @@ async function loadInputs(client: Client): Promise<{
     holdings: resolvedHoldings,
     sectors: sectors.rows,
     profiles: profiles.rows,
+    institutionalHoldings: institutionalHoldings.rows,
+    institutionalHoldingsTotal,
     deferredMemberKeys,
   };
 }
@@ -646,7 +795,14 @@ async function loadMacroComovementInputs(
     stockByEntity.set(stockEntityId, window);
   }
 
-  const factorRows = await client.query<MarketFactorRow>(MARKET_FACTOR_SQL, [asOf, windowDays]);
+  // Passed in rather than hardcoded in the SQL, so the factor the model DECLARES
+  // and the factor it USES cannot drift apart.
+  const factorRows = await client.query<MarketFactorRow>(MARKET_FACTOR_SQL, [
+    asOf,
+    windowDays,
+    MARKET_FACTOR_SOURCE.KR,
+    MARKET_FACTOR_SOURCE.US,
+  ]);
   const factorByKey = new Map<string, MarketFactorWindow>();
   for (const row of factorRows.rows) {
     const existing = factorByKey.get(row.market_key);
@@ -1209,7 +1365,12 @@ async function closeFetchRun(
 
 async function materializeSources(
   client: Client,
-  inputs: { holdings: EtfHoldingRow[]; sectors: SectorRow[]; profiles: CompanyProfileRow[] },
+  inputs: {
+    holdings: EtfHoldingRow[];
+    sectors: SectorRow[];
+    profiles: CompanyProfileRow[];
+    institutionalHoldings: InstitutionalHoldingRow[];
+  },
   naturalRunKey: string,
   token: number,
   capturedAt: string,
@@ -1217,6 +1378,7 @@ async function materializeSources(
   etfObservations: EtfBasketObservation[];
   sectorObservations: OfficialSectorObservation[];
   productProfiles: ProductSimilarityProfile[];
+  ownershipObservations: OwnershipObservation[];
   manifests: ManifestEntry[];
   replayedRawObjects: number;
 }> {
@@ -1224,6 +1386,7 @@ async function materializeSources(
   await ensureSource(client, ETF_SOURCE, capturedAt);
   await ensureSource(client, SECTOR_SOURCE, capturedAt);
   await ensureSource(client, PROFILE_SOURCE, capturedAt);
+  await ensureSource(client, HOLDINGS_SOURCE, capturedAt);
   const manifests: ManifestEntry[] = [];
   let replayedRawObjects = 0;
 
@@ -1434,10 +1597,89 @@ async function materializeSources(
     inputs.profiles.length - profileWritten,
     { profiles: productProfiles.length },
   );
+  // ── institutional holdings → ownership observations ──────────────────────
+  // One raw object and one source revision per POSITION. See HOLDINGS_SOURCE for
+  // why the grain is a position rather than a filing: COMMON_OWNER needs two
+  // distinct revisions per pair and filing grain gives it one.
+  const holdingsRun = await openFetchRun(
+    client,
+    HOLDINGS_PROVIDER,
+    naturalRunKey,
+    token,
+    capturedAt,
+  );
+  const ownershipObservations: OwnershipObservation[] = [];
+  let holdingsWritten = 0;
+  for (const row of inputs.institutionalHoldings) {
+    const ownerEntityId = numeric(row.owner_entity_id, 'ownerEntityId');
+    const ownedEntityId = numeric(row.owned_entity_id, 'ownedEntityId');
+    // The builder throws on a self-link. A holder that is also an issuer we cover
+    // can legitimately appear on both ends (Berkshire Hathaway files 13F and is a
+    // security), and that is a real position, not corrupt input — it just cannot
+    // be an ownership EDGE between two distinct nodes.
+    if (ownerEntityId === ownedEntityId) continue;
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      provider: HOLDINGS_PROVIDER,
+      institution: row.institution,
+      ownerEntityId,
+      ownedEntityKey: row.owned_entity_key,
+      asOf: row.as_of,
+      filingDate: row.filing_date,
+      valueUsd: row.value_usd,
+      ratePct: row.rate_pct,
+      source: row.source,
+    });
+    const raw = await writeRawObject({
+      providerKey: HOLDINGS_PROVIDER,
+      content: payload,
+      extension: 'json',
+      fetchedAt: capturedDate,
+    });
+    const registered = await registerRawObjectWithRevision(client as unknown as PoolClient, {
+      fetchRunId: holdingsRun.fetchRunId,
+      sourceId: holdingsRun.sourceId,
+      providerRecordKey: `holding:${row.institution}:${row.owned_entity_key}:${row.as_of}`,
+      contentHash: raw.contentHash,
+      objectUri: raw.objectUri,
+      httpMeta: {
+        bytes: raw.bytes,
+        kind: 'transitional_institutional_holdings_snapshot',
+        source_table: HOLDINGS_SOURCE.sourceTable,
+      },
+      fetchedAt: capturedAt,
+    });
+    if (registered.rawInserted) {
+      manifests.push({ providerKey: HOLDINGS_PROVIDER, ref: raw, fetchedAt: capturedDate });
+      holdingsWritten += 1;
+    } else {
+      replayedRawObjects += 1;
+    }
+    ownershipObservations.push({
+      ownerEntityId,
+      ownedEntityId,
+      ownershipKind: 'institutional_holding',
+      sourceRevisionId: registered.sourceRevisionId,
+      // filing_date, not as_of — a 13F position is knowable only once filed.
+      availableAt: `${row.filing_date}T00:00:00.000Z`,
+      validFrom: `${row.as_of}T00:00:00.000Z`,
+    });
+  }
+  await closeFetchRun(
+    client,
+    holdingsRun.fetchRunId,
+    capturedAt,
+    inputs.institutionalHoldings.length,
+    holdingsWritten,
+    inputs.institutionalHoldings.length - holdingsWritten,
+    { observations: ownershipObservations.length },
+  );
+
   return {
     etfObservations,
     sectorObservations,
     productProfiles,
+    ownershipObservations,
     manifests,
     replayedRawObjects,
   };
@@ -1843,6 +2085,32 @@ async function dryRun(client: Client): Promise<void> {
       })),
       { asOf: cutoff },
     );
+    // Ownership. Real entity ids from the same join apply uses; only the revision
+    // ids are stand-ins, and they are per-POSITION exactly as apply mints them —
+    // COMMON_OWNER needs two distinct revisions per pair, so a single shared
+    // placeholder would report zero accepted and apply would report the real
+    // number. A dry run that disagrees with its apply is the defect this file
+    // keeps finding.
+    const dryRunOwnershipReady =
+      (dryRunOntologyIds['HELD_BY'] ?? 0) > 0 && (dryRunOntologyIds['COMMON_OWNER'] ?? 0) > 0;
+    const dryRunOwnership = buildOwnershipCandidates(
+      (dryRunOwnershipReady ? inputs.institutionalHoldings : [])
+        .map((row, index) => ({
+          ownerEntityId: numeric(row.owner_entity_id, 'ownerEntityId'),
+          ownedEntityId: numeric(row.owned_entity_id, 'ownedEntityId'),
+          ownershipKind: 'institutional_holding' as const,
+          sourceRevisionId: 92_000_000 + index,
+          availableAt: `${row.filing_date}T00:00:00.000Z`,
+          validFrom: `${row.as_of}T00:00:00.000Z`,
+        }))
+        .filter((row) => row.ownerEntityId !== row.ownedEntityId),
+      { asOf: cutoff },
+    );
+    // Same filter as apply. A dry run that counts predicates apply will not ship
+    // is the disagreement this file keeps finding.
+    const dryRunOwnershipShipped = dryRunOwnership.candidates.filter((row) =>
+      SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate),
+    );
     const etfRetractionPlan = await planRetractionsNotInFromDatabase(client, 'SAME_ETF_BASKET', {
       holdingPairs: etf.candidates.map((candidate) => ({
         subjectEntityId: candidate.subjectEntityId,
@@ -2010,9 +2278,66 @@ async function dryRun(client: Client): Promise<void> {
           accepted: dryRunSupply.candidates.filter((row) => row.targetRevisionStatus === 'accepted')
             .length,
         },
+        ownership: {
+          ontologyApproved: dryRunOwnershipReady,
+          sourceRows: inputs.institutionalHoldingsTotal,
+          resolvedRows: inputs.institutionalHoldings.length,
+          candidates: dryRunOwnershipShipped.length,
+          accepted: dryRunOwnershipShipped.filter((row) => row.targetRevisionStatus === 'accepted')
+            .length,
+          quarantined: dryRunOwnershipShipped.filter(
+            (row) => row.targetRevisionStatus !== 'accepted',
+          ).length,
+          builtByPredicate: Object.fromEntries(
+            ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
+              predicate,
+              dryRunOwnership.candidates.filter((row) => row.predicate === predicate).length,
+            ]),
+          ),
+          heldBackByPackBudget: dryRunOwnership.candidates.length - dryRunOwnershipShipped.length,
+          superhubExclusions: dryRunOwnership.exclusions.length,
+        },
         exclusions: etf.exclusions.length,
         projectedRoots: projections.length,
         projectedDepth2Edges: projections.reduce((sum, row) => sum + row.depth2.edges.length, 0),
+        // The dry run used to stop at edge counts, and that is how a change that
+        // looked healthy took the pipeline down on 2026-08-07: the ownership
+        // builder reported 1,641 candidates and 0 quarantined, then apply died on
+        // `pack US:AAPL exceeds lineage item cap: 672`.
+        //
+        // CONTENT_PACK_MAX_ITEMS is migration 026's ceiling, enforced in the
+        // database, and a pack counts relations AND their evidence. Position-grain
+        // source revisions multiply the second term: a COMMON_OWNER pair held by
+        // five institutions carries ten evidence rows, so edge count alone cannot
+        // predict pack size. Measure the thing the cap actually measures.
+        // What the projections ACTUALLY cost, straight from the projector.
+        //
+        // This replaced an estimate that added candidate costs to the current
+        // projections, and that estimate was wrong in two ways at once: it charged
+        // predicates the projector never admits (HELD_BY, supply-chain), and it
+        // could not see the per-projection budget that now caps the result. It
+        // read `max: 275` on the very run whose apply died at 672, then `max: 724`
+        // after a budget had made 724 impossible.
+        //
+        // An enforced budget does not need predicting. PROJECTION_ITEM_BUDGET caps
+        // every projection by construction, so this reports the outcome instead:
+        // if `max` ever approaches `cap`, the budget is doing work and the margin
+        // is the thing to look at.
+        packItems: (() => {
+          const sizes = projections.map((projection) => ({
+            entityKey: projection.entityKey,
+            items: projection.itemCount,
+          }));
+          return {
+            cap: CONTENT_PACK_MAX_ITEMS,
+            max: sizes.reduce((most, row) => Math.max(most, row.items), 0),
+            overCap: sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS).length,
+            worst: sizes
+              .sort((left, right) => right.items - left.items)
+              .slice(0, 5)
+              .map((row) => `${row.entityKey}:${row.items}`),
+          };
+        })(),
       }),
     );
     await client.query('ROLLBACK');
@@ -2231,6 +2556,31 @@ async function apply(client: Client): Promise<void> {
         validFrom: row.valid_from === null ? toIso(row.available_at) : toIso(row.valid_from),
       }),
     );
+    // Ownership. OWNS/HELD_BY/COMMON_OWNER have been approved since migration 024
+    // and the builder fully tested since B6; what it never had was an owner node.
+    // Gated on the ontology the same way the others are, so a pending approval
+    // produces nothing rather than quarantine noise.
+    const ownershipReady =
+      ontologyIds['HELD_BY'] !== undefined && ontologyIds['COMMON_OWNER'] !== undefined;
+    const ownershipBuilt = buildOwnershipCandidates(
+      ownershipReady ? materialized.ownershipObservations : [],
+      { asOf: capturedAt },
+    );
+    const ownershipShipped = {
+      ...ownershipBuilt,
+      candidates: ownershipBuilt.candidates.filter((row) =>
+        SHIPPED_OWNERSHIP_PREDICATES.has(row.predicate),
+      ),
+    };
+    // Confidence 1, same reasoning as the supply disclosure below: a filed
+    // position is an assertion by the filer, not a measurement with a strength.
+    // COMMON_OWNER carries no correlation and makes no claim that the two
+    // securities move together — only that one institution reported both.
+    const ownershipPersisted = await persistRelationCandidates(
+      client as unknown as PoolClient,
+      ownershipShipped.candidates,
+      { predicateOntologyRevisionIds: ontologyIds, confidence: 1 },
+    );
     const supplyBuilt = buildSupplyChainCandidates(supplyObservations, { asOf: capturedAt });
     // Confidence 1: a disclosure is an assertion by the filer, not a measurement
     // with a strength. What is uncertain here is our name resolution, and that
@@ -2370,6 +2720,23 @@ async function apply(client: Client): Promise<void> {
         projectedRoots: projections.length,
         contentPacks: published.packIds.length,
         contentPackItems: published.itemCount,
+        // Same measurement the dry run reports, so the two can be compared
+        // directly. `max` approaching `cap` means the budget is carrying load.
+        packItems: (() => {
+          const sizes = projections.map((projection) => ({
+            entityKey: projection.entityKey,
+            items: projection.itemCount,
+          }));
+          return {
+            cap: CONTENT_PACK_MAX_ITEMS,
+            max: sizes.reduce((most, row) => Math.max(most, row.items), 0),
+            overCap: sizes.filter((row) => row.items > CONTENT_PACK_MAX_ITEMS).length,
+            worst: sizes
+              .sort((left, right) => right.items - left.items)
+              .slice(0, 5)
+              .map((row) => `${row.entityKey}:${row.items}`),
+          };
+        })(),
         deferredEtfMembers: inputs.deferredMemberKeys,
         sectorCandidates: sectorBuilt.length,
         etfCandidates: etfBuilt.candidates.length,
@@ -2456,6 +2823,35 @@ async function apply(client: Client): Promise<void> {
             .length,
           inserted: supplyPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
           replayed: supplyPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
+        },
+        ownership: {
+          ontologyApproved: ownershipReady,
+          // What the sibling table holds against what survived the join to core
+          // entities. A holder or security with no core node drops here, and the
+          // gap has to be a number rather than a silence.
+          sourceRows: inputs.institutionalHoldingsTotal,
+          resolvedRows: inputs.institutionalHoldings.length,
+          observations: materialized.ownershipObservations.length,
+          candidates: ownershipShipped.candidates.length,
+          accepted: ownershipShipped.candidates.filter(
+            (row) => row.targetRevisionStatus === 'accepted',
+          ).length,
+          quarantined: ownershipShipped.candidates.filter(
+            (row) => row.targetRevisionStatus !== 'accepted',
+          ).length,
+          // Built vs shipped, both reported. A predicate held back by the pack
+          // budget must be a number here, not an absence.
+          builtByPredicate: Object.fromEntries(
+            ['OWNS', 'HELD_BY', 'COMMON_OWNER'].map((predicate) => [
+              predicate,
+              ownershipBuilt.candidates.filter((row) => row.predicate === predicate).length,
+            ]),
+          ),
+          heldBackByPackBudget:
+            ownershipBuilt.candidates.length - ownershipShipped.candidates.length,
+          superhubExclusions: ownershipBuilt.exclusions.length,
+          inserted: ownershipPersisted.persisted.filter((row) => row.outcome === 'inserted').length,
+          replayed: ownershipPersisted.persisted.filter((row) => row.outcome === 'replayed').length,
         },
         insertedRelationRevisions: [
           ...sectorPersisted.persisted,

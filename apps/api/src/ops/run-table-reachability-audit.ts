@@ -14,7 +14,7 @@
 // not a guess at them. Building a SQL parser to avoid asking the database would
 // have been the patchwork this audit exists to find.
 //
-// PITFALLS, from docs/operations/database-ownership.md and each confirmed the hard
+// PITFALLS, from docs/architecture/operations/database-ownership.md and each confirmed the hard
 // way on the same day:
 //   - pg_stat_user_tables.n_live_tup is an ESTIMATE. analytics.theme holds 138 rows
 //     and reports 0, so this uses count(*).
@@ -57,8 +57,31 @@ const OWNED_SCHEMAS = [
  * a list like this stops meaning anything.
  */
 const ACCEPTED = new Map<string, string>([
-  ['analytics.theme', '테마 138행 — 사건을 테마로 분류하는 코드가 없다'],
-  ['analytics.theme_membership', '테마 멤버십 396행 — 위와 같은 이유'],
+  // 「폐기 예정」이었다. 2026-08-07 재측정으로 그 분류를 철회한다.
+  //
+  // 근거가 "v2 가 theme_exposure_snapshot 으로 대체" 였는데, 그 표는 존재하지 않는다.
+  // 마스터 플랜 문서(00-backend-db-master-plan.md:279)에 축이 적혀 있을 뿐 마이그레이션도
+  // 표도 없다. 즉 "대체품이 있으니 버려도 된다" 가 아니라 "대체품이 계획서에만 있고
+  // 원본은 아무도 안 읽는다" 였다. 둘은 전혀 다른 상태다.
+  //
+  // 그리고 이 534행은 지금 값이 있을 수 있다. 2026-08-07 실측: 미귀속 policy_event
+  // 611건 중 576건이 시장 어휘에 하나도 안 걸린다. 어휘가 못 잡는 사건을 종목에
+  // 잇는 경로로 database-ownership.md 가 지목한 것이 바로 이 두 표다
+  // (theme_membership 은 rationale_relation_ids 로 근거까지 들고 있다).
+  //
+  // 그리고 마이그레이션 068 의 주석("evidence is 93% quarantined")도 틀렸다.
+  // 2026-08-07 실측: Theme 에 닿는 relation 1,145개가 **100%** quarantined 이고
+  // relation_evidence 행은 0개다. 93% 보다 나쁘다.
+  //
+  // 068 자체는 고치지 않았고 고칠 수 없다 — 적용된 마이그레이션의 SQL 을 편집하면
+  // run-schema-migrations 가 체크섬 drift 로 거부한다("the database and the
+  // repository disagree about what was run"). 그게 맞는 설계이므로, 정정은
+  // 체크섬 밖인 여기에 남긴다.
+  //
+  // 여기 남겨 두는 이유는 "읽히지 않는다" 가 사실이기 때문이고, 사유는 사실로 고쳤다.
+  // 폐기하려면 theme_exposure_snapshot 을 실제로 만들거나 폐기를 별도로 결정해야 한다.
+  ['analytics.theme', '138행 — 미사용. 대체 설계(theme_exposure_snapshot)는 표가 없다'],
+  ['analytics.theme_membership', '396행 — 미사용. 근거(rationale_relation_ids) 보유'],
   ['core.security_master', '297행 — listing_revision · ticker_history 와 함께 미사용'],
   ['knowledge.ontology_rfc', '22행 — ontology_revision 과 함께 미사용'],
   ['analytics.impact_channel', '17행 — 채널 분류가 경로에 붙지 않았다'],

@@ -52,7 +52,15 @@ WITH company_name AS (
   FROM (
     SELECT entity_key, name FROM public.company_profiles WHERE name IS NOT NULL
     UNION
-    SELECT NULL::text, name FROM core.v_security_universe WHERE name IS NOT NULL
+    -- The view's OWN entity_key, not NULL. This line used to discard it and the
+    -- join below then tried to recover the key by looking the name up in
+    -- public.company_profiles — a 317-row table that does not contain Apple,
+    -- NVIDIA, Tesla, Microsoft, Visa, 기아, 현대차 or 기업은행. For every universe
+    -- name absent from profiles the coalesce yielded NULL, the join dropped it, and
+    -- the whole v_security_universe branch of this UNION contributed nothing.
+    -- Measured 2026-08-07: the job reported matchedEvents 1 while 38 unattributed
+    -- events name a universe company in their summary.
+    SELECT entity_key, name FROM core.v_security_universe WHERE name IS NOT NULL
   ) source
   JOIN core.entity_identifier identity
     ON identity.identifier_type = 'INTERNAL_KEY'

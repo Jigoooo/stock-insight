@@ -11,7 +11,7 @@ import type { EntityRelationGraph } from '@stock-insight/contracts/research-work
 
 // The `secondary_exposure` section stayed permanently missing because the only
 // impact surface wired to the product read serving.impact_summary_v1, which is
-// empty by construction (docs/operations/impact-plane-v1-v2.md). It is now fed by
+// empty by construction (docs/architecture/operations/impact-plane-v1-v2.md). It is now fed by
 // impact_brief content packs, whose paths carry a foreign key per traversed edge.
 
 const stockDetail = {

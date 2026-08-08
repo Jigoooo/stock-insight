@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-import { classify } from '../src/knowledge/run-claim-corroboration.ts';
+import {
+  classify,
+  selectTier,
+  type VerificationTier,
+} from '../src/knowledge/run-claim-corroboration.ts';
 
 // knowledge.claim sat at verified 0 / 271 and transitionVerification() had only
 // test callers, which read as "verification is unsolved". It was not:
@@ -61,10 +65,36 @@ test('the policy is read from the table, not restated', () => {
 test('the transition records who did it and under which rule', () => {
   // The audit trigger demands both; "a job did it" is not auditable.
   assert.match(source, /actor: ACTOR/);
-  assert.match(source, /policy \$\{rule\.policy_version\}/);
+  assert.match(source, /policy \$\{tier\.policyVersion\}/);
 });
 
 test('verified is not reached for free', () => {
-  assert.match(source, /toStatus: 'corroborated'/);
-  assert.doesNotMatch(source, /toStatus: 'verified'/);
+  // Rewritten 2026-08-06. This asserted the SOURCE TEXT `toStatus: 'corroborated'`
+  // and the absence of `toStatus: 'verified'` — it encoded a LIMITATION (the job
+  // could only ever mint corroborated) rather than the invariant. The limitation
+  // was the defect: ops.verification_policy has defined a verified tier since
+  // 2026-07-19 and nothing read it, so verified sat at 0 no matter the evidence.
+  //
+  // The invariant that actually matters survives, and is now checked as behaviour:
+  // one document buys corroborated and nothing more.
+  const tiers: VerificationTier[] = [
+    {
+      targetStatus: 'verified',
+      minDistinctDocuments: 2,
+      requireChunkQuote: true,
+      policyVersion: 'b4-v1',
+    },
+    {
+      targetStatus: 'corroborated',
+      minDistinctDocuments: 1,
+      requireChunkQuote: true,
+      policyVersion: 'b4-v1',
+    },
+  ];
+  const oneDocument = { document_count: 1, missing_anchor: 0, quote_not_in_source: 0 };
+  assert.equal(selectTier(oneDocument, tiers).tier?.targetStatus, 'corroborated');
+
+  // And the tier is read from the table, never restated in code — a hardcoded
+  // threshold here is how the policy row stopped being consulted in the first place.
+  assert.doesNotMatch(source, /minDistinctDocuments:\s*\d/);
 });

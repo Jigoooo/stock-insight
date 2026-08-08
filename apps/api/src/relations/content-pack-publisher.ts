@@ -21,7 +21,22 @@ import {
   type ContentPackSourceItem,
 } from './content-pack-builder.ts';
 
-/** Matches migration 026's per-pack item ceiling. */
+/**
+ * Per-pack item ceiling. AN APPLICATION CHOICE, NOT A DATABASE CONSTRAINT.
+ *
+ * The previous comment said "Matches migration 026's per-pack item ceiling" and
+ * that is false — `512` appears nowhere in packages/db-schema/src/migrations
+ * (measured 2026-08-07, zero hits across every migration). What 026 actually
+ * enforces is different and looser: `guard_content_pack_write` checks that
+ * `item_no` runs 1..item_count with no gaps and that the stored digest matches a
+ * server-side recomputation. It never counts items against a maximum.
+ *
+ * The distinction matters for anyone adding a per-security budget. Truncating a
+ * pack is safe at the database level — the builder renumbers to 1..N and
+ * recomputes the digest, so both of 026's checks still pass. The only thing
+ * standing in the way of truncation is `publishContentPacks` below, which treats
+ * any shortfall as lost lineage.
+ */
 export const CONTENT_PACK_MAX_ITEMS = 512;
 
 /** Rows are inserted in batches so one pack's lineage never builds a single huge statement. */

@@ -174,4 +174,80 @@ describe('B8 production relation graph projector v2', () => {
       ),
     );
   });
+  it('caps pack lineage per projection and spends the budget across relation kinds', () => {
+    // The COMMON_OWNER shape that took the pipeline down on 2026-08-07: a clique
+    // of mutually-connected stocks where every edge drags a fat evidence set.
+    // 20 nodes, all pairs, 12 evidence rows each — position-grain source revisions
+    // are why that number is large, and why edge count never predicted pack size.
+    const cliqueEntities = Array.from({ length: 20 }, (_, index) => ({
+      entityId: index + 1,
+      entityKey: `KR:${String(index + 1).padStart(6, '0')}`,
+      label: `E${index + 1}`,
+      market: 'KR' as const,
+    }));
+    let revisionId = 5_000;
+    const cliqueEdges = [];
+    for (let left = 1; left <= 20; left += 1) {
+      for (let right = left + 1; right <= 20; right += 1) {
+        revisionId += 1;
+        cliqueEdges.push(
+          edge({
+            relationRevisionId: revisionId,
+            relationIdentityId: revisionId + 10_000,
+            // corroborates, so it lands in a different bucket than the peer edges
+            // added below and the round-robin has something to alternate with.
+            predicate: 'COMMON_OWNER',
+            subjectEntityId: left,
+            objectEntityId: right,
+            confidence: 0.9,
+            evidenceIds: Array.from({ length: 12 }, (_, k) => revisionId * 100 + k),
+          }),
+        );
+      }
+    }
+    // A thinner peer layer at LOWER confidence. Taking edges by confidence alone
+    // would never reach these; the round-robin must.
+    for (let neighbour = 2; neighbour <= 20; neighbour += 1) {
+      revisionId += 1;
+      cliqueEdges.push(
+        edge({
+          relationRevisionId: revisionId,
+          relationIdentityId: revisionId + 10_000,
+          predicate: 'SAME_ETF_BASKET',
+          subjectEntityId: 1,
+          objectEntityId: neighbour,
+          confidence: 0.2,
+          evidenceIds: [revisionId + 20_000],
+        }),
+      );
+    }
+
+    const projections = buildRelationGraphProjections(cliqueEdges, cliqueEntities, context);
+    assert.ok(projections.length > 0);
+
+    // The cap the publisher enforces. Nothing may exceed it — that failure is a
+    // thrown apply, not a shorter pack.
+    for (const projection of projections) {
+      assert.ok(
+        projection.itemCount <= 512,
+        `${projection.entityKey} costs ${projection.itemCount} lineage items`,
+      );
+    }
+
+    // Without a budget this shape blows past the cap, so a passing assertion above
+    // has to be the budget working rather than the fixture being too small.
+    const unbudgeted = projections[0]!.depth2.edges.length * 13;
+    assert.ok(unbudgeted > 512, `fixture too small to exercise the budget: ${unbudgeted}`);
+
+    // Diversity: the budget is spent across kinds, not drained by the dense
+    // high-confidence clique. The root sees both.
+    const root = projections.find((row) => row.entityKey === 'KR:000001');
+    assert.ok(root);
+    const kinds = new Set(root.depth2.edges.map((projected) => projected.relationType));
+    assert.ok(kinds.has('corroborates'), 'clique edges should be present');
+    assert.ok(
+      kinds.has('peer'),
+      'lower-confidence peer edges must still be reachable — that is the whole point of the round-robin',
+    );
+  });
 });

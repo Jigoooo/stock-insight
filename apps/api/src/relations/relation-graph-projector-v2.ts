@@ -1,3 +1,4 @@
+import { CONTENT_PACK_MAX_ITEMS } from './content-pack-publisher.ts';
 import {
   entityRelationGraphSchema,
   type EntityRelationGraph,
@@ -36,6 +37,16 @@ export type RelationGraphProjection = {
   depth2: EntityRelationGraph;
   relationRevisionIds: number[];
   relationEvidenceLedgerIds: number[];
+  /**
+   * What this projection will cost as pack lineage — the deduped total the
+   * publisher measures against CONTENT_PACK_MAX_ITEMS.
+   *
+   * Reported rather than inferred because the caller cannot compute it: the
+   * budget is spent over per-edge sums that over-count, and dedup only happens
+   * here. A run that wants to know whether the budget bit reads this, not an
+   * estimate reconstructed from candidates.
+   */
+  itemCount: number;
 };
 
 type RelationType = EntityRelationGraph['edges'][number]['relationType'];
@@ -47,6 +58,22 @@ type ProjectedEdge = {
   relationRevisionIds: Set<number>;
   evidenceIds: Set<number>;
 };
+
+/**
+ * How many lineage items one projection may contribute, counted as
+ * |relationRevisionIds| + |relationEvidenceLedgerIds| across its depth-2 edges.
+ *
+ * Held below CONTENT_PACK_MAX_ITEMS on purpose. The publisher REFUSES a pack over
+ * that ceiling rather than trimming it — "silently publishing a shorter pack would
+ * mean serving a claim whose lineage was quietly discarded" — so the projection is
+ * where the decision belongs, and it needs room: the per-edge sum used here
+ * over-counts (ids are deduped downstream), and depth1 selects separately.
+ *
+ * Measured 2026-08-07 before the budget existed: 615 published packs, median 257,
+ * p95 347, max 417. So this leaves the current shape untouched and only bites the
+ * outliers that COMMON_OWNER creates.
+ */
+const PROJECTION_ITEM_BUDGET = Math.floor(CONTENT_PACK_MAX_ITEMS * 0.9);
 
 const STOCK_KEY = /^(?:KR:\d{6}|US:[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,2})?)$/;
 const DIRECT_PREDICATES: Readonly<Record<string, RelationType>> = {
@@ -231,9 +258,58 @@ export function buildRelationGraphProjections(
       connected.add(bridge.fromEntityId);
       connected.add(bridge.toEntityId);
     }
+    // Per-projection item budget, spent round-robin across relationType.
+    //
+    // WHY THE BUDGET IS HERE and not where the ids are flattened. A pack counts
+    // relations PLUS evidence, and `evidenceCount` below feeds depth2.meta, which
+    // is itself carried as the first pack item's displayPayload. Trimming the id
+    // arrays afterwards would leave the served graph claiming more evidence than
+    // the pack contains. Budgeting the EDGES makes both fall out of one set.
+    //
+    // WHY ROUND-ROBIN. Taking edges by confidence alone lets one predicate own
+    // the whole pack: COMMON_OWNER produced 1,391 pairs on 250 holdings and the
+    // apply died on `pack US:AAPL exceeds lineage item cap: 672` — 41 packs over
+    // the cap, worst 724. Edge count did not predict it, because position-grain
+    // source revisions mean a pair held by five institutions carries ten evidence
+    // rows. Same shape, same fix as impact-path-builder.ts: bucket by kind, spend
+    // the budget across buckets, leave confidence untouched. Within a predicate
+    // the order is unchanged, so the best peer edge is still the first peer edge.
+    //
+    // The cost of an edge is |revisions| + |evidence|, which OVER-counts: the
+    // consumer dedups ids across edges, so the real item count is at most this.
+    // Over-counting is the safe direction for a cap.
+    const bridgeCost = [...selectedById.values()].reduce(
+      (total, edge) => total + edge.relationRevisionIds.size + edge.evidenceIds.size,
+      0,
+    );
+    // Bridges are already in and stay in — they are what keeps the selected nodes
+    // connected to the root, and dropping one throws above. The budget governs the
+    // fill that follows.
+    let spent = bridgeCost;
+    const byRelationType = new Map<RelationType, ProjectedEdge[]>();
     for (const edge of internalEdges) {
-      if (selectedById.size >= 80) break;
-      selectedById.set(edgeId(edge), edge);
+      if (selectedById.has(edgeId(edge))) continue;
+      const bucket = byRelationType.get(edge.relationType);
+      if (bucket) bucket.push(edge);
+      else byRelationType.set(edge.relationType, [edge]);
+    }
+    // Insertion order follows internalEdges, which is confidence-sorted, so the
+    // bucket holding the single best edge is visited first and a tie between
+    // buckets breaks the same way on a replay.
+    const buckets = [...byRelationType.values()];
+    for (let round = 0; selectedById.size < 80; round += 1) {
+      let tookAny = false;
+      for (const bucket of buckets) {
+        if (selectedById.size >= 80) break;
+        const edge = bucket[round];
+        if (edge === undefined) continue;
+        const cost = edge.relationRevisionIds.size + edge.evidenceIds.size;
+        if (spent + cost > PROJECTION_ITEM_BUDGET) continue;
+        selectedById.set(edgeId(edge), edge);
+        spent += cost;
+        tookAny = true;
+      }
+      if (!tookAny) break;
     }
     const selectedEdges = [...selectedById.values()].sort(
       (left, right) =>
@@ -316,6 +392,9 @@ export function buildRelationGraphProjections(
         relationEvidenceLedgerIds: [...new Set(used.flatMap((edge) => [...edge.evidenceIds]))].sort(
           (a, b) => a - b,
         ),
+        itemCount:
+          new Set(used.flatMap((edge) => [...edge.relationRevisionIds])).size +
+          new Set(used.flatMap((edge) => [...edge.evidenceIds])).size,
       };
     });
 }

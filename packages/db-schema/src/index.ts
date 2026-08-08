@@ -67,6 +67,14 @@ import { macroComovementOntologyMigrationSql } from './migrations/066_macro_como
 import { macroSeriesEnergyMigrationSql } from './migrations/067_macro_series_energy.ts';
 import { macroTopicEntitiesMigrationSql } from './migrations/068_macro_topic_entities.ts';
 import { dartSupplyDisclosureSourceMigrationSql } from './migrations/069_dart_supply_disclosure_source.ts';
+import { documentEntityCanonicalNameMigrationSql } from './migrations/070_document_entity_canonical_name.ts';
+import { claimDedupeKeyMigrationSql } from './migrations/071_claim_dedupe_key.ts';
+import { dartSupplyLicenseTierMigrationSql } from './migrations/072_dart_supply_license_tier.ts';
+import { macroSeriesNaturalGasMigrationSql } from './migrations/073_macro_series_natural_gas.ts';
+import { scheduledEventMigrationSql } from './migrations/074_scheduled_event.ts';
+import { legislativeActionMigrationSql } from './migrations/075_legislative_action.ts';
+import { ecosMacroSeriesMigrationSql } from './migrations/076_ecos_macro_series.ts';
+import { institutionalHolderEntitiesMigrationSql } from './migrations/077_institutional_holder_entities.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -818,6 +826,62 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: dartSupplyDisclosureSourceMigrationSql,
   },
+  {
+    id: '070_document_entity_canonical_name',
+    description:
+      "Admits 'canonical_name' as a document-to-entity link method so the linker can use core.entity.canonical_name, the one catalog holding a name for every stock and the one it never consulted. Measured 2026-08-06 over 4,895 news documents: core.entity_alias holds 354 rows for 325 Stock entities and only 94 contain Hangul, while 2,712 of the documents are Korean — so Korean news naming a Korean company could match only if that company was one of the 94. Canonical names match 770 documents alone and lift the union of all linkers from 672 to 914 (13.7% to 18.7%). Restricted to Hangul names because stripping Korean corporate forms also strips whitespace, and a Latin name without token boundaries hides inside longer Latin words (sk in novonordiskas, ls in appliedmaterialsinc, gm in figma — 76 collisions across 10 short Latin names against 7 across 24 Hangul ones); Latin stays with the ticker and alias linkers, which keep their boundaries. Folding this into alias_exact was rejected: the finding is that one catalog went unread, and a link method that cannot name its catalog would hide that from the next audit.",
+    tables: [],
+    sql: documentEntityCanonicalNameMigrationSql,
+  },
+  {
+    id: '071_claim_dedupe_key',
+    description:
+      "Gives knowledge.claim the document-scoped uniqueness it never had. Every extraction INSERT was unconditional — no ON CONFLICT, no pre-existence check, and no constraint to conflict against across all 70 prior migrations — while knowledge.event has deduped on dedupe_key since it was written. Measured 2026-08-06 over 327 claims and split by cause, because the two kinds need different fixes: 34 duplicates come from the same document repeated (this migration), 10 from two documents reporting the same claim (run-claim-merge, which stays). The cross-document ten cannot become a constraint — two documents days apart are one claim and months apart are two, and a unique index cannot express 'within 7 days'. The column is nullable and the index partial so the 327 existing rows keep a NULL key and never conflict: nothing is deleted and no history is rewritten, which matters because claim status transitions are trigger-guarded and audited and there is no deletion path at all.",
+    tables: [],
+    sql: claimDedupeKeyMigrationSql,
+  },
+  {
+    id: '072_dart_supply_license_tier',
+    description:
+      "Gives opendart-business-report-supply the ADR-002 T1 tier contract migration 069 omitted. 069 approved the source with a license_policy of {basis: official_api_terms, status: conditional} and no tier tuple, which violates this repository's own invariant that an approved contract carries either an exact ADR-002 tier tuple or the internal-transitional exemption — it was the only violation among 36 approved contracts. It went unnoticed because source-contract-integrity.test.ts skips unless STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is set, which the ordinary test run does not set: six tests reported skipped and the suite was green. T1/accepted_evidence_and_display/attribution_required mirrors the sibling 'opendart' source approved 2026-07-20 — same API, same licence, same use as accepted evidence behind SUPPLIES and CUSTOMER_OF. Appended as a new revision because contracts are append-only.",
+    tables: [],
+    sql: dartSupplyLicenseTierMigrationSql,
+  },
+  {
+    id: '073_macro_series_natural_gas',
+    description:
+      "Adds Henry Hub natural gas as a second series under the 'energy' topic, which had exactly one (WTI, migration 067) so every energy event reached the graph through a single instrument. Gold, silver and copper were checked against the live FRED API rather than assumed and did not make it: FRED no longer publishes a gold or silver spot price (the LBMA fixings are discontinued; GVZCLS is a volatility index and the remainder are producer/import price indices), and copper's PCOPPUSDM is monthly, which the co-movement model drops for trading-day alignment (38/59 overlap) — adding it would collect vintages nothing reads.",
+    tables: [],
+    sql: macroSeriesNaturalGasMigrationSql,
+  },
+  {
+    id: '074_scheduled_event',
+    description:
+      "Creates market.scheduled_event for dated things — central bank meetings, economic releases, earnings — promoted from research-common calendar snapshots that have been collected daily for months and discarded. Both scripts/event_calendar.py and research_common/macro_calendar.py are scheduled in run_collectors.py and both write only a JSON file; what reaches Postgres is a derived signal card that keeps the narrative and drops the date, so 'BOK 2026-08-28 한국은행 금통위, D-21' existed on disk and nowhere in this database. Explicitly NOT a legislative calendar: bill status and chamber schedules are collected by no project — macro_calendar.py's policy_events are news headlines tagged with a category, not schedules with vote dates — and modelling them needs a new external source rather than a half-shaped column here.",
+    tables: [],
+    sql: scheduledEventMigrationSql,
+  },
+  {
+    id: '075_legislative_action',
+    description:
+      "Admits 'legislative_action' into market.scheduled_event. Migration 074 stated the table was not a legislative calendar because no project collected one — macro_calendar.py's policy_events are news headlines with a category and carry no vote date, chamber or bill id. CONGRESS_GOV_API_KEY was added on 2026-08-07 and api.congress.gov returns exactly the missing shape (S850 2026-08-05 Passed Senate; HR9882 2026-07-22 Referred to the House Committee on Homeland Security), so the kind is admitted and 074's note is superseded rather than left reading as current. Modelled as one row per bill action rather than as a bill: a bill has identity and a months-long stream of actions, and faking that by overloading a calendar row would be worse than leaving the richer model for later.",
+    tables: [],
+    sql: legislativeActionMigrationSql,
+  },
+  {
+    id: '076_ecos_macro_series',
+    description:
+      "Gives the five collected BOK ECOS series a core.entity identity, the first ECOS_SERIES identifiers this database has ever held, and an analytics.macro_series_topic mapping under 'rates'. The vocabulary was never the gap: analytics.market_topic_term already carried 국채·금리·기준금리·한국은행 under 'rates' while every series mapped to it was American. The wall was run-v2-graph-publish joining core.entity_identifier on identifier_type='FRED_SERIES' alone, so a Korean series could not enter the co-movement model whatever mapping it was given; that join now accepts both namespaces and this migration is the half that mints the rows. Excludes 원/달러 (the same quantity as fred:DEXKOUS, already mapped to 'fx'), KOSPI (nearly the same object as the equal-weighted KR beta control in MARKET_FACTOR_SQL — a modelling decision, not a series list entry) and 뉴스심리지수 (BOK publishes it as 실험적 통계).",
+    tables: [],
+    sql: ecosMacroSeriesMigrationSql,
+  },
+  {
+    id: '077_institutional_holder_entities',
+    description:
+      "Mints a LegalEntity per institutional holder in public.institutional_holdings, which is the missing subject the ownership builder needed. buildOwnershipCandidates has had approved ontology (024 seeds OWNS/HELD_BY/COMMON_OWNER as approved) and golden/determinism/superhub tests since B6, yet its only callers were tests and HELD_BY never held an edge — not because it was unwired but because core.entity contained no institution to be the owner. The owned side already resolved: 250 of 250 holdings join to a core Stock via public.entities.entity_key. Uses INTERNAL_KEY with an 'INSTITUTION:' prefix rather than CIK, because core.entity_identifier is UNIQUE (identifier_type, identifier_value, namespace) and a holder can also be an issuer we cover (Berkshire Hathaway files here); the CIK is kept in metadata where it is joinable and cannot collide. Derived from the table rather than hardcoded so a later holder is picked up by a re-run, and so the seven holders with no CIK (국민연금공단, 삼성자산운용 …) are not dropped.",
+    tables: [],
+    sql: institutionalHolderEntitiesMigrationSql,
+  },
 ];
 
 export {
@@ -889,5 +953,13 @@ export {
   macroSeriesEnergyMigrationSql,
   macroTopicEntitiesMigrationSql,
   dartSupplyDisclosureSourceMigrationSql,
+  documentEntityCanonicalNameMigrationSql,
+  claimDedupeKeyMigrationSql,
+  dartSupplyLicenseTierMigrationSql,
+  macroSeriesNaturalGasMigrationSql,
+  scheduledEventMigrationSql,
+  legislativeActionMigrationSql,
+  ecosMacroSeriesMigrationSql,
+  institutionalHolderEntitiesMigrationSql,
   secFinraSourceRegistrationMigrationSql,
 };

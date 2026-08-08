@@ -7,6 +7,23 @@ import pg from 'pg';
 import { sourceRevisionContractsMigrationSql } from '../../../packages/db-schema/src/migrations/020_source_revision_contracts.ts';
 import { SELECT_SOURCE_CONTRACT_HEAD_SQL } from '../src/ingest/raw-object-store.ts';
 
+/**
+ * These cases mutate ledgers (append revisions, seed raw objects, prove the
+ * append-only triggers reject UPDATE/DELETE), so they need a disposable database
+ * and stay gated behind an explicit URL.
+ *
+ * THE GATE USED TO COVER MORE THAN IT SHOULD HAVE. The contract-coverage
+ * assertions — uncovered=0, contracts=sources, invalid_approved=0, and the
+ * transitional-exemption ceiling — were also in here, and they are pure SELECT.
+ * With the variable unset every case marked `skip` and the suite stayed green, so
+ * migration 069's ADR-002 violation went unseen for a day even though
+ * `invalid_approved` exists to catch exactly that.
+ *
+ * Those assertions now live in apps/api/src/ops/run-source-contract-audit.ts and
+ * run every analytics cycle against the real database, where they fail the run.
+ * A detector that only fires when someone remembers to export a variable is not a
+ * detector. What is left here is the part that genuinely cannot run in production.
+ */
 const databaseUrl = process.env.STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL;
 const skipReason = databaseUrl ? false : 'STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL is required';
 
@@ -104,67 +121,13 @@ describe('B2 source contract coverage and immutability', () => {
     },
   );
 
-  it(
-    'covers every active source exactly once with an honest active baseline contract',
-    { skip: skipReason },
-    async () => {
-      assert.ok(databaseUrl);
-      const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-      try {
-        const result = await pool.query(`
-        SELECT
-          (SELECT count(*)::int FROM ingestion.source) AS active_sources,
-          (SELECT count(*)::int FROM ingestion.source_contract_current_v1) AS active_contracts,
-          (SELECT count(*)::int FROM ingestion.source source
-           WHERE NOT EXISTS (
-             SELECT 1 FROM ingestion.source_contract_current_v1 contract
-             WHERE contract.source_id=source.source_id
-           )) AS uncovered,
-          (SELECT count(*)::int FROM ingestion.source_contract_current_v1
-           WHERE policy_status='provisional_review_required') AS provisional,
-          (SELECT count(*)::int FROM ingestion.source_contract_current_v1
-           WHERE policy_status='approved') AS approved,
-          (SELECT count(*)::int
-           FROM ingestion.source_contract_current_v1 contract
-           JOIN ingestion.source source USING(source_id)
-           WHERE contract.policy_status='approved'
-           AND NOT (
-             (
-               source.source_type='internal'
-               AND source.license_status='allowed'
-               AND source.redistribution='internal_only'
-               AND source.metadata->>'transitional_source'='true'
-             )
-             OR (
-               contract.license_policy->>'adr'='ADR-002'
-               AND coalesce(contract.license_policy->>'approved_at','')<>''
-               AND (
-                 contract.license_policy->>'tier',
-                 contract.license_policy->>'approved_usage',
-                 contract.redistribution_policy->>'mode'
-               ) IN (
-                 ('T1','accepted_evidence_and_display','attribution_required'),
-                 ('T3','internal_research_only','no_redistribution'),
-                 ('T4','candidate_evidence_span_quote','quote_and_link_only'),
-                 ('T5','internal_ops_only','forbidden')
-               )
-             )
-           )) AS invalid_approved
-      `);
-        assert.equal(result.rows[0]!.uncovered, 0);
-        assert.equal(result.rows[0]!.active_contracts, result.rows[0]!.active_sources);
-        // Initial backfill stays provisional; approvals require either the
-        // internal transitional exception or an exact ADR-002 tier contract.
-        assert.equal(
-          result.rows[0]!.provisional + result.rows[0]!.approved,
-          result.rows[0]!.active_sources,
-        );
-        assert.equal(result.rows[0]!.invalid_approved, 0);
-      } finally {
-        await pool.end();
-      }
-    },
-  );
+  // 'covers every active source exactly once with an honest active baseline
+  // contract' used to sit here. It moved to run-source-contract-audit.ts — see the
+  // header. The `transitional_source` note that lived with it moved too, including
+  // the part worth keeping: the name is a lie left alone on purpose, because
+  // run-v2-graph-publish.ts:1046 THROWS when the flag is missing, so it is a
+  // required invariant rather than a temporary marker, and renaming it would need a
+  // data migration over ingestion.source.metadata plus a change in the 63x hot path.
 
   it(
     'derives current contract from the latest append-only revision',

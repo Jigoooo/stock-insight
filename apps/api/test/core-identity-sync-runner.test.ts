@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all eleven stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all twelve stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -204,6 +204,11 @@ test('analytics runs all eleven stages in order with an adjacent receipt per com
     // gauge rather than producing data — the same placement logic as the backlog
     // counters, and it must not sit between two stages that do depend on order.
     ['run-table-reachability-audit.ts', 'stock-insight-table-reachability-audit-stage'],
+    // Added 2026-08-07: the contract-coverage assertions that were skipping in
+    // source-contract-integrity.test.ts. Sits next to the reachability audit for
+    // the same reason — depends on nothing, order-independent — but unlike it this
+    // one throws, so a violation fails the run instead of landing in a summary.
+    ['run-source-contract-audit.ts', 'stock-insight-source-contract-audit-stage'],
     ['run-outbox-delivery.ts', 'stock-insight-outbox-delivery-stage'],
   ] as const;
   const stageLines = lines.filter((line) => /node apps\/api\/src\/.+\.ts/.test(line));
@@ -219,5 +224,5 @@ test('analytics runs all eleven stages in order with an adjacent receipt per com
       new RegExp(`^pipeline_record_stage_success ${receipt} `),
     );
   }
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 10/);
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 11/);
 });
