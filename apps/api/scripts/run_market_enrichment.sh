@@ -65,6 +65,11 @@ DATABASE_URL="$DB_URL" node \
 DATABASE_URL="$DB_URL" node \
   apps/api/src/ingest/run-sec-financial-facts.ts --since-year 2020 --limit 200 --apply
 
+# Canonicalize every already-collected SEC companyfacts revision without fetching again.
+# The writer defaults to dry-run elsewhere; the recurring pipeline commits explicitly.
+DATABASE_URL="$DB_URL" node \
+  apps/api/src/backfill/run-sec-numeric-fact.ts --since-year 2020 --limit 200 --apply
+
 # Short-volume and macro vintage refresh windows are bounded for daily operation.
 DATABASE_URL="$DB_URL" node \
   apps/api/src/ingest/run-finra-short-volume.ts --days 35 --apply

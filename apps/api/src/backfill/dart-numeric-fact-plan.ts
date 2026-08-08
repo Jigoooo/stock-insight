@@ -10,7 +10,6 @@ import {
   assignRevisions as assignSharedRevisions,
   findSchemaViolations as findSharedSchemaViolations,
   type ExistingNumericFactState,
-  type GroupState,
   type MetricDefinitionRow,
   type NumericFactRow,
   type PlannedWrite,

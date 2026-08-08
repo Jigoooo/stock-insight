@@ -1,0 +1,360 @@
+import {
+  numericFactSemanticFingerprint,
+  type ExistingNumericFactState,
+  type GroupState,
+  type MetricDefinitionRow,
+  type NumericFactRow,
+  type PlannedWrite,
+} from './numeric-fact-plan.ts';
+
+export type NumericFactQueryClient = {
+  query: (
+    sql: string,
+    params?: readonly unknown[],
+  ) => Promise<{ rows: Array<Record<string, unknown>>; rowCount?: number | null }>;
+};
+
+export type WriteMode = 'apply' | 'rehearse';
+
+export async function withNumericFactWriteTransaction<T>(
+  client: NumericFactQueryClient,
+  options: { mode: WriteMode; advisoryLockKey: string },
+  operation: () => Promise<T>,
+): Promise<T> {
+  await client.query('BEGIN');
+  try {
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      options.advisoryLockKey,
+    ]);
+    const result = await operation();
+    await client.query(options.mode === 'apply' ? 'COMMIT' : 'ROLLBACK');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
+
+const EXISTING_FACTS_SQL = `
+SELECT fact_key, restatement_group_key, revision_no, numeric_fact_id,
+       entity_id, concept_namespace, concept_key, value::text AS value,
+       unit, currency, scale_power, period_start::text AS period_start,
+       period_end::text AS period_end, instant_at, fiscal_year, fiscal_quarter,
+       dimensions_json, source_revision_id, available_at, known_at,
+       original_cell_or_xbrl_locator, metadata
+  FROM world.numeric_fact
+ WHERE entity_id = ANY($1::bigint[])
+   AND fact_key LIKE $2
+ ORDER BY restatement_group_key, revision_no, numeric_fact_id
+`;
+
+function iso(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function nullableText(value: unknown): string | null {
+  return value === null || value === undefined ? null : String(value);
+}
+
+function rowToFact(row: Record<string, unknown>): NumericFactRow {
+  const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+  return {
+    factKey: String(row.fact_key),
+    restatementGroupKey: String(row.restatement_group_key),
+    entityId: Number(row.entity_id),
+    conceptNamespace: String(row.concept_namespace),
+    conceptKey: String(row.concept_key),
+    value: Number(row.value),
+    unit: String(row.unit),
+    currency: nullableText(row.currency),
+    scalePower: Number(row.scale_power),
+    periodStart: nullableText(row.period_start),
+    periodEnd: nullableText(row.period_end),
+    instantAt: row.instant_at == null ? null : iso(row.instant_at),
+    fiscalYear: row.fiscal_year == null ? null : Number(row.fiscal_year),
+    fiscalQuarter: row.fiscal_quarter == null ? null : Number(row.fiscal_quarter),
+    dimensionsJson: (row.dimensions_json ?? {}) as Record<string, string>,
+    locator: (row.original_cell_or_xbrl_locator ?? {}) as Record<string, unknown>,
+    sourceRevisionId: Number(row.source_revision_id),
+    availableAt: iso(row.available_at),
+    knownAt: iso(row.known_at),
+    metadata,
+    definitionKey:
+      typeof metadata.metricDefinitionKey === 'string' ? metadata.metricDefinitionKey : '',
+  };
+}
+
+export async function loadExistingNumericFactState(
+  client: NumericFactQueryClient,
+  scope: { entityIds: readonly number[]; factKeyPrefix: string },
+): Promise<ExistingNumericFactState> {
+  if (scope.entityIds.length === 0) return { factKeys: new Set(), groups: new Map() };
+  const result = await client.query(EXISTING_FACTS_SQL, [scope.entityIds, scope.factKeyPrefix]);
+  const factKeys = new Set<string>();
+  const factIdsByGroup = new Map<string, Map<string, number>>();
+  const groups = new Map<string, GroupState>();
+
+  for (const row of result.rows) {
+    const fact = rowToFact(row);
+    const revisionNo = Number(row.revision_no);
+    const factId = Number(row.numeric_fact_id);
+    factKeys.add(fact.factKey);
+    let ids = factIdsByGroup.get(fact.restatementGroupKey);
+    if (!ids) {
+      ids = new Map();
+      factIdsByGroup.set(fact.restatementGroupKey, ids);
+    }
+    ids.set(fact.factKey, factId);
+    const current = groups.get(fact.restatementGroupKey);
+    if (!current || revisionNo > current.maxRevision) {
+      groups.set(fact.restatementGroupKey, {
+        maxRevision: revisionNo,
+        latestFactId: factId,
+        latestFactKey: fact.factKey,
+        factIdsByKey: ids,
+        latestSemanticFingerprint: numericFactSemanticFingerprint(fact),
+      });
+    }
+  }
+  return { factKeys, groups };
+}
+
+type DefinitionDbRow = Record<string, unknown>;
+
+const DEFINITION_SELECT_SQL = `
+SELECT definition_key, revision_no, concept_namespace, concept_key,
+       canonical_concept, display_name, definition_scope, issuer_entity_id,
+       source_id, period_basis,
+       accounting_basis, unit, currency, comparability_group_key,
+       comparability_group_version, effective_from
+  FROM governance.metric_definition
+ WHERE revision_no = 1 AND definition_key = ANY($1::text[])
+`;
+
+function definitionMismatch(
+  planned: MetricDefinitionRow,
+  existing: DefinitionDbRow,
+): string | null {
+  const normalizeTimestamp = (value: unknown): string => {
+    if (value instanceof Date) return value.toISOString();
+    const parsed = new Date(String(value));
+    return Number.isNaN(parsed.valueOf()) ? String(value) : parsed.toISOString();
+  };
+  const fields: Array<[string, unknown, unknown]> = [
+    ['concept_namespace', planned.conceptNamespace, existing.concept_namespace],
+    ['concept_key', planned.conceptKey, existing.concept_key],
+    ['canonical_concept', planned.canonicalConcept, existing.canonical_concept],
+    ['display_name', planned.displayName, existing.display_name],
+    ['definition_scope', planned.definitionScope, existing.definition_scope],
+    [
+      'issuer_entity_id',
+      planned.issuerEntityId,
+      existing.issuer_entity_id == null ? null : Number(existing.issuer_entity_id),
+    ],
+    [
+      'source_id',
+      planned.sourceId ?? null,
+      existing.source_id == null ? null : Number(existing.source_id),
+    ],
+    ['period_basis', planned.periodBasis, existing.period_basis],
+    ['accounting_basis', planned.accountingBasis, existing.accounting_basis],
+    ['unit', planned.unit, existing.unit],
+    ['currency', planned.currency, existing.currency ?? null],
+    ['comparability_group_key', planned.comparabilityGroupKey, existing.comparability_group_key],
+    [
+      'comparability_group_version',
+      planned.comparabilityGroupVersion,
+      Number(existing.comparability_group_version),
+    ],
+    [
+      'effective_from',
+      normalizeTimestamp(planned.effectiveFrom),
+      normalizeTimestamp(existing.effective_from),
+    ],
+  ];
+  const mismatch = fields.find(([, expected, actual]) => expected !== actual);
+  return mismatch
+    ? `${mismatch[0]} expected ${String(mismatch[1])}, got ${String(mismatch[2])}`
+    : null;
+}
+
+const DEFINITION_INSERT_SQL = `
+INSERT INTO governance.metric_definition (
+  definition_key, revision_no, concept_namespace, concept_key, canonical_concept,
+  display_name, definition_scope, issuer_entity_id, source_id, period_basis,
+  accounting_basis, unit, currency, comparability_group_key,
+  comparability_group_version, effective_from, created_by
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+RETURNING definition_key, revision_no, concept_namespace, concept_key,
+          canonical_concept, display_name, definition_scope, issuer_entity_id,
+          source_id, period_basis,
+          accounting_basis, unit, currency, comparability_group_key,
+          comparability_group_version, effective_from
+`;
+
+export async function ensureMetricDefinitions(
+  client: NumericFactQueryClient,
+  definitions: readonly MetricDefinitionRow[],
+  options: { createdBy: string },
+): Promise<number> {
+  if (definitions.length === 0) return 0;
+  const byKey = new Map(definitions.map((definition) => [definition.definitionKey, definition]));
+  const found = await client.query(DEFINITION_SELECT_SQL, [[...byKey.keys()].sort()]);
+  const existingKeys = new Set<string>();
+  for (const row of found.rows) {
+    const key = String(row.definition_key);
+    const planned = byKey.get(key);
+    if (!planned) throw new Error(`unexpected metric definition ${key}`);
+    const mismatch = definitionMismatch(planned, row);
+    if (mismatch) throw new Error(`metric definition drift for ${key}: ${mismatch}`);
+    existingKeys.add(key);
+  }
+
+  let inserted = 0;
+  for (const definition of [...definitions].sort((a, b) =>
+    a.definitionKey.localeCompare(b.definitionKey),
+  )) {
+    if (existingKeys.has(definition.definitionKey)) continue;
+    const result = await client.query(DEFINITION_INSERT_SQL, [
+      definition.definitionKey,
+      1,
+      definition.conceptNamespace,
+      definition.conceptKey,
+      definition.canonicalConcept,
+      definition.displayName,
+      definition.definitionScope,
+      definition.issuerEntityId,
+      definition.sourceId ?? null,
+      definition.periodBasis,
+      definition.accountingBasis,
+      definition.unit,
+      definition.currency,
+      definition.comparabilityGroupKey,
+      definition.comparabilityGroupVersion,
+      definition.effectiveFrom,
+      options.createdBy,
+    ]);
+    if (result.rows.length !== 1)
+      throw new Error(`metric definition insert returned no row for ${definition.definitionKey}`);
+    const mismatch = definitionMismatch(definition, result.rows[0]!);
+    if (mismatch)
+      throw new Error(
+        `inserted metric definition mismatch for ${definition.definitionKey}: ${mismatch}`,
+      );
+    inserted += 1;
+  }
+  return inserted;
+}
+
+const FACT_COLUMNS = `fact_key, revision_no, entity_id, concept_namespace, concept_key,
+  value, unit, currency, scale_power, period_start, period_end, instant_at,
+  fiscal_year, fiscal_quarter, dimensions_json, restatement_group_key,
+  original_cell_or_xbrl_locator, source_revision_id, available_at, known_at,
+  supersedes_numeric_fact_id, metadata`;
+const CHUNK_SIZE = 1000;
+
+function placeholders(rows: number, columns: number): string {
+  return Array.from(
+    { length: rows },
+    (_, row) =>
+      `(${Array.from({ length: columns }, (_, column) => `$${row * columns + column + 1}`).join(',')})`,
+  ).join(',');
+}
+
+function chunk<T>(values: readonly T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size)
+    result.push(values.slice(index, index + size));
+  return result;
+}
+
+export async function writeNumericFacts(
+  client: NumericFactQueryClient,
+  writes: readonly PlannedWrite[],
+  existingGroups: ReadonlyMap<string, GroupState>,
+): Promise<number> {
+  for (const write of writes) {
+    if (write.fact.definitionKey.trim() === '') {
+      throw new Error(`numeric fact ${write.fact.factKey} has no metric definition key`);
+    }
+  }
+  const latestByGroup = new Map<string, number>();
+  const idByFactKey = new Map<string, number>();
+  for (const [group, state] of existingGroups) {
+    if (state.latestFactId !== null) latestByGroup.set(group, state.latestFactId);
+    for (const [key, id] of state.factIdsByKey ?? []) idByFactKey.set(key, id);
+  }
+  const levels = new Map<number, PlannedWrite[]>();
+  for (const write of writes) {
+    const level = levels.get(write.revisionNo) ?? [];
+    level.push(write);
+    levels.set(write.revisionNo, level);
+  }
+
+  let written = 0;
+  for (const revisionNo of [...levels.keys()].sort((a, b) => a - b)) {
+    for (const batch of chunk(levels.get(revisionNo) ?? [], CHUNK_SIZE)) {
+      const params = batch.flatMap((write) => {
+        const fact = write.fact;
+        let supersedes: number | null;
+        if (write.supersedesNumericFactId !== null) {
+          supersedes = write.supersedesNumericFactId;
+        } else if (write.supersedesFactKey !== null) {
+          const exactPredecessor = idByFactKey.get(write.supersedesFactKey);
+          if (exactPredecessor === undefined) {
+            throw new Error(
+              `revision ${write.revisionNo} of ${fact.factKey} has unresolved explicit predecessor ${write.supersedesFactKey}`,
+            );
+          }
+          supersedes = exactPredecessor;
+        } else {
+          supersedes = write.supersedesKey
+            ? (latestByGroup.get(write.supersedesKey) ?? null)
+            : null;
+        }
+        if (write.revisionNo > 1 && supersedes === null) {
+          throw new Error(
+            `revision ${write.revisionNo} of ${fact.factKey} has no exact predecessor`,
+          );
+        }
+        return [
+          fact.factKey,
+          write.revisionNo,
+          fact.entityId,
+          fact.conceptNamespace,
+          fact.conceptKey,
+          fact.value,
+          fact.unit,
+          fact.currency,
+          fact.scalePower,
+          fact.periodStart,
+          fact.periodEnd,
+          fact.instantAt,
+          fact.fiscalYear,
+          fact.fiscalQuarter,
+          JSON.stringify(fact.dimensionsJson),
+          fact.restatementGroupKey,
+          JSON.stringify(fact.locator),
+          fact.sourceRevisionId,
+          fact.availableAt,
+          fact.knownAt,
+          supersedes,
+          JSON.stringify({ ...fact.metadata, metricDefinitionKey: fact.definitionKey }),
+        ];
+      });
+      const result = await client.query(
+        `INSERT INTO world.numeric_fact (${FACT_COLUMNS}) VALUES ${placeholders(batch.length, 22)} RETURNING numeric_fact_id`,
+        params,
+      );
+      if (result.rows.length !== batch.length)
+        throw new Error(`inserted ${result.rows.length} of ${batch.length} numeric facts`);
+      batch.forEach((write, index) => {
+        const id = Number(result.rows[index]!.numeric_fact_id);
+        idByFactKey.set(write.fact.factKey, id);
+        latestByGroup.set(write.fact.restatementGroupKey, id);
+      });
+      written += batch.length;
+    }
+  }
+  return written;
+}
