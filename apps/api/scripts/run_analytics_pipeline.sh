@@ -64,6 +64,14 @@ pipeline_record_stage_success stock-insight-economic-claim-stage "$RUN_STARTED_A
 # sector's KPIs each run and nothing records that the list moved.
 DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-playbook-assignment.ts --apply
 pipeline_record_stage_success stock-insight-playbook-assignment-stage "$RUN_STARTED_AT" || exit $?
+# The cutoff is the audited database clock captured at wrapper start, normalized
+# to the canonical ISO form required by the PIT runner. This keeps the live
+# canary explicit and reproducible instead of letting the job consult now().
+K4_CANARY_CUTOFF=$(
+  node -e 'const value = new Date(process.argv[1]); if (Number.isNaN(value.valueOf())) process.exit(64); process.stdout.write(value.toISOString())' "$RUN_STARTED_AT"
+)
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-market-intelligence.ts --canary --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-k4-market-intelligence-canary-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
@@ -144,6 +152,7 @@ SELECT CASE WHEN
      'stock-insight-feed-build-stage',
      'stock-insight-probability-calibration-stage',
      'stock-insight-v2-graph-publish-stage',
+     'stock-insight-k4-market-intelligence-canary-stage',
      'stock-insight-v2-l5-publish-stage',
      'stock-insight-portfolio-snapshot-stage',
      -- Listed, unlike the reachability gauge above it, because the whole point of
@@ -153,7 +162,7 @@ SELECT CASE WHEN
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 11
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 12
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1

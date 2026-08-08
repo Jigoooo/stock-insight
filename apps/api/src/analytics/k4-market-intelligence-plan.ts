@@ -11,7 +11,7 @@ const REVENUE_CONCEPTS = new Set([
   'SalesRevenueNet',
   'RevenueFromContractWithCustomerExcludingAssessedTax',
 ]);
-const SCORE_COMPONENT_KINDS = [
+export const K4_SCORE_COMPONENT_KINDS = [
   'evidence_confidence',
   'relation_strength',
   'materiality',
@@ -22,15 +22,18 @@ const SCORE_COMPONENT_KINDS = [
   'model_uncertainty',
 ] as const;
 
-type EvaluationDisposition =
+export const K4_PLANNER_VERSION = 'k4.market-intelligence.v1';
+export const K4_SCORE_FORMULA_VERSION = 'k4.score-components.v1';
+
+export type EvaluationDisposition =
   | 'accepted'
   | 'missing_identity'
   | 'no_pit_evidence'
   | 'unsupported_measurement'
   | 'ambiguous_driver_attribution'
   | 'no_recent_observation';
-type Direction = 'positive' | 'negative' | 'ambiguous';
-type SurpriseDirection = 'positive' | 'negative' | 'neutral';
+export type Direction = 'positive' | 'negative' | 'ambiguous';
+export type SurpriseDirection = 'positive' | 'negative' | 'neutral';
 
 export type K4InformationSetInput = {
   informationSetId: string;
@@ -124,20 +127,20 @@ export type K4MarketIntelligenceInput = {
   expectations: readonly K4ExpectationInput[];
 };
 
-type EvidencePlan = {
+export type EvidencePlan = {
   numericFactId: number;
   sourceRevisionId: number;
   sourcePitQualityId: number;
   inputRole: 'current' | 'comparison';
 };
 
-type ScoreComponentPlan = {
-  componentKind: (typeof SCORE_COMPONENT_KINDS)[number];
+export type ScoreComponentPlan = {
+  componentKind: (typeof K4_SCORE_COMPONENT_KINDS)[number];
   componentValue: number;
   rationale: string;
 };
 
-type EvaluationPlan = {
+export type EvaluationPlan = {
   evaluationKey: string;
   securityEntityId: number;
   issuerEntityId: number | null;
@@ -157,7 +160,7 @@ type EvaluationPlan = {
   evidence: EvidencePlan[];
 };
 
-type SurprisePlan = {
+export type SurprisePlan = {
   surpriseKey: string;
   expectationKey: string;
   actualNumericFactId: number;
@@ -170,7 +173,7 @@ type SurprisePlan = {
   unit: string;
 };
 
-type ExposurePlan = {
+export type ExposurePlan = {
   exposureKey: string;
   evaluationKey: string;
   shockKey: string;
@@ -186,6 +189,63 @@ type ExposurePlan = {
   uncertainty: number;
   epistemicConfidence: number;
   scoreComponents: ScoreComponentPlan[];
+};
+
+export type K4FilingEventPlan = {
+  eventKey: string;
+  eventType: string;
+  issuerEntityId: number;
+  sourceRevisionId: number;
+  availableAt: string;
+  knownAt: string;
+  locator: Record<string, unknown>;
+};
+
+export type K4ShockPlan = {
+  shockKey: string;
+  eventKey: string;
+  shockType: string;
+  magnitude: number;
+  magnitudeUnit: string;
+  availableAt: string;
+  knownAt: string;
+};
+
+export type K4ValuationPlan = {
+  valuationEstimateKey: string;
+  securityEntityId: number;
+  methodKey: string;
+  lowerEstimate: number;
+  upperEstimate: number;
+  estimateUnit: string;
+  horizon: string;
+  evaluationKey: string;
+};
+
+export type K4PathCitationPlan = {
+  impactPathStepId: number;
+  exposureKey: string;
+  citationRole: 'economic_basis' | 'corroboration';
+};
+
+export type K4CoveragePlan = {
+  securityEntityId: number;
+  acceptedEvaluationCount: number;
+  evaluationCount: number;
+  reasonCodes: EvaluationDisposition[];
+};
+
+export type K4MarketIntelligencePlan = {
+  informationSet: K4InformationSetInput;
+  expectations: K4ExpectationInput[];
+  surprises: SurprisePlan[];
+  filingEvents: K4FilingEventPlan[];
+  shocks: K4ShockPlan[];
+  evaluations: EvaluationPlan[];
+  exposures: ExposurePlan[];
+  valuations: K4ValuationPlan[];
+  pathCitations: K4PathCitationPlan[];
+  coverage: K4CoveragePlan[];
 };
 
 function finite(value: number, label: string): void {
@@ -324,7 +384,7 @@ function scoreComponents(
   confidence: number,
 ): ScoreComponentPlan[] {
   const lag = { immediate: 1, short: 0.75, medium: 0.5, long: 0.25 }[rule.horizon];
-  const values: Record<(typeof SCORE_COMPONENT_KINDS)[number], [number, string]> = {
+  const values: Record<(typeof K4_SCORE_COMPONENT_KINDS)[number], [number, string]> = {
     evidence_confidence: [confidence, 'worst admitted PIT class'],
     relation_strength: [1, 'exact issuer-playbook-driver-rule bridge'],
     materiality: [materiality, 'absolute change over prior absolute value'],
@@ -334,7 +394,7 @@ function scoreComponents(
     market_reflection: [0, 'no admitted pre-cutoff market measurement'],
     model_uncertainty: [1 - confidence, 'PIT-class residual uncertainty'],
   };
-  return SCORE_COMPONENT_KINDS.map((componentKind) => ({
+  return K4_SCORE_COMPONENT_KINDS.map((componentKind) => ({
     componentKind,
     componentValue: values[componentKind][0],
     rationale: values[componentKind][1],
@@ -397,7 +457,7 @@ function planSurprises(input: K4MarketIntelligenceInput): SurprisePlan[] {
           : 1
         : clamp01(Math.abs(rawSurprise) / Math.abs(expectation.expectedValue));
     results.push({
-      surpriseKey: `k4:surprise:${expectation.expectationKey}:${actual.numericFactId}`,
+      surpriseKey: `k4:surprise:${input.informationSet.informationSetId}:${expectation.expectationKey}:${actual.numericFactId}`,
       expectationKey: expectation.expectationKey,
       actualNumericFactId: actual.numericFactId,
       actualValue: actual.value,
@@ -415,7 +475,9 @@ function planSurprises(input: K4MarketIntelligenceInput): SurprisePlan[] {
   return results.sort((a, b) => compareText(a.surpriseKey, b.surpriseKey));
 }
 
-export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
+export function planK4MarketIntelligence(
+  input: K4MarketIntelligenceInput,
+): K4MarketIntelligencePlan {
   const securityIds = new Set<number>();
   const securities = [...input.securities].sort(
     (left, right) => left.securityEntityId - right.securityEntityId,
@@ -436,10 +498,10 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
   );
   const evaluations: EvaluationPlan[] = [];
   const exposures: ExposurePlan[] = [];
-  const filingEvents = new Map<string, Record<string, unknown>>();
-  const shocks = new Map<string, Record<string, unknown>>();
-  const valuations: Record<string, unknown>[] = [];
-  const pathCitations: Record<string, unknown>[] = [];
+  const filingEvents = new Map<string, K4FilingEventPlan>();
+  const shocks = new Map<string, K4ShockPlan>();
+  const valuations: K4ValuationPlan[] = [];
+  const pathCitations: K4PathCitationPlan[] = [];
 
   for (const item of securities) {
     if (
@@ -607,7 +669,7 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
         evidence,
       });
       const eventKey = `k4:filing:${item.issuerEntityId}:${current.sourceRevisionId}`;
-      const shockKey = `${eventKey}:${measurementRule.driverKey}`;
+      const shockKey = `${eventKey}:${measurementRule.driverKey}:${current.numericFactId}:${comparison.numericFactId}`;
       const exposureKey = `k4:exposure:${input.informationSet.informationSetId}:${item.securityEntityId}:${measurementRule.driverKey}`;
       filingEvents.set(eventKey, {
         eventKey,
@@ -775,7 +837,7 @@ export function planK4OutcomeRows(input: {
   const sessions = security
     .map((bar) => bar.sessionDate)
     .filter((date) => date > input.anchorSessionDate && benchmarkByDate.has(date));
-  return [1, 5, 20].map((horizonSessions) => {
+  return ([1, 5, 20] as const).map((horizonSessions) => {
     const outcomeDate = sessions[horizonSessions - 1];
     const outcomeSecurity = outcomeDate ? securityByDate.get(outcomeDate) : undefined;
     const outcomeBenchmark = outcomeDate ? benchmarkByDate.get(outcomeDate) : undefined;

@@ -125,7 +125,12 @@ describe('K4 seven-cutoff replay planning', () => {
     assert.equal(plan.evaluations[0]?.direction, 'negative');
     assert.equal(plan.surprises[0]?.rawSurprise, -10);
     assert.equal(plan.surprises[0]?.direction, 'negative');
+    assert.equal(
+      plan.surprises[0]?.surpriseKey,
+      'k4:surprise:k4:2026-08-08:prior-model:101:InventoryNet:2025-12-31:1',
+    );
     assert.equal(plan.exposures.length, 1);
+    assert.match(String(plan.shocks[0]?.shockKey), /:1:2$/);
     assert.deepEqual(
       plan.exposures[0]?.scoreComponents.map((component) => component.componentKind).sort(),
       [

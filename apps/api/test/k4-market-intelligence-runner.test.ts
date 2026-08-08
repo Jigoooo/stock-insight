@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 import {
   buildK4RunCutoffs,
+  executeK4MarketIntelligenceJob,
   parseK4MarketIntelligenceArgs,
 } from '../src/analytics/k4-market-intelligence-runner.ts';
 import {
   loadK4MarketIntelligenceInput,
+  loadK4OutcomePlans,
   withK4MarketIntelligenceTransaction,
   type K4QueryClient,
 } from '../src/analytics/k4-market-intelligence-store.ts';
@@ -277,5 +280,234 @@ describe('K4 cutoff-scoped canonical input loading', () => {
       /semantic snapshot.*cutoff/i,
     );
     assert.equal(client.calls.length, 1);
+  });
+});
+
+describe('K4 cutoff-scoped outcome loading', () => {
+  it('uses only cutoff-known stock/benchmark bars and leaves immature horizons pending', async () => {
+    const client = new FakeClient((sql) => {
+      if (!sql.includes('k4_market_outcome_bars')) throw new Error(`unexpected query: ${sql}`);
+      return [
+        {
+          series_role: 'security',
+          session_date: '2026-07-31',
+          close: '100',
+          known_at: '2026-08-01T01:00:00Z',
+        },
+        {
+          series_role: 'benchmark',
+          session_date: '2026-07-31',
+          close: '200',
+          known_at: '2026-08-01T01:00:00Z',
+        },
+        {
+          series_role: 'security',
+          session_date: '2026-08-03',
+          close: '110',
+          known_at: '2026-08-03T21:00:00Z',
+        },
+        {
+          series_role: 'benchmark',
+          session_date: '2026-08-03',
+          close: '210',
+          known_at: '2026-08-03T21:00:00Z',
+        },
+      ];
+    });
+    const outcomes = await loadK4OutcomePlans(client, {
+      informationSet: {
+        informationSetId: 'k4:20260808:fixture',
+        validCutoff: '2026-08-08T14:59:59.999Z',
+        sourceAvailableCutoff: '2026-08-08T14:59:59.999Z',
+        systemKnownCutoff: '2026-08-08T14:59:59.999Z',
+        marketObservationCutoff: '2026-08-08T14:59:59.999Z',
+        semanticSnapshotId: 'snapshot',
+      },
+      expectations: [],
+      surprises: [],
+      filingEvents: [
+        {
+          eventKey: 'event:1',
+          eventType: 'regulatory_filing_numeric_fact',
+          issuerEntityId: 101,
+          sourceRevisionId: 1001,
+          availableAt: '2026-08-01T12:00:00.000Z',
+          knownAt: '2026-08-01T12:01:00.000Z',
+          locator: {},
+        },
+      ],
+      shocks: [],
+      evaluations: [],
+      exposures: [
+        {
+          exposureKey: 'exposure:1',
+          evaluationKey: 'evaluation:1',
+          shockKey: 'shock:1',
+          eventKey: 'event:1',
+          securityEntityId: 1,
+          issuerEntityId: 101,
+          channelClass: 'operational_capacity',
+          sign: 'negative',
+          horizon: 'short',
+          economicMagnitude: 20,
+          economicMagnitudeUnit: 'USD',
+          materiality: 0.2,
+          uncertainty: 0.1,
+          epistemicConfidence: 0.9,
+          scoreComponents: [],
+        },
+      ],
+      valuations: [],
+      pathCitations: [],
+      coverage: [],
+    });
+    assert.equal(outcomes.length, 3);
+    assert.equal(outcomes[0]?.outcomeState, 'evaluated');
+    assert.equal(outcomes[0]?.anchorSessionDate, '2026-07-31');
+    assert.deepEqual(
+      outcomes.slice(1).map((row) => row.outcomeState),
+      ['pending', 'pending'],
+    );
+    assert.deepEqual(client.calls[0]?.params, [
+      1,
+      '2026-08-01T12:00:00.000Z',
+      '2026-08-08T14:59:59.999Z',
+    ]);
+    assert.match(client.calls[0]?.sql ?? '', /collected_at <= \$3::timestamptz/);
+    assert.match(client.calls[0]?.sql ?? '', /available_at <= \$3::timestamptz/);
+  });
+});
+
+function replayInput(cutoffAt: string) {
+  return {
+    informationSet: {
+      informationSetId: `k4:${cutoffAt.slice(0, 10)}`,
+      validCutoff: cutoffAt,
+      sourceAvailableCutoff: cutoffAt,
+      systemKnownCutoff: cutoffAt,
+      marketObservationCutoff: cutoffAt,
+      semanticSnapshotId: 'snapshot-before-cutoff',
+    },
+    securities: Array.from({ length: 10 }, (_, index) => ({
+      securityEntityId: index + 1,
+      issuerEntityId: null,
+      securityIssuerIdentityId: null,
+      sectorPlaybookId: null,
+    })),
+    rules: [],
+    facts: [],
+    expectations: [],
+  };
+}
+
+describe('K4 replay/canary orchestration', () => {
+  it('keeps dry-run read-only while planning every selected cutoff', async () => {
+    const client = new FakeClient();
+    const loaded: string[] = [];
+    const summaries = await executeK4MarketIntelligenceJob({
+      client,
+      args: parseK4MarketIntelligenceArgs(['--from', '2026-08-02', '--to', '2026-08-03']),
+      loadInput: async (_client, options) => {
+        loaded.push(options.cutoff);
+        return replayInput(options.cutoff);
+      },
+      persistPlan: async () => {
+        throw new Error('dry-run attempted persistence');
+      },
+    });
+    assert.equal(summaries.length, 2);
+    assert.deepEqual(loaded, ['2026-08-02T14:59:59.999Z', '2026-08-03T14:59:59.999Z']);
+    assert.equal(
+      summaries.every((summary) => summary.mode === 'dry-run'),
+      true,
+    );
+    assert.equal(
+      summaries.every((summary) => summary.evaluationCount === 10),
+      true,
+    );
+    assert.equal(
+      summaries.every((summary) => summary.outcomeCount === 0),
+      true,
+    );
+    assert.equal(client.calls.length, 0);
+  });
+
+  it('persists a canary inside the exact cutoff transaction and commits once', async () => {
+    const client = new FakeClient();
+    let persisted = 0;
+    const args = parseK4MarketIntelligenceArgs([
+      '--canary',
+      '--cutoff',
+      '2026-08-09T12:00:00.000Z',
+      '--apply',
+    ]);
+    const summaries = await executeK4MarketIntelligenceJob({
+      client,
+      args,
+      loadInput: async (_client, options) => replayInput(options.cutoff),
+      persistPlan: async (_client, planned, options) => {
+        persisted += 1;
+        assert.equal(options.runKind, 'canary');
+        assert.equal(options.cutoff, planned.informationSet.validCutoff);
+        assert.deepEqual(options.outcomes, []);
+        return {
+          receiptId: 9,
+          idempotent: false,
+          acceptedEvaluationCount: 0,
+          rejectedEvaluationCount: 10,
+          sealedExposureCount: 0,
+          surpriseCount: 0,
+          valuationCount: 0,
+          outcomeCount: 0,
+        };
+      },
+    });
+    assert.equal(persisted, 1);
+    assert.equal(summaries[0]?.persistence?.receiptId, 9);
+    assert.deepEqual(
+      client.calls.map((call) => call.sql.replaceAll(/\s+/g, ' ').trim()),
+      ['BEGIN', 'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', 'COMMIT'],
+    );
+  });
+});
+
+describe('K4 executable wiring', () => {
+  it('exposes dry-run/rehearse/apply replay commands and a parameterized canary entrypoint', async () => {
+    const packageJson = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { scripts: Record<string, string> };
+    assert.equal(
+      packageJson.scripts['analytics:k4-market-intelligence:replay:dry-run'],
+      'node src/analytics/run-k4-market-intelligence.ts --from 2026-08-02 --to 2026-08-08',
+    );
+    assert.equal(
+      packageJson.scripts['analytics:k4-market-intelligence:replay:rehearse'],
+      'node src/analytics/run-k4-market-intelligence.ts --from 2026-08-02 --to 2026-08-08 --rehearse',
+    );
+    assert.equal(
+      packageJson.scripts['analytics:k4-market-intelligence:replay:apply'],
+      'node src/analytics/run-k4-market-intelligence.ts --from 2026-08-02 --to 2026-08-08 --apply',
+    );
+    assert.equal(
+      packageJson.scripts['analytics:k4-market-intelligence:canary'],
+      'node src/analytics/run-k4-market-intelligence.ts --canary',
+    );
+    const cli = await readFile(
+      new URL('../src/analytics/run-k4-market-intelligence.ts', import.meta.url),
+      'utf8',
+    );
+    assert.match(cli, /DATABASE_URL is required/);
+    assert.match(cli, /executeK4MarketIntelligenceJob/);
+    assert.match(cli, /pool\.end\(\)/);
+    const analyticsPipeline = await readFile(
+      new URL('../scripts/run_analytics_pipeline.sh', import.meta.url),
+      'utf8',
+    );
+    assert.match(analyticsPipeline, /K4_CANARY_CUTOFF=\$\(/);
+    assert.match(analyticsPipeline, /value\.toISOString\(\)\)' "\$RUN_STARTED_AT"/);
+    assert.match(analyticsPipeline, /run-k4-market-intelligence\.ts/);
+    assert.match(analyticsPipeline, /--canary --cutoff "\$K4_CANARY_CUTOFF" --apply/);
+    assert.match(analyticsPipeline, /stock-insight-k4-market-intelligence-canary-stage/);
+    assert.match(analyticsPipeline, /\) = 12/);
   });
 });

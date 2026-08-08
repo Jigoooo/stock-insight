@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS analytics.market_intelligence_run_receipt (
       CHECK (accepted_evaluation_count >= 0
              AND accepted_evaluation_count <= evaluation_count),
     reason_counts JSONB NOT NULL CHECK (jsonb_typeof(reason_counts) = 'object'),
+    artifact_counts JSONB NOT NULL CHECK (jsonb_typeof(artifact_counts) = 'object'),
     outcome_counts JSONB NOT NULL CHECK (jsonb_typeof(outcome_counts) = 'object'),
     planner_version TEXT NOT NULL CHECK (length(btrim(planner_version)) > 0),
     score_formula_version TEXT NOT NULL CHECK (length(btrim(score_formula_version)) > 0),
@@ -43,6 +44,13 @@ DROP TRIGGER IF EXISTS market_intelligence_run_receipt_append_only
 CREATE TRIGGER market_intelligence_run_receipt_append_only
   BEFORE UPDATE OR DELETE ON analytics.market_intelligence_run_receipt
   FOR EACH ROW EXECUTE FUNCTION analytics.reject_k4_ledger_mutation();
+
+-- The K4 analytics transaction owns the event -> shock -> exposure chain. It
+-- receives append rights only on the three world ledgers required to anchor a
+-- source-grounded filing event; numeric facts remain read-only to this role.
+GRANT SELECT, INSERT ON
+  world.event, world.event_revision, world.event_participant
+  TO si_analytics;
 
 GRANT SELECT, INSERT ON analytics.market_intelligence_run_receipt TO si_analytics;
 GRANT SELECT ON analytics.market_intelligence_run_receipt

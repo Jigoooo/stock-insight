@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 
-import type { K4MarketIntelligenceInput, K4RuleInput } from './k4-market-intelligence-plan.ts';
+import {
+  planK4OutcomeRows,
+  type K4MarketIntelligenceInput,
+  type K4MarketIntelligencePlan,
+  type K4RuleInput,
+} from './k4-market-intelligence-plan.ts';
+import { type K4OutcomePlan } from './k4-market-intelligence-writer.ts';
 
 export type K4QueryResult = {
   rows: Array<Record<string, unknown>>;
@@ -347,4 +353,110 @@ export async function loadK4MarketIntelligenceInput(
       derivationKey: String(row.derivation_key),
     })),
   };
+}
+
+const MARKET_OUTCOME_BARS_SQL = `
+/* k4_market_outcome_bars */
+WITH requested_security AS (
+  SELECT security_entity_id, market, ticker
+    FROM core.v_security_universe
+   WHERE security_entity_id=$1
+), security_bars AS (
+  SELECT DISTINCT ON ((bar.ts AT TIME ZONE 'UTC')::date)
+         'security'::text AS series_role,
+         ((bar.ts AT TIME ZONE 'UTC')::date)::text AS session_date,
+         bar.close::text AS close,
+         bar.collected_at AS known_at
+    FROM market_ts.ohlcv bar
+    JOIN requested_security security
+      ON security.ticker=regexp_replace(upper(bar.symbol), '\\.(KS|KQ)$', '')
+     AND security.market=CASE WHEN bar.exchange IN ('KOSPI','KOSDAQ') THEN 'KR' ELSE 'US' END
+   WHERE bar.domain='stock' AND bar.timeframe='1D' AND bar.close > 0
+     AND bar.collected_at <= $3::timestamptz
+     AND (bar.ts AT TIME ZONE 'UTC')::date >= ($2::timestamptz - interval '14 days')::date
+     AND (bar.ts AT TIME ZONE 'UTC')::date <= $3::timestamptz::date
+   ORDER BY (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
+), us_benchmark AS (
+  SELECT DISTINCT ON ((bar.ts AT TIME ZONE 'UTC')::date)
+         'benchmark'::text AS series_role,
+         ((bar.ts AT TIME ZONE 'UTC')::date)::text AS session_date,
+         bar.close::text AS close,
+         bar.collected_at AS known_at
+    FROM market_ts.ohlcv bar
+    JOIN requested_security security ON security.market='US'
+   WHERE bar.symbol='^GSPC' AND bar.timeframe='1D' AND bar.close > 0
+     AND bar.collected_at <= $3::timestamptz
+     AND (bar.ts AT TIME ZONE 'UTC')::date >= ($2::timestamptz - interval '14 days')::date
+     AND (bar.ts AT TIME ZONE 'UTC')::date <= $3::timestamptz::date
+   ORDER BY (bar.ts AT TIME ZONE 'UTC')::date, bar.collected_at DESC
+), kr_benchmark AS (
+  SELECT DISTINCT ON (vintage.observation_date)
+         'benchmark'::text AS series_role,
+         vintage.observation_date::text AS session_date,
+         vintage.value::text AS close,
+         vintage.available_at AS known_at
+    FROM market.macro_vintage vintage
+    JOIN requested_security security ON security.market='KR'
+   WHERE vintage.series_key='ecos:802Y001:0001000'
+     AND vintage.value > 0
+     AND vintage.available_at <= $3::timestamptz
+     AND vintage.observation_date >= ($2::timestamptz - interval '14 days')::date
+     AND vintage.observation_date <= $3::timestamptz::date
+   ORDER BY vintage.observation_date, vintage.vintage_date DESC, vintage.available_at DESC
+)
+SELECT * FROM security_bars
+UNION ALL SELECT * FROM us_benchmark
+UNION ALL SELECT * FROM kr_benchmark
+ORDER BY series_role, session_date
+`;
+
+export async function loadK4OutcomePlans(
+  client: K4QueryClient,
+  plan: K4MarketIntelligencePlan,
+): Promise<K4OutcomePlan[]> {
+  const outcomes: K4OutcomePlan[] = [];
+  for (const exposure of plan.exposures) {
+    const event = plan.filingEvents.find((candidate) => candidate.eventKey === exposure.eventKey);
+    if (!event) throw new Error(`K4 exposure ${exposure.exposureKey} has no filing event`);
+    const rows = (
+      await client.query(MARKET_OUTCOME_BARS_SQL, [
+        exposure.securityEntityId,
+        event.availableAt,
+        plan.informationSet.marketObservationCutoff,
+      ])
+    ).rows;
+    const securityBars = rows
+      .filter((row) => row.series_role === 'security')
+      .map((row) => ({
+        sessionDate: String(row.session_date),
+        close: Number(row.close),
+        knownAt: iso(row.known_at),
+      }));
+    const benchmarkBars = rows
+      .filter((row) => row.series_role === 'benchmark')
+      .map((row) => ({
+        sessionDate: String(row.session_date),
+        close: Number(row.close),
+        knownAt: iso(row.known_at),
+      }));
+    const eventDate = event.availableAt.slice(0, 10);
+    const anchorSessionDate = securityBars
+      .map((bar) => bar.sessionDate)
+      .filter((sessionDate) => sessionDate < eventDate)
+      .sort()
+      .at(-1);
+    if (!anchorSessionDate) {
+      throw new Error(`K4 exposure ${exposure.exposureKey} has no pre-event market anchor`);
+    }
+    outcomes.push(
+      ...planK4OutcomeRows({
+        exposureKey: exposure.exposureKey,
+        anchorSessionDate,
+        marketDataCutoff: plan.informationSet.marketObservationCutoff,
+        securityBars,
+        benchmarkBars,
+      }),
+    );
+  }
+  return outcomes.sort((left, right) => left.outcomeKey.localeCompare(right.outcomeKey));
 }

@@ -29,6 +29,7 @@ describe('091 K4 market-intelligence run receipt', () => {
       'evaluation_count',
       'accepted_evaluation_count',
       'reason_counts',
+      'artifact_counts',
       'outcome_counts',
       'planner_version',
       'score_formula_version',
@@ -72,5 +73,16 @@ describe('091 K4 market-intelligence run receipt', () => {
       'utf8',
     );
     assert.doesNotMatch(oldMigration, /operational_capacity/);
+  });
+
+  it('grants the analytics writer only the world event rows needed by the K4 chain', () => {
+    assert.match(
+      k4MarketIntelligenceRunReceiptMigrationSql,
+      /GRANT SELECT, INSERT ON\s+world\.event,\s+world\.event_revision,\s+world\.event_participant\s+TO si_analytics/i,
+    );
+    assert.doesNotMatch(
+      k4MarketIntelligenceRunReceiptMigrationSql,
+      /GRANT[^;]*world\.numeric_fact[^;]*TO si_analytics/i,
+    );
   });
 });

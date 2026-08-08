@@ -1,4 +1,4 @@
-// Rehearses migrations 078–089 plus the migration-037 exposure surface that
+// Rehearses migrations 078–091 plus the migration-037 exposure surface that
 // K4 strengthens, on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
@@ -34,6 +34,10 @@ import { sectorPlaybookMigrationSql } from '../../../packages/db-schema/src/migr
 import { issuerPlaybookMeasurementRuleMigrationSql } from '../../../packages/db-schema/src/migrations/088_issuer_playbook_measurement_rule.ts';
 import { k4MarketIntelligenceLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/089_k4_market_intelligence_ledger.ts';
 
+import { k4MarketIntelligenceRunReceiptMigrationSql } from '../../../packages/db-schema/src/migrations/091_k4_market_intelligence_run_receipt.ts';
+import { planK4MarketIntelligence } from '../src/analytics/k4-market-intelligence-plan.ts';
+import { executeK4MarketIntelligenceJob } from '../src/analytics/k4-market-intelligence-runner.ts';
+import { persistK4MarketIntelligencePlan } from '../src/analytics/k4-market-intelligence-writer.ts';
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
 
@@ -131,16 +135,74 @@ try {
     INSERT INTO knowledge.ontology_revision SELECT generate_series(1, 5);
     CREATE TABLE knowledge.derivation (
       derivation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      status TEXT NOT NULL
+      derivation_key TEXT NOT NULL UNIQUE,
+      derivation_kind TEXT NOT NULL,
+      method TEXT NOT NULL,
+      method_version TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'building',
+      step_count INTEGER NOT NULL DEFAULT 0,
+      input_count INTEGER NOT NULL DEFAULT 0,
+      derivation_digest TEXT,
+      created_by TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      sealed_at TIMESTAMPTZ
     );
-    INSERT INTO knowledge.derivation (status)
-    SELECT 'sealed' FROM generate_series(1, 7);
+    INSERT INTO knowledge.derivation (
+      derivation_key, derivation_kind, method, method_version, status,
+      step_count, input_count, derivation_digest, created_by, sealed_at
+    )
+    SELECT 'rehearsal-seed-' || seed::text, 'calculation', 'fixture', 'v1',
+           'sealed', 1, CASE WHEN seed = 2 THEN 0 ELSE 2 END,
+           repeat(seed::text, 64), 'rehearsal', TIMESTAMPTZ '2026-05-01Z'
+      FROM generate_series(1, 7) seed;
 
     CREATE SCHEMA world;
-    CREATE TABLE world.event_revision (
-      event_revision_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+    CREATE TABLE world.event (
+      event_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      event_key TEXT NOT NULL UNIQUE,
+      event_type TEXT NOT NULL,
+      subject_scope TEXT NOT NULL DEFAULT 'single_entity',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
-    INSERT INTO world.event_revision DEFAULT VALUES;
+    CREATE TABLE world.event_revision (
+      event_revision_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      event_id BIGINT NOT NULL REFERENCES world.event(event_id),
+      revision_no INTEGER NOT NULL,
+      lifecycle_state TEXT NOT NULL,
+      summary_text TEXT,
+      magnitude NUMERIC,
+      magnitude_unit TEXT,
+      surprise_score REAL,
+      story_id BIGINT,
+      source_revision_id BIGINT,
+      extraction_run_id TEXT,
+      published_at TIMESTAMPTZ,
+      available_at TIMESTAMPTZ NOT NULL,
+      known_at TIMESTAMPTZ NOT NULL,
+      valid_from TIMESTAMPTZ,
+      valid_until TIMESTAMPTZ,
+      supersedes_event_revision_id BIGINT REFERENCES world.event_revision(event_revision_id),
+      metadata JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (event_id, revision_no)
+    );
+    CREATE TABLE world.event_participant (
+      event_participant_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      event_revision_id BIGINT NOT NULL REFERENCES world.event_revision(event_revision_id),
+      entity_id BIGINT,
+      participant_role TEXT NOT NULL,
+      location_role TEXT,
+      role_detail JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    INSERT INTO world.event (event_key, event_type, subject_scope)
+    VALUES ('rehearsal-existing-event', 'fixture', 'single_entity');
+    INSERT INTO world.event_revision (
+      event_id, revision_no, lifecycle_state, available_at, known_at
+    ) VALUES (
+      1, 1, 'confirmed', TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z'
+    );
 
     CREATE SCHEMA analytics;
     CREATE TABLE analytics.impact_path_step (
@@ -162,7 +224,14 @@ try {
       ('Company', 'Second Rehearsal Co'),
       ('Stock', 'Unassigned Rehearsal Security'),
       ('Company', 'Unassigned Rehearsal Issuer'),
-      ('Stock', 'Identityless Rehearsal Security');
+      ('Stock', 'Identityless Rehearsal Security'),
+      ('Stock', 'Coverage Security 7'),
+      ('Stock', 'Coverage Security 8'),
+      ('Stock', 'Coverage Security 9'),
+      ('Stock', 'Coverage Security 10'),
+      ('Stock', 'Coverage Security 11'),
+      ('Stock', 'Coverage Security 12'),
+      ('Stock', 'Coverage Security 13');
     CREATE TABLE core.security_issuer_identity (
       security_issuer_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       security_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
@@ -274,18 +343,42 @@ try {
 
     CREATE TABLE knowledge.derivation_step (
       derivation_step_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      derivation_id BIGINT NOT NULL REFERENCES knowledge.derivation(derivation_id)
+      derivation_id BIGINT NOT NULL REFERENCES knowledge.derivation(derivation_id),
+      step_no INTEGER NOT NULL,
+      activity_type TEXT NOT NULL,
+      activity_version TEXT NOT NULL,
+      output_type TEXT NOT NULL,
+      output_locator JSONB NOT NULL,
+      parameters JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (derivation_id, step_no)
     );
     CREATE TABLE knowledge.derivation_input (
       derivation_input_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       derivation_step_id BIGINT NOT NULL REFERENCES knowledge.derivation_step(derivation_step_id),
+      input_no INTEGER NOT NULL,
       input_kind TEXT NOT NULL,
-      numeric_fact_id BIGINT REFERENCES world.numeric_fact(numeric_fact_id)
+      numeric_fact_id BIGINT REFERENCES world.numeric_fact(numeric_fact_id),
+      source_derivation_step_id BIGINT REFERENCES knowledge.derivation_step(derivation_step_id),
+      input_role TEXT NOT NULL DEFAULT 'evidence',
+      input_digest TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (derivation_step_id, input_no),
+      CHECK (num_nonnulls(numeric_fact_id, source_derivation_step_id) = 1)
     );
-    INSERT INTO knowledge.derivation_step (derivation_id)
-    SELECT generate_series(1, 7);
-    INSERT INTO knowledge.derivation_input (derivation_step_id, input_kind, numeric_fact_id)
-    SELECT fixture.derivation_id, 'numeric_fact', fact.numeric_fact_id
+    INSERT INTO knowledge.derivation_step (
+      derivation_id, step_no, activity_type, activity_version,
+      output_type, output_locator, parameters
+    )
+    SELECT seed, 1, 'calculation', 'v1', 'fixture', '{}'::jsonb, '{}'::jsonb
+      FROM generate_series(1, 7) seed;
+    INSERT INTO knowledge.derivation_input (
+      derivation_step_id, input_no, input_kind, numeric_fact_id, input_role
+    )
+    SELECT fixture.derivation_id,
+           row_number() OVER (PARTITION BY fixture.derivation_id ORDER BY fact.numeric_fact_id),
+           'numeric_fact', fact.numeric_fact_id, 'evidence'
       FROM (VALUES
         (1, 'valid-comparison'), (1, 'valid-current'),
         (3, 'wrong-issuer-comparison'), (3, 'wrong-issuer-current'),
@@ -374,6 +467,97 @@ try {
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
 
+  await target.query(`
+    CREATE OR REPLACE FUNCTION knowledge.compute_derivation_digest(p_derivation_id BIGINT)
+    RETURNS TEXT LANGUAGE sql STABLE AS $$
+      SELECT encode(sha256(convert_to(
+        coalesce((SELECT derivation.derivation_key FROM knowledge.derivation derivation
+                   WHERE derivation.derivation_id=p_derivation_id), '') || E'\\n' ||
+        coalesce((SELECT string_agg(
+          concat_ws(':', step.step_no, input.input_no, input.input_kind,
+                    coalesce(input.numeric_fact_id::text, input.source_derivation_step_id::text)),
+          E'\\n' ORDER BY step.step_no, input.input_no)
+          FROM knowledge.derivation_step step
+          JOIN knowledge.derivation_input input USING (derivation_step_id)
+         WHERE step.derivation_id=p_derivation_id), ''), 'UTF8')), 'hex')
+    $$;
+
+    CREATE OR REPLACE FUNCTION knowledge.guard_rehearsal_derivation_write()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    DECLARE actual_steps INTEGER; actual_inputs INTEGER; actual_digest TEXT;
+    BEGIN
+      IF TG_OP='INSERT' THEN
+        IF NEW.status <> 'building' OR NEW.step_count <> 0 OR NEW.input_count <> 0
+           OR NEW.derivation_digest IS NOT NULL OR NEW.sealed_at IS NOT NULL THEN
+          RAISE EXCEPTION 'derivation must start building';
+        END IF;
+        RETURN NEW;
+      END IF;
+      IF TG_OP='DELETE' THEN
+        RAISE EXCEPTION 'knowledge.derivation is append-only' USING ERRCODE='55000';
+      END IF;
+      IF OLD.status='building' AND NEW.status='sealed' THEN
+        SELECT count(*)::int INTO actual_steps FROM knowledge.derivation_step
+         WHERE derivation_id=OLD.derivation_id;
+        SELECT count(*)::int INTO actual_inputs
+          FROM knowledge.derivation_input input
+          JOIN knowledge.derivation_step step USING (derivation_step_id)
+         WHERE step.derivation_id=OLD.derivation_id;
+        actual_digest := knowledge.compute_derivation_digest(OLD.derivation_id);
+        IF NEW.step_count <> actual_steps OR NEW.input_count <> actual_inputs
+           OR NEW.derivation_digest IS DISTINCT FROM actual_digest OR NEW.sealed_at IS NULL THEN
+          RAISE EXCEPTION 'derivation seal mismatch';
+        END IF;
+        RETURN NEW;
+      END IF;
+      RAISE EXCEPTION 'invalid derivation transition';
+    END $$;
+    CREATE TRIGGER derivation_write_guard
+      BEFORE INSERT OR UPDATE OR DELETE ON knowledge.derivation
+      FOR EACH ROW EXECUTE FUNCTION knowledge.guard_rehearsal_derivation_write();
+
+    CREATE OR REPLACE FUNCTION knowledge.guard_rehearsal_derivation_child_write()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    DECLARE parent_status TEXT;
+    BEGIN
+      IF TG_OP <> 'INSERT' THEN
+        RAISE EXCEPTION 'derivation child is append-only' USING ERRCODE='55000';
+      END IF;
+      SELECT derivation.status INTO parent_status
+        FROM knowledge.derivation derivation
+        JOIN knowledge.derivation_step step
+          ON step.derivation_id=derivation.derivation_id
+       WHERE step.derivation_step_id=CASE WHEN TG_TABLE_NAME='derivation_step'
+         THEN NEW.derivation_step_id ELSE NEW.derivation_step_id END;
+      IF TG_TABLE_NAME='derivation_step' THEN
+        SELECT status INTO parent_status FROM knowledge.derivation
+         WHERE derivation_id=NEW.derivation_id;
+      END IF;
+      IF parent_status IS DISTINCT FROM 'building' THEN
+        RAISE EXCEPTION 'derivation child parent is not building';
+      END IF;
+      RETURN NEW;
+    END $$;
+    CREATE TRIGGER derivation_step_write_guard
+      BEFORE INSERT OR UPDATE OR DELETE ON knowledge.derivation_step
+      FOR EACH ROW EXECUTE FUNCTION knowledge.guard_rehearsal_derivation_child_write();
+    CREATE TRIGGER derivation_input_write_guard
+      BEFORE INSERT OR UPDATE OR DELETE ON knowledge.derivation_input
+      FOR EACH ROW EXECUTE FUNCTION knowledge.guard_rehearsal_derivation_child_write();
+
+    CREATE OR REPLACE FUNCTION world.reject_rehearsal_event_mutation()
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF TG_OP='INSERT' THEN RETURN NEW; END IF;
+      RAISE EXCEPTION 'world event ledger is append-only' USING ERRCODE='55000';
+    END $$;
+    CREATE TRIGGER event_revision_write_guard
+      BEFORE INSERT OR UPDATE OR DELETE ON world.event_revision
+      FOR EACH ROW EXECUTE FUNCTION world.reject_rehearsal_event_mutation();
+    CREATE TRIGGER event_participant_write_guard
+      BEFORE UPDATE OR DELETE ON world.event_participant
+      FOR EACH ROW EXECUTE FUNCTION world.reject_rehearsal_event_mutation();
+  `);
   // 087 historically allowed Stock assignments. One has an exact identity and
   // must migrate; the other has none and must make 088 fail closed.
   await target.query(`
@@ -406,13 +590,26 @@ try {
      WHERE entity_id = 6
        AND valid_to IS NULL
   `);
+  await target.query(`
+    GRANT USAGE ON SCHEMA core, ingestion, world, knowledge, analytics TO si_analytics;
+    GRANT SELECT ON core.entity, core.security_issuer_identity,
+      ingestion.source, ingestion.source_record_identity, ingestion.source_revision,
+      world.numeric_fact TO si_analytics;
+    GRANT SELECT, INSERT, UPDATE ON knowledge.derivation TO si_analytics;
+    GRANT SELECT, INSERT ON knowledge.derivation_step, knowledge.derivation_input TO si_analytics;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA knowledge TO si_analytics;
+    GRANT SELECT ON analytics.impact_path_step TO si_analytics;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA world TO si_analytics;
+  `);
 
   MIGRATIONS.push(
     issuerPlaybookMeasurementRuleMigrationSql,
     k4MarketIntelligenceLedgerMigrationSql,
+    k4MarketIntelligenceRunReceiptMigrationSql,
   );
   await target.query(issuerPlaybookMeasurementRuleMigrationSql);
   await target.query(k4MarketIntelligenceLedgerMigrationSql);
+  await target.query(k4MarketIntelligenceRunReceiptMigrationSql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
   for (const sql of MIGRATIONS) await target.query(sql);
 
@@ -1077,6 +1274,322 @@ try {
     durationYearOverYearAccepted,
   };
 
+  // ── Task 3 deterministic writer and transaction orchestration ───────────────
+  const writerCutoff = '2026-08-10T14:59:59.999Z';
+  const writerInformationSetId = 'ais-k4-writer';
+  await target.query(
+    `INSERT INTO governance.analysis_information_set (
+       information_set_id, mode, valid_cutoff, source_available_cutoff,
+       system_known_cutoff, market_observation_cutoff,
+       semantic_snapshot_id, created_by
+     ) VALUES ($1, 'EX_ANTE', $2, $2, $2, $2, 'snap-1', 'rehearsal')`,
+    [writerInformationSetId, writerCutoff],
+  );
+
+  const expectationDerivationId = (
+    await target.query(
+      `INSERT INTO knowledge.derivation (
+         derivation_key, derivation_kind, method, method_version, created_by
+       ) VALUES (
+         'expectation:1:InventoryNet:2026-06-30', 'calculation',
+         'rehearsal-prior-model', 'v1', 'rehearsal'
+       ) RETURNING derivation_id`,
+    )
+  ).rows[0].derivation_id;
+  const expectationStepId = (
+    await target.query(
+      `INSERT INTO knowledge.derivation_step (
+         derivation_id, step_no, activity_type, activity_version,
+         output_type, output_locator, parameters
+       ) VALUES (
+         $1, 1, 'calculation', 'v1', 'expectation_revision',
+         '{"expectation_key":"prior-model:1:InventoryNet:2026-06-30"}'::jsonb,
+         '{"method":"prior_model"}'::jsonb
+       ) RETURNING derivation_step_id`,
+      [expectationDerivationId],
+    )
+  ).rows[0].derivation_step_id;
+  await target.query(
+    `INSERT INTO knowledge.derivation_input (
+       derivation_step_id, input_no, input_kind, numeric_fact_id, input_role
+     ) VALUES ($1, 1, 'numeric_fact', $2, 'prior_observation')`,
+    [expectationStepId, numericFacts.get('valid-comparison')],
+  );
+  const expectationDigest = (
+    await target.query(`SELECT knowledge.compute_derivation_digest($1) AS digest`, [
+      expectationDerivationId,
+    ])
+  ).rows[0].digest;
+  await target.query(
+    `UPDATE knowledge.derivation
+        SET status='sealed', step_count=1, input_count=1,
+            derivation_digest=$2, sealed_at=clock_timestamp()
+      WHERE derivation_id=$1`,
+    [expectationDerivationId, expectationDigest],
+  );
+  const expectationRevisionId = (
+    await target.query(
+      `INSERT INTO analytics.expectation_revision (
+         expectation_key, revision_no, target_entity_id, expectation_kind,
+         as_of_at, horizon, target_period_end, expected_value, expected_unit,
+         dispersion, information_set_id, derivation_id, available_at, known_at
+       ) VALUES (
+         'prior-model:1:InventoryNet:2026-06-30', 1, 1, 'prior_model',
+         TIMESTAMPTZ '2026-05-01Z', 'short', DATE '2026-06-30', 125, 'USD', 5,
+         $1, $2, TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z'
+       ) RETURNING expectation_revision_id`,
+      [writerInformationSetId, expectationDerivationId],
+    )
+  ).rows[0].expectation_revision_id;
+
+  const writerRuleRow = (
+    await target.query(
+      `SELECT driver.driver_key, driver.business_driver_id,
+              rule.business_driver_measurement_rule_id, rule.rule_key,
+              rule.comparison_method, rule.output_unit, rule.output_currency,
+              rule.input_concept_selectors, rule.direction_policy,
+              rule.materiality_policy, rule.minimum_history_observations,
+              rule.allowed_pit_classes
+         FROM governance.business_driver driver
+         JOIN governance.business_driver_measurement_rule rule
+           ON rule.business_driver_id=driver.business_driver_id
+        WHERE rule.business_driver_measurement_rule_id=$1`,
+      [measurement.business_driver_measurement_rule_id],
+    )
+  ).rows[0];
+  const writerFacts = (
+    await target.query(
+      `SELECT numeric_fact_id, fact_key, value::text, instant_at,
+              source_revision_id, available_at, known_at
+         FROM world.numeric_fact
+        WHERE fact_key IN ('valid-current','valid-comparison')
+        ORDER BY fact_key`,
+    )
+  ).rows.map((fact) => ({
+    numericFactId: Number(fact.numeric_fact_id),
+    entityId: 1,
+    conceptNamespace: 'us-gaap',
+    conceptKey: 'InventoryNet',
+    value: Number(fact.value),
+    unit: 'currency',
+    currency: 'USD',
+    instantAt: new Date(fact.instant_at).toISOString(),
+    periodStart: null,
+    periodEnd: null,
+    sourceRevisionId: Number(fact.source_revision_id),
+    sourcePitQualityId: Number(pitC.source_pit_quality_id),
+    pitClass: 'PIT_C_OUR_ARCHIVE',
+    availableAt: new Date(fact.available_at).toISOString(),
+    knownAt: new Date(fact.known_at).toISOString(),
+    locator: { fact_key: fact.fact_key, accession: 'rehearsal-accession' },
+  }));
+  const writerInput = {
+    informationSet: {
+      informationSetId: writerInformationSetId,
+      validCutoff: writerCutoff,
+      sourceAvailableCutoff: writerCutoff,
+      systemKnownCutoff: writerCutoff,
+      marketObservationCutoff: writerCutoff,
+      semanticSnapshotId: 'snap-1',
+    },
+    securities: [
+      {
+        securityEntityId: 2,
+        issuerEntityId: 1,
+        securityIssuerIdentityId: 1,
+        sectorPlaybookId: Number(measurement.sector_playbook_id),
+        valuationRange: {
+          methodKey: 'inventory-adjusted-range',
+          lowerEstimate: 90,
+          upperEstimate: 110,
+          estimateUnit: 'USD_per_share',
+          horizon: 'short',
+        },
+      },
+      {
+        securityEntityId: 4,
+        issuerEntityId: 5,
+        securityIssuerIdentityId: 2,
+        sectorPlaybookId: null,
+      },
+      ...[6, 7, 8, 9, 10, 11, 12, 13].map((securityEntityId) => ({
+        securityEntityId,
+        issuerEntityId: null,
+        securityIssuerIdentityId: null,
+        sectorPlaybookId: null,
+      })),
+    ],
+    rules: [
+      {
+        securityEntityId: 2,
+        issuerEntityId: 1,
+        sectorPlaybookId: Number(measurement.sector_playbook_id),
+        businessDriverId: Number(writerRuleRow.business_driver_id),
+        businessDriverMeasurementRuleId: Number(writerRuleRow.business_driver_measurement_rule_id),
+        driverKey: writerRuleRow.driver_key,
+        ruleKey: writerRuleRow.rule_key,
+        comparisonMethod: writerRuleRow.comparison_method,
+        outputUnit: writerRuleRow.output_unit,
+        outputCurrency: writerRuleRow.output_currency,
+        inputConceptSelectors: writerRuleRow.input_concept_selectors.map((selector) => ({
+          conceptNamespace: selector.concept_namespace,
+          conceptKeys: selector.concept_keys,
+        })),
+        directionPolicy: writerRuleRow.direction_policy,
+        materialityPolicy: writerRuleRow.materiality_policy,
+        minimumHistoryObservations: Number(writerRuleRow.minimum_history_observations),
+        allowedPitClasses: writerRuleRow.allowed_pit_classes,
+        horizon: 'short',
+        channelClass: 'operational_capacity',
+        impactPathStepIds: [1],
+      },
+    ],
+    facts: writerFacts,
+    expectations: [
+      {
+        expectationRevisionId: Number(expectationRevisionId),
+        expectationKey: 'prior-model:1:InventoryNet:2026-06-30',
+        issuerEntityId: 1,
+        conceptNamespace: 'us-gaap',
+        conceptKey: 'InventoryNet',
+        targetInstantAt: '2026-06-30T00:00:00.000Z',
+        expectedValue: 125,
+        expectedUnit: 'USD',
+        dispersion: 5,
+        availableAt: '2026-05-01T00:00:00.000Z',
+        knownAt: '2026-05-01T00:00:00.000Z',
+        derivationKey: 'expectation:1:InventoryNet:2026-06-30',
+      },
+    ],
+  };
+  const writerOutcomePlans = (planned) => {
+    if (planned.exposures.length !== 1) {
+      throw new Error(
+        `writer rehearsal expected one exposure: ${JSON.stringify({ evaluations: planned.evaluations, facts: writerInput.facts, rules: writerInput.rules })}`,
+      );
+    }
+    return [1, 5, 20].map((horizonSessions) => ({
+      outcomeKey: `k4:outcome:${planned.exposures[0].exposureKey}:${horizonSessions}`,
+      exposureKey: planned.exposures[0].exposureKey,
+      horizonSessions,
+      anchorSessionDate: '2026-07-31',
+      outcomeState: 'pending',
+      outcomeSessionDate: null,
+      securityReturn: null,
+      benchmarkReturn: null,
+      abnormalReturn: null,
+      marketDataKnownAt: null,
+    }));
+  };
+  const runWriter = (mode) =>
+    executeK4MarketIntelligenceJob({
+      client: target,
+      args: {
+        mode,
+        runKind: 'replay',
+        from: '2026-08-10',
+        to: '2026-08-10',
+        kstCutoffTime: '23:59:59.999',
+        securityLimit: 10,
+      },
+      loadInput: async () => writerInput,
+      plan: planK4MarketIntelligence,
+      loadOutcomes: async (_client, planned) => writerOutcomePlans(planned),
+      persistPlan: async (client, planned, options) => {
+        await client.query('SET LOCAL ROLE si_analytics');
+        const writerPrivileges = (
+          await target.query(
+            `SELECT
+         has_table_privilege('si_analytics', 'analytics.market_intelligence_run_receipt', 'SELECT') AS receipt_select,
+         has_table_privilege('si_analytics', 'analytics.market_intelligence_run_receipt', 'INSERT') AS receipt_insert,
+         has_table_privilege('si_analytics', 'world.event', 'INSERT') AS event_insert`,
+          )
+        ).rows[0];
+        if (
+          !writerPrivileges.receipt_select ||
+          !writerPrivileges.receipt_insert ||
+          !writerPrivileges.event_insert
+        ) {
+          throw new Error(`K4 writer grants missing: ${JSON.stringify(writerPrivileges)}`);
+        }
+
+        return persistK4MarketIntelligencePlan(client, planned, options);
+      },
+    });
+
+  const rehearsedWriter = await runWriter('rehearse');
+  const rehearseRows = (
+    await target.query(
+      `SELECT count(*)::int AS n FROM analytics.market_intelligence_run_receipt
+        WHERE information_set_id=$1`,
+      [writerInformationSetId],
+    )
+  ).rows[0].n;
+  const appliedWriter = await runWriter('apply');
+  const repeatedWriter = await runWriter('apply');
+  const plannedWriter = planK4MarketIntelligence(writerInput);
+  let mismatchedDigestRejected = false;
+  try {
+    await persistK4MarketIntelligencePlan(target, plannedWriter, {
+      runKind: 'replay',
+      cutoff: writerCutoff,
+      requestDigest: appliedWriter[0].requestDigest,
+      planDigest: 'c'.repeat(64),
+      outcomes: writerOutcomePlans(plannedWriter),
+    });
+  } catch (error) {
+    mismatchedDigestRejected = /digest/i.test(String(error?.message));
+  }
+  const writerCounts = (
+    await target.query(
+      `SELECT
+         (SELECT count(*)::int FROM analytics.market_intelligence_run_receipt
+           WHERE information_set_id=$1) AS receipts,
+         (SELECT count(*)::int FROM analytics.impact_evaluation_revision
+           WHERE information_set_id=$1) AS evaluations,
+         (SELECT count(*)::int FROM analytics.accepted_impact_evaluation_v1
+           WHERE information_set_id=$1) AS accepted,
+         (SELECT count(*)::int FROM analytics.surprise_revision
+           WHERE information_set_id=$1) AS surprises,
+         (SELECT count(*)::int FROM analytics.valuation_estimate_revision
+           WHERE information_set_id=$1) AS valuations,
+         (SELECT count(*)::int FROM analytics.impact_outcome_revision outcome
+           JOIN analytics.impact_evaluation_revision evaluation
+             ON evaluation.impact_exposure_revision_id=outcome.impact_exposure_revision_id
+          WHERE evaluation.information_set_id=$1 AND outcome.outcome_state='pending') AS outcomes,
+         (SELECT count(*)::int FROM analytics.impact_score_component component
+           JOIN analytics.impact_evaluation_revision evaluation
+             ON evaluation.impact_exposure_revision_id=component.impact_exposure_revision_id
+          WHERE evaluation.information_set_id=$1) AS scores,
+         (SELECT count(*)::int FROM analytics.accepted_impact_evaluation_v1 evaluation
+          WHERE evaluation.information_set_id=$1 AND NOT EXISTS (
+            SELECT 1 FROM analytics.impact_path_step_exposure_citation citation
+             WHERE citation.impact_exposure_revision_id=evaluation.impact_exposure_revision_id
+          )) AS uncited`,
+      [writerInformationSetId],
+    )
+  ).rows[0];
+  const writerRehearsal = {
+    rehearsalRolledBack: rehearseRows === 0 && rehearsedWriter[0].persistence?.idempotent === false,
+    applyWroteExactCoverage: writerCounts.evaluations === 10 && writerCounts.accepted === 1,
+    auxiliaryLedgersWritten: writerCounts.surprises === 1 && writerCounts.valuations === 1,
+    pendingOutcomesHonest: writerCounts.outcomes === 3,
+    eightScoreComponentsWritten: writerCounts.scores === 8,
+    acceptedPathAlwaysCited: writerCounts.uncited === 0,
+    receiptWrittenLastAndOnce: writerCounts.receipts === 1,
+    exactRerunIsIdempotent:
+      appliedWriter[0].persistence?.idempotent === false &&
+      repeatedWriter[0].persistence?.idempotent === true &&
+      repeatedWriter[0].planDigest === appliedWriter[0].planDigest &&
+      repeatedWriter[0].persistence.acceptedEvaluationCount === 1 &&
+      repeatedWriter[0].persistence.rejectedEvaluationCount === 9 &&
+      repeatedWriter[0].persistence.sealedExposureCount === 1 &&
+      repeatedWriter[0].persistence.surpriseCount === 1 &&
+      repeatedWriter[0].persistence.valuationCount === 1 &&
+      repeatedWriter[0].persistence.outcomeCount === 3,
+    mismatchedDigestRejected,
+  };
+
   // ── 085 truth class binding ─────────────────────────────────────────────────
   const resolved = Object.fromEntries(
     (
@@ -1574,6 +2087,7 @@ try {
     slo,
     metric,
     truthClass,
+    writerRehearsal,
     economicClaim,
     sectorPlaybook,
     k4,
@@ -1600,6 +2114,7 @@ try {
     economicClaim,
     sectorPlaybook,
     k4,
+    writerRehearsal,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
