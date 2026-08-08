@@ -123,6 +123,7 @@ test('uses the full card width for stock row content in every entry section', as
       `button[aria-label="${entry.stock} 종목 브리핑 열기"]`,
     );
     await expect(row).toBeVisible();
+    await expect(row).toBeEnabled();
     await expect
       .poll(() =>
         row.evaluate((node) => {

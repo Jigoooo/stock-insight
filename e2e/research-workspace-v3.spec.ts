@@ -426,6 +426,23 @@ test.describe('v3 research workspace candidate', () => {
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
   });
 
+  test('redirects the retired research bookmark to judgment review without legacy requests', async ({
+    page,
+  }) => {
+    const legacyRequests: string[] = [];
+    page.on('request', (request) => {
+      if (/\/v1\/(?:my-research|personalization\/)/.test(request.url())) {
+        legacyRequests.push(request.url());
+      }
+    });
+
+    await page.goto('/workspace/research');
+
+    await expect(page).toHaveURL(/\/workspace\/history$/);
+    await expect(page.getByRole('heading', { name: '판단 복기', exact: true })).toBeVisible();
+    expect(legacyRequests).toEqual([]);
+  });
+
   test('keeps path and URL-authored workspace state authoritative', async ({ page }) => {
     await page.goto('/workspace/today?view=today&lane=explore');
     const currentUrl = () => {
@@ -643,9 +660,8 @@ test.describe('v3 research workspace candidate', () => {
       ['radar', '내 종목에 영향을 줄 시장 변화'],
       ['stocks', '종목'],
       ['themes', '테마·관계'],
-      ['research', '내 리서치'],
-      ['history', '판단 이력'],
-      ['status', '데이터 상태'],
+      ['history', '판단 복기'],
+      ['status', '데이터 신뢰도'],
     ] as const;
     for (const [id, heading] of sections) {
       if (testInfo.project.name === 'mobile') {

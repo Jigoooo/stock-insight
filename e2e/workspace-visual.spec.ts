@@ -8,7 +8,6 @@ const routes = [
   '/workspace/stocks',
   '/workspace/crypto',
   '/workspace/themes',
-  '/workspace/research',
   '/workspace/history',
   '/workspace/status',
   '/admin/invitations',

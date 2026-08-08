@@ -140,7 +140,6 @@ describe('release UI browser gates', () => {
       '/workspace/stocks',
       '/workspace/crypto',
       '/workspace/themes',
-      '/workspace/research',
       '/workspace/history',
       '/workspace/status',
       '/admin/invitations',
