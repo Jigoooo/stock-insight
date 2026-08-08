@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { type MetricDefinitionRow } from '../src/backfill/numeric-fact-plan.ts';
 import {
   ensureMetricDefinitions,
   withNumericFactWriteTransaction,
 } from '../src/backfill/numeric-fact-store.ts';
-import { type MetricDefinitionRow } from '../src/backfill/numeric-fact-plan.ts';
 
 function db(handler: (sql: string) => unknown = () => ({ rows: [] })) {
   const queries: Array<{ sql: string; params?: readonly unknown[] }> = [];

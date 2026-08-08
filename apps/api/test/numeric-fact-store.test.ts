@@ -2,16 +2,16 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  numericFactSemanticFingerprint,
+  type MetricDefinitionRow,
+  type NumericFactRow,
+} from '../src/backfill/numeric-fact-plan.ts';
+import {
   ensureMetricDefinitions,
   loadExistingNumericFactState,
   withNumericFactWriteTransaction,
   writeNumericFacts,
 } from '../src/backfill/numeric-fact-store.ts';
-import {
-  numericFactSemanticFingerprint,
-  type MetricDefinitionRow,
-  type NumericFactRow,
-} from '../src/backfill/numeric-fact-plan.ts';
 
 type Query = { sql: string; params?: readonly unknown[] };
 

@@ -2,13 +2,12 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { additiveAppMigrations } from '@stock-insight/db-schema';
-
 import { truthKernelMigrationSql } from '../../../packages/db-schema/src/migrations/031_truth_kernel.ts';
 import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
 import { numericFactRevisionGuardMigrationSql } from '../../../packages/db-schema/src/migrations/090_numeric_fact_revision_guard.ts';
 import { writeRawObject } from '../src/ingest/raw-object-store.ts';
 
+import { additiveAppMigrations } from '@stock-insight/db-schema';
 const apiRoot = fileURLToPath(new URL('..', import.meta.url));
 const REQUIRED_MIGRATIONS = [
   '031_truth_kernel',
