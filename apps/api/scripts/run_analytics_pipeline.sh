@@ -51,6 +51,13 @@ THEN 1 ELSE 0 END
 cd "$ROOT"
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-core-identity-sync.ts --apply
 pipeline_record_stage_success stock-insight-core-identity-sync-stage "$RUN_STARTED_AT" || exit $?
+# Must follow the identity sync: it opens one economic claim per security in the
+# master, and the master is what that step maintains. Writes an undetermined claim
+# for anything it cannot evidence, which is nearly all of them — the point is that
+# a consumer joining here gets NULL and has to decide, instead of getting nothing
+# and assuming common equity (canonical/03 §2).
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-economic-claim.ts --apply
+pipeline_record_stage_success stock-insight-economic-claim-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply

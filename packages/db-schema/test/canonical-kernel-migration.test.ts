@@ -10,6 +10,7 @@ import { safetyStateMigrationSql } from '../src/migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from '../src/migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from '../src/migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from '../src/migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from '../src/migrations/086_economic_claim.ts';
 
 const MIGRATIONS = [
   ['078_semantic_snapshot', semanticSnapshotMigrationSql],
@@ -20,6 +21,7 @@ const MIGRATIONS = [
   ['083_slo_ledger', sloLedgerMigrationSql],
   ['084_metric_definition_registry', metricDefinitionRegistryMigrationSql],
   ['085_truth_class_binding', truthClassBindingMigrationSql],
+  ['086_economic_claim', economicClaimMigrationSql],
 ] as const;
 
 // Same list migration 031's test uses. These migrations must be purely additive:
@@ -555,5 +557,67 @@ describe('085 truth class binding — REQ-SEM-010', () => {
     // them all be inserted again.
     assert.match(sql, /UNIQUE NULLS NOT DISTINCT/);
     assert.match(sql, /IS NOT DISTINCT FROM/);
+  });
+});
+
+describe('086 economic claim — canonical/03 §2', () => {
+  const sql = economicClaimMigrationSql;
+
+  it('never lets a claim default to common equity', () => {
+    // All 297 securities are entity_type='Stock' today, including an ETF. A
+    // default here would reinstate exactly the assumption the table removes.
+    assert.doesNotMatch(sql, /DEFAULT\s+'COMMON_EQUITY'/);
+    assert.match(sql, /claim_type_state TEXT NOT NULL DEFAULT 'undetermined'/);
+  });
+
+  it('makes the state and the claim type agree', () => {
+    assert.match(sql, /claim_type_state = 'determined' AND claim_type IS NOT NULL/);
+    assert.match(sql, /claim_type_state = 'undetermined' AND claim_type IS NULL/);
+  });
+
+  it('stops an undetermined claim from stating rights it cannot know', () => {
+    // A row saying "we do not know what this is" while also saying how it votes
+    // would have the second statement read as the first being a formality.
+    const guard =
+      /economic_claim_undetermined_states_nothing CHECK \(([\s\S]*?)\n    \)/.exec(sql)?.[1] ?? '';
+    for (const column of [
+      'voting_rights',
+      'dividend_rights',
+      'cash_flow_rights',
+      'conversion_terms',
+      'redemption_terms',
+      'dilution_mechanics',
+      'seniority_rank',
+    ]) {
+      assert.ok(guard.includes(`${column} IS NULL`), `${column} escapes the guard`);
+    }
+  });
+
+  it('requires every row to say what it was determined from', () => {
+    // Otherwise a later reader cannot tell a gap in the data from a gap in the
+    // effort.
+    assert.match(
+      sql,
+      /determination_basis TEXT NOT NULL CHECK \(length\(btrim\(determination_basis\)\) > 0\)/,
+    );
+  });
+
+  it('covers the claim kinds canonical/03 §2 separates', () => {
+    // "보통주·우선주·ADR·전환증권·토큰은 회사 전망을 공유해도 claim-level valuation이 다를 수 있다."
+    for (const kind of [
+      'COMMON_EQUITY',
+      'PREFERRED_EQUITY',
+      'DEPOSITARY_RECEIPT',
+      'CONVERTIBLE',
+      'TOKEN',
+      'FUND_UNIT',
+    ]) {
+      assert.ok(sql.includes(`'${kind}'`), `${kind} has no place`);
+    }
+  });
+
+  it('states its own coverage rather than leaving it to be counted', () => {
+    assert.match(sql, /CREATE OR REPLACE VIEW core\.economic_claim_coverage_v1/);
+    assert.match(sql, /FILTER \(WHERE claim_type_state = 'determined'\)/);
   });
 });

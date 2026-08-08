@@ -83,6 +83,7 @@ import { safetyStateMigrationSql } from './migrations/082_safety_state.ts';
 import { sloLedgerMigrationSql } from './migrations/083_slo_ledger.ts';
 import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_definition_registry.ts';
 import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
+import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -946,6 +947,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: truthClassBindingMigrationSql,
   },
+  {
+    id: '086_economic_claim',
+    description:
+      "Creates core.economic_claim and core.economic_claim_coverage_v1, the claim model canonical/03 §2 requires. Four of the eight expressions it names already have homes — the issuer in core.security_issuer_identity, and venue, currency and effective dates in core.listing — so this adds the four that have none: holder and right type, seniority, the voting/dividend/cash-flow rights, and the conversion, redemption and dilution mechanics. It matters while mostly empty. Measured 2026-08-08 all 297 securities carry entity_type='Stock', including SMH which is the VanEck Semiconductor ETF, so nothing distinguishes a common share from a fund unit, a preferred share, an ADR or a convertible and every consumer is free to assume it holds common equity in the issuer. canonical/03 §2 says that assumption is wrong — the same company prospect can carry different claim-level valuations. The value today is the assumption removed rather than the rows filled: a consumer that joins here gets NULL and has to decide, where before it got nothing and carried on. Only XLE and XLK can be determined, from their ETF holdings snapshots; the other 295 have no claim-type evidence anywhere, since all 188 Korean six-digit tickers end in 0 which rules out a preferred share but not a fund, and the 107 US listings carry nothing. Those are written undetermined with a basis stating what was looked at, because a COMMON_EQUITY default is precisely the assumption the table exists to remove. A CHECK stops an undetermined claim from carrying determined rights, which would read as the uncertainty being a formality. Pipeline roles only — this is a kernel object rather than a rendering surface, so the boot digest does not move for it.",
+    tables: [],
+    sql: economicClaimMigrationSql,
+  },
 ];
 
 export {
@@ -1034,4 +1042,5 @@ export {
   sloLedgerMigrationSql,
   metricDefinitionRegistryMigrationSql,
   truthClassBindingMigrationSql,
+  economicClaimMigrationSql,
 };
