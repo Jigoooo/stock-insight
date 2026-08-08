@@ -686,3 +686,104 @@ governance.truth_class_binding     has_table_privilege = f    (막혀 있다)
 `run-dart-numeric-fact.ts` 의 `EXISTING_FACTS_SQL` 이 `world.numeric_fact` 전체를 무제한
 읽는다. 오늘 168,417행이면 괜찮지만 DART 수집마다 는다. 멱등 판정에 fact_key 집합이
 필요해서 그런데, 커지면 `source_revision_id` 범위로 좁혀야 한다.
+
+---
+
+## K2-f — 차단이 아니었다 (2026-08-08)
+
+커밋 `87d024a`. **이 로그와 조사 문서가 앞서 "차단"으로 적은 것은 틀렸다.**
+
+### 왜 틀렸나
+
+조사가 다리를 둘만 시도했다: `content_hash` 와
+`source_record_identity.provider_record_key`. 둘 다 0건이라 "다리가 없다"로 결론냈다.
+**양쪽 스택이 모두 들고 있는 기사 URL 을 시도하지 않았다** —
+`knowledge.document.canonical_url` 과 rss-news-bundle raw object 안 각 항목의 `url`.
+
+```
+canonical_url 로 보관 번들에 닿는 chunk        6,794
+  chunk 본문이 title+summary 로 정확 재구성    6,196 (91.2%)
+  다른 캡처 (발행사가 헤드라인 수정)              598 (8.8%)
+evidence 를 가진 claim 374 중 재구성됨          332
+```
+
+레거시 행과 우리 번들은 **한 번의 수집에 대한 두 기록**이었다.
+
+### 정확 재구성이 핵심
+
+URL 공유만으로는 "같은 기사"일 뿐 "그 바이트에서 나왔다"가 아니다. RSS 는 수정된다 —
+실측된 한 쌍은 같은 URL 에 `"18 tech stocks ... 30%"` 와
+`"19 (mostly) tech stocks ... 25%"` 다. 거기 source revision 을 붙이면 REQ-EVD-004
+재실행 가능성을 거짓으로 약속한다. **조사가 발명을 거부한 것은 옳았다.** 틀린 것은
+"이을 수 없다"였다.
+
+그래서 chunk 마다 재구성을 다시 계산하고, 재현되는 것만 잇고, 재구성 해시를
+`content_metadata` 에 남겨 나중에 재검증할 수 있게 한다.
+
+### 라이브 상태
+
+```
+knowledge.document_chunk.source_revision_id   0 → 6,113 / 9,217
+knowledge.assertion                           0 → 253
+  factual 176 · forecast 59 · alleged 18
+```
+
+### REQ-EVD-004 끝까지 증명
+
+```
+assertion → source_revision → raw_object → 디스크 파일
+  → title+summary 재구성 == 저장된 chunk    true
+  → 기록된 해시와 일치                      true
+```
+
+### 253 < 332 인 이유 — modality
+
+opinion 41 · reported_claim 39 는 정본의 다섯 단어
+(factual·planned·possible·alleged·forecast)에 자리가 없어 **거부한다.**
+
+- **opinion** — 진술된 견해는 가능성에 대한 주장이 아니라 `possible` 이 오기술이고
+  나머지 넷도 더 가깝지 않다. canonical/00 §4 에서 의견은 NARRATIVE 로 읽히며 이 표가
+  담는 객체가 아니다.
+- **reported_claim** — modality 는 명제에 대한 것이고 누가 보도했는지는
+  `attribution_entity_id` 의 몫이다. 정확히 보도된 사실과 근거 없는 보도가 같은
+  claim_type 을 쓰므로 어느 modality 를 줘도 한쪽을 오표기한다.
+
+잘못된 modality 는 **출처 자신의 태도로 읽히고**, 아래에서는 그게 매핑 기본값이었는지
+알 수 없다.
+
+### 그 밖의 판단
+
+- `quotation_scope = 'summary'` — 보관한 것이 RSS 제목·요약이지 기사 본문이 아니다.
+  `direct` 는 갖고 있지 않은 인용을 약속하는 것이다.
+- `verification_state = 'extracted'` — claim 의 `corroborated` 를 옮기지 않는다.
+  assertion 의 상태는 span·semantics 검사를 가리키는데 그건 아직 돌지 않았다.
+  상류 상태는 metadata 에 남긴다.
+- `predicate_ontology_revision_id` 는 대부분 NULL — 12개 predicate 중 승인된 온톨로지
+  revision 이 있는 것이 1개뿐이다. 미승인 revision 을 가리키면 아무도 안 한 온톨로지
+  결정을 주장하는 것이 된다.
+
+### 남은 것
+
+```
+chunk 3,104건이 아직 계보 없음
+  canonical_url 없음                     1,710
+  보관된 번들 항목 없음                    713
+  다른 캡처 (재현 안 됨)                    681
+claim 121건이 아직 assertion 아님
+  modality 자리 없음                        80
+  evidence chunk 에 계보 없음                42 (중복 포함)
+```
+
+**681건은 영구적으로 이을 수 없다** — 발행사가 원문을 바꿨고 우리는 바뀐 쪽 바이트를
+갖고 있지 않다. 나머지는 수집 범위가 늘면 줄어든다.
+
+### K2 최종
+
+| # | 작업 | 상태 |
+| --- | --- | --- |
+| K2-a | metric_definition (084) | ✅ 6,100 |
+| K2-b | numeric_fact writer | ✅ 168,417 |
+| K2-c | economic_claim (086) | ✅ 297 |
+| K2-d | 연속성 bridge | ✅ 483 |
+| K2-e | truth class (085) | ✅ 340만 해소 |
+| K2-f | assertion writer | ✅ **253** (차단 아니었음) |
