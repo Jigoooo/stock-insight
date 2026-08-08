@@ -167,6 +167,59 @@ test('opens a fixed desktop drawer without shifting the briefing', async ({ page
   await expect.poll(async () => (await inspector.boundingBox())?.width).toBeCloseTo(520, 0);
 });
 
+test('uses a compact edge-to-edge hierarchy inside the reliability drawer', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop drawer typography contract');
+  const { inspector } = await openReliability(page);
+  await waitForStableGeometry(inspector);
+
+  const geometry = await inspector.evaluate((root) => {
+    const content = root.querySelector<HTMLElement>('[data-presentation="drawer"]');
+    const sections = [
+      ...root.querySelectorAll<HTMLElement>('[data-presentation="drawer"] > section'),
+    ];
+    const headings = [
+      ...root.querySelectorAll<HTMLElement>(
+        '[data-presentation="drawer"] h2, [data-presentation="drawer"] h3',
+      ),
+    ];
+    const copy = [
+      ...root.querySelectorAll<HTMLElement>(
+        '[data-presentation="drawer"] p, [data-presentation="drawer"] li',
+      ),
+    ];
+    const contentBox = content?.getBoundingClientRect();
+    const firstSectionBox = sections[0]?.getBoundingClientRect();
+    return {
+      bodyTitleCount: [...root.querySelectorAll('[data-slot="dialog-body"] *')].filter(
+        (node) => node.textContent?.trim() === '오늘 데이터 신뢰도',
+      ).length,
+      headingSizes: headings.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+      copySizes: copy.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+      sectionInset:
+        contentBox && firstSectionBox
+          ? Math.abs(firstSectionBox.x - contentBox.x)
+          : Number.POSITIVE_INFINITY,
+      sectionBorders: sections.map((node) => {
+        const style = getComputedStyle(node);
+        return {
+          left: Number.parseFloat(style.borderLeftWidth),
+          right: Number.parseFloat(style.borderRightWidth),
+          bottom: Number.parseFloat(style.borderBottomWidth),
+        };
+      }),
+    };
+  });
+
+  expect(geometry.bodyTitleCount).toBe(0);
+  expect(Math.max(...geometry.headingSizes)).toBeLessThanOrEqual(14);
+  expect(Math.max(...geometry.copySizes)).toBeLessThanOrEqual(13);
+  expect(geometry.sectionInset).toBeLessThanOrEqual(1);
+  expect(geometry.sectionBorders.every(({ left, right }) => left === 0 && right === 0)).toBe(true);
+  expect(geometry.sectionBorders.every(({ bottom }) => bottom === 1)).toBe(true);
+});
+
 test('resizes, remembers width, and switches modal without requesting data', async ({
   page,
 }, testInfo) => {

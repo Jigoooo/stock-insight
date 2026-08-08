@@ -76,7 +76,7 @@ function TextListSection({
     <section aria-labelledby={id}>
       <h3 id={id}>{title}</h3>
       {values.length > 0 ? (
-        <StructuredList>
+        <StructuredList className={styles.textList}>
           {values.map((value) => (
             <li key={value}>{value}</li>
           ))}
@@ -128,7 +128,6 @@ export function ReliabilityInspectorContent({
   return (
     <div className={styles.content} data-presentation={presentation}>
       <section className={styles.summary} aria-labelledby="reliability-inspector-summary">
-        <span>{item.title} 데이터 신뢰도</span>
         <h2 id="reliability-inspector-summary">상태 요약</h2>
         <strong data-level={item.level}>{reliabilityLevelLabels[item.level]}</strong>
         <p>{item.summary}</p>

@@ -9,22 +9,21 @@
   overflow-x: hidden;
 }
 
-.content,
 .comparisonColumn {
   display: grid;
-  gap: 16px;
+  align-content: start;
 }
 
 .content {
-  padding: 18px;
+  display: grid;
+  align-content: start;
 }
 
-.content section {
+.content > section,
+.comparisonColumn > section {
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .content h2,
@@ -33,7 +32,8 @@
 .content li,
 .content dt,
 .content dd {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 
 .content h2,
@@ -41,33 +41,35 @@
 .content p,
 .content ul,
 .content dl {
-  margin-top: 0;
+  margin: 0;
 }
 
 .content h2,
 .content h3 {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
   margin-bottom: 10px;
 }
 
 .content p,
-.content li,
-.traceability dt {
+.content li {
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.65;
 }
 
 .summary {
   display: grid;
-  gap: 7px;
-}
-
-.summary > span {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
+  gap: 8px;
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
 }
 
 .summary > strong {
-  font-size: 16px;
+  font-size: 20px;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
 }
 
 .summary > strong[data-level='ready'] {
@@ -84,7 +86,6 @@
 
 .comparisonGrid {
   display: grid;
-  gap: 16px;
 }
 
 .content[data-presentation='modal'] .comparisonGrid {
@@ -92,8 +93,13 @@
   align-items: start;
 }
 
+.content[data-presentation='modal'] .comparisonColumn:first-child {
+  border-right: 1px solid var(--color-border);
+}
+
 .comparisonColumn > h2 {
   margin: 0;
+  padding: 18px 24px 4px;
   color: var(--color-text-secondary);
   font-size: 13px;
 }
@@ -101,8 +107,10 @@
 .evidenceList li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 12px;
+  min-height: 44px;
+  padding-block: 9px;
 }
 
 .evidenceList li > span:first-child {
@@ -111,11 +119,43 @@
   gap: 3px;
 }
 
+.evidenceList li > span:first-child > strong {
+  color: var(--color-text-primary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .evidenceList li > span:first-child > span,
 .evidenceList li > span:last-child {
   color: var(--color-text-tertiary);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.evidenceList li > span:last-child {
+  text-align: right;
+}
+
+.textList {
+  display: grid;
+  gap: 8px;
+}
+
+.textList > li {
+  position: relative;
+  padding-left: 13px;
+  border: 0;
+}
+
+.textList > li::before {
+  content: '';
+  position: absolute;
+  top: 0.78em;
+  left: 1px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-text-tertiary);
 }
 
 .traceability {
@@ -141,26 +181,42 @@
 }
 
 .traceability dt {
+  color: var(--color-text-tertiary);
   font-size: 11px;
+  line-height: 1.5;
 }
 
 .traceability dd {
+  color: var(--color-text-primary);
+  font-size: 12px;
   font-weight: 680;
 }
 
 @media (max-width: 767px) {
-  .content {
-    padding: 14px;
+  .content > section,
+  .comparisonColumn > section {
+    padding-inline: 18px;
   }
 
-  .content[data-presentation='modal'] .comparisonGrid,
-  .traceability {
+  .content[data-presentation='modal'] .comparisonGrid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content[data-presentation='modal'] .comparisonColumn:first-child {
+    border-right: 0;
+  }
+
+  .comparisonColumn > h2 {
+    padding-inline: 18px;
   }
 
   .evidenceList li {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
+  }
+
+  .evidenceList li > span:last-child {
+    text-align: left;
   }
 }
 

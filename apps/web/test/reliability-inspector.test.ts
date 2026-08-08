@@ -88,7 +88,23 @@ describe('reliability inspector', () => {
     ]);
     assert.match(html, /시장 변화 신호/);
     assert.match(html, /기업·테마 연결 관계/);
+    assert.doesNotMatch(html, /시장 연결 데이터 신뢰도/);
     assert.doesNotMatch(html, /market_signals|graph_edges|rowCount|analysisRunId/);
+  });
+
+  it('defines a compact drawer hierarchy without nesting every section in a card', async () => {
+    const css = await readFile(
+      new URL(
+        '../src/pages/research-workspace/ui/reliability-inspector.module.css',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+
+    assert.match(css, /\.content h2,[\s\S]*\.content h3[\s\S]*font-size:\s*13px/);
+    assert.match(css, /\.content p,[\s\S]*\.content li[\s\S]*font-size:\s*12px/);
+    assert.match(css, /\.content > section[\s\S]*border-bottom:/);
+    assert.doesNotMatch(css, /\.content section[\s\S]*border:\s*1px solid/);
   });
 
   it('shows only linked and original-checkable counts without inventing source identities or links', async () => {
