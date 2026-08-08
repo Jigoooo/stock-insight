@@ -34,6 +34,8 @@ export type SecNumericFactContext = {
   sourceRevisionId: number;
   ingestedAt: string;
   sinceYear: number;
+  /** Proven issuer fiscal year-end month. Without it canonical fiscal fields stay null. */
+  fiscalYearEndMonth?: number;
 };
 
 export type SecFactLocator = {
@@ -45,7 +47,7 @@ export type SecFactLocator = {
   accession: string;
   form: string | null;
   filed: string;
-  fiscalYear: number;
+  fiscalYear: number | null;
   fiscalPeriod: string | null;
   start: string | null;
   end: string;
@@ -67,7 +69,7 @@ export type SecNumericFactDraft = {
   periodStart: string | null;
   periodEnd: string | null;
   instantAt: string | null;
-  fiscalYear: number;
+  fiscalYear: number | null;
   fiscalQuarter: number | null;
   dimensionsJson: Record<string, string>;
   locator: SecFactLocator;
@@ -97,6 +99,7 @@ export function normalizeSecCik(value: number | string | undefined): string | nu
   if (value === undefined) return null;
   const raw = String(value).trim();
   if (!/^\d+$/.test(raw)) return null;
+  if (/^0+$/.test(raw)) return null;
   const unpadded = raw.replace(/^0+(?=\d)/, '');
   if (unpadded.length > CIK_WIDTH) return null;
   return unpadded.padStart(CIK_WIDTH, '0');
@@ -187,30 +190,48 @@ function zonedWallClockToUtc(
  * proven upper bound, so availability is clamped to knownAt.
  */
 export function resolveSecAvailability(filed: string, ingestedAt: string): string {
+  const filedParts = parseDateParts(filed);
+  if (!filedParts) throw new Error(`invalid filing date: ${filed}`);
+  const filingDayStart = zonedWallClockToUtc(
+    [filedParts[0], filedParts[1], filedParts[2], 0, 0, 0],
+    FILING_TIME_ZONE,
+  );
   const next = nextCalendarDay(filed);
   const nextMidnight = zonedWallClockToUtc([next[0], next[1], next[2], 0, 0, 0], FILING_TIME_ZONE);
   const filingDayUpperBound = nextMidnight.getTime() - 1;
   const knownAt = new Date(ingestedAt).getTime();
   if (!Number.isFinite(knownAt)) throw new Error(`invalid ingestion timestamp: ${ingestedAt}`);
+  if (knownAt < filingDayStart.getTime()) {
+    throw new Error(`source ingestion predates New York filing day ${filed}`);
+  }
   return new Date(Math.min(filingDayUpperBound, knownAt)).toISOString();
 }
 
+/** ISO 4217 alphabetic codes; a three-letter token outside this set stays lossless raw unit. */
+const ISO_4217_CODES = new Set(
+  `AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BOV BRL BSD BTN BWP BYN BZD CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS GIP GMD GNF GTQ GYD HKD HNL HRK HTG HUF IDR ILS INR IQD IRR ISK JMD JOD JPY KES KGS KHR KMF KPW KRW KWD KYD KZT LAK LBP LKR LRD LSL LYD MAD MDL MGA MKD MMK MNT MOP MRU MUR MVR MWK MXN MXV MYR MZN NAD NGN NIO NOK NPR NZD OMR PAB PEN PGK PHP PKR PLN PYG QAR RON RSD RUB RWF SAR SBD SCR SDG SEK SGD SHP SLE SLL SOS SRD SSP STN SVC SYP SZL THB TJS TMT TND TOP TRY TTD TWD TZS UAH UGX USD USN UYI UYU UYW UZS VED VES VND VUV WST XAF XAG XAU XBA XBB XBC XBD XCD XCG XDR XOF XPD XPF XPT XSU XTS XUA XXX YER ZAR ZMW ZWG`.split(
+    ' ',
+  ),
+);
+
 function normalizeUnit(rawUnit: string): { unit: string; currency: string | null } {
-  if (/^[a-z]{3}$/i.test(rawUnit)) {
-    return { unit: 'currency', currency: rawUnit.toUpperCase() };
-  }
   if (rawUnit === 'shares' || rawUnit === 'pure') {
     return { unit: rawUnit, currency: null };
   }
+  const upper = rawUnit.toUpperCase();
+  if (ISO_4217_CODES.has(upper)) return { unit: 'currency', currency: upper };
   return { unit: rawUnit, currency: null };
 }
 
-function fiscalQuarter(fp: string | undefined): number | null {
-  if (fp === 'FY' || fp === 'Q4') return 4;
-  if (fp === 'Q1') return 1;
-  if (fp === 'Q2') return 2;
-  if (fp === 'Q3') return 3;
-  return null;
+function canonicalFiscalPeriod(
+  periodEnd: string,
+  fiscalYearEndMonth: number | undefined,
+): { fiscalYear: number | null; fiscalQuarter: number | null } {
+  if (fiscalYearEndMonth === undefined) return { fiscalYear: null, fiscalQuarter: null };
+  const [claimYear, claimMonth] = parseDateParts(periodEnd)!;
+  const fiscalYear = claimMonth <= fiscalYearEndMonth ? claimYear : claimYear + 1;
+  const monthsAfterYearEnd = (claimMonth - fiscalYearEndMonth + 11) % 12;
+  return { fiscalYear, fiscalQuarter: Math.floor(monthsAfterYearEnd / 3) + 1 };
 }
 
 function bump(counts: Map<string, number>, reason: string): void {
@@ -247,23 +268,32 @@ export function expandSecCompanyFacts(
   if (!Number.isFinite(new Date(context.ingestedAt).getTime())) {
     return emptyWith('source revision ingestion timestamp is invalid');
   }
+  if (
+    context.fiscalYearEndMonth !== undefined &&
+    (!Number.isInteger(context.fiscalYearEndMonth) ||
+      context.fiscalYearEndMonth < 1 ||
+      context.fiscalYearEndMonth > 12)
+  ) {
+    return emptyWith('issuer fiscal year-end month is invalid');
+  }
 
   const drafts: SecNumericFactDraft[] = [];
   const skipCounts = new Map<string, number>();
+  const seenEntryIdentities = new Set<string>();
 
   for (const [taxonomy, facts] of Object.entries(payload.facts ?? {})) {
-    if (!taxonomy.trim()) {
-      bump(skipCounts, 'taxonomy is missing');
+    if (!taxonomy.trim() || taxonomy !== taxonomy.trim()) {
+      bump(skipCounts, 'taxonomy is missing or has surrounding whitespace');
       continue;
     }
     for (const [tag, body] of Object.entries(facts)) {
-      if (!tag.trim()) {
-        bump(skipCounts, 'tag is missing');
+      if (!tag.trim() || tag !== tag.trim()) {
+        bump(skipCounts, 'tag is missing or has surrounding whitespace');
         continue;
       }
       for (const [rawUnit, entries] of Object.entries(body.units ?? {})) {
-        if (!rawUnit.trim()) {
-          bump(skipCounts, 'XBRL unit is missing');
+        if (!rawUnit.trim() || rawUnit !== rawUnit.trim()) {
+          bump(skipCounts, 'XBRL unit is missing or has surrounding whitespace');
           continue;
         }
         entries.forEach((entry, entryIndex) => {
@@ -287,12 +317,26 @@ export function expandSecCompanyFacts(
             bump(skipCounts, 'entry period start is invalid');
             return;
           }
-          if (!Number.isInteger(entry.fy) || (entry.fy ?? 0) < 1800 || (entry.fy ?? 0) > 3000) {
-            bump(skipCounts, 'entry fiscal year is missing or invalid');
+          if (
+            entry.fy !== undefined &&
+            (!Number.isInteger(entry.fy) || entry.fy < 1800 || entry.fy > 3000)
+          ) {
+            bump(skipCounts, 'entry filing-focus fiscal year is invalid');
             return;
           }
-          if ((entry.fy ?? 0) < context.sinceYear) {
-            bump(skipCounts, 'entry fiscal year is before sinceYear');
+          const claimEndYear = parseDateParts(entry.end)![0];
+          if (claimEndYear < context.sinceYear) {
+            bump(skipCounts, 'entry claim end year is before sinceYear');
+            return;
+          }
+          let availableAt: string;
+          try {
+            availableAt = resolveSecAvailability(entry.filed!, context.ingestedAt);
+          } catch (error) {
+            bump(
+              skipCounts,
+              error instanceof Error ? error.message : 'entry availability is invalid',
+            );
             return;
           }
 
@@ -312,6 +356,11 @@ export function expandSecCompanyFacts(
             value: entry.val,
           };
           const entryIdentity = stableHash(locatorIdentityInput);
+          if (seenEntryIdentities.has(entryIdentity)) {
+            bump(skipCounts, 'duplicate SEC entry identity within payload');
+            return;
+          }
+          seenEntryIdentities.add(entryIdentity);
           const locator: SecFactLocator = {
             provider: 'sec-edgar',
             cik: canonicalCik,
@@ -321,7 +370,7 @@ export function expandSecCompanyFacts(
             accession: entry.accn,
             form: entry.form ?? null,
             filed: entry.filed!,
-            fiscalYear: entry.fy!,
+            fiscalYear: entry.fy ?? null,
             fiscalPeriod: entry.fp ?? null,
             start: entry.start ?? null,
             end: entry.end!,
@@ -331,6 +380,7 @@ export function expandSecCompanyFacts(
           };
           const normalizedUnit = normalizeUnit(rawUnit);
           const isDuration = entry.start !== undefined;
+          const fiscal = canonicalFiscalPeriod(entry.end!, context.fiscalYearEndMonth);
           const restatementSignature = stableHash({
             entityId: context.entityId,
             taxonomy,
@@ -338,7 +388,6 @@ export function expandSecCompanyFacts(
             unit: rawUnit,
             start: entry.start ?? null,
             end: entry.end,
-            frame: entry.frame ?? null,
           }).slice(0, 24);
 
           drafts.push({
@@ -354,12 +403,12 @@ export function expandSecCompanyFacts(
             periodStart: isDuration ? entry.start! : null,
             periodEnd: isDuration ? entry.end! : null,
             instantAt: isDuration ? null : `${entry.end}T23:59:59.999Z`,
-            fiscalYear: entry.fy!,
-            fiscalQuarter: fiscalQuarter(entry.fp),
-            dimensionsJson: entry.frame ? { frame: entry.frame } : {},
+            fiscalYear: fiscal.fiscalYear,
+            fiscalQuarter: fiscal.fiscalQuarter,
+            dimensionsJson: {},
             locator,
             sourceRevisionId: context.sourceRevisionId,
-            availableAt: resolveSecAvailability(entry.filed!, context.ingestedAt),
+            availableAt,
             knownAt: context.ingestedAt,
             metadata: {
               entityName: payload.entityName ?? null,

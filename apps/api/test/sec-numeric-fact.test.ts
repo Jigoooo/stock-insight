@@ -78,6 +78,7 @@ describe('SEC companyfacts expansion', () => {
         shares: [entry({ accn: 'shares' })],
         pure: [entry({ accn: 'pure' })],
         'USD/shares': [entry({ accn: 'compound' })],
+        ZZZ: [entry({ accn: 'unknown-three-letter' })],
       }),
       context,
     );
@@ -93,22 +94,23 @@ describe('SEC companyfacts expansion', () => {
       eur: { unit: 'currency', currency: 'EUR' },
       pure: { unit: 'pure', currency: null },
       shares: { unit: 'shares', currency: null },
+      ZZZ: { unit: 'ZZZ', currency: null },
     });
   });
 
   it('uses conservative New York filing-day bounds without pre-collection leakage', () => {
-    const winter = expandSecCompanyFacts(
-      payload({ USD: [entry({ filed: '2025-01-15' })] }),
-      { ...context, ingestedAt: '2025-02-01T00:00:00.000Z' },
-    ).drafts[0]!;
-    const summer = expandSecCompanyFacts(
-      payload({ USD: [entry({ filed: '2025-07-15' })] }),
-      { ...context, ingestedAt: '2025-08-01T00:00:00.000Z' },
-    ).drafts[0]!;
-    const clamped = expandSecCompanyFacts(
-      payload({ USD: [entry({ filed: '2025-07-15' })] }),
-      { ...context, ingestedAt: '2025-07-15T20:00:00.000Z' },
-    ).drafts[0]!;
+    const winter = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-01-15' })] }), {
+      ...context,
+      ingestedAt: '2025-02-01T00:00:00.000Z',
+    }).drafts[0]!;
+    const summer = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-07-15' })] }), {
+      ...context,
+      ingestedAt: '2025-08-01T00:00:00.000Z',
+    }).drafts[0]!;
+    const clamped = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-07-15' })] }), {
+      ...context,
+      ingestedAt: '2025-07-15T20:00:00.000Z',
+    }).drafts[0]!;
 
     assert.equal(winter.availableAt, '2025-01-16T04:59:59.999Z');
     assert.equal(summer.availableAt, '2025-07-16T03:59:59.999Z');
@@ -116,6 +118,32 @@ describe('SEC companyfacts expansion', () => {
     assert.equal(winter.knownAt, '2025-02-01T00:00:00.000Z');
     assert.equal(summer.knownAt, '2025-08-01T00:00:00.000Z');
     assert.equal(clamped.knownAt, '2025-07-15T20:00:00.000Z');
+  });
+
+  it('refuses collection before the New York filing day starts across DST boundaries', () => {
+    const spring = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-03-09' })] }), {
+      ...context,
+      ingestedAt: '2025-03-09T04:59:59.999Z',
+    });
+    const fall = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-11-02' })] }), {
+      ...context,
+      ingestedAt: '2025-11-02T03:59:59.999Z',
+    });
+    const springAtStart = expandSecCompanyFacts(
+      payload({ USD: [entry({ filed: '2025-03-09' })] }),
+      { ...context, ingestedAt: '2025-03-09T05:00:00.000Z' },
+    );
+    const fallAtStart = expandSecCompanyFacts(payload({ USD: [entry({ filed: '2025-11-02' })] }), {
+      ...context,
+      ingestedAt: '2025-11-02T04:00:00.000Z',
+    });
+
+    assert.equal(spring.drafts.length, 0);
+    assert.equal(fall.drafts.length, 0);
+    assert.match(spring.skips[0]?.reason ?? '', /predates New York filing day/);
+    assert.match(fall.skips[0]?.reason ?? '', /predates New York filing day/);
+    assert.equal(springAtStart.drafts[0]?.availableAt, '2025-03-09T05:00:00.000Z');
+    assert.equal(fallAtStart.drafts[0]?.availableAt, '2025-11-02T04:00:00.000Z');
   });
 
   it('separates filings and corrections while grouping amendments together', () => {
@@ -138,26 +166,63 @@ describe('SEC companyfacts expansion', () => {
     assert.equal(first.restatementGroupKey, corrected.restatementGroupKey);
   });
 
+  it('does not let presentation frame split one restatement claim', () => {
+    const first = expandSecCompanyFacts(
+      payload({ USD: [entry({ frame: 'CY2025Q1I', accn: 'original' })] }),
+      context,
+    ).drafts[0]!;
+    const amendment = expandSecCompanyFacts(
+      payload({ USD: [entry({ frame: 'CY2025Q1', accn: 'amendment' })] }),
+      context,
+    ).drafts[0]!;
+
+    assert.equal(first.restatementGroupKey, amendment.restatementGroupKey);
+  });
+
   it('distinguishes instant and duration periods without guessing fiscal quarters', () => {
     const instant = expandSecCompanyFacts(payload({ USD: [entry()] }), context).drafts[0]!;
     const duration = expandSecCompanyFacts(
       payload({ USD: [entry({ start: '2024-12-30', fp: 'FY', form: '10-K' })] }),
       context,
     ).drafts[0]!;
-    const unknown = expandSecCompanyFacts(
-      payload({ USD: [entry({ fp: 'H1' })] }),
-      context,
-    ).drafts[0]!;
+    const unknown = expandSecCompanyFacts(payload({ USD: [entry({ fp: 'H1' })] }), context)
+      .drafts[0]!;
 
     assert.equal(instant.instantAt, '2025-03-29T23:59:59.999Z');
     assert.equal(instant.periodStart, null);
     assert.equal(instant.periodEnd, null);
-    assert.equal(instant.fiscalQuarter, 1);
+    assert.equal(instant.fiscalYear, null);
+    assert.equal(instant.fiscalQuarter, null);
     assert.equal(duration.instantAt, null);
     assert.equal(duration.periodStart, '2024-12-30');
     assert.equal(duration.periodEnd, '2025-03-29');
-    assert.equal(duration.fiscalQuarter, 4);
+    assert.equal(duration.fiscalYear, null);
+    assert.equal(duration.fiscalQuarter, null);
     assert.equal(unknown.fiscalQuarter, null);
+  });
+
+  it('derives canonical fiscal fields from claim end and proven fiscal year-end month', () => {
+    const result = expandSecCompanyFacts(
+      payload({
+        USD: [entry({ end: '2024-12-31', fy: 1999, fp: 'FY' })],
+      }),
+      { ...context, fiscalYearEndMonth: 9 },
+    );
+
+    assert.equal(result.drafts[0]?.locator.fiscalYear, 1999, 'raw filing focus stays preserved');
+    assert.equal(result.drafts[0]?.locator.fiscalPeriod, 'FY');
+    assert.equal(result.drafts[0]?.fiscalYear, 2025);
+    assert.equal(result.drafts[0]?.fiscalQuarter, 1);
+  });
+
+  it('filters sinceYear by claim end year rather than the filing focus fy', () => {
+    const result = expandSecCompanyFacts(
+      payload({ USD: [entry({ end: '2019-12-31', fy: 2025, fp: 'FY' })] }),
+      { ...context, sinceYear: 2020 },
+    );
+
+    assert.equal(result.drafts.length, 0);
+    assert.match(result.skips[0]?.reason ?? '', /claim end year is before sinceYear/);
   });
 
   it('fails closed on CIK mismatch and counts malformed entries', () => {
@@ -175,7 +240,7 @@ describe('SEC companyfacts expansion', () => {
           entry({ filed: undefined }),
           entry({ end: undefined }),
           entry({ val: Number.POSITIVE_INFINITY }),
-          entry({ fy: 2019 }),
+          entry({ end: '2019-12-31', fy: 2025 }),
         ],
       }),
       context,
@@ -190,6 +255,29 @@ describe('SEC companyfacts expansion', () => {
     assert.ok(reasons.some((reason) => /before sinceYear/.test(reason)));
   });
 
+  it('rejects all-zero CIK and whitespace-padded taxonomy, tag, and unit keys', () => {
+    const zero = expandSecCompanyFacts(payload({ USD: [entry()] }), {
+      ...context,
+      canonicalCik: '0000000000',
+    });
+    const padded = expandSecCompanyFacts(
+      {
+        cik: 320193,
+        facts: {
+          ' us-gaap': {
+            ' InventoryNet': { units: { ' USD': [entry()] } },
+          },
+        },
+      },
+      context,
+    );
+
+    assert.equal(zero.drafts.length, 0);
+    assert.match(zero.skips[0]?.reason ?? '', /CIK is missing or invalid/);
+    assert.equal(padded.drafts.length, 0);
+    assert.ok(padded.skippedCount >= 1);
+  });
+
   it('orders fact keys deterministically regardless of raw entry order', () => {
     const first = entry({ accn: 'b', val: 2 });
     const second = entry({ accn: 'a', val: 1 });
@@ -201,5 +289,21 @@ describe('SEC companyfacts expansion', () => {
       backwards.map((draft) => draft.factKey),
     );
     assert.equal(new Set(forwards.map((draft) => draft.locator.entryIdentity)).size, 2);
+  });
+
+  it('deduplicates an exact entry identity within one payload and counts it', () => {
+    const repeated = entry({ accn: 'same', val: 7 });
+    const other = entry({ accn: 'other', val: 8 });
+    const forwards = expandSecCompanyFacts(payload({ USD: [repeated, other, repeated] }), context);
+    const backwards = expandSecCompanyFacts(payload({ USD: [repeated, repeated, other] }), context);
+
+    assert.equal(forwards.drafts.length, 2);
+    assert.deepEqual(
+      forwards.drafts.map((row) => row.factKey),
+      backwards.drafts.map((row) => row.factKey),
+    );
+    assert.deepEqual(forwards.skips, [
+      { reason: 'duplicate SEC entry identity within payload', count: 1 },
+    ]);
   });
 });
