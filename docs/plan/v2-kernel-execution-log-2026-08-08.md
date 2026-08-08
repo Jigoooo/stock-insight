@@ -467,6 +467,35 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | K2-e | truth_class 메타데이터 | 미착수 |
 | K2-f | assertion writer | **차단** — 계보 스택 연결이 별도 슬라이스 |
 
+### 적재 경로 실증 (커밋 `b0e5d10`)
+
+dry-run 은 어떤 행이 될지만 증명한다. 그 행을 나르는 문장은 트랜잭션이 열리기 전까지
+한 번도 안 돈다. 셋으로 메웠다.
+
+**① 트랜잭션 전 제약 검사.** 168,417 fact + 6,100 definition 전부를 031·084 의 CHECK 에
+대조한다. **즉시 진짜 결함을 잡았다** — `definition_key` 89개가 128자 제한 초과(최장
+160자). 이것 없이 `--apply` 했으면 첫 적재가 통째로 롤백되고 한 행만 보고됐다.
+128자 초과 시 앞을 자르고 head 해시를 붙인다(자르기만 하면 긴 접두를 공유하는 IFRS
+개념들이 충돌한다).
+
+**② revision 단계별 배치 적재.** revision N 이 대체할 대상은 전부 N-1 에 있고, 한 단계
+안에서 같은 그룹이 둘일 수 없다(UNIQUE). 그래서 한 단계가 한 문장으로 들어간다.
+
+**③ 폐기용 DB 리허설** — `pnpm --filter @stock-insight/api rehearse:dart-numeric-fact:db`
+
+```
+13개 검사 전부 통과 (612행)
+  적재 수치 = 표 수치 · 현재 뷰 해소 · 재실행 0행(멱등)
+  revision↔supersedes 일치 · known_at >= available_at
+  612/612 가 접수일 기준 (수집 시각 아님)
+```
+
+`--rehearse` 는 실제로 쓰고 ROLLBACK 한다. `--limit N` 으로 트랜잭션을 줄일 수 있다.
+
+> 리허설 DB 접속은 `.pgpass` 가 `db=research_app` 하나로 고정돼 있어 새 DB 이름에 안
+> 맞는다. 호출할 때 admin DSN 을 조립해 `DART_REHEARSAL_ADMIN_DATABASE_URL` 로 넘긴다.
+> `.pgpass` 를 고치지 않는다.
+
 ### K2-b 착지 절차 — 순서를 바꿀 수 없다
 
 계획 §P4.5 가 부팅 다이제스트를 "이 계획에서 가장 위험한 지점"으로 잡았고, 2026-08-08 에
@@ -490,7 +519,9 @@ DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
 # 5. api-server 재시작하고 부팅 성공 확인
 curl -sS localhost:<port>/health
 
-# 6. 첫 적재는 손으로. 타이머에 맡기지 않는다
+# 6. 첫 적재는 손으로. 타이머에 맡기지 않는다.
+#    --rehearse 로 한 번 확인하고(쓰고 롤백) --apply 한다. 경과 시간을 이 문서에 적는다.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --rehearse
 DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --apply
 ```
 
