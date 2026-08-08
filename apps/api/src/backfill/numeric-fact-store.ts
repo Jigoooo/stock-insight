@@ -36,16 +36,38 @@ export async function withNumericFactWriteTransaction<T>(
 }
 
 const EXISTING_FACTS_SQL = `
-SELECT fact_key, restatement_group_key, revision_no, numeric_fact_id,
-       entity_id, concept_namespace, concept_key, value::text AS value,
-       unit, currency, scale_power, period_start::text AS period_start,
-       period_end::text AS period_end, instant_at, fiscal_year, fiscal_quarter,
-       dimensions_json, source_revision_id, available_at, known_at,
-       original_cell_or_xbrl_locator, metadata
-  FROM world.numeric_fact
- WHERE entity_id = ANY($1::bigint[])
-   AND fact_key LIKE $2
- ORDER BY restatement_group_key, revision_no, numeric_fact_id
+SELECT fact.fact_key AS fact_key,
+       fact.restatement_group_key AS restatement_group_key,
+       fact.revision_no AS revision_no,
+       fact.numeric_fact_id AS numeric_fact_id,
+       fact.entity_id AS entity_id,
+       fact.concept_namespace AS concept_namespace,
+       fact.concept_key AS concept_key,
+       fact.value::text AS value,
+       fact.unit AS unit,
+       fact.currency AS currency,
+       fact.scale_power AS scale_power,
+       fact.period_start::text AS period_start,
+       fact.period_end::text AS period_end,
+       fact.instant_at AS instant_at,
+       fact.fiscal_year AS fiscal_year,
+       fact.fiscal_quarter AS fiscal_quarter,
+       fact.dimensions_json AS dimensions_json,
+       fact.source_revision_id AS source_revision_id,
+       fact.available_at AS available_at,
+       fact.known_at AS known_at,
+       fact.original_cell_or_xbrl_locator AS original_cell_or_xbrl_locator,
+       fact.metadata AS metadata
+  FROM world.numeric_fact AS fact
+  JOIN ingestion.source_revision AS revision
+    ON revision.source_revision_id = fact.source_revision_id
+  JOIN ingestion.source_record_identity AS identity
+    ON identity.source_record_identity_id = revision.source_record_identity_id
+  JOIN ingestion.source AS source ON source.source_id = identity.source_id
+ WHERE fact.entity_id = ANY($1::bigint[])
+   AND fact.fact_key LIKE $2
+   AND source.provider_key = $3
+ ORDER BY fact.restatement_group_key, fact.revision_no, fact.numeric_fact_id
 `;
 
 function iso(value: unknown): string {
@@ -86,10 +108,14 @@ function rowToFact(row: Record<string, unknown>): NumericFactRow {
 
 export async function loadExistingNumericFactState(
   client: NumericFactQueryClient,
-  scope: { entityIds: readonly number[]; factKeyPrefix: string },
+  scope: { entityIds: readonly number[]; factKeyPrefix: string; sourceProvider: string },
 ): Promise<ExistingNumericFactState> {
   if (scope.entityIds.length === 0) return { factKeys: new Set(), groups: new Map() };
-  const result = await client.query(EXISTING_FACTS_SQL, [scope.entityIds, scope.factKeyPrefix]);
+  const result = await client.query(EXISTING_FACTS_SQL, [
+    scope.entityIds,
+    scope.factKeyPrefix,
+    scope.sourceProvider,
+  ]);
   const factKeys = new Set<string>();
   const factIdsByGroup = new Map<string, Map<string, number>>();
   const groups = new Map<string, GroupState>();
@@ -126,7 +152,9 @@ SELECT definition_key, revision_no, concept_namespace, concept_key,
        canonical_concept, display_name, definition_scope, issuer_entity_id,
        source_id, period_basis,
        accounting_basis, unit, currency, comparability_group_key,
-       comparability_group_version, effective_from
+       comparability_group_version, effective_from, numerator_description,
+       denominator_description, inclusions, exclusions, scale_power,
+       supersedes_metric_definition_id, definition_state, effective_to, notes
   FROM governance.metric_definition
  WHERE revision_no = 1 AND definition_key = ANY($1::text[])
 `;
@@ -171,6 +199,15 @@ function definitionMismatch(
       normalizeTimestamp(planned.effectiveFrom),
       normalizeTimestamp(existing.effective_from),
     ],
+    ['numerator_description', null, existing.numerator_description ?? null],
+    ['denominator_description', null, existing.denominator_description ?? null],
+    ['inclusions', '[]', JSON.stringify(existing.inclusions ?? [])],
+    ['exclusions', '[]', JSON.stringify(existing.exclusions ?? [])],
+    ['scale_power', 0, Number(existing.scale_power)],
+    ['supersedes_metric_definition_id', null, existing.supersedes_metric_definition_id ?? null],
+    ['definition_state', 'active', existing.definition_state],
+    ['effective_to', null, existing.effective_to ?? null],
+    ['notes', null, existing.notes ?? null],
   ];
   const mismatch = fields.find(([, expected, actual]) => expected !== actual);
   return mismatch
@@ -183,13 +220,20 @@ INSERT INTO governance.metric_definition (
   definition_key, revision_no, concept_namespace, concept_key, canonical_concept,
   display_name, definition_scope, issuer_entity_id, source_id, period_basis,
   accounting_basis, unit, currency, comparability_group_key,
-  comparability_group_version, effective_from, created_by
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+  comparability_group_version, effective_from, created_by,
+  numerator_description, denominator_description, inclusions, exclusions,
+  scale_power, supersedes_metric_definition_id, definition_state, effective_to,
+  notes
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+          $18,$19,$20,$21,$22,$23,$24,$25,$26)
 RETURNING definition_key, revision_no, concept_namespace, concept_key,
           canonical_concept, display_name, definition_scope, issuer_entity_id,
           source_id, period_basis,
           accounting_basis, unit, currency, comparability_group_key,
-          comparability_group_version, effective_from
+          comparability_group_version, effective_from, numerator_description,
+          denominator_description, inclusions, exclusions, scale_power,
+          supersedes_metric_definition_id, definition_state, effective_to,
+          notes
 `;
 
 export async function ensureMetricDefinitions(
@@ -233,6 +277,15 @@ export async function ensureMetricDefinitions(
       definition.comparabilityGroupVersion,
       definition.effectiveFrom,
       options.createdBy,
+      null,
+      null,
+      [],
+      [],
+      0,
+      null,
+      'active',
+      null,
+      null,
     ]);
     if (result.rows.length !== 1)
       throw new Error(`metric definition insert returned no row for ${definition.definitionKey}`);
@@ -278,10 +331,8 @@ export async function writeNumericFacts(
       throw new Error(`numeric fact ${write.fact.factKey} has no metric definition key`);
     }
   }
-  const latestByGroup = new Map<string, number>();
   const idByFactKey = new Map<string, number>();
-  for (const [group, state] of existingGroups) {
-    if (state.latestFactId !== null) latestByGroup.set(group, state.latestFactId);
+  for (const state of existingGroups.values()) {
     for (const [key, id] of state.factIdsByKey ?? []) idByFactKey.set(key, id);
   }
   const levels = new Map<number, PlannedWrite[]>();
@@ -296,22 +347,22 @@ export async function writeNumericFacts(
     for (const batch of chunk(levels.get(revisionNo) ?? [], CHUNK_SIZE)) {
       const params = batch.flatMap((write) => {
         const fact = write.fact;
-        let supersedes: number | null;
-        if (write.supersedesNumericFactId !== null) {
-          supersedes = write.supersedesNumericFactId;
-        } else if (write.supersedesFactKey !== null) {
-          const exactPredecessor = idByFactKey.get(write.supersedesFactKey);
-          if (exactPredecessor === undefined) {
-            throw new Error(
-              `revision ${write.revisionNo} of ${fact.factKey} has unresolved explicit predecessor ${write.supersedesFactKey}`,
-            );
-          }
-          supersedes = exactPredecessor;
-        } else {
-          supersedes = write.supersedesKey
-            ? (latestByGroup.get(write.supersedesKey) ?? null)
-            : null;
+        if (write.revisionNo > 1 && write.supersedesFactKey === null) {
+          throw new Error(
+            `revision ${write.revisionNo} of ${fact.factKey} has no exact predecessor fact key`,
+          );
         }
+        const exactPredecessor =
+          write.supersedesFactKey === null ? undefined : idByFactKey.get(write.supersedesFactKey);
+        if (
+          write.supersedesNumericFactId !== null &&
+          exactPredecessor !== write.supersedesNumericFactId
+        ) {
+          throw new Error(
+            `predecessor id ${write.supersedesNumericFactId} for ${fact.factKey} disagrees with exact key ${write.supersedesFactKey}: ${String(exactPredecessor)}`,
+          );
+        }
+        const supersedes = write.supersedesNumericFactId ?? exactPredecessor ?? null;
         if (write.revisionNo > 1 && supersedes === null) {
           throw new Error(
             `revision ${write.revisionNo} of ${fact.factKey} has no exact predecessor`,
@@ -343,16 +394,30 @@ export async function writeNumericFacts(
         ];
       });
       const result = await client.query(
-        `INSERT INTO world.numeric_fact (${FACT_COLUMNS}) VALUES ${placeholders(batch.length, 22)} RETURNING numeric_fact_id`,
+        `INSERT INTO world.numeric_fact (${FACT_COLUMNS}) VALUES ${placeholders(batch.length, 22)} RETURNING fact_key, numeric_fact_id`,
         params,
       );
-      if (result.rows.length !== batch.length)
-        throw new Error(`inserted ${result.rows.length} of ${batch.length} numeric facts`);
-      batch.forEach((write, index) => {
-        const id = Number(result.rows[index]!.numeric_fact_id);
+      const expectedKeys = new Set(batch.map((write) => write.fact.factKey));
+      const returnedIds = new Map<string, number>();
+      for (const row of result.rows) {
+        if (typeof row.fact_key !== 'string') throw new Error('missing returned fact_key');
+        if (!expectedKeys.has(row.fact_key)) {
+          throw new Error(`unexpected returned fact key ${row.fact_key}`);
+        }
+        if (returnedIds.has(row.fact_key)) {
+          throw new Error(`duplicate returned fact key ${row.fact_key}`);
+        }
+        const id = Number(row.numeric_fact_id);
+        if (!Number.isInteger(id) || id <= 0) {
+          throw new Error(`invalid numeric_fact_id for ${row.fact_key}`);
+        }
+        returnedIds.set(row.fact_key, id);
+      }
+      for (const write of batch) {
+        const id = returnedIds.get(write.fact.factKey);
+        if (id === undefined) throw new Error(`missing returned fact key ${write.fact.factKey}`);
         idByFactKey.set(write.fact.factKey, id);
-        latestByGroup.set(write.fact.restatementGroupKey, id);
-      });
+      }
       written += batch.length;
     }
   }

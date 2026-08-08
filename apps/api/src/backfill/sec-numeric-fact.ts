@@ -34,6 +34,8 @@ export type SecNumericFactContext = {
   sourceRevisionId: number;
   ingestedAt: string;
   sinceYear: number;
+  sourceAvailableAt?: string;
+  sourceRevisionContentHash?: string;
   /** Proven issuer fiscal year-end month. Without it canonical fiscal fields stay null. */
   fiscalYearEndMonth?: number;
 };
@@ -205,6 +207,38 @@ export function resolveSecAvailability(filed: string, ingestedAt: string): strin
     throw new Error(`source ingestion predates New York filing day ${filed}`);
   }
   return new Date(Math.min(filingDayUpperBound, knownAt)).toISOString();
+}
+
+export function validateSecSourceRevisionLineage(
+  payload: SecCompanyFactsPayload,
+  sourceAvailableAt: string,
+  ingestedAt: string,
+): void {
+  const sourceAvailable = Date.parse(sourceAvailableAt);
+  const knownAt = Date.parse(ingestedAt);
+  if (!Number.isFinite(sourceAvailable))
+    throw new Error('source availability timestamp is invalid');
+  if (!Number.isFinite(knownAt)) throw new Error('source ingestion timestamp is invalid');
+  if (sourceAvailable > knownAt) {
+    throw new Error('source availability is after source revision ingestedAt');
+  }
+  for (const facts of Object.values(payload.facts ?? {})) {
+    for (const body of Object.values(facts)) {
+      for (const entries of Object.values(body.units ?? {})) {
+        for (const entry of entries) {
+          const filed = parseDateParts(entry.filed);
+          if (!filed) continue;
+          const filingDayStart = zonedWallClockToUtc(
+            [filed[0], filed[1], filed[2], 0, 0, 0],
+            FILING_TIME_ZONE,
+          ).getTime();
+          if (sourceAvailable < filingDayStart) {
+            throw new Error(`source availability predates New York filing day ${entry.filed}`);
+          }
+        }
+      }
+    }
+  }
 }
 
 /** ISO 4217 alphabetic codes; a three-letter token outside this set stays lossless raw unit. */
@@ -414,6 +448,12 @@ export function expandSecCompanyFacts(
               entityName: payload.entityName ?? null,
               label: body.label ?? null,
               description: body.description ?? null,
+              ...(context.sourceAvailableAt === undefined
+                ? {}
+                : { sourceAvailableAt: context.sourceAvailableAt }),
+              ...(context.sourceRevisionContentHash === undefined
+                ? {}
+                : { sourceRevisionContentHash: context.sourceRevisionContentHash }),
             },
           });
         });

@@ -25,6 +25,7 @@ import {
 import {
   expandSecCompanyFacts,
   normalizeSecCik,
+  validateSecSourceRevisionLineage,
   type SecCompanyFactsPayload,
 } from './sec-numeric-fact.ts';
 import { readRawObjectVerified } from '../ingest/raw-object-store.ts';
@@ -40,6 +41,8 @@ export type SecRawRevisionInput = {
   sourceId: number;
   sourceRevisionId: number;
   ingestedAt: string;
+  sourceAvailableAt: string;
+  definitionEffectiveFrom: string;
   contentHash: string;
   providerRecordKey: string;
   canonicalCik: string;
@@ -49,6 +52,7 @@ export type SecRawRevisionInput = {
 
 export type SecCanonicalPlan = {
   sourceId: number;
+  definitionEffectiveFrom: string | null;
   rawRevisionCount: number;
   issuerCount: number;
   facts: NumericFactRow[];
@@ -67,7 +71,8 @@ export type SecNumericFactSummary = {
   factsToWrite: number;
   restatements: number;
   definitions: number;
-  definitionsInserted: number;
+  definitionsInserted?: number;
+  definitionsRolledBack?: number;
   skips: Skip[];
   schemaViolations: ReturnType<typeof findSchemaViolations>;
   parity: SecParityResult;
@@ -89,7 +94,11 @@ WITH selected_identity AS (
    ORDER BY sri.provider_record_key
    LIMIT $2
 )
-SELECT s.source_id, sr.source_revision_id, sr.ingested_at, ro.content_hash,
+SELECT s.source_id, s.created_at AS source_created_at,
+       sr.source_revision_id, sr.ingested_at,
+       sr.available_at AS source_available_at,
+       sr.content_hash AS source_revision_content_hash,
+       ro.content_hash AS raw_object_content_hash,
        ro.object_uri, selected.provider_record_key,
        coalesce(array_agg(DISTINCT ident.identifier_value)
          FILTER (WHERE entity.entity_type = 'Company'), '{}') AS canonical_ciks,
@@ -102,7 +111,8 @@ SELECT s.source_id, sr.source_revision_id, sr.ingested_at, ro.content_hash,
   LEFT JOIN core.entity_identifier ident ON ident.identifier_type = 'CIK'
    AND lpad(ident.identifier_value, 10, '0') = substring(selected.provider_record_key FROM 4)
   LEFT JOIN core.entity entity ON entity.entity_id = ident.entity_id
- GROUP BY s.source_id, sr.source_revision_id, sr.ingested_at, ro.content_hash, ro.object_uri, selected.provider_record_key
+ GROUP BY s.source_id, s.created_at, sr.source_revision_id, sr.ingested_at, sr.available_at,
+          sr.content_hash, ro.content_hash, ro.object_uri, selected.provider_record_key
  ORDER BY selected.provider_record_key, sr.source_revision_id
 `;
 
@@ -186,8 +196,31 @@ export async function loadSecRawRevisions(
   const revisions: SecRawRevisionInput[] = [];
   const counts = new Map<string, number>();
   let sourceId: number | null = null;
+  let definitionEffectiveFrom: string | null = null;
 
   for (const row of result.rows) {
+    const rowSourceId = Number(row.source_id);
+    const sourceCreatedValue =
+      row.source_created_at instanceof Date
+        ? row.source_created_at.toISOString()
+        : String(row.source_created_at);
+    const sourceCreatedMillis = Date.parse(sourceCreatedValue);
+    if (!Number.isInteger(rowSourceId) || rowSourceId <= 0) {
+      throw new Error('sec-edgar source id is invalid');
+    }
+    if (!Number.isFinite(sourceCreatedMillis)) {
+      throw new Error('sec-edgar source registration time is invalid');
+    }
+    const sourceCreatedAt = new Date(sourceCreatedMillis).toISOString();
+    if (sourceId !== null && sourceId !== rowSourceId) {
+      throw new Error('ambiguous sec-edgar source id');
+    }
+    if (definitionEffectiveFrom !== null && definitionEffectiveFrom !== sourceCreatedAt) {
+      throw new Error('inconsistent sec-edgar source registration time');
+    }
+    sourceId = rowSourceId;
+    definitionEffectiveFrom = sourceCreatedAt;
+
     const providerRecordKey = String(row.provider_record_key);
     const providerCik = parseProviderCik(providerRecordKey);
     const canonicalCiks = (row.canonical_ciks ?? []) as string[];
@@ -197,52 +230,62 @@ export async function loadSecRawRevisions(
       continue;
     }
     if (canonicalCiks.length !== 1 || entityIds.length !== 1) {
-      bump(counts, `ambiguous Company CIK for ${providerRecordKey}`);
-      continue;
+      throw new Error(`ambiguous Company CIK for ${providerRecordKey}`);
     }
     const canonicalCik = normalizeSecCik(canonicalCiks[0]);
     if (!providerCik || !canonicalCik || providerCik !== canonicalCik) {
-      bump(counts, `provider record CIK does not match canonical CIK for ${providerRecordKey}`);
-      continue;
+      throw new Error(`provider record CIK does not match canonical CIK for ${providerRecordKey}`);
     }
-    const rowSourceId = Number(row.source_id);
-    if (sourceId !== null && sourceId !== rowSourceId) {
-      bump(counts, 'ambiguous sec-edgar source id');
-      continue;
+    const sourceRevisionContentHash = String(row.source_revision_content_hash ?? '');
+    const rawObjectContentHash = String(row.raw_object_content_hash ?? '');
+    if (
+      sourceRevisionContentHash === '' ||
+      rawObjectContentHash === '' ||
+      sourceRevisionContentHash !== rawObjectContentHash
+    ) {
+      throw new Error(
+        `registered content hash disagreement for revision ${String(row.source_revision_id)}`,
+      );
     }
-    sourceId = rowSourceId;
+    const ingestedAt =
+      row.ingested_at instanceof Date ? row.ingested_at.toISOString() : String(row.ingested_at);
+    const sourceAvailableAt =
+      row.source_available_at instanceof Date
+        ? row.source_available_at.toISOString()
+        : String(row.source_available_at);
+    if (Date.parse(sourceCreatedAt) > Date.parse(ingestedAt)) {
+      throw new Error('sec-edgar source registration time is after source revision ingestedAt');
+    }
 
     let body: Buffer;
     try {
       body = await readRawObject({
         objectUri: String(row.object_uri),
-        contentHash: String(row.content_hash),
+        contentHash: sourceRevisionContentHash,
       });
     } catch (error) {
-      bump(
-        counts,
+      throw new Error(
         `raw object verification failed for revision ${String(row.source_revision_id)}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      continue;
     }
     let payload: SecCompanyFactsPayload;
     try {
       payload = JSON.parse(body.toString('utf8')) as SecCompanyFactsPayload;
     } catch {
-      bump(counts, `raw object JSON invalid for revision ${String(row.source_revision_id)}`);
-      continue;
+      throw new Error(`raw object JSON invalid for revision ${String(row.source_revision_id)}`);
     }
     const payloadCik = normalizeSecCik(payload.cik);
     if (payloadCik !== canonicalCik) {
-      bump(counts, `payload CIK does not match canonical CIK for ${providerRecordKey}`);
-      continue;
+      throw new Error(`payload CIK does not match canonical CIK for ${providerRecordKey}`);
     }
+    validateSecSourceRevisionLineage(payload, sourceAvailableAt, ingestedAt);
     revisions.push({
       sourceId: rowSourceId,
       sourceRevisionId: Number(row.source_revision_id),
-      ingestedAt:
-        row.ingested_at instanceof Date ? row.ingested_at.toISOString() : String(row.ingested_at),
-      contentHash: String(row.content_hash),
+      ingestedAt,
+      sourceAvailableAt,
+      definitionEffectiveFrom: sourceCreatedAt,
+      contentHash: sourceRevisionContentHash,
       providerRecordKey,
       canonicalCik,
       entityId: Number(entityIds[0]),
@@ -296,6 +339,32 @@ export function buildSecCanonicalPlan(
   const sourceIds = new Set(ordered.map((revision) => revision.sourceId));
   if (sourceIds.size > 1) throw new Error('SEC plan spans multiple source ids');
   const sourceId = ordered[0]?.sourceId ?? 0;
+  if (ordered.length === 0) {
+    const rawInputs: Array<{ sourceRevisionId: number; contentHash: string }> = [];
+    return {
+      sourceId,
+      definitionEffectiveFrom: null,
+      rawRevisionCount: 0,
+      issuerCount: 0,
+      facts: [],
+      definitions: [],
+      skips: [],
+      digest: digest({
+        selection,
+        definitionEffectiveFrom: null,
+        rawInputs,
+        facts: [],
+        definitions: [],
+      }),
+      rawInputs,
+    };
+  }
+  const effectiveTimes = new Set(ordered.map((revision) => revision.definitionEffectiveFrom));
+  if (effectiveTimes.size > 1) throw new Error('SEC plan spans multiple source registration times');
+  const definitionEffectiveFrom = ordered[0]?.definitionEffectiveFrom;
+  if (!definitionEffectiveFrom || !Number.isFinite(Date.parse(definitionEffectiveFrom))) {
+    throw new Error('SEC plan has no valid source registration time');
+  }
   const draftByFactKey = new Map<
     string,
     ReturnType<typeof expandSecCompanyFacts>['drafts'][number]
@@ -309,19 +378,25 @@ export function buildSecCanonicalPlan(
       sourceRevisionId: revision.sourceRevisionId,
       ingestedAt: revision.ingestedAt,
       sinceYear: selection.sinceYear,
+      sourceAvailableAt: revision.sourceAvailableAt,
+      sourceRevisionContentHash: revision.contentHash,
     });
     allSkips.push(...expanded.skips);
     for (const draft of expanded.drafts) {
       if (!draftByFactKey.has(draft.factKey)) draftByFactKey.set(draft.factKey, draft);
     }
   }
-  const planned = buildSecFactPlan([...draftByFactKey.values()], { sourceId });
+  const planned = buildSecFactPlan([...draftByFactKey.values()], {
+    sourceId,
+    definitionEffectiveFrom,
+  });
   const rawInputs = ordered.map(({ sourceRevisionId, contentHash }) => ({
     sourceRevisionId,
     contentHash,
   }));
   const planDigest = digest({
     selection,
+    definitionEffectiveFrom,
     rawInputs,
     facts: planned.facts
       .map((fact) => ({ ...fact, metadata: canonical(fact.metadata) }))
@@ -332,6 +407,7 @@ export function buildSecCanonicalPlan(
   });
   return {
     sourceId,
+    definitionEffectiveFrom,
     rawRevisionCount: ordered.length,
     issuerCount: new Set(ordered.map((revision) => revision.entityId)).size,
     facts: planned.facts,
@@ -413,6 +489,7 @@ export async function executeSecNumericFactJob(options: {
   const initialExisting = await loadExistingNumericFactState(options.client, {
     entityIds,
     factKeyPrefix: 'sec:%',
+    sourceProvider: 'sec-edgar',
   });
   const initialAssignment = assignRevisions(plan.facts, initialExisting);
   const parity = await loadSecParityDiagnostics(options.client, plan.facts);
@@ -434,6 +511,7 @@ export async function executeSecNumericFactJob(options: {
         const lockedExisting = await loadExistingNumericFactState(options.client, {
           entityIds,
           factKeyPrefix: 'sec:%',
+          sourceProvider: 'sec-edgar',
         });
         const lockedAssignment = assignRevisions(plan.facts, lockedExisting);
         writes = lockedAssignment.writes;
@@ -474,7 +552,11 @@ export async function executeSecNumericFactJob(options: {
     factsToWrite: writes.length,
     restatements: writes.filter((write) => write.revisionNo > 1).length,
     definitions: plan.definitions.length,
-    definitionsInserted,
+    ...(options.args.mode === 'apply'
+      ? { definitionsInserted }
+      : options.args.mode === 'rehearse'
+        ? { definitionsRolledBack: definitionsInserted }
+        : {}),
     skips: combinedSkips,
     schemaViolations: violations,
     parity,

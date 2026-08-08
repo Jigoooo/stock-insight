@@ -81,8 +81,10 @@ function companyfacts(value = 100) {
 function raw(overrides: Partial<SecRawRevisionInput> = {}): SecRawRevisionInput {
   return {
     sourceId: 7,
+    definitionEffectiveFrom: '2020-06-15T12:34:56.000Z',
     sourceRevisionId: 10,
     ingestedAt: '2025-02-01T02:03:04.000Z',
+    sourceAvailableAt: '2025-02-01T02:03:03.000Z',
     contentHash: 'a'.repeat(64),
     providerRecordKey: 'CIK0000320193',
     canonicalCik: '0000320193',
@@ -102,9 +104,12 @@ describe('SEC verified raw revision loading', () => {
           rows: [
             {
               source_id: 7,
+              source_created_at: '2020-06-15T12:34:56.000Z',
               source_revision_id: 10,
               ingested_at: raw().ingestedAt,
-              content_hash: 'a'.repeat(64),
+              source_available_at: raw().sourceAvailableAt,
+              source_revision_content_hash: 'a'.repeat(64),
+              raw_object_content_hash: 'a'.repeat(64),
               object_uri: 'file:///raw/apple.json',
               provider_record_key: 'CIK0000320193',
               canonical_ciks: ['0000320193'],
@@ -122,69 +127,158 @@ describe('SEC verified raw revision loading', () => {
 
     assert.deepEqual(reads, [{ objectUri: 'file:///raw/apple.json', contentHash: 'a'.repeat(64) }]);
     assert.equal(loaded.revisions.length, 1);
+    assert.equal(loaded.revisions[0]?.definitionEffectiveFrom, '2020-06-15T12:34:56.000Z');
     assert.deepEqual(queries[0]!.params, ['sec-edgar', 3, '0000320193']);
     assert.match(queries[0]!.sql, /source_record_identity/);
     assert.match(queries[0]!.sql, /source_revision/);
+    assert.match(queries[0]!.sql, /sr\.available_at/);
+    assert.match(queries[0]!.sql, /sr\.content_hash/);
     assert.doesNotMatch(queries[0]!.sql, /market\.financial_fact/);
   });
 
-  it('fails closed and counts tamper, provider-key mismatch, missing and ambiguous Company CIK', async () => {
-    const rows = [
-      {
-        source_id: 7,
-        source_revision_id: 1,
-        ingested_at: raw().ingestedAt,
-        content_hash: 'a'.repeat(64),
-        object_uri: 'file:///tampered',
-        provider_record_key: 'CIK0000320193',
-        canonical_ciks: ['0000320193'],
-        company_entity_ids: ['41'],
-      },
-      {
-        source_id: 7,
-        source_revision_id: 2,
-        ingested_at: raw().ingestedAt,
-        content_hash: 'b'.repeat(64),
-        object_uri: 'file:///bad-key',
-        provider_record_key: 'CIK0000789019',
-        canonical_ciks: ['0000320193'],
-        company_entity_ids: ['41'],
-      },
-      {
-        source_id: 7,
-        source_revision_id: 3,
-        ingested_at: raw().ingestedAt,
-        content_hash: 'c'.repeat(64),
-        object_uri: 'file:///missing',
-        provider_record_key: 'CIK0000320193',
-        canonical_ciks: [],
-        company_entity_ids: [],
-      },
-      {
-        source_id: 7,
-        source_revision_id: 4,
-        ingested_at: raw().ingestedAt,
-        content_hash: 'd'.repeat(64),
-        object_uri: 'file:///ambiguous',
-        provider_record_key: 'CIK0000320193',
-        canonical_ciks: ['0000320193'],
-        company_entity_ids: ['41', '42'],
-      },
-    ];
+  it('skips only a missing canonical Company identity with an explicit reason', async () => {
     const db = {
       async query() {
-        return { rows };
+        return {
+          rows: [
+            {
+              source_id: 7,
+              source_created_at: raw().definitionEffectiveFrom,
+              source_revision_id: 3,
+              ingested_at: raw().ingestedAt,
+              source_available_at: raw().ingestedAt,
+              source_revision_content_hash: 'c'.repeat(64),
+              raw_object_content_hash: 'c'.repeat(64),
+              object_uri: 'file:///missing',
+              provider_record_key: 'CIK0000320193',
+              canonical_ciks: [],
+              company_entity_ids: [],
+            },
+          ],
+        };
       },
     };
-    const loaded = await loadSecRawRevisions(db, { limit: 5, cik: null }, async ({ objectUri }) => {
-      if (objectUri.endsWith('tampered')) throw new Error('raw object hash mismatch');
-      return Buffer.from(JSON.stringify(companyfacts()));
+    const loaded = await loadSecRawRevisions(db, { limit: 1, cik: null }, async () => {
+      throw new Error('missing identity must skip before raw read');
     });
     assert.equal(loaded.revisions.length, 0);
-    assert.ok(loaded.skips.some((skip) => /hash mismatch/.test(skip.reason)));
-    assert.ok(loaded.skips.some((skip) => /provider record CIK/.test(skip.reason)));
-    assert.ok(loaded.skips.some((skip) => /missing Company CIK/.test(skip.reason)));
-    assert.ok(loaded.skips.some((skip) => /ambiguous Company CIK/.test(skip.reason)));
+    assert.deepEqual(loaded.skips, [{ reason: 'missing Company CIK for CIK0000320193', count: 1 }]);
+  });
+
+  it('aborts the whole input on identity, verified-byte, hash, and JSON contradictions', async () => {
+    const validRow = {
+      source_id: 7,
+      source_created_at: raw().definitionEffectiveFrom,
+      source_revision_id: 1,
+      ingested_at: raw().ingestedAt,
+      source_available_at: '2025-02-01T02:03:03.000Z',
+      source_revision_content_hash: 'a'.repeat(64),
+      raw_object_content_hash: 'a'.repeat(64),
+      object_uri: 'file:///raw',
+      provider_record_key: 'CIK0000320193',
+      canonical_ciks: ['0000320193'],
+      company_entity_ids: ['41'],
+    };
+    const cases = [
+      {
+        name: 'ambiguous identity',
+        row: { ...validRow, company_entity_ids: ['41', '42'] },
+        read: async () => Buffer.from(JSON.stringify(companyfacts())),
+        pattern: /ambiguous Company CIK/,
+      },
+      {
+        name: 'provider mismatch',
+        row: { ...validRow, provider_record_key: 'CIK0000789019' },
+        read: async () => Buffer.from(JSON.stringify(companyfacts())),
+        pattern: /provider record CIK/,
+      },
+      {
+        name: 'payload mismatch',
+        row: validRow,
+        read: async () => Buffer.from(JSON.stringify({ ...companyfacts(), cik: 789019 })),
+        pattern: /payload CIK/,
+      },
+      {
+        name: 'verified read failure',
+        row: validRow,
+        read: async () => {
+          throw new Error('raw object hash mismatch');
+        },
+        pattern: /hash mismatch/,
+      },
+      {
+        name: 'registered hash disagreement',
+        row: { ...validRow, raw_object_content_hash: 'b'.repeat(64) },
+        read: async () => Buffer.from(JSON.stringify(companyfacts())),
+        pattern: /registered content hash/,
+      },
+      {
+        name: 'invalid JSON',
+        row: validRow,
+        read: async () => Buffer.from('{not-json'),
+        pattern: /JSON invalid/,
+      },
+      {
+        name: 'source availability after ingestion',
+        row: { ...validRow, source_available_at: '2025-02-01T02:03:05.000Z' },
+        read: async () => Buffer.from(JSON.stringify(companyfacts())),
+        pattern: /source availability.*ingested/i,
+      },
+      {
+        name: 'source availability before filing day',
+        row: { ...validRow, source_available_at: '2025-01-31T04:59:59.999Z' },
+        read: async () => Buffer.from(JSON.stringify(companyfacts())),
+        pattern: /source availability.*filing day/i,
+      },
+    ];
+    for (const testCase of cases) {
+      const db = {
+        async query() {
+          return { rows: [testCase.row] };
+        },
+      };
+      await assert.rejects(
+        () => loadSecRawRevisions(db, { limit: 1, cik: null }, testCase.read),
+        testCase.pattern,
+        testCase.name,
+      );
+    }
+  });
+
+  it('preserves source availability and revision hash while knownAt remains ingestedAt', async () => {
+    const db = {
+      async query() {
+        return {
+          rows: [
+            {
+              source_id: 7,
+              source_created_at: raw().definitionEffectiveFrom,
+              source_revision_id: 10,
+              ingested_at: raw().ingestedAt,
+              source_available_at: '2025-02-01T02:03:03.000Z',
+              source_revision_content_hash: 'a'.repeat(64),
+              raw_object_content_hash: 'a'.repeat(64),
+              object_uri: 'file:///raw',
+              provider_record_key: 'CIK0000320193',
+              canonical_ciks: ['0000320193'],
+              company_entity_ids: ['41'],
+            },
+          ],
+        };
+      },
+    };
+    const loaded = await loadSecRawRevisions(db, { limit: 1, cik: null }, async () =>
+      Buffer.from(JSON.stringify(companyfacts())),
+    );
+    assert.equal(loaded.revisions[0]?.ingestedAt, raw().ingestedAt);
+    assert.equal(loaded.revisions[0]?.sourceAvailableAt, '2025-02-01T02:03:03.000Z');
+    assert.equal(loaded.revisions[0]?.contentHash, 'a'.repeat(64));
+
+    const plan = buildSecCanonicalPlan(loaded.revisions, { limit: 1, cik: null, sinceYear: 2020 });
+    assert.equal(plan.facts[0]?.knownAt, raw().ingestedAt);
+    assert.equal(plan.facts[0]?.availableAt, '2025-02-01T02:03:04.000Z');
+    assert.equal(plan.facts[0]?.metadata.sourceAvailableAt, '2025-02-01T02:03:03.000Z');
+    assert.equal(plan.facts[0]?.metadata.sourceRevisionContentHash, 'a'.repeat(64));
   });
 });
 
@@ -213,14 +307,17 @@ describe('SEC canonical plan and execution', () => {
     const db = {
       async query(sql: string) {
         queries.push(sql);
-        if (sql.includes('source_record_identity'))
+        if (sql.includes('WITH selected_identity'))
           return {
             rows: [
               {
                 source_id: 7,
+                source_created_at: raw().definitionEffectiveFrom,
                 source_revision_id: 10,
                 ingested_at: raw().ingestedAt,
-                content_hash: 'a'.repeat(64),
+                source_available_at: raw().sourceAvailableAt,
+                source_revision_content_hash: 'a'.repeat(64),
+                raw_object_content_hash: 'a'.repeat(64),
                 object_uri: 'file:///raw',
                 provider_record_key: 'CIK0000320193',
                 canonical_ciks: ['0000320193'],
@@ -252,14 +349,17 @@ describe('SEC canonical plan and execution', () => {
       const db = {
         async query(sql: string, params?: readonly unknown[]) {
           queries.push({ sql, params });
-          if (sql.includes('source_record_identity'))
+          if (sql.includes('WITH selected_identity'))
             return {
               rows: [
                 {
                   source_id: 7,
+                  source_created_at: raw().definitionEffectiveFrom,
                   source_revision_id: 10,
                   ingested_at: raw().ingestedAt,
-                  content_hash: 'a'.repeat(64),
+                  source_available_at: raw().sourceAvailableAt,
+                  source_revision_content_hash: 'a'.repeat(64),
+                  raw_object_content_hash: 'a'.repeat(64),
                   object_uri: 'file:///raw',
                   provider_record_key: 'CIK0000320193',
                   canonical_ciks: ['0000320193'],
@@ -288,11 +388,20 @@ describe('SEC canonical plan and execution', () => {
                   comparability_group_key: params?.[13],
                   comparability_group_version: params?.[14],
                   effective_from: new Date(String(params?.[15])),
+                  numerator_description: null,
+                  denominator_description: null,
+                  inclusions: [],
+                  exclusions: [],
+                  scale_power: 0,
+                  supersedes_metric_definition_id: null,
+                  definition_state: 'active',
+                  effective_to: null,
+                  notes: null,
                 },
               ],
             };
           if (sql.includes('INSERT INTO world.numeric_fact'))
-            return { rows: [{ numeric_fact_id: '501' }] };
+            return { rows: [{ fact_key: params?.[0], numeric_fact_id: '501' }] };
           return { rows: [] };
         },
       };
@@ -314,6 +423,10 @@ describe('SEC canonical plan and execution', () => {
       );
       assert.equal(queries.at(-1)!.sql, mode === 'apply' ? 'COMMIT' : 'ROLLBACK');
       assert.equal(mode === 'apply' ? summary.factsWritten : summary.factsRolledBack, 1);
+      if (mode === 'rehearse') {
+        assert.equal(summary.definitionsRolledBack, 1);
+        assert.equal('definitionsInserted' in summary, false);
+      }
     }
   });
 
@@ -350,14 +463,17 @@ describe('SEC canonical plan and execution', () => {
     };
     const db = {
       async query(sql: string) {
-        if (sql.includes('source_record_identity'))
+        if (sql.includes('WITH selected_identity'))
           return {
             rows: [
               {
                 source_id: 7,
+                source_created_at: raw().definitionEffectiveFrom,
                 source_revision_id: 10,
                 ingested_at: input.ingestedAt,
-                content_hash: input.contentHash,
+                source_available_at: input.sourceAvailableAt,
+                source_revision_content_hash: input.contentHash,
+                raw_object_content_hash: input.contentHash,
                 object_uri: 'file:///raw',
                 provider_record_key: input.providerRecordKey,
                 canonical_ciks: [input.canonicalCik],

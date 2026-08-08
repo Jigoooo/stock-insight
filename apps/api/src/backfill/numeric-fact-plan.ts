@@ -64,8 +64,6 @@ export type ExistingNumericFactState = {
 export type PlannedWrite = {
   fact: NumericFactRow;
   revisionNo: number;
-  /** Backward-compatible group lookup used by the existing DART batch writer. */
-  supersedesKey: string | null;
   /** Exact logical predecessor, including an earlier write in this same plan. */
   supersedesFactKey: string | null;
   /** Exact existing predecessor id when it was already present in the database. */
@@ -111,7 +109,10 @@ export function numericFactSemanticFingerprint(fact: NumericFactRow): string {
           periodStart: fact.periodStart,
           periodEnd: fact.periodEnd,
           instantAt: fact.instantAt,
+          fiscalYear: fact.fiscalYear,
+          fiscalQuarter: fact.fiscalQuarter,
           dimensionsJson: fact.dimensionsJson,
+          definitionKey: fact.definitionKey,
         }),
       ),
       'utf8',
@@ -163,16 +164,16 @@ export function assignRevisions(
 
     const revisionNo = state.maxRevision + 1;
     const predecessorKey = revisionNo > 1 ? (state.latestFactKey ?? null) : null;
+    if (revisionNo > 1 && predecessorKey === null) {
+      throw new Error(
+        `revision ${revisionNo} of ${fact.restatementGroupKey} has no exact predecessor fact key`,
+      );
+    }
     const predecessorId =
-      revisionNo > 1
-        ? predecessorKey
-          ? (state.factIdsByKey?.get(predecessorKey) ?? state.latestFactId)
-          : state.latestFactId
-        : null;
+      predecessorKey === null ? null : (state.factIdsByKey?.get(predecessorKey) ?? null);
     writes.push({
       fact,
       revisionNo,
-      supersedesKey: revisionNo > 1 ? fact.restatementGroupKey : null,
       supersedesFactKey: predecessorKey,
       supersedesNumericFactId: predecessorId ?? null,
     });

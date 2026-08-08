@@ -9,7 +9,7 @@ export type SecFactPlan = {
   skips: Skip[];
 };
 
-export type SecFactPlanContext = { sourceId: number };
+export type SecFactPlanContext = { sourceId: number; definitionEffectiveFrom: string };
 
 export type FoldedFinancialFact = {
   entityId: number;
@@ -43,7 +43,6 @@ export type SecParityResult = {
 };
 
 const DEFINITION_KEY_MAX_LENGTH = 128;
-
 function stableHash(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex').slice(0, 16);
 }
@@ -94,43 +93,47 @@ function comparabilityGroupFor(draft: SecNumericFactDraft, periodBasis: string):
   ].join(':');
 }
 
-function displayName(draft: SecNumericFactDraft): string {
-  const label = draft.metadata.label;
-  return typeof label === 'string' && label.trim() !== '' ? label : draft.conceptKey;
-}
-
 export function buildSecFactPlan(
   drafts: readonly SecNumericFactDraft[],
   context: SecFactPlanContext,
 ): SecFactPlan {
   const facts: NumericFactRow[] = [];
   const definitions = new Map<string, MetricDefinitionRow>();
+  if (!Number.isFinite(Date.parse(context.definitionEffectiveFrom))) {
+    throw new Error('SEC definition effective time is invalid');
+  }
+  const definitionEffectiveFrom = new Date(context.definitionEffectiveFrom).toISOString();
 
-  for (const draft of drafts) {
+  const orderedDrafts = [...drafts].sort(
+    (left, right) =>
+      left.knownAt.localeCompare(right.knownAt) ||
+      left.sourceRevisionId - right.sourceRevisionId ||
+      left.locator.accession.localeCompare(right.locator.accession) ||
+      left.locator.entryIdentity.localeCompare(right.locator.entryIdentity) ||
+      left.factKey.localeCompare(right.factKey),
+  );
+
+  for (const draft of orderedDrafts) {
     const periodBasis = periodBasisFor(draft);
     const definitionKey = boundedDefinitionKey(draft, periodBasis);
-    const existingDefinition = definitions.get(definitionKey);
-    const effectiveFrom =
-      existingDefinition && existingDefinition.effectiveFrom < draft.availableAt
-        ? existingDefinition.effectiveFrom
-        : draft.availableAt;
-    definitions.set(definitionKey, {
-      definitionKey,
-      conceptNamespace: draft.conceptNamespace,
-      conceptKey: draft.conceptKey,
-      canonicalConcept: draft.conceptKey,
-      displayName: displayName(draft),
-      definitionScope: 'regulator',
-      issuerEntityId: null,
-      sourceId: context.sourceId,
-      periodBasis,
-      accountingBasis: accountingBasisFor(draft.conceptNamespace),
-      unit: draft.unit,
-      currency: draft.currency,
-      comparabilityGroupKey: comparabilityGroupFor(draft, periodBasis),
-      comparabilityGroupVersion: 1,
-      effectiveFrom,
-    });
+    if (!definitions.has(definitionKey))
+      definitions.set(definitionKey, {
+        definitionKey,
+        conceptNamespace: draft.conceptNamespace,
+        conceptKey: draft.conceptKey,
+        canonicalConcept: draft.conceptKey,
+        displayName: draft.conceptKey,
+        definitionScope: 'regulator',
+        issuerEntityId: null,
+        sourceId: context.sourceId,
+        periodBasis,
+        accountingBasis: accountingBasisFor(draft.conceptNamespace),
+        unit: draft.unit,
+        currency: draft.currency,
+        comparabilityGroupKey: comparabilityGroupFor(draft, periodBasis),
+        comparabilityGroupVersion: 1,
+        effectiveFrom: definitionEffectiveFrom,
+      });
 
     facts.push({
       factKey: draft.factKey,
@@ -176,19 +179,8 @@ export function buildSecFactPlan(
   };
 }
 
-function foldedUnitMatches(
-  fact: NumericFactRow,
-  folded: FoldedFinancialFact,
-  unitClass: SecFinancialConceptMapping['unitClass'],
-): boolean {
-  if (unitClass === 'currency') {
-    return (
-      fact.unit === 'currency' &&
-      folded.currency === fact.currency &&
-      folded.unit.toUpperCase() === fact.currency
-    );
-  }
-  return fact.unit === unitClass && folded.unit === unitClass && folded.currency === null;
+function parityKey(parts: readonly unknown[]): string {
+  return JSON.stringify(parts);
 }
 
 export function checkSecFinancialParity(
@@ -207,6 +199,19 @@ export function checkSecFinancialParity(
   for (const mapping of mappings) {
     for (const tag of mapping.usGaapTags) mappingByTag.set(tag, mapping);
   }
+  const foldedByKey = new Map<string, FoldedFinancialFact>();
+  for (const folded of foldedFacts) {
+    const key = parityKey([
+      folded.entityId,
+      folded.concept,
+      folded.periodStart,
+      folded.periodEnd,
+      folded.filingRef,
+      folded.unit,
+      folded.currency,
+    ]);
+    if (!foldedByKey.has(key)) foldedByKey.set(key, folded);
+  }
 
   for (const fact of facts) {
     const mapping =
@@ -224,14 +229,18 @@ export function checkSecFinancialParity(
       continue;
     }
     const periodEnd = (fact.instantAt ?? fact.periodEnd)!.slice(0, 10);
-    const candidate = foldedFacts.find(
-      (folded) =>
-        folded.entityId === fact.entityId &&
-        folded.concept === mapping.concept &&
-        folded.periodStart === fact.periodStart &&
-        folded.periodEnd === periodEnd &&
-        folded.filingRef === locator.accession &&
-        foldedUnitMatches(fact, folded, mapping.unitClass),
+    const foldedUnit = mapping.unitClass === 'currency' ? fact.currency : mapping.unitClass;
+    const foldedCurrency = mapping.unitClass === 'currency' ? fact.currency : null;
+    const candidate = foldedByKey.get(
+      parityKey([
+        fact.entityId,
+        mapping.concept,
+        fact.periodStart,
+        periodEnd,
+        locator.accession,
+        foldedUnit,
+        foldedCurrency,
+      ]),
     );
     if (!candidate) {
       result.excluded += 1;

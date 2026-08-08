@@ -87,6 +87,7 @@ import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
 import { sectorPlaybookMigrationSql } from './migrations/087_sector_playbook.ts';
 import { issuerPlaybookMeasurementRuleMigrationSql } from './migrations/088_issuer_playbook_measurement_rule.ts';
 import { k4MarketIntelligenceLedgerMigrationSql } from './migrations/089_k4_market_intelligence_ledger.ts';
+import { numericFactRevisionGuardMigrationSql } from './migrations/090_numeric_fact_revision_guard.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -978,6 +979,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: k4MarketIntelligenceLedgerMigrationSql,
   },
+  {
+    id: '090_numeric_fact_revision_guard',
+    description:
+      'Replaces only the numeric-fact revision trigger with an exact N-1, same-claim guard that permits distinct filing-cell fact keys.',
+    tables: [],
+    sql: numericFactRevisionGuardMigrationSql,
+  },
 ];
 
 export {
@@ -1070,4 +1078,5 @@ export {
   sectorPlaybookMigrationSql,
   issuerPlaybookMeasurementRuleMigrationSql,
   k4MarketIntelligenceLedgerMigrationSql,
+  numericFactRevisionGuardMigrationSql,
 };

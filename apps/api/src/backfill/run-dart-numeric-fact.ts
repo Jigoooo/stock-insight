@@ -336,6 +336,7 @@ async function run(): Promise<void> {
     let existing = await loadExistingNumericFactState(client, {
       entityIds,
       factKeyPrefix: 'dart:%',
+      sourceProvider: 'opendart',
     });
     let { writes, skips: revisionSkips } = assignRevisions(collected.facts, existing);
     const parityInputs = await loadParityInputs(client);
@@ -391,6 +392,7 @@ async function run(): Promise<void> {
         existing = await loadExistingNumericFactState(client, {
           entityIds,
           factKeyPrefix: 'dart:%',
+          sourceProvider: 'opendart',
         });
         ({ writes, skips: revisionSkips } = assignRevisions(collected.facts, existing));
         parity = checkParity(

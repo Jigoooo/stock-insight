@@ -12,6 +12,11 @@ import {
   checkSecFinancialParity,
   type FoldedFinancialFact,
 } from '../src/backfill/sec-numeric-fact-plan.ts';
+
+const PLAN_CONTEXT = {
+  sourceId: 7,
+  definitionEffectiveFrom: '2020-06-15T12:34:56.000Z',
+} as const;
 import {
   expandSecCompanyFacts,
   type SecCompanyFactsPayload,
@@ -76,8 +81,17 @@ function draft(
 }
 
 describe('SEC numeric-fact plan definitions', () => {
+  it('uses the source registration time as the truthful stable definition effective time', () => {
+    const plan = buildSecFactPlan([draft()], {
+      sourceId: 7,
+      definitionEffectiveFrom: '2020-06-15T12:34:56.000Z',
+    });
+    assert.equal(plan.definitions[0]?.effectiveFrom, '2020-06-15T12:34:56.000Z');
+    assert.notEqual(plan.definitions[0]?.effectiveFrom, '1970-01-01T00:00:00.000Z');
+  });
+
   it('builds a regulator GAAP definition and carries its exact key on the fact', () => {
-    const plan = buildSecFactPlan([draft()], { sourceId: 7 });
+    const plan = buildSecFactPlan([draft()], PLAN_CONTEXT);
 
     assert.equal(plan.facts.length, 1);
     assert.equal(plan.definitions.length, 1);
@@ -103,8 +117,8 @@ describe('SEC numeric-fact plan definitions', () => {
   });
 
   it('maps IFRS taxonomies to IFRS and leaves unknown taxonomies explicit', () => {
-    const ifrs = buildSecFactPlan([draft({ taxonomy: 'ifrs-full' })], { sourceId: 7 });
-    const unknown = buildSecFactPlan([draft({ taxonomy: 'custom-apple' })], { sourceId: 7 });
+    const ifrs = buildSecFactPlan([draft({ taxonomy: 'ifrs-full' })], PLAN_CONTEXT);
+    const unknown = buildSecFactPlan([draft({ taxonomy: 'custom-apple' })], PLAN_CONTEXT);
 
     assert.equal(ifrs.definitions[0]?.accountingBasis, 'ifrs');
     assert.equal(unknown.definitions[0]?.accountingBasis, 'unknown');
@@ -112,8 +126,8 @@ describe('SEC numeric-fact plan definitions', () => {
 
   it('bounds long definition keys without collapsing distinct tags', () => {
     const prefix = 'ExtremelyLongRegulatorConceptName'.repeat(6);
-    const first = buildSecFactPlan([draft({ tag: `${prefix}Alpha` })], { sourceId: 7 });
-    const second = buildSecFactPlan([draft({ tag: `${prefix}Beta` })], { sourceId: 7 });
+    const first = buildSecFactPlan([draft({ tag: `${prefix}Alpha` })], PLAN_CONTEXT);
+    const second = buildSecFactPlan([draft({ tag: `${prefix}Beta` })], PLAN_CONTEXT);
     const firstKey = first.definitions[0]!.definitionKey;
     const secondKey = second.definitions[0]!.definitionKey;
 
@@ -132,7 +146,7 @@ describe('SEC numeric-fact plan definitions', () => {
       unitEntry: entry({ start: '2024-01-01', fp: 'FY', form: '10-K' }),
     });
     const currency = draft();
-    const plan = buildSecFactPlan([instant, annual, currency], { sourceId: 7 });
+    const plan = buildSecFactPlan([instant, annual, currency], PLAN_CONTEXT);
 
     assert.deepEqual(
       plan.definitions.map((definition) => [
@@ -147,6 +161,28 @@ describe('SEC numeric-fact plan definitions', () => {
       ],
     );
     assert.equal(new Set(plan.definitions.map((row) => row.comparabilityGroupKey)).size, 3);
+  });
+
+  it('keeps regulator definitions stable across input order, label drift, and bounded selections', () => {
+    const first = draft();
+    first.metadata = { ...first.metadata, label: 'Original filing label' };
+    const later = draft({
+      sourceRevisionId: 20,
+      ingestedAt: '2026-02-01T00:00:00.000Z',
+      unitEntry: entry({ accn: '0000320193-26-000010', filed: '2026-01-31' }),
+    });
+    later.metadata = { ...later.metadata, label: 'Renamed in a later taxonomy presentation' };
+
+    const forward = buildSecFactPlan([first, later], PLAN_CONTEXT).definitions;
+    const reversed = buildSecFactPlan([later, first], PLAN_CONTEXT).definitions;
+    const earlySelection = buildSecFactPlan([first], PLAN_CONTEXT).definitions;
+    const laterSelection = buildSecFactPlan([later], PLAN_CONTEXT).definitions;
+
+    assert.deepEqual(forward, reversed);
+    assert.deepEqual(forward, earlySelection);
+    assert.deepEqual(earlySelection, laterSelection);
+    assert.equal(forward[0]?.displayName, TAG);
+    assert.equal(forward[0]?.effectiveFrom, PLAN_CONTEXT.definitionEffectiveFrom);
   });
 });
 
@@ -168,7 +204,7 @@ describe('provider-neutral revision assignment', () => {
 
   it('assigns amendment revisions deterministically independent of input order', () => {
     const { original, amendment } = revisions();
-    const facts = buildSecFactPlan([amendment, original], { sourceId: 7 }).facts;
+    const facts = buildSecFactPlan([amendment, original], PLAN_CONTEXT).facts;
     const { writes } = assignRevisions(facts, {
       factKeys: new Set(),
       groups: new Map(),
@@ -197,7 +233,7 @@ describe('provider-neutral revision assignment', () => {
       latestSemanticFingerprint: undefined,
     };
     const { writes } = assignRevisions(
-      buildSecFactPlan([original, amendment], { sourceId: 7 }).facts,
+      buildSecFactPlan([original, amendment], PLAN_CONTEXT).facts,
       {
         factKeys: new Set([original.factKey]),
         groups: new Map([[original.restatementGroupKey, state]]),
@@ -219,7 +255,7 @@ describe('provider-neutral revision assignment', () => {
       unitEntry: entry({ val: 101 }),
     });
     const { writes } = assignRevisions(
-      buildSecFactPlan([correction, original], { sourceId: 7 }).facts,
+      buildSecFactPlan([correction, original], PLAN_CONTEXT).facts,
       { factKeys: new Set(), groups: new Map() },
     );
 
@@ -231,7 +267,7 @@ describe('provider-neutral revision assignment', () => {
   it('emits one write for an exact fact key duplicated inside the current batch', () => {
     const original = draft();
     const { writes, skips } = assignRevisions(
-      buildSecFactPlan([original, original], { sourceId: 7 }).facts,
+      buildSecFactPlan([original, original], PLAN_CONTEXT).facts,
       { factKeys: new Set(), groups: new Map() },
     );
 
@@ -251,7 +287,7 @@ describe('provider-neutral revision assignment', () => {
       }),
     });
     const { writes, skips } = assignRevisions(
-      buildSecFactPlan([repeated, original], { sourceId: 7 }).facts,
+      buildSecFactPlan([repeated, original], PLAN_CONTEXT).facts,
       { factKeys: new Set(), groups: new Map() },
     );
 
@@ -261,7 +297,7 @@ describe('provider-neutral revision assignment', () => {
   });
 
   it('skips an unchanged comparative against exact existing database state', () => {
-    const original = buildSecFactPlan([draft()], { sourceId: 7 }).facts[0]!;
+    const original = buildSecFactPlan([draft()], PLAN_CONTEXT).facts[0]!;
     const repeated = buildSecFactPlan(
       [
         draft({
@@ -274,7 +310,7 @@ describe('provider-neutral revision assignment', () => {
           }),
         }),
       ],
-      { sourceId: 7 },
+      PLAN_CONTEXT,
     ).facts[0]!;
     const state: GroupState = {
       maxRevision: 1,
@@ -291,11 +327,53 @@ describe('provider-neutral revision assignment', () => {
     assert.equal(writes.length, 0);
     assert.deepEqual(skips, [{ reason: 'unchanged comparative repetition', count: 1 }]);
   });
+
+  it('requires an exact predecessor key and never substitutes the group latest id', () => {
+    const { amendment } = revisions();
+    const amendedFact = buildSecFactPlan([amendment], PLAN_CONTEXT).facts[0]!;
+
+    assert.throws(
+      () =>
+        assignRevisions([amendedFact], {
+          factKeys: new Set(),
+          groups: new Map([
+            [
+              amendedFact.restatementGroupKey,
+              {
+                maxRevision: 1,
+                latestFactId: 77,
+                latestFactKey: null,
+                factIdsByKey: new Map(),
+              },
+            ],
+          ]),
+        }),
+      /exact predecessor fact key/,
+    );
+
+    const { writes } = assignRevisions([amendedFact], {
+      factKeys: new Set(['sec:prior-observation']),
+      groups: new Map([
+        [
+          amendedFact.restatementGroupKey,
+          {
+            maxRevision: 1,
+            latestFactId: 77,
+            latestFactKey: 'sec:prior-observation',
+            factIdsByKey: new Map(),
+          },
+        ],
+      ]),
+    });
+    assert.equal(writes[0]?.supersedesFactKey, 'sec:prior-observation');
+    assert.equal(writes[0]?.supersedesNumericFactId, null);
+    assert.equal('supersedesKey' in writes[0]!, false);
+  });
 });
 
 describe('provider-neutral schema preflight', () => {
   it('reports PIT, period, currency, and definition violations before writes', () => {
-    const plan = buildSecFactPlan([draft()], { sourceId: 7 });
+    const plan = buildSecFactPlan([draft()], PLAN_CONTEXT);
     const fact = {
       ...plan.facts[0]!,
       knownAt: '2025-01-01T00:00:00.000Z',
@@ -325,7 +403,7 @@ describe('provider-neutral schema preflight', () => {
 
 describe('folded SEC parity is diagnostic only', () => {
   it('reports both values for a disagreement without changing canonical facts', () => {
-    const plan = buildSecFactPlan([draft()], { sourceId: 7 });
+    const plan = buildSecFactPlan([draft()], PLAN_CONTEXT);
     const folded: FoldedFinancialFact[] = [
       {
         entityId: 41,
@@ -360,11 +438,48 @@ describe('folded SEC parity is diagnostic only', () => {
     const ytd = draft({
       unitEntry: entry({ start: '2024-01-01', fp: 'Q3', end: '2024-09-30' }),
     });
-    const plan = buildSecFactPlan([ytd], { sourceId: 7 });
+    const plan = buildSecFactPlan([ytd], PLAN_CONTEXT);
     const result = checkSecFinancialParity(plan.facts, [], []);
 
     assert.equal(result.comparable, 0);
     assert.equal(result.excluded, 1);
     assert.equal(plan.facts.length, 1, 'folded rows are never inputs to the canonical plan');
+  });
+
+  it('indexes folded candidates once instead of scanning them for every canonical fact', () => {
+    const base = buildSecFactPlan([draft()], PLAN_CONTEXT).facts[0]!;
+    const count = 200;
+    const facts = Array.from({ length: count }, (_, index) => ({
+      ...base,
+      entityId: index + 1,
+      factKey: `${base.factKey}:${index}`,
+    }));
+    const folded = Array.from(
+      { length: count },
+      (_, index): FoldedFinancialFact => ({
+        entityId: index + 1,
+        concept: 'revenue',
+        value: 100,
+        unit: 'USD',
+        currency: 'USD',
+        periodStart: '2024-10-01',
+        periodEnd: '2024-12-31',
+        fiscalPeriod: 'Q1',
+        filingRef: '0000320193-25-000008',
+      }),
+    );
+    let indexedReads = 0;
+    const observed = new Proxy(folded, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && /^\d+$/.test(property)) indexedReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    const result = checkSecFinancialParity(facts, observed, [
+      { concept: 'revenue', usGaapTags: [TAG], unitClass: 'currency' },
+    ]);
+    assert.equal(result.comparable, count);
+    assert.ok(indexedReads <= count * 2, `expected linear folded reads, got ${indexedReads}`);
   });
 });

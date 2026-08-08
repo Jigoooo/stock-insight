@@ -48,7 +48,7 @@ describe('revision assignment', () => {
     const { writes } = assignRevisions([fact()], NOTHING_WRITTEN);
     assert.equal(writes.length, 1);
     assert.equal(writes[0].revisionNo, 1);
-    assert.equal(writes[0].supersedesKey, null);
+    assert.equal(writes[0].supersedesFactKey, null);
   });
 
   it('makes a later filing about the same claim supersede the first', () => {
@@ -63,13 +63,23 @@ describe('revision assignment', () => {
       writes.map((write) => write.revisionNo),
       [1, 2],
     );
-    assert.equal(writes[1].supersedesKey, writes[1].fact.restatementGroupKey);
+    assert.equal(writes[1].supersedesFactKey, writes[0].fact.factKey);
   });
 
   it('continues the chain from what a previous run already wrote', () => {
     const { writes } = assignRevisions([fact()], {
       factKeys: new Set(['dart:20250101000001:BS:7:ifrs-full_Assets:-:period']),
-      groups: new Map([[fact().restatementGroupKey, { maxRevision: 2, latestFactId: 991 }]]),
+      groups: new Map([
+        [
+          fact().restatementGroupKey,
+          {
+            maxRevision: 2,
+            latestFactId: 991,
+            latestFactKey: 'dart:20250101000001:BS:7:ifrs-full_Assets:-:period',
+            factIdsByKey: new Map([['dart:20250101000001:BS:7:ifrs-full_Assets:-:period', 991]]),
+          },
+        ],
+      ]),
     });
     assert.equal(writes[0].revisionNo, 3);
   });
