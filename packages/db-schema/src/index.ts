@@ -90,6 +90,7 @@ import { k4MarketIntelligenceLedgerMigrationSql } from './migrations/089_k4_mark
 import { numericFactRevisionGuardMigrationSql } from './migrations/090_numeric_fact_revision_guard.ts';
 import { k4MarketIntelligenceRunReceiptMigrationSql } from './migrations/091_k4_market_intelligence_run_receipt.ts';
 
+import { p4V2ServingMigrationSql } from './migrations/092_p4_v2_serving.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -994,6 +995,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: k4MarketIntelligenceRunReceiptMigrationSql,
   },
+  {
+    id: '092_p4_v2_serving',
+    description:
+      'Adds fail-closed p4.v2 coverage, accepted exposure, and cited path-step serving views without exposing raw rejected evidence or cross-unit aggregation.',
+    tables: [],
+    sql: p4V2ServingMigrationSql,
+  },
 ];
 
 export {
@@ -1088,4 +1096,5 @@ export {
   k4MarketIntelligenceLedgerMigrationSql,
   numericFactRevisionGuardMigrationSql,
   k4MarketIntelligenceRunReceiptMigrationSql,
+  p4V2ServingMigrationSql,
 };

@@ -161,6 +161,11 @@ export type {
   GetPersonalizationPortfolioImpactOptions,
   PersonalizationImpactQueryExecutor,
 } from './personalization/impact-read-model';
+export { getPersonalizationPortfolioImpactV2 } from './personalization/impact-v2-read-model';
+export type {
+  GetPersonalizationPortfolioImpactV2Options,
+  PersonalizationImpactV2QueryExecutor,
+} from './personalization/impact-v2-read-model';
 export {
   getPersonalizationDecisionHistory,
   getPersonalizationDecisionSupport,

@@ -11,6 +11,7 @@ import {
   getPersonalizationDecisionHistory,
   getPersonalizationDecisionSupport,
   getPersonalizationPortfolioImpact,
+  getPersonalizationPortfolioImpactV2,
   getPersonalizationPortfolioSnapshot,
   getPersonalizationThesis,
 } from '@stock-insight/api';
@@ -66,6 +67,26 @@ export class PersonalizationController {
     const { withSnapshot, userScope } = researchContext();
     const result = await withSnapshot((executor) =>
       getPersonalizationPortfolioImpact(executor, {
+        userScope,
+        eventId: firstParam(eventIdRaw) ?? null,
+        scenarioId: firstParam(scenarioIdRaw) ?? null,
+        horizon: firstParam(horizonRaw) ?? null,
+        knownAt: parseKnownAt(knownAtRaw),
+      }),
+    );
+    if (!result) throw apiError('portfolio_impact_not_found', 404);
+    return result;
+  }
+  @Get('portfolio-impact/v2')
+  async portfolioImpactV2(
+    @Query('eventId') eventIdRaw?: string | string[],
+    @Query('scenarioId') scenarioIdRaw?: string | string[],
+    @Query('horizon') horizonRaw?: string | string[],
+    @Query('knownAt') knownAtRaw?: string | string[],
+  ) {
+    const { withSnapshot, userScope } = researchContext();
+    const result = await withSnapshot((executor) =>
+      getPersonalizationPortfolioImpactV2(executor, {
         userScope,
         eventId: firstParam(eventIdRaw) ?? null,
         scenarioId: firstParam(scenarioIdRaw) ?? null,

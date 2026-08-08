@@ -121,6 +121,231 @@ export const personalizationPortfolioImpactSchema = z.object({
 });
 
 export type PersonalizationPortfolioImpact = z.infer<typeof personalizationPortfolioImpactSchema>;
+const impactEvaluationDispositionSchema = z.enum([
+  'accepted',
+  'missing_identity',
+  'no_pit_evidence',
+  'unsupported_measurement',
+  'ambiguous_driver_attribution',
+  'no_recent_observation',
+]);
+
+const impactScoreComponentKindSchema = z.enum([
+  'evidence_confidence',
+  'relation_strength',
+  'materiality',
+  'transmission',
+  'direction',
+  'lag',
+  'market_reflection',
+  'model_uncertainty',
+]);
+const requiredImpactScoreKinds = new Set(impactScoreComponentKindSchema.options);
+const ledgerIdSchema = z.string().regex(/^[1-9]\d*$/);
+const economicUnitSchema = boundedText(80);
+
+const impactScoreComponentV2Schema = z.object({
+  kind: impactScoreComponentKindSchema,
+  value: probabilitySchema,
+  rationale: boundedText(1_000),
+});
+
+const impactEvidenceReferenceV2Schema = z.object({
+  numericFactId: ledgerIdSchema,
+  sourceRevisionId: ledgerIdSchema,
+  sourcePitQualityId: ledgerIdSchema,
+  pitQualityClass: z.enum([
+    'PIT_A_NATIVE_VINTAGE',
+    'PIT_B_VERSIONED_ARTIFACT',
+    'PIT_C_OUR_ARCHIVE',
+  ]),
+  inputRole: z.enum(['current', 'comparison', 'corroboration']),
+});
+
+const impactPathStepReferenceV2Schema = z.object({
+  impactPathStepId: ledgerIdSchema,
+  citationRole: z.enum(['economic_basis', 'corroboration']),
+});
+
+const analysisInformationSetReferenceV2Schema = z
+  .object({
+    informationSetId: boundedText(320),
+    validCutoff: dateTimeSchema,
+    sourceAvailableCutoff: dateTimeSchema,
+    systemKnownCutoff: dateTimeSchema,
+    marketObservationCutoff: dateTimeSchema,
+    semanticSnapshotId: boundedText(320),
+  })
+  .superRefine((informationSet, context) => {
+    const validCutoff = Date.parse(informationSet.validCutoff);
+    for (const [field, value] of [
+      ['sourceAvailableCutoff', informationSet.sourceAvailableCutoff],
+      ['systemKnownCutoff', informationSet.systemKnownCutoff],
+      ['marketObservationCutoff', informationSet.marketObservationCutoff],
+    ] as const) {
+      if (Date.parse(value) > validCutoff) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'analysis information-set cutoffs cannot exceed validCutoff',
+        });
+      }
+    }
+  });
+
+const portfolioImpactExposureV2Schema = z
+  .object({
+    exposureRevisionId: ledgerIdSchema,
+    evaluationRevisionId: ledgerIdSchema,
+    entityKey: entityKeySchema,
+    portfolioWeight: probabilitySchema,
+    direction: z.enum(['positive', 'negative', 'ambiguous']),
+    economicMagnitude: z.object({ value: finiteSchema, unit: economicUnitSchema }),
+    materiality: probabilitySchema,
+    uncertainty: probabilitySchema,
+    epistemicConfidence: probabilitySchema,
+    scoreComponents: z.array(impactScoreComponentV2Schema).length(8),
+    references: z.object({
+      securityIssuerIdentityId: ledgerIdSchema,
+      sectorPlaybookId: ledgerIdSchema,
+      businessDriverId: ledgerIdSchema,
+      businessDriverMeasurementRuleId: ledgerIdSchema,
+      analysisInformationSet: analysisInformationSetReferenceV2Schema,
+      derivationId: ledgerIdSchema,
+      eventRevisionId: ledgerIdSchema,
+      evidence: z.array(impactEvidenceReferenceV2Schema).min(2).max(50),
+      pathSteps: z.array(impactPathStepReferenceV2Schema).max(100),
+    }),
+  })
+  .superRefine((exposure, context) => {
+    const scoreKinds = new Set(exposure.scoreComponents.map((component) => component.kind));
+    if (
+      scoreKinds.size !== requiredImpactScoreKinds.size ||
+      [...requiredImpactScoreKinds].some((kind) => !scoreKinds.has(kind))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['scoreComponents'],
+        message: 'exposure requires the exact eight score component kinds',
+      });
+    }
+    const evidenceRoles = new Set(
+      exposure.references.evidence.map((reference) => reference.inputRole),
+    );
+    if (!evidenceRoles.has('current') || !evidenceRoles.has('comparison')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['references', 'evidence'],
+        message: 'exposure evidence requires current and comparison inputs',
+      });
+    }
+  });
+
+const portfolioImpactCoverageV2Schema = z
+  .object({
+    entityKey: entityKeySchema,
+    portfolioWeight: probabilitySchema.nullable(),
+    evaluationCount: z.number().int().positive(),
+    acceptedEvaluationCount: z.number().int().nonnegative(),
+    reasonCodes: z.array(impactEvaluationDispositionSchema.exclude(['accepted'])).max(5),
+    reasonDetails: z.array(boundedText(2_000)).max(100),
+  })
+  .superRefine((coverage, context) => {
+    if (coverage.acceptedEvaluationCount > coverage.evaluationCount) {
+      context.addIssue({ code: 'custom', message: 'accepted evaluations cannot exceed total' });
+    }
+    const rejectedCount = coverage.evaluationCount - coverage.acceptedEvaluationCount;
+    if ((rejectedCount === 0) !== (coverage.reasonCodes.length === 0)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['reasonCodes'],
+        message: 'reason codes must describe every non-empty rejected evaluation set',
+      });
+    }
+    if ((rejectedCount === 0) !== (coverage.reasonDetails.length === 0)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['reasonDetails'],
+        message: 'reason details must describe every non-empty rejected evaluation set',
+      });
+    }
+  });
+
+export const personalizationPortfolioImpactV2Schema = z
+  .object({
+    schemaVersion: z.literal('p4.v2'),
+    availability: z.enum(['available', 'not_computed']),
+    portfolioSnapshotId: uuidSchema,
+    eventId: boundedText(320).nullable(),
+    scenarioId: boundedText(320).nullable(),
+    knownAt: dateTimeSchema,
+    generatedAt: dateTimeSchema,
+    groups: z.array(
+      z.object({
+        horizon: z.enum(['immediate', 'short', 'medium', 'long']),
+        channel: boundedText(80),
+        economicMagnitude: z.object({ unit: economicUnitSchema }),
+        exposures: z.array(portfolioImpactExposureV2Schema).min(1).max(1_000),
+      }),
+    ),
+    coverage: z.array(portfolioImpactCoverageV2Schema).max(10),
+  })
+  .strict()
+  .superRefine((response, context) => {
+    if (response.availability === 'available' && response.coverage.length !== 10) {
+      context.addIssue({
+        code: 'custom',
+        path: ['coverage'],
+        message: 'available p4.v2 coverage requires exactly ten securities',
+      });
+    }
+    if (response.availability === 'not_computed') {
+      if (response.coverage.length !== 0 || response.groups.length !== 0) {
+        context.addIssue({
+          code: 'custom',
+          message: 'not-computed p4.v2 groups and coverage must be empty',
+        });
+      }
+    }
+    const coverageKeys = new Set(response.coverage.map((coverage) => coverage.entityKey));
+    if (coverageKeys.size !== response.coverage.length) {
+      context.addIssue({ code: 'custom', path: ['coverage'], message: 'coverage must be unique' });
+    }
+    const groupKeys = new Set<string>();
+    const exposureIds = new Set<string>();
+    for (const [groupIndex, group] of response.groups.entries()) {
+      const groupKey = `${group.horizon}\u0000${group.channel}\u0000${group.economicMagnitude.unit}`;
+      if (groupKeys.has(groupKey)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['groups', groupIndex],
+          message: 'duplicate group',
+        });
+      }
+      groupKeys.add(groupKey);
+      for (const exposure of group.exposures) {
+        if (exposure.economicMagnitude.unit !== group.economicMagnitude.unit) {
+          context.addIssue({
+            code: 'custom',
+            path: ['groups', groupIndex, 'exposures'],
+            message: 'exposure unit must equal its group unit',
+          });
+        }
+        if (exposureIds.has(exposure.exposureRevisionId)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['groups', groupIndex, 'exposures'],
+            message: 'an exposure can appear in only one group',
+          });
+        }
+        exposureIds.add(exposure.exposureRevisionId);
+      }
+    }
+  });
+
+export type PersonalizationPortfolioImpactV2 = z.infer<
+  typeof personalizationPortfolioImpactV2Schema
+>;
 
 const explanationSchema = z.object({
   whatChanged: z.array(boundedText(1_000)).min(1).max(50),

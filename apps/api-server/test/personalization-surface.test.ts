@@ -20,6 +20,7 @@ test('P4-C personalization routes stay authenticated, read-only except thesis PO
     "@Get('portfolio-snapshot')",
     "@Get('portfolio-impact')",
     "@Get('decision-support/:securityKey')",
+    "@Get('portfolio-impact/v2')",
     "@Get('decision-history/:securityKey')",
     "@Get('thesis/:securityKey')",
     "@Post('thesis/:securityKey')",
@@ -29,6 +30,8 @@ test('P4-C personalization routes stay authenticated, read-only except thesis PO
   assert.match(controller, /@Controller\('personalization'\)/);
   assert.match(controller, /researchContext\(\)/);
   assert.match(service, /requireRequestUserScope\(\)/);
+  assert.match(controller, /getPersonalizationPortfolioImpactV2/);
+  assert.match(controller, /portfolioImpactV2/);
   assert.match(service, /claimMutation/);
   assert.match(service, /completeMutation/);
   assert.match(service, /withTransaction/);

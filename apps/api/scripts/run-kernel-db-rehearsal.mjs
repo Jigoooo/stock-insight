@@ -1,4 +1,4 @@
-// Rehearses migrations 078–091 plus the migration-037 exposure surface that
+// Rehearses migrations 078–092 plus the migration-037 exposure surface that
 // K4 strengthens, on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
@@ -35,9 +35,11 @@ import { issuerPlaybookMeasurementRuleMigrationSql } from '../../../packages/db-
 import { k4MarketIntelligenceLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/089_k4_market_intelligence_ledger.ts';
 
 import { k4MarketIntelligenceRunReceiptMigrationSql } from '../../../packages/db-schema/src/migrations/091_k4_market_intelligence_run_receipt.ts';
+import { p4V2ServingMigrationSql } from '../../../packages/db-schema/src/migrations/092_p4_v2_serving.ts';
 import { planK4MarketIntelligence } from '../src/analytics/k4-market-intelligence-plan.ts';
 import { executeK4MarketIntelligenceJob } from '../src/analytics/k4-market-intelligence-runner.ts';
 import { persistK4MarketIntelligencePlan } from '../src/analytics/k4-market-intelligence-writer.ts';
+import { getPersonalizationPortfolioImpactV2 } from '../src/personalization/impact-v2-read-model.ts';
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
 
@@ -210,6 +212,17 @@ try {
       to_entity_id BIGINT NOT NULL
     );
 
+    CREATE TABLE analytics.scenario_set (
+      scenario_set_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      impact_shock_id BIGINT,
+      known_at TIMESTAMPTZ NOT NULL
+    );
+    CREATE TABLE analytics.scenario_branch (
+      scenario_set_id BIGINT NOT NULL REFERENCES analytics.scenario_set(scenario_set_id),
+      branch_state TEXT NOT NULL,
+      branch_key TEXT NOT NULL
+    );
+
 
     -- 084 references core.entity for issuer-scoped definitions.
     CREATE SCHEMA core;
@@ -232,6 +245,14 @@ try {
       ('Stock', 'Coverage Security 11'),
       ('Stock', 'Coverage Security 12'),
       ('Stock', 'Coverage Security 13');
+    CREATE TABLE core.entity_identifier (
+      entity_identifier_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      identifier_type TEXT NOT NULL,
+      identifier_value TEXT NOT NULL,
+      valid_from TIMESTAMPTZ,
+      valid_to TIMESTAMPTZ
+    );
     CREATE TABLE core.security_issuer_identity (
       security_issuer_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       security_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
@@ -246,6 +267,25 @@ try {
     VALUES
       (2, 1, 'rehearsal', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z'),
       (4, 5, 'unassigned', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z');
+
+    CREATE SCHEMA personalization;
+    CREATE TABLE personalization.portfolio_snapshot (
+      portfolio_snapshot_id UUID PRIMARY KEY,
+      user_id UUID NOT NULL,
+      snapshot_as_of TIMESTAMPTZ NOT NULL,
+      source_known_at TIMESTAMPTZ NOT NULL
+    );
+    CREATE TABLE personalization.portfolio_lot_snapshot (
+      portfolio_snapshot_id UUID NOT NULL,
+      user_id UUID NOT NULL,
+      security_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      portfolio_weight NUMERIC NOT NULL
+    );
+    CREATE TABLE personalization.portfolio_snapshot_seal (
+      portfolio_snapshot_id UUID NOT NULL,
+      user_id UUID NOT NULL,
+      sealed_at TIMESTAMPTZ NOT NULL
+    );
 
     CREATE SCHEMA ingestion;
     CREATE TABLE ingestion.source (
@@ -606,10 +646,12 @@ try {
     issuerPlaybookMeasurementRuleMigrationSql,
     k4MarketIntelligenceLedgerMigrationSql,
     k4MarketIntelligenceRunReceiptMigrationSql,
+    p4V2ServingMigrationSql,
   );
   await target.query(issuerPlaybookMeasurementRuleMigrationSql);
   await target.query(k4MarketIntelligenceLedgerMigrationSql);
   await target.query(k4MarketIntelligenceRunReceiptMigrationSql);
+  await target.query(p4V2ServingMigrationSql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
   for (const sql of MIGRATIONS) await target.query(sql);
 
@@ -1590,6 +1632,168 @@ try {
     mismatchedDigestRejected,
   };
 
+  const p4V2Counts = (
+    await target.query(
+      `SELECT
+         (SELECT count(DISTINCT security_entity_id)::int
+            FROM analytics.k4_portfolio_impact_coverage_v2
+           WHERE information_set_id=$1) AS coverage,
+         (SELECT count(*)::int
+            FROM analytics.k4_portfolio_impact_exposure_v2
+           WHERE information_set_id=$1) AS exposures,
+         (SELECT count(*)::int
+            FROM analytics.k4_portfolio_impact_path_step_v2 path
+            JOIN analytics.k4_portfolio_impact_exposure_v2 exposure
+              ON exposure.impact_exposure_revision_id=path.impact_exposure_revision_id
+           WHERE exposure.information_set_id=$1) AS cited_paths,
+         (SELECT count(*)::int
+            FROM analytics.k4_portfolio_impact_score_component_v2 component
+            JOIN analytics.k4_portfolio_impact_exposure_v2 exposure
+              USING (impact_exposure_revision_id)
+           WHERE exposure.information_set_id=$1) AS score_components,
+         (SELECT count(*)::int
+            FROM analytics.k4_portfolio_impact_evidence_v2 evidence
+           WHERE evidence.impact_exposure_revision_id IS NOT NULL) AS evidence,
+         has_table_privilege('si_readapi',
+           'analytics.k4_portfolio_impact_coverage_v2', 'SELECT') AS coverage_visible,
+         has_table_privilege('si_readapi',
+           'analytics.k4_portfolio_impact_exposure_v2', 'SELECT') AS exposure_visible,
+         has_table_privilege('si_readapi',
+           'analytics.k4_portfolio_impact_score_component_v2', 'SELECT') AS score_visible,
+         has_table_privilege('si_readapi',
+           'analytics.k4_portfolio_impact_evidence_v2', 'SELECT') AS evidence_visible,
+         has_table_privilege('si_readapi',
+           'analytics.k4_portfolio_impact_path_step_v2', 'SELECT') AS path_visible,
+         has_table_privilege('stock_insight_app_reader',
+           'analytics.k4_portfolio_impact_coverage_v2', 'SELECT') AS app_coverage_visible,
+         has_table_privilege('stock_insight_app_reader',
+           'analytics.k4_portfolio_impact_exposure_v2', 'SELECT') AS app_exposure_visible,
+         has_table_privilege('stock_insight_app_reader',
+           'analytics.k4_portfolio_impact_score_component_v2', 'SELECT') AS app_score_visible,
+         has_table_privilege('stock_insight_app_reader',
+           'analytics.k4_portfolio_impact_evidence_v2', 'SELECT') AS app_evidence_visible,
+         has_table_privilege('stock_insight_app_reader',
+           'analytics.k4_portfolio_impact_path_step_v2', 'SELECT') AS app_path_visible,
+         NOT EXISTS (
+           SELECT 1
+             FROM unnest(ARRAY[
+               'analytics.impact_evaluation_revision',
+               'analytics.impact_evaluation_evidence',
+               'analytics.impact_exposure_revision',
+               'analytics.impact_score_component',
+               'analytics.impact_shock',
+               'analytics.impact_channel',
+               'analytics.impact_path_step',
+               'analytics.expectation_revision',
+               'analytics.surprise_revision',
+               'analytics.valuation_estimate_revision',
+               'analytics.impact_path_step_exposure_citation',
+               'analytics.impact_outcome_revision',
+               'analytics.accepted_impact_evaluation_v1',
+               'analytics.accepted_impact_evaluation_evidence_v1'
+             ]) raw_relation
+            WHERE has_table_privilege(
+              'stock_insight_app_reader', raw_relation, 'SELECT'
+            )
+         ) AS app_raw_hidden`,
+      [writerInformationSetId],
+    )
+  ).rows[0];
+  const p4V2 = {
+    coverageHasExactlyTenSecurities: p4V2Counts.coverage === 10,
+    onlyAcceptedSealedExposureServed: p4V2Counts.exposures === 1,
+    noUncitedPathStepServed: p4V2Counts.cited_paths === 1,
+    exactScoreAndEvidenceProjection: p4V2Counts.score_components === 8 && p4V2Counts.evidence === 2,
+    filteredViewsReachReadapi:
+      p4V2Counts.coverage_visible &&
+      p4V2Counts.exposure_visible &&
+      p4V2Counts.score_visible &&
+      p4V2Counts.evidence_visible &&
+      p4V2Counts.path_visible,
+    filteredViewsReachRuntimeReader:
+      p4V2Counts.app_coverage_visible &&
+      p4V2Counts.app_exposure_visible &&
+      p4V2Counts.app_score_visible &&
+      p4V2Counts.app_evidence_visible &&
+      p4V2Counts.app_path_visible,
+    rawLedgersHiddenFromRuntimeReader: p4V2Counts.app_raw_hidden,
+  };
+
+  const acceptedSecurity = (
+    await target.query(
+      `SELECT security_entity_id
+         FROM analytics.k4_portfolio_impact_exposure_v2
+        WHERE information_set_id=$1`,
+      [writerInformationSetId],
+    )
+  ).rows[0].security_entity_id;
+  await target.query(
+    `INSERT INTO core.entity_identifier
+       (entity_id, identifier_type, identifier_value, valid_from)
+     SELECT DISTINCT security_entity_id, 'INTERNAL_KEY',
+            'KR:' || lpad(security_entity_id::text, 6, '0'), TIMESTAMPTZ '2025-01-01Z'
+       FROM analytics.k4_portfolio_impact_coverage_v2
+      WHERE information_set_id=$1`,
+    [writerInformationSetId],
+  );
+  const rehearsalUserId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const rehearsalPortfolioId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  await target.query(
+    `INSERT INTO personalization.portfolio_snapshot
+       (portfolio_snapshot_id, user_id, snapshot_as_of, source_known_at)
+     VALUES ($1, $2, TIMESTAMPTZ '2026-08-08T14:00:00Z',
+             TIMESTAMPTZ '2026-08-08T14:00:00Z')`,
+    [rehearsalPortfolioId, rehearsalUserId],
+  );
+  await target.query(
+    `INSERT INTO personalization.portfolio_lot_snapshot
+       (portfolio_snapshot_id, user_id, security_entity_id, portfolio_weight)
+     VALUES ($1, $2, $3, 0.04), ($1, $2, $3, 0.06)`,
+    [rehearsalPortfolioId, rehearsalUserId, acceptedSecurity],
+  );
+  await target.query(
+    `INSERT INTO personalization.portfolio_snapshot_seal
+       (portfolio_snapshot_id, user_id, sealed_at)
+     VALUES ($1, $2, TIMESTAMPTZ '2026-08-08T14:00:00Z')`,
+    [rehearsalPortfolioId, rehearsalUserId],
+  );
+  const readKnownAt = new Date(
+    (
+      await target.query(
+        `SELECT greatest(now() + interval '1 second',
+                         $1::timestamptz + interval '1 second') AS known_at`,
+        [writerCutoff],
+      )
+    ).rows[0].known_at,
+  );
+  const p4Executor = {
+    queryRows: async (sql, parameters = []) => (await target.query(sql, [...parameters])).rows,
+  };
+  const p4Read = await getPersonalizationPortfolioImpactV2(p4Executor, {
+    userScope: { userId: rehearsalUserId },
+    eventId: null,
+    scenarioId: null,
+    horizon: null,
+    knownAt: readKnownAt,
+  });
+  const futureBlindRead = await getPersonalizationPortfolioImpactV2(p4Executor, {
+    userScope: { userId: rehearsalUserId },
+    eventId: null,
+    scenarioId: null,
+    horizon: null,
+    knownAt: new Date('2026-08-08T14:59:59.999Z'),
+  });
+  const servedExposures = p4Read?.groups.flatMap((group) => group.exposures) ?? [];
+  p4V2.readModelExecutesAgainstPostgres =
+    p4Read?.availability === 'available' && p4Read.coverage.length === 10;
+  p4V2.multipleLotsAggregateOnce =
+    servedExposures.length === 1 &&
+    Math.abs((servedExposures[0]?.portfolioWeight ?? 0) - 0.1) < 1e-12;
+  p4V2.futureCreatedEvaluationStaysHidden = futureBlindRead?.availability === 'not_computed';
+  p4V2.referencesSafeEvidence =
+    servedExposures[0]?.scoreComponents.length === 8 &&
+    servedExposures[0]?.references.evidence.length === 2;
+
   // ── 085 truth class binding ─────────────────────────────────────────────────
   const resolved = Object.fromEntries(
     (
@@ -2055,7 +2259,31 @@ try {
            JOIN pg_namespace n ON n.oid = c.relnamespace
           CROSS JOIN (VALUES ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('REFERENCES'),('TRIGGER')) p(name)
           CROSS JOIN pg_roles r
-          WHERE n.nspname IN ('governance', 'serving')
+          WHERE n.nspname IN ('analytics', 'governance', 'serving')
+            AND (
+              n.nspname <> 'analytics'
+              OR c.relname IN (
+                'accepted_impact_evaluation_evidence_v1',
+                'accepted_impact_evaluation_v1',
+                'expectation_revision',
+                'impact_channel',
+                'impact_evaluation_evidence',
+                'impact_evaluation_revision',
+                'impact_exposure_revision',
+                'impact_outcome_revision',
+                'impact_path_step',
+                'impact_path_step_exposure_citation',
+                'impact_score_component',
+                'impact_shock',
+                'k4_portfolio_impact_coverage_v2',
+                'k4_portfolio_impact_evidence_v2',
+                'k4_portfolio_impact_exposure_v2',
+                'k4_portfolio_impact_path_step_v2',
+                'k4_portfolio_impact_score_component_v2',
+                'surprise_revision',
+                'valuation_estimate_revision'
+              )
+            )
             AND c.relkind IN ('r','v')
             AND r.rolname IN ('stock_insight_app_reader','stock_insight_app_writer')
        ) reachability
@@ -2064,14 +2292,21 @@ try {
   );
   const appRoleReachable = reach.rows.filter((row) => row.reachable);
 
-  // 085 deliberately widens the app reader by exactly one relation, because
+  // 085 deliberately widens the app reader by one relation, because
   // REQ-SEM-010 is a rendering requirement and the reader the product serves from
-  // has to see the resolved class. The gauge is not "nothing moved" but "only this
-  // moved" — and either way the boot digest must be re-pinned in the same landing.
+  // has to see the resolved class. 092 adds exactly five fail-closed K4 views and
+  // revokes the historical analytics default grants on every raw K4 relation.
+  // The gauge is not "nothing moved" but "only these projections are reachable";
+  // the boot digest must be re-pinned in the same landing.
   //
-  // The probe covers serving as well as governance for the same reason: a check
-  // that only looks where nothing changed reports success by looking away.
-  const DECLARED_APP_ROLE_REACH = ['stock_insight_app_reader:serving.content_pack_item_truth_v1'];
+  const DECLARED_APP_ROLE_REACH = [
+    'stock_insight_app_reader:analytics.k4_portfolio_impact_coverage_v2',
+    'stock_insight_app_reader:analytics.k4_portfolio_impact_evidence_v2',
+    'stock_insight_app_reader:analytics.k4_portfolio_impact_exposure_v2',
+    'stock_insight_app_reader:analytics.k4_portfolio_impact_path_step_v2',
+    'stock_insight_app_reader:analytics.k4_portfolio_impact_score_component_v2',
+    'stock_insight_app_reader:serving.content_pack_item_truth_v1',
+  ];
   const observedAppRoleReach = appRoleReachable
     .map((row) => `${row.role_name}:${row.relation}`)
     .sort();
@@ -2088,6 +2323,7 @@ try {
     metric,
     truthClass,
     writerRehearsal,
+    p4V2,
     economicClaim,
     sectorPlaybook,
     k4,
@@ -2115,6 +2351,7 @@ try {
     sectorPlaybook,
     k4,
     writerRehearsal,
+    p4V2,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
