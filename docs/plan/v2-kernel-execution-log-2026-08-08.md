@@ -787,3 +787,88 @@ claim 121건이 아직 assertion 아님
 | K2-d | 연속성 bridge | ✅ 483 |
 | K2-e | truth class (085) | ✅ 340만 해소 |
 | K2-f | assertion writer | ✅ **253** (차단 아니었음) |
+
+---
+
+## K3 — 섹터 playbook (2026-08-08)
+
+커밋 `6687b04`. 마이그레이션 087 라이브 적용. **다이제스트 무변동** — `si_*` 롤 전용.
+
+### 라이브 상태
+
+```
+governance.sector_playbook        1   semiconductor@1
+governance.business_driver        8   정본 04 §3 사슬 전체
+governance.playbook_assignment   10   taxonomy 9 / curated 1
+```
+
+REQ-DOM-001 이 인용을 요구하는 대상:
+
+```
+taxonomy  NVIDIA · AMD · Intel · Broadcom · Marvell · Micron · Arm · TSMC ADR · SK하이닉스
+curated   삼성전자
+```
+
+driver 사슬:
+
+```
+demand         demand_units      → revenue  increases
+demand         backlog_quality   → revenue  increases
+price          asp               → margin   increases
+mix            product_mix       → margin   increases
+variable_cost  wafer_cost        → margin   decreases
+fixed_cost     fab_fixed_cost    → margin   decreases
+working_capital inventory_position → fcf    decreases
+capex          capex_cycle       → fcf      decreases
+```
+
+### 배정이 별도 표인 이유 — 실측이 강제했다
+
+라이브 분류가 스스로 보여줬다:
+
+```
+SIC  3674   Broadcom · Micron · TSMC · AMD · Intel · Marvell · NVIDIA · Arm
+KSIC 2612   SK하이닉스
+KSIC 264    삼성전자      ← 통신·방송장비. 세계 최대 메모리 제조사다
+KSIC 2621   LG디스플레이   ← 디스플레이 패널
+KSIC 2622   삼성전기      ← 수동부품·기판
+KSIC 26299  한화시스템     ← 방산 전자
+KSIC 26429  인텔리안테크   ← 위성 안테나
+```
+
+코드로만 붙이면 **세계 최대 메모리 제조사를 빼고 방산 전자업체를 넣는다.** 그래서
+배정은 `taxonomy` 와 `curated` 로 갈리고, curated 는 문장으로 이유를 적는다. 붙이지
+않은 근처 4건도 러너가 이유와 함께 보고한다 — 부재는 나중 독자가 볼 수 있는 결정이
+아니다.
+
+curated 항목이 우주에서 사라지면 러너가 **실패한다**(`staleCurations`). 조용히 아무도
+지배하지 않게 되는 것보다 시끄럽게 죽는 게 낫다.
+
+### driver 는 정의고 관측이 아니다
+
+정본 04 §3 이 각 driver 에 source·definition·horizon·sensitivity·lag·regime·
+uncertainty 를 준다. 그건 개념의 속성이다. 회사의 *값* 을 같은 행에 넣으면 정의와
+관측을 뒤섞는다. 관측은 K4 의 exposure 작업이고, **K3 없이 K4 를 시작하지 않는 이유가
+바로 K4 가 인용할 것이 있어야 하기 때문이다.**
+
+계획서는 "driver bridge 는 100종목 × ~8 driver = 800행"으로 잡았다. 그건 회사별 인스턴스
+얘기인데 지금 그걸 채울 데이터가 없다. 정의 8행을 만들고 인스턴스는 K4 로 넘긴다.
+이건 정본을 따른 것이지 축소가 아니다 — §3 은 driver 를 정의로 규정한다.
+
+### playbook 은 볼 것을 말하고 결론을 말하지 않는다
+
+테스트가 `undervalued`·`overvalued`·`buy`·`sell`·`attractive` 를 금지한다. 견해를 담은
+playbook 은 REQ-DOM-001 이 막으려는 발명이 revision 번호를 달고 있는 것이다.
+
+### 게이트 상태 — 정직하게
+
+**REQ-DOM-001 은 아직 강제되지 않는다.** 인용할 대상은 생겼지만, "KPI 선택이 playbook
+revision id 를 인용하지 않으면 거부"하는 검사는 없다. 그 검사는 KPI 를 선택하는 코드가
+있어야 붙일 수 있고, 그 코드가 K4 다. 지금 상태는 **인용 가능**이지 **인용 강제**가
+아니다.
+
+### 리허설
+
+폐기용 DB 9/9 통과: seed 적용, driver 가 사슬을 덮음, 모든 bridge 에 방향 있음,
+반쪽 adapter 거부, 빈 지표 거부, 고아 revision 거부, taxonomy 배정이 노드를 요구,
+curated 가 코드와 불일치 가능, 현재 뷰 해소.
