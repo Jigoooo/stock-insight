@@ -6,6 +6,26 @@ import {
   type DartStatementRow,
   type NumericFactDraft,
 } from './dart-numeric-fact.ts';
+import {
+  assignRevisions as assignSharedRevisions,
+  findSchemaViolations as findSharedSchemaViolations,
+  type ExistingNumericFactState,
+  type GroupState,
+  type MetricDefinitionRow,
+  type NumericFactRow,
+  type PlannedWrite,
+  type SchemaViolation,
+  type Skip,
+} from './numeric-fact-plan.ts';
+
+export type {
+  GroupState,
+  MetricDefinitionRow,
+  NumericFactRow,
+  PlannedWrite,
+  SchemaViolation,
+  Skip,
+} from './numeric-fact-plan.ts';
 
 /**
  * Turns DART statement rows into the rows world.numeric_fact and
@@ -38,65 +58,11 @@ export type DartFactContext = {
   knownAt: string;
 };
 
-export type NumericFactRow = {
-  factKey: string;
-  restatementGroupKey: string;
-  entityId: number;
-  conceptNamespace: string;
-  conceptKey: string;
-  value: number;
-  unit: string;
-  currency: string | null;
-  scalePower: number;
-  periodStart: string | null;
-  periodEnd: string | null;
-  instantAt: string | null;
-  fiscalYear: number;
-  fiscalQuarter: number;
-  dimensionsJson: Record<string, string>;
-  locator: Record<string, string>;
-  sourceRevisionId: number;
-  availableAt: string;
-  knownAt: string;
-  metadata: Record<string, unknown>;
-  /** Definition this fact was recorded under; the runner resolves it to an id. */
-  definitionKey: string;
-};
-
-export type MetricDefinitionRow = {
-  definitionKey: string;
-  conceptNamespace: string;
-  conceptKey: string;
-  canonicalConcept: string;
-  displayName: string;
-  definitionScope: 'canonical' | 'issuer';
-  issuerEntityId: number | null;
-  periodBasis: string;
-  accountingBasis: string;
-  unit: string;
-  currency: string | null;
-  comparabilityGroupKey: string;
-  comparabilityGroupVersion: number;
-  effectiveFrom: string;
-};
-
 export type DartFactPlan = {
   facts: NumericFactRow[];
   definitions: MetricDefinitionRow[];
   skips: Skip[];
 };
-
-export type Skip = { reason: string; count: number };
-
-function bump(counts: Map<string, number>, reason: string, by = 1): void {
-  counts.set(reason, (counts.get(reason) ?? 0) + by);
-}
-
-function sortedSkips(counts: Map<string, number>): Skip[] {
-  return [...counts.entries()]
-    .map(([reason, count]) => ({ reason, count }))
-    .sort((left, right) => right.count - left.count);
-}
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex').slice(0, 12);
@@ -276,6 +242,13 @@ export function buildDartFactPlan(
         knownAt: context.knownAt,
         metadata: { corpCode: context.corpCode, standardConcept: draft.standardConcept },
         definitionKey,
+        revisionSortKey: [
+          draft.locator.receiptNo,
+          context.availableAt,
+          context.knownAt,
+          String(context.sourceRevisionId).padStart(20, '0'),
+          factKey,
+        ].join('|'),
       });
     }
   }
@@ -289,62 +262,11 @@ export function buildDartFactPlan(
   };
 }
 
-export type GroupState = { maxRevision: number; latestFactId: number | null };
-
-export type PlannedWrite = {
-  fact: NumericFactRow;
-  revisionNo: number;
-  supersedesKey: string | null;
-};
-
-/**
- * Assigns revision numbers, which is the whole reason a restatement group exists.
- *
- * numeric_fact enforces UNIQUE (restatement_group_key, revision_no) and that a
- * revision above 1 names the fact it supersedes. So a second filing making the
- * same claim about the same period cannot be written as an independent
- * observation — it has to point at the one it replaces. This walks the groups in
- * a fixed order so a re-run assigns the same numbers.
- *
- * Facts already written are skipped by fact_key: the cell address of a filing is
- * immutable, so seeing it again means we have already recorded it.
- */
 export function assignRevisions(
   facts: readonly NumericFactRow[],
-  existing: {
-    factKeys: ReadonlySet<string>;
-    groups: ReadonlyMap<string, GroupState>;
-  },
+  existing: ExistingNumericFactState,
 ): { writes: PlannedWrite[]; skips: Skip[] } {
-  const counts = new Map<string, number>();
-  const groups = new Map<string, GroupState>(existing.groups);
-  const writes: PlannedWrite[] = [];
-
-  // A stable order keeps revision numbers reproducible across runs. fact_key
-  // already contains the receipt number, so this orders restatements by filing.
-  const ordered = [...facts].sort((left, right) => (left.factKey < right.factKey ? -1 : 1));
-
-  for (const fact of ordered) {
-    if (existing.factKeys.has(fact.factKey)) {
-      bump(counts, 'already recorded');
-      continue;
-    }
-    const state = groups.get(fact.restatementGroupKey) ?? { maxRevision: 0, latestFactId: null };
-    const revisionNo = state.maxRevision + 1;
-    writes.push({
-      fact,
-      revisionNo,
-      // Within one run the superseded row has no id yet, so carry the key and let
-      // the writer resolve it from what it has just inserted.
-      supersedesKey: revisionNo > 1 ? fact.restatementGroupKey : null,
-    });
-    groups.set(fact.restatementGroupKey, {
-      maxRevision: revisionNo,
-      latestFactId: state.latestFactId,
-    });
-  }
-
-  return { writes, skips: sortedSkips(counts) };
+  return assignSharedRevisions(facts, existing);
 }
 
 export type ParityResult = {
@@ -388,7 +310,8 @@ export function checkParity(
   for (const fact of facts) {
     if (fact.locator.amountField !== 'thstrm_amount') continue;
     if (fact.dimensionsJson.accountDetail !== undefined) continue;
-    const accountId = fact.locator.accountId;
+    const accountId =
+      typeof fact.locator.accountId === 'string' ? fact.locator.accountId : undefined;
     const concept = accountId ? conceptByAccount.get(accountId) : undefined;
     if (!concept) continue;
     // The folded table stores one date per fact, so compare on whichever of the
@@ -432,85 +355,9 @@ export function checkParity(
  * (metric_definition). They are a copy, and a copy can drift: the migration is
  * the authority and this is an early warning, not a substitute.
  */
-export type SchemaViolation = { rule: string; count: number; example: string };
-
-const DEFINITION_KEY_PATTERN = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
-const CURRENCY_PATTERN = /^[A-Z]{3}$/;
-const PERIOD_BASES = new Set([
-  'instant',
-  'duration_quarter',
-  'duration_ytd',
-  'duration_ttm',
-  'duration_annual',
-]);
-const ACCOUNTING_BASES = new Set([
-  'gaap',
-  'ifrs',
-  'k_ifrs',
-  'non_gaap',
-  'statutory',
-  'internal',
-  'unknown',
-]);
-
 export function findSchemaViolations(
   facts: readonly NumericFactRow[],
   definitions: readonly MetricDefinitionRow[],
 ): SchemaViolation[] {
-  const found = new Map<string, { count: number; example: string }>();
-  const record = (rule: string, example: string): void => {
-    const entry = found.get(rule);
-    if (entry) entry.count += 1;
-    else found.set(rule, { count: 1, example });
-  };
-
-  for (const fact of facts) {
-    const at = fact.factKey;
-    if (fact.factKey.trim() === '') record('fact_key must not be blank', at);
-    if (fact.restatementGroupKey.trim() === '') record('restatement_group_key blank', at);
-    if (fact.conceptNamespace.trim() === '') record('concept_namespace blank', at);
-    if (fact.conceptKey.trim() === '') record('concept_key blank', at);
-    if (fact.unit.trim() === '') record('unit blank', at);
-    if (!Number.isFinite(fact.value)) record('value not a finite number', at);
-    if (fact.currency !== null && !CURRENCY_PATTERN.test(fact.currency)) {
-      record('currency must be three upper-case letters', at);
-    }
-    if (fact.scalePower < -18 || fact.scalePower > 18) record('scale_power out of range', at);
-    if (fact.knownAt < fact.availableAt) record('known_at before available_at', at);
-
-    const hasInstant = fact.instantAt !== null;
-    const hasPeriod = fact.periodEnd !== null;
-    if (hasInstant === hasPeriod) record('must fill exactly one of instant or period', at);
-    if (hasInstant && (fact.periodStart !== null || fact.periodEnd !== null)) {
-      record('an instant must not carry a period', at);
-    }
-    if (hasPeriod && fact.periodStart !== null && fact.periodEnd! < fact.periodStart) {
-      record('period ends before it starts', at);
-    }
-    if (fact.fiscalYear < 1800 || fact.fiscalYear > 3000) record('fiscal_year out of range', at);
-    if (fact.fiscalQuarter < 1 || fact.fiscalQuarter > 4) record('fiscal_quarter out of range', at);
-  }
-
-  for (const definition of definitions) {
-    const at = definition.definitionKey;
-    if (!DEFINITION_KEY_PATTERN.test(definition.definitionKey)) {
-      record('definition_key fails its pattern', at);
-    }
-    if (definition.canonicalConcept.trim() === '') record('canonical_concept blank', at);
-    if (definition.displayName.trim() === '') record('display_name blank', at);
-    if (definition.comparabilityGroupKey.trim() === '') record('comparability_group_key blank', at);
-    if (!PERIOD_BASES.has(definition.periodBasis)) record('period_basis not in the enum', at);
-    if (!ACCOUNTING_BASES.has(definition.accountingBasis)) {
-      record('accounting_basis not in the enum', at);
-    }
-    // A scope that names nobody is not a scope (084's scope_target constraint).
-    if (definition.definitionScope === 'issuer' && definition.issuerEntityId === null) {
-      record('issuer-scoped definition names no issuer', at);
-    }
-    if (definition.comparabilityGroupVersion < 1) record('comparability_group_version below 1', at);
-  }
-
-  return [...found.entries()]
-    .map(([rule, { count, example }]) => ({ rule, count, example }))
-    .sort((left, right) => right.count - left.count);
+  return findSharedSchemaViolations(facts, definitions);
 }
