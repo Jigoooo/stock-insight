@@ -148,6 +148,8 @@ CREATE TABLE IF NOT EXISTS governance.business_driver_measurement_rule (
       'period_end_year_over_year_delta', 'duration_year_over_year_delta'
     )),
     output_unit TEXT NOT NULL CHECK (length(btrim(output_unit)) > 0),
+    output_currency TEXT CHECK (output_currency IS NULL OR output_currency ~ '^[A-Z]{3}$'),
+    CHECK ((output_unit = 'currency') = (output_currency IS NOT NULL)),
     direction_policy JSONB NOT NULL CHECK (jsonb_typeof(direction_policy) = 'object'),
     materiality_policy JSONB NOT NULL CHECK (jsonb_typeof(materiality_policy) = 'object'),
     minimum_history_observations INTEGER NOT NULL
@@ -225,12 +227,12 @@ CREATE TRIGGER business_driver_measurement_rule_exact_revision_chain
 INSERT INTO governance.business_driver_measurement_rule (
 
   business_driver_id, rule_key, revision_no, input_concept_selectors,
-  comparison_method, output_unit, direction_policy, materiality_policy,
+  comparison_method, output_unit, output_currency, direction_policy, materiality_policy,
   minimum_history_observations, allowed_pit_classes,
   score_component_formula_inputs, effective_from, authored_by, metadata
 )
 SELECT driver.business_driver_id, seed.rule_key, 1,
-       seed.input_concept_selectors, seed.comparison_method, 'USD',
+       seed.input_concept_selectors, seed.comparison_method, 'currency', 'USD',
        seed.direction_policy, seed.materiality_policy, 2,
        ARRAY['PIT_A_NATIVE_VINTAGE','PIT_B_VERSIONED_ARTIFACT','PIT_C_OUR_ARCHIVE']::TEXT[],
        jsonb_build_object(
@@ -296,6 +298,7 @@ SELECT identity.security_entity_id,
        rule.input_concept_selectors,
        rule.comparison_method,
        rule.output_unit,
+       rule.output_currency,
        rule.direction_policy,
        rule.materiality_policy,
        rule.minimum_history_observations,

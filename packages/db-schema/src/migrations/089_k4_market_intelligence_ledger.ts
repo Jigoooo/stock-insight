@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS analytics.impact_evaluation_revision (
     reason_detail TEXT,
     measurement_value NUMERIC,
     measurement_unit TEXT CHECK (measurement_unit IS NULL OR length(btrim(measurement_unit)) > 0),
+    measurement_currency TEXT
+      CHECK (measurement_currency IS NULL OR measurement_currency ~ '^[A-Z]{3}$'),
     direction TEXT CHECK (direction IS NULL OR direction IN ('positive','negative','ambiguous')),
     materiality NUMERIC CHECK (materiality IS NULL OR materiality BETWEEN 0 AND 1),
     impact_exposure_revision_id BIGINT
@@ -153,6 +155,7 @@ CREATE TABLE IF NOT EXISTS analytics.impact_evaluation_revision (
         AND length(btrim(reason_detail)) > 0
       )
     ),
+    CHECK ((measurement_unit = 'currency') = (measurement_currency IS NOT NULL)),
     CHECK (
       (revision_no = 1 AND supersedes_impact_evaluation_revision_id IS NULL)
       OR (revision_no > 1 AND supersedes_impact_evaluation_revision_id IS NOT NULL)
@@ -591,6 +594,7 @@ BEGIN
          OR NOT (quality.pit_quality_class = ANY(rule.allowed_pit_classes))
          OR quality.known_at > information_set.system_known_cutoff
          OR fact.unit IS DISTINCT FROM evaluation.measurement_unit
+         OR fact.currency IS DISTINCT FROM evaluation.measurement_currency
          OR fact.available_at > information_set.source_available_cutoff
          OR fact.known_at > information_set.system_known_cutoff
        )
@@ -652,8 +656,10 @@ BEGIN
     RAISE EXCEPTION 'evaluation measurement does not equal the executable comparison result';
   END IF;
   IF rule.output_unit IS DISTINCT FROM evaluation.measurement_unit
-     OR p_exposure_unit IS DISTINCT FROM evaluation.measurement_unit THEN
-    RAISE EXCEPTION 'exposure, evaluation, and rule units must match';
+     OR rule.output_currency IS DISTINCT FROM evaluation.measurement_currency
+     OR p_exposure_unit IS DISTINCT FROM
+        coalesce(evaluation.measurement_currency, evaluation.measurement_unit) THEN
+    RAISE EXCEPTION 'exposure, evaluation, and rule unit/currency must match';
   END IF;
 END
 $basis_guard$;

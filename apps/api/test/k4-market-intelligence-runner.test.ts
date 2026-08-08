@@ -1,0 +1,281 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+import {
+  buildK4RunCutoffs,
+  parseK4MarketIntelligenceArgs,
+} from '../src/analytics/k4-market-intelligence-runner.ts';
+import {
+  loadK4MarketIntelligenceInput,
+  withK4MarketIntelligenceTransaction,
+  type K4QueryClient,
+} from '../src/analytics/k4-market-intelligence-store.ts';
+
+class FakeClient implements K4QueryClient {
+  readonly calls: Array<{ sql: string; params: readonly unknown[] }> = [];
+  private readonly responder: (
+    sql: string,
+    params: readonly unknown[],
+  ) => Array<Record<string, unknown>>;
+
+  constructor(
+    responder: (
+      sql: string,
+      params: readonly unknown[],
+    ) => Array<Record<string, unknown>> = () => [],
+  ) {
+    this.responder = responder;
+  }
+
+  async query(sql: string, params: readonly unknown[] = []) {
+    this.calls.push({ sql, params });
+    return { rows: this.responder(sql, params) };
+  }
+}
+
+describe('K4 market-intelligence CLI', () => {
+  it('defaults to a read-only seven-cutoff replay selection', () => {
+    const args = parseK4MarketIntelligenceArgs(['--from', '2026-08-02', '--to', '2026-08-08']);
+    assert.deepEqual(args, {
+      mode: 'dry-run',
+      runKind: 'replay',
+      from: '2026-08-02',
+      to: '2026-08-08',
+      kstCutoffTime: '23:59:59.999',
+      securityLimit: 10,
+    });
+    assert.equal(buildK4RunCutoffs(args).length, 7);
+  });
+
+  it('accepts exactly one write mode and bounded ten-security selection', () => {
+    assert.equal(
+      parseK4MarketIntelligenceArgs([
+        '--from',
+        '2026-08-02',
+        '--to',
+        '2026-08-08',
+        '--rehearse',
+        '--security-limit',
+        '10',
+      ]).mode,
+      'rehearse',
+    );
+    assert.throws(
+      () =>
+        parseK4MarketIntelligenceArgs([
+          '--from',
+          '2026-08-02',
+          '--to',
+          '2026-08-08',
+          '--rehearse',
+          '--apply',
+        ]),
+      /mode/i,
+    );
+    assert.throws(
+      () =>
+        parseK4MarketIntelligenceArgs([
+          '--from',
+          '2026-08-02',
+          '--to',
+          '2026-08-08',
+          '--security-limit',
+          '9',
+        ]),
+      /exactly 10/i,
+    );
+  });
+
+  it('requires canary to be explicit, single-cutoff, and independently applied', () => {
+    const args = parseK4MarketIntelligenceArgs([
+      '--canary',
+      '--cutoff',
+      '2026-08-09T12:00:00.000Z',
+      '--apply',
+    ]);
+    assert.equal(args.runKind, 'canary');
+    assert.deepEqual(buildK4RunCutoffs(args), ['2026-08-09T12:00:00.000Z']);
+    assert.throws(
+      () => parseK4MarketIntelligenceArgs(['--canary', '--cutoff', cutoff(), '--rehearse']),
+      /canary.*apply/i,
+    );
+    assert.throws(
+      () =>
+        parseK4MarketIntelligenceArgs([
+          '--canary',
+          '--cutoff',
+          cutoff(),
+          '--from',
+          '2026-08-02',
+          '--apply',
+        ]),
+      /canary.*range/i,
+    );
+  });
+});
+
+function cutoff() {
+  return '2026-08-09T12:00:00.000Z';
+}
+
+describe('K4 market-intelligence write transaction', () => {
+  it('locks the exact cutoff before work and commits apply', async () => {
+    const client = new FakeClient();
+    const result = await withK4MarketIntelligenceTransaction(
+      client,
+      { mode: 'apply', cutoff: cutoff() },
+      async () => 'done',
+    );
+    assert.equal(result, 'done');
+    assert.deepEqual(
+      client.calls.map((call) => call.sql.replaceAll(/\s+/g, ' ').trim()),
+      ['BEGIN', 'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', 'COMMIT'],
+    );
+    assert.deepEqual(client.calls[1]?.params, [`k4-market-intelligence:${cutoff()}`]);
+  });
+
+  it('rolls back rehearsal and failures without committing', async () => {
+    const rehearsal = new FakeClient();
+    await withK4MarketIntelligenceTransaction(
+      rehearsal,
+      { mode: 'rehearse', cutoff: cutoff() },
+      async () => undefined,
+    );
+    assert.equal(rehearsal.calls.at(-1)?.sql, 'ROLLBACK');
+
+    const failed = new FakeClient();
+    await assert.rejects(
+      withK4MarketIntelligenceTransaction(failed, { mode: 'apply', cutoff: cutoff() }, async () => {
+        throw new Error('boom');
+      }),
+      /boom/,
+    );
+    assert.equal(failed.calls.at(-1)?.sql, 'ROLLBACK');
+    assert.equal(
+      failed.calls.some((call) => call.sql === 'COMMIT'),
+      false,
+    );
+  });
+});
+
+describe('K4 cutoff-scoped canonical input loading', () => {
+  it('reconstructs ten-security coverage while admitting only cutoff-valid issuer rules', async () => {
+    const client = new FakeClient((sql) => {
+      if (sql.includes('k4_semantic_snapshot')) {
+        return [{ semantic_snapshot_id: 'snapshot-before-cutoff' }];
+      }
+      if (sql.includes('k4_security_universe')) {
+        return Array.from({ length: 10 }, (_, index) => ({
+          security_entity_id: index + 1,
+          issuer_entity_id: index + 101,
+          security_issuer_identity_id: index + 201,
+          sector_playbook_id: 10,
+        }));
+      }
+      if (sql.includes('k4_measurement_rules')) {
+        return [
+          {
+            security_entity_id: 1,
+            issuer_entity_id: 101,
+            sector_playbook_id: 10,
+            business_driver_id: 20,
+            business_driver_measurement_rule_id: 30,
+            driver_key: 'inventory_position',
+            rule_key: 'inventory_yoy',
+            comparison_method: 'period_end_year_over_year_delta',
+            output_unit: 'currency',
+            output_currency: 'USD',
+            input_concept_selectors: [
+              { concept_namespace: 'us-gaap', concept_keys: ['InventoryNet'] },
+            ],
+            direction_policy: { positive: 'negative', negative: 'positive', zero: 'ambiguous' },
+            materiality_policy: { method: 'absolute_change_over_prior_absolute' },
+            minimum_history_observations: 2,
+            allowed_pit_classes: ['PIT_B_VERSIONED_ARTIFACT'],
+            horizon: 'short',
+          },
+        ];
+      }
+      if (sql.includes('k4_numeric_facts')) {
+        return [
+          {
+            numeric_fact_id: 1,
+            entity_id: 101,
+            concept_namespace: 'us-gaap',
+            concept_key: 'InventoryNet',
+            value: '120',
+            unit: 'currency',
+            currency: 'USD',
+            instant_at: '2025-12-31T23:59:59.999Z',
+            period_start: null,
+            period_end: null,
+            source_revision_id: 1001,
+            source_pit_quality_id: 2001,
+            pit_quality_class: 'PIT_B_VERSIONED_ARTIFACT',
+            available_at: '2026-08-01T12:00:00.000Z',
+            known_at: '2026-08-01T12:01:00.000Z',
+            original_cell_or_xbrl_locator: { accession: 'a1' },
+          },
+          {
+            numeric_fact_id: 2,
+            entity_id: 101,
+            concept_namespace: 'us-gaap',
+            concept_key: 'InventoryNet',
+            value: '100',
+            unit: 'currency',
+            currency: 'USD',
+            instant_at: '2024-12-31T23:59:59.999Z',
+            period_start: null,
+            period_end: null,
+            source_revision_id: 1002,
+            source_pit_quality_id: 2001,
+            pit_quality_class: 'PIT_B_VERSIONED_ARTIFACT',
+            available_at: '2026-08-01T12:00:00.000Z',
+            known_at: '2026-08-01T12:01:00.000Z',
+            original_cell_or_xbrl_locator: { accession: 'a0' },
+          },
+        ];
+      }
+      if (sql.includes('k4_expectations')) return [];
+      throw new Error(`unexpected query: ${sql}`);
+    });
+
+    const input = await loadK4MarketIntelligenceInput(client, {
+      cutoff: '2026-08-08T14:59:59.999Z',
+      securityLimit: 10,
+    });
+    assert.equal(input.securities.length, 10);
+    assert.equal(input.rules.length, 1);
+    assert.equal(input.facts.length, 2);
+    assert.equal(input.expectations.length, 0);
+    assert.match(input.informationSet.informationSetId, /^k4:/);
+    assert.equal(input.informationSet.validCutoff, '2026-08-08T14:59:59.999Z');
+    assert.equal(input.facts[0]?.sourcePitQualityId, 2001);
+    const sql = client.calls.map((call) => call.sql).join('\n');
+    assert.match(sql, /legacy_security_assignment/);
+    assert.match(sql, /issuer_assignment/);
+    assert.match(sql, /candidate\.known_at <= \$1::timestamptz/);
+    assert.doesNotMatch(sql, /market\.financial_fact/);
+    assert.equal(
+      client.calls.every(
+        (call) => call.params.length === 0 || call.params[0] === input.informationSet.validCutoff,
+      ),
+      true,
+    );
+  });
+
+  it('fails closed when no sealed semantic snapshot existed by the cutoff', async () => {
+    const client = new FakeClient((sql) => {
+      if (sql.includes('k4_semantic_snapshot')) return [];
+      throw new Error('loader continued after missing semantic snapshot');
+    });
+    await assert.rejects(
+      loadK4MarketIntelligenceInput(client, {
+        cutoff: '2026-08-02T14:59:59.999Z',
+        securityLimit: 10,
+      }),
+      /semantic snapshot.*cutoff/i,
+    );
+    assert.equal(client.calls.length, 1);
+  });
+});

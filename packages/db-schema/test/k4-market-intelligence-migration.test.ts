@@ -100,6 +100,7 @@ describe('088 issuer playbook and executable measurement rules', () => {
       'input_concept_selectors',
       'comparison_method',
       'output_unit',
+      'output_currency',
       'direction_policy',
       'materiality_policy',
       'minimum_history_observations',
@@ -207,7 +208,15 @@ describe('089 append-only K4 market-intelligence ledgers', () => {
       /pit_quality_class NOT IN \(\s*'PIT_A_NATIVE_VINTAGE','PIT_B_VERSIONED_ARTIFACT','PIT_C_OUR_ARCHIVE'/,
     );
     assert.match(ledgerSource, /fact\.unit IS DISTINCT FROM evaluation\.measurement_unit/);
-    assert.match(ledgerSource, /p_exposure_unit IS DISTINCT FROM evaluation\.measurement_unit/);
+    assert.match(ledgerSource, /fact\.currency IS DISTINCT FROM evaluation\.measurement_currency/);
+    assert.match(
+      ledgerSource,
+      /rule\.output_currency IS DISTINCT FROM evaluation\.measurement_currency/,
+    );
+    assert.match(
+      ledgerSource,
+      /p_exposure_unit IS DISTINCT FROM\s+coalesce\(evaluation\.measurement_currency,\s*evaluation\.measurement_unit\)/,
+    );
     assert.match(ledgerSource, /v_component_count <> 8/);
     assert.match(ledgerSource, /count\(DISTINCT evidence\.numeric_fact_id\)/);
   });

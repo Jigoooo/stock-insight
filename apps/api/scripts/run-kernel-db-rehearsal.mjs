@@ -220,6 +220,7 @@ try {
       concept_key TEXT NOT NULL,
       value NUMERIC NOT NULL,
       unit TEXT NOT NULL,
+      currency TEXT,
       period_start DATE,
       period_end DATE,
       instant_at TIMESTAMPTZ,
@@ -228,10 +229,10 @@ try {
       known_at TIMESTAMPTZ NOT NULL
     );
     INSERT INTO world.numeric_fact
-      (fact_key, entity_id, concept_namespace, concept_key, value, unit,
+      (fact_key, entity_id, concept_namespace, concept_key, value, unit, currency,
        period_start, period_end, instant_at, source_revision_id, available_at, known_at)
     SELECT fixture.fact_key, fixture.entity_id, fixture.concept_namespace,
-           fixture.concept_key, fixture.value, 'USD', fixture.period_start,
+           fixture.concept_key, fixture.value, 'currency', 'USD', fixture.period_start,
            fixture.period_end, fixture.instant_at, revision.source_revision_id,
            TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z'
       FROM (VALUES
@@ -642,13 +643,13 @@ try {
     target.query(
       `INSERT INTO governance.business_driver_measurement_rule (
          business_driver_id, rule_key, revision_no, input_concept_selectors,
-         comparison_method, output_unit, direction_policy, materiality_policy,
+         comparison_method, output_unit, output_currency, direction_policy, materiality_policy,
          minimum_history_observations, allowed_pit_classes,
          score_component_formula_inputs, effective_from, known_at,
          supersedes_business_driver_measurement_rule_id, authored_by, metadata
        )
        SELECT business_driver_id, rule_key, 2, input_concept_selectors,
-              comparison_method, output_unit, direction_policy, materiality_policy,
+              comparison_method, output_unit, output_currency, direction_policy, materiality_policy,
               minimum_history_observations, allowed_pit_classes,
               score_component_formula_inputs, TIMESTAMPTZ '2026-08-01Z', $2,
               $1, 'rehearsal', metadata
@@ -711,9 +712,9 @@ try {
   const pitDFact = (
     await target.query(
       `INSERT INTO world.numeric_fact
-         (fact_key, entity_id, concept_namespace, concept_key, value, unit,
+         (fact_key, entity_id, concept_namespace, concept_key, value, unit, currency,
           instant_at, source_revision_id, available_at, known_at)
-       VALUES ('pit-d-current', 1, 'us-gaap', 'InventoryNet', 130, 'USD',
+       VALUES ('pit-d-current', 1, 'us-gaap', 'InventoryNet', 130, 'currency', 'USD',
                TIMESTAMPTZ '2026-06-30Z', $1,
                TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z')
        RETURNING numeric_fact_id`,
@@ -756,7 +757,8 @@ try {
       ruleId: measurement.business_driver_measurement_rule_id,
       informationSetId: 'ais-k4',
       derivationId: 1,
-      unit: 'USD',
+      unit: 'currency',
+      currency: 'USD',
       ...overrides,
     };
     return (
@@ -765,10 +767,10 @@ try {
            evaluation_key, revision_no, security_entity_id, issuer_entity_id,
            security_issuer_identity_id, sector_playbook_id, business_driver_id,
            business_driver_measurement_rule_id, information_set_id, derivation_id,
-           evaluation_disposition, measurement_value, measurement_unit,
+           evaluation_disposition, measurement_value, measurement_unit, measurement_currency,
            direction, materiality, impact_exposure_revision_id
          ) VALUES ($1, 1, $2, $3, $4, $5, $6, $7, $8, $9,
-                   'accepted', 20, $10, 'negative', 0.2, $11)
+                   'accepted', 20, $10, $11, 'negative', 0.2, $12)
          RETURNING impact_evaluation_revision_id`,
         [
           key,
@@ -781,6 +783,7 @@ try {
           options.informationSetId,
           options.derivationId,
           options.unit,
+          options.currency,
           exposure,
         ],
       )
@@ -947,7 +950,7 @@ try {
   try {
     const exposure = await insertExposure('k4-unit-mismatch', { unit: 'KRW' });
     const evaluation = await insertAcceptedEvaluation('k4-unit-mismatch-evaluation', exposure, {
-      unit: 'KRW',
+      currency: 'KRW',
     });
     await addEvidence(evaluation, numericFacts.get('valid-comparison'), pitC, 'comparison');
     await addEvidence(evaluation, numericFacts.get('valid-current'), pitC, 'current');

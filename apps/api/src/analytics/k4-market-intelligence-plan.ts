@@ -38,6 +38,7 @@ export type K4InformationSetInput = {
   sourceAvailableCutoff: string;
   systemKnownCutoff: string;
   marketObservationCutoff: string;
+  semanticSnapshotId?: string;
 };
 
 export type K4SecurityInput = {
@@ -64,6 +65,7 @@ export type K4RuleInput = {
   ruleKey: string;
   comparisonMethod: 'period_end_year_over_year_delta' | 'duration_year_over_year_delta';
   outputUnit: string;
+  outputCurrency: string | null;
   inputConceptSelectors: readonly {
     conceptNamespace: string;
     conceptKeys: readonly string[];
@@ -110,6 +112,8 @@ export type K4ExpectationInput = {
   availableAt: string;
   knownAt: string;
   derivationKey: string;
+  expectationRevisionId?: number;
+  sourceRevisionId?: number | null;
 };
 
 export type K4MarketIntelligenceInput = {
@@ -147,6 +151,7 @@ type EvaluationPlan = {
   reasonDetail: string | null;
   measurementValue: number | null;
   measurementUnit: string | null;
+  measurementCurrency: string | null;
   direction: Direction | null;
   materiality: number | null;
   evidence: EvidencePlan[];
@@ -358,6 +363,7 @@ function rejection(
     reasonDetail,
     measurementValue: null,
     measurementUnit: null,
+    measurementCurrency: null,
     direction: null,
     materiality: null,
     evidence: [],
@@ -379,7 +385,7 @@ function planSurprises(input: K4MarketIntelligenceInput): SurprisePlan[] {
         fact.entityId === expectation.issuerEntityId &&
         fact.conceptNamespace === expectation.conceptNamespace &&
         fact.conceptKey === expectation.conceptKey &&
-        fact.unit === expectation.expectedUnit &&
+        (fact.currency ?? fact.unit) === expectation.expectedUnit &&
         periodIdentity(fact) === expectationPeriod(expectation),
     );
     if (!actual) continue;
@@ -534,7 +540,8 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
       if (
         current.unit !== comparison.unit ||
         current.unit !== measurementRule.outputUnit ||
-        current.currency !== comparison.currency
+        current.currency !== comparison.currency ||
+        current.currency !== measurementRule.outputCurrency
       ) {
         evaluations.push(
           rejection(
@@ -594,6 +601,7 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
         reasonDetail: null,
         measurementValue,
         measurementUnit: measurementRule.outputUnit,
+        measurementCurrency: measurementRule.outputCurrency,
         direction,
         materiality,
         evidence,
@@ -615,7 +623,7 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
         eventKey,
         shockType: 'measured_driver_change',
         magnitude: measurementValue,
-        magnitudeUnit: measurementRule.outputUnit,
+        magnitudeUnit: measurementRule.outputCurrency ?? measurementRule.outputUnit,
         availableAt: current.availableAt,
         knownAt: current.knownAt,
       });
@@ -631,7 +639,7 @@ export function planK4MarketIntelligence(input: K4MarketIntelligenceInput) {
         sign: direction,
         horizon: measurementRule.horizon,
         economicMagnitude: measurementValue,
-        economicMagnitudeUnit: measurementRule.outputUnit,
+        economicMagnitudeUnit: measurementRule.outputCurrency ?? measurementRule.outputUnit,
         materiality,
         uncertainty: 1 - confidence,
         epistemicConfidence: confidence,
