@@ -393,3 +393,76 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 *최종 갱신: **P0~P5 전부 완료.** K0+K1+K5 라이브 적용 완료.*
 *🔴 미해결(범위 밖): 브레인 크래시루프 — 마이그레이션 074 의 재핀 누락 + Timescale 청크 드리프트.*
 *다음 세션: (1) 브레인 복구 결정 (2) K2 Truth Foundation*
+
+---
+
+## K2-b — numeric_fact writer (완료, 라이브 미적용)
+
+커밋 `2219848`(순수 매핑) · `d8a5bfe`(계획 모듈) · `20dea52`(조사 기록) · `e1238ac`(러너).
+게이트 전부 통과: format · lint · typecheck · test(10/10 태스크, api 951건) · build(7/7).
+
+### 산출
+
+| 파일 | 역할 |
+| --- | --- |
+| `apps/api/src/backfill/dart-numeric-fact.ts` | 순수 매핑 — 기간·개념·셀 주소·시간축 |
+| `apps/api/src/backfill/dart-numeric-fact-plan.ts` | 순수 계획 — fact/definition 행, revision 배정, 패리티 |
+| `apps/api/src/backfill/run-dart-numeric-fact.ts` | I/O 만 |
+| `apps/api/scripts/run_market_enrichment.sh` | DART 단계 뒤에 배선 |
+| 테스트 3개 | 64건 |
+
+`pnpm --filter @stock-insight/api backfill:dart-numeric-fact:dry-run` / `:apply`
+
+### dry-run 실측 (2026-08-08, 라이브 읽기 전용)
+
+```
+신고 1,362건 · 발행사 86 · fact 168,417 · definition 6,100 · 정정 0
+패리티 11,139건 비교 → 전부 일치, 불일치 0
+```
+
+### dry-run 이 잡아낸 결함 셋
+
+정적 테스트가 못 잡고 실 데이터가 잡았다. 셋 다 고쳤고 회귀 테스트를 붙였다.
+
+1. **정정 1,005건이 가짜였다.** 같은 신고서가 손익계산서와 포괄손익계산서에 같은
+   `ProfitLoss` 를 같은 값으로 싣는다. `restatement_group_key` 에 명세서 구분을 넣었다.
+2. **남은 599건도 가짜였다.** 비표준 계정의 한국어 이름이 한 명세서 안에서 유일하지
+   않다. 충당부채가 ord 40 에 12.9억, ord 51 에 830억(유동/비유동). 549건은 값도 다르다.
+   비표준 계정에만 `statementOrdinal` 차원을 넣었다.
+3. **패리티가 0건 비교였다.** `date` 를 JS `Date` 로 받아 `toISOString()` 하면 UTC 동쪽
+   시간대에서 하루가 밀린다. SQL 에서 `to_char` 로 뽑는다.
+
+### 정본 대비 판단
+
+| 판단 | 분류 | 근거 |
+| --- | --- | --- |
+| numeric_fact 를 raw object 에서 채움 | **A** | K2 조사 결론 그대로 |
+| `market.financial_fact` 재사용 안 함 | **A** | 접힌 표로는 definition registry 를 못 만든다 |
+| `available_at` 을 `rcept_no` 에서 도출 | **B** | `source_revision.available_at` 은 수집 시각. 그대로 쓰면 컬럼이 무의미 |
+| 결산월을 profile snapshot 에서 읽음 | **A** | `public` 은 우리 소유 스키마가 아니다 |
+| 정정 그룹에 명세서 구분 추가 | **B** | 실 데이터가 가짜 정정 988건을 만들었다 |
+| 비표준 계정에 ordinal 차원 추가 | **B** | 실 데이터가 서로 다른 항목 599쌍을 합쳤다 |
+| 분기 CF/SCE 거부 | **A** | 실측: 111,935행 중 누적 필드 보유 0건 |
+| `run_market_enrichment.sh` 에 배선 | **A** | 일회성 백필이 아니다. `job-wiring-inventory` 가 강제 |
+
+### 다음이 알아야 할 것
+
+- **084 가 라이브에 미적용이다.** `schema:status` pending = `084_metric_definition_registry`
+  하나. 러너는 `governance.metric_definition` 에 쓰므로 084 적용이 선행돼야 한다.
+  파이프라인에 배선해 뒀으니 **084 없이 병합하면 매 실행 실패한다** — 병합과 084 적용은
+  같은 착지에서 함께 해야 한다.
+- 첫 `--apply` 는 168,417행 단일 트랜잭션이다. 이후 실행은 fact_key 로 멱등이라 작다.
+- `world.numeric_fact` 현재 0행. `governance.metric_definition` 은 표 자체가 없다.
+- 기존 `periodEndFor`(run-dart-financial-facts.ts)는 12월 결산을 하드코딩하고
+  `_fiscalClose` 를 안 쓴다. 지금은 194/194 가 12월이라 무해. K2 범위 밖 — 고치지 않았다.
+
+### 남은 K2
+
+| # | 작업 | 상태 |
+| --- | --- | --- |
+| K2-a | metric_definition 레지스트리 | 마이그레이션 084 작성 완료, **라이브 미적용** |
+| K2-b | numeric_fact writer | **완료**, 라이브 미적용 |
+| K2-c | `core.economic_claim` | 미착수 |
+| K2-d | corporate action 백필 | 미착수 (원천 미확인) |
+| K2-e | truth_class 메타데이터 | 미착수 |
+| K2-f | assertion writer | **차단** — 계보 스택 연결이 별도 슬라이스 |
