@@ -161,7 +161,7 @@ describe('v3 research workspace structure', () => {
       '종목',
       '테마·관계',
       '내 리서치',
-      '판단 이력',
+      '판단 복기',
       '데이터 상태',
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
@@ -353,10 +353,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /api\.decisionHistory\(\{ cursor, limit: 30 \}\)/);
     assert.match(page, /data-testid="radar-load-more"/);
     assert.match(page, /data-testid="history-load-more"/);
-    assert.match(page, /data\.items\.length\}건 표시 · 전체/);
-    assert.match(historySource, /<Timeline ref=\{ledgerRef\}/);
-    assert.match(historySource, /<li[\s\S]*?data-append-key=\{item\.historyId\}/);
-    assert.doesNotMatch(historySource, /<Timeline[\s\S]*?<div\s+key=\{item\.historyId\}/);
+    assert.match(historySource, /현재 \{data\.items\.length\}건 불러옴/);
+    assert.match(historySource, /<ul className=\{styles\.itemList\}>/);
+    assert.match(historySource, /<li data-append-key=\{item\.historyId\}/);
+    assert.doesNotMatch(historySource, /전체 \{data\.scopeTotal\}건/);
   });
 
   it('keeps status counts separate from honest availability and limitation detail', () => {

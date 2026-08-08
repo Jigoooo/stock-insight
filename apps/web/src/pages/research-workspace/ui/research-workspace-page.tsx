@@ -17,6 +17,7 @@ import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
+import { buildHistoryBriefingModel, type HistoryBriefingModel } from '../model/history-briefing';
 import {
   buildMarketConnectionsModel,
   type MarketConnectionLoader,
@@ -130,6 +131,7 @@ type ResearchWorkspacePageProps = {
   loadMarketConnectionDetail?: MarketConnectionLoader;
   loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
   loadStockBriefingDetail?: StockBriefingLoader;
+  historyBriefing?: HistoryBriefingModel;
   marketConnections?: MarketConnectionsModel;
   stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
@@ -184,6 +186,7 @@ export function ResearchWorkspacePage({
   loadMarketConnectionDetail,
   loadResearchRecord,
   loadStockBriefingDetail,
+  historyBriefing,
   marketConnections,
   stocksBriefing,
   navigationMode = 'route',
@@ -455,6 +458,13 @@ export function ResearchWorkspacePage({
   const visibleHistoryPage =
     historyPaginationValue?.page ?? (data.view === 'history' ? data.history : null);
   const visibleHistoryPageState = historyPaginationValue?.state ?? 'ready';
+  const visibleHistoryBriefing = useMemo(
+    () =>
+      visibleHistoryPage
+        ? (historyBriefing ?? buildHistoryBriefingModel(visibleHistoryPage))
+        : null,
+    [historyBriefing, visibleHistoryPage],
+  );
   const visibleDetail = detail ?? (data.view === 'today' ? data.defaultRecord : null);
   const visibleThemeRelation =
     themeRelation !== undefined ? themeRelation : data.view === 'themes' ? data.relation : null;
@@ -792,8 +802,9 @@ export function ResearchWorkspacePage({
       {section === 'research' && data.view === 'research' && (
         <MyResearchView data={data.myResearch} personalization={data.personalization} />
       )}
-      {section === 'history' && data.view === 'history' && (
+      {section === 'history' && data.view === 'history' && visibleHistoryBriefing && (
         <HistoryView
+          briefing={visibleHistoryBriefing}
           data={visibleHistoryPage ?? data.history}
           interactive={hydrated}
           pageState={visibleHistoryPageState}

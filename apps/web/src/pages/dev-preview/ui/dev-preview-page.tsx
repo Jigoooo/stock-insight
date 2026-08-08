@@ -154,6 +154,7 @@ export function DevPreviewPage(props: DevPreviewPageProps) {
         <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
         <ResearchWorkspacePage
           data={preview.data}
+          historyBriefing={preview.briefing}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}

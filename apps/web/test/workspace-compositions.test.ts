@@ -6,6 +6,8 @@ import { createElement, type ComponentProps, type ComponentType, type ReactNode 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer } from 'vite';
 
+import type { HistoryBriefingModel } from '../src/pages/research-workspace/model/history-briefing.ts';
+
 const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), 'utf8');
 const webRoot = fileURLToPath(new URL('..', import.meta.url));
 
@@ -58,37 +60,63 @@ describe('workspace compositions', () => {
     }
   });
 
-  it('renders empty decision history outside the ordered timeline and populated rows as li', async () => {
-    const { HistoryRows } = await loadWorkspaceModule<{
-      HistoryRows: ComponentType<{ items: Array<Record<string, unknown>> }>;
+  it('renders empty history outside the ordered list and populated briefing entries as li', async () => {
+    const { HistoryBriefingContent } = await loadWorkspaceModule<{
+      HistoryBriefingContent: ComponentType<{
+        briefing: HistoryBriefingModel;
+        interactive: boolean;
+        onSelectHistory: () => void;
+      }>;
     }>('/src/pages/research-workspace/ui/views/history-view.tsx');
-    const emptyHtml = renderToStaticMarkup(createElement(HistoryRows, { items: [] }));
+    const emptyBriefing: HistoryBriefingModel = {
+      summary: {
+        scopeTotal: 0,
+        loadedDueCount: 0,
+        loadedObservationCount: 0,
+        generatedAt: '2026-07-16T14:01:00.000Z',
+      },
+      priorityJudgments: [],
+      activeJudgments: [],
+      observations: [],
+      pastEntries: [],
+    };
+    const observation = {
+      createdAt: '2026-07-16T14:01:00.000Z',
+      entityKey: 'KR:005930',
+      entryType: 'alert_review' as const,
+      evidenceCount: 2,
+      historyId: '5010c1ac-e77c-8986-a31e-5cca7c402bf2',
+      kind: 'observation' as const,
+      occurredAt: '2026-07-16T14:00:00.000Z',
+      reviewDueAt: null,
+      sourceKind: 'user_alert_events',
+      sourceRef: 'portfolio-alert:feed:580',
+      status: 'open' as const,
+      thesis: '판단 조건을 다시 확인',
+      title: '삼성전자 경보 검토',
+    };
+    const emptyHtml = renderToStaticMarkup(
+      createElement(HistoryBriefingContent, {
+        briefing: emptyBriefing,
+        interactive: true,
+        onSelectHistory: () => undefined,
+      }),
+    );
     const populatedHtml = renderToStaticMarkup(
-      createElement(HistoryRows, {
-        items: [
-          {
-            adviceProhibited: true,
-            createdAt: '2026-07-16T14:01:00.000Z',
-            entityKey: 'KR:005930',
-            entryType: 'alert_review',
-            evidenceCount: 2,
-            historyId: '5010c1ac-e77c-8986-a31e-5cca7c402bf2',
-            market: 'KR',
-            occurredAt: '2026-07-16T14:00:00.000Z',
-            reviewDueAt: null,
-            sourceKind: 'user_alert_events',
-            sourceRef: 'portfolio-alert:feed:580',
-            status: 'open',
-            thesis: '판단 조건을 다시 확인',
-            title: '삼성전자 경보 검토',
-          },
-        ],
+      createElement(HistoryBriefingContent, {
+        briefing: {
+          ...emptyBriefing,
+          summary: { ...emptyBriefing.summary, scopeTotal: 1, loadedObservationCount: 1 },
+          observations: [observation],
+        },
+        interactive: true,
+        onSelectHistory: () => undefined,
       }),
     );
 
-    assert.match(emptyHtml, /아직 남긴 판단이 없습니다/);
-    assert.doesNotMatch(emptyHtml, /<ol\b/);
-    assert.match(populatedHtml, /<ol[^>]*><li\b/);
+    assert.match(emptyHtml, /아직 복기 기록이 없습니다/);
+    assert.doesNotMatch(emptyHtml, /<ul\b/);
+    assert.match(populatedHtml, /<ul[^>]*><li\b/);
   });
 
   it('puts table scroll instructions on the actual scroll owner', async () => {
