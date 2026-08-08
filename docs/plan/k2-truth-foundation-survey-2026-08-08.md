@@ -181,14 +181,16 @@ ingestion.raw_object 출처별
 | K2-c | `core.economic_claim` | 착수 가능 |
 | K2-d | `core.security_corporate_action` 채우기 | 조사 필요 (원천 확인 안 함) |
 | K2-e | truth_class 메타데이터 | 착수 가능 |
-| **K2-f** | **assertion writer** | **차단.** 계보 스택 연결이 선행돼야 한다 — 별도 슬라이스 |
+| K2-f | assertion writer | ~~차단~~ → **이 판정은 틀렸다** (문서 상단 §정정 참조). ✅ 완료 253건 |
 
 ---
 
 ## 다음 세션이 알아야 할 것
 
-- `document_chunk.source_revision_id` 는 컬럼만 있고 전부 NULL 이다. 이걸 채우려고
-  하지 마라 — 채울 값이 존재하지 않는다
+- ~~`document_chunk.source_revision_id` 는 컬럼만 있고 전부 NULL 이다. 이걸 채우려고
+  하지 마라 — 채울 값이 존재하지 않는다~~
+  **틀렸다.** 6,113건을 채웠다. 기사 URL 로 이어지고 chunk 본문이 보관 바이트에서
+  정확히 재구성된다. 문서 상단 §정정 참조
 - `knowledge.document` 는 남의 표(`public.source_documents`)에서 동기화된다.
   `run-knowledge-document-sync.ts` 가 그 코드다
 - numeric_fact 는 문서 스택을 **거치지 않는다**. opendart/sec-edgar raw object 를 직접 읽어라

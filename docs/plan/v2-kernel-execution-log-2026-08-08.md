@@ -1,8 +1,94 @@
-# V2 Canonical Kernel 실행 로그 (K0 + K1 + K5)
+# V2 Canonical Kernel 실행 로그 (K0 · K1 · K2 · K3 · K5)
 
-> **이어서 하려면 여기부터 읽어라.** 이 문서는 진행 중 계속 갱신된다.
-> 계획 정본은 [`v2-final-implementation-plan-2026-08-07.md`](./v2-final-implementation-plan-2026-08-07.md),
-> 아키텍처 정본은 [`stock-crypto-investment-context-world-model-v2-final/`](./stock-crypto-investment-context-world-model-v2-final/).
+> **이어서 하려면 이 절만 읽으면 된다.** 아래 본문은 시간순 append 라 **낡은 서술이
+> 정정보다 먼저 나온다.** 본문과 이 절이 어긋나면 **이 절이 맞다.**
+>
+> 계획 정본 [`v2-final-implementation-plan-2026-08-07.md`](./v2-final-implementation-plan-2026-08-07.md) ·
+> 아키텍처 정본 [`stock-crypto-investment-context-world-model-v2-final/`](./stock-crypto-investment-context-world-model-v2-final/)
+
+## ⭐ 현재 상태 (2026-08-08 기준, 이 절이 최종 권위)
+
+### 완료 — 전부 라이브 적용됨
+
+| 단계 | 내용 | 라이브 결과 |
+| --- | --- | --- |
+| **K0** | 결정을 산출물로 (freeze 커밋 · contracts · availability 봉투) | 완료 |
+| **K1** | Canonical Kernel (078–080) | governance 스키마 1 → 13 relation |
+| **K5** | Release / Safety / SLO (081–083) | safety NORMAL · SLO 8개 report-only |
+| **K2-a** | metric definition 레지스트리 (084) | 6,100 |
+| **K2-b** | numeric_fact writer | **168,417** · 패리티 11,139 전건 일치 |
+| **K2-c** | economic_claim (086) | 297 (판정 2 / 미판정 295) |
+| **K2-d** | 청구권 연속성 bridge | 483 (분할 380 / 역분할 103) |
+| **K2-e** | truth class 바인딩 (085) | 340만 항목 해소 |
+| **K2-f** | assertion writer | 첫 적재 **253** · chunk 계보 6,113 → **증가 중** |
+| **K3** | 섹터 playbook (087) | playbook 1 · driver 8 · 배정 10 |
+
+마이그레이션 **087/87 적용, pending 0.** 브레인 healthy · RestartCount 0 ·
+이미지 `sha256:06865eddd8c2…`.
+
+> 위 수치는 **첫 적재 시점**이다. 러너를 전부 파이프라인에 배선했으므로 증분이 계속
+> 붙는다 — 2026-08-08 재확인 시 assertion 253 → **255**, chunk 계보 6,113 → **6,157**
+> 로 늘어 있었다. 배선이 실제로 돌고 있다는 뜻이므로 수치가 커진 것은 정상이다.
+> 줄었거나 그대로면 그때 의심하라.
+>
+> 현재 수치를 직접 세는 쿼리:
+>
+> ```sql
+> SELECT 'numeric_fact', count(*) FROM world.numeric_fact
+> UNION ALL SELECT 'metric_definition', count(*) FROM governance.metric_definition
+> UNION ALL SELECT 'economic_claim', count(*) FROM core.economic_claim
+> UNION ALL SELECT 'corporate_action', count(*) FROM core.security_corporate_action
+> UNION ALL SELECT 'truth_class_binding', count(*) FROM governance.truth_class_binding
+> UNION ALL SELECT 'assertion', count(*) FROM knowledge.assertion
+> UNION ALL SELECT 'chunk lineage', count(*) FROM knowledge.document_chunk
+>          WHERE source_revision_id IS NOT NULL
+> UNION ALL SELECT 'playbook_assignment', count(*) FROM governance.playbook_assignment
+> UNION ALL SELECT 'impact_exposure_revision', count(*) FROM analytics.impact_exposure_revision;
+> ```
+
+### ⚠️ 본문에서 이미 정정된 것 — 낡은 서술을 믿지 마라
+
+| 본문 서술 | 실제 |
+| --- | --- |
+| "K2-f assertion writer **차단**" (§남은 K2, §K2 최종 상태) | **틀렸다.** URL 다리를 안 봤을 뿐이다. §"K2-f — 차단이 아니었다" 참조. 완료됨 |
+| "브레인 크래시루프 미해결" (옛 꼬리말) | 2026-08-08 해소. 재시작 1,357회 → 0 |
+| "다음 세션: 브레인 복구 + K2" (옛 꼬리말) | 둘 다 완료 |
+| `governance.slo_*` 가 정본 이탈 (083 SQL 주석) | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
+
+### 남은 것 — K4 부터
+
+| 단계 | 내용 | 상태 |
+| --- | --- | --- |
+| **K4** | Market Intelligence Minimum | **다음.** 계획서가 "가장 값어치 큼 · 가장 위험" |
+| K6 | Personalization & Geo | 미착수 |
+| K7 | `run-v2-graph-publish.ts` 를 temporal kernel 로 이전 | 미착수 (121KB, 단독 슬라이스) |
+| K8 | Crypto plane | 미착수 |
+
+**K4 는 K3 없이 시작하지 않는다** — 이건 지켜졌다. playbook 이 sign·materiality·
+magnitude 를 공급해야 exposure 를 발명 없이 쓸 수 있고, 그 playbook 이 이제 있다.
+
+K4 착수 시 반드시 아는 상태:
+
+```
+analytics.impact_exposure_revision      0행   ← K4 의 본 과녁
+analytics.impact_shock                  0행
+analytics.impact_score_component        0행
+analytics.impact_path_v2          248,236행   전부 direction='unknown'
+governance.entity_playbook_current_v1   10행   ← K4 가 인용할 것
+governance.business_driver               8행   방향 포함
+```
+
+`run-portfolio-snapshot.ts:18` 이 exposure 채우기를 명시적으로 보류한다 —
+*"filling it would mean inventing sign, materiality and economic magnitude."*
+K4 의 게이트는 **모든 exposure 행이 playbook revision + source-grounded driver 를
+인용**하는 것이다. 인용 없는 행은 INSERT 거부. 단순 `count > 0` 게이트는 쓰지 않는다.
+
+### 아직 충족되지 않은 REQ (충족 *가능*해졌을 뿐)
+
+| REQ | 상태 |
+| --- | --- |
+| `REQ-SEM-010` truth class 를 UI 에서 구분 | 데이터 원천(`content_pack_item_truth_v1`) 생성됨. **UI 가 아직 안 읽는다** — 도달성 감사의 "안 읽히는 뷰" 16개에 있음 |
+| `REQ-DOM-001` KPI 선택이 playbook revision 인용 | 인용 대상 생성됨. **인용을 강제하는 검사 없음** — KPI 선택 코드가 K4 |
 
 ## 어디서 작업 중인가
 
@@ -384,15 +470,100 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 - **worktree 에는 `node_modules` 가 없다.** 새로 만들었으면 `pnpm install --frozen-lockfile`
   부터 해야 한다. 안 하면 기존 테스트까지 전부 실패해서 원인을 오해하게 된다
-- 리허설 DB admin DSN 은 `apps/api/scripts/run_analytics_pipeline.sh` 의 `DB_URL` 에서
-  database 만 `postgres` 로 바꾸면 된다 (`research_app` 롤이 `createdb=true super=true`)
 - 커밋 전 `pnpm --filter <pkg> format` 을 돌린다. `format:check` 가 게이트다
+
+### DB 접속 — 자격증명은 커밋하지 않는다
+
+라이브 DSN 은 `apps/api/scripts/run_analytics_pipeline.sh` **6행** 에 `DB_URL=` 로 있다.
+
+```bash
+DB_URL=$(sed -n '6s/^DB_URL=//p' apps/api/scripts/run_analytics_pipeline.sh | tr -d '"')
+```
+
+**이 DSN 에는 비밀번호가 없다** — `~/.pgpass` 를 쓴다. 그리고 `.pgpass` 항목이
+`db=research_app` 하나로 고정돼 있어서 **폐기용 DB 이름에는 안 맞는다.** 리허설 하니스에
+넘길 admin DSN 은 호출 시점에 조립한다:
+
+```bash
+export DB_URL
+ADMIN_URL=$(node -e '
+const fs=require("fs");
+const l=fs.readFileSync(process.env.HOME+"/.pgpass","utf8").trim().split("\n")[0].split(":");
+const u=new URL(process.env.DB_URL); u.password=l[4]; u.pathname="/postgres";
+process.stdout.write(u.toString());')
+```
+
+안 하면 `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string` 로 죽는다.
+**`.pgpass` 를 고치지 마라.**
+
+### 리허설 하니스와 필요한 환경변수
+
+| 하니스 | 환경변수 | 무엇을 검증 |
+| --- | --- | --- |
+| `apps/api/scripts/run-kernel-db-rehearsal.mjs` | `KERNEL_REHEARSAL_ADMIN_DATABASE_URL` | 078–087 마이그레이션 SQL |
+| `apps/api/scripts/run-dart-numeric-fact-rehearsal.mjs` | `DART_REHEARSAL_ADMIN_DATABASE_URL` + `DATABASE_URL` | numeric_fact 적재 경로 |
+| `pnpm test:p6:db` | `P6_REHEARSAL_ADMIN_DATABASE_URL` | p6 |
+| `pnpm test:xg:db` | `XG_REHEARSAL_ADMIN_DATABASE_URL` | **리더 권한 회귀** — GRANT 를 바꿨으면 필수 |
+
+`pnpm verify:release` 는 이것들을 포함하므로 환경변수 없이 돌리면 `Invalid URL` 로 죽는다.
+코드 실패가 아니다.
+
+### 러너 규약 — 이 시리즈에서 만든 것들
+
+전부 `dry-run` 기본 · `--rehearse`(쓰고 ROLLBACK) · `--apply`.
+
+```
+backfill:dart-numeric-fact:{dry-run,rehearse,apply}
+backfill:corporate-action-bridge:{dry-run,rehearse,apply}
+backfill:economic-claim:{dry-run,rehearse,apply}
+backfill:news-assertion:{dry-run,rehearse,apply}
+backfill:playbook-assignment:{dry-run,rehearse,apply}
+rehearse:dart-numeric-fact:db
+```
+
+**새 러너를 만들면 반드시 파이프라인에 배선한다.** `job-wiring-inventory` 테스트가
+배선 안 된 잡을 잡는다. 일회성 백필이면 그 테스트의 면제 목록에 이유와 함께 넣는다.
+
+파이프라인 단계를 추가하면 `core-identity-sync-runner.test.ts` 의 단계 순서 테스트도
+같이 고쳐야 한다. **명령과 영수증은 인접해야 한다** — 명령 사이에 끼워 넣으면 깨진다.
+
+### 마이그레이션을 추가할 때 — 부팅 다이제스트
+
+`apps/api-server/src/db/live-database-guard.ts` 의 `EXPECTED_CATALOG_DIGESTS` 는 소스에
+하드코딩된 상수다. **앱 롤(`stock_insight_app_reader`/`_writer`)에 GRANT 하면 다이제스트가
+움직이고 다음 부팅에 브레인이 죽는다.** 2026-08-03 에 059 가, 2026-08-07 에 074 가 그렇게
+했다(후자는 24시간 크래시루프).
+
+절차:
+
+```bash
+# 1. 적용 후 지체 없이
+DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
+# 2. 움직인 다이제스트를 내 마이그레이션으로 설명할 수 있는지 증명한다.
+#    방법: 내가 추가한 관계만 제외하고 배열을 다시 계산해 이전 핀이 바이트 단위로
+#    재현되는지 본다. 재현되면 설명된 것이고, 아니면 중단한다.
+# 3. 상수 갱신 + apps/api-server/test/live-database-guard.test.ts 픽스처도 함께 갱신
+#    (픽스처는 상수의 문자 그대로 복제다. 실패가 장치다 — import 로 바꾸지 마라)
+# 4. 이미지 빌드 → .env.docker 의 STOCK_INSIGHT_API_IMAGE 갱신 → compose up -d api
+# 5. 부팅 확인
+```
+
+`si_*` 파이프라인 롤에만 GRANT 하면 다이제스트는 안 움직인다 — 078–084·086·087 이 그랬다.
+움직인 것은 085 하나뿐이고 뷰 하나 때문이었다.
+
+### 이 시리즈에서 반복적으로 옳았던 것
+
+- **dry-run 은 어떤 행이 될지만 증명한다.** 문장은 트랜잭션이 열려야 돈다. 트랜잭션 전
+  제약 검사를 넣어라 — 168K 배치 안에서 CHECK 가 깨지면 전체가 롤백되고 한 행만 보고된다.
+  이 검사가 `definition_key` 128자 초과 89건을 잡았다
+- **실 데이터가 정적 테스트보다 많이 잡는다.** 가짜 정정 1,587건, 패리티 날짜 밀림,
+  key 길이 초과, 갱신 불가 writer — 전부 dry-run 이나 조언으로 나왔다
+- **거부를 세어라.** 채울 수 없으면 이유와 함께 세고, 발명하지 마라. 그게 정본이
+  요구하는 정직함이고 다음 사람이 무엇이 없는지 알 수 있는 유일한 방법이다
 
 ---
 
-*최종 갱신: **P0~P5 전부 완료.** K0+K1+K5 라이브 적용 완료.*
-*🔴 미해결(범위 밖): 브레인 크래시루프 — 마이그레이션 074 의 재핀 누락 + Timescale 청크 드리프트.*
-*다음 세션: (1) 브레인 복구 결정 (2) K2 Truth Foundation*
+*이 꼬리말은 P5 시점의 것이고 낡았다. 최신 상태는 문서 맨 위 **⭐ 현재 상태** 를 보라.*
 
 ---
 
@@ -465,7 +636,7 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | K2-c | `core.economic_claim` | 미착수 |
 | K2-d | corporate action 백필 | 미착수 (원천 미확인) |
 | K2-e | truth_class 메타데이터 | 미착수 |
-| K2-f | assertion writer | **차단** — 계보 스택 연결이 별도 슬라이스 |
+| K2-f | assertion writer | ~~차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
 
 ### 적재 경로 실증 (커밋 `b0e5d10`)
 
@@ -618,9 +789,13 @@ run-table-reachability-audit 안 읽히는 뷰 16개 보고
 | K2-c | economic_claim (086) | ✅ 라이브, 297건 (판정 2) |
 | K2-d | 연속성 bridge | ✅ 라이브, 483건 |
 | K2-e | truth class 바인딩 (085) | ✅ 라이브, 340만건 해소 |
-| K2-f | assertion writer | ❌ **차단** — 계보 스택 단절 |
+| K2-f | assertion writer | ~~❌ 차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
 
-### K2-f 를 여는 조건 (다음 세션 입력)
+### ~~K2-f 를 여는 조건~~ — 아래 진단은 틀렸다 (2026-08-08 정정)
+
+> **이 절의 "만족시킬 방법이 없다"는 결론은 틀렸다.** 다리를 두 개만 시도했고
+> 기사 URL 을 안 봤다. §"K2-f — 차단이 아니었다" 를 보라. 아래는 당시 무엇을 믿었는지의
+> 기록으로 남긴다.
 
 `knowledge.document` 7,746행이 전부 `legacy:` 접두이고 원천이 `public.source_documents`
 (남의 표)다. `document_chunk.source_revision_id` 9,041행 전부 NULL 이고 채울 값이 없다.
