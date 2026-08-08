@@ -630,3 +630,59 @@ run-table-reachability-audit 안 읽히는 뷰 16개 보고
 `ingestion` 스택이 수집한 rss-news-bundle raw object 가 `knowledge.document` 가 되게
 하고 레거시는 레거시로 남기는 것. canonical/11 §2 가 *"raw/source revision + PIT quality"*
 다음에 *"event/assertion/conflict"* 를 둔 이유와 같다.
+
+### 착지 후 발견하고 고친 것 둘
+
+**① economic_claim 이 갱신 불가였다** (`30bc2d4`). 첫 판은 열린 claim 이 있는 종목을
+통째로 건너뛰어, 미판정 295행이 영구 동결이었다. `etf:` 문서가 231건이고 계속 느는데
+분류 못 하던 종목에 스냅샷이 도착해도 FUND_UNIT 판정이 버려진다. 쿼리가
+`claim_type_state` 를 SELECT 하고 한 번도 안 읽는 것이 증거였다.
+
+전이를 두 가지로 나눴다. **미판정 → 판정**은 제자리 갱신 — claim 은 안 변했고 우리
+지식이 변했다. 닫고 오늘부터 새 구간을 열면 '오늘 펀드 지분이 됐다'는 거짓이 된다.
+**판정 → 다른 판정**은 보고하고 거부한다. 지금 규칙으로는 나올 수 없고, 나오면 원인이
+상류에 있으며 조용히 덮어쓰는 것이 최악의 대응이다.
+
+라이브 dry-run 이 이제 `unchanged: 297` 로 정직하게 보고한다. UPDATE 는 롤백
+트랜잭션으로 실증했다 — `valid_from` 이 2026-07-06 그대로 유지된다.
+
+**② 재핀 커밋이 테스트를 깨뜨린 채 나갔다** (`ac1f0e5`). `424d2c6` 을 커밋할 때
+`pnpm test` 를 안 돌렸다. `live-database-guard.test.ts` 픽스처가 가드 상수를 문자 그대로
+복제하므로 핀이 움직이면 실패한다. **그게 결함이 아니라 장치다** — 재핀이 아무도 안 본
+채 나가는 것을 막는 마지막 검문이고 이번에 그대로 작동했다. import 로 바꾸지 않는다.
+그러면 항상 통과해 검문이 사라진다.
+
+### 릴리즈 게이트
+
+```
+lint · typecheck · test(10/10) · build(7/7)   통과
+typecheck:p6:fixture · test:design:hard        통과
+test:p6:db · test:xg:db                        통과   ← 리더 권한 리허설
+```
+
+`test:xg:db` 가 085 GRANT 와 직결된다. 브라우저/비주얼 게이트는 실행하지 않았다 —
+구동 중인 앱이 필요하고 이번 변경은 제품 읽기 경로를 건드리지 않는다.
+
+> 두 DB 리허설은 admin DSN 환경변수를 요구한다: `P6_REHEARSAL_ADMIN_DATABASE_URL`,
+> `XG_REHEARSAL_ADMIN_DATABASE_URL`, `KERNEL_REHEARSAL_ADMIN_DATABASE_URL`.
+> 비어 있으면 `Invalid URL` 로 죽는다. `.pgpass` 는 `db=research_app` 하나로 고정돼
+> 있으니 호출 시점에 조립해 넘긴다.
+
+### 제품 읽기 경로 무변경 — 확인
+
+`stock_insight_app_reader` 로 `BEGIN READ ONLY` 상태에서 실측:
+
+```
+serving.content_pack_item          팩 18692(22) · 18691(3) · 18690(15) 정상
+serving.content_pack_item_truth_v1 팩 18692 → HYPOTHESIS 22   (reader 가 읽는다)
+governance.truth_class_binding     has_table_privilege = f    (막혀 있다)
+브레인                              running · healthy · RestartCount=0
+```
+
+설계대로다 — reader 는 해소된 뷰만 보고 바인딩 표는 못 본다.
+
+### 알아둘 것 (지금 고치지 않음)
+
+`run-dart-numeric-fact.ts` 의 `EXISTING_FACTS_SQL` 이 `world.numeric_fact` 전체를 무제한
+읽는다. 오늘 168,417행이면 괜찮지만 DART 수집마다 는다. 멱등 판정에 fact_key 집합이
+필요해서 그런데, 커지면 `source_revision_id` 범위로 좁혀야 한다.
