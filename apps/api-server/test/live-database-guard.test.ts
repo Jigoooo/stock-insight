@@ -19,7 +19,13 @@ const EXPECTED_CATALOG_DIGESTS = {
     // accepts a row matching these values, so a pin that no longer matches the live
     // database passes here and fails only at boot. The check that would have caught
     // it is ops/scripts/repin-live-database-digests.mjs against the live database.
-    relation_privileges_digest: 'ae1c09cdcba0a7b8d2996c10b0674fd4c001906da964be28e6a226bf9a0a9914',
+    // Re-pinned 2026-08-08 by migration 085, which grants the reader SELECT on
+    // serving.content_pack_item_truth_v1 — the one relation REQ-SEM-010 needs a
+    // rendering surface to see. This fixture is a literal mirror of the guard's
+    // constant rather than an import, so moving the pin fails here and forces a
+    // conscious update. That failure is the mechanism, not an inconvenience: it is
+    // the last checkpoint before a re-pin ships without anyone looking at it.
+    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
