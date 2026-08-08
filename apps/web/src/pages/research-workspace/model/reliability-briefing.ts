@@ -137,11 +137,16 @@ function worstLevel(levels: readonly ReliabilityLevel[]): ReliabilityLevel {
 }
 
 function availabilityLimitation(evidence: ReliabilityEvidence): string | null {
+  const objectParticle = /[가-힣]/.test(evidence.label.at(-1) ?? '')
+    ? (evidence.label.at(-1)!.charCodeAt(0) - 0xac00) % 28 === 0
+      ? '를'
+      : '을'
+    : '을';
   switch (evidence.availability) {
     case 'available':
       return null;
     case 'collecting':
-      return `${evidence.label}을 수집하고 있습니다.`;
+      return `${evidence.label}${objectParticle} 수집하고 있습니다.`;
     case 'stale':
       return `${evidence.label}의 최근 확인 시각이 지연되었습니다.`;
     case 'text_only':
@@ -280,7 +285,10 @@ export function buildReliabilityBriefingModel(status: SystemStatus): Reliability
     summary: {
       level: summaryLevel,
       generatedAt: status.generatedAt,
-      headline: summaryHeadline(summaryLevel),
+      headline:
+        status.datasets.length === 0
+          ? '상태 정보 확인 필요 · 현재 판정할 상태 근거가 없습니다.'
+          : summaryHeadline(summaryLevel),
       commonLimitations: commonLimitations(status),
     },
     surfaces,

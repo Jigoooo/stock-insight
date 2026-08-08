@@ -225,7 +225,11 @@ export function DetailInspectorFrame({
             </Button>
           )}
         </DialogHeader>
-        <DialogBody className={bodyClassName} data-inspector-presentation={presentation}>
+        <DialogBody
+          className={bodyClassName}
+          data-inspector-presentation={presentation}
+          tabIndex={0}
+        >
           {children(presentation)}
         </DialogBody>
       </DialogContent>

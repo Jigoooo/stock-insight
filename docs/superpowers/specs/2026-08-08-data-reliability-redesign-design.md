@@ -117,4 +117,3 @@ type ReliabilityBriefingModel = {
 - Focused model tests cover state conversion, worst-state ordering, explicit mapping, unknown keys, incomplete sources, operational common limitations, empty evidence, and forbidden technical/advisory copy.
 - Playwright covers section order, exact selection, drawer geometry, resize memory, modal no-request switching, overlay close-only, exact focus restoration, 1240px stacking, 390px bottom sheet, dark mode, reduced motion, Axe, wrapping, overflow, and all six scenarios.
 - Regress the Today, Stocks, Market Connections, and History inspectors on desktop and mobile.
-

@@ -67,7 +67,6 @@ export function ReliabilityBriefingContent({
               {reliabilityLevelLabels[briefing.summary.level]}
             </strong>
           </span>
-          <ReliabilityLevelBadge level={briefing.summary.level} />
         </div>
         <p>{briefing.summary.headline}</p>
         <span className={styles.generatedAt}>

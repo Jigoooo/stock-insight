@@ -556,6 +556,19 @@
 - `graphify update .` 완료: 9,493 nodes·17,306 edges·637 communities. 기존 graphify skill/package 버전 차이와 SQL parser 미설치 경고는 유지됐으며 ignored graph output은 staging에서 제외한다.
 - Codex controller 인앱 브라우저에서 격리 포트 `16150`의 `default`를 1440×1000과 390×844로 직접 확인했다. desktop은 우선 판단·진행 중 판단의 2열 뒤 자동 관찰·지난 복기가 순서대로 배치되고 body overflow가 0이며, drawer가 원본 기하를 바꾸지 않고 520px로 오버레이됐다. 넓은 modal은 760×760으로 중앙 배치됐고 Escape 종료 후 정확한 opener와 선택이 유지됐다. 모바일 상세는 390px 전체 폭·하단 고정·상단 radius 16px의 bottom sheet였고 horizontal overflow가 0이었다. `partial`은 근거·변화 실패만 국소화했고 `detail-error`는 선택 유지 상태에서 `다시 불러오기` 후 정상 상세로 전환됨을 확인했다.
 
+### 2026-08-08 — 데이터 신뢰도 경험 구현·검증 완료
+
+- 승인 설계는 `docs/superpowers/specs/2026-08-08-data-reliability-redesign-design.md`, 실행 계획은 `docs/superpowers/plans/2026-08-08-data-reliability-redesign.md`이며, 운영형 데이터 표를 `전체 신뢰 상태 → 오늘 → 내 종목 → 시장 연결 → 복기 → 공통 제한 사항` 순서의 사용자 신뢰 브리핑으로 교체했다.
+- 상태 표현은 숫자 점수 없이 `활용 가능 · 일부 제한 · 확인 필요` 세 단계로 고정했다. 응답에 존재하는 명시적 데이터셋만 네 기능에 매핑하고, 알 수 없는 데이터셋과 응답에 없는 항목은 판정에서 제외한다. 멈춤·연속 실패 작업과 수집 커버리지 공백은 기능에 임의 배정하지 않고 공통 제한에만 반영한다.
+- 결정론적 dev preview에 `surface=status`와 `scenario=default|all-ready|stale|source-limited|empty|error`를 추가했다. `empty`는 장애가 아닌 `상태 정보 확인 필요`, `error`는 동일 preview 로더 경계의 재시도 후 정상 상태로 전환된다.
+- 네 기능 카드는 공용 `DetailInspectorFrame`을 사용한다. 데스크톱 420–760px drawer·넓은 modal, 모바일 bottom sheet, overlay·Escape close-only, 정확한 opener 복귀, 독립 width session key, modal 무요청 전환을 유지한다. 상세는 상태 요약·최근 확인 데이터·출처 근거 수준·부족한 범위·주의점 순서이며, 실제 출처명과 URL을 만들지 않는다.
+- TDD와 자동 검증은 focused Node 34/34, Status Playwright desktop/mobile 17건 통과·5건 viewport 조건 skip·0건 실패, resize와 History session 회귀 반복 12/12, Status·Today·Stocks·Market Connections·History 통합 106건 통과·34건 조건 skip·0건 실패를 기록했다. dark mode, reduced motion, Axe, 1240px 적층, 390px bottom sheet, wrapping·overflow, 선택·포커스·overlay·무요청 전환을 포함한다.
+- Codex 인앱 브라우저 격리 포트 `16162`에서 `default`를 1440×1000과 390×844로 확인했다. 데스크톱 카드는 균형 잡힌 2열이고 중복 전체 상태 badge가 없으며 drawer가 원래 화면 기하를 변경하지 않았다. 모바일 카드는 x 12px·폭 366px로 viewport 안에 수용되고 page overflow 0, 상세는 x 0·폭 390px의 하단 bottom sheet로 표시됐다.
+- fresh 전체 gate는 format 1,365개 파일, lint 0 errors(기존 warning 6개), typecheck 11/11 tasks, test 10/10 tasks(web 751/751), build 7/7 tasks를 통과했다. `pnpm verify:release`도 lint·typecheck·P6 fixture typecheck·전체 test·hard design 17/17까지 통과했다.
+- `pnpm verify:release`의 첫 환경 gate는 `test:p6:db`이며 `P6_REHEARSAL_ADMIN_DATABASE_URL` 부재로 `ERR_INVALID_URL` (`input: ''`)에서 중단됐다. `XG_REHEARSAL_ADMIN_DATABASE_URL`과 인증 browser용 `STOCK_INSIGHT_E2E_*` 변수도 모두 없었으며, 실제 DB에는 접근하지 않았다. 이후 XG DB·release build·production/auth browser gate는 이 실행에서 시작되지 않았다.
+- `graphify update .` 완료: 9,580 nodes·17,448 edges·647 communities. 기존 graphify skill/package 버전 차이와 선택 SQL parser 미설치 경고는 유지됐으며 ignored graph output은 staging에서 제외한다.
+- 이번 묶음은 DB, migration, API server, 공개 contract, dependency를 변경하지 않았고 기술 데이터셋명·행 수·작업명·분석 실행 ID를 사용자 화면에 노출하지 않는다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

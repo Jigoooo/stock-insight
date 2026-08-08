@@ -205,6 +205,8 @@ test('clamps and remembers History width under an independent session key', asyn
   await expect(resizer).toHaveAttribute('aria-valuenow', '760');
   await expect.poll(async () => (await inspector.boundingBox())?.width).toBeCloseTo(760, 0);
   await page.keyboard.press('Escape');
+  await expect(inspector).toHaveCount(0);
+  await expect(page.locator('[data-slot="dialog-overlay"]:visible')).toHaveCount(0);
   const { inspector: reopened } = await openHistory(page);
   await expect.poll(async () => (await reopened.boundingBox())?.width).toBeCloseTo(760, 0);
   expect(

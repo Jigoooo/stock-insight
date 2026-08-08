@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import type { DevPreviewPageProps, StocksPreviewScenario } from '../model/dev-preview-request';
 import { resolveHistoryPreview } from '../model/history-preview-fixture';
 import { resolveMarketConnectionsPreview } from '../model/market-connections-preview-fixture';
@@ -146,26 +148,35 @@ const revokePreviewInvitation: RevokeInvitationAction = async () => {
 };
 const previewLogout: LogoutAction = async () => ({ ok: true as const });
 
+type StatusPreviewProps = Extract<DevPreviewPageProps, { surface: 'status' }>;
+
+function StatusPreviewExperience({ scenario }: { scenario: StatusPreviewProps['scenario'] }) {
+  const preview = resolveStatusPreview(scenario === undefined ? 'default' : scenario);
+  const [loadFailed, setLoadFailed] = useState(preview.initialError);
+
+  return (
+    <div data-testid="dev-preview-page">
+      <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
+      <ResearchWorkspacePage
+        data={preview.data}
+        reliabilityBriefing={preview.briefing}
+        navigationMode="static"
+        canManageInvitations={false}
+        onLogout={async () => false}
+        onPrefetchSection={() => undefined}
+        onRetryViewLoad={() => setLoadFailed(false)}
+        onUrlStateChange={async () => undefined}
+        urlState={{ view: 'status' }}
+        viewLoadError={loadFailed ? 'status' : undefined}
+      />
+    </div>
+  );
+}
+
 export function DevPreviewPage(props: DevPreviewPageProps) {
   const surface = props.surface ?? 'workspace';
   if (props.surface === 'status') {
-    const preview = resolveStatusPreview(props.scenario ?? 'default');
-    return (
-      <div data-testid="dev-preview-page">
-        <p role="note">개발 전용 미리보기 · 실제 계정 및 서버 데이터와 연결되지 않습니다.</p>
-        <ResearchWorkspacePage
-          data={preview.data}
-          reliabilityBriefing={preview.briefing}
-          navigationMode="static"
-          canManageInvitations={false}
-          onLogout={async () => false}
-          onPrefetchSection={() => undefined}
-          onUrlStateChange={async () => undefined}
-          urlState={{ view: 'status' }}
-          viewLoadError={preview.initialError ? 'status' : undefined}
-        />
-      </div>
-    );
+    return <StatusPreviewExperience scenario={props.scenario} />;
   }
   if (props.surface === 'history') {
     const preview = resolveHistoryPreview(props.scenario ?? 'default');

@@ -32,6 +32,10 @@ describe('detail inspector frame', () => {
       'stock-insight:market-connection-inspector-width',
     );
     assert.equal(layout.historyInspectorWidthStorageKey, 'stock-insight:history-inspector-width');
+    assert.equal(
+      layout.reliabilityInspectorWidthStorageKey,
+      'stock-insight:reliability-inspector-width',
+    );
     assert.notEqual(layout.evidenceInspectorWidthStorageKey, layout.stockInspectorWidthStorageKey);
     assert.notEqual(
       layout.marketConnectionInspectorWidthStorageKey,
@@ -50,6 +54,10 @@ describe('detail inspector frame', () => {
       layout.historyInspectorWidthStorageKey,
       layout.marketConnectionInspectorWidthStorageKey,
     );
+    assert.notEqual(
+      layout.reliabilityInspectorWidthStorageKey,
+      layout.historyInspectorWidthStorageKey,
+    );
   });
 
   it('requires an explicit detail identity and exposes the resolved presentation to content', () => {
@@ -62,5 +70,6 @@ describe('detail inspector frame', () => {
       source,
       /export type DetailInspectorPresentation = 'drawer' \| 'modal' \| 'mobile'/,
     );
+    assert.match(source, /<DialogBody[\s\S]*?tabIndex=\{0\}/);
   });
 });

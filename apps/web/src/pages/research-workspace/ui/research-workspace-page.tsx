@@ -160,6 +160,7 @@ type ResearchWorkspacePageProps = {
     next?: Partial<ResearchWorkspaceUrlState>,
   ) => Promise<void>;
   onPrefetchSection?: (section: SectionId) => void;
+  onRetryViewLoad?: () => void;
   urlState?: ResearchWorkspaceUrlState;
   viewLoadError?: SectionId;
   viewLoadFailureKind?: WorkspaceViewFailureKind;
@@ -214,6 +215,7 @@ export function ResearchWorkspacePage({
   onLogout,
   onNavigateSection,
   onPrefetchSection,
+  onRetryViewLoad,
   urlState = {},
   viewLoadError,
   viewLoadFailureKind,
@@ -825,7 +827,11 @@ export function ResearchWorkspacePage({
             </strong>
             <p>{workspaceViewFailureMessage(viewLoadFailureKind ?? 'unknown')}</p>
           </div>
-          <Button motion="pressable" type="button" onClick={() => window.location.reload()}>
+          <Button
+            motion="pressable"
+            type="button"
+            onClick={onRetryViewLoad ?? (() => window.location.reload())}
+          >
             다시 시도
           </Button>
         </ErrorState>

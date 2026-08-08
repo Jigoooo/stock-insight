@@ -211,6 +211,7 @@ describe('reliability briefing model', () => {
       ['attention', 'attention', 'attention', 'attention'],
     );
     assert.ok(model.surfaces.every(({ limitations }) => limitations.length > 0));
+    assert.match(model.summary.headline, /상태 정보 확인 필요/);
     assert.doesNotMatch(JSON.stringify(model), /신뢰도\s*\d|\d+%/);
   });
 });

@@ -303,7 +303,12 @@ describe('development-only visual surface routes', () => {
     assert.match(previewRequest, /'all-ready'/);
     assert.match(previewRequest, /'source-limited'/);
     assert.match(previewPage, /surface === 'status'/);
-    assert.match(previewPage, /resolveStatusPreview\(props\.scenario \?\? 'default'\)/);
+    assert.match(previewPage, /function StatusPreviewExperience/);
+    assert.match(
+      previewPage,
+      /resolveStatusPreview\(scenario === undefined \? 'default' : scenario\)/,
+    );
+    assert.match(previewPage, /onRetryViewLoad=\{\(\) => setLoadFailed\(false\)\}/);
     assert.match(previewPage, /urlState=\{\{ view: 'status' \}\}/);
     assert.match(previewRoute, /<DevPreviewPage \{\.\.\.previewRequest\} \/>/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
