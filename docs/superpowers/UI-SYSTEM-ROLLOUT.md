@@ -569,6 +569,16 @@
 - `graphify update .` 완료: 9,580 nodes·17,448 edges·647 communities. 기존 graphify skill/package 버전 차이와 선택 SQL parser 미설치 경고는 유지됐으며 ignored graph output은 staging에서 제외한다.
 - 이번 묶음은 DB, migration, API server, 공개 contract, dependency를 변경하지 않았고 기술 데이터셋명·행 수·작업명·분석 실행 ID를 사용자 화면에 노출하지 않는다.
 
+### 2026-08-09 — 데이터 신뢰도 카드·시장 신호 표 여백 보정
+
+- 6100 포트에 남아 있던 master 개발 서버를 종료하고 `codex/data-reliability-redesign` worktree의 dev preview 서버로 교체해 데이터 신뢰도 화면을 직접 확인할 수 있게 했다.
+- 데이터 신뢰도의 `전체 신뢰 상태` 패널은 공용 Card 기본 여백과 페이지 바깥 여백이 겹쳐 실제 표면이 기능 카드보다 좌우 24px씩 좁아졌다. 패널 표면을 전체 너비로 복원하고 내부 Card 한 곳만 20px 여백을 소유하게 해 전체 상태·기능 카드 제목의 시작점을 일치시켰다.
+- 기능 카드가 단일 열로 적층될 때 항목명 열의 비율 폭이 계속 커져 값이 오른쪽으로 밀리던 문제를 132px 고정 열로 보정했다. 네 카드의 x·width·height 규격과 모바일 단일 열 전환은 유지한다.
+- 시장 연결의 `종목별 시장 신호 강도와 관심·보유 연결 상태` 표는 보조 탐색 카드 끝에 밀착된 100% 표면 대신 데스크톱 18px, 모바일 14px의 좌우·하단 여백과 독립된 둥근 표면을 사용한다. 표 자체의 가로 스크롤과 읽기 전용 의미 구조는 유지한다.
+- TDD RED는 시장 신호 표 inset 0px와 신뢰도 전체 상태·기능 카드 제목 시작점 차이 22px를 실제 browser geometry로 재현했다. 보정 후 두 집중 계약 2/2, Status·Market Connections desktop/mobile 37건 통과·11건 viewport 조건 skip·0건 실패, focused Node 13/13, web typecheck, 변경 파일 lint·format, `git diff --check`가 통과했다.
+- Codex 인앱 브라우저에서 신뢰도 전체/기능 카드 표면이 같은 x·width를 갖고 제목 x가 동일하며 page overflow 0임을 확인했다. 시장 신호 표는 1100px viewport에서 좌우·하단 각각 18px, body 834px 안의 table 798px, page overflow 0으로 확인했다.
+- `graphify update .` 완료: 9,582 nodes·17,450 edges·640 communities. 기존 skill/package 버전 차이와 선택 SQL parser 미설치 경고는 유지됐다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

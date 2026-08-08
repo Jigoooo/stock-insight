@@ -88,6 +88,41 @@ test('keeps overall state, four surfaces, and common limitations in fixed order'
   await expect(page.locator('body')).not.toContainText(forbiddenCopy);
 });
 
+test('aligns stacked reliability card content without an oversized label column', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'desktop stacked-card geometry');
+  await page.setViewportSize({ width: 1100, height: 960 });
+  await gotoPreview(page);
+  const overallContent = page.locator('#reliability-overall-title');
+  const todayCard = card(page, '오늘');
+  const overallBox = await overallContent.boundingBox();
+  const cardBox = await todayCard.boundingBox();
+  const cardContent = await todayCard.evaluate((element) => {
+    const heading = [...element.querySelectorAll('strong')].find(
+      (node) => node.textContent?.trim() === '오늘',
+    );
+    const value = [...element.querySelectorAll('span')].find(
+      (node) => node.textContent?.trim() === '최근 뉴스' && node.children.length === 0,
+    );
+    const headingBox = heading?.getBoundingClientRect();
+    const valueBox = value?.getBoundingClientRect();
+    return {
+      headingX: headingBox?.x ?? null,
+      valueX: valueBox?.x ?? null,
+    };
+  });
+  expect(overallBox).not.toBeNull();
+  expect(cardBox).not.toBeNull();
+  expect(cardContent.headingX).not.toBeNull();
+  expect(cardContent.valueX).not.toBeNull();
+  expect(Math.abs((overallBox?.x ?? 0) - (cardContent.headingX ?? 0))).toBeLessThanOrEqual(1);
+  expect((cardContent.valueX ?? 0) - (cardBox?.x ?? 0)).toBeLessThanOrEqual(190);
+  const cards = await page.getByTestId('reliability-surface-card').all();
+  const boxes = await Promise.all(cards.map((item) => item.boundingBox()));
+  expect(boxes.every((box) => box?.x === cardBox?.x && box?.width === cardBox?.width)).toBe(true);
+});
+
 test('shares exact selection and matching detail across all four surface cards', async ({
   page,
 }) => {

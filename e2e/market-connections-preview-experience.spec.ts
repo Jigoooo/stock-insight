@@ -206,6 +206,25 @@ test('keeps aggregate factor and map exploration read-only behind exactly four m
   await expect(
     page.getByRole('table', { name: '종목별 시장 신호 강도와 관심·보유 연결 상태' }),
   ).toBeVisible();
+  const factorBody = page.getByTestId('market-mode-factor_map');
+  const tableRegion = page.getByRole('region', {
+    name: '종목별 시장 신호 비교표 가로 스크롤 영역',
+  });
+  const factorBodyBox = await factorBody.boundingBox();
+  const tableRegionBox = await tableRegion.boundingBox();
+  expect(factorBodyBox).not.toBeNull();
+  expect(tableRegionBox).not.toBeNull();
+  expect((tableRegionBox?.x ?? 0) - (factorBodyBox?.x ?? 0)).toBeGreaterThanOrEqual(14);
+  expect(
+    (factorBodyBox?.x ?? 0) +
+      (factorBodyBox?.width ?? 0) -
+      ((tableRegionBox?.x ?? 0) + (tableRegionBox?.width ?? 0)),
+  ).toBeGreaterThanOrEqual(14);
+  expect(
+    (factorBodyBox?.y ?? 0) +
+      (factorBodyBox?.height ?? 0) -
+      ((tableRegionBox?.y ?? 0) + (tableRegionBox?.height ?? 0)),
+  ).toBeGreaterThanOrEqual(14);
   await expect(page.getByRole('radio', { name: /히트맵|비교/ })).toHaveCount(0);
   await page.getByTestId('market-factor-group').first().click();
   await expect(page.getByTestId('market-connection-inspector')).toHaveCount(0);

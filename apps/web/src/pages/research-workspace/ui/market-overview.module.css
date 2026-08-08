@@ -152,6 +152,7 @@
 .marketModeBody {
   min-width: 0;
   min-height: 360px;
+  display: flow-root;
   outline: none;
 }
 
@@ -294,9 +295,12 @@
   line-height: 1;
 }
 
-.marketTableWrap {
+.marketModeBody .marketTableWrap {
+  width: calc(100% - 36px);
   min-width: 0;
+  margin: 0 18px 18px;
   overflow-x: auto;
+  border-radius: var(--radius-lg);
 }
 
 .marketHeatmap {
@@ -720,6 +724,11 @@
   .marketModeGrid,
   .marketFlowGrid {
     padding: 14px;
+  }
+
+  .marketModeBody .marketTableWrap {
+    width: calc(100% - 28px);
+    margin: 0 14px 14px;
   }
 
   .marketHeatmap thead {
