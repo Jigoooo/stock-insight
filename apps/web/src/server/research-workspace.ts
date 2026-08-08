@@ -10,10 +10,7 @@ import type {
   ResearchWorkspaceShellSummary,
   ResearchWorkspaceViewOptions,
 } from '@/pages/research-workspace/model/workspace-view-payload';
-import type {
-  MyResearchOverview,
-  RadarSignalPage,
-} from '@stock-insight/contracts/research-workspace';
+import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
 // Every read here used to open its own PostgreSQL connection. They now go over
 // HTTP to the brain, so this process holds no database credentials.
@@ -91,10 +88,6 @@ export async function loadDecisionHistoryPage(
   });
 }
 
-export async function loadMyResearchOverview(userId: string) {
-  return brainRequest<MyResearchOverview>('/v1/my-research', { scope: scopeFor(userId) });
-}
-
 export async function loadRadarSignalPage(
   userId: string,
   options: { cursor?: string; limit?: number },
@@ -155,40 +148,6 @@ export async function loadGeoMvtTile(
   });
 }
 
-export async function loadPersonalizationPortfolioSnapshot(userId: string) {
-  return brainRequest('/v1/personalization/portfolio-snapshot', { scope: scopeFor(userId) });
-}
-
-export async function loadPersonalizationPortfolioImpact(userId: string, knownAt?: Date) {
-  return brainRequest('/v1/personalization/portfolio-impact', {
-    scope: scopeFor(userId),
-    query: { knownAt: isoOrUndefined(knownAt) },
-  });
-}
-
-export async function loadPersonalizationDecisionSupport(userId: string, entityKey: string) {
-  return brainRequest(`/v1/personalization/decision-support/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-  });
-}
-
-export async function loadPersonalizationDecisionHistory(
-  userId: string,
-  entityKey: string,
-  limit = 20,
-) {
-  return brainRequest(`/v1/personalization/decision-history/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-    query: { limit },
-  });
-}
-
-export async function loadPersonalizationThesis(userId: string, entityKey: string) {
-  return brainRequest(`/v1/personalization/thesis/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-  });
-}
-
 export async function loadStockList(userId: string) {
   return brainRequest('/v1/stocks', { scope: scopeFor(userId) });
 }
@@ -203,22 +162,16 @@ export async function loadResearchWorkspaceView(
 ) {
   const loaders = {
     loadCrypto: loadCryptoResearchWorkspace,
-    loadDecision: loadPersonalizationDecisionSupport,
-    loadDecisionHistory: loadPersonalizationDecisionHistory,
     loadGeo: loadGeoSnapshot,
     loadHistory: loadDecisionHistoryPage,
-    loadImpact: loadPersonalizationPortfolioImpact,
     loadMarketTopicNews,
-    loadPortfolio: loadPersonalizationPortfolioSnapshot,
     loadRadar: loadRadarSignalPage,
     loadRecord: loadResearchRecord,
     loadRelation: loadEntityRelationGraph,
-    loadResearch: loadMyResearchOverview,
     loadShell: loadResearchWorkspaceShell,
     loadStatus: loadResearchStatus,
     loadStocks: loadStockList,
     loadThemes: loadThemeResearch,
-    loadThesis: loadPersonalizationThesis,
     loadToday: loadResearchWorkspace,
   } as unknown as ResearchWorkspaceLoaders;
   return orchestrateResearchWorkspaceView(loaders, userId, options);

@@ -17,7 +17,6 @@ const workspaceViewInputSchema = z
       'stocks',
       'crypto',
       'themes',
-      'research',
       'history',
       'status',
       'market-topic-news',

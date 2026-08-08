@@ -28,16 +28,7 @@ describe('workspace active-view server loader', () => {
     assert.match(server, /export async function loadResearchWorkspaceView/);
     assert.match(server, /orchestrateResearchWorkspaceView\(loaders, userId, options\)/);
     assert.match(source, /switch \(options\.view\)/);
-    for (const view of [
-      'today',
-      'radar',
-      'stocks',
-      'crypto',
-      'themes',
-      'research',
-      'history',
-      'status',
-    ]) {
+    for (const view of ['today', 'radar', 'stocks', 'crypto', 'themes', 'history', 'status']) {
       assert.match(source, new RegExp(`case '${view}'`));
     }
     assert.match(source, /const shellPromise = loaders\.loadShell\(userId\)/);
@@ -56,7 +47,7 @@ describe('workspace active-view server loader', () => {
     // breaks it across lines.
     assert.match(
       source,
-      /z\.enum\(\[\s*'today',\s*'radar',\s*'stocks',\s*'crypto',\s*'themes',\s*'research',\s*'history',\s*'status',\s*'market-topic-news',\s*\]\)/,
+      /z\.enum\(\[\s*'today',\s*'radar',\s*'stocks',\s*'crypto',\s*'themes',\s*'history',\s*'status',\s*'market-topic-news',\s*\]\)/,
     );
     assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
     assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);

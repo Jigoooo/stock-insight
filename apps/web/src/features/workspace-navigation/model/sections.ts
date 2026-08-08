@@ -17,7 +17,6 @@ export const workspaceSectionIds = [
   'stocks',
   'crypto',
   'themes',
-  'research',
   'history',
   'status',
 ] as const;

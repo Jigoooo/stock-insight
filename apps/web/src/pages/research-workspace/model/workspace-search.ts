@@ -8,7 +8,6 @@ const allowedViews = new Set<WorkspaceSectionId>([
   'stocks',
   'crypto',
   'themes',
-  'research',
   'history',
   'status',
 ]);

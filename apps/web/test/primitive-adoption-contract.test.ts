@@ -28,7 +28,6 @@ const researchWorkspaceUrls = [
   'pages/research-workspace/ui/views/stocks-view.tsx',
   'pages/research-workspace/ui/views/crypto-workspace-view.tsx',
   'pages/research-workspace/ui/views/themes-view.tsx',
-  'pages/research-workspace/ui/views/my-research-view.tsx',
   'pages/research-workspace/ui/views/history-view.tsx',
   'pages/research-workspace/ui/views/status-view.tsx',
   'shared/ui/workspace/data-table.tsx',

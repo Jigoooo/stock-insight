@@ -14,27 +14,14 @@ export type ResearchWorkspaceLoaders = {
     userId: string,
     options: { limit: number },
   ) => Promise<ViewPayload<'crypto'>['crypto']>;
-  loadDecision: (
-    userId: string,
-    entityKey: string,
-  ) => Promise<ViewPayload<'research'>['personalization']['decision']>;
-  loadDecisionHistory: (
-    userId: string,
-    entityKey: string,
-    limit: number,
-  ) => Promise<ViewPayload<'research'>['personalization']['decisionHistory']>;
   loadGeo: (userId: string) => Promise<ViewPayload<'radar'>['geoSnapshot']>;
   loadHistory: (
     userId: string,
     options: { cursor?: string; limit: number },
   ) => Promise<ViewPayload<'history'>['history']>;
-  loadImpact: (userId: string) => Promise<ViewPayload<'research'>['personalization']['impact']>;
   loadMarketTopicNews: (
     userId: string,
   ) => Promise<ViewPayload<'market-topic-news'>['marketTopicNews']>;
-  loadPortfolio: (
-    userId: string,
-  ) => Promise<ViewPayload<'research'>['personalization']['portfolio']>;
   loadRadar: (
     userId: string,
     options: { cursor?: string; limit: number },
@@ -45,15 +32,10 @@ export type ResearchWorkspaceLoaders = {
     entityKey: string,
     depth: number,
   ) => Promise<ViewPayload<'themes'>['relation']>;
-  loadResearch: (userId: string) => Promise<ViewPayload<'research'>['myResearch']>;
   loadShell: (userId: string) => Promise<ViewPayload<'today'>['shell']>;
   loadStatus: (userId: string) => Promise<ViewPayload<'status'>['status']>;
   loadStocks: (userId: string) => Promise<ViewPayload<'stocks'>['stocks']>;
   loadThemes: (userId: string) => Promise<ViewPayload<'themes'>['themes']>;
-  loadThesis: (
-    userId: string,
-    entityKey: string,
-  ) => Promise<ViewPayload<'research'>['personalization']['thesis']>;
   loadToday: (userId: string) => Promise<ViewPayload<'today'>['today']>;
 };
 
@@ -116,47 +98,6 @@ export async function orchestrateResearchWorkspaceView(
         const relation = relationRoot ? await loaders.loadRelation(userId, relationRoot, 1) : null;
         return { relation, themes, view: 'themes' as const };
       });
-      break;
-    }
-    case 'research': {
-      const researchPromise = loaders.loadResearch(userId);
-      const portfolioPromise = loaders.loadPortfolio(userId);
-      activeSlicePromise = Promise.all([researchPromise, portfolioPromise]).then(
-        async ([myResearch, portfolio]) => {
-          const selectedEntityKey =
-            myResearch.decisionSupport.latestPacket?.entityKey ??
-            portfolio?.positions?.[0]?.entityKey ??
-            null;
-          const impactPromise = portfolio ? loaders.loadImpact(userId) : Promise.resolve(null);
-          const decisionPromise = selectedEntityKey
-            ? loaders.loadDecision(userId, selectedEntityKey)
-            : Promise.resolve(null);
-          const decisionHistoryPromise = selectedEntityKey
-            ? loaders.loadDecisionHistory(userId, selectedEntityKey, 20)
-            : Promise.resolve(null);
-          const thesisPromise = selectedEntityKey
-            ? loaders.loadThesis(userId, selectedEntityKey)
-            : Promise.resolve(null);
-          const [impact, decision, decisionHistory, thesis] = await Promise.all([
-            impactPromise,
-            decisionPromise,
-            decisionHistoryPromise,
-            thesisPromise,
-          ]);
-          return {
-            myResearch,
-            personalization: {
-              decision,
-              decisionHistory,
-              impact,
-              portfolio,
-              selectedEntityKey,
-              thesis,
-            },
-            view: 'research' as const,
-          };
-        },
-      );
       break;
     }
     case 'history': {

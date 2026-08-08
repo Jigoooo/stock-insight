@@ -65,7 +65,6 @@ const workspace = [
     'market-connections-view.tsx',
     'stocks-view.tsx',
     'themes-view.tsx',
-    'my-research-view.tsx',
     'history-view.tsx',
     'status-view.tsx',
   ].map((fileName) =>
@@ -94,10 +93,6 @@ const workspaceStyles = [
   feedCss,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
-    'utf8',
-  ),
-  readFileSync(
-    new URL('../src/pages/research-workspace/ui/personalization.module.css', import.meta.url),
     'utf8',
   ),
   readFileSync(
@@ -160,7 +155,6 @@ describe('v3 research workspace structure', () => {
       '내 종목에 영향을 줄 시장 변화',
       '종목',
       '테마·관계',
-      '내 리서치',
       '판단 복기',
       '데이터 신뢰도',
     ]) {
@@ -207,7 +201,6 @@ describe('v3 research workspace structure', () => {
     for (const view of [
       'crypto-workspace-view',
       'history-view',
-      'my-research-view',
       'market-connections-view',
       'status-view',
       'stocks-view',
@@ -423,7 +416,7 @@ describe('v3 research workspace structure', () => {
     assert.match(workspace, /className=\{styles\.stockRow\}/);
     assert.match(workspace, /aria-current=\{selected \? 'true' : undefined\}/);
     assert.match(workspace, /aria-label=\{`\$\{stock\.displayName\} 종목 브리핑 열기`\}/);
-    assert.match(workspace, /<DetailSurface/);
+    assert.match(workspace, /<DetailInspectorFrame/);
     assert.match(workspace, /<PropertyList/);
     assert.match(workspace, /useWorkspaceRelationCrossfade/);
     assert.match(workspace, /관계를 텍스트로 보기/);

@@ -4,7 +4,6 @@ export type WorkspaceViewId =
   | 'stocks'
   | 'crypto'
   | 'themes'
-  | 'research'
   | 'history'
   | 'status'
   | 'market-topic-news';

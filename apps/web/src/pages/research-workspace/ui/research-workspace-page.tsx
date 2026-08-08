@@ -108,11 +108,6 @@ function createLazyWorkspaceViews() {
         default: MarketConnectionsView,
       })),
     ),
-    research: lazy(() =>
-      import('./views/my-research-view').then(({ MyResearchView }) => ({
-        default: MyResearchView,
-      })),
-    ),
     status: lazy(() =>
       import('./views/status-view').then(({ StatusView }) => ({ default: StatusView })),
     ),
@@ -269,7 +264,6 @@ export function ResearchWorkspacePage({
     history: 0,
     'market-topic-news': 0,
     radar: 0,
-    research: 0,
     status: 0,
     stocks: 0,
     themes: 0,
@@ -325,7 +319,6 @@ export function ResearchWorkspacePage({
     history: HistoryView,
     'market-topic-news': MarketTopicNewsView,
     radar: MarketConnectionsView,
-    research: MyResearchView,
     status: StatusView,
     stocks: StocksView,
     themes: ThemesView,
@@ -897,9 +890,6 @@ export function ResearchWorkspacePage({
           relationState={visibleThemeRelationState}
           onSelectEntity={(entityKey) => void selectThemeEntity(entityKey)}
         />
-      )}
-      {section === 'research' && data.view === 'research' && (
-        <MyResearchView data={data.myResearch} personalization={data.personalization} />
       )}
       {section === 'history' && data.view === 'history' && visibleHistoryBriefing && (
         <HistoryView

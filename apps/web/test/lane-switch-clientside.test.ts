@@ -23,16 +23,7 @@ const viewRouteUrl = '../src/pages/research-workspace/ui/workspace-view-route.ts
 const serverUrl = '../src/server/research-workspace.ts';
 const contractsUrl = '../../../packages/contracts/src/research-workspace.ts';
 
-const VIEWS = [
-  'today',
-  'radar',
-  'stocks',
-  'crypto',
-  'themes',
-  'research',
-  'history',
-  'status',
-] as const;
+const VIEWS = ['today', 'radar', 'stocks', 'crypto', 'themes', 'history', 'status'] as const;
 
 describe('lane switching is client-side only', () => {
   it('keeps lane out of every route loader dep', async () => {

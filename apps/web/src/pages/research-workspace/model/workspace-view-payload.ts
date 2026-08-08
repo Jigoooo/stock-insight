@@ -2,17 +2,9 @@ import type { StockListResponse } from '@stock-insight/contracts';
 import type { CryptoResearchWorkspace } from '@stock-insight/contracts/crypto-research';
 import type { GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import type {
-  PersonalizationDecisionHistory,
-  PersonalizationDecisionSupport,
-  PersonalizationPortfolioImpact,
-  PersonalizationPortfolioSnapshot,
-  PersonalizationThesis,
-} from '@stock-insight/contracts/personalization';
-import type {
   DecisionHistoryPage,
   EntityRelationGraph,
   MarketTopicNewsPage,
-  MyResearchOverview,
   RadarSignalPage,
   ResearchFeedLaneId,
   ResearchRecordDetail,
@@ -27,7 +19,6 @@ export type ResearchWorkspaceViewId =
   | 'stocks'
   | 'crypto'
   | 'themes'
-  | 'research'
   | 'history'
   | 'status'
   | 'market-topic-news';
@@ -42,15 +33,6 @@ export type ResearchWorkspaceViewOptions = {
 export type ResearchWorkspaceShellSummary = {
   radarScopeTotal: number;
   watchlistCount: number;
-};
-
-export type PersonalizationResearchWorkspace = {
-  decision: PersonalizationDecisionSupport | null;
-  decisionHistory: PersonalizationDecisionHistory | null;
-  impact: PersonalizationPortfolioImpact | null;
-  portfolio: PersonalizationPortfolioSnapshot | null;
-  selectedEntityKey: string | null;
-  thesis: PersonalizationThesis | null;
 };
 
 export type ResearchWorkspaceViewPayload =
@@ -74,12 +56,6 @@ export type ResearchWorkspaceViewPayload =
       shell: ResearchWorkspaceShellSummary;
       themes: ThemeResearchList;
       view: 'themes';
-    }
-  | {
-      myResearch: MyResearchOverview;
-      personalization: PersonalizationResearchWorkspace;
-      shell: ResearchWorkspaceShellSummary;
-      view: 'research';
     }
   | { history: DecisionHistoryPage; shell: ResearchWorkspaceShellSummary; view: 'history' }
   | { shell: ResearchWorkspaceShellSummary; status: SystemStatus; view: 'status' }
