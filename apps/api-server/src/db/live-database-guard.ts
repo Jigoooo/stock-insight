@@ -135,7 +135,22 @@ const EXPECTED_CATALOG_DIGESTS = {
     // that makes it hold at all. Migrations 078-083 contributed nothing — they
     // grant to pipeline roles only, and governance.coverage_ledger (031) is still
     // the single governance entry the reader can see.
-    relation_privileges_digest: 'ae1c09cdcba0a7b8d2996c10b0674fd4c001906da964be28e6a226bf9a0a9914',
+    // Re-pinned 2026-08-08 for migration 085. It grants the reader SELECT on
+    // serving.content_pack_item_truth_v1 and nothing else, because REQ-SEM-010
+    // asks for truth classes to be visually distinguished and that is a rendering
+    // requirement — the reader the product serves from has to see the resolved
+    // class. The binding table behind the view stays with the pipeline roles.
+    //
+    // Proved the same way as the 065 re-pin above: recomputing this array on the
+    // live database as the reader while excluding exactly
+    // serving.content_pack_item_truth_v1 reproduces the previous pin
+    // ae1c09cdc…a9914 byte for byte. One view, one relation, nothing else moved.
+    // 248 entries became 249, and rls_contract_digest did not move because the
+    // view carries no policy of its own.
+    //
+    // 084 and 086 were applied in the same landing and do NOT move this digest —
+    // both grant to si_* pipeline roles only.
+    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
