@@ -85,6 +85,8 @@ import { metricDefinitionRegistryMigrationSql } from './migrations/084_metric_de
 import { truthClassBindingMigrationSql } from './migrations/085_truth_class_binding.ts';
 import { economicClaimMigrationSql } from './migrations/086_economic_claim.ts';
 import { sectorPlaybookMigrationSql } from './migrations/087_sector_playbook.ts';
+import { issuerPlaybookMeasurementRuleMigrationSql } from './migrations/088_issuer_playbook_measurement_rule.ts';
+import { k4MarketIntelligenceLedgerMigrationSql } from './migrations/089_k4_market_intelligence_ledger.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -962,6 +964,20 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: sectorPlaybookMigrationSql,
   },
+  {
+    id: '088_issuer_playbook_measurement_rule',
+    description:
+      'Makes issuer Company the canonical playbook-assignment subject, preserves security assignment history through the exact temporal security_issuer_identity row, and adds the versioned executable measurement rules K4 must cite for inventory, fixed-cost/PPE, and capex observations.',
+    tables: [],
+    sql: issuerPlaybookMeasurementRuleMigrationSql,
+  },
+  {
+    id: '089_k4_market_intelligence_ledger',
+    description:
+      'Adds append-only K4 expectation, surprise, range valuation, impact evaluation/evidence, path citation, and outcome ledgers, then replaces the exposure write guard forward-only so sealing requires one accepted, exact, PIT A/B/C, unit-matched, fully decomposed evaluation basis.',
+    tables: [],
+    sql: k4MarketIntelligenceLedgerMigrationSql,
+  },
 ];
 
 export {
@@ -1052,4 +1068,6 @@ export {
   truthClassBindingMigrationSql,
   economicClaimMigrationSql,
   sectorPlaybookMigrationSql,
+  issuerPlaybookMeasurementRuleMigrationSql,
+  k4MarketIntelligenceLedgerMigrationSql,
 };

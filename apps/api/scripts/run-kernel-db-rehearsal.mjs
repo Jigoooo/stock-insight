@@ -1,5 +1,5 @@
-// Rehearses migrations 078–084 (canonical kernel + release/safety/SLO + metric
-// definition registry) on a disposable database.
+// Rehearses migrations 078–089 plus the migration-037 exposure surface that
+// K4 strengthens, on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
 // foreign-key targets the migrations under test need, apply them, assert the
@@ -19,6 +19,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { impactExposureLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/037_impact_exposure_ledger.ts';
 
 import { semanticSnapshotMigrationSql } from '../../../packages/db-schema/src/migrations/078_semantic_snapshot.ts';
 import { analysisInformationSetMigrationSql } from '../../../packages/db-schema/src/migrations/079_analysis_information_set.ts';
@@ -30,6 +31,8 @@ import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schem
 import { truthClassBindingMigrationSql } from '../../../packages/db-schema/src/migrations/085_truth_class_binding.ts';
 import { economicClaimMigrationSql } from '../../../packages/db-schema/src/migrations/086_economic_claim.ts';
 import { sectorPlaybookMigrationSql } from '../../../packages/db-schema/src/migrations/087_sector_playbook.ts';
+import { issuerPlaybookMeasurementRuleMigrationSql } from '../../../packages/db-schema/src/migrations/088_issuer_playbook_measurement_rule.ts';
+import { k4MarketIntelligenceLedgerMigrationSql } from '../../../packages/db-schema/src/migrations/089_k4_market_intelligence_ledger.ts';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('pg');
@@ -126,6 +129,24 @@ try {
     CREATE SCHEMA knowledge;
     CREATE TABLE knowledge.ontology_revision (ontology_revision_id BIGINT PRIMARY KEY);
     INSERT INTO knowledge.ontology_revision SELECT generate_series(1, 5);
+    CREATE TABLE knowledge.derivation (
+      derivation_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      status TEXT NOT NULL
+    );
+    INSERT INTO knowledge.derivation (status) VALUES ('sealed');
+
+    CREATE SCHEMA world;
+    CREATE TABLE world.event_revision (
+      event_revision_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+    );
+    INSERT INTO world.event_revision DEFAULT VALUES;
+
+    CREATE SCHEMA analytics;
+    CREATE TABLE analytics.impact_path_step (
+      impact_path_step_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      to_entity_id BIGINT NOT NULL
+    );
+
 
     -- 084 references core.entity for issuer-scoped definitions.
     CREATE SCHEMA core;
@@ -134,7 +155,22 @@ try {
       entity_type TEXT NOT NULL,
       canonical_name TEXT NOT NULL
     );
-    INSERT INTO core.entity (entity_type, canonical_name) VALUES ('Company', 'Rehearsal Co');
+    INSERT INTO core.entity (entity_type, canonical_name) VALUES
+      ('Company', 'Rehearsal Co'),
+      ('Stock', 'Rehearsal Security'),
+      ('Company', 'Second Rehearsal Co');
+    CREATE TABLE core.security_issuer_identity (
+      security_issuer_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      security_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      issuer_entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      identity_match_key TEXT NOT NULL,
+      mapping_basis TEXT NOT NULL,
+      valid_from TIMESTAMPTZ NOT NULL,
+      known_from TIMESTAMPTZ NOT NULL
+    );
+    INSERT INTO core.security_issuer_identity
+      (security_entity_id, issuer_entity_id, identity_match_key, mapping_basis, valid_from, known_from)
+    VALUES (2, 1, 'rehearsal', 'exact', TIMESTAMPTZ '2025-01-01Z', TIMESTAMPTZ '2025-01-01Z');
 
     CREATE SCHEMA ingestion;
     CREATE TABLE ingestion.source (
@@ -165,10 +201,32 @@ try {
       ('finra', 'api');
 
     INSERT INTO ingestion.source_record_identity (source_id)
-      SELECT source_id FROM ingestion.source WHERE provider_key = 'bok-ecos';
+      SELECT source_id FROM ingestion.source WHERE provider_key IN ('bok-ecos', 'yfinance');
     INSERT INTO ingestion.source_revision (source_record_identity_id, ingested_at)
       SELECT source_record_identity_id, TIMESTAMPTZ '2026-05-01T00:00:00Z'
         FROM ingestion.source_record_identity;
+
+    CREATE TABLE world.numeric_fact (
+      numeric_fact_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
+      value NUMERIC NOT NULL,
+      unit TEXT NOT NULL,
+      source_revision_id BIGINT NOT NULL REFERENCES ingestion.source_revision(source_revision_id),
+      available_at TIMESTAMPTZ NOT NULL,
+      known_at TIMESTAMPTZ NOT NULL
+    );
+    INSERT INTO world.numeric_fact
+      (entity_id, value, unit, source_revision_id, available_at, known_at)
+    SELECT 1, fixture.value, fixture.unit, revision.source_revision_id,
+           TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z'
+      FROM (VALUES (100::numeric, 'USD'), (120::numeric, 'USD')) fixture(value, unit)
+      CROSS JOIN ingestion.source_revision revision
+      JOIN ingestion.source_record_identity identity
+        ON identity.source_record_identity_id = revision.source_record_identity_id
+      JOIN ingestion.source source ON source.source_id = identity.source_id
+     WHERE source.provider_key = 'bok-ecos';
+
+    INSERT INTO analytics.impact_path_step (to_entity_id) VALUES (2);
 
     DO $roles$
     DECLARE role_name TEXT;
@@ -232,6 +290,7 @@ try {
 
   // ── apply the migrations under test, in dependency order ────────────────────
   const MIGRATIONS = [
+    impactExposureLedgerMigrationSql,
     semanticSnapshotMigrationSql,
     analysisInformationSetMigrationSql,
     sourcePitQualityMigrationSql,
@@ -244,6 +303,27 @@ try {
     sectorPlaybookMigrationSql,
   ];
   for (const sql of MIGRATIONS) await target.query(sql);
+
+  // 087 historically allowed a Stock assignment. Seed that exact old shape so
+  // 088 must close it and create the issuer-subject successor through identity 1.
+  await target.query(`
+    INSERT INTO governance.playbook_assignment (
+      sector_playbook_id, entity_id, assignment_basis, taxonomy_node_id,
+      rationale, valid_from, known_at, assigned_by
+    )
+    SELECT sector_playbook_id, 2, 'taxonomy', 1,
+           'legacy security assignment', TIMESTAMPTZ '2026-01-01Z',
+           TIMESTAMPTZ '2026-01-01Z', 'rehearsal'
+      FROM governance.sector_playbook
+     WHERE playbook_key = 'semiconductor' AND revision_no = 1;
+  `);
+
+  MIGRATIONS.push(
+    issuerPlaybookMeasurementRuleMigrationSql,
+    k4MarketIntelligenceLedgerMigrationSql,
+  );
+  await target.query(issuerPlaybookMeasurementRuleMigrationSql);
+  await target.query(k4MarketIntelligenceLedgerMigrationSql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
   for (const sql of MIGRATIONS) await target.query(sql);
 
@@ -352,11 +432,279 @@ try {
     )),
     curatedAssignmentMayDisagreeWithTheCode: await playbookInsert(
       'sector_playbook_id, entity_id, assignment_basis, rationale, valid_from, assigned_by',
-      `${playbookRow?.sector_playbook_id ?? 0}, 1, 'curated', 'largest memory maker, classified under communications equipment', now(), 'rehearsal'`,
+      `${playbookRow?.sector_playbook_id ?? 0}, 3, 'curated', 'industry code is evidence, not proof', now(), 'rehearsal'`,
     ),
     currentViewResolves:
       (await target.query('SELECT count(*)::int AS n FROM governance.entity_playbook_current_v1'))
-        .rows[0].n === 1,
+        .rows[0].n === 2,
+  };
+
+  // ── 088/089 K4 issuer rules and market-intelligence ledgers ────────────────
+  await target.query(`
+    INSERT INTO governance.analysis_information_set (
+      information_set_id, mode, valid_cutoff, source_available_cutoff,
+      system_known_cutoff, market_observation_cutoff,
+      semantic_snapshot_id, created_by
+    ) VALUES (
+      'ais-k4', 'EX_ANTE', TIMESTAMPTZ '2026-08-09T12:00:00Z',
+      TIMESTAMPTZ '2026-08-09T12:00:00Z', TIMESTAMPTZ '2026-08-09T12:00:00Z',
+      TIMESTAMPTZ '2026-08-09T12:00:00Z', 'snap-1', 'rehearsal'
+    );
+    INSERT INTO analytics.impact_shock (
+      shock_key, event_revision_id, shock_type, evidence_locator, available_at, known_at
+    ) VALUES (
+      'k4-rehearsal-shock', 1, 'filing_observation', '{}'::jsonb,
+      TIMESTAMPTZ '2026-08-09T00:00:00Z', TIMESTAMPTZ '2026-08-09T00:00:00Z'
+    );
+  `);
+
+  const measurement = (
+    await target.query(`
+      SELECT playbook.sector_playbook_id, driver.business_driver_id,
+             rule.business_driver_measurement_rule_id
+        FROM governance.sector_playbook playbook
+        JOIN governance.business_driver driver
+          ON driver.sector_playbook_id = playbook.sector_playbook_id
+        JOIN governance.business_driver_measurement_rule rule
+          ON rule.business_driver_id = driver.business_driver_id
+       WHERE playbook.playbook_key = 'semiconductor'
+         AND driver.driver_key = 'inventory_position'
+         AND rule.rule_key = 'inventory_yoy'
+    `)
+  ).rows[0];
+  const shockId = (
+    await target.query(
+      `SELECT impact_shock_id FROM analytics.impact_shock WHERE shock_key = 'k4-rehearsal-shock'`,
+    )
+  ).rows[0].impact_shock_id;
+  const channelId = (
+    await target.query(
+      `SELECT impact_channel_id FROM analytics.impact_channel WHERE channel_class = 'final_demand'`,
+    )
+  ).rows[0].impact_channel_id;
+  const pitC = (
+    await target.query(`
+      SELECT ledger.source_pit_quality_id, revision.source_revision_id
+        FROM governance.source_pit_quality_current_v1 quality
+        JOIN governance.source_pit_quality ledger
+          ON ledger.source_id = quality.source_id
+         AND ledger.revision_no = quality.revision_no
+        JOIN ingestion.source source ON source.source_id = quality.source_id
+        JOIN ingestion.source_record_identity identity ON identity.source_id = source.source_id
+        JOIN ingestion.source_revision revision
+          ON revision.source_record_identity_id = identity.source_record_identity_id
+       WHERE source.provider_key = 'bok-ecos'
+    `)
+  ).rows[0];
+  const pitD = (
+    await target.query(`
+      SELECT ledger.source_pit_quality_id, revision.source_revision_id
+        FROM governance.source_pit_quality_current_v1 quality
+        JOIN governance.source_pit_quality ledger
+          ON ledger.source_id = quality.source_id
+         AND ledger.revision_no = quality.revision_no
+        JOIN ingestion.source source ON source.source_id = quality.source_id
+        JOIN ingestion.source_record_identity identity ON identity.source_id = source.source_id
+        JOIN ingestion.source_revision revision
+          ON revision.source_record_identity_id = identity.source_record_identity_id
+       WHERE source.provider_key = 'yfinance'
+    `)
+  ).rows[0];
+  const numericFacts = (
+    await target.query(`SELECT numeric_fact_id FROM world.numeric_fact ORDER BY numeric_fact_id`)
+  ).rows;
+  const pitDFact = (
+    await target.query(
+      `INSERT INTO world.numeric_fact
+         (entity_id, value, unit, source_revision_id, available_at, known_at)
+       VALUES (1, 130, 'USD', $1, TIMESTAMPTZ '2026-05-01Z', TIMESTAMPTZ '2026-05-01Z')
+       RETURNING numeric_fact_id`,
+      [pitD.source_revision_id],
+    )
+  ).rows[0].numeric_fact_id;
+
+  const insertExposure = async (key, unit = 'USD') => {
+    const exposure = (
+      await target.query(
+        `INSERT INTO analytics.impact_exposure_revision (
+           exposure_key, revision_no, impact_shock_id, impact_channel_id,
+           entity_id, sign, economic_magnitude, economic_magnitude_unit,
+           evidence_locator, available_at, known_at
+         ) VALUES ($1, 1, $2, $3, 2, 'negative', 20, $4, '{}'::jsonb,
+                   TIMESTAMPTZ '2026-08-09T00:00:00Z', TIMESTAMPTZ '2026-08-09T00:00:00Z')
+         RETURNING impact_exposure_revision_id`,
+        [key, shockId, channelId, unit],
+      )
+    ).rows[0].impact_exposure_revision_id;
+    await target.query(
+      `INSERT INTO analytics.impact_score_component
+         (impact_exposure_revision_id, component_kind, component_value)
+       SELECT $1, component_kind, 0.5
+         FROM unnest(ARRAY[
+           'evidence_confidence','relation_strength','materiality','transmission',
+           'direction','lag','market_reflection','model_uncertainty'
+         ]) component_kind`,
+      [exposure],
+    );
+    return exposure;
+  };
+
+  const insertAcceptedEvaluation = async (key, exposure, unit = 'USD') =>
+    (
+      await target.query(
+        `INSERT INTO analytics.impact_evaluation_revision (
+           evaluation_key, revision_no, security_entity_id, issuer_entity_id,
+           security_issuer_identity_id, sector_playbook_id, business_driver_id,
+           business_driver_measurement_rule_id, information_set_id, derivation_id,
+           evaluation_disposition, measurement_value, measurement_unit,
+           direction, materiality, impact_exposure_revision_id
+         ) VALUES ($1, 1, 2, 1, 1, $2, $3, $4, 'ais-k4', 1,
+                   'accepted', 20, $5, 'negative', 0.2, $6)
+         RETURNING impact_evaluation_revision_id`,
+        [
+          key,
+          measurement.sector_playbook_id,
+          measurement.business_driver_id,
+          measurement.business_driver_measurement_rule_id,
+          unit,
+          exposure,
+        ],
+      )
+    ).rows[0].impact_evaluation_revision_id;
+
+  const addEvidence = (evaluationId, factId, source, role) =>
+    target.query(
+      `INSERT INTO analytics.impact_evaluation_evidence (
+         impact_evaluation_revision_id, numeric_fact_id, source_revision_id,
+         source_pit_quality_id, input_role
+       ) VALUES ($1, $2, $3, $4, $5)`,
+      [evaluationId, factId, source.source_revision_id, source.source_pit_quality_id, role],
+    );
+
+  let acceptedExposure;
+  let acceptedEvaluation;
+  await target.query('BEGIN');
+  try {
+    acceptedExposure = await insertExposure('k4-accepted');
+    acceptedEvaluation = await insertAcceptedEvaluation('k4-accepted-evaluation', acceptedExposure);
+    await addEvidence(acceptedEvaluation, numericFacts[0].numeric_fact_id, pitC, 'comparison');
+    await addEvidence(acceptedEvaluation, numericFacts[1].numeric_fact_id, pitC, 'current');
+    await target.query(
+      `UPDATE analytics.impact_exposure_revision
+          SET exposure_state = 'sealed', sealed_at = now()
+        WHERE impact_exposure_revision_id = $1`,
+      [acceptedExposure],
+    );
+    await target.query('COMMIT');
+  } catch (error) {
+    await target.query('ROLLBACK');
+    throw error;
+  }
+
+  const missingEvaluationExposure = await insertExposure('k4-missing-evaluation');
+  const citationRejected = await expectRejected(
+    `UPDATE analytics.impact_exposure_revision SET exposure_state = 'sealed', sealed_at = now()
+      WHERE impact_exposure_revision_id = ${missingEvaluationExposure}`,
+    ['P0001'],
+  );
+
+  let unitRejected = false;
+  await target.query('BEGIN');
+  try {
+    const exposure = await insertExposure('k4-unit-mismatch');
+    const evaluation = await insertAcceptedEvaluation(
+      'k4-unit-mismatch-evaluation',
+      exposure,
+      'KRW',
+    );
+    await addEvidence(evaluation, numericFacts[0].numeric_fact_id, pitC, 'comparison');
+    await addEvidence(evaluation, numericFacts[1].numeric_fact_id, pitC, 'current');
+    unitRejected = await expectRejected(
+      `UPDATE analytics.impact_exposure_revision SET exposure_state = 'sealed', sealed_at = now()
+        WHERE impact_exposure_revision_id = ${exposure}`,
+      ['P0001'],
+    );
+  } finally {
+    await target.query('ROLLBACK');
+  }
+
+  let pitDERejected = false;
+  await target.query('BEGIN');
+  try {
+    const exposure = await insertExposure('k4-pit-d');
+    const evaluation = await insertAcceptedEvaluation('k4-pit-d-evaluation', exposure);
+    pitDERejected = await expectRejected(
+      `INSERT INTO analytics.impact_evaluation_evidence (
+         impact_evaluation_revision_id, numeric_fact_id, source_revision_id,
+         source_pit_quality_id, input_role
+       ) VALUES (${evaluation}, ${pitDFact}, ${pitD.source_revision_id},
+                 ${pitD.source_pit_quality_id}, 'current')`,
+      ['P0001'],
+    );
+  } finally {
+    await target.query('ROLLBACK');
+  }
+
+  await target.query(
+    `INSERT INTO analytics.impact_path_step_exposure_citation
+       (impact_path_step_id, impact_exposure_revision_id)
+     VALUES (1, $1)`,
+    [acceptedExposure],
+  );
+  const appendOnlyRejected = await expectRejected(
+    `UPDATE analytics.impact_evaluation_revision SET reason_detail = 'rewrite'
+      WHERE impact_evaluation_revision_id = ${acceptedEvaluation}`,
+    ['55000'],
+  );
+  const rejectedCannotReferenceExposure = await expectRejected(
+    `INSERT INTO analytics.impact_evaluation_revision (
+       evaluation_key, revision_no, security_entity_id, information_set_id,
+       evaluation_disposition, reason_detail, impact_exposure_revision_id
+     ) VALUES ('bad-rejection-shape', 1, 2, 'ais-k4', 'missing_identity',
+               'identity absent', ${acceptedExposure})`,
+  );
+
+  const k4 = {
+    securityAssignmentClosed:
+      (
+        await target.query(`SELECT count(*)::int AS n FROM governance.playbook_assignment
+                            WHERE entity_id = 2 AND valid_to IS NOT NULL`)
+      ).rows[0].n === 1,
+    issuerSuccessorCreated:
+      (
+        await target.query(`SELECT count(*)::int AS n FROM governance.playbook_assignment
+                            WHERE entity_id = 1 AND valid_to IS NULL
+                              AND security_issuer_identity_id = 1`)
+      ).rows[0].n === 1,
+    threeExecutableRules:
+      (
+        await target.query(`SELECT count(*)::int AS n
+                             FROM governance.business_driver_measurement_rule`)
+      ).rows[0].n === 3,
+    v2ResolvesSecurityRules:
+      (
+        await target.query(`SELECT count(*)::int AS n
+                             FROM governance.security_playbook_measurement_rule_current_v2
+                            WHERE security_entity_id = 2`)
+      ).rows[0].n === 3,
+    acceptedEvaluationSealsAtomically:
+      (
+        await target.query(
+          `SELECT exposure_state FROM analytics.impact_exposure_revision
+                            WHERE impact_exposure_revision_id = $1`,
+          [acceptedExposure],
+        )
+      ).rows[0].exposure_state === 'sealed',
+    citationRejected,
+    unitRejected,
+    pitDERejected,
+    appendOnlyRejected,
+    rejectedCannotReferenceExposure,
+    pathStepCitationAccepted:
+      (
+        await target.query(`SELECT count(*)::int AS n
+                             FROM analytics.impact_path_step_exposure_citation`)
+      ).rows[0].n === 1,
   };
 
   // ── 085 truth class binding ─────────────────────────────────────────────────
@@ -857,6 +1205,7 @@ try {
     truthClass,
     economicClaim,
     sectorPlaybook,
+    k4,
     digestSafety: {
       relationsChecked: reach.rows.length,
       appRoleReachableRelations: observedAppRoleReach,
@@ -879,6 +1228,7 @@ try {
     truthClass,
     economicClaim,
     sectorPlaybook,
+    k4,
   })) {
     for (const [name, value] of Object.entries(checks)) {
       if (value !== true) failures.push(`${group}.${name}`);
