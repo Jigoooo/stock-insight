@@ -276,6 +276,25 @@ export function buildNumericFactDrafts(
   if (detail !== '' && detail !== '-') dimensions.accountDetail = detail;
   if (text(row.account_nm) !== '') dimensions.accountName = text(row.account_nm);
 
+  // A Korean account label is not unique inside one statement. Measured on the
+  // live corpus 2026-08-08: 599 groups collided this way, all of them
+  // issuer-specific accounts, 549 of them carrying *different* values — one
+  // balance sheet lists 충당부채 at ordinal 40 for 1,290,427,460 and again at
+  // ordinal 51 for 82,993,173,087, the current and non-current provisions sharing
+  // a name and separated only by where they sit.
+  //
+  // Real XBRL would separate these with a dimension. We do not have one, but we
+  // do have the position, so record that as the dimension it is standing in for.
+  // The alternative is worse than imprecise: without it the two lines share a
+  // restatement group, one supersedes the other, and a reader taking the latest
+  // revision silently loses an entire line of the balance sheet.
+  //
+  // Standard taxonomy concepts are left alone — the concept key already
+  // identifies them, and none of the 599 collisions involved one. Adding the
+  // ordinal there would break restatement detection, since a correction that
+  // shifts line positions must still collide with what it replaces.
+  if (!concept.standard) dimensions.statementOrdinal = text(row.ord);
+
   const emit = (rawAmount: string | undefined, cumulative: boolean) => {
     const value = parseDartAmount(rawAmount);
     if (value === undefined) return;
@@ -328,4 +347,78 @@ export function dartFactKey(draft: NumericFactDraft): string {
     l.accountDetail || '-',
     draft.cumulative ? 'cum' : 'period',
   ].join(':');
+}
+
+/**
+ * When a filing became available to the public, and when we knew it.
+ *
+ * `ingestion.source_revision.available_at` is when *we fetched* the filing. For a
+ * 2025 filing collected during a 2026 backfill that is a year late, and writing
+ * it into `numeric_fact.available_at` would make every historical fact appear to
+ * arrive at backfill time — destroying the only question the column exists to
+ * answer. Measured 2026-08-08: receipt 2026-05-14, fetched 2026-08-07.
+ *
+ * The receipt number carries the receipt date (`20250515002181` → 2025-05-15) and
+ * DART publishes on receipt. But the payload states no time of day, so an honest
+ * value is a bound, not a moment. Two bounds are available and both are sound:
+ *
+ *   - the end of the receipt day in KST — it was certainly available by then
+ *   - the moment we ingested it — we cannot have fetched it before it existed
+ *
+ * Both are upper bounds, so the tighter one is still an upper bound: take the
+ * minimum. Using an upper bound for `available_at` errs toward pessimism — an
+ * analysis sees the fact no earlier than it truly could have — which is the
+ * direction that cannot manufacture lookahead.
+ *
+ * `known_at` is the ingestion moment unchanged. That is the axis that protects a
+ * backtest from our own collection history, and it is a fact about us rather
+ * than an estimate.
+ */
+export type DartAvailability = {
+  availableAt: string;
+  knownAt: string;
+  receiptDate: string;
+  /** Which of the two bounds won. Recorded so the estimate stays auditable. */
+  availableAtBound: 'receipt_day_end_kst' | 'ingested_at';
+};
+
+const KST_UTC_OFFSET_HOURS = 9;
+
+export function resolveDartAvailability(input: {
+  receiptNo: string;
+  ingestedAt: string | Date;
+}): DartAvailability | PeriodRefusal {
+  const receipt = text(input.receiptNo);
+  if (!/^\d{14}$/.test(receipt)) {
+    return { refused: true, reason: `unparseable receipt number: ${receipt || '(empty)'}` };
+  }
+
+  const year = Number(receipt.slice(0, 4));
+  const month = Number(receipt.slice(4, 6));
+  const day = Number(receipt.slice(6, 8));
+
+  // The last instant of the receipt day in KST, expressed in UTC: 23:59 KST is
+  // 14:59 UTC the same day, so this never crosses a UTC date boundary.
+  const LAST_HOUR_OF_DAY = 23;
+  const dayEndUtc = new Date(
+    Date.UTC(year, month - 1, day, LAST_HOUR_OF_DAY - KST_UTC_OFFSET_HOURS, 59, 59, 999),
+  );
+  // Date.UTC rolls an impossible day over silently; catching it here keeps a
+  // malformed receipt from becoming a plausible-looking timestamp.
+  if (dayEndUtc.getUTCMonth() !== month - 1 || dayEndUtc.getUTCDate() !== day) {
+    return { refused: true, reason: `receipt number carries no real date: ${receipt}` };
+  }
+
+  const ingested = input.ingestedAt instanceof Date ? input.ingestedAt : new Date(input.ingestedAt);
+  if (Number.isNaN(ingested.getTime())) {
+    return { refused: true, reason: `unparseable ingestion time for receipt ${receipt}` };
+  }
+
+  const useIngested = ingested.getTime() < dayEndUtc.getTime();
+  return {
+    availableAt: (useIngested ? ingested : dayEndUtc).toISOString(),
+    knownAt: ingested.toISOString(),
+    receiptDate: `${receipt.slice(0, 4)}-${receipt.slice(4, 6)}-${receipt.slice(6, 8)}`,
+    availableAtBound: useIngested ? 'ingested_at' : 'receipt_day_end_kst',
+  };
 }

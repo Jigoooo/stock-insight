@@ -49,6 +49,18 @@ DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
 DATABASE_URL="$DB_URL" node \
   apps/api/src/ingest/run-dart-coverage-ledger.ts --apply
 
+# Must also follow the DART step, and for the same reason: it reads the raw
+# objects that step just stored. Unlike the folded market.financial_fact above,
+# this writes the unfolded statement into world.numeric_fact with the cell
+# address, the dimensions and the restatement chain that canonical/11 §2 asks for.
+#
+# Idempotent by cell address: a filing's fact_key contains its receipt number and
+# never changes, so a re-run recognises what it already wrote and only the newly
+# collected filings turn into facts. The first run is the large one — 168,417
+# facts from 1,362 filings measured 2026-08-08 — and every run after it is small.
+DATABASE_URL="$DB_URL" node \
+  apps/api/src/backfill/run-dart-numeric-fact.ts --apply
+
 # US filing facts are idempotent and accession-keyed.
 DATABASE_URL="$DB_URL" node \
   apps/api/src/ingest/run-sec-financial-facts.ts --since-year 2020 --limit 200 --apply

@@ -6,6 +6,7 @@ import {
   buildNumericFactDrafts,
   dartFactKey,
   parseDartConcept,
+  resolveDartAvailability,
   resolveDartPeriod,
   type DartStatementRow,
 } from '../src/backfill/dart-numeric-fact.ts';
@@ -288,5 +289,103 @@ describe('DART fact drafts', () => {
       fiscalMonth: DEC,
     });
     assert.equal(drafts[0]?.value, -8810638260);
+  });
+});
+
+describe('DART availability — the two time axes', () => {
+  it('reads availability from the receipt, not from when we fetched it', () => {
+    // Measured 2026-08-08: receipt 2026-05-14, source_revision.available_at
+    // 2026-08-07. Using the fetch time would date every historical fact to the
+    // backfill and make the column useless.
+    const availability = resolveDartAvailability({
+      receiptNo: '20260514001471',
+      ingestedAt: '2026-08-07T20:23:26.826Z',
+    });
+    assert.equal(availability.receiptDate, '2026-05-14');
+    assert.equal(availability.availableAt, '2026-05-14T14:59:59.999Z');
+    assert.equal(availability.availableAtBound, 'receipt_day_end_kst');
+  });
+
+  it('places the bound at the end of the receipt day in KST', () => {
+    // 23:59:59.999 KST is 14:59:59.999 UTC. An earlier bound would claim the
+    // filing was readable before it was, which is the direction that leaks.
+    const { availableAt } = resolveDartAvailability({
+      receiptNo: '20250515002181',
+      ingestedAt: '2025-06-01T00:00:00.000Z',
+    });
+    assert.equal(availableAt, '2025-05-15T14:59:59.999Z');
+  });
+
+  it('tightens to the ingestion moment when we fetched it the same day', () => {
+    // Both values bound the true moment from above, so the tighter one is still
+    // sound — and it keeps known_at >= available_at, which numeric_fact enforces.
+    const availability = resolveDartAvailability({
+      receiptNo: '20250515002181',
+      ingestedAt: '2025-05-15T02:00:00.000Z',
+    });
+    assert.equal(availability.availableAt, '2025-05-15T02:00:00.000Z');
+    assert.equal(availability.availableAtBound, 'ingested_at');
+  });
+
+  it('never reports knowing a filing before it was available', () => {
+    for (const ingestedAt of [
+      '2025-05-14T23:00:00.000Z',
+      '2025-05-15T02:00:00.000Z',
+      '2025-05-15T20:00:00.000Z',
+      '2026-08-07T20:23:26.826Z',
+    ]) {
+      const a = resolveDartAvailability({ receiptNo: '20250515002181', ingestedAt });
+      assert.ok(a.knownAt >= a.availableAt, `${ingestedAt} produced known_at < available_at`);
+    }
+  });
+
+  it('keeps known_at as the ingestion moment untouched', () => {
+    const { knownAt } = resolveDartAvailability({
+      receiptNo: '20250515002181',
+      ingestedAt: '2026-08-07T20:23:26.826Z',
+    });
+    assert.equal(knownAt, '2026-08-07T20:23:26.826Z');
+  });
+
+  it('refuses a receipt number that carries no real date', () => {
+    // Date.UTC rolls 2025-02-30 into March without complaint, which would turn a
+    // malformed receipt into a plausible timestamp.
+    assert.match(
+      resolveDartAvailability({ receiptNo: '20250230001234', ingestedAt: '2025-06-01T00:00:00Z' })
+        .reason,
+      /no real date/,
+    );
+    assert.match(
+      resolveDartAvailability({ receiptNo: '2025', ingestedAt: '2025-06-01T00:00:00Z' }).reason,
+      /unparseable receipt number/,
+    );
+  });
+});
+
+describe('DART dimensions — a Korean label is not unique inside a statement', () => {
+  it('separates two issuer accounts that share a name at different positions', () => {
+    // One live balance sheet lists 충당부채 at ordinal 40 for 1,290,427,460 and
+    // again at ordinal 51 for 82,993,173,087 — current and non-current
+    // provisions, sharing a label. Without the position they become one claim and
+    // a reader taking the latest revision loses a line of the balance sheet.
+    const current = buildNumericFactDrafts(
+      row({ account_id: '-표준계정코드 미사용-', account_nm: '충당부채', ord: '40' }),
+      { fiscalMonth: DEC },
+    ).drafts[0];
+    const nonCurrent = buildNumericFactDrafts(
+      row({ account_id: '-표준계정코드 미사용-', account_nm: '충당부채', ord: '51' }),
+      { fiscalMonth: DEC },
+    ).drafts[0];
+
+    assert.equal(current.conceptKey, nonCurrent.conceptKey, 'still the same label');
+    assert.notDeepEqual(current.dimensions, nonCurrent.dimensions);
+    assert.equal(current.dimensions.statementOrdinal, '40');
+  });
+
+  it('leaves a standard taxonomy concept without a position dimension', () => {
+    // The concept key already identifies it, and pinning the ordinal would stop a
+    // correction that shifts line positions from colliding with what it replaces.
+    const { drafts } = buildNumericFactDrafts(row({ ord: '7' }), { fiscalMonth: DEC });
+    assert.equal(drafts[0].dimensions.statementOrdinal, undefined);
   });
 });

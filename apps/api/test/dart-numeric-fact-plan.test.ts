@@ -222,3 +222,61 @@ describe('DART fact plan — numeric_fact column shapes', () => {
     assert.equal(buildDartFactPlan([row()], context).facts[0].scalePower, 0);
   });
 });
+
+describe('DART fact plan — one concept stated in two statements', () => {
+  it('does not turn a second presentation into a restatement of the first', () => {
+    // Measured on the live corpus 2026-08-08: 988 groups collided, every one of
+    // them inside a single filing stating the same ProfitLoss in both 손익계산서
+    // and 포괄손익계산서 with identical values. Colliding them forced the second
+    // to land as revision 2 superseding the first — a restatement history that
+    // never happened.
+    const [income, comprehensive] = [
+      buildDartFactPlan(
+        [row({ sj_div: 'IS', reprt_code: '11011', account_id: 'ifrs-full_ProfitLoss', ord: '20' })],
+        context,
+      ).facts[0],
+      buildDartFactPlan(
+        [
+          row({
+            sj_div: 'CIS',
+            reprt_code: '11011',
+            account_id: 'ifrs-full_ProfitLoss',
+            ord: '20',
+          }),
+        ],
+        context,
+      ).facts[0],
+    ];
+
+    assert.notEqual(income.restatementGroupKey, comprehensive.restatementGroupKey);
+  });
+
+  it('still collides a correction of the same line of the same statement', () => {
+    // The division is kept because it does not change between an original and
+    // its restatement; the receipt number is dropped because it does.
+    const original = buildDartFactPlan([row({ sj_div: 'CIS', reprt_code: '11011' })], context)
+      .facts[0];
+    const corrected = buildDartFactPlan(
+      [row({ sj_div: 'CIS', reprt_code: '11011', rcept_no: '20250820004444' })],
+      context,
+    ).facts[0];
+
+    assert.equal(original.restatementGroupKey, corrected.restatementGroupKey);
+    assert.notEqual(original.factKey, corrected.factKey);
+  });
+
+  it('keeps the two presentations in one comparability group', () => {
+    // Separating the restatement groups must not make the same measure look
+    // incomparable — that question belongs to the definition registry.
+    const income = buildDartFactPlan(
+      [row({ sj_div: 'IS', reprt_code: '11011', account_id: 'ifrs-full_ProfitLoss' })],
+      context,
+    ).definitions[0];
+    const comprehensive = buildDartFactPlan(
+      [row({ sj_div: 'CIS', reprt_code: '11011', account_id: 'ifrs-full_ProfitLoss' })],
+      context,
+    ).definitions[0];
+
+    assert.equal(income.comparabilityGroupKey, comprehensive.comparabilityGroupKey);
+  });
+});

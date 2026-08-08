@@ -28,6 +28,8 @@
     "backfill:sec-edgar:apply": "node src/backfill/run-sec-edgar.ts --apply",
     "backfill:opendart:dry-run": "node src/backfill/run-opendart.ts",
     "backfill:opendart:apply": "node src/backfill/run-opendart.ts --apply",
+    "backfill:dart-numeric-fact:dry-run": "node src/backfill/run-dart-numeric-fact.ts",
+    "backfill:dart-numeric-fact:apply": "node src/backfill/run-dart-numeric-fact.ts --apply",
     "ingest:news:dry-run": "node src/ingest/run-news-rss.ts",
     "ingest:news:apply": "node src/ingest/run-news-rss.ts --apply",
     "ingest:news:translate:dry-run": "node src/ingest/run-news-translation.ts",

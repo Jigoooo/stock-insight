@@ -83,8 +83,20 @@ export type MetricDefinitionRow = {
 export type DartFactPlan = {
   facts: NumericFactRow[];
   definitions: MetricDefinitionRow[];
-  skips: { reason: string; count: number }[];
+  skips: Skip[];
 };
+
+export type Skip = { reason: string; count: number };
+
+function bump(counts: Map<string, number>, reason: string, by = 1): void {
+  counts.set(reason, (counts.get(reason) ?? 0) + by);
+}
+
+function sortedSkips(counts: Map<string, number>): Skip[] {
+  return [...counts.entries()]
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((left, right) => right.count - left.count);
+}
 
 function stableHash(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex').slice(0, 12);
@@ -209,6 +221,21 @@ export function buildDartFactPlan(
           draft.conceptNamespace,
           draft.conceptKey,
           periodSignature(draft),
+          // Which statement the line was presented in. A Korean filing routinely
+          // states one concept in two statements — measured 2026-08-08, 988
+          // groups collided this way, every one of them inside a single filing
+          // with identical values in 손익계산서 and 포괄손익계산서. Leaving the
+          // division out made the second presentation look like a revision
+          // superseding the first, inventing a restatement history that never
+          // happened.
+          //
+          // The rule for what belongs here is what does *not* change between an
+          // original and its restatement. A correction re-files the same line of
+          // the same statement, so the division stays; the receipt number
+          // changes, so it goes. Comparability across statements is a separate
+          // question and lives in metric_definition's comparability group, which
+          // deliberately ignores the division.
+          draft.locator.statementDivision,
           stableHash(draft.dimensions),
           draft.cumulative ? 'cum' : 'period',
         ].join(':'),
@@ -244,4 +271,134 @@ export function buildDartFactPlan(
       .map(([reason, count]) => ({ reason, count }))
       .sort((left, right) => right.count - left.count),
   };
+}
+
+export type GroupState = { maxRevision: number; latestFactId: number | null };
+
+export type PlannedWrite = {
+  fact: NumericFactRow;
+  revisionNo: number;
+  supersedesKey: string | null;
+};
+
+/**
+ * Assigns revision numbers, which is the whole reason a restatement group exists.
+ *
+ * numeric_fact enforces UNIQUE (restatement_group_key, revision_no) and that a
+ * revision above 1 names the fact it supersedes. So a second filing making the
+ * same claim about the same period cannot be written as an independent
+ * observation — it has to point at the one it replaces. This walks the groups in
+ * a fixed order so a re-run assigns the same numbers.
+ *
+ * Facts already written are skipped by fact_key: the cell address of a filing is
+ * immutable, so seeing it again means we have already recorded it.
+ */
+export function assignRevisions(
+  facts: readonly NumericFactRow[],
+  existing: {
+    factKeys: ReadonlySet<string>;
+    groups: ReadonlyMap<string, GroupState>;
+  },
+): { writes: PlannedWrite[]; skips: Skip[] } {
+  const counts = new Map<string, number>();
+  const groups = new Map<string, GroupState>(existing.groups);
+  const writes: PlannedWrite[] = [];
+
+  // A stable order keeps revision numbers reproducible across runs. fact_key
+  // already contains the receipt number, so this orders restatements by filing.
+  const ordered = [...facts].sort((left, right) => (left.factKey < right.factKey ? -1 : 1));
+
+  for (const fact of ordered) {
+    if (existing.factKeys.has(fact.factKey)) {
+      bump(counts, 'already recorded');
+      continue;
+    }
+    const state = groups.get(fact.restatementGroupKey) ?? { maxRevision: 0, latestFactId: null };
+    const revisionNo = state.maxRevision + 1;
+    writes.push({
+      fact,
+      revisionNo,
+      // Within one run the superseded row has no id yet, so carry the key and let
+      // the writer resolve it from what it has just inserted.
+      supersedesKey: revisionNo > 1 ? fact.restatementGroupKey : null,
+    });
+    groups.set(fact.restatementGroupKey, {
+      maxRevision: revisionNo,
+      latestFactId: state.latestFactId,
+    });
+  }
+
+  return { writes, skips: sortedSkips(counts) };
+}
+
+export type ParityResult = {
+  comparable: number;
+  agreed: number;
+  disagreed: number;
+  samples: { entityId: number; concept: string; periodEnd: string; ours: number; theirs: number }[];
+};
+
+/**
+ * Compares the new facts against market.financial_fact where the two overlap.
+ *
+ * They are built from the same endpoint by different code, so on the 9 concepts
+ * the folded table carries there is no reason for the numbers to differ. A
+ * disagreement means one of the two is wrong, and this is the cheapest place to
+ * find that out. Report only — the folded table assumes a December close for
+ * every issuer, so it is not an authority, just a second opinion.
+ *
+ * Only undimensioned statement totals are comparable. 자본변동표 restates equity
+ * once per component, so `ifrs-full_Equity` arrives many times for one period —
+ * measured 2026-08-08, entity 487 alone produced four values for 2022-12-31 that
+ * sum to the total the folded table holds. That table keeps whichever row it met
+ * first (ON CONFLICT DO NOTHING), so it has no component breakdown to compare
+ * against. A fact carrying an accountDetail is a piece of a total, not the total.
+ *
+ * Only the quarter-only facts are comparable. run-dart-financial-facts.ts:313
+ * reads `thstrm_amount` and never `thstrm_add_amount`, and stores one date per
+ * fact, so a quarterly report leaves it holding the quarter. We emit both the
+ * quarter and the year to date, and both end on the same day — comparing the
+ * cumulative one against their quarter would report a disagreement that is really
+ * two different spans. Measured 2026-08-08, that alone accounted for 5,797 of the
+ * 19,366 comparisons.
+ */
+export function checkParity(
+  facts: readonly NumericFactRow[],
+  conceptByAccount: ReadonlyMap<string, string>,
+  theirs: ReadonlyMap<string, number>,
+): ParityResult {
+  const result: ParityResult = { comparable: 0, agreed: 0, disagreed: 0, samples: [] };
+
+  for (const fact of facts) {
+    if (fact.locator.amountField !== 'thstrm_amount') continue;
+    if (fact.dimensionsJson.accountDetail !== undefined) continue;
+    const accountId = fact.locator.accountId;
+    const concept = accountId ? conceptByAccount.get(accountId) : undefined;
+    if (!concept) continue;
+    // The folded table stores one date per fact, so compare on whichever of the
+    // two period columns this fact filled.
+    const periodEnd = (fact.instantAt ?? fact.periodEnd)?.slice(0, 10);
+    if (!periodEnd) continue;
+
+    const theirValue = theirs.get(`${fact.entityId}|${concept}|${periodEnd}`);
+    if (theirValue === undefined) continue;
+
+    result.comparable += 1;
+    if (Math.abs(theirValue - fact.value) < 1) {
+      result.agreed += 1;
+      continue;
+    }
+    result.disagreed += 1;
+    if (result.samples.length < 10) {
+      result.samples.push({
+        entityId: fact.entityId,
+        concept,
+        periodEnd,
+        ours: fact.value,
+        theirs: theirValue,
+      });
+    }
+  }
+
+  return result;
 }
