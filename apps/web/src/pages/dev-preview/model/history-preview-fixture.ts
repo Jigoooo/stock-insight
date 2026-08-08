@@ -173,14 +173,24 @@ export function resolveHistoryPreview(scenario: HistoryPreviewScenario) {
       return [item.historyId, detail] as const;
     }),
   );
+  let detailAttempts = 0;
+
+  const getDetail = (historyId: string) => {
+    const detail = details.get(historyId);
+    if (!detail) throw new Error(`Unknown history preview item: ${historyId}`);
+    return detail;
+  };
 
   return {
     data,
     briefing,
-    getDetail(historyId: string) {
-      const detail = details.get(historyId);
-      if (!detail) throw new Error(`Unknown history preview item: ${historyId}`);
-      return detail;
+    getDetail,
+    async loader(historyId: string) {
+      detailAttempts += 1;
+      if (scenario === 'detail-error' && detailAttempts === 1) {
+        throw new Error('개발 미리보기에서 상세를 불러오지 못했습니다.');
+      }
+      return getDetail(historyId);
     },
     detailError:
       scenario === 'detail-error' ? '개발 미리보기에서 상세를 불러오지 못했습니다.' : null,

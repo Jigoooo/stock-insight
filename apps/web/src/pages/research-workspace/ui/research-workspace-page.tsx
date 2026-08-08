@@ -13,11 +13,21 @@ import {
 } from 'react';
 
 import { EvidenceInspector } from './evidence-inspector';
+import {
+  HistoryBriefingInspector,
+  type HistoryBriefingInspectorState,
+} from './history-briefing-inspector';
 import styles from './research-workspace-page.module.css';
 import { WorkspaceSearch, useDeferredWorkspaceSearch } from './workspace-search';
 import { WorkspaceViewErrorBoundary, WorkspaceViewReady } from './workspace-view-boundary';
 import { WorkspaceViewRegion } from './workspace-view-region';
-import { buildHistoryBriefingModel, type HistoryBriefingModel } from '../model/history-briefing';
+import {
+  buildHistoryBriefingDetail,
+  buildHistoryBriefingModel,
+  type HistoryBriefingDetail,
+  type HistoryBriefingItem,
+  type HistoryBriefingModel,
+} from '../model/history-briefing';
 import {
   buildMarketConnectionsModel,
   type MarketConnectionLoader,
@@ -67,6 +77,7 @@ import type {
 
 export type SectionId = WorkspaceSectionId;
 export type DetailState = 'ready' | 'loading' | 'error';
+export type HistoryBriefingLoader = (historyId: string) => Promise<HistoryBriefingDetail>;
 
 export { AvailabilityNotice, PageHeader } from '@/shared/ui/workspace';
 export { WorkspaceState };
@@ -132,6 +143,7 @@ type ResearchWorkspacePageProps = {
   loadResearchRecord?: (recordKey: string) => Promise<ResearchRecordDetail>;
   loadStockBriefingDetail?: StockBriefingLoader;
   historyBriefing?: HistoryBriefingModel;
+  loadHistoryBriefingDetail?: HistoryBriefingLoader;
   marketConnections?: MarketConnectionsModel;
   stocksBriefing?: StocksBriefingModel;
   navigationMode?: 'route' | 'static';
@@ -187,6 +199,7 @@ export function ResearchWorkspacePage({
   loadResearchRecord,
   loadStockBriefingDetail,
   historyBriefing,
+  loadHistoryBriefingDetail,
   marketConnections,
   stocksBriefing,
   navigationMode = 'route',
@@ -211,6 +224,8 @@ export function ResearchWorkspacePage({
   const navigationSequenceRef = useRef(0);
   const themeRelationSequenceRef = useRef(0);
   const inspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const historyInspectorOpenerRef = useRef<HTMLElement | null>(null);
+  const historyDetailSequenceRef = useRef(0);
   const issuedInspectorRecordKeysRef = useRef(new Set<string>());
   const [, startNavigationTransition] = useTransition();
   const initialDetail = data.view === 'today' ? data.defaultRecord : null;
@@ -223,6 +238,11 @@ export function ResearchWorkspacePage({
   const [themeRelationState, setThemeRelationState] = useState<DetailState>('ready');
   const [detailState, setDetailState] = useState<DetailState>(initialDetail ? 'ready' : 'error');
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
+  const [historyInspectorOpen, setHistoryInspectorOpen] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryBriefingItem | null>(null);
+  const [historyDetail, setHistoryDetail] = useState<HistoryBriefingDetail | null>(null);
+  const [historyDetailState, setHistoryDetailState] =
+    useState<HistoryBriefingInspectorState>('ready');
   const [dismissedInspectorRecords, setDismissedInspectorRecords] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -314,6 +334,7 @@ export function ResearchWorkspacePage({
   );
   const inspectorVisible = section === 'today' && (inspectorOpen || urlInspectorVisible);
   const inspectorModalOpen = isMobileViewport && inspectorVisible;
+  const historyInspectorVisible = section === 'history' && historyInspectorOpen;
   const loadRecordDetail = useCallback(
     async (recordKey: string) => {
       if (loadResearchRecord) {
@@ -579,6 +600,40 @@ export function ResearchWorkspacePage({
     }
   };
 
+  const loadSelectedHistoryDetail = useCallback(
+    async (item: HistoryBriefingItem) => {
+      const sequence = ++historyDetailSequenceRef.current;
+      const baseDetail = buildHistoryBriefingDetail(item);
+      setHistoryDetail(baseDetail);
+      if (!loadHistoryBriefingDetail) {
+        setHistoryDetailState('ready');
+        return;
+      }
+      setHistoryDetailState('loading');
+      try {
+        const nextDetail = await loadHistoryBriefingDetail(item.historyId);
+        if (historyDetailSequenceRef.current !== sequence) return;
+        setHistoryDetail(nextDetail);
+        setHistoryDetailState('ready');
+      } catch {
+        if (historyDetailSequenceRef.current !== sequence) return;
+        setHistoryDetailState('error');
+      }
+    },
+    [loadHistoryBriefingDetail],
+  );
+
+  const selectHistory = (item: HistoryBriefingItem, opener: HTMLElement) => {
+    historyInspectorOpenerRef.current = opener;
+    setSelectedHistoryItem(item);
+    setHistoryInspectorOpen(true);
+    void loadSelectedHistoryDetail(item);
+  };
+
+  const retryHistoryDetail = () => {
+    if (selectedHistoryItem) void loadSelectedHistoryDetail(selectedHistoryItem);
+  };
+
   const selectThemeEntity = async (entityKey: string) => {
     const sequence = ++themeRelationSequenceRef.current;
     setThemeRelationState('loading');
@@ -709,6 +764,12 @@ export function ResearchWorkspacePage({
     void onUrlStateChange?.({ record: undefined });
   };
 
+  const closeHistoryInspector = () => {
+    setHistoryInspectorOpen(false);
+    const opener = historyInspectorOpenerRef.current;
+    if (opener?.isConnected) window.requestAnimationFrame(() => opener.focus());
+  };
+
   const contextualActions = canManageInvitations ? (
     <Button
       type="button"
@@ -809,6 +870,8 @@ export function ResearchWorkspacePage({
           interactive={hydrated}
           pageState={visibleHistoryPageState}
           onLoadMore={() => void loadMoreHistory()}
+          onOpenHistory={selectHistory}
+          selectedHistoryId={selectedHistoryItem?.historyId}
         />
       )}
       {section === 'status' && data.view === 'status' && <StatusView data={data.status} />}
@@ -822,7 +885,7 @@ export function ResearchWorkspacePage({
     <WorkspaceShell
       activeSection={visualSection}
       contextualActions={contextualActions}
-      mobileModalInert={inspectorModalOpen}
+      mobileModalInert={inspectorModalOpen || (isMobileViewport && historyInspectorVisible)}
       navigationItems={navigationItems}
       navigationMode={navigationMode}
       navigationPending={navigationIntent.pendingSection as WorkspaceSectionId | null}
@@ -869,6 +932,15 @@ export function ResearchWorkspacePage({
         modal={isMobileViewport}
         onClose={closeInspector}
         open={inspectorVisible}
+      />
+      <HistoryBriefingInspector
+        detail={historyDetail}
+        detailKey={selectedHistoryItem?.historyId ?? null}
+        mobile={isMobileViewport}
+        onClose={closeHistoryInspector}
+        onRetry={retryHistoryDetail}
+        open={historyInspectorVisible}
+        state={historyDetailState}
       />
     </WorkspaceShell>
   );

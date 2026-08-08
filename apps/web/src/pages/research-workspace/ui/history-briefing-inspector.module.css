@@ -1,0 +1,122 @@
+.inspectorBody,
+.readyContent,
+.comparisonGrid,
+.originalColumn,
+.currentColumn,
+.state {
+  min-width: 0;
+}
+
+.inspectorBody {
+  overflow-x: hidden;
+}
+
+.readyContent,
+.originalColumn,
+.currentColumn {
+  display: grid;
+  gap: 16px;
+}
+
+.readyContent {
+  padding: 18px;
+}
+
+.readyContent section {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.readyContent h2,
+.readyContent h3,
+.readyContent p {
+  overflow-wrap: anywhere;
+}
+
+.readyContent h2,
+.readyContent h3,
+.readyContent p,
+.readyContent ul {
+  margin-top: 0;
+}
+
+.readyContent h2,
+.readyContent h3 {
+  margin-bottom: 10px;
+}
+
+.readyContent p,
+.readyContent li {
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.summary {
+  display: grid;
+  gap: 7px;
+}
+
+.summary > span {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.summary > strong {
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+
+.comparisonGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.readyContent[data-presentation='modal'] .comparisonGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.evidenceList a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.evidenceList svg {
+  width: 14px;
+  height: 14px;
+}
+
+.localFailure,
+.state {
+  min-height: 180px;
+}
+
+.state {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+.state > strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .readyContent {
+    padding: 14px;
+  }
+
+  .readyContent[data-presentation='modal'] .comparisonGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readyContent * {
+    scroll-behavior: auto;
+  }
+}

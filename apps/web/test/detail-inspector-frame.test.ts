@@ -31,6 +31,7 @@ describe('detail inspector frame', () => {
       layout.marketConnectionInspectorWidthStorageKey,
       'stock-insight:market-connection-inspector-width',
     );
+    assert.equal(layout.historyInspectorWidthStorageKey, 'stock-insight:history-inspector-width');
     assert.notEqual(layout.evidenceInspectorWidthStorageKey, layout.stockInspectorWidthStorageKey);
     assert.notEqual(
       layout.marketConnectionInspectorWidthStorageKey,
@@ -39,6 +40,15 @@ describe('detail inspector frame', () => {
     assert.notEqual(
       layout.marketConnectionInspectorWidthStorageKey,
       layout.stockInspectorWidthStorageKey,
+    );
+    assert.notEqual(
+      layout.historyInspectorWidthStorageKey,
+      layout.evidenceInspectorWidthStorageKey,
+    );
+    assert.notEqual(layout.historyInspectorWidthStorageKey, layout.stockInspectorWidthStorageKey);
+    assert.notEqual(
+      layout.historyInspectorWidthStorageKey,
+      layout.marketConnectionInspectorWidthStorageKey,
     );
   });
 

@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useRef, type MouseEvent, type ReactNode } from 'react';
 
 import type { HistoryBriefingItem, HistoryBriefingModel } from '../../model/history-briefing';
 import { useWorkspaceAppendReveal } from '../use-workspace-append-reveal';
@@ -30,6 +30,7 @@ export function HistoryView({
   pageState,
   onLoadMore,
   onOpenHistory,
+  selectedHistoryId,
 }: {
   briefing: HistoryBriefingModel;
   data: DecisionHistoryPage;
@@ -37,10 +38,9 @@ export function HistoryView({
   pageState: 'ready' | 'loading' | 'error';
   onLoadMore: () => void;
   onOpenHistory?: HistorySelectionHandler;
+  selectedHistoryId?: string;
 }) {
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string>();
   const selectHistory: HistorySelectionHandler = (item, opener) => {
-    setSelectedHistoryId(item.historyId);
     onOpenHistory?.(item, opener);
   };
 

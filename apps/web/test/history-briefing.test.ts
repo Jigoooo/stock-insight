@@ -204,7 +204,7 @@ describe('history briefing model', () => {
 });
 
 describe('history preview fixtures', () => {
-  it('provides all six deterministic history scenarios with no live loader', async () => {
+  it('provides all six deterministic history scenarios with only a local preview detail loader', async () => {
     const fixtureModule =
       await import('../src/pages/dev-preview/model/history-preview-fixture.ts').catch(() => null);
     assert.ok(fixtureModule, 'expected deterministic history preview fixtures to exist');
@@ -224,7 +224,7 @@ describe('history preview fixtures', () => {
       assert.equal(preview.data.view, 'history');
       assert.equal(preview.briefing.summary.generatedAt, preview.data.history.generatedAt);
       assert.equal(typeof preview.getDetail, 'function');
-      assert.equal('loader' in preview, false);
+      assert.equal(typeof preview.loader, 'function');
     }
 
     const defaultPreview = fixtureModule.resolveHistoryPreview('default');
@@ -260,5 +260,8 @@ describe('history preview fixtures', () => {
     const detailError = fixtureModule.resolveHistoryPreview('detail-error');
     assert.equal(detailError.detailError, '개발 미리보기에서 상세를 불러오지 못했습니다.');
     assert.equal(detailError.canRetryDetail, true);
+    const detailErrorItem = detailError.briefing.priorityJudgments[0]!;
+    await assert.rejects(detailError.loader(detailErrorItem.historyId), /개발 미리보기/);
+    assert.equal((await detailError.loader(detailErrorItem.historyId)).item, detailErrorItem);
   });
 });

@@ -5,6 +5,7 @@ export const evidenceInspectorWidthStorageKey = 'stock-insight:evidence-inspecto
 export const stockInspectorWidthStorageKey = 'stock-insight:stock-inspector-width';
 export const marketConnectionInspectorWidthStorageKey =
   'stock-insight:market-connection-inspector-width';
+export const historyInspectorWidthStorageKey = 'stock-insight:history-inspector-width';
 
 const viewportMargin = 24;
 

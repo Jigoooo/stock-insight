@@ -155,6 +155,7 @@ export function DevPreviewPage(props: DevPreviewPageProps) {
         <ResearchWorkspacePage
           data={preview.data}
           historyBriefing={preview.briefing}
+          loadHistoryBriefingDetail={preview.loader}
           navigationMode="static"
           canManageInvitations={false}
           onLogout={async () => false}
