@@ -4,7 +4,6 @@ import {
   Bitcoin,
   BookOpen,
   Database,
-  History,
   LayoutDashboard,
   Network,
   Newspaper,
@@ -60,10 +59,10 @@ export const workspaceSections: readonly WorkspaceNavigationItem[] = [
     navigationGroup: 'primary',
   },
   {
-    id: 'research',
+    id: 'history',
     label: '복기',
     icon: BookOpen,
-    href: '/workspace/research',
+    href: '/workspace/history',
     navigationGroup: 'primary',
   },
   {
@@ -85,13 +84,6 @@ export const workspaceSections: readonly WorkspaceNavigationItem[] = [
     label: '테마·관계',
     icon: Network,
     href: '/workspace/themes',
-    navigationGroup: 'hidden',
-  },
-  {
-    id: 'history',
-    label: '판단 이력',
-    icon: History,
-    href: '/workspace/history',
     navigationGroup: 'hidden',
   },
   {

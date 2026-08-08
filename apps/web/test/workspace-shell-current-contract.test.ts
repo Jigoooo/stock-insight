@@ -62,7 +62,7 @@ describe('current workspace shell behavior', () => {
     );
     assert.match(
       sections,
-      /id: 'research',[\s\S]*?label: '복기',[\s\S]*?navigationGroup: 'primary'/,
+      /id: 'history',[\s\S]*?label: '복기',[\s\S]*?navigationGroup: 'primary'/,
     );
     assert.match(
       sections,
@@ -71,7 +71,8 @@ describe('current workspace shell behavior', () => {
     assert.match(sections, /id: 'crypto',[\s\S]*?navigationGroup: 'hidden'/);
     assert.match(navigation, /item\.navigationGroup !== 'hidden'/);
     assert.match(navigation, /data-navigation-group=\{item\.navigationGroup\}/);
-    const primaryOffsets = ["id: 'today'", "id: 'stocks'", "id: 'radar'", "id: 'research'"].map(
+    assert.doesNotMatch(sections, /id: 'research',[\s\S]*?navigationGroup:/);
+    const primaryOffsets = ["id: 'today'", "id: 'stocks'", "id: 'radar'", "id: 'history'"].map(
       (id) => sections.indexOf(id),
     );
     assert.deepEqual(
@@ -79,10 +80,7 @@ describe('current workspace shell behavior', () => {
       [...primaryOffsets].sort((a, b) => a - b),
     );
     assert.match(page, /item\.id === 'stocks' \? \{ count: data\.shell\.watchlistCount \}/);
-    assert.doesNotMatch(
-      page,
-      /item\.id === 'research' \? \{ count: data\.shell\.watchlistCount \}/,
-    );
+    assert.doesNotMatch(page, /item\.id === 'history' \? \{ count: data\.shell\.watchlistCount \}/);
   });
 
   it('keeps mobile navigation and evidence focus ownership explicit', async () => {
