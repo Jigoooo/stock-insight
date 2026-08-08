@@ -1,8 +1,13 @@
 import type { HistoryPreviewScenario } from './history-preview-fixture';
 import type { MarketConnectionsPreviewScenario } from './market-connections-preview-fixture';
+import type { StatusPreviewScenario } from './status-preview-fixture';
 
 export type StocksPreviewScenario = 'default' | 'no-holdings' | 'empty' | 'detail-error';
 export type DevPreviewPageProps =
+  | {
+      scenario?: StatusPreviewScenario;
+      surface: 'status';
+    }
   | {
       scenario?: HistoryPreviewScenario;
       surface: 'history';
@@ -41,10 +46,19 @@ const historyScenarios = new Set<HistoryPreviewScenario>([
   'partial',
   'detail-error',
 ]);
+const statusScenarios = new Set<StatusPreviewScenario>([
+  'default',
+  'all-ready',
+  'stale',
+  'source-limited',
+  'empty',
+  'error',
+]);
 const knownScenarios = new Set([
   ...stockScenarios,
   ...marketConnectionsScenarios,
   ...historyScenarios,
+  ...statusScenarios,
 ]);
 
 function invalidScenario(surface: string, scenario: unknown): never {
@@ -83,7 +97,21 @@ function resolveHistoryScenario(scenario: unknown): HistoryPreviewScenario | und
   return invalidScenario('history', scenario);
 }
 
+function resolveStatusScenario(scenario: unknown): StatusPreviewScenario | undefined {
+  if (statusScenarios.has(scenario as StatusPreviewScenario)) {
+    return scenario as StatusPreviewScenario;
+  }
+  if (scenario === undefined) return undefined;
+  return invalidScenario('status', scenario);
+}
+
 export function resolveDevPreviewRequest(search: Record<string, unknown>): DevPreviewPageProps {
+  if (search.surface === 'status') {
+    return {
+      scenario: resolveStatusScenario(search.scenario),
+      surface: 'status',
+    };
+  }
   if (search.surface === 'history') {
     return {
       scenario: resolveHistoryScenario(search.scenario),

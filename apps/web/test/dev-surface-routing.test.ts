@@ -62,6 +62,23 @@ describe('development-only visual surface routes', () => {
         scenario,
       });
     }
+    for (const scenario of [
+      'default',
+      'all-ready',
+      'stale',
+      'source-limited',
+      'empty',
+      'error',
+    ] as const) {
+      assert.deepEqual(resolve({ surface: 'status', scenario }), {
+        surface: 'status',
+        scenario,
+      });
+    }
+    assert.deepEqual(resolve({ surface: 'status' }), {
+      surface: 'status',
+      scenario: undefined,
+    });
     assert.deepEqual(resolve({ surface: 'history' }), {
       surface: 'history',
       scenario: undefined,
@@ -105,6 +122,11 @@ describe('development-only visual surface routes', () => {
       () => resolve({ surface: 'history', scenario: 'bogus' }),
       /not valid for history/,
     );
+    assert.throws(
+      () => resolve({ surface: 'status', scenario: 'no-holdings' }),
+      /not valid for status/,
+    );
+    assert.throws(() => resolve({ surface: 'status', scenario: 'bogus' }), /not valid for status/);
     assert.throws(() => resolve({ surface: 'stocks', scenario: 'no-due' }), /not valid for stocks/);
     assert.throws(() => resolve({ surface: 'today', scenario: 'default' }), /not valid for today/);
   });
@@ -261,6 +283,28 @@ describe('development-only visual surface routes', () => {
     assert.match(previewPage, /surface === 'history'/);
     assert.match(previewPage, /resolveHistoryPreview\(props\.scenario \?\? 'default'\)/);
     assert.match(previewPage, /urlState=\{\{ view: 'history' \}\}/);
+    assert.match(previewRoute, /<DevPreviewPage \{\.\.\.previewRequest\} \/>/);
+    assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
+    assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
+  });
+
+  it('routes deterministic Status preview scenarios without authenticated or network loaders', async () => {
+    const fixtureModule =
+      await import('../src/pages/dev-preview/model/status-preview-fixture.ts').catch(() => null);
+    assert.ok(fixtureModule, 'expected the Status preview fixture to exist');
+
+    const [previewPage, previewRequest, previewRoute] = await Promise.all([
+      readSource('../src/pages/dev-preview/ui/dev-preview-page.tsx'),
+      readSource('../src/pages/dev-preview/model/dev-preview-request.ts'),
+      readSource('../src/routes/[__dev-preview].tsx'),
+    ]);
+
+    assert.match(previewRequest, /search\.surface === 'status'/);
+    assert.match(previewRequest, /'all-ready'/);
+    assert.match(previewRequest, /'source-limited'/);
+    assert.match(previewPage, /surface === 'status'/);
+    assert.match(previewPage, /resolveStatusPreview\(props\.scenario \?\? 'default'\)/);
+    assert.match(previewPage, /urlState=\{\{ view: 'status' \}\}/);
     assert.match(previewRoute, /<DevPreviewPage \{\.\.\.previewRequest\} \/>/);
     assert.doesNotMatch(previewPage, /createApiClient|loadResearchWorkspaceView|getCurrentSession/);
     assert.doesNotMatch(previewRoute, /loader\s*:|createServerFn|fetch\s*\(/);
