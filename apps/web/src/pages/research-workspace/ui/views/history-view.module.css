@@ -115,6 +115,10 @@
     0 8px 20px rgb(20 21 19 / 10%);
 }
 
+.selectionSurface[data-slot='button-control'][aria-current='true'] .itemMeta {
+  color: var(--color-text-secondary);
+}
+
 .itemLayout,
 .itemCopy,
 .itemMeta {

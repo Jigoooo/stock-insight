@@ -18,6 +18,7 @@ test('server launcher strips ambient database credentials from the web child', (
     PATH: '/usr/bin',
     PORT: '18302',
     PLAYWRIGHT_E2E: '1',
+    VITE_ENABLE_DEV_PREVIEW: '1',
     VITE_ENABLE_UI_LAB: '1',
     STOCK_INSIGHT_BRAIN_URL: 'http://127.0.0.1:18301',
     STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET: 'ephemeral-secret',
@@ -32,6 +33,7 @@ test('server launcher strips ambient database credentials from the web child', (
   assert.equal(selected.PGPASSFILE, undefined);
   assert.equal(selected.NODE_OPTIONS, undefined);
   assert.equal(selected.STOCK_INSIGHT_INTERNAL_CONTEXT_SECRET, 'ephemeral-secret');
+  assert.equal(selected.VITE_ENABLE_DEV_PREVIEW, '1');
   assert.equal(selected.VITE_ENABLE_UI_LAB, '1');
 });
 
@@ -40,10 +42,12 @@ test('server launcher keeps the UI Lab flag out of the production web child', ()
     PATH: '/usr/bin',
     NODE_ENV: 'production',
     PORT: '18302',
+    VITE_ENABLE_DEV_PREVIEW: '1',
     VITE_ENABLE_UI_LAB: '1',
   });
 
   assert.equal(selected.NODE_ENV, 'production');
+  assert.equal(selected.VITE_ENABLE_DEV_PREVIEW, undefined);
   assert.equal(selected.VITE_ENABLE_UI_LAB, undefined);
 });
 

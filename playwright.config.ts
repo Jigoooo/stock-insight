@@ -81,7 +81,11 @@ Object.assign(serverEnv, {
   STOCK_INSIGHT_APP_ORIGIN: baseURL,
   ...(useProductionBuild
     ? { NODE_ENV: 'production', HOST: '127.0.0.1' }
-    : { PLAYWRIGHT_E2E: '1', VITE_ENABLE_UI_LAB: '1' }),
+    : {
+        PLAYWRIGHT_E2E: '1',
+        VITE_ENABLE_DEV_PREVIEW: '1',
+        VITE_ENABLE_UI_LAB: '1',
+      }),
 });
 
 const webServerConfig = {

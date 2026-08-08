@@ -546,6 +546,16 @@
 - 최종 재검토에서 component fixture의 Geo contract 런타임 경로가 TypeScript에만 연결되고 Vite에는 누락된 사실을 실제 `Failed to resolve import`로 재현했다. fixture Vite에 정확한 contract source alias를 추가한 뒤 `e2e/market-connections-view.spec.ts` desktop 3건이 모두 통과해 stale completion·retry·opener 회귀가 실제 렌더링 경로에서 다시 검증됨
 - `graphify update .` 완료: 10,623 nodes·18,234 edges·711 communities. DB, migration, API server, 공개 contract, dependency, route는 변경하지 않았고 기존 disposable DB/auth 환경 제약은 재분류하지 않음
 
+### 2026-08-08 — 판단 복기 경험 자동 검증 완료·브라우저 확인 대기
+
+- 승인된 `판단 복기` 설계와 Task 1–3 제품 적용을 실제 History dev preview에서 검증했다. 고정 순서, 모든 기록 종류의 정확 선택, programmatic activation 후 opener 복귀, layout-shift 없는 drawer, overlay·Escape close-only, 무요청 modal 전환, 독립 width memory, 1240px 적층, 390px bottom sheet, 여섯 시나리오, localized partial failure, detail retry, HTTPS link, 금지 문구, dark mode, reduced motion, Axe, wrapping·overflow를 포함한다.
+- Playwright server 환경이 `VITE_ENABLE_DEV_PREVIEW`를 자식 Vite에 전달하지 않아 격리 포트 preview가 404가 되던 harness 결함을 RED 14/14로 재현했다. dev 전용 allowlist와 Playwright serverEnv에만 플래그를 전달하고 production child에는 계속 차단했다.
+- dark selected History 카드의 11px metadata가 3.98:1로 Axe 대비 기준을 충족하지 못해, 선택 상태에서만 보조 텍스트 색으로 보정했다. 최종 History desktop/mobile은 22건 통과·6건 viewport 조건 skip·0건 실패다.
+- Today·Stocks·Market Connections 공용 inspector 비례 회귀는 fresh 67건 통과·23건 조건 skip·0건 실패다. focused Node는 launcher 9건과 History/shared 37건이 모두 통과했다.
+- 전체 gate는 format 1,356개 파일, lint 0 errors(기존 warning 6), typecheck 11/11 tasks, test 10/10 tasks(web 733/733), build 7/7 tasks를 통과했다. `verify:release`는 P6 fixture typecheck·전체 test·hard design 17/17까지 통과한 뒤 `P6_REHEARSAL_ADMIN_DATABASE_URL` 부재로 `test:p6:db`에서 `ERR_INVALID_URL` (`input: ''`)로 중단됐다. 이후 XG DB·build·production browser gate는 시작되지 않았다.
+- `graphify update .` 완료: 9,493 nodes·17,306 edges·637 communities. 기존 graphify skill/package 버전 차이와 SQL parser 미설치 경고는 유지됐으며 ignored graph output은 staging에서 제외한다.
+- Codex controller 인앱 브라우저의 desktop·390px 직접 확인은 아직 `대기`다. 자동 검증 완료를 브라우저 직접 확인 완료로 기록하지 않는다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상
