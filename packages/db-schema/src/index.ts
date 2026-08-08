@@ -88,6 +88,7 @@ import { sectorPlaybookMigrationSql } from './migrations/087_sector_playbook.ts'
 import { issuerPlaybookMeasurementRuleMigrationSql } from './migrations/088_issuer_playbook_measurement_rule.ts';
 import { k4MarketIntelligenceLedgerMigrationSql } from './migrations/089_k4_market_intelligence_ledger.ts';
 import { numericFactRevisionGuardMigrationSql } from './migrations/090_numeric_fact_revision_guard.ts';
+import { k4MarketIntelligenceRunReceiptMigrationSql } from './migrations/091_k4_market_intelligence_run_receipt.ts';
 
 export type AppTableName =
   | 'company_profiles'
@@ -986,6 +987,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: numericFactRevisionGuardMigrationSql,
   },
+  {
+    id: '091_k4_market_intelligence_run_receipt',
+    description:
+      'Adds the append-only K4 cutoff/request/plan receipt and the controlled operational-capacity impact channel used only by directly measured driver exposures.',
+    tables: [],
+    sql: k4MarketIntelligenceRunReceiptMigrationSql,
+  },
 ];
 
 export {
@@ -1079,4 +1087,5 @@ export {
   issuerPlaybookMeasurementRuleMigrationSql,
   k4MarketIntelligenceLedgerMigrationSql,
   numericFactRevisionGuardMigrationSql,
+  k4MarketIntelligenceRunReceiptMigrationSql,
 };
