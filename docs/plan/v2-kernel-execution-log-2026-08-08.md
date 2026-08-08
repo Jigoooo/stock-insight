@@ -466,3 +466,43 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 | K2-d | corporate action 백필 | 미착수 (원천 미확인) |
 | K2-e | truth_class 메타데이터 | 미착수 |
 | K2-f | assertion writer | **차단** — 계보 스택 연결이 별도 슬라이스 |
+
+### K2-b 착지 절차 — 순서를 바꿀 수 없다
+
+계획 §P4.5 가 부팅 다이제스트를 "이 계획에서 가장 위험한 지점"으로 잡았고, 2026-08-08 에
+실제로 그 부류의 크래시루프(재시작 1,357회)를 고쳤다. 084 는 표 2개와 뷰 1개를 만든다.
+
+```bash
+# 1. 백업
+ops/scripts/backup-research-app-logical.sh && ops/scripts/verify-research-app-restore.sh
+
+# 2. pending 이 084 하나인지 확인 — 아니면 중단(공유 DB, 남의 마이그레이션일 수 있다)
+pnpm --filter @stock-insight/api schema:status
+
+# 3. 병합 후 적용
+pnpm --filter @stock-insight/api schema:apply
+
+# 4. 다이제스트 재핀 — 지체 없이 이어서 한다
+DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
+#    → diff 판독. 084 의 표/뷰로 설명되면 상수 갱신 후 커밋.
+#      설명 안 되는 변경이 하나라도 있으면 중단 — tripwire 가 일하는 중이다.
+
+# 5. api-server 재시작하고 부팅 성공 확인
+curl -sS localhost:<port>/health
+
+# 6. 첫 적재는 손으로. 타이머에 맡기지 않는다
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-dart-numeric-fact.ts --apply
+```
+
+**④를 건너뛰면 안 된다.** 084 의 GRANT 는 `si_*` 파이프라인 롤 전용이고
+(`si_knowledge`·`si_analytics`·`si_publisher`·`si_readapi`), 앱 롤
+(`stock_insight_app_reader`/`_writer`)에는 아무것도 주지 않는다. 078–083 이 같은 이유로
+다이제스트를 안 움직였으므로 084 도 무변동이 예상된다. **그래도 실행한다** — 계획이
+"②를 무조건 실행하고 결과로 판단한다"로 못박았고, 065 는 표 하나를 추가했는데 움직였다.
+
+**⑥이 손이어야 하는 이유.** `stock-insight-market-enrichment.timer` 는 매일 05:20 KST,
+유닛 예산은 `TimeoutStartSec=90min` 이고 그 안에서 DART 수집·SEC·FINRA 가 이미 돈다.
+첫 적재는 168,417행 단일 트랜잭션이라 예산을 잠식할 수 있고, 타임아웃으로 죽으면
+롤백된 뒤 다음 날 같은 168K 를 다시 시도한다. 084 적용과 다음 타이머 발화 사이에
+손으로 한 번 돌리고 **경과 시간을 이 문서에 기록한다.** 그 뒤 타이머가 도는 것은
+증분뿐이다.
