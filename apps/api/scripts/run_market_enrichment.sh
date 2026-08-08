@@ -77,6 +77,13 @@ if [[ "$(date +%u)" == "7" ]]; then
 fi
 DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-ohlcv-adjust.ts --apply
 
+# The claim-continuity bridge of canonical/03 §6, from the actions the step above
+# collects. Runs every day rather than only on Sunday: the collector refreshes
+# weekly but the bridge is keyed by (security, effective date, kind) and writes
+# only what is missing, so a daily pass costs one query and closes the gap left by
+# a Sunday run that failed.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-security-corporate-action.ts --apply
+
 pipeline_require_db_assertion market-enrichment "
 SELECT CASE WHEN
   (SELECT count(DISTINCT job_name)
