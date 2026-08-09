@@ -46,7 +46,9 @@ describe('P6 crypto backend-only release gate', () => {
     assert.match(genericRunner, /credentialFingerprint/);
     assert.match(genericRunner, /DROP DATABASE IF EXISTS/);
     assert.match(genericRunner, /DROP ROLE IF EXISTS/);
-    assert.doesNotMatch(genericRunner, /P6_|p6|crypto-workspace/);
+    assert.doesNotMatch(genericRunner, /P6|p6|crypto-workspace/);
+    assert.match(genericRunner, /stock_insight_e2e_/);
+    assert.doesNotMatch(genericRunner, /stock_insight_production_browser/);
     assert.match(p3dRunner, /run-production-browser-e2e\.mjs/);
     assert.match(sigmaRunner, /run-production-browser-e2e\.mjs/);
     assert.doesNotMatch(p3dRunner, /run-p6-crypto-production-e2e/);

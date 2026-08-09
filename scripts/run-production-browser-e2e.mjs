@@ -28,7 +28,7 @@ const selectedSuite = process.env.STOCK_INSIGHT_PRODUCTION_E2E_SUITE;
 if (!supportedSuites.has(selectedSuite)) {
   throw new Error('STOCK_INSIGHT_PRODUCTION_E2E_SUITE must be p3d or sigma');
 }
-const temporaryRoot = mkdtempSync(join(tmpdir(), 'stock-insight-production-browser-'));
+const temporaryRoot = mkdtempSync(join(tmpdir(), 'stock-insight-e2e-browser-'));
 const generatedSecretPath = join(temporaryRoot, 'session-secret');
 writeFileSync(generatedSecretPath, `${randomBytes(32).toString('base64url')}\n`, {
   encoding: 'utf8',
@@ -76,17 +76,14 @@ const sourceUrl = requireQueryFreePostgresUrl(
   process.env.PRODUCTION_E2E_SOURCE_DATABASE_URL,
   'production browser source URL',
 );
-const databaseName = `stock_insight_production_browser_${randomBytes(5).toString('hex')}`;
-if (!/^stock_insight_production_browser_[a-f0-9]+$/.test(databaseName)) {
+const databaseName = `stock_insight_e2e_${randomBytes(5).toString('hex')}`;
+if (!/^stock_insight_e2e_[a-f0-9]+$/.test(databaseName)) {
   throw new Error('unsafe production browser database name');
 }
 const quotedDatabase = `"${databaseName}"`;
 const targetUrl = new URL(adminUrl);
 targetUrl.pathname = `/${databaseName}`;
-const databaseRoleName = databaseName.replace(
-  'stock_insight_production_browser_',
-  'stock_insight_browser_qa_',
-);
+const databaseRoleName = databaseName.replace('stock_insight_e2e_', 'stock_insight_browser_qa_');
 const databaseRolePassword = randomBytes(32).toString('base64url');
 if (!/^[A-Za-z0-9_-]+$/.test(databaseRolePassword)) throw new Error('unsafe QA role password');
 const databaseUserUrl = new URL(targetUrl);
@@ -94,8 +91,8 @@ databaseUserUrl.username = databaseRoleName;
 databaseUserUrl.password = databaseRolePassword;
 const roleNames = ['research_app', 'si_knowledge', 'si_analytics', 'si_publisher', 'si_readapi'];
 const nonce = randomBytes(8).toString('hex');
-const dumpPath = join(tmpdir(), `stock-insight-production-browser-source-${nonce}.dump`);
-const tocPath = join(tmpdir(), `stock-insight-production-browser-source-${nonce}.toc`);
+const dumpPath = join(tmpdir(), `stock-insight-e2e-browser-source-${nonce}.dump`);
+const tocPath = join(tmpdir(), `stock-insight-e2e-browser-source-${nonce}.toc`);
 const admin = new Client({ connectionString: adminUrl.toString() });
 let target;
 let source;
@@ -230,7 +227,7 @@ try {
   const tocLines = String(tocResult.stdout).split('\n');
   const eventTriggerTocLines = tocLines.filter((line) => line.includes(' EVENT TRIGGER '));
   if (eventTriggerTocLines.length !== eventTriggerRows.rowCount) {
-    throw new Error('P6 event trigger archive and source catalog disagree');
+    throw new Error('event trigger archive and source catalog disagree');
   }
   writeFileSync(
     tocPath,
