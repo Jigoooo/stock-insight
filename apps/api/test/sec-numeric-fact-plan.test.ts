@@ -328,6 +328,55 @@ describe('provider-neutral revision assignment', () => {
     assert.deepEqual(skips, [{ reason: 'unchanged comparative repetition', count: 1 }]);
   });
 
+  it('replays comparative suppression from raw chronology when the persisted latest value differs', () => {
+    const originalDraft = draft();
+    const repeatedDraft = draft({
+      sourceRevisionId: 14,
+      ingestedAt: '2025-02-09T00:00:00.000Z',
+      unitEntry: entry({
+        val: 100,
+        accn: '0000320193-25-000040',
+        filed: '2025-02-08',
+      }),
+    });
+    const changedDraft = draft({
+      sourceRevisionId: 15,
+      ingestedAt: '2025-02-10T00:00:00.000Z',
+      unitEntry: entry({
+        val: 120,
+        accn: '0000320193-25-000050',
+        filed: '2025-02-09',
+      }),
+    });
+    const facts = buildSecFactPlan(
+      [changedDraft, repeatedDraft, originalDraft],
+      PLAN_CONTEXT,
+    ).facts;
+    const original = facts.find((fact) => fact.sourceRevisionId === 10)!;
+    const changed = facts.find((fact) => fact.sourceRevisionId === 15)!;
+    const state: GroupState = {
+      maxRevision: 2,
+      latestFactId: 99,
+      latestFactKey: changed.factKey,
+      factIdsByKey: new Map([
+        [original.factKey, 88],
+        [changed.factKey, 99],
+      ]),
+      latestSemanticFingerprint: numericFactSemanticFingerprint(changed),
+    };
+
+    const { writes, skips } = assignRevisions(facts, {
+      factKeys: new Set([original.factKey, changed.factKey]),
+      groups: new Map([[original.restatementGroupKey, state]]),
+    });
+
+    assert.equal(writes.length, 0);
+    assert.deepEqual(skips, [
+      { reason: 'already recorded', count: 2 },
+      { reason: 'unchanged comparative repetition', count: 1 },
+    ]);
+  });
+
   it('requires an exact predecessor key and never substitutes the group latest id', () => {
     const { amendment } = revisions();
     const amendedFact = buildSecFactPlan([amendment], PLAN_CONTEXT).facts[0]!;

@@ -130,18 +130,55 @@ export function assignRevisions(
   existing: ExistingNumericFactState,
 ): { writes: PlannedWrite[]; skips: Skip[] } {
   const counts = new Map<string, number>();
-  const groups = new Map<string, GroupState>();
-  for (const [key, value] of existing.groups) groups.set(key, { ...value });
-  const plannedFactKeys = new Set(existing.factKeys);
-  const writes: PlannedWrite[] = [];
   const ordered = [...facts].sort((left, right) => {
     const leftKey = left.revisionSortKey ?? left.factKey;
     const rightKey = right.revisionSortKey ?? right.factKey;
     const chronology = leftKey.localeCompare(rightKey);
     return chronology !== 0 ? chronology : left.factKey.localeCompare(right.factKey);
   });
+  const groupsWithRecordedInput = new Set(
+    ordered
+      .filter((fact) => existing.factKeys.has(fact.factKey))
+      .map((fact) => fact.restatementGroupKey),
+  );
+  const semanticFingerprints = new Map<string, string>();
+  for (const [groupKey, state] of existing.groups) {
+    if (!groupsWithRecordedInput.has(groupKey) && state.latestSemanticFingerprint !== undefined) {
+      semanticFingerprints.set(groupKey, state.latestSemanticFingerprint);
+    }
+  }
 
+  // Comparative suppression is a property of the ordered source chronology, not
+  // the database's final persisted value. Replaying it before reconciliation keeps
+  // a full rerun at the same canonical fixed point while still allowing a bounded
+  // incremental batch to compare against the latest persisted semantic value.
+  const seenInputFactKeys = new Set<string>();
+  const canonicalFacts: NumericFactRow[] = [];
   for (const fact of ordered) {
+    if (seenInputFactKeys.has(fact.factKey)) {
+      bump(counts, 'already planned');
+      continue;
+    }
+    seenInputFactKeys.add(fact.factKey);
+
+    const semanticFingerprint = numericFactSemanticFingerprint(fact);
+    if (
+      fact.suppressUnchangedRevision === true &&
+      semanticFingerprints.get(fact.restatementGroupKey) === semanticFingerprint
+    ) {
+      bump(counts, 'unchanged comparative repetition');
+      continue;
+    }
+    semanticFingerprints.set(fact.restatementGroupKey, semanticFingerprint);
+    canonicalFacts.push(fact);
+  }
+
+  const groups = new Map<string, GroupState>();
+  for (const [key, value] of existing.groups) groups.set(key, { ...value });
+  const plannedFactKeys = new Set(existing.factKeys);
+  const writes: PlannedWrite[] = [];
+
+  for (const fact of canonicalFacts) {
     if (plannedFactKeys.has(fact.factKey)) {
       bump(counts, existing.factKeys.has(fact.factKey) ? 'already recorded' : 'already planned');
       continue;
@@ -154,14 +191,6 @@ export function assignRevisions(
       latestFactKey: null,
     };
     const semanticFingerprint = numericFactSemanticFingerprint(fact);
-    if (
-      fact.suppressUnchangedRevision === true &&
-      state.latestSemanticFingerprint === semanticFingerprint
-    ) {
-      bump(counts, 'unchanged comparative repetition');
-      continue;
-    }
-
     const revisionNo = state.maxRevision + 1;
     const predecessorKey = revisionNo > 1 ? (state.latestFactKey ?? null) : null;
     if (revisionNo > 1 && predecessorKey === null) {
