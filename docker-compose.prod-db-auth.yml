@@ -8,7 +8,7 @@ services:
     # sets STOCK_INSIGHT_API_IMAGE in .env.docker instead of editing this file,
     # so a local build no longer leaves an uncommittable diff behind. Mirrors the
     # pattern docker-compose.edge.yml already uses.
-    image: ${STOCK_INSIGHT_API_IMAGE:-sha256:0ba24b96c0490bfdaf77943ba928f195f11ec4984a889b8c1483fcfdfbfe1888}
+    image: ${STOCK_INSIGHT_API_IMAGE:-sha256:30c174524197a35c4de426203973746c388949fefe8c55a02c4458dd3419f150}
     pull_policy: never
     environment:
       NODE_ENV: production
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:fa83d0126c9d776bdb3b193093a88ce76ad26409794094a75a4bd9dab240cecb}
+    image: ${STOCK_INSIGHT_APP_IMAGE:-sha256:052bdcf4ce2542fa4e044fd2d8ff8f1ae2ceb3280030ffff78388af92c42f3f2}
     pull_policy: never
     environment:
       NODE_ENV: production
