@@ -64,4 +64,56 @@ describe('workspace view bundle V2', () => {
     ]);
     assert.deepEqual(queryCalls, ['shell query', 'stocks query']);
   });
+
+  it('builds all five view discriminants without reading an inactive surface', async () => {
+    const calls: string[] = [];
+    const common = {
+      shell: async () => {
+        calls.push('shell');
+        return { radarScopeTotal: 0, watchlistCount: 0 };
+      },
+      today: async () => {
+        calls.push('today');
+        return { lanes: [] } as never;
+      },
+      stocks: async () => {
+        calls.push('stocks');
+        return { availability: 'collecting', data: [], error: null, meta: {} } as never;
+      },
+      radar: async () => {
+        calls.push('radar');
+        return { items: [] } as never;
+      },
+      geo: async () => {
+        calls.push('geo');
+        return { geojson: { features: [] } } as never;
+      },
+      history: async () => {
+        calls.push('history');
+        return { items: [] } as never;
+      },
+      status: async () => {
+        calls.push('status');
+        return { datasets: [] } as never;
+      },
+    };
+
+    for (const [view, expected] of [
+      ['today', ['shell', 'today']],
+      ['stocks', ['shell', 'stocks']],
+      ['radar', ['shell', 'radar', 'geo']],
+      ['history', ['shell', 'history']],
+      ['status', ['shell', 'status']],
+    ] as const) {
+      calls.length = 0;
+      const result = await getWorkspaceViewBundleV2(executor, {
+        dependencies: common,
+        reportQueryMetric: () => undefined,
+        userScope,
+        view,
+      });
+      assert.equal(result.view, view);
+      assert.deepEqual(calls, expected);
+    }
+  });
 });

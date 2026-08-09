@@ -9,10 +9,29 @@ const pastTitle = '이전 수요 판단 복기';
 const forbiddenCopy =
   /지금 사세요|매도하세요|목표가|손절가|익절가|내일 오를 종목|수익률|성공(?:한|입니다|판단)|실패(?:한|입니다|판단)|수익 성공|손실 실패/;
 
+async function waitForReactHandler(target: Locator) {
+  await expect
+    .poll(
+      () =>
+        target.evaluate((node) => Object.keys(node).some((key) => key.startsWith('__reactProps$'))),
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe(true);
+}
+
 async function gotoPreview(page: Page, scenario = 'default') {
   await page.goto(`/__dev-preview?surface=history&scenario=${scenario}`);
   await expect(page.getByRole('heading', { name: '판단 복기', level: 1 })).toBeVisible();
   await expect(page.getByRole('button', { name: '로그아웃' })).toBeEnabled();
+  if (scenario === 'default') {
+    const firstSelection = page.getByTestId('history-select-surface').first();
+    await expect(firstSelection).toBeEnabled({
+      timeout: 15_000,
+    });
+    await waitForReactHandler(firstSelection);
+  }
 }
 
 function opener(page: Page, title: string) {
@@ -25,6 +44,7 @@ async function expectBodyToExcludeForbiddenCopy(page: Page) {
 
 async function openHistory(page: Page, title = priorityTitle, target = opener(page, title)) {
   await expect(target).toBeEnabled();
+  await waitForReactHandler(target);
   await target.click();
   const inspector = page.getByTestId('history-briefing-inspector');
   await expect(inspector).toBeVisible();
