@@ -139,6 +139,18 @@ function impactBrief(entityKey = 'KR:005930'): ImpactBriefResponse {
           note: '산업 연결 강도',
           steps: null,
         },
+        {
+          impactPathV2Id: 5,
+          triggerEventId: 5,
+          sourceEntityId: 2,
+          eventType: 'earnings',
+          sourceName: '가장 높은 연결',
+          sourceEntityKey: 'US:HIGH',
+          hopCount: 1,
+          pathScore: 0.8,
+          note: '동일 기업의 중복 경로',
+          steps: null,
+        },
       ],
     },
     error: null,
@@ -305,7 +317,7 @@ describe('stock briefing model', () => {
     assert.match(result.detail.partialFailures.impact ?? '', /identity mismatch/);
   });
 
-  it('sorts impact paths by score and exposes at most three', async () => {
+  it('keeps the strongest path per source company and exposes at most three', async () => {
     const result = await loadStockBriefingData('KR:005930', {
       loadDetail: async () => detailResponse,
       loadRelation: async () => relation,

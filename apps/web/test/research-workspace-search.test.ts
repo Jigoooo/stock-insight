@@ -7,13 +7,13 @@ describe('research workspace URL state', () => {
   it('accepts only supported views, lanes, and bounded record keys', () => {
     assert.deepEqual(
       validateWorkspaceSearch({
-        view: 'themes',
+        view: 'radar',
         lane: 'for_you',
         record: 'record:2026-07-16:alpha',
         cursor: 'opaque-cursor',
       }),
       {
-        view: 'themes',
+        view: 'radar',
         lane: 'for_you',
         record: 'record:2026-07-16:alpha',
         cursor: 'opaque-cursor',
@@ -33,5 +33,8 @@ describe('research workspace URL state', () => {
       {},
     );
     assert.deepEqual(validateWorkspaceSearch({ record: '   ' }), {});
+    for (const view of ['crypto', 'themes', 'market-topic-news']) {
+      assert.deepEqual(validateWorkspaceSearch({ view }), {});
+    }
   });
 });

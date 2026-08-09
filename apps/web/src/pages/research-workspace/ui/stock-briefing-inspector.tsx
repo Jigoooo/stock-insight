@@ -152,8 +152,8 @@ export function StockBriefingInspector({
               {detail.whyNow && (
                 <section aria-labelledby="stock-inspector-why-now">
                   <h3 id="stock-inspector-why-now">왜 지금 확인하나요</h3>
-                  <strong>{detail.whyNow.changeSummary}</strong>
-                  <p>{detail.whyNow.connectionReason}</p>
+                  <strong>{presentResearchSummary(detail.whyNow.changeSummary)}</strong>
+                  <p>{presentResearchSummary(detail.whyNow.connectionReason)}</p>
                 </section>
               )}
 
@@ -222,7 +222,7 @@ export function StockBriefingInspector({
                         <strong>확인할 리스크</strong>
                         <StructuredList>
                           {detail.risks.map((risk) => (
-                            <li key={risk}>{risk}</li>
+                            <li key={risk}>{presentResearchSummary(risk)}</li>
                           ))}
                         </StructuredList>
                       </div>
@@ -232,7 +232,7 @@ export function StockBriefingInspector({
                         <strong>체크포인트</strong>
                         <StructuredList>
                           {detail.checkpoints.map((checkpoint) => (
-                            <li key={checkpoint}>{checkpoint}</li>
+                            <li key={checkpoint}>{presentResearchSummary(checkpoint)}</li>
                           ))}
                         </StructuredList>
                       </div>
@@ -244,7 +244,7 @@ export function StockBriefingInspector({
               {detail.primaryThesis && (
                 <section aria-labelledby="stock-inspector-thesis">
                   <h3 id="stock-inspector-thesis">보유 논지 복기</h3>
-                  <p>{detail.primaryThesis}</p>
+                  <p>{presentResearchSummary(detail.primaryThesis)}</p>
                 </section>
               )}
 

@@ -70,6 +70,11 @@ const LATEST_RUN_SQL = `
 `;
 
 const DETAIL_SQL = `
+  WITH relevance AS MATERIALIZED (
+    SELECT *
+    FROM public.v_user_feed_dedup
+    WHERE user_id = $1::uuid
+  )
   SELECT
     publication.record_key,
     publication.record_type,
@@ -91,9 +96,8 @@ const DETAIL_SQL = `
     relevance.primary_kind,
     relevance.top_reason
   FROM ops.internal_web_publication_records publication
-  LEFT JOIN public.v_user_feed_dedup relevance
-    ON relevance.user_id = $1::uuid
-   AND relevance.record_id = publication.id
+  LEFT JOIN relevance
+    ON relevance.record_id = publication.id
   WHERE publication.analysis_run_id = $2
     AND publication.analysis_revision = $3
     AND publication.record_key = $4

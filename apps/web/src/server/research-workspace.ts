@@ -10,10 +10,8 @@ import type {
   ResearchWorkspaceShellSummary,
   ResearchWorkspaceViewOptions,
 } from '@/pages/research-workspace/model/workspace-view-payload';
-import type {
-  MyResearchOverview,
-  RadarSignalPage,
-} from '@stock-insight/contracts/research-workspace';
+import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
+import { workspaceViewBundleV2Schema } from '@stock-insight/contracts/workspace-read-v2';
 
 // Every read here used to open its own PostgreSQL connection. They now go over
 // HTTP to the brain, so this process holds no database credentials.
@@ -24,6 +22,14 @@ function scopeFor(userId: string) {
 
 function isoOrUndefined(value: Date | undefined): string | undefined {
   return value ? value.toISOString() : undefined;
+}
+
+export function resolveWorkspaceReadMode(
+  value = process.env.STOCK_INSIGHT_WORKSPACE_READ_V2,
+): 'legacy' | 'v2' {
+  const normalized = value?.trim() || 'legacy';
+  if (normalized === 'legacy' || normalized === 'v2') return normalized;
+  throw new Error('STOCK_INSIGHT_WORKSPACE_READ_V2 must be legacy or v2');
 }
 
 export async function loadResearchWorkspace(userId: string) {
@@ -40,6 +46,8 @@ export async function loadResearchWorkspaceShell(userId: string) {
   return loadResearchWorkspaceShellCached(userId);
 }
 
+// Retained for the authenticated backend compatibility endpoint. The retired
+// workspace UI no longer calls it.
 export async function loadCryptoResearchWorkspace(
   userId: string,
   options: { knownAt?: Date; limit?: number } = {},
@@ -77,10 +85,6 @@ export async function loadResearchStatus(userId: string) {
   return brainRequest('/v1/status', { scope: scopeFor(userId) });
 }
 
-export async function loadMarketTopicNews(userId: string) {
-  return brainRequest('/v1/market-topic-news', { scope: scopeFor(userId) });
-}
-
 export async function loadDecisionHistoryPage(
   userId: string,
   options: { cursor?: string; limit?: number },
@@ -91,10 +95,6 @@ export async function loadDecisionHistoryPage(
   });
 }
 
-export async function loadMyResearchOverview(userId: string) {
-  return brainRequest<MyResearchOverview>('/v1/my-research', { scope: scopeFor(userId) });
-}
-
 export async function loadRadarSignalPage(
   userId: string,
   options: { cursor?: string; limit?: number },
@@ -103,10 +103,6 @@ export async function loadRadarSignalPage(
     scope: scopeFor(userId),
     query: { cursor: options.cursor, limit: options.limit },
   });
-}
-
-export async function loadThemeResearch(userId: string) {
-  return brainRequest('/v1/themes', { scope: scopeFor(userId) });
 }
 
 export async function loadEntityRelationGraph(
@@ -155,40 +151,6 @@ export async function loadGeoMvtTile(
   });
 }
 
-export async function loadPersonalizationPortfolioSnapshot(userId: string) {
-  return brainRequest('/v1/personalization/portfolio-snapshot', { scope: scopeFor(userId) });
-}
-
-export async function loadPersonalizationPortfolioImpact(userId: string, knownAt?: Date) {
-  return brainRequest('/v1/personalization/portfolio-impact', {
-    scope: scopeFor(userId),
-    query: { knownAt: isoOrUndefined(knownAt) },
-  });
-}
-
-export async function loadPersonalizationDecisionSupport(userId: string, entityKey: string) {
-  return brainRequest(`/v1/personalization/decision-support/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-  });
-}
-
-export async function loadPersonalizationDecisionHistory(
-  userId: string,
-  entityKey: string,
-  limit = 20,
-) {
-  return brainRequest(`/v1/personalization/decision-history/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-    query: { limit },
-  });
-}
-
-export async function loadPersonalizationThesis(userId: string, entityKey: string) {
-  return brainRequest(`/v1/personalization/thesis/${encodeURIComponent(entityKey)}`, {
-    scope: scopeFor(userId),
-  });
-}
-
 export async function loadStockList(userId: string) {
   return brainRequest('/v1/stocks', { scope: scopeFor(userId) });
 }
@@ -201,24 +163,30 @@ export async function loadResearchWorkspaceView(
   userId: string,
   options: ResearchWorkspaceViewOptions,
 ) {
+  if (resolveWorkspaceReadMode() === 'v2') {
+    const query =
+      options.view === 'today'
+        ? { lane: options.lane, record: options.record }
+        : options.view === 'radar' || options.view === 'history'
+          ? { cursor: options.cursor }
+          : undefined;
+    const bundle = workspaceViewBundleV2Schema.parse(
+      await brainRequest(`/v1/workspace/views/${options.view}`, {
+        scope: scopeFor(userId),
+        ...(query === undefined ? {} : { query }),
+      }),
+    );
+    return bundle.view === 'today' ? { ...bundle, lane: options.lane ?? 'must_know' } : bundle;
+  }
+
   const loaders = {
-    loadCrypto: loadCryptoResearchWorkspace,
-    loadDecision: loadPersonalizationDecisionSupport,
-    loadDecisionHistory: loadPersonalizationDecisionHistory,
     loadGeo: loadGeoSnapshot,
     loadHistory: loadDecisionHistoryPage,
-    loadImpact: loadPersonalizationPortfolioImpact,
-    loadMarketTopicNews,
-    loadPortfolio: loadPersonalizationPortfolioSnapshot,
     loadRadar: loadRadarSignalPage,
     loadRecord: loadResearchRecord,
-    loadRelation: loadEntityRelationGraph,
-    loadResearch: loadMyResearchOverview,
     loadShell: loadResearchWorkspaceShell,
     loadStatus: loadResearchStatus,
     loadStocks: loadStockList,
-    loadThemes: loadThemeResearch,
-    loadThesis: loadPersonalizationThesis,
     loadToday: loadResearchWorkspace,
   } as unknown as ResearchWorkspaceLoaders;
   return orchestrateResearchWorkspaceView(loaders, userId, options);

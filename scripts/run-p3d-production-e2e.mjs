@@ -9,7 +9,7 @@ import { hashProductionArtifact } from './production-artifact-hash.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 if (process.env.STOCK_INSIGHT_PRODUCTION_E2E_PREPARED !== '1') {
-  const bootstrap = spawnSync(process.execPath, ['scripts/run-p6-crypto-production-e2e.mjs'], {
+  const bootstrap = spawnSync(process.execPath, ['scripts/run-production-browser-e2e.mjs'], {
     cwd: root,
     env: {
       ...process.env,

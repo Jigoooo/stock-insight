@@ -9,6 +9,8 @@ export {
 export type { DatabaseClient, ReadOnlyDatabaseClient } from './db-client';
 export { parseServerEnv } from './env';
 export type { ServerEnv } from './env';
+export { namedReadQueryIds, withNamedReadQuery } from './named-read-query';
+export type { ReadQueryId, ReadQueryMetric, ReadQueryMetricReporter } from './named-read-query';
 export { withReadSnapshot } from './read-snapshot';
 export type {
   ReadSnapshotConnection,

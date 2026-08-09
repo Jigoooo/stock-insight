@@ -43,10 +43,9 @@ describe('2A-D product UI convergence', () => {
       read('widgets/workspace-shell/ui/workspace-topbar.tsx'),
       read('shared/ui/workspace/page-header.tsx'),
       Promise.all([
-        read('pages/research-workspace/ui/views/crypto-workspace-view.tsx'),
         read('pages/research-workspace/ui/views/today-view.tsx'),
-        read('pages/research-workspace/ui/views/themes-view.tsx'),
-        read('pages/research-workspace/ui/views/my-research-view.tsx'),
+        read('pages/research-workspace/ui/views/market-connections-view.tsx'),
+        read('pages/research-workspace/ui/views/history-view.tsx'),
       ]).then((sources) => sources.join('\n')),
     ]);
 

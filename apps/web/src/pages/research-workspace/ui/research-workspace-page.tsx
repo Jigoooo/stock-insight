@@ -55,7 +55,6 @@ import {
   resolveWorkspaceVisualSelection,
 } from '../model/workspace-navigation-intent';
 import { filterWorkspaceStocks } from '../model/workspace-search-filter';
-import { isLatestWorkspaceIntent } from '../model/workspace-transition-policy';
 import {
   workspaceViewFailureMessage,
   type WorkspaceViewFailureKind,
@@ -90,27 +89,12 @@ export { WorkspaceState };
 
 function createLazyWorkspaceViews() {
   return {
-    crypto: lazy(() =>
-      import('./views/crypto-workspace-view').then(({ CryptoWorkspaceView }) => ({
-        default: CryptoWorkspaceView,
-      })),
-    ),
     history: lazy(() =>
       import('./views/history-view').then(({ HistoryView }) => ({ default: HistoryView })),
-    ),
-    'market-topic-news': lazy(() =>
-      import('./views/market-topic-news-view').then(({ MarketTopicNewsView }) => ({
-        default: MarketTopicNewsView,
-      })),
     ),
     radar: lazy(() =>
       import('./views/market-connections-view').then(({ MarketConnectionsView }) => ({
         default: MarketConnectionsView,
-      })),
-    ),
-    research: lazy(() =>
-      import('./views/my-research-view').then(({ MyResearchView }) => ({
-        default: MyResearchView,
       })),
     ),
     status: lazy(() =>
@@ -118,9 +102,6 @@ function createLazyWorkspaceViews() {
     ),
     stocks: lazy(() =>
       import('./views/stocks-view').then(({ StocksView }) => ({ default: StocksView })),
-    ),
-    themes: lazy(() =>
-      import('./views/themes-view').then(({ ThemesView }) => ({ default: ThemesView })),
     ),
     today: lazy(() =>
       import('./views/today-view').then(({ TodayView }) => ({ default: TodayView })),
@@ -232,7 +213,6 @@ export function ResearchWorkspacePage({
     createWorkspaceNavigationIntentState(),
   );
   const navigationSequenceRef = useRef(0);
-  const themeRelationSequenceRef = useRef(0);
   const inspectorOpenerRef = useRef<HTMLElement | null>(null);
   const historyInspectorOpenerRef = useRef<HTMLElement | null>(null);
   const reliabilityInspectorOpenerRef = useRef<HTMLElement | null>(null);
@@ -245,8 +225,6 @@ export function ResearchWorkspacePage({
   const requestedRecordKey = pendingRecordKey ?? urlState.record;
   const [relation, setRelation] = useState<EntityRelationGraph | null>(null);
   const [relationState, setRelationState] = useState<DetailState>('error');
-  const [themeRelation, setThemeRelation] = useState<EntityRelationGraph | null | undefined>();
-  const [themeRelationState, setThemeRelationState] = useState<DetailState>('ready');
   const [detailState, setDetailState] = useState<DetailState>(initialDetail ? 'ready' : 'error');
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(urlState.record));
   const [historyInspectorOpen, setHistoryInspectorOpen] = useState(false);
@@ -265,14 +243,10 @@ export function ResearchWorkspacePage({
   const [resolvedViewKey, setResolvedViewKey] = useState<SectionId | null>(null);
   const [lazyViews, setLazyViews] = useState(createLazyWorkspaceViews);
   const [viewRetryKeys, setViewRetryKeys] = useState<Record<SectionId, number>>({
-    crypto: 0,
     history: 0,
-    'market-topic-news': 0,
     radar: 0,
-    research: 0,
     status: 0,
     stocks: 0,
-    themes: 0,
     today: 0,
   });
   const hydrated = useSyncExternalStore(
@@ -321,14 +295,10 @@ export function ResearchWorkspacePage({
     setViewRetryKeys((current) => retryWorkspaceView(current, section));
   }, [section]);
   const {
-    crypto: CryptoWorkspaceView,
     history: HistoryView,
-    'market-topic-news': MarketTopicNewsView,
     radar: MarketConnectionsView,
-    research: MyResearchView,
     status: StatusView,
     stocks: StocksView,
-    themes: ThemesView,
     today: TodayView,
   } = lazyViews;
   // The URL is authoritative for the selected lane, not the payload. The today
@@ -353,13 +323,19 @@ export function ResearchWorkspacePage({
   const loadRecordDetail = useCallback(
     async (recordKey: string) => {
       if (loadResearchRecord) {
-        return { detail: await loadResearchRecord(recordKey), relation: null };
+        return {
+          detail: await loadResearchRecord(recordKey),
+          relation: null,
+          relationFailed: false,
+        };
       }
       const api = await getWorkspaceApiClient();
-      const nextDetail = await api.researchRecord(recordKey);
-      const entityKey = nextDetail.affectedEntityKeys[0];
-      const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
-      return { detail: nextDetail, relation: nextRelation };
+      const briefing = await api.recordBriefing(recordKey);
+      return {
+        detail: briefing.record,
+        relation: briefing.relation,
+        relationFailed: briefing.partialFailures.relation !== undefined,
+      };
     },
     [loadResearchRecord],
   );
@@ -374,20 +350,15 @@ export function ResearchWorkspacePage({
   }, []);
 
   useEffect(() => {
-    if (data.view === 'themes') return;
-    themeRelationSequenceRef.current += 1;
-  }, [data.view]);
-
-  useEffect(() => {
     const recordKey = urlState.record;
     if (!recordKey || recordKey === detail?.recordKey) return;
     let active = true;
     void loadRecordDetail(recordKey)
-      .then(({ detail: nextDetail, relation: nextRelation }) => {
+      .then(({ detail: nextDetail, relation: nextRelation, relationFailed }) => {
         if (!active) return;
         setDetail(nextDetail);
         setRelation(nextRelation);
-        setRelationState('ready');
+        setRelationState(relationFailed ? 'error' : 'ready');
         setDetailState('ready');
       })
       .catch(() => {
@@ -509,15 +480,6 @@ export function ResearchWorkspacePage({
     [data, reliabilityBriefing],
   );
   const visibleDetail = detail ?? (data.view === 'today' ? data.defaultRecord : null);
-  const visibleThemeRelation =
-    themeRelation !== undefined ? themeRelation : data.view === 'themes' ? data.relation : null;
-  const visibleThemeRelationState =
-    themeRelation !== undefined
-      ? themeRelationState
-      : data.view === 'themes' && data.relation
-        ? 'ready'
-        : 'error';
-
   const requestNavigation = (
     kind: 'lane' | 'section',
     value: ResearchFeedLaneId | SectionId,
@@ -540,11 +502,6 @@ export function ResearchWorkspacePage({
   };
 
   const selectSection = (next: SectionId) => {
-    if (next !== 'themes') {
-      themeRelationSequenceRef.current += 1;
-      setThemeRelation(undefined);
-      setThemeRelationState('ready');
-    }
     if (!onUrlStateChange) {
       setLocalSection(next);
       return;
@@ -660,22 +617,6 @@ export function ResearchWorkspacePage({
     reliabilityInspectorOpenerRef.current = opener;
     setSelectedReliabilityItem(item);
     setReliabilityInspectorOpen(true);
-  };
-
-  const selectThemeEntity = async (entityKey: string) => {
-    const sequence = ++themeRelationSequenceRef.current;
-    setThemeRelationState('loading');
-    try {
-      const api = await getWorkspaceApiClient();
-      const nextRelation = await api.entityRelations(entityKey, 1);
-      if (!isLatestWorkspaceIntent(themeRelationSequenceRef.current, sequence)) return;
-      setThemeRelation(nextRelation);
-      setThemeRelationState('ready');
-    } catch {
-      if (!isLatestWorkspaceIntent(themeRelationSequenceRef.current, sequence)) return;
-      setThemeRelation(null);
-      setThemeRelationState('error');
-    }
   };
 
   const loadMoreRadar = async () => {
@@ -888,19 +829,6 @@ export function ResearchWorkspacePage({
           stocks={stocks}
         />
       )}
-      {section === 'crypto' && data.view === 'crypto' && <CryptoWorkspaceView data={data.crypto} />}
-      {section === 'themes' && data.view === 'themes' && (
-        <ThemesView
-          data={data.themes}
-          interactive={hydrated}
-          relation={visibleThemeRelation}
-          relationState={visibleThemeRelationState}
-          onSelectEntity={(entityKey) => void selectThemeEntity(entityKey)}
-        />
-      )}
-      {section === 'research' && data.view === 'research' && (
-        <MyResearchView data={data.myResearch} personalization={data.personalization} />
-      )}
       {section === 'history' && data.view === 'history' && visibleHistoryBriefing && (
         <HistoryView
           briefing={visibleHistoryBriefing}
@@ -920,9 +848,6 @@ export function ResearchWorkspacePage({
           onOpenReliability={selectReliability}
           selectedSurface={selectedReliabilityItem?.surface}
         />
-      )}
-      {section === 'market-topic-news' && data.view === 'market-topic-news' && (
-        <MarketTopicNewsView data={data.marketTopicNews} />
       )}
     </>
   );

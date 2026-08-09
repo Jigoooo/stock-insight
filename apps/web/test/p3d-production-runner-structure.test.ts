@@ -39,7 +39,7 @@ describe('P3-D production E2E evidence runner', () => {
     assert.doesNotMatch(runnerSource, /switches all eight/);
     assert.match(runnerSource, /STOCK_INSIGHT_PRODUCTION_E2E_PREPARED/);
     assert.match(runnerSource, /STOCK_INSIGHT_PRODUCTION_E2E_SUITE:\s*'p3d'/);
-    assert.match(runnerSource, /run-p6-crypto-production-e2e\.mjs/);
+    assert.match(runnerSource, /run-production-browser-e2e\.mjs/);
     assert.match(runnerSource, /--project=desktop/);
     assert.match(runnerSource, /--project=mobile/);
     assert.match(runnerSource, /normalExpected:\s*2/);

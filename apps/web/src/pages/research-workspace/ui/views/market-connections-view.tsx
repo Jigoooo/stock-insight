@@ -85,9 +85,26 @@ export function MarketConnectionsView({
             );
             if (!signal) throw new Error('선택한 시장 변화를 현재 Radar 응답에서 찾지 못했습니다.');
             const api = await getMarketConnectionApiClient();
+            const entityKey = item.connectedEntities[0]?.entityKey;
+            if (!entityKey) throw new Error('시장 변화에 연결된 종목이 없습니다.');
+            const briefingPromise = api.entityBriefing(entityKey, 'market_connections');
             return loadMarketConnectionData(signal, {
-              loadRelation: (entityKey) => api.entityRelations(entityKey, 1),
-              loadImpactBrief: (entityKey) => api.impactBrief(entityKey),
+              loadRelation: async () => {
+                const bundle = await briefingPromise;
+                if (bundle.partialFailures.relation) {
+                  throw new Error(bundle.partialFailures.relation);
+                }
+                if (!bundle.relation) throw new Error('관계 데이터가 없습니다.');
+                return bundle.relation;
+              },
+              loadImpactBrief: async () => {
+                const bundle = await briefingPromise;
+                if (bundle.partialFailures.impact) {
+                  throw new Error(bundle.partialFailures.impact);
+                }
+                if (!bundle.impactBrief) throw new Error('영향 경로 데이터가 없습니다.');
+                return bundle.impactBrief;
+              },
             });
           })();
       if (requestSequenceRef.current !== sequence) return;

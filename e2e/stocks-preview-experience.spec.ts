@@ -3,10 +3,29 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const previewUrl = '/__dev-preview?surface=stocks&scenario=default';
 
+async function waitForReactHandler(target: Locator) {
+  await expect
+    .poll(
+      () =>
+        target.evaluate((node) => Object.keys(node).some((key) => key.startsWith('__reactProps$'))),
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe(true);
+}
+
 async function gotoPreview(page: Page, url = previewUrl) {
   await page.goto(url);
   await expect(page.getByRole('heading', { name: '내 종목 브리핑' })).toBeVisible();
   await expect(page.getByRole('button', { name: '로그아웃' })).toBeEnabled();
+  if (url === previewUrl) {
+    const firstSelection = page.locator('button[aria-label$="종목 브리핑 열기"]').first();
+    await expect(firstSelection).toBeEnabled({
+      timeout: 15_000,
+    });
+    await waitForReactHandler(firstSelection);
+  }
 }
 
 function panelForHeading(page: Page, name: string) {
@@ -21,6 +40,7 @@ function panelForHeading(page: Page, name: string) {
 async function openStock(panel: Locator, name: string) {
   const opener = panel.locator(`button[aria-label="${name} 종목 브리핑 열기"]`);
   await expect(opener).toBeEnabled();
+  await waitForReactHandler(opener);
   await opener.click();
   const inspector = panel.page().getByTestId('stock-briefing-inspector');
   await expect(inspector).toBeVisible();
@@ -123,6 +143,7 @@ test('uses the full card width for stock row content in every entry section', as
       `button[aria-label="${entry.stock} 종목 브리핑 열기"]`,
     );
     await expect(row).toBeVisible();
+    await expect(row).toBeEnabled();
     await expect
       .poll(() =>
         row.evaluate((node) => {
@@ -206,6 +227,7 @@ test('shows held, watched, linked-news, and evidence context in stock detail', a
   await expect(holdingSummary).toContainText('근거 수준');
   await expect(holdingSummary).toContainText('높음');
   await holding.inspector.getByRole('button', { name: '종목 브리핑 인스펙터 닫기' }).click();
+  await expect(holding.inspector).toHaveCount(0);
 
   const watchlist = await openStock(panelForHeading(page, '변화가 있는 관심종목'), 'NVIDIA');
   const watchlistSummary = watchlist.inspector.locator(
@@ -323,6 +345,7 @@ test('remembers resized stock drawer width for the session', async ({ page }, te
   await resizer.press('ArrowLeft');
   await expect(resizer).toHaveAttribute('aria-valuenow', '536');
   await inspector.getByRole('button', { name: '종목 브리핑 인스펙터 닫기' }).click();
+  await expect(inspector).toHaveCount(0);
   await openStock(priority, '삼성전자');
   await expect(
     page.getByRole('separator', { name: '종목 브리핑 인스펙터 너비 조절' }),
@@ -444,13 +467,16 @@ test('renders watched-only content before honest holdings guidance', async ({ pa
   await expect(summary.getByLabel('분석 시각 없음')).toHaveCount(1);
   await expect(watchlistHeading).toBeVisible();
   await expect(guidance).toBeVisible();
-  expect(
-    await watchlistHeading.evaluate(
-      (heading, other) =>
-        Boolean(heading.compareDocumentPosition(other as Node) & Node.DOCUMENT_POSITION_FOLLOWING),
-      await guidance.elementHandle(),
-    ),
-  ).toBe(true);
+  await expect
+    .poll(async () => {
+      const [watchlistBox, guidanceBox] = await Promise.all([
+        watchlistHeading.boundingBox(),
+        guidance.boundingBox(),
+      ]);
+      if (!watchlistBox || !guidanceBox) return false;
+      return watchlistBox.y < guidanceBox.y;
+    })
+    .toBe(true);
   await expect(page.getByRole('heading', { name: '우선 확인할 보유종목' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '전체 보유종목' })).toHaveCount(0);
 });

@@ -113,6 +113,23 @@ function buildSignalTypeGroups(items: RadarSignalItem[]): SignalTypeGroup[] {
   return [...groups.values()];
 }
 
+function latestHeatmapSignals(items: RadarSignalItem[]): RadarSignalItem[] {
+  const seen = new Set<string>();
+  return [...items]
+    .sort((left, right) => {
+      if (left.occurredAt !== right.occurredAt) {
+        return left.occurredAt > right.occurredAt ? -1 : 1;
+      }
+      return right.strength - left.strength;
+    })
+    .filter((item) => {
+      const key = `${item.entityKey}\u0000${item.signalType}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function normalizeAvailability(
   availability: MarketComponentWatermark['availability'] | GeoSnapshot['availability'],
 ): MarketExplorationAvailability {
@@ -154,7 +171,7 @@ export function buildMarketOverview(
   return {
     explorations: EXPLORATION_DEFINITIONS,
     signalTypeGroups,
-    heatmapRows: items.map((item) => ({
+    heatmapRows: latestHeatmapSignals(items).map((item) => ({
       ...item,
       strengthPercent: Math.round(item.strength * 100),
     })),

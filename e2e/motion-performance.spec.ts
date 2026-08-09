@@ -24,15 +24,7 @@ const useProductionBuild = process.env.PLAYWRIGHT_USE_PRODUCTION_BUILD === '1';
 
 test.use({ trace: 'off', video: 'off' });
 
-const WORKSPACE_SECTIONS = [
-  'radar',
-  'stocks',
-  'themes',
-  'research',
-  'history',
-  'status',
-  'today',
-] as const;
+const WORKSPACE_SECTIONS = ['radar', 'stocks', 'themes', 'history', 'status', 'today'] as const;
 const WORKSPACE_LANES = ['must_know', 'for_you', 'explore'] as const;
 
 type RuntimeStats = {

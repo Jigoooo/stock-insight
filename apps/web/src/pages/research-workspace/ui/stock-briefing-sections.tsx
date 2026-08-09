@@ -5,6 +5,7 @@ import styles from './views/stocks-view.module.css';
 import { analysisStatusLabel, formatDate, formatNumber, marketLabel } from './workspace-presenters';
 import type { StocksBriefingModel, StockBriefingItem } from '../model/stock-briefing';
 
+import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/button';
 import { Panel, PanelHeader, WorkspaceState } from '@/shared/ui/workspace';
 import type { StockListItem } from '@stock-insight/contracts';
@@ -107,20 +108,25 @@ function StockRow({
         {briefing ? (
           <span className={styles.briefingCopy}>
             {rank ? <span className={styles.priorityRank}>{rank}</span> : null}
-            <strong>{briefing.changeSummary}</strong>
-            <small>{briefing.connectionReason}</small>
-            {briefing.primaryPath ? <small>{briefing.primaryPath}</small> : null}
+            <strong>{presentResearchSummary(briefing.changeSummary)}</strong>
+            <small>{presentResearchSummary(briefing.connectionReason)}</small>
+            {briefing.primaryPath ? (
+              <small>{presentResearchSummary(briefing.primaryPath)}</small>
+            ) : null}
             {briefing.riskSummary ? (
-              <small className={styles.riskSummary}>확인할 리스크 · {briefing.riskSummary}</small>
+              <small className={styles.riskSummary}>
+                확인할 리스크 · {presentResearchSummary(briefing.riskSummary)}
+              </small>
             ) : null}
           </span>
         ) : (
           <span className={styles.briefingCopy}>
             <strong>
-              {stock.primaryThesis ??
-                (context === 'watchlist'
+              {stock.primaryThesis
+                ? presentResearchSummary(stock.primaryThesis)
+                : context === 'watchlist'
                   ? '새로 연결된 변화는 없습니다.'
-                  : '최근 종목 상태를 확인합니다.')}
+                  : '최근 종목 상태를 확인합니다.'}
             </strong>
             <small>{analysisStatusLabel(stock.analysisStatus)}</small>
             {context === 'holding' ? (

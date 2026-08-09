@@ -443,6 +443,10 @@ WITH parsed_entity AS (
     ON entity.market = deep.market
    AND entity.ticker = deep.ticker
   ORDER BY deep.market, deep.ticker, deep.researched_at DESC
+), user_feed AS MATERIALIZED (
+  SELECT *
+  FROM public.v_user_feed_dedup
+  WHERE user_id = $2::uuid
 ), related_news AS (
   SELECT coalesce(json_agg(news_item ORDER BY news_sort DESC NULLS LAST), '[]'::json) AS items
   FROM (
@@ -460,7 +464,7 @@ WITH parsed_entity AS (
       ) AS news_item,
       coalesce(published_at, effective_date) AS news_sort,
       record_id
-    FROM public.v_user_feed_dedup
+    FROM user_feed
     WHERE domain = 'stock'
       AND record_entity_key = (SELECT entity_key FROM parsed_entity)
       AND coalesce(title, '') <> ''

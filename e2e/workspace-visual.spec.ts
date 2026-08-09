@@ -4,14 +4,16 @@ import { expect, test, type Locator, type Page, type TestInfo } from '@playwrigh
 const routes = [
   '/workspace/today',
   '/workspace/radar',
-  '/workspace/market-topic-news',
   '/workspace/stocks',
-  '/workspace/crypto',
-  '/workspace/themes',
-  '/workspace/research',
   '/workspace/history',
   '/workspace/status',
   '/admin/invitations',
+] as const;
+
+const retiredRoutes = [
+  ['/workspace/market-topic-news', '/workspace/today'],
+  ['/workspace/crypto', '/workspace/today'],
+  ['/workspace/themes', '/workspace/radar'],
 ] as const;
 
 const workspaceViewports = {
@@ -113,7 +115,7 @@ function currentProjectMode(projectName: string) {
   return mode;
 }
 
-async function gotoAuthenticatedRoute(page: Page, route: (typeof routes)[number]) {
+async function gotoAuthenticatedRoute(page: Page, route: string, expectedPath = route) {
   await page.goto(route, { waitUntil: 'domcontentloaded' });
   await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
   const viewRegion = page.locator('[data-workspace-view-region]');
@@ -122,7 +124,9 @@ async function gotoAuthenticatedRoute(page: Page, route: (typeof routes)[number]
 
   const url = new URL(page.url());
   expect(url.pathname, 'requested route redirected to login').not.toBe('/login');
-  expect(url.pathname, 'requested route must remain active').toBe(route);
+  expect(url.pathname, 'requested route must resolve to its canonical workspace path').toBe(
+    expectedPath,
+  );
 }
 
 async function assertShellMode(page: Page, shell: 'expanded' | 'compact' | 'mobile') {
@@ -259,12 +263,29 @@ test.describe('authenticated workspace visual matrix', () => {
     }
   }
 
-  for (const route of [
-    '/workspace/today',
-    '/workspace/radar',
-    '/workspace/stocks',
-    '/workspace/themes',
-  ] as const) {
+  for (const [route, destination] of retiredRoutes) {
+    test(`${route} redirects to ${destination} without restoring retired UI`, async ({ page }) => {
+      const retiredLoaderRequests: string[] = [];
+      page.on('request', (request) => {
+        const url = decodeURIComponent(request.url());
+        if (!url.includes('/_serverFn/') && !url.includes('/api/')) return;
+        const requestShape = `${url}\n${request.postData() ?? ''}`;
+        if (
+          /v1\/(?:crypto|themes|market-topic-news)|view["'=:\s]+(?:crypto|themes|market-topic-news)/i.test(
+            requestShape,
+          )
+        ) {
+          retiredLoaderRequests.push(requestShape);
+        }
+      });
+      await gotoAuthenticatedRoute(page, route, destination);
+      await expect(page.getByTestId('workspace-nav-crypto')).toHaveCount(0);
+      await expect(page.getByTestId('workspace-nav-themes')).toHaveCount(0);
+      expect(retiredLoaderRequests).toEqual([]);
+    });
+  }
+
+  for (const route of ['/workspace/today', '/workspace/radar', '/workspace/stocks'] as const) {
     test(`${route} reduced-motion has no running transform animation`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
       await gotoAuthenticatedRoute(page, route);
@@ -344,57 +365,6 @@ test.describe('authenticated workspace visual matrix', () => {
     await expect(stock).toHaveAttribute('aria-current', 'true');
     await expect(page.getByTestId('stock-briefing-inspector')).toBeVisible();
     await capture(page, testInfo, 'workspace-stocks-selected-briefing', [page.locator('time')]);
-  });
-
-  test('captures Themes relation graph and accessible text fallback', async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== 'workspace-expanded', 'single interaction capture');
-    await gotoAuthenticatedRoute(page, '/workspace/themes');
-    const relationRegion = page.getByTestId('relation-ledger');
-    const relationGraph = page.getByTestId('relation-graph');
-    await skipAfterCanonicalAbsence({
-      canonicalTitle: '표시할 관계가 없습니다',
-      reason: 'canonical empty relation ledger has no relation graph',
-      region: relationRegion,
-      target: relationGraph,
-    });
-    await expect(relationGraph).toBeVisible();
-    const fallback = page.getByRole('button', { name: '관계를 텍스트로 보기' });
-    if ((await fallback.getAttribute('aria-expanded')) !== 'true') await fallback.click();
-    await expect(page.getByRole('list', { name: '관계 근거 목록' })).toBeVisible();
-    await capture(page, testInfo, 'workspace-themes-graph-text-fallback');
-  });
-
-  test('keeps theme selection content across the available action width', async ({
-    page,
-  }, testInfo) => {
-    test.skip(testInfo.project.name !== 'workspace-expanded', 'single desktop layout check');
-    await gotoAuthenticatedRoute(page, '/workspace/themes');
-    await expect(page.getByRole('heading', { level: 1, name: '테마·관계' })).toBeVisible({
-      timeout: 20_000,
-    });
-    const themeLedger = page.getByTestId('theme-ledger');
-    const theme = themeLedger.getByTestId('theme-select').first();
-    const emptyState = themeLedger.locator('[data-kind="empty"], [data-kind="unavailable"]');
-    await expect(theme.or(emptyState)).toBeVisible({ timeout: 20_000 });
-    await skipAfterCanonicalAbsence({
-      canonicalTitle: '아직 구성된 테마가 없습니다',
-      reason: 'canonical empty theme ledger has no selectable theme',
-      region: themeLedger,
-      target: theme,
-    });
-    const widths = await theme.evaluate((button) => {
-      const label = button.querySelector<HTMLElement>('[data-slot="button-label"]');
-      const row = button.closest('li');
-      return {
-        button: button.getBoundingClientRect().width,
-        label: label?.getBoundingClientRect().width ?? 0,
-        row: row?.getBoundingClientRect().width ?? 0,
-      };
-    });
-    expect(widths.button).toBeGreaterThan(widths.row * 0.5);
-    expect(widths.label).toBeGreaterThan(widths.button * 0.8);
   });
 
   test('captures Radar map fallback when authorized data exposes it', async ({

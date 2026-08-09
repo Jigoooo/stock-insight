@@ -51,6 +51,8 @@ describe('stock briefing inspector', () => {
     assert.match(source, /target="_blank"/);
     assert.match(source, /rel="noreferrer"/);
     assert.match(source, /<time dateTime=/);
+    assert.match(source, /presentResearchSummary\(detail\.primaryThesis\)/);
+    assert.match(source, /presentResearchSummary\(detail\.whyNow\.changeSummary\)/);
     assert.doesNotMatch(source, /지금 사세요|매도하세요|목표가|손절가|익절가/);
   });
 
@@ -87,9 +89,11 @@ describe('stock briefing inspector', () => {
     assert.doesNotMatch(inspector, /StockBriefingLoader|loadStockBriefingData|createApiClient/);
     assert.match(view, /loadStockBriefingDetail/);
     assert.match(view, /loadStockBriefingData/);
-    assert.match(view, /api\.stockDetail\(key\)/);
-    assert.match(view, /api\.entityRelations\(key, 2\)/);
-    assert.match(view, /api\.impactBrief\(key\)/);
+    assert.match(view, /api\.entityBriefing\(entityKey, 'stocks'\)/);
+    assert.equal((view.match(/api\.entityBriefing\(/g) ?? []).length, 1);
+    assert.doesNotMatch(view, /api\.stockDetail\(/);
+    assert.doesNotMatch(view, /api\.entityRelations\(/);
+    assert.doesNotMatch(view, /api\.impactBrief\(/);
     assert.match(view, /inspectorOpenerRef\.current = opener/);
     assert.match(view, /opener\?\.isConnected/);
     assert.match(view, /requestAnimationFrame\(\(\) => opener\.focus\(\)\)/);

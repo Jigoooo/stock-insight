@@ -191,7 +191,7 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(runner, /openSync\([^)]*'wx'/);
     assert.match(runner, /STOCK_INSIGHT_PRODUCTION_E2E_PREPARED/);
     assert.match(runner, /STOCK_INSIGHT_PRODUCTION_E2E_SUITE:\s*'sigma'/);
-    assert.match(runner, /run-p6-crypto-production-e2e\.mjs/);
+    assert.match(runner, /run-production-browser-e2e\.mjs/);
     assert.match(runner, /PLAYWRIGHT_STORAGE_STATE/);
     assert.doesNotMatch(spec, /redirect=%2Fworkspace%3Fview/);
     assert.doesNotMatch(spec, /\/workspace\?view=themes/);

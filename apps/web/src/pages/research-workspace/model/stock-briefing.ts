@@ -168,9 +168,20 @@ function pathSummary(path: ImpactBriefPath): string {
 
 function briefingPaths(response: ImpactBriefResponse | null) {
   if (!response?.data) return [];
+  const seenSources = new Set<string>();
   return response.data.paths
     .slice()
     .sort((left, right) => right.pathScore - left.pathScore)
+    .filter((path) => {
+      const sourceKey = path.sourceEntityKey
+        ? `entity:${path.sourceEntityKey}`
+        : path.sourceName
+          ? `name:${path.sourceName.trim().toLocaleLowerCase()}`
+          : `path:${path.impactPathV2Id}`;
+      if (seenSources.has(sourceKey)) return false;
+      seenSources.add(sourceKey);
+      return true;
+    })
     .slice(0, 3)
     .map((path) => ({
       id: `impact-${path.impactPathV2Id}`,

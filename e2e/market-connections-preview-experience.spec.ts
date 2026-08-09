@@ -74,6 +74,11 @@ test('orders summary, personalized stories, and broader changes without advisory
   const summary = page.locator('[aria-labelledby="market-connection-summary-title"]');
   const priority = priorityPanel(page);
   const broader = marketList(page);
+  await Promise.all([
+    expect(summary).toBeVisible(),
+    expect(priority).toBeVisible(),
+    expect(broader).toBeVisible(),
+  ]);
   const [summaryBox, priorityBox, broaderBox] = await Promise.all([
     summary.boundingBox(),
     priority.boundingBox(),

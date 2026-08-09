@@ -99,6 +99,8 @@ export type {
   GetResearchRecordDetailOptions,
   RecordDetailRowQueryExecutor,
 } from './workspace/record-detail';
+export { getEntityBriefingV2, getRecordBriefingV2 } from './workspace/briefing-v2';
+export type { WorkspaceBriefingDependencies } from './workspace/briefing-v2';
 export { getResearchFeedPage, getWorkspaceToday } from './workspace/read-model';
 export type {
   GetResearchFeedPageOptions,
@@ -111,6 +113,11 @@ export type {
   WorkspaceShellSummary,
   WorkspaceShellSummaryQueryExecutor,
 } from './workspace/shell-summary';
+export {
+  getWorkspaceViewBundleV2,
+  parseWorkspaceViewBundleQuery,
+} from './workspace/view-bundle-v2';
+export type { WorkspaceViewBundleDependencies } from './workspace/view-bundle-v2';
 export {
   getCalibrationScorecard,
   getFeatureSnapshots,
@@ -255,6 +262,7 @@ export {
   parseServerEnv,
   primeReadOnlyDatabasePool,
   requireUserScope,
+  withNamedReadQuery,
 } from './server';
 // Credential material (password records, invitation code digests) never leaves
 // the brain: these are imported by apps/api-server ONLY. apps/web talks to the
@@ -321,6 +329,9 @@ export type {
 export type {
   DatabaseClient,
   ReadOnlyDatabaseClient,
+  ReadQueryId,
+  ReadQueryMetric,
+  ReadQueryMetricReporter,
   ReadSnapshotExecutor,
   ReadSnapshotOptions,
   ServerEnv,

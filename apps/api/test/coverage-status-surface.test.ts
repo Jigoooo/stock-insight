@@ -13,6 +13,11 @@ const view = readFileSync(
     .pathname,
   'utf8',
 );
+const briefingModel = readFileSync(
+  new URL('../../web/src/pages/research-workspace/model/reliability-briefing.ts', import.meta.url)
+    .pathname,
+  'utf8',
+);
 
 function executorWith(coverage: unknown[], gaps: unknown[]): SystemStatusQueryExecutor {
   return {
@@ -68,15 +73,14 @@ test('gap reasons travel with the counts', async () => {
   assert.match(status.coverageGaps[0]?.reason ?? '', /cursor has not reached/);
 });
 
-test('the screen says not-collected means ignorance, not absence', () => {
-  // A bare count under a "coverage" heading reads as "there is nothing there",
-  // which is the opposite of what the ledger records.
-  assert.match(view, /아직 보지 않은 칸/);
-  assert.match(view, /자료가 없다는 뜻이 아니라 아직 확인하지 못했다는 뜻입니다/);
-  assert.match(view, /not_collected: '아직 보지 않음'/);
+test('not-collected coverage becomes a plain user-facing limitation', () => {
+  assert.match(briefingModel, /state === 'not_collected' && cells > 0/);
+  assert.match(briefingModel, /아직 확인하지 않은 데이터 범위가 있습니다/);
+  assert.doesNotMatch(view, /coverage\.map|factFamily|cells/);
 });
 
-test('the reason table is rendered, not just the totals', () => {
-  assert.match(view, /확인하지 못한 이유/);
-  assert.match(view, /data\.coverageGaps\.map/);
+test('coverage gaps are disclosed without rendering internal reasons or counts', () => {
+  assert.match(briefingModel, /status\.coverageGaps\.length > 0/);
+  assert.match(briefingModel, /확인하지 못한 데이터 범위가 기록되어 있습니다/);
+  assert.doesNotMatch(view, /coverageGaps|reason|cells/);
 });

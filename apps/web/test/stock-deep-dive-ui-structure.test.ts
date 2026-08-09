@@ -22,9 +22,11 @@ describe('stock briefing inspector UI structure', () => {
     const view = await read('pages/research-workspace/ui/views/stocks-view.tsx');
 
     assert.match(view, /loadStockBriefingData/);
-    assert.match(view, /api\.stockDetail\(key\)/);
-    assert.match(view, /api\.entityRelations\(key, 2\)/);
-    assert.match(view, /api\.impactBrief\(key\)/);
+    assert.match(view, /api\.entityBriefing\(entityKey, 'stocks'\)/);
+    assert.equal((view.match(/api\.entityBriefing\(/g) ?? []).length, 1);
+    assert.doesNotMatch(view, /api\.stockDetail\(/);
+    assert.doesNotMatch(view, /api\.entityRelations\(/);
+    assert.doesNotMatch(view, /api\.impactBrief\(/);
     assert.match(view, /createLatestRequestGate/);
     assert.match(view, /requestGateRef\.current\.invalidate\(\)/);
     assert.match(view, /requestGateRef\.current\.isCurrent\(sequence\)/);

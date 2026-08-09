@@ -183,10 +183,10 @@ export function TodayView({
         {curatedItems.length === 0 ? (
           <WorkspaceState
             kind="empty"
-            title="관심종목과 직접 연결된 뉴스가 아직 없습니다"
+            title="원문을 확인할 수 있는 관심종목 뉴스가 아직 없습니다"
             description={
               data.summary.watchlistCount > 0
-                ? '수집과 관계 분석이 완료되면 연결 이유와 함께 표시합니다.'
+                ? '관심종목 연결 변화는 아래 분류에서 확인할 수 있으며, 원문 링크가 확인된 뉴스만 이 영역에 표시합니다.'
                 : '내 종목에서 관심종목을 등록하면 관련 변화를 모아볼 수 있습니다.'
             }
           />
@@ -333,7 +333,7 @@ export function TodayView({
                     <strong>{item.title}</strong>
                     <span>{whySurfacedLabel(item)}</span>
                   </span>
-                  <em>{confidenceLabel(item.confidence)} 근거</em>
+                  <em>{confidenceLabel(item.confidence)}</em>
                 </Button>
               </li>
             ))}

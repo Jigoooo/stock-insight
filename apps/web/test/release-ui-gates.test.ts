@@ -114,7 +114,7 @@ describe('release UI browser gates', () => {
     );
     assert.match(
       release,
-      /pnpm build && pnpm test:p6:browser && pnpm test:auth:visual:production && pnpm test:select-controls:browser/,
+      /pnpm build && pnpm test:auth:visual:production && pnpm test:select-controls:browser/,
     );
   });
 
@@ -138,15 +138,21 @@ describe('release UI browser gates', () => {
       '/workspace/today',
       '/workspace/radar',
       '/workspace/stocks',
-      '/workspace/crypto',
-      '/workspace/themes',
-      '/workspace/research',
       '/workspace/history',
       '/workspace/status',
       '/admin/invitations',
     ]) {
       assert.match(source, new RegExp(`['"]${route}['"]`));
     }
+    for (const route of [
+      '/workspace/market-topic-news',
+      '/workspace/crypto',
+      '/workspace/themes',
+    ]) {
+      assert.match(source, new RegExp(`['"]${route}['"]`));
+    }
+    assert.match(source, /retiredRoutes/);
+    assert.match(source, /without restoring retired UI/);
     for (const viewport of [
       /expanded:\s*\{\s*width:\s*1440,\s*height:\s*960\s*\}/,
       /compact:\s*\{\s*width:\s*1180,\s*height:\s*900\s*\}/,
@@ -248,7 +254,6 @@ describe('release UI browser gates', () => {
     assert.match(source, /expect\(pendingMarkerObserved\)\.toBe\(true\)/);
     assert.match(source, /이 분류에는 아직 변화가 없습니다/);
     assert.match(source, /조건에 맞는 종목이 없습니다/);
-    assert.match(source, /표시할 관계가 없습니다/);
     assert.match(source, /지도 원천이 연결되지 않았습니다|지도에 표시할 위치가 없습니다/);
     assert.match(source, /finally\s*\{[\s\S]*코드 폐기/);
     assert.match(source, /\[code, dynamicLabel\]/);

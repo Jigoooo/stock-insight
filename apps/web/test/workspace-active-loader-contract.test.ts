@@ -28,18 +28,10 @@ describe('workspace active-view server loader', () => {
     assert.match(server, /export async function loadResearchWorkspaceView/);
     assert.match(server, /orchestrateResearchWorkspaceView\(loaders, userId, options\)/);
     assert.match(source, /switch \(options\.view\)/);
-    for (const view of [
-      'today',
-      'radar',
-      'stocks',
-      'crypto',
-      'themes',
-      'research',
-      'history',
-      'status',
-    ]) {
+    for (const view of ['today', 'radar', 'stocks', 'history', 'status']) {
       assert.match(source, new RegExp(`case '${view}'`));
     }
+    assert.doesNotMatch(source, /case '(?:crypto|themes|market-topic-news)'/);
     assert.match(source, /const shellPromise = loaders\.loadShell\(userId\)/);
     assert.match(source, /const \[activeSlice, shell\] = await Promise\.all/);
     assert.match(source, /\.\.\.activeSlice,[\s\S]*?shell,[\s\S]*?view:\s*options\.view/);
@@ -54,10 +46,7 @@ describe('workspace active-view server loader', () => {
     // client, so this list widening by accident is the thing the test guards.
     // Whitespace-tolerant because the list is long enough that the formatter
     // breaks it across lines.
-    assert.match(
-      source,
-      /z\.enum\(\[\s*'today',\s*'radar',\s*'stocks',\s*'crypto',\s*'themes',\s*'research',\s*'history',\s*'status',\s*'market-topic-news',\s*\]\)/,
-    );
+    assert.match(source, /z\.enum\(\['today', 'radar', 'stocks', 'history', 'status'\]\)/);
     assert.match(source, /cursor:\s*z\.string\(\)\.min\(1\)\.max\(512\)\.optional\(\)/);
     assert.match(source, /record:\s*z\.string\(\)\.min\(1\)\.max\(256\)\.optional\(\)/);
     assert.match(source, /export const loadResearchWorkspaceView = createServerFn/);
@@ -83,18 +72,15 @@ describe('workspace active-view server loader', () => {
     );
   });
 
-  it('routes the initial themes relation through the v2-preference adapter', async () => {
+  it('keeps hidden view loaders out while preserving the compatibility relation adapter', async () => {
     const [source, orchestrator] = await Promise.all([
       readFile(serverUrl, 'utf8'),
       readFile(orchestratorUrl, 'utf8'),
     ]);
-    const themesCase = orchestrator.match(/case 'themes':\s*\{([\s\S]*?)\n\s*break;/)?.[1] ?? '';
-
-    // Depth 1 and the caller's scope are now positional arguments to the
-    // brain-backed loader: loadEntityRelationGraph(userId, entityKey, depth).
-    assert.match(themesCase, /loaders\.loadRelation\(userId,\s*relationRoot,\s*1\)/);
-    // P0-5: the V1 fallback is removed — the adapter is V2-only.
-    assert.doesNotMatch(themesCase, /loadV1/);
+    assert.doesNotMatch(
+      orchestrator,
+      /loadCrypto|loadRelation|case '(?:crypto|themes|market-topic-news)'/,
+    );
     assert.doesNotMatch(source, /getEntityRelations[^W]/);
 
     const relationLoader =

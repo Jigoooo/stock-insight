@@ -103,12 +103,33 @@ export function StocksView({
       );
       const result = loadStockBriefingDetail
         ? await loadStockBriefingDetail(entityKey)
-        : await loadStockBriefingData(entityKey, {
-            loadDetail: (key) => api.stockDetail(key),
-            loadRelation: (key) => api.entityRelations(key, 2),
-            loadImpactBrief: (key) => api.impactBrief(key),
-            whyNow,
-          });
+        : await (async () => {
+            const briefingPromise = api.entityBriefing(entityKey, 'stocks');
+            return loadStockBriefingData(entityKey, {
+              loadDetail: async () => {
+                const bundle = await briefingPromise;
+                if (!bundle.stockDetail) throw new Error('종목 상세 데이터가 없습니다.');
+                return bundle.stockDetail;
+              },
+              loadRelation: async () => {
+                const bundle = await briefingPromise;
+                if (bundle.partialFailures.relation) {
+                  throw new Error(bundle.partialFailures.relation);
+                }
+                if (!bundle.relation) throw new Error('관계 데이터가 없습니다.');
+                return bundle.relation;
+              },
+              loadImpactBrief: async () => {
+                const bundle = await briefingPromise;
+                if (bundle.partialFailures.impact) {
+                  throw new Error(bundle.partialFailures.impact);
+                }
+                if (!bundle.impactBrief) throw new Error('영향 경로 데이터가 없습니다.');
+                return bundle.impactBrief;
+              },
+              whyNow,
+            });
+          })();
       if (!requestGateRef.current.isCurrent(sequence)) return;
       setRelation(result.relation);
       setDetail(result.detail);
@@ -134,7 +155,7 @@ export function StocksView({
   return (
     <>
       <PageHeader
-        title="종목"
+        title="내 종목"
         description="보유·관심 종목에 새로 연결된 근거와 확인할 리스크를 살펴봅니다."
         asOf={data.meta.generatedAt}
       />

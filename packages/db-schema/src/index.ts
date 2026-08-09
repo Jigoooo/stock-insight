@@ -233,11 +233,12 @@ export type AppTableName =
 export type AppMigration = {
   id: string;
   description: string;
+  executionMode: 'transactional' | 'non_transactional';
   tables: AppTableName[];
   sql: string;
 };
 
-export const additiveAppMigrations: AppMigration[] = [
+const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>> = [
   {
     id: '001_app_research_foundation',
     description:
@@ -1019,6 +1020,10 @@ export const additiveAppMigrations: AppMigration[] = [
     sql: k4SemanticSnapshotReconstructionMigrationSql,
   },
 ];
+
+export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
+  (migration) => ({ ...migration, executionMode: 'transactional' }),
+);
 
 export {
   appHistoryUuidBridgeMigrationSql,

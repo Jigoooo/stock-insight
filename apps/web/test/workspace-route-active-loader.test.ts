@@ -15,6 +15,10 @@ const loaderUrl = new URL(
 const layoutUrl = new URL('../src/routes/_authenticated/workspace.tsx', import.meta.url);
 const indexUrl = new URL('../src/routes/_authenticated/workspace/index.tsx', import.meta.url);
 const todayRouteUrl = new URL('../src/routes/_authenticated/workspace/today.tsx', import.meta.url);
+const researchRouteUrl = new URL(
+  '../src/routes/_authenticated/workspace/research.tsx',
+  import.meta.url,
+);
 const viewRouteUrl = new URL(
   '../src/pages/research-workspace/ui/workspace-view-route.tsx',
   import.meta.url,
@@ -28,16 +32,7 @@ const navigationUrl = new URL(
   import.meta.url,
 );
 
-const VIEWS = [
-  'today',
-  'radar',
-  'stocks',
-  'crypto',
-  'themes',
-  'research',
-  'history',
-  'status',
-] as const;
+const VIEWS = ['today', 'radar', 'stocks', 'history', 'status'] as const;
 
 describe('workspace active-view route loader', () => {
   it('gives every tab its own route file', async () => {
@@ -92,6 +87,14 @@ describe('workspace active-view route loader', () => {
   it('routes /workspace to the default tab instead of rendering a view', async () => {
     const source = await readFile(indexUrl, 'utf8');
     assert.match(source, /redirect\(\{\s*to:\s*'\/workspace\/today'/);
+  });
+
+  it('redirects the retired research bookmark before loading workspace data', async () => {
+    const source = await readFile(researchRouteUrl, 'utf8');
+
+    assert.match(source, /beforeLoad:\s*\(\)\s*=>/);
+    assert.match(source, /redirect\(\{\s*to:\s*'\/workspace\/history',\s*replace:\s*true\s*\}\)/);
+    assert.doesNotMatch(source, /loadWorkspaceView|loader:/);
   });
 
   it('keeps the shared shell in the layout route', async () => {

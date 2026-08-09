@@ -579,6 +579,19 @@
 - Codex 인앱 브라우저에서 신뢰도 전체/기능 카드 표면이 같은 x·width를 갖고 제목 x가 동일하며 page overflow 0임을 확인했다. 시장 신호 표는 1100px viewport에서 좌우·하단 각각 18px, body 834px 안의 table 798px, page overflow 0으로 확인했다.
 - `graphify update .` 완료: 9,582 nodes·17,450 edges·640 communities. 기존 skill/package 버전 차이와 선택 SQL parser 미설치 경고는 유지됐다.
 
+### 2026-08-09 — 복기 화면 정본 경로 통합
+
+- 사용자용 복기 화면을 `/workspace/history`의 `판단 복기`로 통일하고, primary 메뉴는 `history / 복기 / BookOpen`만 노출한다. `/workspace/research`는 loader나 화면 조합 없이 `replace` 방식으로 `/workspace/history`에 이동해 기존 북마크만 호환한다.
+- 내부 화면 식별자·검색 허용값·캐시·지연 로딩·orchestrator에서 `research` 분기를 제거했다. 중복 `내 리서치` 화면, 개인화 패널, 판단 지원 프레젠테이션과 전용 CSS는 삭제했으며 포트폴리오 평가액·예상 수익 범위·집중도 변화는 다른 사용자 화면으로 옮기지 않았다.
+- TDD는 primary 메뉴와 redirect 계약 14/14, 정본 경계·retired UI 제거 계약 3/3, focused Node 36/36으로 완료했다. 기존 UI 테스트는 삭제만 하지 않고 History 정본·redirect·loader 부재·내부 식별자 제거 계약으로 교체했다.
+- Codex 인앱 브라우저의 격리 포트 `16160`에서 `판단 복기`의 데스크톱 drawer, 넓은 modal, 정확한 opener 복귀와 390×844 bottom sheet를 직접 확인했다. History desktop/mobile은 22건 통과·6건 viewport 조건 skip·0건 실패다.
+- Today·내 종목·시장 연결·데이터 신뢰도 비례 회귀는 합계 86건 통과·30건 viewport 조건 skip·0건 실패이며, History를 포함하면 108건 통과·36건 조건 skip·0건 실패다. 내 종목 geometry 검증은 hydration 전 disabled 행을 측정하던 테스트 경합을 준비 완료 대기로 좁게 보정한 뒤 반복 10/10 통과했다.
+- 전체 gate는 format 1,358개 파일, lint 0 errors(기존 warning 6개), typecheck 11/11 tasks, test 10/10 tasks(web 746/746), build 7/7 tasks를 통과했다.
+- `pnpm verify:release`는 lint·typecheck·P6 fixture typecheck·전체 test·hard design 17/17까지 통과한 뒤 첫 환경 gate인 `test:p6:db`에서 `P6_REHEARSAL_ADMIN_DATABASE_URL` 부재로 `ERR_INVALID_URL` (`input: ''`)에서 중단됐다. 이후 XG DB·release build·production/auth browser gate는 시작되지 않았다.
+- 인증된 `/workspace/research` 브라우저 redirect 검증은 현재 셸에 `STOCK_INSIGHT_E2E_DATABASE_URL`, `STOCK_INSIGHT_E2E_SESSION_SECRET_PATH`, `STOCK_INSIGHT_E2E_USERNAME`, `STOCK_INSIGHT_E2E_PASSWORD`, `PLAYWRIGHT_STORAGE_STATE`가 없어 실행하지 않았다. 정적 route 계약은 redirect가 `beforeLoad`에서 발생하고 loader를 갖지 않음을 검증했으며 실제 DB에는 접근하지 않았다.
+- `graphify update .` 완료: 9,566 nodes·17,376 edges·638 communities. 기존 skill/package 버전 차이와 선택 SQL parser 미설치 경고는 유지됐으며 ignored graph output은 staging에서 제외한다.
+- 이번 통합은 DB, migration, API server endpoint, 공개 contract, 백엔드 개인화 데이터를 변경하지 않았다.
+
 ## 실행 환경 메모
 
 - `pnpm dev:live:check`: AGE live 구성 정상

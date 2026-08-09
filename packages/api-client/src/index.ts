@@ -50,6 +50,13 @@ import {
   type ThemeResearchList,
   type WorkspaceToday,
 } from '@stock-insight/contracts/research-workspace';
+import {
+  entityBriefingV2Schema,
+  recordBriefingV2Schema,
+  type EntityBriefingSurface,
+  type EntityBriefingV2,
+  type RecordBriefingV2,
+} from '@stock-insight/contracts/workspace-read-v2';
 
 export type ApiClientOptions = {
   baseUrl?: string;
@@ -227,6 +234,16 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
       return stockDetailResponseSchema.parse(await response.json());
     },
+    async entityBriefing(
+      entityKey: string,
+      surface: EntityBriefingSurface,
+    ): Promise<EntityBriefingV2> {
+      const response = await fetcher(
+        buildUrl(`/api/entities/${encodeURIComponent(entityKey)}/briefing`, { surface }),
+      );
+      if (!response.ok) throw new Error(`Entity briefing failed with ${response.status}`);
+      return entityBriefingV2Schema.parse(await response.json());
+    },
     async researchWorkspace(): Promise<WorkspaceToday> {
       const response = await fetcher(buildUrl('/api/workspace'));
       if (!response.ok) throw new Error(`Research workspace failed with ${response.status}`);
@@ -266,6 +283,13 @@ export function createApiClient(options: ApiClientOptions = {}) {
       const response = await fetcher(buildUrl(`/api/records/${encodeURIComponent(recordKey)}`));
       if (!response.ok) throw new Error(`Research record failed with ${response.status}`);
       return researchRecordDetailSchema.parse(await response.json());
+    },
+    async recordBriefing(recordKey: string): Promise<RecordBriefingV2> {
+      const response = await fetcher(
+        buildUrl(`/api/records/${encodeURIComponent(recordKey)}/briefing`),
+      );
+      if (!response.ok) throw new Error(`Record briefing failed with ${response.status}`);
+      return recordBriefingV2Schema.parse(await response.json());
     },
     async researchStatus(): Promise<SystemStatus> {
       const response = await fetcher(buildUrl('/api/status'));

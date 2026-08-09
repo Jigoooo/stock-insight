@@ -5,17 +5,26 @@ import { apiError, firstParam } from '../common/http.ts';
 
 import {
   getDecisionHistory,
+  getEntityBriefingV2,
   getEntityRelationsWithV2Preference,
   getMarketTopicNews,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
   getResearchRecordDetail,
+  getRecordBriefingV2,
   getSystemStatus,
   getThemeResearchList,
+  getWorkspaceViewBundleV2,
   getWorkspaceShellSummary,
   getWorkspaceToday,
+  parseWorkspaceViewBundleQuery,
+  withNamedReadQuery,
 } from '@stock-insight/api';
+import {
+  entityBriefingSurfaceSchema,
+  workspaceReadViewSchema,
+} from '@stock-insight/contracts/workspace-read-v2';
 
 // Mirrors apps/web/src/routes/api/entities/$entityKey/relations.ts
 const entityKeyPattern = /^(?:KR:\d{6}|US:[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,2})?)$/;
@@ -36,22 +45,72 @@ function parsePagination(
 
 @Controller()
 export class ResearchWorkspaceController {
+  @Get('workspace/views/:view')
+  async getWorkspaceView(
+    @Param('view') viewRaw: string,
+    @Query() queryRaw: Record<string, string | string[] | undefined>,
+  ) {
+    const parsedView = workspaceReadViewSchema.safeParse(viewRaw);
+    if (!parsedView.success) throw apiError('invalid_workspace_view', 400);
+
+    let query: ReturnType<typeof parseWorkspaceViewBundleQuery>;
+    try {
+      query = parseWorkspaceViewBundleQuery(
+        parsedView.data,
+        Object.fromEntries(
+          Object.entries(queryRaw).map(([key, value]) => [key, firstParam(value)]),
+        ),
+      );
+    } catch {
+      throw apiError('invalid_workspace_view_query', 400);
+    }
+
+    try {
+      const { withSnapshot, userScope } = researchContext();
+      const bundle = await withSnapshot((executor) =>
+        getWorkspaceViewBundleV2(executor, {
+          userScope,
+          view: parsedView.data,
+          query,
+        }),
+      );
+      if (bundle.view === 'today' && query.record && bundle.defaultRecord === null) {
+        throw apiError('record_not_found', 404);
+      }
+      return bundle;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Radar cursor is invalid') {
+        throw apiError('invalid_radar_cursor', 400);
+      }
+      if (error instanceof Error && error.message === 'History cursor is invalid') {
+        throw apiError('invalid_history_cursor', 400);
+      }
+      throw error;
+    }
+  }
+
   @Get('workspace')
   async getWorkspace() {
     const { withSnapshot, userScope } = researchContext();
-    return withSnapshot((executor) => getWorkspaceToday(executor, { userScope }));
+    return withSnapshot((executor) =>
+      getWorkspaceToday(withNamedReadQuery(executor, 'workspace.today'), { userScope }),
+    );
   }
 
   @Get('workspace/shell')
   async getWorkspaceShell() {
     const { withSnapshot, userScope } = researchContext();
-    return withSnapshot((executor) => getWorkspaceShellSummary(executor, { userScope }));
+    return withSnapshot((executor) =>
+      getWorkspaceShellSummary(withNamedReadQuery(executor, 'workspace.shell'), { userScope }),
+    );
   }
 
   @Get('status')
   async getStatus() {
     const { withSnapshot } = researchContext();
-    return withSnapshot((executor) => getSystemStatus(executor));
+    return withSnapshot((executor) =>
+      getSystemStatus(withNamedReadQuery(executor, 'status.summary')),
+    );
   }
 
   // Unscoped by nature: these events attach to no company, so there is nothing
@@ -96,7 +155,7 @@ export class ResearchWorkspaceController {
     try {
       const { withSnapshot, userScope } = researchContext();
       return await withSnapshot((executor) =>
-        getResearchFeedPage(executor, {
+        getResearchFeedPage(withNamedReadQuery(executor, 'workspace.today'), {
           userScope,
           lane,
           limit,
@@ -120,7 +179,9 @@ export class ResearchWorkspaceController {
     if (!page) throw apiError('invalid_radar_query', 400);
     try {
       const { withSnapshot, userScope } = researchContext();
-      return await withSnapshot((executor) => getRadarSignals(executor, { userScope, ...page }));
+      return await withSnapshot((executor) =>
+        getRadarSignals(withNamedReadQuery(executor, 'radar.page'), { userScope, ...page }),
+      );
     } catch (error) {
       if (error instanceof Error && error.message === 'Radar cursor is invalid') {
         throw apiError('invalid_radar_cursor', 400);
@@ -138,7 +199,9 @@ export class ResearchWorkspaceController {
     if (!page) throw apiError('invalid_history_query', 400);
     try {
       const { withSnapshot, userScope } = researchContext();
-      return await withSnapshot((executor) => getDecisionHistory(executor, { userScope, ...page }));
+      return await withSnapshot((executor) =>
+        getDecisionHistory(withNamedReadQuery(executor, 'history.page'), { userScope, ...page }),
+      );
     } catch (error) {
       if (error instanceof Error && error.message === 'History cursor is invalid') {
         throw apiError('invalid_history_cursor', 400);
@@ -154,10 +217,57 @@ export class ResearchWorkspaceController {
     }
     const { withSnapshot, userScope } = researchContext();
     const detail = await withSnapshot((executor) =>
-      getResearchRecordDetail(executor, { userScope, recordKey }),
+      getResearchRecordDetail(withNamedReadQuery(executor, 'record.detail'), {
+        userScope,
+        recordKey,
+      }),
     );
     if (!detail) throw apiError('record_not_found', 404);
     return detail;
+  }
+
+  @Get('records/:recordKey/briefing')
+  async getRecordBriefing(@Param('recordKey') recordKey: string) {
+    if (!recordKey.trim() || recordKey.length > 320) {
+      throw apiError('invalid_record_key', 400);
+    }
+    const { withSnapshot, userScope } = researchContext();
+    const briefing = await withSnapshot((executor) =>
+      getRecordBriefingV2(executor, { userScope, recordKey }),
+    );
+    if (!briefing) throw apiError('record_not_found', 404);
+    return briefing;
+  }
+
+  @Get('entities/:entityKey/briefing')
+  async getEntityBriefing(
+    @Param('entityKey') entityKey: string,
+    @Query('surface') surfaceRaw?: string | string[],
+  ) {
+    const surface = entityBriefingSurfaceSchema.safeParse(firstParam(surfaceRaw));
+    if (!entityKeyPattern.test(entityKey) || !surface.success) {
+      throw apiError('invalid_entity_briefing_query', 400);
+    }
+    const { withSnapshot, userScope } = researchContext();
+    const briefing = await withSnapshot((executor) =>
+      getEntityBriefingV2(executor, {
+        entityKey,
+        surface: surface.data,
+        userScope,
+      }),
+    );
+    if (briefing.stockDetail?.availability === 'error') {
+      throw apiError('stock_detail_unavailable', 502);
+    }
+    if (
+      surface.data === 'stocks' &&
+      (briefing.stockDetail?.data === null ||
+        briefing.stockDetail?.availability === 'missing' ||
+        briefing.stockDetail?.availability === 'unsupported')
+    ) {
+      throw apiError('entity_not_found', 404);
+    }
+    return briefing;
   }
 
   @Get('entities/:entityKey/relations')
@@ -171,7 +281,7 @@ export class ResearchWorkspaceController {
     }
     const { withSnapshot, userScope } = researchContext();
     const result = await withSnapshot((executor) =>
-      getEntityRelationsWithV2Preference(executor, {
+      getEntityRelationsWithV2Preference(withNamedReadQuery(executor, 'relations.graph'), {
         entityKey,
         depth,
         userId: userScope.userId,

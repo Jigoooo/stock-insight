@@ -64,8 +64,6 @@ const workspace = [
     'today-view.tsx',
     'market-connections-view.tsx',
     'stocks-view.tsx',
-    'themes-view.tsx',
-    'my-research-view.tsx',
     'history-view.tsx',
     'status-view.tsx',
   ].map((fileName) =>
@@ -94,10 +92,6 @@ const workspaceStyles = [
   feedCss,
   readFileSync(
     new URL('../src/pages/research-workspace/ui/market-overview.module.css', import.meta.url),
-    'utf8',
-  ),
-  readFileSync(
-    new URL('../src/pages/research-workspace/ui/personalization.module.css', import.meta.url),
     'utf8',
   ),
   readFileSync(
@@ -159,14 +153,13 @@ describe('v3 research workspace structure', () => {
       '오늘',
       '내 종목에 영향을 줄 시장 변화',
       '종목',
-      '테마·관계',
-      '내 리서치',
+      '시장 연결',
       '판단 복기',
       '데이터 신뢰도',
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
-    assert.match(workspace, /researchRecord\(recordKey\)/);
+    assert.match(workspace, /recordBriefing\(recordKey\)/);
     assert.match(workspace, /evidence\.map/);
     assert.match(workspace, /sources\.map/);
     assert.match(workspace, /limitations\.map/);
@@ -205,13 +198,10 @@ describe('v3 research workspace structure', () => {
   it('loads route-specific workspace views behind one semantic suspense boundary', () => {
     assert.match(pageSource, /import \{[^}]*lazy[^}]*Suspense[^}]*\} from 'react'/s);
     for (const view of [
-      'crypto-workspace-view',
       'history-view',
-      'my-research-view',
       'market-connections-view',
       'status-view',
       'stocks-view',
-      'themes-view',
       'today-view',
     ]) {
       assert.match(pageSource, new RegExp(`import\\('\\./views/${view}'\\)`));
@@ -379,21 +369,10 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /aria-describedby=\{descriptionId\}/);
     assert.doesNotMatch(page, /<title id="relation-graph-title"/);
     assert.match(page, /사람이 확인한 관계/);
-    assert.match(page, /graph\?\.edges\.every\(isVerifiedRelationEdge\)/);
-    assert.match(page, /state === 'loading' && !graph/);
-    assert.match(page, /aria-busy=\{state === 'loading'\}/);
-    assert.match(page, /edge\.direction === 'directed'/);
-    assert.match(page, /와 방향 없는 관계/);
-    assert.doesNotMatch(page, /approved=true · inferred=false/);
-    assert.doesNotMatch(page, /분석 cutoff|비추론 관계/);
-    assert.match(page, /<Accordion type="single" defaultValue="relations">/);
-    assert.match(page, /<AccordionTrigger[^>]*showArrow=\{false\}[^>]*>\s*관계를 텍스트로 보기/);
-    assert.match(page, /<AccordionContent/);
-    assert.match(page, /initial=\{\{ height: 0 \}\}/);
-    assert.match(page, /animate=\{\{ height: 'auto' \}\}/);
-    assert.match(page, /exit=\{\{ height: 0 \}\}/);
+    assert.match(page, /data-runtime-state=\{runtimeState\}/);
+    assert.match(page, /aria-label="관계 노드 목록"/);
+    assert.match(page, /관계 지도 다시 시도/);
     assert.doesNotMatch(relationCss, /transition-transform|rotate-180/);
-    assert.match(page, /graph\.evidenceSummary\.limitation/);
   });
 
   it('shows decision-time provenance instead of hiding snapshot clocks', () => {
@@ -403,30 +382,13 @@ describe('v3 research workspace structure', () => {
     assert.match(page, /source\.publishedAt/);
   });
 
-  it('keeps theme selection and relation evidence connected without fixing layout mechanics', () => {
-    assert.match(page, /styles\.themeLedger/);
-    assert.match(page, /styles\.relationPanel/);
-    assert.match(page, /themeTitleLabel\(theme\.title\)/);
-    assert.match(page, /className=\{styles\.themeSelect\}/);
-    assert.match(page, /<StructuredList[\s\S]*?className=\{styles\.themeLedger\}/);
-    assert.match(page, /aria-pressed=\{isActive\}/);
-    assert.match(page, /motion="none"/);
-    assert.match(page, /<StructuredList[\s\S]*?className=\{styles\.edgeList\}/);
-    assert.match(page, /onSelectEntity\(entityKey\)/);
-    const relationPanel = relationCss.match(/\.relationPanel\s*\{[^}]*\}/)?.[0] ?? '';
-    assert.match(relationPanel, /overflow-y:\s*auto/);
-    assert.match(relationPanel, /overscroll-behavior:\s*contain/);
-    assert.match(relationPanel, /scrollbar-gutter:\s*stable/);
-  });
-
   it('uses shared selected-row, detail, property, and evidence-list anatomy', () => {
     assert.match(workspace, /className=\{styles\.stockRow\}/);
     assert.match(workspace, /aria-current=\{selected \? 'true' : undefined\}/);
     assert.match(workspace, /aria-label=\{`\$\{stock\.displayName\} 종목 브리핑 열기`\}/);
-    assert.match(workspace, /<DetailSurface/);
+    assert.match(workspace, /<DetailInspectorFrame/);
     assert.match(workspace, /<PropertyList/);
-    assert.match(workspace, /useWorkspaceRelationCrossfade/);
-    assert.match(workspace, /관계를 텍스트로 보기/);
+    assert.match(workspace, /aria-label="관계 노드 목록"/);
     assert.match(workspace, /aria-label="검증 근거 목록"/);
     assert.match(workspace, /aria-label="출처 목록"/);
   });
