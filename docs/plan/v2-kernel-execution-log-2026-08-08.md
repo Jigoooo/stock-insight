@@ -55,14 +55,14 @@
 | "다음 세션: 브레인 복구 + K2" (옛 꼬리말) | 둘 다 완료 |
 | `governance.slo_*` 가 정본 이탈 (083 SQL 주석) | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
 
-### 남은 것 — K4 부터
+### 현재 위치 — K4 완료, K6부터
 
 | 단계 | 내용 | 상태 |
 | --- | --- | --- |
-| **K4** | Market Intelligence Minimum | **다음.** 계획서가 "가장 값어치 큼 · 가장 위험" |
-| K6 | Personalization & Geo | 미착수 |
-| K7 | `run-v2-graph-publish.ts` 를 temporal kernel 로 이전 | 미착수 (121KB, 단독 슬라이스) |
-| K8 | Crypto plane | 미착수 |
+| **K4** | Market Intelligence Minimum | **완료.** 7일 PIT replay + live canary, shadow p4.v2 |
+| K6 | Common Asset View | 미착수 |
+| K7 | Product Surface | 미착수. UI 전환과 p4.v1 폐기는 여기서 수행 |
+| K8 | Recommendation Shadow | 미착수 |
 
 **K4 는 K3 없이 시작하지 않는다** — 이건 지켜졌다. playbook 이 sign·materiality·
 magnitude 를 공급해야 exposure 를 발명 없이 쓸 수 있고, 그 playbook 이 이제 있다.
@@ -1073,3 +1073,96 @@ revision id 를 인용하지 않으면 거부"하는 검사는 없다. 그 검�
 폐기용 DB 9/9 통과: seed 적용, driver 가 사슬을 덮음, 모든 bridge 에 방향 있음,
 반쪽 adapter 거부, 빈 지표 거부, 고아 revision 거부, taxonomy 배정이 노드를 요구,
 curated 가 코드와 불일치 가능, 현재 뷰 해소.
+
+---
+
+## K4 — Market Intelligence Minimum (2026-08-09)
+
+K4는 실제 1주를 기다리지 않았다. `2026-08-02..08`의 KST 일 마감 cutoff 7개를
+PIT로 재생하고, 재생 완료 뒤 `2026-08-09T02:46:34.224Z`에 live canary 1회를
+별도로 실행했다. 이 방식은 관측 시간을 과거로 위조하지 않는다. 과거 semantic 상태는
+`historical_reconstruction`과 `knowledge_cutoff`로 표시하고 실제 생성 시각은 그대로 남긴다.
+
+### 고정 shadow cohort
+
+K4의 10종목은 주문·추천 대상이 아니라 `k4.semiconductor-shadow.v1` 검증 cohort다.
+멤버십은 숫자 DB ID가 아니라 안정적인 `market+ticker` selector로 고정했다.
+identity, issuer playbook, rule, fact는 멤버십과 분리해 매 cutoff의 PIT 상태로 다시 해석한다.
+따라서 당시 identity가 없던 종목도 cohort에서 사라지지 않고 `missing_identity`로 남는다.
+
+```
+US:MU  US:AMD  US:INTC  KR:000660  KR:005930
+US:MRVL  US:NVDA  US:ARM  US:AVGO  US:TSM
+```
+
+Samsung `--offset 17 --limit 1`은 OpenDART 입력 경로의 표적 smoke 수집이다. 위 10종목
+cohort는 그보다 넓은 replay/coverage 검증 범위이며, 둘 다 현재 UI·주문·p4.v1을 바꾸지 않는다.
+
+### 라이브 착지 결과
+
+- 마이그레이션 088~094 적용. 기존 037·079·087은 수정하지 않았다.
+- Samsung 표적 OpenDART 수집 뒤 DART numeric fact 2,241건 적용, 재실행 0건.
+- SEC canonical numeric fact 36,915건 적용. 비교기간/revision 고정점 결함을 고친 뒤
+  8개 issuer 재실행 모두 `factsToWrite=0`, `restatementsToWrite=0`.
+- 7개 historical semantic snapshot을 적용했고 같은 입력 재실행은 모두 `inserted=false`.
+- live semantic snapshot `k4.semantic.20260809.481d48b6f1077888778717ca58d709d1`
+  적용 뒤 재실행 `inserted=false`.
+
+### 7일 replay 영수증
+
+dry-run → rehearsal(전부 ROLLBACK) → apply → apply 재실행 순으로 실행했다.
+rehearsal 직후 운영 ledger는 `receipt=0`, `evaluation=0`이었다. apply 결과 receipt 8~14가
+생겼고 두 번째 apply는 7건 모두 같은 receipt ID와 `idempotent=true`를 반환했다.
+
+| cutoff | 평가 | accepted | 정직한 coverage 결과 |
+| --- | ---: | ---: | --- |
+| 2026-08-02..07 KST EOD | 매일 10 | 0 | 매일 10 `missing_identity` |
+| 2026-08-08 KST EOD | 10 | 0 | 10 `unsupported_measurement` |
+
+과거에 지금의 identity·rule·fact를 소급하지 않았기 때문에 0 accepted가 정상이다.
+
+### live canary 영수증
+
+receipt 15. 10종목×3 executable driver rule = 30평가, accepted 2, rejected 28이다.
+accepted는 ARM의 source-grounded 두 측정뿐이다.
+
+| driver/rule | 방향 | 경제 magnitude | materiality |
+| --- | --- | ---: | ---: |
+| `capex_cycle/capex_yoy` | negative | USD 43,000,000 | 0.2792207792 |
+| `fab_fixed_cost/net_ppe_yoy` | negative | USD 456,000,000 | 0.9764453961 |
+
+두 exposure 모두 playbook, driver rule, AIS, sealed derivation, exact identity와 current/comparison
+numeric fact를 인용한다. 각각 8개 score component를 가지며 A/B/C 밖 evidence는 0건이다.
+나머지는 `unsupported_measurement` 또는 `no_recent_observation`으로 거부됐다.
+
+outcome은 exposure당 세 horizon을 append-only로 기록했다.
+
+```
++1d   evaluated  2
++5d   evaluated  2
++20d  pending    2
+```
+
++5d는 source filing이 이미 충분히 오래돼 실제로 성숙했기 때문에 계산했다. +20d는 아직
+성숙하지 않아 pending이며 기다렸다고 기록하지 않았다. canary 재실행도 receipt 15와 같은
+request/plan digest를 반환했다.
+
+### shadow serving과 기존 경로
+
+`p4.v1`과 현재 UI는 유지했다. p4.v2는 horizon+channel+unit 단위로만 묶으며 scalar
+`aggregateImpact`를 만들지 않는다. 운영 readback은 다음과 같다.
+
+```
+run receipt                         8  (replay 7 + canary 1)
+requested security-cutoff          80
+evaluation                        100
+accepted/sealed exposure            2
+v2 score component                 16  (8/8 per exposure)
+v2 evidence                         4  (current+comparison per exposure)
+inadmissible PIT D/E served          0
+v2 exposure                          2
+```
+
+기존 association 기반 248K path는 수정·승격하지 않았다. 유효한 citation이 없는 path step은
+p4.v2 bridge view에서 0건이고, 인용 없는 path를 exposure처럼 서빙한 건도 0건이다.
+UI 전환과 p4.v1 폐기는 K7 Product Surface에서 수행한다.
