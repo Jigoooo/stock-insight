@@ -112,6 +112,11 @@ export type {
   WorkspaceShellSummaryQueryExecutor,
 } from './workspace/shell-summary';
 export {
+  getWorkspaceViewBundleV2,
+  parseWorkspaceViewBundleQuery,
+} from './workspace/view-bundle-v2';
+export type { WorkspaceViewBundleDependencies } from './workspace/view-bundle-v2';
+export {
   getCalibrationScorecard,
   getFeatureSnapshots,
   getImpactBrief,

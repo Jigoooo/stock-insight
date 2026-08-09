@@ -13,9 +13,12 @@ import {
   getResearchRecordDetail,
   getSystemStatus,
   getThemeResearchList,
+  getWorkspaceViewBundleV2,
   getWorkspaceShellSummary,
   getWorkspaceToday,
+  parseWorkspaceViewBundleQuery,
 } from '@stock-insight/api';
+import { workspaceReadViewSchema } from '@stock-insight/contracts/workspace-read-v2';
 
 // Mirrors apps/web/src/routes/api/entities/$entityKey/relations.ts
 const entityKeyPattern = /^(?:KR:\d{6}|US:[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,2})?)$/;
@@ -36,6 +39,50 @@ function parsePagination(
 
 @Controller()
 export class ResearchWorkspaceController {
+  @Get('workspace/views/:view')
+  async getWorkspaceView(
+    @Param('view') viewRaw: string,
+    @Query() queryRaw: Record<string, string | string[] | undefined>,
+  ) {
+    const parsedView = workspaceReadViewSchema.safeParse(viewRaw);
+    if (!parsedView.success) throw apiError('invalid_workspace_view', 400);
+
+    let query: ReturnType<typeof parseWorkspaceViewBundleQuery>;
+    try {
+      query = parseWorkspaceViewBundleQuery(
+        parsedView.data,
+        Object.fromEntries(
+          Object.entries(queryRaw).map(([key, value]) => [key, firstParam(value)]),
+        ),
+      );
+    } catch {
+      throw apiError('invalid_workspace_view_query', 400);
+    }
+
+    try {
+      const { withSnapshot, userScope } = researchContext();
+      const bundle = await withSnapshot((executor) =>
+        getWorkspaceViewBundleV2(executor, {
+          userScope,
+          view: parsedView.data,
+          query,
+        }),
+      );
+      if (bundle.view === 'today' && query.record && bundle.defaultRecord === null) {
+        throw apiError('record_not_found', 404);
+      }
+      return bundle;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Radar cursor is invalid') {
+        throw apiError('invalid_radar_cursor', 400);
+      }
+      if (error instanceof Error && error.message === 'History cursor is invalid') {
+        throw apiError('invalid_history_cursor', 400);
+      }
+      throw error;
+    }
+  }
+
   @Get('workspace')
   async getWorkspace() {
     const { withSnapshot, userScope } = researchContext();

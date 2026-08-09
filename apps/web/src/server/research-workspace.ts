@@ -11,6 +11,7 @@ import type {
   ResearchWorkspaceViewOptions,
 } from '@/pages/research-workspace/model/workspace-view-payload';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
+import { workspaceViewBundleV2Schema } from '@stock-insight/contracts/workspace-read-v2';
 
 // Every read here used to open its own PostgreSQL connection. They now go over
 // HTTP to the brain, so this process holds no database credentials.
@@ -21,6 +22,14 @@ function scopeFor(userId: string) {
 
 function isoOrUndefined(value: Date | undefined): string | undefined {
   return value ? value.toISOString() : undefined;
+}
+
+export function resolveWorkspaceReadMode(
+  value = process.env.STOCK_INSIGHT_WORKSPACE_READ_V2,
+): 'legacy' | 'v2' {
+  const normalized = value?.trim() || 'legacy';
+  if (normalized === 'legacy' || normalized === 'v2') return normalized;
+  throw new Error('STOCK_INSIGHT_WORKSPACE_READ_V2 must be legacy or v2');
 }
 
 export async function loadResearchWorkspace(userId: string) {
@@ -154,6 +163,22 @@ export async function loadResearchWorkspaceView(
   userId: string,
   options: ResearchWorkspaceViewOptions,
 ) {
+  if (resolveWorkspaceReadMode() === 'v2') {
+    const query =
+      options.view === 'today'
+        ? { lane: options.lane, record: options.record }
+        : options.view === 'radar' || options.view === 'history'
+          ? { cursor: options.cursor }
+          : undefined;
+    const bundle = workspaceViewBundleV2Schema.parse(
+      await brainRequest(`/v1/workspace/views/${options.view}`, {
+        scope: scopeFor(userId),
+        ...(query === undefined ? {} : { query }),
+      }),
+    );
+    return bundle.view === 'today' ? { ...bundle, lane: options.lane ?? 'must_know' } : bundle;
+  }
+
   const loaders = {
     loadGeo: loadGeoSnapshot,
     loadHistory: loadDecisionHistoryPage,
