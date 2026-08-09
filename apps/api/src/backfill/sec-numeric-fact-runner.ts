@@ -97,6 +97,7 @@ WITH selected_identity AS (
 SELECT s.source_id, s.created_at AS source_created_at,
        sr.source_revision_id, sr.ingested_at,
        sr.available_at AS source_available_at,
+       ro.fetched_at AS raw_fetched_at,
        sr.content_hash AS source_revision_content_hash,
        ro.content_hash AS raw_object_content_hash,
        ro.object_uri, selected.provider_record_key,
@@ -111,8 +112,9 @@ SELECT s.source_id, s.created_at AS source_created_at,
   LEFT JOIN core.entity_identifier ident ON ident.identifier_type = 'CIK'
    AND lpad(ident.identifier_value, 10, '0') = substring(selected.provider_record_key FROM 4)
   LEFT JOIN core.entity entity ON entity.entity_id = ident.entity_id
- GROUP BY s.source_id, s.created_at, sr.source_revision_id, sr.ingested_at, sr.available_at,
-          sr.content_hash, ro.content_hash, ro.object_uri, selected.provider_record_key
+ GROUP BY s.source_id, s.created_at, sr.source_revision_id, sr.ingested_at,
+          sr.available_at, ro.fetched_at, sr.content_hash, ro.content_hash,
+          ro.object_uri, selected.provider_record_key
  ORDER BY selected.provider_record_key, sr.source_revision_id
 `;
 
@@ -247,13 +249,31 @@ export async function loadSecRawRevisions(
         `registered content hash disagreement for revision ${String(row.source_revision_id)}`,
       );
     }
-    const ingestedAt =
+    const sourceIngestedAt =
       row.ingested_at instanceof Date ? row.ingested_at.toISOString() : String(row.ingested_at);
     const sourceAvailableAt =
       row.source_available_at instanceof Date
         ? row.source_available_at.toISOString()
         : String(row.source_available_at);
-    if (Date.parse(sourceCreatedAt) > Date.parse(ingestedAt)) {
+    const rawFetchedAt =
+      row.raw_fetched_at instanceof Date
+        ? row.raw_fetched_at.toISOString()
+        : String(row.raw_fetched_at);
+    const sourceIngestedTime = Date.parse(sourceIngestedAt);
+    const sourceAvailableTime = Date.parse(sourceAvailableAt);
+    const rawFetchedTime = Date.parse(rawFetchedAt);
+    if (
+      !Number.isFinite(sourceIngestedTime) ||
+      !Number.isFinite(sourceAvailableTime) ||
+      !Number.isFinite(rawFetchedTime)
+    ) {
+      throw new Error('SEC collection timestamps must all be valid');
+    }
+    if (sourceAvailableTime !== rawFetchedTime) {
+      throw new Error('source availability does not match raw fetch time');
+    }
+    const knownAt = new Date(Math.max(sourceIngestedTime, rawFetchedTime)).toISOString();
+    if (Date.parse(sourceCreatedAt) > Date.parse(knownAt)) {
       throw new Error('sec-edgar source registration time is after source revision ingestedAt');
     }
 
@@ -278,11 +298,11 @@ export async function loadSecRawRevisions(
     if (payloadCik !== canonicalCik) {
       throw new Error(`payload CIK does not match canonical CIK for ${providerRecordKey}`);
     }
-    validateSecSourceRevisionLineage(payload, sourceAvailableAt, ingestedAt);
+    validateSecSourceRevisionLineage(payload, sourceAvailableAt, knownAt);
     revisions.push({
       sourceId: rowSourceId,
       sourceRevisionId: Number(row.source_revision_id),
-      ingestedAt,
+      ingestedAt: knownAt,
       sourceAvailableAt,
       definitionEffectiveFrom: sourceCreatedAt,
       contentHash: sourceRevisionContentHash,

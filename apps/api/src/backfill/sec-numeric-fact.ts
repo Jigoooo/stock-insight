@@ -212,15 +212,15 @@ export function resolveSecAvailability(filed: string, ingestedAt: string): strin
 export function validateSecSourceRevisionLineage(
   payload: SecCompanyFactsPayload,
   sourceAvailableAt: string,
-  ingestedAt: string,
+  knownAt: string,
 ): void {
   const sourceAvailable = Date.parse(sourceAvailableAt);
-  const knownAt = Date.parse(ingestedAt);
+  const canonicalKnownAt = Date.parse(knownAt);
   if (!Number.isFinite(sourceAvailable))
     throw new Error('source availability timestamp is invalid');
-  if (!Number.isFinite(knownAt)) throw new Error('source ingestion timestamp is invalid');
-  if (sourceAvailable > knownAt) {
-    throw new Error('source availability is after source revision ingestedAt');
+  if (!Number.isFinite(canonicalKnownAt)) throw new Error('source knownAt timestamp is invalid');
+  if (sourceAvailable > canonicalKnownAt) {
+    throw new Error('source availability is after canonical knownAt');
   }
   for (const facts of Object.values(payload.facts ?? {})) {
     for (const body of Object.values(facts)) {

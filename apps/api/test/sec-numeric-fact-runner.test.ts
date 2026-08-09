@@ -108,6 +108,7 @@ describe('SEC verified raw revision loading', () => {
               source_revision_id: 10,
               ingested_at: raw().ingestedAt,
               source_available_at: raw().sourceAvailableAt,
+              raw_fetched_at: raw().sourceAvailableAt,
               source_revision_content_hash: 'a'.repeat(64),
               raw_object_content_hash: 'a'.repeat(64),
               object_uri: 'file:///raw/apple.json',
@@ -132,6 +133,7 @@ describe('SEC verified raw revision loading', () => {
     assert.match(queries[0]!.sql, /source_record_identity/);
     assert.match(queries[0]!.sql, /source_revision/);
     assert.match(queries[0]!.sql, /sr\.available_at/);
+    assert.match(queries[0]!.sql, /ro\.fetched_at/);
     assert.match(queries[0]!.sql, /sr\.content_hash/);
     assert.doesNotMatch(queries[0]!.sql, /market\.financial_fact/);
   });
@@ -172,6 +174,7 @@ describe('SEC verified raw revision loading', () => {
       source_revision_id: 1,
       ingested_at: raw().ingestedAt,
       source_available_at: '2025-02-01T02:03:03.000Z',
+      raw_fetched_at: '2025-02-01T02:03:03.000Z',
       source_revision_content_hash: 'a'.repeat(64),
       raw_object_content_hash: 'a'.repeat(64),
       object_uri: 'file:///raw',
@@ -219,14 +222,18 @@ describe('SEC verified raw revision loading', () => {
         pattern: /JSON invalid/,
       },
       {
-        name: 'source availability after ingestion',
+        name: 'source availability diverges from raw fetch time',
         row: { ...validRow, source_available_at: '2025-02-01T02:03:05.000Z' },
         read: async () => Buffer.from(JSON.stringify(companyfacts())),
-        pattern: /source availability.*ingested/i,
+        pattern: /source availability.*raw fetch/i,
       },
       {
         name: 'source availability before filing day',
-        row: { ...validRow, source_available_at: '2025-01-31T04:59:59.999Z' },
+        row: {
+          ...validRow,
+          source_available_at: '2025-01-31T04:59:59.999Z',
+          raw_fetched_at: '2025-01-31T04:59:59.999Z',
+        },
         read: async () => Buffer.from(JSON.stringify(companyfacts())),
         pattern: /source availability.*filing day/i,
       },
@@ -245,7 +252,8 @@ describe('SEC verified raw revision loading', () => {
     }
   });
 
-  it('preserves source availability and revision hash while knownAt remains ingestedAt', async () => {
+  it('uses the later verified collection clock as knownAt without treating clock skew as lineage corruption', async () => {
+    const fetchedAt = '2025-02-01T02:03:04.012Z';
     const db = {
       async query() {
         return {
@@ -255,7 +263,8 @@ describe('SEC verified raw revision loading', () => {
               source_created_at: raw().definitionEffectiveFrom,
               source_revision_id: 10,
               ingested_at: raw().ingestedAt,
-              source_available_at: '2025-02-01T02:03:03.000Z',
+              source_available_at: fetchedAt,
+              raw_fetched_at: fetchedAt,
               source_revision_content_hash: 'a'.repeat(64),
               raw_object_content_hash: 'a'.repeat(64),
               object_uri: 'file:///raw',
@@ -270,14 +279,14 @@ describe('SEC verified raw revision loading', () => {
     const loaded = await loadSecRawRevisions(db, { limit: 1, cik: null }, async () =>
       Buffer.from(JSON.stringify(companyfacts())),
     );
-    assert.equal(loaded.revisions[0]?.ingestedAt, raw().ingestedAt);
-    assert.equal(loaded.revisions[0]?.sourceAvailableAt, '2025-02-01T02:03:03.000Z');
+    assert.equal(loaded.revisions[0]?.ingestedAt, fetchedAt);
+    assert.equal(loaded.revisions[0]?.sourceAvailableAt, fetchedAt);
     assert.equal(loaded.revisions[0]?.contentHash, 'a'.repeat(64));
 
     const plan = buildSecCanonicalPlan(loaded.revisions, { limit: 1, cik: null, sinceYear: 2020 });
-    assert.equal(plan.facts[0]?.knownAt, raw().ingestedAt);
-    assert.equal(plan.facts[0]?.availableAt, '2025-02-01T02:03:04.000Z');
-    assert.equal(plan.facts[0]?.metadata.sourceAvailableAt, '2025-02-01T02:03:03.000Z');
+    assert.equal(plan.facts[0]?.knownAt, fetchedAt);
+    assert.equal(plan.facts[0]?.availableAt, fetchedAt);
+    assert.equal(plan.facts[0]?.metadata.sourceAvailableAt, fetchedAt);
     assert.equal(plan.facts[0]?.metadata.sourceRevisionContentHash, 'a'.repeat(64));
   });
 });
@@ -316,6 +325,7 @@ describe('SEC canonical plan and execution', () => {
                 source_revision_id: 10,
                 ingested_at: raw().ingestedAt,
                 source_available_at: raw().sourceAvailableAt,
+                raw_fetched_at: raw().sourceAvailableAt,
                 source_revision_content_hash: 'a'.repeat(64),
                 raw_object_content_hash: 'a'.repeat(64),
                 object_uri: 'file:///raw',
@@ -358,6 +368,7 @@ describe('SEC canonical plan and execution', () => {
                   source_revision_id: 10,
                   ingested_at: raw().ingestedAt,
                   source_available_at: raw().sourceAvailableAt,
+                  raw_fetched_at: raw().sourceAvailableAt,
                   source_revision_content_hash: 'a'.repeat(64),
                   raw_object_content_hash: 'a'.repeat(64),
                   object_uri: 'file:///raw',
@@ -472,6 +483,7 @@ describe('SEC canonical plan and execution', () => {
                 source_revision_id: 10,
                 ingested_at: input.ingestedAt,
                 source_available_at: input.sourceAvailableAt,
+                raw_fetched_at: input.sourceAvailableAt,
                 source_revision_content_hash: input.contentHash,
                 raw_object_content_hash: input.contentHash,
                 object_uri: 'file:///raw',
