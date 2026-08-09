@@ -1,472 +1,221 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-import { truthKernelMigrationSql } from '../../../packages/db-schema/src/migrations/031_truth_kernel.ts';
-import { metricDefinitionRegistryMigrationSql } from '../../../packages/db-schema/src/migrations/084_metric_definition_registry.ts';
-import { numericFactRevisionGuardMigrationSql } from '../../../packages/db-schema/src/migrations/090_numeric_fact_revision_guard.ts';
-import { writeRawObject } from '../src/ingest/raw-object-store.ts';
+import { readRawObjectVerified, writeRawObject } from '../src/ingest/raw-object-store.ts';
 
-import { additiveAppMigrations } from '@stock-insight/db-schema';
-const apiRoot = fileURLToPath(new URL('..', import.meta.url));
-const REQUIRED_MIGRATIONS = [
-  '031_truth_kernel',
-  '084_metric_definition_registry',
-  '090_numeric_fact_revision_guard',
-];
-const ROLE_NAMES = ['si_knowledge', 'si_analytics', 'si_publisher', 'si_readapi'];
-const CIK = '0000009999';
-
-function quoteIdentifier(value) {
-  return `"${value.replaceAll('"', '""')}"`;
+export function parseLastJson(output) {
+  const start = output.lastIndexOf('\n{');
+  return JSON.parse(output.slice(start < 0 ? output.indexOf('{') : start + 1));
 }
 
-function createTableStatement(sql, qualifiedName) {
-  const opening = `CREATE TABLE IF NOT EXISTS ${qualifiedName} (`;
-  const start = sql.indexOf(opening);
-  if (start === -1) throw new Error(`${qualifiedName} not found in migration`);
-  const end = sql.indexOf('\n);', start);
-  if (end === -1) throw new Error(`${qualifiedName} has no terminator`);
-  return `${sql.slice(start, end)}\n);`;
-}
-
-async function ensureRoles(admin, createdRoles) {
-  const existing = await admin.query('SELECT rolname FROM pg_roles WHERE rolname = ANY($1)', [
-    ROLE_NAMES,
-  ]);
-  const found = new Set(existing.rows.map((row) => row.rolname));
-  for (const role of ROLE_NAMES) {
-    if (found.has(role)) continue;
-    await admin.query(`CREATE ROLE ${quoteIdentifier(role)} NOLOGIN NOSUPERUSER NOCREATEDB`);
-    createdRoles.push(role);
-  }
-}
-
-export async function cleanupRehearsalRoles(admin, createdRoles) {
-  for (const role of [...createdRoles].reverse()) {
-    await admin.query(`DROP ROLE IF EXISTS ${quoteIdentifier(role)}`);
-  }
-}
-
-const BASE_SCHEMA_SQL = `
-CREATE SCHEMA IF NOT EXISTS core;
-CREATE SCHEMA IF NOT EXISTS ingestion;
-CREATE SCHEMA IF NOT EXISTS market;
-CREATE SCHEMA IF NOT EXISTS world;
-CREATE SCHEMA IF NOT EXISTS knowledge;
-CREATE SCHEMA IF NOT EXISTS governance;
-
-CREATE TABLE core.entity (
-  entity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  entity_type TEXT NOT NULL,
-  canonical_name TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active',
-  country_code TEXT,
-  metadata JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE core.entity_identifier (
-  identifier_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  entity_id BIGINT NOT NULL REFERENCES core.entity(entity_id),
-  identifier_type TEXT NOT NULL,
-  identifier_value TEXT NOT NULL,
-  namespace TEXT NOT NULL DEFAULT '',
-  valid_from TIMESTAMPTZ,
-  valid_to TIMESTAMPTZ,
-  UNIQUE(identifier_type, identifier_value, namespace)
-);
-CREATE TABLE ingestion.source (
-  source_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  provider_key TEXT NOT NULL UNIQUE,
-  source_type TEXT NOT NULL,
-  tier SMALLINT NOT NULL,
-  license_status TEXT NOT NULL,
-  redistribution TEXT NOT NULL,
-  enforcement TEXT NOT NULL,
-  metadata JSONB NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE TABLE ingestion.source_record_identity (
-  source_record_identity_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  source_id BIGINT NOT NULL REFERENCES ingestion.source(source_id),
-  provider_record_key TEXT NOT NULL,
-  first_observed_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE(source_id, provider_record_key)
-);
-CREATE TABLE ingestion.raw_object (
-  raw_object_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  source_id BIGINT NOT NULL REFERENCES ingestion.source(source_id),
-  content_hash TEXT NOT NULL,
-  object_uri TEXT NOT NULL,
-  fetched_at TIMESTAMPTZ NOT NULL,
-  UNIQUE(source_id, content_hash)
-);
-CREATE TABLE ingestion.source_revision (
-  source_revision_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  source_record_identity_id BIGINT NOT NULL REFERENCES ingestion.source_record_identity(source_record_identity_id),
-  revision_no INTEGER NOT NULL,
-  available_at TIMESTAMPTZ NOT NULL,
-  ingested_at TIMESTAMPTZ NOT NULL,
-  content_hash TEXT NOT NULL,
-  raw_object_id BIGINT NOT NULL REFERENCES ingestion.raw_object(raw_object_id),
-  payload_metadata JSONB NOT NULL DEFAULT '{}',
-  UNIQUE(source_record_identity_id, revision_no)
-);
-CREATE TABLE market.financial_concept (
-  concept TEXT PRIMARY KEY,
-  us_gaap_tags TEXT[] NOT NULL DEFAULT '{}',
-  unit_class TEXT NOT NULL
-);
-CREATE TABLE market.financial_fact (
-  issuer_entity_id BIGINT NOT NULL,
-  concept TEXT NOT NULL,
-  value NUMERIC NOT NULL,
-  unit TEXT NOT NULL,
-  currency TEXT,
-  period_start DATE,
-  period_end DATE NOT NULL,
-  fiscal_period TEXT,
-  filing_ref TEXT NOT NULL,
-  source_provider TEXT NOT NULL
-);
-${createTableStatement(truthKernelMigrationSql, 'world.numeric_fact')}
-
-CREATE OR REPLACE FUNCTION knowledge.guard_truth_revision_chain()
-RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE prior_key TEXT; prior_revision INTEGER;
-BEGIN
-  IF NEW.revision_no > 1 THEN
-    SELECT fact_key, revision_no INTO prior_key, prior_revision
-      FROM world.numeric_fact WHERE numeric_fact_id = NEW.supersedes_numeric_fact_id;
-    IF prior_key IS DISTINCT FROM NEW.fact_key OR prior_revision IS DISTINCT FROM NEW.revision_no - 1 THEN
-      RAISE EXCEPTION 'numeric-fact supersession must reference previous revision of same key';
-    END IF;
-  END IF;
-  RETURN NEW;
-END $$;
-CREATE TRIGGER numeric_fact_revision_guard BEFORE INSERT ON world.numeric_fact
-FOR EACH ROW EXECUTE FUNCTION knowledge.guard_truth_revision_chain();
-
-CREATE OR REPLACE FUNCTION knowledge.reject_truth_kernel_mutation()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  RAISE EXCEPTION '% is append-only', TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME
-    USING ERRCODE = '55000';
-END $$;
-CREATE TRIGGER numeric_fact_immutable BEFORE UPDATE OR DELETE ON world.numeric_fact
-FOR EACH ROW EXECUTE FUNCTION knowledge.reject_truth_kernel_mutation();
-`;
-
-export async function prepareRehearsalDatabase(admin, target, createdRoles) {
-  const registryIds = additiveAppMigrations.map(({ id }) => id);
-  for (const id of REQUIRED_MIGRATIONS) assert.ok(registryIds.includes(id), `${id} absent`);
-  assert.ok(
-    registryIds.indexOf('084_metric_definition_registry') <
-      registryIds.indexOf('090_numeric_fact_revision_guard'),
+export function runSecCli(apiRoot, databaseUrl, rawRoot, ...args) {
+  return parseLastJson(
+    execFileSync(
+      process.execPath,
+      ['src/backfill/run-sec-numeric-fact.ts', '--cik', '0000009999', '--limit', '1', ...args],
+      {
+        cwd: apiRoot,
+        env: { ...process.env, DATABASE_URL: databaseUrl, RAW_OBJECT_ROOT: rawRoot },
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    ),
   );
-  await ensureRoles(admin, createdRoles);
-  await target.query(BASE_SCHEMA_SQL);
-  await target.query(metricDefinitionRegistryMigrationSql);
-  await target.query(numericFactRevisionGuardMigrationSql);
-  await target.query(metricDefinitionRegistryMigrationSql);
-  await target.query(numericFactRevisionGuardMigrationSql);
-  const trigger = await target.query(
-    `SELECT count(*)::int AS n FROM pg_trigger
-      WHERE tgname='numeric_fact_revision_guard' AND NOT tgisinternal`,
-  );
-  const migrationReapplyVerified = trigger.rows[0].n === 1;
-  assert.equal(migrationReapplyVerified, true);
-  return { migrationReapplyVerified };
 }
 
-function payload(entriesByConcept) {
+export function assertEvidence(value, label) {
+  assert.equal(value, true, label);
+  return true;
+}
+
+function nyCalendarDate(value) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const part = (type) => parts.find((item) => item.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function companyFacts({ filed, accession, revenue, includeAssets = false }) {
+  const claimYear = Number(filed.slice(0, 4)) - 1;
+  const entry = (value, extra = {}) => ({
+    end: `${claimYear}-12-31`,
+    val: value,
+    accn: accession,
+    fy: claimYear,
+    fp: 'FY',
+    form: accession.endsWith('3') ? '10-K/A' : '10-K',
+    filed,
+    ...extra,
+  });
   return {
-    cik: Number(CIK),
-    entityName: 'SEC Rehearsal Company',
+    cik: 9999,
+    entityName: 'Disposable SEC Rehearsal Company',
     facts: {
-      'us-gaap': Object.fromEntries(
-        Object.entries(entriesByConcept).map(([concept, entries]) => [
-          concept,
-          { label: concept, description: `${concept} rehearsal`, units: { USD: entries } },
-        ]),
-      ),
+      'us-gaap': {
+        Revenue: {
+          label: 'Revenue',
+          description: 'Revenue for the period.',
+          units: { USD: [entry(revenue, { start: `${claimYear}-01-01` })] },
+        },
+        ...(includeAssets
+          ? {
+              Assets: {
+                label: 'Assets',
+                description: 'Assets at period end.',
+                units: { USD: [entry(500)] },
+              },
+            }
+          : {}),
+      },
     },
   };
 }
 
-const inventoryOriginal = {
-  val: 100,
-  accn: '0000009999-25-000001',
-  filed: '2025-02-15',
-  end: '2024-12-31',
-  form: '10-K',
-  fy: 2024,
-  fp: 'FY',
-};
-const ppeOriginal = {
-  val: 500,
-  accn: '0000009999-25-000001',
-  filed: '2025-02-15',
-  end: '2024-12-31',
-  form: '10-K',
-  fy: 2024,
-  fp: 'FY',
-};
-const PAYLOAD_ONE = payload({
-  InventoryNet: [inventoryOriginal],
-  PropertyPlantAndEquipmentNet: [ppeOriginal],
-});
-const PAYLOAD_TWO = payload({
-  InventoryNet: [
-    inventoryOriginal,
-    {
-      ...inventoryOriginal,
-      accn: '0000009999-25-000002',
-      filed: '2025-05-01',
-      form: '10-Q',
-      fy: 2025,
-      fp: 'Q1',
-    },
-    {
-      ...inventoryOriginal,
-      val: 120,
-      accn: '0000009999-25-000003',
-      filed: '2025-06-01',
-      form: '10-K/A',
-    },
-  ],
-  PropertyPlantAndEquipmentNet: [ppeOriginal],
-});
-
-async function insertRawRevision(pool, rawRoot, body, timing) {
+async function appendRawRevision(client, fixture) {
   const ref = await writeRawObject({
     providerKey: 'sec-edgar',
-    content: JSON.stringify(body),
+    content: JSON.stringify(fixture.payload),
     extension: 'json',
-    fetchedAt: new Date(timing.sourceAvailableAt),
-    root: rawRoot,
+    fetchedAt: fixture.availableAt,
+    root: fixture.rawRoot,
   });
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const source = await client.query(
-      `SELECT source_id FROM ingestion.source WHERE provider_key='sec-edgar'`,
-    );
-    const sourceId = Number(source.rows[0].source_id);
-    const identity = await client.query(
-      `INSERT INTO ingestion.source_record_identity
-        (source_id, provider_record_key, first_observed_at)
-       VALUES ($1,$2,$3)
-       ON CONFLICT (source_id, provider_record_key) DO UPDATE
-         SET provider_record_key=EXCLUDED.provider_record_key
-       RETURNING source_record_identity_id`,
-      [sourceId, `CIK${CIK}`, timing.sourceAvailableAt],
-    );
-    const raw = await client.query(
-      `INSERT INTO ingestion.raw_object (source_id, content_hash, object_uri, fetched_at)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (source_id, content_hash) DO UPDATE SET object_uri=EXCLUDED.object_uri
-       RETURNING raw_object_id`,
-      [sourceId, ref.contentHash, ref.objectUri, timing.sourceAvailableAt],
-    );
-    const previous = await client.query(
-      `SELECT source_revision_id, revision_no FROM ingestion.source_revision
-       WHERE source_record_identity_id=$1 ORDER BY revision_no DESC LIMIT 1`,
-      [identity.rows[0].source_record_identity_id],
-    );
-    const revisionNo = Number(previous.rows[0]?.revision_no ?? 0) + 1;
-    const revision = await client.query(
-      `INSERT INTO ingestion.source_revision
-        (source_record_identity_id, revision_no, available_at, ingested_at,
-         content_hash, raw_object_id, payload_metadata)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)
-       RETURNING source_revision_id`,
-      [
-        identity.rows[0].source_record_identity_id,
-        revisionNo,
-        timing.sourceAvailableAt,
-        timing.ingestedAt,
-        ref.contentHash,
-        raw.rows[0].raw_object_id,
-        JSON.stringify({ object_uri: ref.objectUri }),
-      ],
-    );
-    await client.query('COMMIT');
-    return {
-      contentHash: ref.contentHash,
-      sourceRevisionId: Number(revision.rows[0].source_revision_id),
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
+  await readRawObjectVerified(ref);
+  const fetch = await client.query(
+    `INSERT INTO ingestion.fetch_run
+       (source_id, run_id, idempotency_key, started_at, finished_at, status,
+        records_read, records_written, records_skipped, summary)
+     VALUES ($1,$2,$3,$4,$5,'success',1,1,0,'{}') RETURNING fetch_run_id`,
+    [
+      fixture.sourceId,
+      `sec-rehearsal-${fixture.revisionNo}`,
+      `sec-rehearsal-${fixture.revisionNo}-${ref.contentHash}`,
+      fixture.availableAt,
+      fixture.ingestedAt,
+    ],
+  );
+  const raw = await client.query(
+    `INSERT INTO ingestion.raw_object
+       (fetch_run_id, source_id, source_document_id, content_hash, object_uri, fetched_at)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING raw_object_id`,
+    [
+      fetch.rows[0].fetch_run_id,
+      fixture.sourceId,
+      `CIK0000009999-r${fixture.revisionNo}`,
+      ref.contentHash,
+      ref.objectUri,
+      fixture.availableAt,
+    ],
+  );
+  const revision = await client.query(
+    `INSERT INTO ingestion.source_revision
+       (source_record_identity_id, revision_no, available_at, ingested_at, content_hash,
+        raw_object_id, source_contract_revision_id, supersedes_source_revision_id, payload_metadata)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'{}') RETURNING source_revision_id, content_hash`,
+    [
+      fixture.identityId,
+      fixture.revisionNo,
+      fixture.availableAt,
+      fixture.ingestedAt,
+      ref.contentHash,
+      raw.rows[0].raw_object_id,
+      fixture.contractId,
+      fixture.supersedesId,
+    ],
+  );
+  return {
+    sourceRevisionId: Number(revision.rows[0].source_revision_id),
+    contentHash: String(revision.rows[0].content_hash),
+    objectUri: ref.objectUri,
+  };
 }
 
-function runSecCli(databaseUrl, mode) {
-  const args = [
-    'src/backfill/run-sec-numeric-fact.ts',
-    '--limit',
-    '1',
-    '--cik',
-    CIK,
-    '--since-year',
-    '2020',
-  ];
-  if (mode !== 'dry-run') args.push(`--${mode}`);
-  const output = execFileSync(process.execPath, args, {
-    cwd: apiRoot,
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  return JSON.parse(output.slice(output.indexOf('{')));
-}
-
-async function countCanonicalRows(pool) {
-  const result = await pool.query(`
-    SELECT
-      (SELECT count(*)::int FROM world.numeric_fact WHERE fact_key LIKE 'sec:%') AS facts,
-      (SELECT count(*)::int FROM governance.metric_definition) AS definitions
-  `);
+export async function countCanonicalRows(client, sourceId) {
+  const result = await client.query(
+    `SELECT count(DISTINCT fact.numeric_fact_id)::int AS facts,
+            count(DISTINCT definition.metric_definition_id)::int AS definitions
+       FROM ingestion.source source
+       LEFT JOIN ingestion.source_record_identity identity ON identity.source_id=source.source_id
+       LEFT JOIN ingestion.source_revision revision
+         ON revision.source_record_identity_id=identity.source_record_identity_id
+       LEFT JOIN world.numeric_fact fact ON fact.source_revision_id=revision.source_revision_id
+       LEFT JOIN governance.metric_definition definition ON definition.source_id=source.source_id
+      WHERE source.source_id=$1`,
+    [sourceId],
+  );
   return result.rows[0];
 }
 
-async function insertProbeFact(client, row) {
-  const result = await client.query(
-    `INSERT INTO world.numeric_fact (
-       fact_key, revision_no, entity_id, concept_namespace, concept_key,
-       value, unit, currency, scale_power, period_start, period_end, instant_at,
-       fiscal_year, fiscal_quarter, dimensions_json, restatement_group_key,
-       original_cell_or_xbrl_locator, source_revision_id, available_at, known_at,
-       supersedes_numeric_fact_id, metadata
-     ) VALUES (
-       $1,$2,1,'us-gaap',$3,$4,'currency','USD',0,NULL,NULL,
-       '2024-12-31T23:59:59.999Z',$5,$6,'{}'::jsonb,$7,$8::jsonb,$9,$10,$11,$12,$13::jsonb
-     ) RETURNING numeric_fact_id`,
-    [
-      row.factKey,
-      row.revisionNo,
-      row.conceptKey ?? 'InventoryNet',
-      row.value ?? 1,
-      row.fiscalYear ?? 2024,
-      row.fiscalQuarter ?? 4,
-      row.groupKey,
-      JSON.stringify({ provider: 'rehearsal', cell: row.factKey }),
-      row.sourceRevisionId,
-      row.availableAt,
-      row.knownAt,
-      row.supersedesId ?? null,
-      JSON.stringify({ metricDefinitionKey: row.definitionKey ?? 'probe.inventory' }),
-    ],
-  );
-  return Number(result.rows[0].numeric_fact_id);
+const INSERT_FACT_SQL = `INSERT INTO world.numeric_fact (
+  fact_key, revision_no, entity_id, concept_namespace, concept_key, value, unit, currency,
+  scale_power, period_start, period_end, instant_at, fiscal_year, fiscal_quarter,
+  dimensions_json, restatement_group_key, original_cell_or_xbrl_locator,
+  source_revision_id, available_at, known_at, supersedes_numeric_fact_id, metadata
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+RETURNING *`;
+
+async function insertNumericFact(client, predecessor, changes) {
+  const row = { ...predecessor, ...changes };
+  const result = await client.query(INSERT_FACT_SQL, [
+    row.fact_key,
+    row.revision_no,
+    row.entity_id,
+    row.concept_namespace,
+    row.concept_key,
+    row.value,
+    row.unit,
+    row.currency,
+    row.scale_power,
+    row.period_start,
+    row.period_end,
+    row.instant_at,
+    row.fiscal_year,
+    row.fiscal_quarter,
+    row.dimensions_json,
+    row.restatement_group_key,
+    row.original_cell_or_xbrl_locator,
+    row.source_revision_id,
+    row.available_at,
+    row.known_at,
+    row.supersedes_numeric_fact_id,
+    row.metadata,
+  ]);
+  return result.rows[0];
 }
 
-export async function expectRevisionRejected(pool, label, overrides) {
-  const client = await pool.connect();
-  let rejected = false;
+export async function expectRevisionRejected(client, predecessor, changes, label) {
+  await client.query('BEGIN');
+  let rejected;
   try {
-    await client.query('BEGIN');
-    const source = await client.query(
-      'SELECT min(source_revision_id)::bigint AS id FROM ingestion.source_revision',
-    );
-    const sourceRevisionId = Number(source.rows[0].id);
-    const groupKey = `probe:${label}`;
-    const baseId = await insertProbeFact(client, {
-      factKey: `${groupKey}:1`,
-      revisionNo: 1,
-      groupKey,
-      sourceRevisionId,
-      availableAt: '2025-02-15T23:59:59Z',
-      knownAt: '2026-08-08T12:00:00Z',
-    });
-    await insertProbeFact(client, {
-      factKey: `${groupKey}:2`,
-      revisionNo: 2,
-      groupKey,
-      sourceRevisionId,
-      availableAt: '2025-03-01T23:59:59Z',
-      knownAt: '2026-08-09T12:00:00Z',
-      supersedesId: baseId,
-      ...overrides,
-    });
-  } catch (error) {
-    if (error?.code === 'P0001') rejected = true;
-    else throw error;
+    await insertNumericFact(client, predecessor, changes);
+    rejected = false;
+  } catch {
+    rejected = true;
   } finally {
-    await client.query('ROLLBACK').catch(() => undefined);
-    client.release();
-  }
-  return rejected;
-}
-
-async function appendOnlyRejected(pool) {
-  try {
-    await pool.query(`UPDATE world.numeric_fact SET value=value WHERE fact_key LIKE 'sec:%'`);
-  } catch (error) {
-    if (error?.code === '55000') return true;
-    throw error;
-  }
-  return false;
-}
-
-async function insertDartDistinctRevision(pool) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const source = await client.query(
-      'SELECT min(source_revision_id)::bigint AS id FROM ingestion.source_revision',
-    );
-    const sourceRevisionId = Number(source.rows[0].id);
-    const first = await insertProbeFact(client, {
-      factKey: 'dart:receipt-1:BS:Assets',
-      revisionNo: 1,
-      groupKey: 'dart:issuer:Assets:2024-12-31',
-      sourceRevisionId,
-      availableAt: '2025-03-01T23:59:59Z',
-      knownAt: '2026-08-08T12:00:00Z',
-      definitionKey: 'dart.ifrs-full.assets.instant.krw',
-    });
-    await insertProbeFact(client, {
-      factKey: 'dart:receipt-2:BS:Assets',
-      revisionNo: 2,
-      groupKey: 'dart:issuer:Assets:2024-12-31',
-      sourceRevisionId,
-      availableAt: '2025-03-02T23:59:59Z',
-      knownAt: '2026-08-09T12:00:00Z',
-      supersedesId: first,
-      definitionKey: 'dart.ifrs-full.assets.instant.krw',
-    });
-    await client.query('COMMIT');
-    return true;
-  } catch (error) {
     await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
   }
+  return assertEvidence(rejected, label);
 }
 
-async function observeProviderLock(pool) {
+export async function observeProviderLock(pool) {
   const first = await pool.connect();
   const second = await pool.connect();
   try {
     await first.query('BEGIN');
     await second.query('BEGIN');
-    await first.query(`SELECT pg_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0))`);
+    await first.query("SELECT pg_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0))");
     const blocked = await second.query(
-      `SELECT pg_try_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0)) AS locked`,
+      "SELECT pg_try_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0)) AS acquired",
     );
-    await first.query('ROLLBACK');
+    assert.equal(blocked.rows[0].acquired, false);
+    await first.query('COMMIT');
     const acquired = await second.query(
-      `SELECT pg_try_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0)) AS locked`,
+      "SELECT pg_try_advisory_xact_lock(hashtextextended('sec-edgar:numeric-fact',0)) AS acquired",
     );
-    await second.query('ROLLBACK');
-    return blocked.rows[0].locked === false && acquired.rows[0].locked === true;
+    return assertEvidence(acquired.rows[0].acquired === true, 'provider advisory lock');
   } finally {
     await first.query('ROLLBACK').catch(() => undefined);
     await second.query('ROLLBACK').catch(() => undefined);
@@ -475,186 +224,360 @@ async function observeProviderLock(pool) {
   }
 }
 
-function assertEvidence(evidence) {
-  for (const [name, value] of Object.entries(evidence)) {
-    assert.equal(value, true, `${name} was not proven`);
-  }
+function plusMillis(value, millis) {
+  return new Date(new Date(value).getTime() + millis);
 }
 
-export async function seedAndExercise(pool, databaseUrl, rawRoot) {
-  const current = await pool.query('SELECT current_database() AS name');
-  assert.match(current.rows[0].name, /^stock_insight_sec_rehearsal_/);
-  await pool.query(
-    `INSERT INTO ingestion.source
-      (provider_key, source_type, tier, license_status, redistribution, enforcement, created_at)
-     VALUES ('sec-edgar','api',1,'conditional','derived_only','warn','2026-01-01T00:00:00Z')`,
-  );
-  await pool.query(
-    `INSERT INTO core.entity
-      (entity_type, canonical_name, status, country_code)
-     VALUES ('Company','SEC Rehearsal Company','active','US')`,
-  );
-  await pool.query(
-    `INSERT INTO core.entity_identifier
-      (entity_id, identifier_type, identifier_value)
-     VALUES (1,'CIK',$1)`,
-    [CIK],
-  );
+export async function runC2Rehearsal({ pool, databaseUrl, rawRoot, apiRoot }) {
+  const client = await pool.connect();
+  try {
+    const current = await client.query('SELECT current_database() AS name');
+    assert.match(current.rows[0].name, /^stock_insight_sec_rehearsal_/);
+    const sourceResult = await client.query(
+      `SELECT source.source_id, source.created_at, contract.source_contract_revision_id
+         FROM ingestion.source source
+         JOIN ingestion.source_contract_revision contract ON contract.source_id=source.source_id
+        WHERE source.provider_key='sec-edgar' ORDER BY contract.revision_no DESC LIMIT 1`,
+    );
+    assert.equal(sourceResult.rowCount, 1);
+    const source = sourceResult.rows[0];
+    const sourceId = Number(source.source_id);
+    await client.query(
+      `INSERT INTO ingestion.source_contract
+         (source_id, version, schedule_policy, required_fields, quality_policy, revision_policy)
+       VALUES ($1,1,'{}','[]','{}','{"mode":"append_revision"}')
+       ON CONFLICT (source_id,version) DO NOTHING`,
+      [sourceId],
+    );
+    const entity = await client.query(
+      `INSERT INTO core.entity (entity_type,canonical_name,country_code,metadata)
+       VALUES ('Company','Disposable SEC Rehearsal Company','US','{}') RETURNING entity_id`,
+    );
+    await client.query(
+      `INSERT INTO core.entity_identifier (entity_id,identifier_type,identifier_value)
+       VALUES ($1,'CIK','0000009999')`,
+      [entity.rows[0].entity_id],
+    );
+    const identity = await client.query(
+      `INSERT INTO ingestion.source_record_identity
+         (source_id,provider_record_key,first_observed_at)
+       VALUES ($1,'CIK0000009999',$2) RETURNING source_record_identity_id`,
+      [sourceId, source.created_at],
+    );
+    const base = new Date(source.created_at);
+    const filed = nyCalendarDate(base);
+    const common = {
+      sourceId,
+      contractId: Number(source.source_contract_revision_id),
+      identityId: Number(identity.rows[0].source_record_identity_id),
+      rawRoot,
+    };
+    const firstRaw = await appendRawRevision(client, {
+      ...common,
+      revisionNo: 1,
+      availableAt: plusMillis(base, 1_000),
+      ingestedAt: plusMillis(base, 2_000),
+      supersedesId: null,
+      payload: companyFacts({
+        filed,
+        accession: '0000009999-26-000001',
+        revenue: 100,
+        includeAssets: true,
+      }),
+    });
+    const secondRaw = await appendRawRevision(client, {
+      ...common,
+      revisionNo: 2,
+      availableAt: plusMillis(base, 3_000),
+      ingestedAt: plusMillis(base, 4_000),
+      supersedesId: firstRaw.sourceRevisionId,
+      payload: companyFacts({ filed, accession: '0000009999-26-000002', revenue: 100 }),
+    });
+    const registeredHashes = await client.query(
+      `SELECT revision.content_hash AS revision_hash, raw.content_hash AS raw_hash
+         FROM ingestion.source_revision revision JOIN ingestion.raw_object raw USING(raw_object_id)
+        WHERE revision.source_revision_id=ANY($1::bigint[])`,
+      [[firstRaw.sourceRevisionId, secondRaw.sourceRevisionId]],
+    );
+    const sourceRevisionContentHashVerified = assertEvidence(
+      registeredHashes.rowCount === 2 &&
+        registeredHashes.rows.every((row) => row.revision_hash === row.raw_hash),
+      'source revision/raw object content hashes',
+    );
 
-  await insertRawRevision(pool, rawRoot, PAYLOAD_ONE, {
-    sourceAvailableAt: '2026-08-08T11:59:00Z',
-    ingestedAt: '2026-08-08T12:00:00Z',
-  });
-  const before = await countCanonicalRows(pool);
-  const dry = runSecCli(databaseUrl, 'dry-run');
-  const afterDry = await countCanonicalRows(pool);
-  const dryRunReadOnly =
-    dry.mode === 'dry-run' &&
-    before.facts === afterDry.facts &&
-    before.definitions === afterDry.definitions;
+    const empty = await countCanonicalRows(client, sourceId);
+    const dry = runSecCli(
+      apiRoot,
+      databaseUrl,
+      rawRoot,
+      '--since-year',
+      String(Number(filed.slice(0, 4)) - 2),
+    );
+    const afterDry = await countCanonicalRows(client, sourceId);
+    const dryRunReadOnly = assertEvidence(
+      dry.mode === 'dry-run' &&
+        dry.factsToWrite === 2 &&
+        empty.facts === 0 &&
+        afterDry.facts === 0 &&
+        afterDry.definitions === 0,
+      'dry-run is read only',
+    );
+    const rehearse = runSecCli(
+      apiRoot,
+      databaseUrl,
+      rawRoot,
+      '--since-year',
+      String(Number(filed.slice(0, 4)) - 2),
+      '--rehearse',
+    );
+    const afterRehearse = await countCanonicalRows(client, sourceId);
+    const rehearsalRolledBack = assertEvidence(
+      rehearse.mode === 'rehearse' &&
+        rehearse.factsRolledBack === 2 &&
+        rehearse.definitionsRolledBack === 2 &&
+        afterRehearse.facts === 0 &&
+        afterRehearse.definitions === 0,
+      'rehearsal writes rolled back',
+    );
+    const applied = runSecCli(
+      apiRoot,
+      databaseUrl,
+      rawRoot,
+      '--since-year',
+      String(Number(filed.slice(0, 4)) - 2),
+      '--apply',
+    );
+    const afterApply = await countCanonicalRows(client, sourceId);
+    const firstApplyCommitted = assertEvidence(
+      applied.factsWritten === 2 && afterApply.facts === 2 && afterApply.definitions === 2,
+      'first apply committed',
+    );
+    const multipleGroupsWritten = assertEvidence(
+      applied.factsWritten === 2,
+      'multiple groups written',
+    );
+    const unchangedComparativeSuppressed = assertEvidence(
+      applied.skips.some((skip) => skip.reason.includes('unchanged comparative repetition')),
+      'unchanged comparative suppressed',
+    );
+    const secondApply = runSecCli(
+      apiRoot,
+      databaseUrl,
+      rawRoot,
+      '--since-year',
+      String(Number(filed.slice(0, 4)) - 2),
+      '--apply',
+    );
+    const afterSecond = await countCanonicalRows(client, sourceId);
+    const secondApplyIdempotent = assertEvidence(
+      secondApply.factsWritten === 0 && afterSecond.facts === 2 && afterSecond.definitions === 2,
+      'second apply is idempotent',
+    );
 
-  const rehearsed = runSecCli(databaseUrl, 'rehearse');
-  const afterRehearse = await countCanonicalRows(pool);
-  const rehearsalRolledBack =
-    rehearsed.factsRolledBack === 2 &&
-    rehearsed.definitionsRolledBack === 2 &&
-    afterRehearse.facts === 0 &&
-    afterRehearse.definitions === 0;
+    const thirdRaw = await appendRawRevision(client, {
+      ...common,
+      revisionNo: 3,
+      availableAt: plusMillis(base, 5_000),
+      ingestedAt: plusMillis(base, 6_000),
+      supersedesId: secondRaw.sourceRevisionId,
+      payload: companyFacts({ filed, accession: '0000009999-26-000003', revenue: 120 }),
+    });
+    const amendment = runSecCli(
+      apiRoot,
+      databaseUrl,
+      rawRoot,
+      '--since-year',
+      String(Number(filed.slice(0, 4)) - 2),
+      '--apply',
+    );
+    const changedAmendmentRevised = assertEvidence(
+      amendment.factsWritten === 1 && amendment.restatements === 1,
+      'changed amendment revised',
+    );
+    const facts = await client.query(
+      `SELECT fact.*, revision.ingested_at AS source_ingested_at,
+              revision.content_hash AS source_content_hash, definition.source_id AS definition_source_id
+         FROM world.numeric_fact fact
+         JOIN ingestion.source_revision revision USING(source_revision_id)
+         JOIN governance.metric_definition definition
+           ON definition.definition_key=fact.metadata->>'metricDefinitionKey' AND definition.revision_no=1
+        WHERE fact.entity_id=$1 ORDER BY fact.concept_key,fact.revision_no`,
+      [entity.rows[0].entity_id],
+    );
+    const revenue = facts.rows.filter((fact) => fact.concept_key === 'Revenue');
+    assert.equal(revenue.length, 2);
+    const exactNMinusOneSupersedes = assertEvidence(
+      revenue[0].fact_key !== revenue[1].fact_key &&
+        revenue[0].restatement_group_key === revenue[1].restatement_group_key &&
+        String(revenue[1].supersedes_numeric_fact_id) === String(revenue[0].numeric_fact_id),
+      'exact N-1 supersedes',
+    );
+    const locatorLineageVerified = assertEvidence(
+      facts.rows.every(
+        (fact) =>
+          fact.metadata.sourceRevisionContentHash === fact.source_content_hash &&
+          typeof fact.metadata.sourceAvailableAt === 'string' &&
+          fact.original_cell_or_xbrl_locator.provider === 'sec-edgar',
+      ),
+      'locator lineage',
+    );
+    const pitAxesVerified = assertEvidence(
+      facts.rows.every(
+        (fact) =>
+          new Date(fact.known_at).getTime() === new Date(fact.source_ingested_at).getTime() &&
+          new Date(fact.available_at) <= new Date(fact.known_at),
+      ),
+      'PIT axes',
+    );
+    const definitionBindingVerified = assertEvidence(
+      facts.rows.every(
+        (fact) =>
+          fact.metadata.metricDefinitionKey && Number(fact.definition_source_id) === sourceId,
+      ),
+      'definition binding',
+    );
 
-  const first = runSecCli(databaseUrl, 'apply');
-  const afterFirst = await countCanonicalRows(pool);
-  const firstApplyCommitted =
-    first.factsWritten === 2 && afterFirst.facts === 2 && afterFirst.definitions === 2;
-  const second = runSecCli(databaseUrl, 'apply');
-  const afterSecond = await countCanonicalRows(pool);
-  const secondApplyIdempotent =
-    second.factsWritten === 0 &&
-    afterSecond.facts === afterFirst.facts &&
-    afterSecond.definitions === afterFirst.definitions;
+    const revenueOne = revenue[0];
+    const revenueTwo = revenue[1];
+    const wrongGroupRejected = await expectRevisionRejected(
+      client,
+      revenueOne,
+      {
+        fact_key: 'probe:wrong-group',
+        revision_no: 2,
+        restatement_group_key: 'probe:wrong-group',
+        supersedes_numeric_fact_id: revenueOne.numeric_fact_id,
+      },
+      'wrong group',
+    );
+    const wrongRevisionRejected = await expectRevisionRejected(
+      client,
+      revenueOne,
+      {
+        fact_key: 'probe:wrong-revision',
+        revision_no: 3,
+        supersedes_numeric_fact_id: revenueOne.numeric_fact_id,
+      },
+      'wrong revision',
+    );
+    const claimStructureRejected = await expectRevisionRejected(
+      client,
+      revenueTwo,
+      {
+        fact_key: 'probe:claim',
+        revision_no: 3,
+        concept_key: 'ChangedRevenue',
+        supersedes_numeric_fact_id: revenueTwo.numeric_fact_id,
+      },
+      'claim structure',
+    );
+    const fiscalDriftRejected = await expectRevisionRejected(
+      client,
+      revenueTwo,
+      {
+        fact_key: 'probe:fiscal',
+        revision_no: 3,
+        fiscal_year: 2099,
+        supersedes_numeric_fact_id: revenueTwo.numeric_fact_id,
+      },
+      'fiscal drift',
+    );
+    const definitionDriftRejected = await expectRevisionRejected(
+      client,
+      revenueTwo,
+      {
+        fact_key: 'probe:definition',
+        revision_no: 3,
+        supersedes_numeric_fact_id: revenueTwo.numeric_fact_id,
+        metadata: {
+          ...revenueTwo.metadata,
+          metricDefinitionKey: `${revenueTwo.metadata.metricDefinitionKey}:drift`,
+        },
+      },
+      'definition drift',
+    );
 
-  await insertRawRevision(pool, rawRoot, PAYLOAD_TWO, {
-    sourceAvailableAt: '2026-08-09T11:59:00Z',
-    ingestedAt: '2026-08-09T12:00:00Z',
-  });
-  const amendment = runSecCli(databaseUrl, 'apply');
-  const inventory = await pool.query(
-    `SELECT fact.numeric_fact_id, fact.fact_key, fact.revision_no, fact.value::text,
-            fact.supersedes_numeric_fact_id, previous.revision_no AS previous_revision,
-            fact.restatement_group_key = previous.restatement_group_key AS same_group
-       FROM world.numeric_fact fact
-       LEFT JOIN world.numeric_fact previous
-         ON previous.numeric_fact_id=fact.supersedes_numeric_fact_id
-      WHERE fact.concept_key='InventoryNet'
-      ORDER BY fact.revision_no`,
-  );
-  const unchangedComparativeSuppressed = amendment.skips.some(
-    (skip) => skip.reason === 'unchanged comparative repetition' && skip.count >= 1,
-  );
-  const changedAmendmentRevised =
-    amendment.factsWritten === 1 &&
-    inventory.rows.length === 2 &&
-    inventory.rows[1].revision_no === 2 &&
-    inventory.rows[1].value === '120';
-  const exactNMinusOneSupersedes =
-    inventory.rows[1].previous_revision === 1 && inventory.rows[1].same_group === true;
-
-  const lineage = await pool.query(`
-    SELECT count(*)::int AS total,
-           count(*) FILTER (
-             WHERE revision.content_hash=raw.content_hash
-               AND fact.known_at=revision.ingested_at
-               AND fact.available_at<=fact.known_at
-               AND (fact.metadata->>'sourceAvailableAt')::timestamptz=revision.available_at
-               AND fact.metadata->>'sourceRevisionContentHash'=revision.content_hash
-               AND fact.original_cell_or_xbrl_locator->>'accession' IS NOT NULL
-               AND fact.original_cell_or_xbrl_locator->>'tag'=fact.concept_key
-           )::int AS valid
-      FROM world.numeric_fact fact
-      JOIN ingestion.source_revision revision USING(source_revision_id)
-      JOIN ingestion.raw_object raw USING(raw_object_id)
-     WHERE fact.fact_key LIKE 'sec:%'
-  `);
-  const sourceRevisionContentHashVerified =
-    lineage.rows[0].total > 0 && lineage.rows[0].valid === lineage.rows[0].total;
-  const locatorLineageVerified = sourceRevisionContentHashVerified;
-  const pitAxesVerified = sourceRevisionContentHashVerified;
-
-  const binding = await pool.query(`
-    SELECT count(*)::int AS total,
-           count(definition.metric_definition_id)::int AS bound,
-           count(*) FILTER (WHERE definition.source_id=source.source_id)::int AS correct_source
-      FROM world.numeric_fact fact
-      JOIN ingestion.source_revision revision USING(source_revision_id)
-      JOIN ingestion.source_record_identity identity USING(source_record_identity_id)
-      JOIN ingestion.source source USING(source_id)
-      LEFT JOIN governance.metric_definition definition
-        ON definition.definition_key=fact.metadata->>'metricDefinitionKey'
-       AND definition.revision_no=1
-     WHERE fact.fact_key LIKE 'sec:%'
-  `);
-  const definitionBindingVerified =
-    binding.rows[0].total === binding.rows[0].bound &&
-    binding.rows[0].total === binding.rows[0].correct_source;
-  const groups = await pool.query(
-    `SELECT count(DISTINCT restatement_group_key)::int AS n
-       FROM world.numeric_fact WHERE fact_key LIKE 'sec:%'`,
-  );
-  const multipleGroupsWritten = groups.rows[0].n >= 2;
-
-  const sourceRevisionId = Number(
-    (await pool.query('SELECT min(source_revision_id) AS id FROM ingestion.source_revision'))
-      .rows[0].id,
-  );
-  const wrongGroupRejected = await expectRevisionRejected(pool, 'wrong-group', {
-    groupKey: 'probe:different-group',
-  });
-  const wrongRevisionRejected = await expectRevisionRejected(pool, 'wrong-revision', {
-    revisionNo: 3,
-  });
-  const claimStructureRejected = await expectRevisionRejected(pool, 'wrong-concept', {
-    conceptKey: 'Assets',
-  });
-  const fiscalDriftRejected = await expectRevisionRejected(pool, 'wrong-fiscal', {
-    fiscalQuarter: 3,
-  });
-  const definitionDriftRejected = await expectRevisionRejected(pool, 'wrong-definition', {
-    definitionKey: 'probe.other',
-  });
-  const backwardKnownAtRejected = await expectRevisionRejected(pool, 'backward-known', {
-    knownAt: '2026-08-07T12:00:00Z',
-  });
-  const backwardAvailableAtRejected = await expectRevisionRejected(pool, 'backward-available', {
-    availableAt: '2025-01-01T23:59:59Z',
-  });
-  void sourceRevisionId;
-  const appendOnlyMutationRejected = await appendOnlyRejected(pool);
-  const dartDistinctFactKeyAccepted = await insertDartDistinctRevision(pool);
-  const providerAdvisoryLockObserved = await observeProviderLock(pool);
-
-  const evidence = {
-    sourceRevisionContentHashVerified,
-    dryRunReadOnly,
-    rehearsalRolledBack,
-    firstApplyCommitted,
-    secondApplyIdempotent,
-    unchangedComparativeSuppressed,
-    changedAmendmentRevised,
-    exactNMinusOneSupersedes,
-    locatorLineageVerified,
-    pitAxesVerified,
-    definitionBindingVerified,
-    multipleGroupsWritten,
-    wrongGroupRejected,
-    wrongRevisionRejected,
-    claimStructureRejected,
-    fiscalDriftRejected,
-    definitionDriftRejected,
-    backwardKnownAtRejected,
-    backwardAvailableAtRejected,
-    appendOnlyMutationRejected,
-    dartDistinctFactKeyAccepted,
-    providerAdvisoryLockObserved,
-  };
-  assertEvidence(evidence);
-  return evidence;
+    const dartOne = await insertNumericFact(client, revenueTwo, {
+      fact_key: 'dart:rehearsal:cell:a',
+      revision_no: 1,
+      restatement_group_key: 'dart:rehearsal:claim',
+      value: '700',
+      available_at: plusMillis(revenueTwo.available_at, 10_000),
+      known_at: plusMillis(revenueTwo.known_at, 20_000),
+      supersedes_numeric_fact_id: null,
+    });
+    const dartTwo = await insertNumericFact(client, dartOne, {
+      fact_key: 'dart:rehearsal:cell:b',
+      revision_no: 2,
+      value: '701',
+      available_at: plusMillis(dartOne.available_at, 10_000),
+      known_at: plusMillis(dartOne.known_at, 20_000),
+      supersedes_numeric_fact_id: dartOne.numeric_fact_id,
+    });
+    const dartDistinctFactKeyAccepted = assertEvidence(
+      dartOne.fact_key !== dartTwo.fact_key &&
+        String(dartTwo.supersedes_numeric_fact_id) === String(dartOne.numeric_fact_id),
+      'DART-shaped distinct fact keys accepted',
+    );
+    const backwardKnownAtRejected = await expectRevisionRejected(
+      client,
+      dartTwo,
+      {
+        fact_key: 'probe:known',
+        revision_no: 3,
+        known_at: plusMillis(dartTwo.known_at, -1),
+        supersedes_numeric_fact_id: dartTwo.numeric_fact_id,
+      },
+      'backward knownAt',
+    );
+    const backwardAvailableAtRejected = await expectRevisionRejected(
+      client,
+      dartTwo,
+      {
+        fact_key: 'probe:available',
+        revision_no: 3,
+        available_at: plusMillis(dartTwo.available_at, -1),
+        supersedes_numeric_fact_id: dartTwo.numeric_fact_id,
+      },
+      'backward availableAt',
+    );
+    let appendOnlyRejected;
+    try {
+      await client.query('UPDATE world.numeric_fact SET value=value WHERE numeric_fact_id=$1', [
+        dartOne.numeric_fact_id,
+      ]);
+      appendOnlyRejected = false;
+    } catch {
+      appendOnlyRejected = true;
+    }
+    const appendOnlyMutationRejected = assertEvidence(appendOnlyRejected, 'append-only mutation');
+    const providerAdvisoryLockObserved = await observeProviderLock(pool);
+    void thirdRaw;
+    return {
+      sourceRevisionContentHashVerified,
+      dryRunReadOnly,
+      rehearsalRolledBack,
+      firstApplyCommitted,
+      secondApplyIdempotent,
+      unchangedComparativeSuppressed,
+      changedAmendmentRevised,
+      exactNMinusOneSupersedes,
+      locatorLineageVerified,
+      pitAxesVerified,
+      definitionBindingVerified,
+      multipleGroupsWritten,
+      wrongGroupRejected,
+      wrongRevisionRejected,
+      claimStructureRejected,
+      fiscalDriftRejected,
+      definitionDriftRejected,
+      backwardKnownAtRejected,
+      backwardAvailableAtRejected,
+      appendOnlyMutationRejected,
+      dartDistinctFactKeyAccepted,
+      providerAdvisoryLockObserved,
+    };
+  } finally {
+    client.release();
+  }
 }

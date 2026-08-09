@@ -6,6 +6,10 @@ const runnerUrl = new URL('../scripts/run-sec-numeric-fact-rehearsal.mjs', impor
 const runner = existsSync(runnerUrl) ? readFileSync(runnerUrl, 'utf8') : '';
 const libraryUrl = new URL('../scripts/sec-numeric-fact-rehearsal-lib.mjs', import.meta.url);
 const library = existsSync(libraryUrl) ? readFileSync(libraryUrl, 'utf8') : '';
+const duplicateHelperUrl = new URL(
+  '../scripts/sec-numeric-fact-rehearsal-helpers.mjs',
+  import.meta.url,
+);
 const implementation = `${runner}\n${library}`;
 const packageJson = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -15,6 +19,8 @@ describe('SEC numeric-fact disposable PostgreSQL rehearsal', () => {
   it('is registered and reapplies the exact schema contracts', () => {
     assert.equal(existsSync(runnerUrl), true);
     assert.equal(existsSync(libraryUrl), true);
+    assert.equal(existsSync(duplicateHelperUrl), false);
+    assert.doesNotMatch(runner, /sec-numeric-fact-rehearsal-helpers/);
     assert.equal(
       packageJson.scripts['rehearse:sec-numeric-fact:db'],
       'node scripts/run-sec-numeric-fact-rehearsal.mjs',
