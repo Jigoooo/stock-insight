@@ -1,14 +1,23 @@
 import { z } from 'zod';
 
-import { stockListResponseSchema, type StockListResponse } from '@stock-insight/contracts';
+import {
+  impactBriefResponseSchema,
+  stockDetailResponseSchema,
+  stockListResponseSchema,
+  type ImpactBriefResponse,
+  type StockDetailResponse,
+  type StockListResponse,
+} from '@stock-insight/contracts';
 import { geoSnapshotSchema, type GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import {
   decisionHistoryPageSchema,
+  entityRelationGraphSchema,
   radarSignalPageSchema,
   researchRecordDetailSchema,
   systemStatusSchema,
   workspaceTodaySchema,
   type DecisionHistoryPage,
+  type EntityRelationGraph,
   type RadarSignalPage,
   type ResearchRecordDetail,
   type SystemStatus,
@@ -20,6 +29,9 @@ const countSchema = z.number().int().nonnegative().max(10_000_000);
 export const workspaceReadViewSchema = z.enum(['today', 'stocks', 'radar', 'history', 'status']);
 
 export type WorkspaceReadView = z.infer<typeof workspaceReadViewSchema>;
+
+export const entityBriefingSurfaceSchema = z.enum(['stocks', 'market_connections']);
+export type EntityBriefingSurface = z.infer<typeof entityBriefingSurfaceSchema>;
 
 export const workspaceShellSummarySchema = z.object({
   radarScopeTotal: countSchema,
@@ -74,3 +86,38 @@ export type WorkspaceViewBundleV2 =
     }
   | { view: 'history'; shell: WorkspaceShellSummary; history: DecisionHistoryPage }
   | { view: 'status'; shell: WorkspaceShellSummary; status: SystemStatus };
+
+const briefingPartialFailuresSchema = z.object({
+  relation: z.string().min(1).optional(),
+  impact: z.string().min(1).optional(),
+});
+
+export const entityBriefingV2Schema = z.object({
+  entityKey: z.string().min(1),
+  surface: entityBriefingSurfaceSchema,
+  stockDetail: stockDetailResponseSchema.nullable(),
+  relation: entityRelationGraphSchema.nullable(),
+  impactBrief: impactBriefResponseSchema.nullable(),
+  partialFailures: briefingPartialFailuresSchema,
+});
+
+export type EntityBriefingV2 = {
+  entityKey: string;
+  surface: EntityBriefingSurface;
+  stockDetail: StockDetailResponse | null;
+  relation: EntityRelationGraph | null;
+  impactBrief: ImpactBriefResponse | null;
+  partialFailures: { relation?: string; impact?: string };
+};
+
+export const recordBriefingV2Schema = z.object({
+  record: researchRecordDetailSchema,
+  relation: entityRelationGraphSchema.nullable(),
+  partialFailures: z.object({ relation: z.string().min(1).optional() }),
+});
+
+export type RecordBriefingV2 = {
+  record: ResearchRecordDetail;
+  relation: EntityRelationGraph | null;
+  partialFailures: { relation?: string };
+};

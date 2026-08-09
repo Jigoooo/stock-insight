@@ -233,6 +233,23 @@ describe('v3 research API client', () => {
       calls.push(url);
       if (url.includes('/api/workspace')) return new Response(JSON.stringify(workspace));
       if (url.includes('/api/feed')) return new Response(JSON.stringify(feed));
+      if (url.includes('/api/records/') && url.endsWith('/briefing')) {
+        return new Response(
+          JSON.stringify({ record: detail, relation: relations, partialFailures: {} }),
+        );
+      }
+      if (url.includes('/api/entities/') && url.includes('/briefing')) {
+        return new Response(
+          JSON.stringify({
+            entityKey: 'US:NVDA',
+            surface: 'market_connections',
+            stockDetail: null,
+            relation: relations,
+            impactBrief: null,
+            partialFailures: {},
+          }),
+        );
+      }
       if (url.includes('/api/records/')) return new Response(JSON.stringify(detail));
       if (url.includes('/api/status')) return new Response(JSON.stringify(status));
       if (url.includes('/api/history')) return new Response(JSON.stringify(history));
@@ -259,6 +276,8 @@ describe('v3 research API client', () => {
     assert.equal((await client.themeResearch()).items[0]?.themeKey, 'THEME:ai_semi');
     assert.equal((await client.myResearch()).watchlistCount, 8);
     assert.equal((await client.entityRelations('US:NVDA', 2)).depth, 2);
+    assert.equal((await client.entityBriefing('US:NVDA', 'market_connections')).relation?.depth, 2);
+    assert.equal((await client.recordBriefing('record-1')).record.recordKey, 'record-1');
 
     assert.deepEqual(calls, [
       'http://stock.local/api/workspace',
@@ -270,6 +289,8 @@ describe('v3 research API client', () => {
       'http://stock.local/api/themes',
       'http://stock.local/api/my-research',
       'http://stock.local/api/entities/US%3ANVDA/relations?depth=2',
+      'http://stock.local/api/entities/US%3ANVDA/briefing?surface=market_connections',
+      'http://stock.local/api/records/record-1/briefing',
     ]);
   });
 });

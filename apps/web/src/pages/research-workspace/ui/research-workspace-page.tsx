@@ -323,13 +323,19 @@ export function ResearchWorkspacePage({
   const loadRecordDetail = useCallback(
     async (recordKey: string) => {
       if (loadResearchRecord) {
-        return { detail: await loadResearchRecord(recordKey), relation: null };
+        return {
+          detail: await loadResearchRecord(recordKey),
+          relation: null,
+          relationFailed: false,
+        };
       }
       const api = await getWorkspaceApiClient();
-      const nextDetail = await api.researchRecord(recordKey);
-      const entityKey = nextDetail.affectedEntityKeys[0];
-      const nextRelation = entityKey ? await api.entityRelations(entityKey, 1) : null;
-      return { detail: nextDetail, relation: nextRelation };
+      const briefing = await api.recordBriefing(recordKey);
+      return {
+        detail: briefing.record,
+        relation: briefing.relation,
+        relationFailed: briefing.partialFailures.relation !== undefined,
+      };
     },
     [loadResearchRecord],
   );
@@ -348,11 +354,11 @@ export function ResearchWorkspacePage({
     if (!recordKey || recordKey === detail?.recordKey) return;
     let active = true;
     void loadRecordDetail(recordKey)
-      .then(({ detail: nextDetail, relation: nextRelation }) => {
+      .then(({ detail: nextDetail, relation: nextRelation, relationFailed }) => {
         if (!active) return;
         setDetail(nextDetail);
         setRelation(nextRelation);
-        setRelationState('ready');
+        setRelationState(relationFailed ? 'error' : 'ready');
         setDetailState('ready');
       })
       .catch(() => {

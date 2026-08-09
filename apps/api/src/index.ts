@@ -99,6 +99,8 @@ export type {
   GetResearchRecordDetailOptions,
   RecordDetailRowQueryExecutor,
 } from './workspace/record-detail';
+export { getEntityBriefingV2, getRecordBriefingV2 } from './workspace/briefing-v2';
+export type { WorkspaceBriefingDependencies } from './workspace/briefing-v2';
 export { getResearchFeedPage, getWorkspaceToday } from './workspace/read-model';
 export type {
   GetResearchFeedPageOptions,

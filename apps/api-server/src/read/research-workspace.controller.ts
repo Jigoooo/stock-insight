@@ -5,12 +5,14 @@ import { apiError, firstParam } from '../common/http.ts';
 
 import {
   getDecisionHistory,
+  getEntityBriefingV2,
   getEntityRelationsWithV2Preference,
   getMarketTopicNews,
   getMyResearchOverview,
   getRadarSignals,
   getResearchFeedPage,
   getResearchRecordDetail,
+  getRecordBriefingV2,
   getSystemStatus,
   getThemeResearchList,
   getWorkspaceViewBundleV2,
@@ -18,7 +20,10 @@ import {
   getWorkspaceToday,
   parseWorkspaceViewBundleQuery,
 } from '@stock-insight/api';
-import { workspaceReadViewSchema } from '@stock-insight/contracts/workspace-read-v2';
+import {
+  entityBriefingSurfaceSchema,
+  workspaceReadViewSchema,
+} from '@stock-insight/contracts/workspace-read-v2';
 
 // Mirrors apps/web/src/routes/api/entities/$entityKey/relations.ts
 const entityKeyPattern = /^(?:KR:\d{6}|US:[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,2})?)$/;
@@ -205,6 +210,50 @@ export class ResearchWorkspaceController {
     );
     if (!detail) throw apiError('record_not_found', 404);
     return detail;
+  }
+
+  @Get('records/:recordKey/briefing')
+  async getRecordBriefing(@Param('recordKey') recordKey: string) {
+    if (!recordKey.trim() || recordKey.length > 320) {
+      throw apiError('invalid_record_key', 400);
+    }
+    const { withSnapshot, userScope } = researchContext();
+    const briefing = await withSnapshot((executor) =>
+      getRecordBriefingV2(executor, { userScope, recordKey }),
+    );
+    if (!briefing) throw apiError('record_not_found', 404);
+    return briefing;
+  }
+
+  @Get('entities/:entityKey/briefing')
+  async getEntityBriefing(
+    @Param('entityKey') entityKey: string,
+    @Query('surface') surfaceRaw?: string | string[],
+  ) {
+    const surface = entityBriefingSurfaceSchema.safeParse(firstParam(surfaceRaw));
+    if (!entityKeyPattern.test(entityKey) || !surface.success) {
+      throw apiError('invalid_entity_briefing_query', 400);
+    }
+    const { withSnapshot, userScope } = researchContext();
+    const briefing = await withSnapshot((executor) =>
+      getEntityBriefingV2(executor, {
+        entityKey,
+        surface: surface.data,
+        userScope,
+      }),
+    );
+    if (briefing.stockDetail?.availability === 'error') {
+      throw apiError('stock_detail_unavailable', 502);
+    }
+    if (
+      surface.data === 'stocks' &&
+      (briefing.stockDetail?.data === null ||
+        briefing.stockDetail?.availability === 'missing' ||
+        briefing.stockDetail?.availability === 'unsupported')
+    ) {
+      throw apiError('entity_not_found', 404);
+    }
+    return briefing;
   }
 
   @Get('entities/:entityKey/relations')

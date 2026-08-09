@@ -12,4 +12,12 @@ describe('workspace view bundle V2 controller', () => {
     assert.match(source, /parseWorkspaceViewBundleQuery/);
     assert.match(source, /withSnapshot\(\(executor\)\s*=>\s*getWorkspaceViewBundleV2/);
   });
+
+  it('keeps aggregate detail reads inside one request snapshot', async () => {
+    const source = await readFile(sourceUrl, 'utf8');
+    assert.match(source, /@Get\('entities\/:entityKey\/briefing'\)/);
+    assert.match(source, /getEntityBriefingV2\(executor/);
+    assert.match(source, /@Get\('records\/:recordKey\/briefing'\)/);
+    assert.match(source, /getRecordBriefingV2\(executor/);
+  });
 });

@@ -159,7 +159,7 @@ describe('v3 research workspace structure', () => {
     ]) {
       assert.match(workspace, new RegExp(label.replace('·', '\\·')));
     }
-    assert.match(workspace, /researchRecord\(recordKey\)/);
+    assert.match(workspace, /recordBriefing\(recordKey\)/);
     assert.match(workspace, /evidence\.map/);
     assert.match(workspace, /sources\.map/);
     assert.match(workspace, /limitations\.map/);
