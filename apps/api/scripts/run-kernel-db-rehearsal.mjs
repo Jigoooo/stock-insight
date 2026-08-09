@@ -1,4 +1,4 @@
-// Rehearses migrations 078–093 plus the migration-037 exposure surface that
+// Rehearses migrations 078–094 plus the migration-037 exposure surface that
 // K4 strengthens, on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
@@ -37,6 +37,7 @@ import { k4MarketIntelligenceLedgerMigrationSql } from '../../../packages/db-sch
 import { k4MarketIntelligenceRunReceiptMigrationSql } from '../../../packages/db-schema/src/migrations/091_k4_market_intelligence_run_receipt.ts';
 import { p4V2ServingMigrationSql } from '../../../packages/db-schema/src/migrations/092_p4_v2_serving.ts';
 import { k4RunReceiptPrivilegeHardeningMigrationSql } from '../../../packages/db-schema/src/migrations/093_k4_run_receipt_privilege_hardening.ts';
+import { k4SemanticSnapshotReconstructionMigrationSql } from '../../../packages/db-schema/src/migrations/094_k4_semantic_snapshot_reconstruction.ts';
 import { planK4MarketIntelligence } from '../src/analytics/k4-market-intelligence-plan.ts';
 import { executeK4MarketIntelligenceJob } from '../src/analytics/k4-market-intelligence-runner.ts';
 import { persistK4MarketIntelligencePlan } from '../src/analytics/k4-market-intelligence-writer.ts';
@@ -649,12 +650,14 @@ try {
     k4MarketIntelligenceRunReceiptMigrationSql,
     p4V2ServingMigrationSql,
     k4RunReceiptPrivilegeHardeningMigrationSql,
+    k4SemanticSnapshotReconstructionMigrationSql,
   );
   await target.query(issuerPlaybookMeasurementRuleMigrationSql);
   await target.query(k4MarketIntelligenceLedgerMigrationSql);
   await target.query(k4MarketIntelligenceRunReceiptMigrationSql);
   await target.query(p4V2ServingMigrationSql);
   await target.query(k4RunReceiptPrivilegeHardeningMigrationSql);
+  await target.query(k4SemanticSnapshotReconstructionMigrationSql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
   for (const sql of MIGRATIONS) await target.query(sql);
 
@@ -1858,6 +1861,9 @@ try {
     reopenRejected: false,
     pinnedVersionImmutable: false,
     deleteRejected: false,
+    historicalClockAccepted: false,
+    backdatedCreationRejected: false,
+    reconstructionClockImmutable: false,
   };
   await target.query(
     `UPDATE governance.semantic_snapshot
@@ -1877,6 +1883,41 @@ try {
   );
   snapshot.deleteRejected = await expectRejected(
     `DELETE FROM governance.semantic_snapshot WHERE semantic_snapshot_id = 'snap-1'`,
+    ['P0001'],
+  );
+  await target.query(`
+    INSERT INTO governance.semantic_snapshot (
+      semantic_snapshot_id, snapshot_state, created_at, sealed_at, created_by,
+      construction_mode, knowledge_cutoff, reconstructed_at
+    ) VALUES (
+      'snap-history', 'sealed', statement_timestamp(), statement_timestamp(),
+      'rehearsal', 'historical_reconstruction',
+      TIMESTAMPTZ '2026-07-20T00:00:00Z', statement_timestamp()
+    )
+  `);
+  snapshot.historicalClockAccepted =
+    (
+      await target.query(`
+        SELECT created_at > knowledge_cutoff
+               AND created_at = reconstructed_at AS honest_clock
+          FROM governance.semantic_snapshot
+         WHERE semantic_snapshot_id='snap-history'
+      `)
+    ).rows[0].honest_clock === true;
+  snapshot.backdatedCreationRejected = await expectRejected(
+    `INSERT INTO governance.semantic_snapshot (
+       semantic_snapshot_id, snapshot_state, created_at, sealed_at, created_by,
+       construction_mode, knowledge_cutoff, reconstructed_at
+     ) VALUES (
+       'snap-backdated', 'sealed', TIMESTAMPTZ '2026-07-20T00:00:00Z', now(),
+       'rehearsal', 'historical_reconstruction',
+       TIMESTAMPTZ '2026-07-20T00:00:00Z', now()
+     )`,
+  );
+  snapshot.reconstructionClockImmutable = await expectRejected(
+    `UPDATE governance.semantic_snapshot
+        SET knowledge_cutoff=TIMESTAMPTZ '2026-07-21T00:00:00Z'
+      WHERE semantic_snapshot_id='snap-history'`,
     ['P0001'],
   );
 

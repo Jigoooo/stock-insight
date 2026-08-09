@@ -255,6 +255,9 @@ describe('K4 cutoff-scoped canonical input loading', () => {
     assert.equal(input.informationSet.validCutoff, '2026-08-08T14:59:59.999Z');
     assert.equal(input.facts[0]?.sourcePitQualityId, 2001);
     const sql = client.calls.map((call) => call.sql).join('\n');
+    assert.match(sql, /construction_mode='live_observed'/);
+    assert.match(sql, /construction_mode='historical_reconstruction'/);
+    assert.match(sql, /knowledge_cutoff <= \$1::timestamptz/);
     assert.match(sql, /legacy_security_assignment/);
     assert.match(sql, /issuer_assignment/);
     assert.match(sql, /candidate\.known_at <= \$1::timestamptz/);

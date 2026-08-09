@@ -47,8 +47,15 @@ const SEMANTIC_SNAPSHOT_SQL = `
 SELECT semantic_snapshot_id
   FROM governance.semantic_snapshot
  WHERE snapshot_state IN ('sealed','superseded')
-   AND created_at <= $1::timestamptz
- ORDER BY created_at DESC, semantic_snapshot_id DESC
+   AND (
+     (construction_mode='live_observed' AND created_at <= $1::timestamptz)
+     OR
+     (construction_mode='historical_reconstruction'
+       AND knowledge_cutoff <= $1::timestamptz)
+   )
+ ORDER BY CASE WHEN construction_mode='historical_reconstruction'
+               THEN knowledge_cutoff ELSE created_at END DESC,
+          semantic_snapshot_id DESC
  LIMIT 1
 `;
 

@@ -92,6 +92,7 @@ import { k4MarketIntelligenceRunReceiptMigrationSql } from './migrations/091_k4_
 
 import { p4V2ServingMigrationSql } from './migrations/092_p4_v2_serving.ts';
 import { k4RunReceiptPrivilegeHardeningMigrationSql } from './migrations/093_k4_run_receipt_privilege_hardening.ts';
+import { k4SemanticSnapshotReconstructionMigrationSql } from './migrations/094_k4_semantic_snapshot_reconstruction.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1010,6 +1011,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: k4RunReceiptPrivilegeHardeningMigrationSql,
   },
+  {
+    id: '094_k4_semantic_snapshot_reconstruction',
+    description:
+      'Separates actual semantic-snapshot construction time from a reproducible historical knowledge cutoff so K4 replay never backdates created_at.',
+    tables: [],
+    sql: k4SemanticSnapshotReconstructionMigrationSql,
+  },
 ];
 
 export {
@@ -1106,4 +1114,5 @@ export {
   k4MarketIntelligenceRunReceiptMigrationSql,
   p4V2ServingMigrationSql,
   k4RunReceiptPrivilegeHardeningMigrationSql,
+  k4SemanticSnapshotReconstructionMigrationSql,
 };
