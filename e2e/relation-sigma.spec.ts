@@ -448,6 +448,7 @@ test.describe('Sigma relationship graph', () => {
     )?.trim();
     expect(postDragLabel).toBeTruthy();
     await expect(graph.getByLabel('관계 노드 검색')).toHaveValue(postDragLabel!);
+    await expect(status).toContainText(`${postDragLabel} 관계를 선택했습니다`);
 
     const overflow = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
@@ -488,6 +489,7 @@ test.describe('Sigma relationship graph', () => {
     else await targetButton.click();
     await expect(targetButton).toHaveAttribute('aria-current', 'true');
     await expect(graph.getByLabel('관계 노드 검색')).toHaveValue('수신기업');
+    await expect(graph.getByRole('status')).toContainText('수신기업 관계를 선택했습니다');
     expect((await readRuntimeProbe(page)).cspViolations).toEqual([]);
   });
 
@@ -534,5 +536,6 @@ test.describe('Sigma relationship graph', () => {
     else await targetButton.click();
     await expect(targetButton).toHaveAttribute('aria-current', 'true');
     await expect(graph.getByLabel('관계 노드 검색')).toHaveValue('수신기업');
+    await expect(graph.getByRole('status')).toContainText('수신기업 관계를 선택했습니다');
   });
 });

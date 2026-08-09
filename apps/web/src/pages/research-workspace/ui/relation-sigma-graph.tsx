@@ -62,7 +62,7 @@ export function RelationSigmaGraph({
   onSelectEntity,
 }: {
   graph: EntityRelationGraph;
-  onSelectEntity: (entityKey: string) => void;
+  onSelectEntity?: (entityKey: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<RelationRenderer | null>(null);
@@ -105,6 +105,18 @@ export function RelationSigmaGraph({
     rendererRef.current?.refresh({ skipIndexation: true });
   }, []);
 
+  const announceSelection = useCallback((node: string, fullLabel: string) => {
+    const handler = onSelectEntityRef.current;
+    if (!handler) {
+      pendingSelectionRef.current = null;
+      setLiveMessage(`${fullLabel} 관계를 선택했습니다`);
+      return;
+    }
+    pendingSelectionRef.current = node;
+    setLiveMessage(`${fullLabel} 관계를 불러오는 중`);
+    handler(node);
+  }, []);
+
   function selectAndFocusNode(node: string) {
     cancelAutomatedLayoutRef.current();
     const renderer = rendererRef.current;
@@ -117,9 +129,7 @@ export function RelationSigmaGraph({
     setQuery(fullLabel);
     refreshSelection(node);
     if (renderer && graph?.hasNode(node)) focusRendererOnNode(renderer, node, normalizeMotion);
-    pendingSelectionRef.current = node;
-    setLiveMessage(`${fullLabel} 관계를 불러오는 중`);
-    onSelectEntityRef.current(node);
+    announceSelection(node, fullLabel);
   }
 
   useEffect(() => {
@@ -276,9 +286,7 @@ export function RelationSigmaGraph({
         setQuery(fullLabel);
         refreshSelection(node);
         focusRendererOnNode(renderer, node, normalizeMotion);
-        pendingSelectionRef.current = node;
-        setLiveMessage(`${fullLabel} 관계를 불러오는 중`);
-        onSelectEntityRef.current(node);
+        announceSelection(node, fullLabel);
       });
 
       const layout = !normalizeMotion
@@ -417,7 +425,7 @@ export function RelationSigmaGraph({
       disposed = true;
       release();
     };
-  }, [normalizeMotion, refreshSelection, runtimeRevision, source]);
+  }, [announceSelection, normalizeMotion, refreshSelection, runtimeRevision, source]);
 
   return (
     <div

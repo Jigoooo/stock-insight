@@ -137,7 +137,8 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(source, /setRuntimeRevision/);
     assert.match(source, /const sourceNode = source\.nodes\.find/);
     assert.doesNotMatch(source, /if \(!renderer \|\| !graphRef\.current/);
-    assert.match(source, /onSelectEntityRef\.current\(node\)/);
+    assert.match(source, /onSelectEntity\?: \(entityKey: string\) => void/);
+    assert.match(source, /if \(!handler\)[\s\S]*?관계를 선택했습니다/);
   });
 
   it('allows only the pinned ForceAtlas2 blob worker through app and edge CSP', async () => {

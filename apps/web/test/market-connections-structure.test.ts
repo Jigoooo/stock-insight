@@ -176,7 +176,8 @@ describe('market connections workspace structure', () => {
 
     assert.match(inspector, /presentation !== 'drawer'/);
     assert.match(inspector, /relation \|\| detail\.partialFailures\.relation/);
-    assert.match(inspector, /<RelationSigmaGraph graph=\{relation\}/);
+    assert.match(inspector, /<RelationSigmaGraph graph=\{relation\} \/>/);
+    assert.doesNotMatch(inspector, /onSelectEntity=\{\(\) => undefined\}/);
     assert.match(inspector, /const geoSnapshot = result\.geo/);
     assert.match(
       inspector,

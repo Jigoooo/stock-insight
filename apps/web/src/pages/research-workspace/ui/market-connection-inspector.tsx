@@ -290,7 +290,7 @@ function MarketConnectionDetailContent({
               <h3 id="market-inspector-relation">관계 그래프</h3>
               {relation ? (
                 <div className={styles.graphRegion}>
-                  <RelationSigmaGraph graph={relation} onSelectEntity={() => undefined} />
+                  <RelationSigmaGraph graph={relation} />
                 </div>
               ) : null}
               {detail.partialFailures.relation && (
