@@ -34,6 +34,21 @@ async function loadVisibilityModel() {
 }
 
 describe('stock briefing view structure', () => {
+  it('uses the same 내 종목 identity as the primary navigation', async () => {
+    const source = await readFile(stocksViewUrl, 'utf8');
+
+    assert.match(source, /<PageHeader[\s\S]*?title="내 종목"/);
+    assert.doesNotMatch(source, /title="종목"/);
+  });
+
+  it('presents server summaries through the user-facing copy boundary', async () => {
+    const sections = await readFile(sectionsUrl, 'utf8');
+
+    assert.match(sections, /presentResearchSummary\(stock\.primaryThesis\)/);
+    assert.match(sections, /presentResearchSummary\(briefing\.changeSummary\)/);
+    assert.match(sections, /presentResearchSummary\(briefing\.connectionReason\)/);
+  });
+
   it('filters all briefing lanes by the searched entity keys and reveals watched non-holdings only on demand', async () => {
     const visibilityModel = await loadVisibilityModel();
     assert.ok(visibilityModel, 'stock briefing visibility model must exist');

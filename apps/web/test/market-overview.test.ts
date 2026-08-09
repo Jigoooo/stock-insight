@@ -59,6 +59,21 @@ const signals: RadarSignalItem[] = [
     watched: false,
     holding: false,
   },
+  {
+    signalKey: 'signal-4',
+    entityKey: 'KR:005930',
+    market: 'KR',
+    symbol: '005930',
+    name: '삼성전자',
+    signalType: 'price_spike',
+    polarity: 'positive',
+    strength: 0.8,
+    summary: '하루 전 같은 유형 신호',
+    occurredAt: '2026-07-21T01:00:00.000Z',
+    sourceName: '시장 데이터',
+    watched: true,
+    holding: false,
+  },
 ];
 
 const watermarks = {
@@ -91,12 +106,12 @@ describe('market secondary exploration model', () => {
     assert.equal(buildMarketOverview(signals).explorations[0]?.id, 'factor_map');
   });
 
-  it('retains the observed groups, heatmap rows, ordered propagation and chronology', () => {
+  it('keeps raw chronology but collapses the factor table to the latest entity and signal pair', () => {
     const overview = buildMarketOverview(signals);
     assert.deepEqual(overview.signalTypeGroups, [
       {
         signalType: 'price_spike',
-        signalCount: 2,
+        signalCount: 3,
         maxStrength: 0.9,
         targets: [
           { entityKey: 'KR:005930', name: '삼성전자', symbol: '005930', market: 'KR' },
@@ -118,8 +133,8 @@ describe('market secondary exploration model', () => {
         strengthPercent,
       })),
       [
-        { signalKey: 'signal-1', strengthPercent: 90 },
         { signalKey: 'signal-2', strengthPercent: 70 },
+        { signalKey: 'signal-1', strengthPercent: 90 },
         { signalKey: 'signal-3', strengthPercent: 50 },
       ],
     );
@@ -129,7 +144,7 @@ describe('market secondary exploration model', () => {
     );
     assert.deepEqual(
       overview.timelineItems.map(({ signalKey }) => signalKey),
-      ['signal-2', 'signal-1', 'signal-3'],
+      ['signal-2', 'signal-1', 'signal-3', 'signal-4'],
     );
   });
 

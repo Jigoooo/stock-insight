@@ -134,7 +134,7 @@ export function StocksView({
   return (
     <>
       <PageHeader
-        title="종목"
+        title="내 종목"
         description="보유·관심 종목에 새로 연결된 근거와 확인할 리스크를 살펴봅니다."
         asOf={data.meta.generatedAt}
       />
