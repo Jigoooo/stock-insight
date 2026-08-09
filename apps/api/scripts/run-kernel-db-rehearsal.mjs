@@ -1,4 +1,4 @@
-// Rehearses migrations 078–092 plus the migration-037 exposure surface that
+// Rehearses migrations 078–093 plus the migration-037 exposure surface that
 // K4 strengthens, on a disposable database.
 //
 // Modelled on run-p6-db-rehearsal.mjs: create a throwaway database, stub only the
@@ -36,6 +36,7 @@ import { k4MarketIntelligenceLedgerMigrationSql } from '../../../packages/db-sch
 
 import { k4MarketIntelligenceRunReceiptMigrationSql } from '../../../packages/db-schema/src/migrations/091_k4_market_intelligence_run_receipt.ts';
 import { p4V2ServingMigrationSql } from '../../../packages/db-schema/src/migrations/092_p4_v2_serving.ts';
+import { k4RunReceiptPrivilegeHardeningMigrationSql } from '../../../packages/db-schema/src/migrations/093_k4_run_receipt_privilege_hardening.ts';
 import { planK4MarketIntelligence } from '../src/analytics/k4-market-intelligence-plan.ts';
 import { executeK4MarketIntelligenceJob } from '../src/analytics/k4-market-intelligence-runner.ts';
 import { persistK4MarketIntelligencePlan } from '../src/analytics/k4-market-intelligence-writer.ts';
@@ -647,11 +648,13 @@ try {
     k4MarketIntelligenceLedgerMigrationSql,
     k4MarketIntelligenceRunReceiptMigrationSql,
     p4V2ServingMigrationSql,
+    k4RunReceiptPrivilegeHardeningMigrationSql,
   );
   await target.query(issuerPlaybookMeasurementRuleMigrationSql);
   await target.query(k4MarketIntelligenceLedgerMigrationSql);
   await target.query(k4MarketIntelligenceRunReceiptMigrationSql);
   await target.query(p4V2ServingMigrationSql);
+  await target.query(k4RunReceiptPrivilegeHardeningMigrationSql);
   // Re-running must be a no-op — the schema ledger replays on any re-apply.
   for (const sql of MIGRATIONS) await target.query(sql);
 
@@ -1690,7 +1693,8 @@ try {
                'analytics.impact_path_step_exposure_citation',
                'analytics.impact_outcome_revision',
                'analytics.accepted_impact_evaluation_v1',
-               'analytics.accepted_impact_evaluation_evidence_v1'
+               'analytics.accepted_impact_evaluation_evidence_v1',
+               'analytics.market_intelligence_run_receipt'
              ]) raw_relation
             WHERE has_table_privilege(
               'stock_insight_app_reader', raw_relation, 'SELECT'

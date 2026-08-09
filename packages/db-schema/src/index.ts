@@ -91,6 +91,7 @@ import { numericFactRevisionGuardMigrationSql } from './migrations/090_numeric_f
 import { k4MarketIntelligenceRunReceiptMigrationSql } from './migrations/091_k4_market_intelligence_run_receipt.ts';
 
 import { p4V2ServingMigrationSql } from './migrations/092_p4_v2_serving.ts';
+import { k4RunReceiptPrivilegeHardeningMigrationSql } from './migrations/093_k4_run_receipt_privilege_hardening.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1002,6 +1003,13 @@ export const additiveAppMigrations: AppMigration[] = [
     tables: [],
     sql: p4V2ServingMigrationSql,
   },
+  {
+    id: '093_k4_run_receipt_privilege_hardening',
+    description:
+      'Revokes inherited runtime application access to the raw K4 run receipt while preserving pipeline access and the five fail-closed p4.v2 views.',
+    tables: [],
+    sql: k4RunReceiptPrivilegeHardeningMigrationSql,
+  },
 ];
 
 export {
@@ -1097,4 +1105,5 @@ export {
   numericFactRevisionGuardMigrationSql,
   k4MarketIntelligenceRunReceiptMigrationSql,
   p4V2ServingMigrationSql,
+  k4RunReceiptPrivilegeHardeningMigrationSql,
 };

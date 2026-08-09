@@ -7,7 +7,12 @@ import { p4V2ServingMigrationSql } from '../src/migrations/092_p4_v2_serving.ts'
 
 describe('092 p4.v2 fail-closed serving views', () => {
   it('is registered after the K4 receipt migration', () => {
-    assert.equal(additiveAppMigrations.at(-1)?.id, '092_p4_v2_serving');
+    const servingIndex = additiveAppMigrations.findIndex(({ id }) => id === '092_p4_v2_serving');
+    assert.notEqual(servingIndex, -1);
+    assert.equal(
+      additiveAppMigrations[servingIndex - 1]?.id,
+      '091_k4_market_intelligence_run_receipt',
+    );
   });
 
   it('exposes coverage but admits exposures only through accepted sealed evaluations', () => {
