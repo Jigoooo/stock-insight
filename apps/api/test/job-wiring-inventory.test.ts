@@ -41,6 +41,12 @@ const EXEMPT = new Map<string, string>([
   ['run-phase35.ts', 'one-shot backfill, ran 2026-07-07'],
   // Applying a migration is a decision, not a timer. Deliberately manual.
   ['run-schema-migrations.ts', 'manual by design — applying migrations is a decision'],
+  // A semantic snapshot asserts an exact PIT cutoff and whether the observation
+  // is live or a historical reconstruction. A timer must not invent either.
+  [
+    'run-k4-semantic-snapshot.ts',
+    'manual by design — PIT cutoff and reconstruction mode are operator decisions',
+  ],
   // Written 2026-08-07, still run by hand. The two blockers recorded when it was
   // written are BOTH resolved: the first --apply was approved and ran (18,508 rows
   // across 6 series in market.macro_vintage at vintage_quality='approx_collected'),

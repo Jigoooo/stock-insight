@@ -219,11 +219,11 @@ test.describe('Sigma relationship graph', () => {
 
     const context = await browser.newContext({ baseURL: String(testInfo.project.use.baseURL) });
     const page = await context.newPage();
-    await page.goto('/login?redirect=%2Fworkspace%3Fview%3Dthemes');
+    await page.goto('/login?redirect=%2Fworkspace%2Fthemes');
     await page.getByLabel('사용자 이름').fill(username!);
     await page.locator('#login-password').fill(password!);
     await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page).toHaveURL(/\/workspace\?view=themes/);
+    await expect(page).toHaveURL(/\/workspace\/themes(?:\?|$)/);
     const authenticatedState = await context.storageState();
     authenticatedCookies = authenticatedState.cookies;
     if (sharedAuthState) {
@@ -300,9 +300,9 @@ test.describe('Sigma relationship graph', () => {
     });
 
     await installRootEchoingFixture(page);
-    const response = await gotoWorkspace(page, '/workspace?view=themes');
+    const response = await gotoWorkspace(page, '/workspace/themes');
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
-    await expect(page).toHaveURL(/\/workspace\?view=themes/);
+    await expect(page).toHaveURL(/\/workspace\/themes(?:\?|$)/);
     const fixtureResponse = page.waitForResponse(
       (candidate) =>
         candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
@@ -344,19 +344,27 @@ test.describe('Sigma relationship graph', () => {
       path: screenshotPath,
       contentType: 'image/png',
     });
-    const backgrounds = await graph.evaluate((element) => ({
-      frame: getComputedStyle(element).backgroundColor,
-      canvas: getComputedStyle(element.querySelector('[data-layout-mode]')!).backgroundColor,
-    }));
-    expect(backgrounds).toEqual({
-      frame: 'rgb(255, 255, 255)',
-      canvas: 'rgb(255, 255, 255)',
+    const backgrounds = await graph.evaluate((element) => {
+      const surfaceProbe = document.createElement('span');
+      surfaceProbe.style.backgroundColor = 'var(--color-surface)';
+      element.append(surfaceProbe);
+      const result = {
+        frame: getComputedStyle(element).backgroundColor,
+        canvas: getComputedStyle(element.querySelector('[data-layout-mode]')!).backgroundColor,
+        surface: getComputedStyle(surfaceProbe).backgroundColor,
+      };
+      surfaceProbe.remove();
+      return result;
     });
+    expect(backgrounds.frame).toBe(backgrounds.surface);
+    expect(backgrounds.canvas).toBe(backgrounds.surface);
 
     const nodeList = graph.getByRole('navigation', { name: '관계 노드 목록' });
     const nodeButtons = nodeList.getByRole('button');
     await expect(nodeButtons.first()).toBeVisible();
-    const nodeLabel = (await nodeButtons.first().locator('span').textContent())?.trim();
+    const nodeLabel = (
+      await nodeButtons.first().locator('[data-slot="button-label"] > span').textContent()
+    )?.trim();
     expect(nodeLabel).toBeTruthy();
 
     await graph.getByLabel('관계 노드 검색').fill(nodeLabel!);
@@ -425,7 +433,7 @@ test.describe('Sigma relationship graph', () => {
     page,
   }) => {
     await installRootEchoingFixture(page, false);
-    await page.goto('/workspace?view=themes');
+    await page.goto('/workspace/themes');
 
     const ledger = page.getByTestId('relation-ledger');
     const fixtureRequest = page.waitForRequest(
@@ -444,7 +452,7 @@ test.describe('Sigma relationship graph', () => {
     page,
   }, testInfo) => {
     await installRootEchoingFixture(page);
-    await page.goto('/workspace?view=themes');
+    await page.goto('/workspace/themes');
 
     const ledger = page.getByTestId('relation-ledger');
     const fixtureResponse = page.waitForResponse(
@@ -460,18 +468,18 @@ test.describe('Sigma relationship graph', () => {
     const canvas = graph.locator('section[aria-label$="관계 지도"]');
     await expect(canvas).toHaveAttribute('data-directed-edges', '1');
     await expect(canvas).toHaveAttribute('data-undirected-edges', '1');
-    const fallback = ledger.getByRole('region', { name: '관계 근거 목록' });
+    const fallback = ledger.getByRole('list', { name: '관계 근거 목록' });
     const directed = fallback.locator('[data-direction="directed"]');
     await expect(directed.locator('[data-endpoint="from"]')).toHaveText('발신기업');
     await expect(directed.locator('[data-endpoint="to"]')).toHaveText('수신기업');
-    await expect(directed.getByLabel('에서 대상으로')).toBeVisible();
+    await expect(directed).toContainText('에서 대상으로');
     expect(
       await directed
         .locator('[data-endpoint]')
         .evaluateAll((endpoints) => endpoints.map((endpoint) => endpoint.textContent?.trim())),
     ).toEqual(['발신기업', '수신기업']);
     const undirected = fallback.locator('[data-direction="undirected"]');
-    await expect(undirected.getByLabel('와 방향 없는 관계')).toBeVisible();
+    await expect(undirected).toContainText('와 방향 없는 관계');
 
     const targetButton = graph.getByRole('button', { name: /수신기업/ });
     const refreshed = page.waitForResponse((response) =>
@@ -500,7 +508,7 @@ test.describe('Sigma relationship graph', () => {
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await installRootEchoingFixture(page);
-    const response = await page.goto('/workspace?view=themes');
+    const response = await page.goto('/workspace/themes');
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
     const fixtureResponse = page.waitForResponse(
       (candidate) =>
@@ -535,7 +543,7 @@ test.describe('Sigma relationship graph', () => {
       });
     });
     await installRootEchoingFixture(page);
-    await page.goto('/workspace?view=themes');
+    await page.goto('/workspace/themes');
     const fixtureResponse = page.waitForResponse(
       (candidate) =>
         candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),

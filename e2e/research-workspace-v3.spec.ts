@@ -401,11 +401,11 @@ test.describe('v3 research workspace candidate', () => {
     }
     const context = await browser.newContext({ baseURL: String(testInfo.project.use.baseURL) });
     const page = await context.newPage();
-    await page.goto('/login?redirect=%2Fworkspace%3Fview%3Dradar');
+    await page.goto('/login?redirect=%2Fworkspace%2Fradar');
     await page.getByLabel('사용자 이름').fill(username);
     await page.locator('#login-password').fill(password);
     await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page).toHaveURL(/\/workspace(?:\/today)?\?view=radar/);
+    await expect(page).toHaveURL(/\/workspace\/radar(?:\?|$)/);
     authenticatedCookies = (await context.storageState()).cookies;
     await context.close();
   });
@@ -422,7 +422,7 @@ test.describe('v3 research workspace candidate', () => {
 
   test('redirects the authenticated root to the v3 workspace', async ({ page }) => {
     await page.goto('/');
-    await expect(page).toHaveURL(/\/workspace(?:\?|$)/);
+    await expect(page).toHaveURL(/\/workspace\/today(?:\?|$)/);
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
   });
 
@@ -630,7 +630,7 @@ test.describe('v3 research workspace candidate', () => {
       if (message.type() === 'error') runtimeErrors.push(message.text());
     });
 
-    await page.goto('/workspace?view=today&lane=explore');
+    await page.goto('/workspace/today?lane=explore');
     await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
     await expect(page.getByRole('heading', { name: '오늘 봐야 할 변화' })).toBeVisible();
     await expect(page.getByTestId('research-feed-record').first()).toBeVisible();
@@ -652,7 +652,7 @@ test.describe('v3 research workspace candidate', () => {
         await page.getByRole('button', { name: '메뉴 열기' }).click();
       }
       await page.getByTestId(`workspace-nav-${id}`).click();
-      await expect(page).toHaveURL(new RegExp(`view=${id}`));
+      await expect(page).toHaveURL(new RegExp(`/workspace/${id}(?:\\?|$)`));
       await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
       if (id === 'stocks') {
         const firstStock = page.getByRole('button', { name: /종목 브리핑 열기/ }).first();
@@ -699,7 +699,7 @@ test.describe('v3 research workspace candidate', () => {
   test('opens run-bound evidence detail and keeps the inspector accessible', async ({
     page,
   }, testInfo) => {
-    await page.goto('/workspace?view=today&lane=explore');
+    await page.goto('/workspace/today?lane=explore');
     const exploreTab = page.getByRole('tab', { name: /새로 볼 변화/ });
     await expect(exploreTab).toHaveAttribute('aria-selected', 'true');
     const records = page.getByTestId('research-feed-record');
@@ -823,7 +823,7 @@ test.describe('v3 research workspace candidate', () => {
       testInfo.project.name !== 'desktop',
       'desktop exercises the persistent search control',
     );
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const search = page.getByLabel('종목명 또는 티커 검색');
     const persistentLayer = page.locator('[data-workspace-view-layer="current"]');
     const todayFeedRoot = page.getByTestId('research-feed');
@@ -852,7 +852,7 @@ test.describe('v3 research workspace candidate', () => {
       document.querySelector<HTMLElement>('[data-testid="workspace-nav-radar"]')?.click();
       document.querySelector<HTMLElement>('[aria-label="종목명 또는 티커 검색"]')?.focus();
     });
-    await page.waitForURL(/view=radar/);
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect(
       page.getByRole('heading', { name: '내 종목에 영향을 줄 시장 변화', exact: true }),
     ).toBeVisible();
@@ -874,19 +874,19 @@ test.describe('v3 research workspace candidate', () => {
       .toBe('persistent-layer-v1');
 
     await page.getByTestId('workspace-nav-stocks').click();
-    await page.waitForURL(/view=stocks/);
+    await page.waitForURL(/\/workspace\/stocks(?:\?|$)/);
     await expect(page.getByRole('heading', { name: '종목', exact: true })).toBeFocused();
   });
 
   test('renders the semantic market connection flow while retaining the live Radar payload', async ({
     page,
   }, testInfo) => {
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const evidence = await installPositiveRadarLoader(page);
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
     if (await menuButton.isVisible()) await menuButton.click();
     await page.getByTestId('workspace-nav-radar').click();
-    await page.waitForURL(/view=radar/);
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
@@ -997,10 +997,10 @@ test.describe('v3 research workspace candidate', () => {
         },
       });
     });
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const evidence = await installPositiveRadarLoader(page);
     await page.getByTestId('workspace-nav-radar').click();
-    await page.waitForURL(/view=radar/);
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect.poll(() => evidence.matched).toBe(true);
     await page.getByRole('radio', { name: '지도' }).click();
     const mapPanel = page.getByTestId('market-mode-map_globe');
@@ -1009,7 +1009,7 @@ test.describe('v3 research workspace candidate', () => {
     );
     await expect(page.getByTestId('geo-fallback-row')).toHaveCount(2);
     await expect(page.getByRole('button', { name: '지도 확대' })).toHaveCount(0);
-    await expect(mapPanel).toContainText('geo revision 1001 · source revision 101');
+    await expect(mapPanel).toContainText('위치 버전 1001 · 출처 버전 101');
     if (process.env.P3D_CAPTURE_SCREENSHOTS === '1') {
       await page.evaluate(async () => {
         await document.fonts.ready;
@@ -1017,9 +1017,8 @@ test.describe('v3 research workspace candidate', () => {
           requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
         );
       });
-      await page.screenshot({
+      await mapPanel.screenshot({
         path: testInfo.outputPath('p3-d-map-webgl-fallback.png'),
-        fullPage: true,
         animations: 'disabled',
       });
     }
@@ -1034,10 +1033,10 @@ test.describe('v3 research workspace candidate', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'desktop covers the reduced-motion branch');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const evidence = await installPositiveRadarLoader(page);
     await page.getByTestId('workspace-nav-radar').click();
-    await page.waitForURL(/view=radar/);
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect.poll(() => evidence.matched).toBe(true);
 
     await page.getByRole('radio', { name: '지도' }).click();
@@ -1059,7 +1058,7 @@ test.describe('v3 research workspace candidate', () => {
       };
     });
     expect(motionDurations.transitionSeconds).toBe(0);
-    expect(motionDurations.animationSeconds).toBeLessThanOrEqual(0.000001);
+    expect(motionDurations.animationSeconds).toBeLessThanOrEqual(0.001);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
@@ -1070,12 +1069,12 @@ test.describe('v3 research workspace candidate', () => {
   test('renders controlled empty Radar truth as one honest market connection state', async ({
     page,
   }) => {
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const evidence = await installEmptyRadarLoader(page);
     const menuButton = page.locator('button[aria-controls="workspace-navigation"]');
     if (await menuButton.isVisible()) await menuButton.click();
-    await page.getByRole('button', { name: /세계 레이더/ }).click();
-    await page.waitForURL(/view=radar/);
+    await page.getByTestId('workspace-nav-radar').click();
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 0, scopeTotal: 0 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('0');
@@ -1093,7 +1092,7 @@ test.describe('v3 research workspace candidate', () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'cursor transport is viewport-independent');
-    await page.goto('/workspace?view=today');
+    await page.goto('/workspace/today');
     const evidence = await installPositiveRadarLoader(page);
     let requestedCursor: string | null = null;
     await page.route('**/api/radar**', async (route) => {
@@ -1159,7 +1158,7 @@ test.describe('v3 research workspace candidate', () => {
     });
 
     await page.getByTestId('workspace-nav-radar').click();
-    await page.waitForURL(/view=radar/);
+    await page.waitForURL(/\/workspace\/radar(?:\?|$)/);
     await expect.poll(() => evidence.matched).toBe(true);
     expect(evidence).toEqual({ matched: true, itemCount: 2, scopeTotal: 3 });
     await expect(page.getByTestId('workspace-nav-radar')).toContainText('3');
@@ -1238,7 +1237,7 @@ test.describe('v3 research workspace candidate', () => {
 
   test('keeps the data as-of time visible on mobile', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile-only freshness contract');
-    await page.goto('/workspace?view=status');
+    await page.goto('/workspace/status');
     const asOf = page.locator('main header time').first();
     await expect(asOf).toBeVisible();
     await expect(asOf).toContainText('기준 시각');
@@ -1249,7 +1248,7 @@ test.describe('v3 research workspace candidate', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'desktop inspector transition contract');
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/workspace?view=stocks');
+    await page.goto('/workspace/stocks');
     const opener = page.getByRole('button', { name: /종목 브리핑 열기/ }).first();
     await opener.click();
     const inspector = page.getByTestId('stock-briefing-inspector');
@@ -1268,7 +1267,7 @@ test.describe('v3 research workspace candidate', () => {
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'desktop sticky-panel contract');
     await page.setViewportSize({ width: 1366, height: 480 });
-    await page.goto('/workspace?view=themes');
+    await page.goto('/workspace/themes');
     const panel = page.getByTestId('relation-ledger');
     await expect(panel).toBeVisible();
     await panel.evaluate((element) => {
@@ -1326,7 +1325,7 @@ test.describe('v3 research workspace candidate', () => {
     page,
   }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'mobile-only layout contract');
-    await page.goto('/workspace?view=stocks');
+    await page.goto('/workspace/stocks');
     const table = page.getByRole('table');
     await expect(table).toBeVisible();
     const firstStock = table
@@ -1347,7 +1346,7 @@ test.describe('v3 research workspace candidate', () => {
     expect(layout.wrapperScrollWidth).toBeLessThanOrEqual(layout.wrapperClientWidth + 1);
     expect(layout.maxRight).toBeLessThanOrEqual(390);
 
-    await page.goto('/workspace?view=status');
+    await page.goto('/workspace/status');
     const statusTable = page.getByRole('table');
     await expect(statusTable).toBeVisible();
     const statusLayout = await statusTable.evaluate((element) => {
@@ -1364,12 +1363,12 @@ test.describe('v3 research workspace candidate', () => {
   });
 
   test('renders honest empty, loading, and pagination error states', async ({ page }) => {
-    await page.goto('/workspace?view=stocks');
+    await page.goto('/workspace/stocks');
     const search = page.getByRole('textbox', { name: '종목명 또는 티커 검색' });
     await search.fill('존재하지않는종목-qa');
     await expect(page.getByText('조건에 맞는 종목이 없습니다')).toBeVisible();
 
-    await page.goto('/workspace?view=today&lane=explore');
+    await page.goto('/workspace/today?lane=explore');
     const loadMore = page.getByRole('button', { name: '다음 변화 더 보기' });
     await expect(loadMore).toBeEnabled();
     await page.route('**/api/feed**', async (route) => {

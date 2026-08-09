@@ -60,8 +60,22 @@ type DurationEntry = {
   startTime: number;
 };
 
+type LayoutShiftRect = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
+type LayoutShiftSource = {
+  currentRect: LayoutShiftRect;
+  node: string;
+  previousRect: LayoutShiftRect;
+};
+
 type LayoutShiftEntry = {
   hadRecentInput: boolean;
+  sources: LayoutShiftSource[];
   startTime: number;
   value: number;
 };
@@ -189,11 +203,41 @@ async function installBrowserProbe(page: Page) {
       });
     });
     observe('layout-shift', (entry) => {
-      const shift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+      const layoutShift = entry as PerformanceEntry & {
+        hadRecentInput?: boolean;
+        sources?: Array<{
+          currentRect?: DOMRectReadOnly;
+          node?: Node;
+          previousRect?: DOMRectReadOnly;
+        }>;
+        value?: number;
+      };
+      const serializeRect = (rect?: DOMRectReadOnly): LayoutShiftRect => ({
+        height: rect?.height ?? 0,
+        width: rect?.width ?? 0,
+        x: rect?.x ?? 0,
+        y: rect?.y ?? 0,
+      });
+      const describeNode = (node?: Node) => {
+        if (!(node instanceof Element)) return node?.nodeName ?? 'unknown';
+        const id = node.id ? `#${node.id}` : '';
+        const testId = node.getAttribute('data-testid');
+        const dataTestId = testId ? `[data-testid="${testId}"]` : '';
+        const classes = [...node.classList]
+          .slice(0, 3)
+          .map((className) => `.${className}`)
+          .join('');
+        return `${node.tagName.toLowerCase()}${id}${dataTestId}${classes}`;
+      };
       probe.layoutShifts.push({
-        hadRecentInput: Boolean(shift.hadRecentInput),
-        startTime: shift.startTime,
-        value: shift.value ?? 0,
+        hadRecentInput: Boolean(layoutShift.hadRecentInput),
+        sources: (layoutShift.sources ?? []).map((source) => ({
+          currentRect: serializeRect(source.currentRect),
+          node: describeNode(source.node),
+          previousRect: serializeRect(source.previousRect),
+        })),
+        startTime: layoutShift.startTime,
+        value: layoutShift.value ?? 0,
       });
     });
     observe('long-animation-frame', (entry) => {
@@ -428,6 +472,15 @@ function summarizeLayoutShifts(entries: readonly LayoutShiftEntry[]) {
     ),
     samples: entries.map((entry) => ({
       hadRecentInput: entry.hadRecentInput,
+      sources: entry.sources.map((source) => ({
+        currentRect: Object.fromEntries(
+          Object.entries(source.currentRect).map(([key, value]) => [key, round(value)]),
+        ),
+        node: source.node,
+        previousRect: Object.fromEntries(
+          Object.entries(source.previousRect).map(([key, value]) => [key, round(value)]),
+        ),
+      })),
       startTimeMs: round(entry.startTime),
       value: round(entry.value),
     })),
@@ -768,7 +821,7 @@ test.describe('Task 0 authenticated workspace baseline', () => {
 
     const runtime = collectRuntimeStats(page);
     await installBrowserProbe(page);
-    await page.goto('/workspace?view=today&lane=must_know', { waitUntil: 'domcontentloaded' });
+    await page.goto('/workspace/today?lane=must_know', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('research-workspace-v3').waitFor({ state: 'visible' });
     await page.waitForLoadState('networkidle');
 

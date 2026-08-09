@@ -22,6 +22,9 @@ describe('startup performance attribution contract', () => {
     assert.match(source, /renderStart/);
     assert.match(source, /styleAndLayoutStart/);
     assert.match(source, /phaseTotals/);
+    assert.match(source, /layoutShift\.sources/);
+    assert.match(source, /previousRect/);
+    assert.match(source, /currentRect/);
     assert.match(source, /test\.use\(\{\s*trace:\s*'off',\s*video:\s*'off'\s*\}\)/);
     assert.match(source, /longTask\.attribution/);
     assert.match(source, /topAttribution/);

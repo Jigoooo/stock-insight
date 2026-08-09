@@ -3,6 +3,11 @@
 import { createRootRouteWithContext } from '@tanstack/react-router';
 import type { LinkHTMLAttributes } from 'react';
 
+// Public auth is server-rendered. TanStack's route CSS manifest only promotes
+// direct route imports into the render-blocking root boundary. Keep every
+// stylesheet used by that SSR DOM here so a cold first paint cannot use native
+// control dimensions and resize the entire auth card after hydration.
+import '@/shared/ui/auth-critical-styles.module.css';
 import '@/shared/ui/tailwind.css';
 import '@/pages/auth/auth-page.module.css';
 import { RootComponent, RootDocument, RootNotFound } from '@/pages/root';

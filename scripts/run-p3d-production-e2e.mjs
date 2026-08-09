@@ -8,6 +8,19 @@ import { fileURLToPath } from 'node:url';
 import { hashProductionArtifact } from './production-artifact-hash.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+if (process.env.STOCK_INSIGHT_PRODUCTION_E2E_PREPARED !== '1') {
+  const bootstrap = spawnSync(process.execPath, ['scripts/run-p6-crypto-production-e2e.mjs'], {
+    cwd: root,
+    env: {
+      ...process.env,
+      STOCK_INSIGHT_PRODUCTION_E2E_SUITE: 'p3d',
+    },
+    stdio: ['inherit', 'inherit', 'inherit'],
+  });
+  if (bootstrap.error) throw bootstrap.error;
+  process.exit(bootstrap.status ?? 1);
+}
+
 const productionOutput = new URL('../apps/web/.output/', import.meta.url);
 const ROUND_COUNT = 2;
 const evidenceRoot = join(tmpdir(), `stock-insight-p3d-evidence-${randomBytes(8).toString('hex')}`);
@@ -26,7 +39,7 @@ const port = process.env.PLAYWRIGHT_PORT ?? '6122';
 const matrices = [
   {
     id: 'normal',
-    grep: 'switches all eight',
+    grep: 'supports expanded, compact, and mobile navigation with one route-link tree',
     projects: ['--project=desktop', '--project=mobile'],
     normalExpected: 2,
   },

@@ -3,8 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const rootUrl = new URL('../src/pages/root/ui/root.tsx', import.meta.url);
+const authCriticalStylesUrl = new URL(
+  '../src/shared/ui/auth-critical-styles.module.css',
+  import.meta.url,
+);
+const rootRouteUrl = new URL('../src/routes/__root.tsx', import.meta.url);
+const motionEntryUrl = new URL('../src/shared/ui/motion/index.ts', import.meta.url);
 const authenticatedUrl = new URL('../src/routes/_authenticated.tsx', import.meta.url);
 const authFieldUrl = new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url);
+const authShellUrl = new URL('../src/pages/auth/auth-shell.tsx', import.meta.url);
 const authCssUrl = new URL('../src/pages/auth/auth-page.module.css', import.meta.url);
 const buttonUrl = new URL('../src/shared/ui/button/button.tsx', import.meta.url);
 const buttonCssUrl = new URL('../src/shared/ui/button/button.module.css', import.meta.url);
@@ -74,6 +81,43 @@ describe('public root startup boundary', () => {
     assert.match(loginPage, /shared\/ui\/link/);
     assert.match(signupPage, /shared\/ui\/button/);
     assert.match(signupPage, /shared\/ui\/link/);
+  });
+
+  it('ships every SSR auth control style in one root critical-style boundary', async () => {
+    const rootRoute = await read(rootRouteUrl);
+
+    assert.match(rootRoute, /import ['"]@\/shared\/ui\/auth-critical-styles\.module\.css['"]/);
+    assert.doesNotMatch(rootRoute, /@\/shared\/ui\/(?:button|feedback|input|link|motion)\/.+\.css/);
+
+    const criticalStyles = await read(authCriticalStylesUrl);
+    for (const requiredStyle of [
+      './button/button.module.css',
+      './feedback/feedback.module.css',
+      './input/input.module.css',
+      './link/link.module.css',
+      './motion/motion-system.css',
+    ]) {
+      assert.match(criticalStyles, new RegExp(requiredStyle.replaceAll('.', '\\.') + '[\'"]'));
+    }
+  });
+
+  it('keeps public motion side-effect free and owns interaction setup in its own entry', async () => {
+    const [authenticated, authShell, motionEntry, signupPage] = await Promise.all([
+      read(authenticatedUrl),
+      read(authShellUrl),
+      read(motionEntryUrl),
+      read(signupPageUrl),
+    ]);
+
+    assert.match(authenticated, /from ['"]@\/shared\/ui\/interaction-motion['"]/);
+    assert.doesNotMatch(authenticated, /InteractionMotionProvider[^\n]+@\/shared\/ui\/motion/);
+    assert.doesNotMatch(motionEntry, /interaction-motion|InteractionMotionProvider/);
+    assert.match(authShell, /\{ Effect \} from ['"]@\/shared\/ui\/motion['"]/);
+    assert.match(signupPage, /\{ PresenceRegion \} from ['"]@\/shared\/ui\/motion['"]/);
+    assert.doesNotMatch(
+      authShell + signupPage,
+      /@\/shared\/ui\/motion\/(?:effect|presence-region)/,
+    );
   });
 
   it('keeps workspace initial and local error fallbacks free of the side-effectful primitive barrel', async () => {

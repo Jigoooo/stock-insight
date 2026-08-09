@@ -133,6 +133,13 @@ export function WorkspaceShell({
             id="workspace-navigation"
             className={styles.mobileSheet}
             side="left"
+            onOpenAutoFocus={(event) => {
+              event.preventDefault();
+              const content = event.currentTarget as HTMLElement;
+              const activeNavigationItem =
+                content.querySelector<HTMLElement>('[aria-current="page"]');
+              activeNavigationItem?.focus();
+            }}
             showCloseButton={false}
             transition={reducedMotion ? { duration: 0 } : shellTransition}
             variant="soft-surface"

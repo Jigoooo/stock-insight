@@ -4,7 +4,7 @@ import { getCurrentSession } from '@/pages/auth/model/auth-functions';
 import boundaryStyles from '@/pages/research-workspace/ui/workspace-route-boundary.module.css';
 import { Button } from '@/shared/ui/button';
 import { ErrorState } from '@/shared/ui/feedback';
-import { InteractionMotionProvider } from '@/shared/ui/motion';
+import { InteractionMotionProvider } from '@/shared/ui/interaction-motion';
 
 export const Route = createFileRoute('/_authenticated')({
   // Private screens have no SEO requirement. Rendering their auth/data gates

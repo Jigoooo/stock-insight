@@ -8,11 +8,29 @@ import { fileURLToPath } from 'node:url';
 import { hashProductionArtifact } from './production-artifact-hash.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+if (process.env.STOCK_INSIGHT_PRODUCTION_E2E_PREPARED !== '1') {
+  const bootstrap = spawnSync(process.execPath, ['scripts/run-p6-crypto-production-e2e.mjs'], {
+    cwd: root,
+    env: {
+      ...process.env,
+      STOCK_INSIGHT_PRODUCTION_E2E_SUITE: 'sigma',
+    },
+    stdio: ['inherit', 'inherit', 'inherit'],
+  });
+  if (bootstrap.error) throw bootstrap.error;
+  process.exit(bootstrap.status ?? 1);
+}
+
 const productionOutput = new URL('../apps/web/.output/', import.meta.url);
 
-// Ambient grep/worker/skip knobs would let the release gate pass a reduced or
-// fully-skipped suite. Strip them and pin our own values so the gate is total.
-for (const key of ['PLAYWRIGHT_GREP', 'PLAYWRIGHT_GREP_INVERT', 'PLAYWRIGHT_SKIP_WEB_SERVER']) {
+// Ambient grep/worker/skip/auth knobs would let the release gate pass a reduced,
+// fully-skipped, or unrelated authenticated suite. Pin the generated QA account.
+for (const key of [
+  'PLAYWRIGHT_GREP',
+  'PLAYWRIGHT_GREP_INVERT',
+  'PLAYWRIGHT_SKIP_WEB_SERVER',
+  'PLAYWRIGHT_STORAGE_STATE',
+]) {
   delete process.env[key];
 }
 

@@ -20,6 +20,7 @@ const productionRunnerPath = new URL(
   '../../../scripts/run-sigma-production-e2e.mjs',
   import.meta.url,
 );
+const productionSpecPath = new URL('../../../e2e/relation-sigma.spec.ts', import.meta.url);
 const productionHashPath = new URL(
   '../../../scripts/production-artifact-hash.mjs',
   import.meta.url,
@@ -152,11 +153,12 @@ describe('RelationSigmaGraph structure', () => {
   });
 
   it('keeps mobile controls at 44px and binds Sigma CSP checks to a production artifact gate', async () => {
-    const [styles, buttonGroupStyles, rootPackage, runner, hasher] = await Promise.all([
+    const [styles, buttonGroupStyles, rootPackage, runner, spec, hasher] = await Promise.all([
       readFile(componentStylesPath, 'utf8'),
       readFile(buttonGroupStylesPath, 'utf8'),
       readFile(rootPackagePath, 'utf8'),
       readFile(productionRunnerPath, 'utf8'),
+      readFile(productionSpecPath, 'utf8'),
       readFile(productionHashPath, 'utf8'),
     ]);
 
@@ -187,5 +189,21 @@ describe('RelationSigmaGraph structure', () => {
     assert.match(runner, /PLAYWRIGHT_GREP/);
     assert.match(runner, /skipped/);
     assert.match(runner, /openSync\([^)]*'wx'/);
+    assert.match(runner, /STOCK_INSIGHT_PRODUCTION_E2E_PREPARED/);
+    assert.match(runner, /STOCK_INSIGHT_PRODUCTION_E2E_SUITE:\s*'sigma'/);
+    assert.match(runner, /run-p6-crypto-production-e2e\.mjs/);
+    assert.match(runner, /PLAYWRIGHT_STORAGE_STATE/);
+    assert.doesNotMatch(spec, /redirect=%2Fworkspace%3Fview/);
+    assert.doesNotMatch(spec, /\/workspace\?view=themes/);
+    assert.match(spec, /\/workspace\/themes/);
+    assert.doesNotMatch(spec, /rgb\(255, 255, 255\)/);
+    assert.match(spec, /surface: getComputedStyle\(surfaceProbe\)\.backgroundColor/);
+    assert.match(spec, /getByRole\('list', \{ name: '관계 근거 목록' \}\)/);
+    assert.doesNotMatch(spec, /getByRole\('region', \{ name: '관계 근거 목록' \}\)/);
+    assert.match(spec, /locator\('\[data-slot="button-label"\] > span'\)/);
+    assert.doesNotMatch(spec, /first\(\)\.locator\('span'\)\.textContent/);
+    assert.match(spec, /await expect\(directed\)\.toContainText\('에서 대상으로'\)/);
+    assert.match(spec, /await expect\(undirected\)\.toContainText\('와 방향 없는 관계'\)/);
+    assert.doesNotMatch(spec, /getByLabel\('에서 대상으로'\)/);
   });
 });

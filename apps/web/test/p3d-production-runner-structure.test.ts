@@ -5,6 +5,10 @@ import { describe, it } from 'node:test';
 const runnerPath = new URL('../../../scripts/run-p3d-production-e2e.mjs', import.meta.url);
 const runnerSource = existsSync(runnerPath) ? readFileSync(runnerPath, 'utf8') : '';
 const rootPackage = readFileSync(new URL('../../../package.json', import.meta.url), 'utf8');
+const workspaceSpec = readFileSync(
+  new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url),
+  'utf8',
+);
 
 describe('P3-D production E2E evidence runner', () => {
   it('exists as the only supported production evidence entrypoint', () => {
@@ -28,6 +32,14 @@ describe('P3-D production E2E evidence runner', () => {
   });
 
   it('runs the cross-viewport and desktop-only branches without accepted skips', () => {
+    const currentNormalTitle =
+      'supports expanded, compact, and mobile navigation with one route-link tree';
+    assert.match(workspaceSpec, new RegExp(`test\\('${currentNormalTitle}'`));
+    assert.match(runnerSource, new RegExp(`grep: '${currentNormalTitle}'`));
+    assert.doesNotMatch(runnerSource, /switches all eight/);
+    assert.match(runnerSource, /STOCK_INSIGHT_PRODUCTION_E2E_PREPARED/);
+    assert.match(runnerSource, /STOCK_INSIGHT_PRODUCTION_E2E_SUITE:\s*'p3d'/);
+    assert.match(runnerSource, /run-p6-crypto-production-e2e\.mjs/);
     assert.match(runnerSource, /--project=desktop/);
     assert.match(runnerSource, /--project=mobile/);
     assert.match(runnerSource, /normalExpected:\s*2/);

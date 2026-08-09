@@ -96,6 +96,10 @@ describe('current workspace shell behavior', () => {
     ]);
     assert.match(shell, /<Sheet open=\{mobileOpen\}/);
     assert.match(shell, /<SheetContent[\s\S]*?side="left"/);
+    assert.match(shell, /onOpenAutoFocus=\{/);
+    assert.match(shell, /event\.preventDefault\(\)/);
+    assert.match(shell, /querySelector<HTMLElement>\('\[aria-current="page"\]'\)/);
+    assert.match(shell, /activeNavigationItem\?\.focus\(\)/);
     assert.match(shell, /inert=\{mobileOpen \|\| mobileModalInert \|\| undefined\}/);
     assert.match(sheet, /SheetPrimitive\.Content asChild forceMount/);
     assert.match(sheet, /<motion\.div/);
@@ -114,5 +118,43 @@ describe('current workspace shell behavior', () => {
     assert.match(e2e, /await page\.keyboard\.press\('Escape'\)/);
     assert.match(e2e, /workspace-nav-today'\)\)\.toBeFocused/);
     assert.match(e2e, /menuButton\)\.toBeFocused/);
+  });
+
+  it('keeps production browser journeys on canonical path-routed workspace URLs', async () => {
+    const [workspaceE2e, motionE2e] = await Promise.all([
+      readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
+      readFile(new URL('../../../e2e/motion-performance.spec.ts', import.meta.url), 'utf8'),
+    ]);
+
+    assert.doesNotMatch(workspaceE2e, /page\.goto\('\/workspace\?view=/);
+    assert.doesNotMatch(workspaceE2e, /waitForURL\(\/view=/);
+    assert.doesNotMatch(workspaceE2e, /redirect=%2Fworkspace%3Fview/);
+    assert.doesNotMatch(motionE2e, /page\.goto\('\/workspace\?view=/);
+    assert.match(workspaceE2e, /page\.waitForURL\(\/\\\/workspace\\\/radar/);
+    assert.match(workspaceE2e, /page\.goto\('\/workspace\/stocks'\)/);
+    assert.match(motionE2e, /page\.goto\('\/workspace\/today\?lane=must_know'/);
+  });
+
+  it('keeps P3-D edge assertions aligned with localized evidence and reduced-motion policy', async () => {
+    const [workspaceE2e, shellStyles] = await Promise.all([
+      readFile(new URL('../../../e2e/research-workspace-v3.spec.ts', import.meta.url), 'utf8'),
+      read('widgets/workspace-shell/ui/workspace-shell.module.css'),
+    ]);
+
+    assert.match(workspaceE2e, /위치 버전 1001 · 출처 버전 101/);
+    assert.doesNotMatch(workspaceE2e, /geo revision 1001 · source revision 101/);
+    assert.match(
+      workspaceE2e,
+      /motionDurations\.animationSeconds\)\.toBeLessThanOrEqual\(0\.001\)/,
+    );
+    assert.match(shellStyles, /animation-duration: 1ms !important/);
+    assert.match(shellStyles, /transition-duration: 1ms !important/);
+    const fallbackPathOffset = workspaceE2e.indexOf('p3-d-map-webgl-fallback.png');
+    assert.notEqual(fallbackPathOffset, -1);
+    const fallbackCapture = workspaceE2e.slice(
+      workspaceE2e.lastIndexOf('await ', fallbackPathOffset),
+      fallbackPathOffset,
+    );
+    assert.match(fallbackCapture, /^await mapPanel\.screenshot\(\{/);
   });
 });

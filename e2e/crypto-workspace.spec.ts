@@ -127,11 +127,17 @@ function assertProductionArtifactIdentity(): void {
 
 async function navigateToCrypto(page: Page): Promise<void> {
   if (!username || !password) throw new Error('Stock Insight E2E credentials are required');
-  await page.goto('/login?redirect=%2Fworkspace%3Fview%3Dcrypto');
+  await page.goto('/login?redirect=%2Fworkspace%2Fcrypto');
   await page.getByLabel('사용자 이름').fill(username);
   await page.locator('#login-password').fill(password);
+  const loginResponsePromise = page.waitForResponse(
+    (response) => response.request().method() === 'POST' && response.url().includes('/_serverFn/'),
+  );
   await page.getByRole('button', { name: '로그인', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspace\?view=crypto$/);
+  const loginResponse = await loginResponsePromise;
+  const loginResponseBody = await loginResponse.text();
+  expect(loginResponse.status(), `login server function failed: ${loginResponseBody}`).toBe(200);
+  await expect(page, `login response: ${loginResponseBody}`).toHaveURL(/\/workspace\/crypto$/);
   await expect(page.getByTestId('research-workspace-v3')).toBeVisible();
 }
 
@@ -164,7 +170,7 @@ test.describe('P6 crypto read-only workspace', () => {
 
   test.afterAll(() => assertProductionArtifactIdentity());
 
-  test('renders a truthful empty read-only surface without overflow or serious a11y defects', async ({
+  test('renders the truthful production read-only surface without overflow or serious a11y defects', async ({
     page,
   }, testInfo) => {
     const consoleErrors: string[] = [];
@@ -175,7 +181,6 @@ test.describe('P6 crypto read-only workspace', () => {
     await navigateToCrypto(page);
     await expect(page.getByRole('heading', { name: '크립토 리서치' })).toBeVisible();
     await expect(page.locator('output').filter({ hasText: '조회 전용' })).toBeVisible();
-    await expect(page.getByText('데이터가 아직 없습니다')).toBeVisible();
 
     const readOnlyRoot = page.locator('[data-read-only="true"]');
     await expect(readOnlyRoot).toBeVisible();
@@ -208,14 +213,6 @@ test.describe('P6 crypto read-only workspace', () => {
   }, testInfo) => {
     const evidence = await installNonEmptyCryptoRoute(page);
     await navigateToCrypto(page);
-    const statusNav = page.getByTestId('workspace-nav-status');
-    await expect(statusNav).toBeEnabled();
-    await statusNav.evaluate((element: HTMLButtonElement) => element.click());
-    await expect(page).toHaveURL(/\/workspace\?view=status$/);
-    const cryptoNav = page.getByTestId('workspace-nav-crypto');
-    await expect(cryptoNav).toBeEnabled();
-    await cryptoNav.evaluate((element: HTMLButtonElement) => element.click());
-    await expect(page).toHaveURL(/\/workspace\?view=crypto$/);
     await expect.poll(() => evidence.matched).toBe(true);
     await expect(page.getByRole('heading', { name: '크립토 리서치' })).toBeVisible();
     await expect(page.getByText('검증 1개 · 검토 중 1개')).toBeVisible();
