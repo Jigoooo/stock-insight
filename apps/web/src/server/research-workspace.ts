@@ -37,6 +37,8 @@ export async function loadResearchWorkspaceShell(userId: string) {
   return loadResearchWorkspaceShellCached(userId);
 }
 
+// Retained for the authenticated backend compatibility endpoint. The retired
+// workspace UI no longer calls it.
 export async function loadCryptoResearchWorkspace(
   userId: string,
   options: { knownAt?: Date; limit?: number } = {},
@@ -74,10 +76,6 @@ export async function loadResearchStatus(userId: string) {
   return brainRequest('/v1/status', { scope: scopeFor(userId) });
 }
 
-export async function loadMarketTopicNews(userId: string) {
-  return brainRequest('/v1/market-topic-news', { scope: scopeFor(userId) });
-}
-
 export async function loadDecisionHistoryPage(
   userId: string,
   options: { cursor?: string; limit?: number },
@@ -96,10 +94,6 @@ export async function loadRadarSignalPage(
     scope: scopeFor(userId),
     query: { cursor: options.cursor, limit: options.limit },
   });
-}
-
-export async function loadThemeResearch(userId: string) {
-  return brainRequest('/v1/themes', { scope: scopeFor(userId) });
 }
 
 export async function loadEntityRelationGraph(
@@ -161,17 +155,13 @@ export async function loadResearchWorkspaceView(
   options: ResearchWorkspaceViewOptions,
 ) {
   const loaders = {
-    loadCrypto: loadCryptoResearchWorkspace,
     loadGeo: loadGeoSnapshot,
     loadHistory: loadDecisionHistoryPage,
-    loadMarketTopicNews,
     loadRadar: loadRadarSignalPage,
     loadRecord: loadResearchRecord,
-    loadRelation: loadEntityRelationGraph,
     loadShell: loadResearchWorkspaceShell,
     loadStatus: loadResearchStatus,
     loadStocks: loadStockList,
-    loadThemes: loadThemeResearch,
     loadToday: loadResearchWorkspace,
   } as unknown as ResearchWorkspaceLoaders;
   return orchestrateResearchWorkspaceView(loaders, userId, options);

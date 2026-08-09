@@ -1,38 +1,30 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
 const routeUrl = new URL('../src/routes/index.tsx', import.meta.url);
-const serverFnUrl = new URL(
-  '../src/pages/dashboard/model/load-workspace-bootstrap.ts',
-  import.meta.url,
-);
-const facadeUrl = new URL('../src/server/workspace-bootstrap.ts', import.meta.url);
 const researchFacadeUrl = new URL('../src/server/research-workspace.ts', import.meta.url);
 
 describe('workspace route and legacy SSR self-HTTP boundary', () => {
   it('redirects the root to v3 without loading the legacy dashboard', async () => {
-    const [route, serverFn, facade, researchFacade] = await Promise.all([
+    const [route, researchFacade] = await Promise.all([
       readFile(routeUrl, 'utf8'),
-      readFile(serverFnUrl, 'utf8'),
-      readFile(facadeUrl, 'utf8'),
       readFile(researchFacadeUrl, 'utf8'),
     ]);
 
     assert.match(route, /throw redirect/);
     assert.match(route, /to:\s*'\/workspace'/);
     assert.doesNotMatch(route, /DashboardPage|loadWorkspaceBootstrap|LoginScreen/);
-    assert.match(serverFn, /createServerFn/);
-    assert.match(serverFn, /loadWorkspaceBootstrapDirect/);
-    assert.doesNotMatch(serverFn, /fetch\s*\(/);
-    // Multi-user: the bootstrap facade binds a per-request session scope instead
-    // of a fixed server-owned id.
-    assert.match(facade, /brainRequest/);
-    assert.doesNotMatch(facade, /createScopedReadOnlyDatabaseClient|withReadSnapshot/);
-    assert.match(facade, /loadWorkspaceBootstrapDirect\(userId: string\)/);
-    assert.doesNotMatch(facade, /fetch\s*\(|buildRequestOrigin|\/api\//);
     assert.match(researchFacade, /brainRequest/);
     assert.doesNotMatch(researchFacade, /withReadSnapshot|queryRows/);
     assert.doesNotMatch(researchFacade, /Promise\.all\(/);
+
+    for (const url of [
+      new URL('../src/pages/dashboard/model/load-workspace-bootstrap.ts', import.meta.url),
+      new URL('../src/pages/dashboard/model/resolve-dashboard-bootstrap.ts', import.meta.url),
+      new URL('../src/server/workspace-bootstrap.ts', import.meta.url),
+    ]) {
+      await assert.rejects(access(url), { code: 'ENOENT' });
+    }
   });
 });

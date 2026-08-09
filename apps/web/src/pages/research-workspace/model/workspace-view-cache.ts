@@ -1,12 +1,4 @@
-export type WorkspaceViewId =
-  | 'today'
-  | 'radar'
-  | 'stocks'
-  | 'crypto'
-  | 'themes'
-  | 'history'
-  | 'status'
-  | 'market-topic-news';
+export type WorkspaceViewId = 'today' | 'radar' | 'stocks' | 'history' | 'status';
 
 export type WorkspaceViewCacheKey = {
   cursor: string | null;

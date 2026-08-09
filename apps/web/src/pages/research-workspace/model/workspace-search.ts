@@ -2,15 +2,7 @@ import type { ResearchWorkspaceUrlState } from '../ui/research-workspace-page';
 import type { WorkspaceSectionId } from '@/features/workspace-navigation';
 import type { ResearchFeedLaneId } from '@stock-insight/contracts/research-workspace';
 
-const allowedViews = new Set<WorkspaceSectionId>([
-  'today',
-  'radar',
-  'stocks',
-  'crypto',
-  'themes',
-  'history',
-  'status',
-]);
+const allowedViews = new Set<WorkspaceSectionId>(['today', 'radar', 'stocks', 'history', 'status']);
 const allowedLanes = new Set<ResearchFeedLaneId>(['must_know', 'for_you', 'explore']);
 
 export function validateWorkspaceSearch(

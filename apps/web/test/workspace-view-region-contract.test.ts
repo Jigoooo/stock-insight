@@ -9,8 +9,6 @@ const viewFiles = [
   ['TodayView', 'views/today-view.tsx'],
   ['MarketConnectionsView', 'views/market-connections-view.tsx'],
   ['StocksView', 'views/stocks-view.tsx'],
-  ['CryptoWorkspaceView', 'views/crypto-workspace-view.tsx'],
-  ['ThemesView', 'views/themes-view.tsx'],
   ['HistoryView', 'views/history-view.tsx'],
   ['StatusView', 'views/status-view.tsx'],
 ] as const;

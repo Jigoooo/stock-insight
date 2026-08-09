@@ -108,18 +108,8 @@ describe('workspace concurrency policy', () => {
     assert.equal(isLatestWorkspaceIntent('view:status:4', 'view:radar:3'), false);
   });
 
-  it('guards rapid theme relation requests and invalidates them when leaving the view', async () => {
+  it('does not retain the retired theme relation request lane', async () => {
     const page = await readFile(workspacePageUrl, 'utf8');
-
-    assert.match(page, /themeRelationSequenceRef = useRef\(0\)/);
-    assert.match(page, /const sequence = \+\+themeRelationSequenceRef\.current/);
-    assert.match(
-      page,
-      /if \(!isLatestWorkspaceIntent\(themeRelationSequenceRef\.current, sequence\)\) return/,
-    );
-    assert.match(
-      page,
-      /if \(next !== 'themes'\) \{[\s\S]*?themeRelationSequenceRef\.current \+= 1[\s\S]*?setThemeRelation\(undefined\)/,
-    );
+    assert.doesNotMatch(page, /themeRelationSequenceRef|setThemeRelation|loadEntityRelationGraph/);
   });
 });

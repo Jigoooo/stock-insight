@@ -1,4 +1,3 @@
-import { selectInitialRelationRoot } from '../pages/research-workspace/model/relation-root.ts';
 import type {
   ResearchWorkspaceViewOptions,
   ResearchWorkspaceViewPayload,
@@ -10,32 +9,19 @@ type ViewPayload<View extends ResearchWorkspaceViewOptions['view']> = Extract<
 >;
 
 export type ResearchWorkspaceLoaders = {
-  loadCrypto: (
-    userId: string,
-    options: { limit: number },
-  ) => Promise<ViewPayload<'crypto'>['crypto']>;
   loadGeo: (userId: string) => Promise<ViewPayload<'radar'>['geoSnapshot']>;
   loadHistory: (
     userId: string,
     options: { cursor?: string; limit: number },
   ) => Promise<ViewPayload<'history'>['history']>;
-  loadMarketTopicNews: (
-    userId: string,
-  ) => Promise<ViewPayload<'market-topic-news'>['marketTopicNews']>;
   loadRadar: (
     userId: string,
     options: { cursor?: string; limit: number },
   ) => Promise<ViewPayload<'radar'>['radar']>;
   loadRecord: (userId: string, recordKey: string) => Promise<ViewPayload<'today'>['defaultRecord']>;
-  loadRelation: (
-    userId: string,
-    entityKey: string,
-    depth: number,
-  ) => Promise<ViewPayload<'themes'>['relation']>;
   loadShell: (userId: string) => Promise<ViewPayload<'today'>['shell']>;
   loadStatus: (userId: string) => Promise<ViewPayload<'status'>['status']>;
   loadStocks: (userId: string) => Promise<ViewPayload<'stocks'>['stocks']>;
-  loadThemes: (userId: string) => Promise<ViewPayload<'themes'>['themes']>;
   loadToday: (userId: string) => Promise<ViewPayload<'today'>['today']>;
 };
 
@@ -86,20 +72,6 @@ export async function orchestrateResearchWorkspaceView(
         .then((stocks) => ({ stocks, view: 'stocks' as const }));
       break;
     }
-    case 'crypto': {
-      activeSlicePromise = loaders
-        .loadCrypto(userId, { limit: 40 })
-        .then((crypto) => ({ crypto, view: 'crypto' as const }));
-      break;
-    }
-    case 'themes': {
-      activeSlicePromise = loaders.loadThemes(userId).then(async (themes) => {
-        const relationRoot = selectInitialRelationRoot([], themes.items);
-        const relation = relationRoot ? await loaders.loadRelation(userId, relationRoot, 1) : null;
-        return { relation, themes, view: 'themes' as const };
-      });
-      break;
-    }
     case 'history': {
       activeSlicePromise = loaders
         .loadHistory(userId, {
@@ -113,12 +85,6 @@ export async function orchestrateResearchWorkspaceView(
       activeSlicePromise = loaders
         .loadStatus(userId)
         .then((status) => ({ status, view: 'status' as const }));
-      break;
-    }
-    case 'market-topic-news': {
-      activeSlicePromise = loaders
-        .loadMarketTopicNews(userId)
-        .then((marketTopicNews) => ({ marketTopicNews, view: 'market-topic-news' as const }));
       break;
     }
   }

@@ -32,7 +32,7 @@ const navigationUrl = new URL(
   import.meta.url,
 );
 
-const VIEWS = ['today', 'radar', 'stocks', 'crypto', 'themes', 'history', 'status'] as const;
+const VIEWS = ['today', 'radar', 'stocks', 'history', 'status'] as const;
 
 describe('workspace active-view route loader', () => {
   it('gives every tab its own route file', async () => {

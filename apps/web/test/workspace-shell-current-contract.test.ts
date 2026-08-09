@@ -13,7 +13,7 @@ describe('current workspace shell behavior', () => {
       lane: 'explore',
       query: 'NVDA',
       record: 'record:current',
-      view: 'themes',
+      view: 'radar',
     } as const;
 
     assert.deepEqual(validateWorkspaceSearch(current), current);
@@ -68,8 +68,8 @@ describe('current workspace shell behavior', () => {
       sections,
       /id: 'status',[\s\S]*?label: '데이터 신뢰도',[\s\S]*?navigationGroup: 'utility'/,
     );
-    assert.match(sections, /id: 'crypto',[\s\S]*?navigationGroup: 'hidden'/);
-    assert.match(navigation, /item\.navigationGroup !== 'hidden'/);
+    assert.doesNotMatch(sections, /id: '(?:crypto|themes|market-topic-news)'/);
+    assert.doesNotMatch(navigation, /navigationGroup !== 'hidden'/);
     assert.match(navigation, /data-navigation-group=\{item\.navigationGroup\}/);
     assert.doesNotMatch(sections, /id: 'research',[\s\S]*?navigationGroup:/);
     const primaryOffsets = ["id: 'today'", "id: 'stocks'", "id: 'radar'", "id: 'history'"].map(

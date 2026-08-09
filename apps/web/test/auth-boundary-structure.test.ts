@@ -30,7 +30,7 @@ const readSource = (path: string) => readFile(new URL(path, webSource), 'utf8');
 
 describe('private authentication boundaries', () => {
   it('protects the private workspace server function inside the data boundary', async () => {
-    const source = await readSource('pages/dashboard/model/load-workspace-bootstrap.ts');
+    const source = await readSource('pages/research-workspace/model/load-research-workspace.ts');
     assert.match(source, /authFunctionMiddleware/);
     assert.match(source, /\.middleware\(\[authFunctionMiddleware\]\)/);
   });
