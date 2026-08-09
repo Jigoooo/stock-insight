@@ -170,18 +170,28 @@ function relationFixture(verified = true, rootEntityKey = 'US:FROM'): Record<str
   };
 }
 
-const REQUEST_ENTITY_PATTERN = /\/api\/entities\/([^/]+)\/relations/;
+const REQUEST_ENTITY_PATTERN = /\/api\/entities\/([^/]+)\/briefing/;
 
-// Route that echoes the requested entity as the graph root, so a request for
-// US:TO cannot silently be answered with a US:FROM-rooted graph.
+// The retired themes workspace no longer owns the relation graph. Exercise the
+// production Radar -> market connection inspector boundary and echo the exact
+// briefing identity as the graph root.
 async function installRootEchoingFixture(page: Page, verified = true): Promise<void> {
-  await page.route('**/api/entities/**/relations**', async (route) => {
+  await page.route('**/api/entities/**/briefing**', async (route) => {
     const match = REQUEST_ENTITY_PATTERN.exec(route.request().url());
     const requestedKey = match ? decodeURIComponent(match[1]!) : 'US:FROM';
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(relationFixture(verified, requestedKey)),
+      body: JSON.stringify({
+        entityKey: requestedKey,
+        surface: 'market_connections',
+        stockDetail: null,
+        relation: relationFixture(verified, requestedKey),
+        impactBrief: null,
+        partialFailures: {
+          impact: 'Sigma fixture intentionally omits impact-brief data.',
+        },
+      }),
     });
   });
 }
@@ -219,11 +229,11 @@ test.describe('Sigma relationship graph', () => {
 
     const context = await browser.newContext({ baseURL: String(testInfo.project.use.baseURL) });
     const page = await context.newPage();
-    await page.goto('/login?redirect=%2Fworkspace%2Fthemes');
+    await page.goto('/login?redirect=%2Fworkspace%2Fradar');
     await page.getByLabel('사용자 이름').fill(username!);
     await page.locator('#login-password').fill(password!);
     await page.getByRole('button', { name: '로그인', exact: true }).click();
-    await expect(page).toHaveURL(/\/workspace\/themes(?:\?|$)/);
+    await expect(page).toHaveURL(/\/workspace\/radar(?:\?|$)/);
     const authenticatedState = await context.storageState();
     authenticatedCookies = authenticatedState.cookies;
     if (sharedAuthState) {
@@ -258,6 +268,36 @@ test.describe('Sigma relationship graph', () => {
     await page.getByRole('button', { name: '로그인', exact: true }).click();
     await expect(page).toHaveURL(/\/workspace/);
     return page.goto(path);
+  }
+
+  async function openRadarRelationGraph(
+    page: Page,
+    projectName: string,
+    verified = true,
+  ): Promise<{
+    graph: ReturnType<Page['getByTestId']>;
+    inspector: ReturnType<Page['getByTestId']>;
+    response: PlaywrightResponse | null;
+  }> {
+    await installRootEchoingFixture(page, verified);
+    const response = await gotoWorkspace(page, '/workspace/radar');
+    await expect(page).toHaveURL(/\/workspace\/radar(?:\?|$)/);
+    const briefingResponse = page.waitForResponse(
+      (candidate) =>
+        candidate.url().includes('/api/entities/') && candidate.url().includes('/briefing'),
+    );
+    const detailButton = page.getByRole('button', { name: /시장 변화 상세 열기/ }).first();
+    await expect(detailButton).toBeVisible();
+    await detailButton.click();
+    await briefingResponse;
+    const inspector = page.getByTestId('market-connection-inspector');
+    await expect(inspector).toBeVisible();
+    await expect(inspector.getByRole('heading', { name: '시장 변화 요약' })).toBeVisible();
+    if (projectName !== 'mobile') {
+      await inspector.getByRole('button', { name: '넓게 보기' }).click();
+    }
+    const graph = inspector.getByTestId('relation-graph');
+    return { graph, inspector, response };
   }
 
   test('renders WebGL and keeps search, camera, and keyboard paths interactive', async ({
@@ -299,19 +339,9 @@ test.describe('Sigma relationship graph', () => {
       });
     });
 
-    await installRootEchoingFixture(page);
-    const response = await gotoWorkspace(page, '/workspace/themes');
+    const { graph, response } = await openRadarRelationGraph(page, testInfo.project.name);
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
-    await expect(page).toHaveURL(/\/workspace\/themes(?:\?|$)/);
-    const fixtureResponse = page.waitForResponse(
-      (candidate) =>
-        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
-    );
-    await page.getByTestId('theme-select').nth(1).click();
-    await fixtureResponse;
 
-    const graph = page.getByTestId('relation-graph');
-    await expect(graph).toBeVisible();
     const map = graph.locator('section[aria-label$="관계 지도"]');
     await expect(map).toHaveAttribute('data-layout-mode', 'force');
     await expect(map.locator('canvas')).toHaveCount(7);
@@ -410,12 +440,14 @@ test.describe('Sigma relationship graph', () => {
     await expect(status).toContainText('배치 조정 완료');
     await expect(map).toHaveAttribute('data-custom-bbox', 'released');
     const postDragButton = nodeButtons.nth(1);
-    const selectionRequest = page.waitForRequest(
-      (request) => request.url().includes('/api/entities/') && request.url().includes('/relations'),
-    );
     if (testInfo.project.name === 'mobile') await postDragButton.tap();
     else await postDragButton.click();
-    expect((await selectionRequest).method()).toBe('GET');
+    await expect(postDragButton).toHaveAttribute('aria-current', 'true');
+    const postDragLabel = (
+      await postDragButton.locator('[data-slot="button-label"] > span').textContent()
+    )?.trim();
+    expect(postDragLabel).toBeTruthy();
+    await expect(graph.getByLabel('관계 노드 검색')).toHaveValue(postDragLabel!);
 
     const overflow = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
@@ -429,96 +461,46 @@ test.describe('Sigma relationship graph', () => {
     expect(runtimeErrors).toEqual([]);
   });
 
-  test('fails closed before canvas and text fallback when an API edge is unverified', async ({
+  test('fails closed before graph DOM when an API edge is unverified', async ({
     page,
-  }) => {
-    await installRootEchoingFixture(page, false);
-    await page.goto('/workspace/themes');
+  }, testInfo) => {
+    const { graph, inspector } = await openRadarRelationGraph(page, testInfo.project.name, false);
 
-    const ledger = page.getByTestId('relation-ledger');
-    const fixtureRequest = page.waitForRequest(
-      (request) => request.url().includes('/api/entities/') && request.url().includes('/relations'),
-    );
-    await page.getByTestId('theme-select').nth(1).click();
-    await fixtureRequest;
-    await expect(ledger).toContainText('관계 지도를 불러오지 못했습니다');
-    await expect(ledger.getByTestId('relation-graph')).toHaveCount(0);
-    await expect(ledger.getByText('관계를 텍스트로 보기')).toHaveCount(0);
-    await expect(ledger.getByText('수신기업')).toHaveCount(0);
+    await expect(graph).toHaveCount(0);
+    await expect(inspector.getByRole('heading', { name: '관계 그래프' })).toBeVisible();
+    await expect(inspector.getByText('관계 그래프를 확인하지 못했습니다')).toBeVisible();
+    await expect(inspector.getByRole('navigation', { name: '관계 노드 목록' })).toHaveCount(0);
+    await expect(inspector.getByRole('heading', { name: '시장 변화 요약' })).toBeVisible();
     expect((await readRuntimeProbe(page)).cspViolations).toEqual([]);
   });
 
-  test('renders directed and undirected semantics and preserves selection after source refresh', async ({
+  test('renders directed and undirected semantics and preserves local node selection', async ({
     page,
   }, testInfo) => {
-    await installRootEchoingFixture(page);
-    await page.goto('/workspace/themes');
-
-    const ledger = page.getByTestId('relation-ledger');
-    const fixtureResponse = page.waitForResponse(
-      (response) =>
-        response.url().includes('/api/entities/') && response.url().includes('/relations'),
-    );
-    await page.getByTestId('theme-select').nth(1).click();
-    await fixtureResponse;
-    let graph = ledger.getByTestId('relation-graph');
-    await expect(graph).toBeVisible();
-    // The rendered canvas — not just the text fallback — must carry the exact
-    // directed/undirected counts and the requested root identity.
+    const { graph } = await openRadarRelationGraph(page, testInfo.project.name);
+    // The rendered canvas — not just a text projection — carries directionality.
     const canvas = graph.locator('section[aria-label$="관계 지도"]');
     await expect(canvas).toHaveAttribute('data-directed-edges', '1');
     await expect(canvas).toHaveAttribute('data-undirected-edges', '1');
-    const fallback = ledger.getByRole('list', { name: '관계 근거 목록' });
-    const directed = fallback.locator('[data-direction="directed"]');
-    await expect(directed.locator('[data-endpoint="from"]')).toHaveText('발신기업');
-    await expect(directed.locator('[data-endpoint="to"]')).toHaveText('수신기업');
-    await expect(directed).toContainText('에서 대상으로');
-    expect(
-      await directed
-        .locator('[data-endpoint]')
-        .evaluateAll((endpoints) => endpoints.map((endpoint) => endpoint.textContent?.trim())),
-    ).toEqual(['발신기업', '수신기업']);
-    const undirected = fallback.locator('[data-direction="undirected"]');
-    await expect(undirected).toContainText('와 방향 없는 관계');
 
     const targetButton = graph.getByRole('button', { name: /수신기업/ });
-    const refreshed = page.waitForResponse((response) =>
-      response.url().includes('/api/entities/US%3ATO/relations'),
-    );
     if (testInfo.project.name === 'mobile') await targetButton.tap();
     else await targetButton.click();
-    await refreshed;
     await expect(targetButton).toHaveAttribute('aria-current', 'true');
     await expect(graph.getByLabel('관계 노드 검색')).toHaveValue('수신기업');
-    // The refreshed graph must be rooted at the entity we actually requested,
-    // not a stale/mismatched root echoed by the previous response.
-    await expect(graph.locator('section[aria-label$="관계 지도"]')).toHaveAttribute(
-      'data-root-entity',
-      'US:TO',
-    );
-    await expect(graph.locator('section[aria-label^="수신기업"]')).toBeVisible();
     expect((await readRuntimeProbe(page)).cspViolations).toEqual([]);
   });
 
-  test('disables worker motion when reduced motion is requested', async ({ page }) => {
+  test('disables worker motion when reduced motion is requested', async ({ page }, testInfo) => {
     const runtimeErrors: string[] = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
     page.on('console', (message) => {
       if (message.type() === 'error') runtimeErrors.push(message.text());
     });
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await installRootEchoingFixture(page);
-    const response = await page.goto('/workspace/themes');
+    const { graph, response } = await openRadarRelationGraph(page, testInfo.project.name);
     expect(response?.headers()['content-security-policy']).toBe(edgeCsp);
-    const fixtureResponse = page.waitForResponse(
-      (candidate) =>
-        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
-    );
-    await page.getByTestId('theme-select').nth(1).click();
-    await fixtureResponse;
 
-    const graph = page.getByTestId('relation-graph');
-    await expect(graph).toBeVisible();
     await expect(graph.locator('section[aria-label$="관계 지도"]')).toHaveAttribute(
       'data-layout-mode',
       'static',
@@ -531,7 +513,9 @@ test.describe('Sigma relationship graph', () => {
     expect(runtimeErrors).toEqual([]);
   });
 
-  test('keeps text-node selection working when WebGL initialization fails', async ({ page }) => {
+  test('keeps text-node selection working when WebGL initialization fails', async ({
+    page,
+  }, testInfo) => {
     await page.addInitScript(() => {
       const originalGetContext = HTMLCanvasElement.prototype.getContext;
       Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
@@ -542,21 +526,13 @@ test.describe('Sigma relationship graph', () => {
         },
       });
     });
-    await installRootEchoingFixture(page);
-    await page.goto('/workspace/themes');
-    const fixtureResponse = page.waitForResponse(
-      (candidate) =>
-        candidate.url().includes('/api/entities/') && candidate.url().includes('/relations'),
-    );
-    await page.getByTestId('theme-select').nth(1).click();
-    await fixtureResponse;
 
-    const graph = page.getByTestId('relation-graph');
+    const { graph } = await openRadarRelationGraph(page, testInfo.project.name);
     await expect(graph.getByRole('alert')).toContainText('관계 지도를 표시하지 못했습니다');
-    const selectionRequest = page.waitForRequest((request) =>
-      request.url().includes('/api/entities/US%3ATO/relations'),
-    );
-    await graph.getByRole('button', { name: /수신기업/ }).click();
-    expect((await selectionRequest).method()).toBe('GET');
+    const targetButton = graph.getByRole('button', { name: /수신기업/ });
+    if (testInfo.project.name === 'mobile') await targetButton.tap();
+    else await targetButton.click();
+    await expect(targetButton).toHaveAttribute('aria-current', 'true');
+    await expect(graph.getByLabel('관계 노드 검색')).toHaveValue('수신기업');
   });
 });

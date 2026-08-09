@@ -283,7 +283,7 @@ function MarketConnectionDetailContent({
         </section>
       </div>
 
-      {presentation === 'modal' && (
+      {presentation !== 'drawer' && (
         <div className={styles.supplementarySections}>
           {(relation || detail.partialFailures.relation) && (
             <section aria-labelledby="market-inspector-relation">

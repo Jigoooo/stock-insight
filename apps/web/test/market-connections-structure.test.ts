@@ -171,10 +171,10 @@ describe('market connections workspace structure', () => {
     assert.doesNotMatch(sections, /rawStrength/);
   });
 
-  it('adds data-backed relation, geo, path, company, history, and factor detail only in modal', async () => {
+  it('keeps data-backed supplementary detail out of the narrow drawer while serving modal and mobile', async () => {
     const inspector = await read('market-connection-inspector.tsx');
 
-    assert.match(inspector, /presentation === 'modal'/);
+    assert.match(inspector, /presentation !== 'drawer'/);
     assert.match(inspector, /relation \|\| detail\.partialFailures\.relation/);
     assert.match(inspector, /<RelationSigmaGraph graph=\{relation\}/);
     assert.match(inspector, /const geoSnapshot = result\.geo/);
