@@ -150,7 +150,16 @@ const EXPECTED_CATALOG_DIGESTS = {
     //
     // 084 and 086 were applied in the same landing and do NOT move this digest —
     // both grant to si_* pipeline roles only.
-    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
+    //
+    // Re-pinned 2026-08-09 for migrations 092 and 093. The live reader now
+    // reaches exactly the five fail-closed analytics.k4_portfolio_impact_*_v2
+    // views and none of the K4 raw ledgers. The production role audit checked
+    // every relation created by 088-093; the disposable PostgreSQL rehearsal
+    // independently produced the same exact reachable-relation list. 092 both
+    // removed historical raw-ledger SELECT grants and added the five views; 093
+    // closed the separately inherited market_intelligence_run_receipt grant.
+    // Every other reader digest and all seven writer digests stayed identical.
+    relation_privileges_digest: '16aa94f6c223c8f4237d6987bddfbbee15bd4fd03aafa8187b5568b2fcd595ed',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
@@ -164,7 +173,10 @@ const EXPECTED_CATALOG_DIGESTS = {
     // Re-pinned 2026-08-08 with the relation array above and for the same two
     // reasons. This array is gated on the same has_table_privilege test, so every
     // excluded chunk left it too.
-    rls_contract_digest: '34eccc2166cefbcd7701ee5f3fe1c4fd907b8e04fc6f393313fc295ee2263326',
+    // Re-pinned 2026-08-09 with the relation array above. It moved because 092
+    // and 093 removed reader reach to raw tables; views themselves are excluded
+    // from this table-only RLS array.
+    rls_contract_digest: '696567691692b6512690f835cdcdf8871fab4ee85029333e4e8332950a6756de',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },

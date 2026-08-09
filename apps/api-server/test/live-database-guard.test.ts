@@ -25,12 +25,12 @@ const EXPECTED_CATALOG_DIGESTS = {
     // constant rather than an import, so moving the pin fails here and forces a
     // conscious update. That failure is the mechanism, not an inconvenience: it is
     // the last checkpoint before a re-pin ships without anyone looking at it.
-    relation_privileges_digest: '0c75dccd4063c20642034c9ef0ea380220abbf2699702e19f2e6b2433d1ceab5',
+    relation_privileges_digest: '16aa94f6c223c8f4237d6987bddfbbee15bd4fd03aafa8187b5568b2fcd595ed',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    rls_contract_digest: '34eccc2166cefbcd7701ee5f3fe1c4fd907b8e04fc6f393313fc295ee2263326',
+    rls_contract_digest: '696567691692b6512690f835cdcdf8871fab4ee85029333e4e8332950a6756de',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
