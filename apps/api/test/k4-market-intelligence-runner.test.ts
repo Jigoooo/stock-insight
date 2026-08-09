@@ -13,6 +13,10 @@ import {
   withK4MarketIntelligenceTransaction,
   type K4QueryClient,
 } from '../src/analytics/k4-market-intelligence-store.ts';
+import {
+  K4_SHADOW_COHORT_V1,
+  K4_SHADOW_COHORT_VERSION,
+} from '../src/analytics/k4-shadow-cohort.ts';
 
 class FakeClient implements K4QueryClient {
   readonly calls: Array<{ sql: string; params: readonly unknown[] }> = [];
@@ -161,6 +165,28 @@ describe('K4 market-intelligence write transaction', () => {
   });
 });
 
+describe('K4 fixed shadow cohort', () => {
+  it('pins the requested ten securities by stable market and ticker selectors', () => {
+    assert.equal(K4_SHADOW_COHORT_VERSION, 'k4.semiconductor-shadow.v1');
+    assert.deepEqual(K4_SHADOW_COHORT_V1, [
+      { market: 'US', ticker: 'MU' },
+      { market: 'US', ticker: 'AMD' },
+      { market: 'US', ticker: 'INTC' },
+      { market: 'KR', ticker: '000660' },
+      { market: 'KR', ticker: '005930' },
+      { market: 'US', ticker: 'MRVL' },
+      { market: 'US', ticker: 'NVDA' },
+      { market: 'US', ticker: 'ARM' },
+      { market: 'US', ticker: 'AVGO' },
+      { market: 'US', ticker: 'TSM' },
+    ]);
+    assert.equal(
+      new Set(K4_SHADOW_COHORT_V1.map(({ market, ticker }) => `${market}:${ticker}`)).size,
+      10,
+    );
+  });
+});
+
 describe('K4 cutoff-scoped canonical input loading', () => {
   it('reconstructs ten-security coverage while admitting only cutoff-valid issuer rules', async () => {
     const client = new FakeClient((sql) => {
@@ -258,9 +284,16 @@ describe('K4 cutoff-scoped canonical input loading', () => {
     assert.match(sql, /construction_mode='live_observed'/);
     assert.match(sql, /construction_mode='historical_reconstruction'/);
     assert.match(sql, /knowledge_cutoff <= \$1::timestamptz/);
+    assert.match(sql, /k4_shadow_cohort/);
+    assert.match(sql, /WITH ORDINALITY/);
     assert.match(sql, /legacy_security_assignment/);
     assert.match(sql, /issuer_assignment/);
     assert.match(sql, /candidate\.known_at <= \$1::timestamptz/);
+    const universeCall = client.calls.find((call) => call.sql.includes('k4_security_universe'))!;
+    assert.deepEqual(universeCall.params.slice(2), [
+      K4_SHADOW_COHORT_V1.map(({ market }) => market),
+      K4_SHADOW_COHORT_V1.map(({ ticker }) => ticker),
+    ]);
     assert.doesNotMatch(sql, /market\.financial_fact/);
     assert.equal(
       client.calls.every(

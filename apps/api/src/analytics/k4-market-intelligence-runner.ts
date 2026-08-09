@@ -17,6 +17,7 @@ import {
   type K4PersistenceResult,
   type K4OutcomePlan,
 } from './k4-market-intelligence-writer.ts';
+import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
 type Mode = 'dry-run' | 'rehearse' | 'apply';
 
@@ -187,6 +188,7 @@ export async function executeK4MarketIntelligenceJob(input: {
       runKind: input.args.runKind,
       cutoff,
       securityLimit: input.args.securityLimit,
+      shadowCohortVersion: K4_SHADOW_COHORT_VERSION,
       informationSetId: canonicalInput.informationSet.informationSetId,
     });
     const planDigest = digestK4MarketIntelligencePlan({ plan: planned, outcomes });

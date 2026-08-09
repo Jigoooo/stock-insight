@@ -7,6 +7,7 @@ import {
   type K4RuleInput,
 } from './k4-market-intelligence-plan.ts';
 import { type K4OutcomePlan } from './k4-market-intelligence-writer.ts';
+import { K4_SHADOW_COHORT_V1 } from './k4-shadow-cohort.ts';
 
 export type K4QueryResult = {
   rows: Array<Record<string, unknown>>;
@@ -61,49 +62,76 @@ SELECT semantic_snapshot_id
 
 const SECURITY_UNIVERSE_SQL = `
 /* k4_security_universe */
-WITH legacy_security_assignment AS (
-  SELECT assignment.entity_id AS security_entity_id,
-         assignment.sector_playbook_id
-    FROM governance.playbook_assignment assignment
-    JOIN core.entity security ON security.entity_id=assignment.entity_id
-     AND security.entity_type='Stock'
-    JOIN governance.sector_playbook playbook
-      ON playbook.sector_playbook_id=assignment.sector_playbook_id
-     AND playbook.playbook_key='semiconductor'
-   WHERE assignment.valid_from <= $1::timestamptz
-     AND (assignment.valid_to IS NULL OR assignment.valid_to > $1::timestamptz)
-     AND assignment.known_at <= $1::timestamptz
-), issuer_assignment AS (
-  SELECT identity.security_entity_id,
-         assignment.sector_playbook_id
-    FROM core.security_issuer_identity identity
-    JOIN governance.playbook_assignment assignment
-      ON assignment.entity_id=identity.issuer_entity_id
-    JOIN governance.sector_playbook playbook
-      ON playbook.sector_playbook_id=assignment.sector_playbook_id
-     AND playbook.playbook_key='semiconductor'
-   WHERE identity.valid_from <= $1::timestamptz
-     AND identity.known_from <= $1::timestamptz
-     AND assignment.valid_from <= $1::timestamptz
-     AND (assignment.valid_to IS NULL OR assignment.valid_to > $1::timestamptz)
-     AND assignment.known_at <= $1::timestamptz
+WITH k4_shadow_cohort AS (
+  SELECT selector.market, selector.ticker,
+         selector.cohort_ordinal
+    FROM unnest($3::text[], $4::text[]) WITH ORDINALITY
+      AS selector(market, ticker, cohort_ordinal)
 ), requested AS (
-  SELECT * FROM legacy_security_assignment
-  UNION
-  SELECT * FROM issuer_assignment
+  SELECT cohort.cohort_ordinal,
+         security.security_entity_id
+    FROM k4_shadow_cohort cohort
+    JOIN core.v_security_universe security
+      ON security.market=cohort.market
+     AND security.ticker=cohort.ticker
 )
-SELECT DISTINCT ON (requested.security_entity_id)
-       requested.security_entity_id,
+SELECT requested.security_entity_id,
        identity.issuer_entity_id,
        identity.security_issuer_identity_id,
-       requested.sector_playbook_id
+       coalesce(issuer_assignment.sector_playbook_id,
+                legacy_security_assignment.sector_playbook_id) AS sector_playbook_id
   FROM requested
-  LEFT JOIN core.security_issuer_identity identity
-    ON identity.security_entity_id=requested.security_entity_id
-   AND identity.valid_from <= $1::timestamptz
-   AND identity.known_from <= $1::timestamptz
- ORDER BY requested.security_entity_id, identity.known_from DESC
- LIMIT $2
+  LEFT JOIN LATERAL (
+    SELECT candidate.issuer_entity_id,
+           candidate.security_issuer_identity_id
+      FROM core.security_issuer_identity candidate
+     WHERE candidate.security_entity_id=requested.security_entity_id
+       AND candidate.valid_from <= $1::timestamptz
+       AND candidate.known_from <= $1::timestamptz
+     ORDER BY candidate.known_from DESC, candidate.valid_from DESC,
+              candidate.security_issuer_identity_id DESC
+     LIMIT 1
+  ) identity ON true
+  LEFT JOIN LATERAL (
+    SELECT assignment.sector_playbook_id
+      FROM governance.playbook_assignment assignment
+      JOIN governance.sector_playbook playbook
+        ON playbook.sector_playbook_id=assignment.sector_playbook_id
+       AND playbook.playbook_key='semiconductor'
+       AND playbook.playbook_state='active'
+       AND playbook.effective_from <= $1::timestamptz
+       AND (playbook.effective_to IS NULL OR playbook.effective_to > $1::timestamptz)
+       AND playbook.known_at <= $1::timestamptz
+     WHERE assignment.entity_id=identity.issuer_entity_id
+       AND (assignment.security_issuer_identity_id IS NULL
+            OR assignment.security_issuer_identity_id=identity.security_issuer_identity_id)
+       AND assignment.valid_from <= $1::timestamptz
+       AND (assignment.valid_to IS NULL OR assignment.valid_to > $1::timestamptz)
+       AND assignment.known_at <= $1::timestamptz
+     ORDER BY assignment.known_at DESC, assignment.valid_from DESC,
+              assignment.playbook_assignment_id DESC
+     LIMIT 1
+  ) issuer_assignment ON true
+  LEFT JOIN LATERAL (
+    SELECT assignment.sector_playbook_id
+      FROM governance.playbook_assignment assignment
+      JOIN governance.sector_playbook playbook
+        ON playbook.sector_playbook_id=assignment.sector_playbook_id
+       AND playbook.playbook_key='semiconductor'
+       AND playbook.playbook_state='active'
+       AND playbook.effective_from <= $1::timestamptz
+       AND (playbook.effective_to IS NULL OR playbook.effective_to > $1::timestamptz)
+       AND playbook.known_at <= $1::timestamptz
+     WHERE assignment.entity_id=requested.security_entity_id
+       AND assignment.valid_from <= $1::timestamptz
+       AND (assignment.valid_to IS NULL OR assignment.valid_to > $1::timestamptz)
+       AND assignment.known_at <= $1::timestamptz
+     ORDER BY assignment.known_at DESC, assignment.valid_from DESC,
+              assignment.playbook_assignment_id DESC
+     LIMIT 1
+  ) legacy_security_assignment ON true
+ WHERE requested.cohort_ordinal <= $2
+ ORDER BY requested.cohort_ordinal
 `;
 
 const MEASUREMENT_RULE_SQL = `
@@ -255,6 +283,8 @@ export async function loadK4MarketIntelligenceInput(
   const universe = await client.query(SECURITY_UNIVERSE_SQL, [
     options.cutoff,
     options.securityLimit,
+    K4_SHADOW_COHORT_V1.map(({ market }) => market),
+    K4_SHADOW_COHORT_V1.map(({ ticker }) => ticker),
   ]);
   if (universe.rows.length !== options.securityLimit) {
     throw new Error(`K4 requires exactly 10 securities, found ${universe.rows.length}`);

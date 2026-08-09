@@ -7,6 +7,7 @@ import {
   type K4MarketIntelligencePlan,
   type K4ShockPlan,
 } from './k4-market-intelligence-plan.ts';
+import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
 export type K4PersistenceResult = {
   receiptId: number;
@@ -1000,7 +1001,10 @@ export async function persistK4MarketIntelligencePlan(
           }),
           K4_PLANNER_VERSION,
           K4_SCORE_FORMULA_VERSION,
-          JSON.stringify({ source: 'deterministic-k4-writer' }),
+          JSON.stringify({
+            source: 'deterministic-k4-writer',
+            shadow_cohort_version: K4_SHADOW_COHORT_VERSION,
+          }),
         ],
       )
     ).rows,
