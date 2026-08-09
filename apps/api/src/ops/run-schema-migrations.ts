@@ -42,6 +42,15 @@ ALTER TABLE public.schema_migration
 `;
 
 const REGISTRY_SOURCE = 'db-schema';
+const MIGRATION_LOCK_SQL =
+  "SELECT pg_advisory_lock(hashtextextended('stock-insight-schema-migrations', 0))";
+const MIGRATION_UNLOCK_SQL =
+  "SELECT pg_advisory_unlock(hashtextextended('stock-insight-schema-migrations', 0))";
+
+const INSERT_LEDGER_SQL = `
+INSERT INTO public.schema_migration (migration_id, checksum, duration_ms, baselined, source)
+VALUES ($1, $2, $3, $4, $5)
+`;
 
 const INSERT_MIGRATION_RUN_SQL = `
 INSERT INTO public.migration_runs (
@@ -81,6 +90,10 @@ export type MigrationPlanEntry = {
 
 export type MigrationDrift = { id: string; recorded: string; current: string };
 
+export type MigrationQueryClient = {
+  query: (sql: string, params?: readonly unknown[]) => Promise<unknown>;
+};
+
 /**
  * Pure planner so the decision table is testable without a database.
  * Ordering follows the registry, which is the numeric migration order.
@@ -118,6 +131,48 @@ export function planMigrations(
   return { plan, drift };
 }
 
+export async function executeMigration(
+  client: MigrationQueryClient,
+  migration: AppMigration,
+  entry: MigrationPlanEntry,
+): Promise<void> {
+  if (entry.action === 'skip') return;
+  const began = Date.now();
+
+  if (entry.action === 'apply' && migration.executionMode === 'non_transactional') {
+    if (
+      !/^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\s+CONCURRENTLY\s+IF\s+NOT\s+EXISTS\b/i.test(migration.sql)
+    ) {
+      throw new Error(
+        `${migration.id}: non_transactional migrations must use CREATE INDEX CONCURRENTLY IF NOT EXISTS`,
+      );
+    }
+    await client.query(migration.sql);
+  }
+
+  await client.query('BEGIN');
+  try {
+    if (entry.action === 'apply' && migration.executionMode === 'transactional') {
+      await client.query(migration.sql);
+    }
+    await client.query(INSERT_LEDGER_SQL, [
+      migration.id,
+      entry.checksum,
+      Date.now() - began,
+      entry.action === 'baseline',
+      REGISTRY_SOURCE,
+    ]);
+    await client.query('COMMIT');
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Preserve the migration or ledger failure.
+    }
+    throw error;
+  }
+}
+
 async function readLedger(client: PoolClient): Promise<LedgerRow[]> {
   const result = await client.query<LedgerRow>(
     'SELECT migration_id, checksum, baselined, source FROM public.schema_migration',
@@ -138,11 +193,9 @@ async function run(): Promise<void> {
     await client.query(LEDGER_SQL);
     await client.query(LEDGER_SOURCE_SQL);
     // One migrator at a time. Two concurrent runners would both see an empty
-    // ledger and both try to apply.
-    await client.query('BEGIN');
-    await client.query(
-      "SELECT pg_advisory_xact_lock(hashtextextended('stock-insight-schema-migrations', 0))",
-    );
+    // ledger and both try to apply. This must be a session lock because a
+    // non-transactional migration cannot share the ledger transaction.
+    await client.query(MIGRATION_LOCK_SQL);
 
     const ledger = await readLedger(client);
     const { plan, drift } = planMigrations(additiveAppMigrations, ledger, { baseline: BASELINE });
@@ -156,7 +209,6 @@ async function run(): Promise<void> {
     const pending = plan.filter((entry) => entry.action !== 'skip');
 
     if (!APPLY) {
-      await client.query('ROLLBACK');
       console.log(
         JSON.stringify(
           {
@@ -181,19 +233,7 @@ async function run(): Promise<void> {
     for (const entry of pending) {
       const migration = byId.get(entry.id);
       if (!migration) throw new Error(`unknown migration in plan: ${entry.id}`);
-      const began = Date.now();
-      if (entry.action === 'apply') await client.query(migration.sql);
-      await client.query(
-        `INSERT INTO public.schema_migration (migration_id, checksum, duration_ms, baselined, source)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          migration.id,
-          entry.checksum,
-          Date.now() - began,
-          entry.action === 'baseline',
-          REGISTRY_SOURCE,
-        ],
-      );
+      await executeMigration(client, migration, entry);
     }
 
     const summary = {
@@ -202,15 +242,21 @@ async function run(): Promise<void> {
       alreadyApplied: plan.length - pending.length,
       changed: pending.map((entry) => entry.id),
     };
-    await client.query(INSERT_MIGRATION_RUN_SQL, [
-      JOB_NAME,
-      startedAt,
-      additiveAppMigrations.length,
-      pending.length,
-      plan.length - pending.length,
-      JSON.stringify(summary),
-    ]);
-    await client.query('COMMIT');
+    await client.query('BEGIN');
+    try {
+      await client.query(INSERT_MIGRATION_RUN_SQL, [
+        JOB_NAME,
+        startedAt,
+        additiveAppMigrations.length,
+        pending.length,
+        plan.length - pending.length,
+        JSON.stringify(summary),
+      ]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
     console.log(JSON.stringify({ jobName: JOB_NAME, audit: summary }, null, 2));
   } catch (error) {
     try {
@@ -220,6 +266,11 @@ async function run(): Promise<void> {
     }
     throw error;
   } finally {
+    try {
+      await client.query(MIGRATION_UNLOCK_SQL);
+    } catch {
+      // Releasing the connection also releases the session lock.
+    }
     client.release();
     await pool.end();
   }

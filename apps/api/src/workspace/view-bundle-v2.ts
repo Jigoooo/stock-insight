@@ -4,6 +4,11 @@ import { getWorkspaceShellSummary } from './shell-summary.ts';
 import { getGeoSnapshot } from '../geo/read-model.ts';
 import { getDecisionHistory } from '../history/read-model.ts';
 import { getRadarSignals } from '../radar/read-model.ts';
+import {
+  withNamedReadQuery,
+  type ReadQueryId,
+  type ReadQueryMetricReporter,
+} from '../server/named-read-query.ts';
 import type { ReadSnapshotExecutor } from '../server/read-snapshot.ts';
 import type { UserScope } from '../shared/user-scope.ts';
 import { getSystemStatus } from '../status/read-model.ts';
@@ -113,45 +118,59 @@ export async function getWorkspaceViewBundleV2(
     view: WorkspaceReadView;
     query?: WorkspaceViewQuery;
     dependencies?: Partial<WorkspaceViewBundleDependencies>;
+    reportQueryMetric?: ReadQueryMetricReporter;
   }>,
 ): Promise<WorkspaceViewBundleV2> {
   const dependencies = { ...defaultDependencies, ...options.dependencies };
   const scoped = { userScope: options.userScope };
-  const shell = await dependencies.shell(executor, scoped);
+  const named = (queryId: ReadQueryId) =>
+    withNamedReadQuery(executor, queryId, options.reportQueryMetric);
+  const shell = await dependencies.shell(named('workspace.shell'), scoped);
   const query = options.query ?? {};
 
   switch (options.view) {
     case 'today': {
-      const today = await dependencies.today(executor, scoped);
+      const today = await dependencies.today(named('workspace.today'), scoped);
       const defaultRecord = query.record
-        ? await dependencies.record(executor, { ...scoped, recordKey: query.record })
+        ? await dependencies.record(named('record.detail'), {
+            ...scoped,
+            recordKey: query.record,
+          })
         : null;
       return { view: 'today', shell, today, defaultRecord };
     }
     case 'stocks':
-      return { view: 'stocks', shell, stocks: await dependencies.stocks(executor, scoped) };
+      return {
+        view: 'stocks',
+        shell,
+        stocks: await dependencies.stocks(named('stocks.list'), scoped),
+      };
     case 'radar':
       return {
         view: 'radar',
         shell,
-        radar: await dependencies.radar(executor, {
+        radar: await dependencies.radar(named('radar.page'), {
           ...scoped,
           ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
           limit: 30,
         }),
-        geoSnapshot: await dependencies.geo(executor, scoped),
+        geoSnapshot: await dependencies.geo(named('radar.page'), scoped),
       };
     case 'history':
       return {
         view: 'history',
         shell,
-        history: await dependencies.history(executor, {
+        history: await dependencies.history(named('history.page'), {
           ...scoped,
           ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
           limit: 30,
         }),
       };
     case 'status':
-      return { view: 'status', shell, status: await dependencies.status(executor, scoped) };
+      return {
+        view: 'status',
+        shell,
+        status: await dependencies.status(named('status.summary'), scoped),
+      };
   }
 }

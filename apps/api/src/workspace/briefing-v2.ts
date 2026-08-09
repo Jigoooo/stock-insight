@@ -1,6 +1,11 @@
 import { getResearchRecordDetail } from './record-detail.ts';
 import { getImpactBrief } from '../product/read-model.ts';
 import { getEntityRelationsWithV2Preference } from '../relations/entity-relation-adapter.ts';
+import {
+  withNamedReadQuery,
+  type ReadQueryId,
+  type ReadQueryMetricReporter,
+} from '../server/named-read-query.ts';
 import type { ReadSnapshotExecutor } from '../server/read-snapshot.ts';
 import type { UserScope } from '../shared/user-scope.ts';
 import { createPostgresStockReadModel, getStockDetail } from '../stocks/read-model.ts';
@@ -70,17 +75,22 @@ export async function getEntityBriefingV2(
     surface: EntityBriefingSurface;
     userScope: UserScope;
     dependencies?: Partial<WorkspaceBriefingDependencies>;
+    reportQueryMetric?: ReadQueryMetricReporter;
   }>,
 ): Promise<EntityBriefingV2> {
   const dependencies = { ...defaultDependencies, ...options.dependencies };
   const scoped = { entityKey: options.entityKey, userScope: options.userScope };
+  const named = (queryId: ReadQueryId) =>
+    withNamedReadQuery(executor, queryId, options.reportQueryMetric);
   const stockDetail =
-    options.surface === 'stocks' ? await dependencies.stockDetail(executor, scoped) : null;
+    options.surface === 'stocks'
+      ? await dependencies.stockDetail(named('stocks.detail'), scoped)
+      : null;
   const partialFailures: EntityBriefingV2['partialFailures'] = {};
 
   let relation: EntityRelationGraph | null = null;
   try {
-    relation = await dependencies.relation(executor, {
+    relation = await dependencies.relation(named('relations.graph'), {
       ...scoped,
       depth: options.surface === 'stocks' ? 2 : 1,
     });
@@ -90,7 +100,7 @@ export async function getEntityBriefingV2(
 
   let impactBrief: ImpactBriefResponse | null = null;
   try {
-    impactBrief = await dependencies.impact(executor, scoped);
+    impactBrief = await dependencies.impact(named('impact.brief'), scoped);
     if (impactBrief.availability === 'error') {
       partialFailures.impact = partialMessage.impact;
       impactBrief = null;
@@ -115,10 +125,13 @@ export async function getRecordBriefingV2(
     recordKey: string;
     userScope: UserScope;
     dependencies?: Partial<WorkspaceBriefingDependencies>;
+    reportQueryMetric?: ReadQueryMetricReporter;
   }>,
 ): Promise<RecordBriefingV2 | null> {
   const dependencies = { ...defaultDependencies, ...options.dependencies };
-  const record = await dependencies.record(executor, {
+  const named = (queryId: ReadQueryId) =>
+    withNamedReadQuery(executor, queryId, options.reportQueryMetric);
+  const record = await dependencies.record(named('record.detail'), {
     recordKey: options.recordKey,
     userScope: options.userScope,
   });
@@ -127,7 +140,7 @@ export async function getRecordBriefingV2(
   const entityKey = record.affectedEntityKeys[0];
   if (!entityKey) return { record, relation: null, partialFailures: {} };
   try {
-    const relation = await dependencies.relation(executor, {
+    const relation = await dependencies.relation(named('relations.graph'), {
       entityKey,
       depth: 1,
       userScope: options.userScope,

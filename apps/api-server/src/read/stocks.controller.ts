@@ -9,6 +9,8 @@ import {
   getPriceSeries,
   getStockDetail,
   getStockList,
+  withNamedReadQuery,
+  type ReadQueryId,
   type PriceSeriesDatabaseRow,
 } from '@stock-insight/api';
 import type { StockListQuery } from '@stock-insight/contracts';
@@ -35,9 +37,14 @@ function parseStockListQuery(query: {
   return parsed;
 }
 
-function createRouteStockReadModel() {
+function createRouteStockReadModel(queryId: ReadQueryId) {
   const ctx = scopedRowQuery();
-  return ctx ? createPostgresStockReadModel(ctx.queryRows, ctx.userScope) : undefined;
+  return ctx
+    ? createPostgresStockReadModel(
+        withNamedReadQuery({ queryRows: ctx.queryRows }, queryId).queryRows,
+        ctx.userScope,
+      )
+    : undefined;
 }
 
 function createRoutePriceSeriesReadModel() {
@@ -64,13 +71,13 @@ export class StocksController {
     if (q !== undefined) parsed.q = q;
     return getStockList({
       query: parseStockListQuery(parsed),
-      readModel: createRouteStockReadModel(),
+      readModel: createRouteStockReadModel('stocks.list'),
     });
   }
 
   @Get(':entityKey')
   async getDetail(@Param('entityKey') entityKey: string) {
-    return getStockDetail(entityKey, { readModel: createRouteStockReadModel() });
+    return getStockDetail(entityKey, { readModel: createRouteStockReadModel('stocks.detail') });
   }
 
   @Get(':entityKey/prices')

@@ -257,6 +257,7 @@ export {
   parseServerEnv,
   primeReadOnlyDatabasePool,
   requireUserScope,
+  withNamedReadQuery,
 } from './server';
 // Credential material (password records, invitation code digests) never leaves
 // the brain: these are imported by apps/api-server ONLY. apps/web talks to the
@@ -323,6 +324,9 @@ export type {
 export type {
   DatabaseClient,
   ReadOnlyDatabaseClient,
+  ReadQueryId,
+  ReadQueryMetric,
+  ReadQueryMetricReporter,
   ReadSnapshotExecutor,
   ReadSnapshotOptions,
   ServerEnv,

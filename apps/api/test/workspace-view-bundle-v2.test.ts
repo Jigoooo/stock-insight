@@ -6,7 +6,13 @@ import {
   parseWorkspaceViewBundleQuery,
 } from '../src/workspace/view-bundle-v2.ts';
 
-const executor = { queryRows: async () => [] };
+const queryCalls: string[] = [];
+const executor = {
+  queryRows: async (sql: string) => {
+    queryCalls.push(sql);
+    return [];
+  },
+};
 const userScope = { kind: 'user' as const, userId: '11111111-1111-4111-8111-111111111111' };
 
 describe('workspace view bundle V2', () => {
@@ -23,7 +29,8 @@ describe('workspace view bundle V2', () => {
   });
 
   it('uses the same executor and user scope for shell and the active read model', async () => {
-    const seen: Array<{ executor: unknown; scope: unknown; name: string }> = [];
+    queryCalls.length = 0;
+    const seen: Array<{ scope: unknown; name: string }> = [];
     const shell = { radarScopeTotal: 7, watchlistCount: 2 };
     const stocks = {
       availability: 'available',
@@ -37,20 +44,24 @@ describe('workspace view bundle V2', () => {
       view: 'stocks',
       dependencies: {
         shell: async (received, options) => {
-          seen.push({ executor: received, scope: options.userScope, name: 'shell' });
+          await received.queryRows('shell query');
+          seen.push({ scope: options.userScope, name: 'shell' });
           return shell;
         },
         stocks: async (received, options) => {
-          seen.push({ executor: received, scope: options.userScope, name: 'stocks' });
+          await received.queryRows('stocks query');
+          seen.push({ scope: options.userScope, name: 'stocks' });
           return stocks;
         },
       },
+      reportQueryMetric: () => undefined,
     });
 
     assert.deepEqual(result, { view: 'stocks', shell, stocks });
     assert.deepEqual(seen, [
-      { executor, scope: userScope, name: 'shell' },
-      { executor, scope: userScope, name: 'stocks' },
+      { scope: userScope, name: 'shell' },
+      { scope: userScope, name: 'stocks' },
     ]);
+    assert.deepEqual(queryCalls, ['shell query', 'stocks query']);
   });
 });

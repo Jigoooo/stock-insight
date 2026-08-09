@@ -35,3 +35,13 @@ The shell response has a 60 second per-user BFF cache. The table records cold-vi
 No disposable performance database URL was present in the execution environment. No database was contacted and no latency or buffer number is claimed from this checkout.
 
 The implemented benchmark must use a safety-checked disposable URL, perform 5 warm-up iterations and 30 measured iterations, and report p50, p95, rows, shared buffers, plan shape, and index size without SQL parameters or user identity.
+
+## Implemented static result
+
+- The five canonical first loads now have a V2 bundle path that performs one BFF→brain request and keeps shell plus active-view reads in one `REPEATABLE READ READ ONLY` snapshot.
+- Stock, market-connection, and Today record detail each have one aggregate request path. Drawer/modal presentation changes reuse the loaded model.
+- The approved query IDs are emitted as structured `{ queryId, durationMs, rowCount }` records. SQL text, parameters, and user identity are not passed to the reporter.
+- Stock detail news and record-detail relevance now materialize `v_user_feed_dedup` only after applying the current-user filter.
+- The migration registry supports `transactional` and `non_transactional` execution. Non-transactional mode accepts only idempotent `CREATE INDEX CONCURRENTLY IF NOT EXISTS` statements, holds a session advisory lock, and records the checksum in a separate short transaction.
+
+No index was added. The required 5-warm-up/30-measurement rehearsal evidence was unavailable, so no 20% improvement, buffer reduction, endpoint p95, SQL p95, plan stability, lock impact, or index size is claimed. Candidate enablement must remain `legacy` until those measurements and the two-user RLS rehearsal pass on a disposable database.
