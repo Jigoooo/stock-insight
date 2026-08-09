@@ -1,4 +1,4 @@
-# V2 Canonical Kernel 실행 로그 (K0 · K1 · K2 · K3 · K5)
+# V2 Canonical Kernel 실행 로그 (K0 · K1 · K2 · K3 · K4 · K5)
 
 > **이어서 하려면 이 절만 읽으면 된다.** 아래 본문은 시간순 append 라 **낡은 서술이
 > 정정보다 먼저 나온다.** 본문과 이 절이 어긋나면 **이 절이 맞다.**
@@ -6,25 +6,26 @@
 > 계획 정본 [`v2-final-implementation-plan-2026-08-07.md`](./v2-final-implementation-plan-2026-08-07.md) ·
 > 아키텍처 정본 [`stock-crypto-investment-context-world-model-v2-final/`](./stock-crypto-investment-context-world-model-v2-final/)
 
-## ⭐ 현재 상태 (2026-08-08 기준, 이 절이 최종 권위)
+## ⭐ 현재 상태 (2026-08-10 기준, 이 절이 최종 권위)
 
 ### 완료 — 전부 라이브 적용됨
 
-| 단계 | 내용 | 라이브 결과 |
-| --- | --- | --- |
-| **K0** | 결정을 산출물로 (freeze 커밋 · contracts · availability 봉투) | 완료 |
-| **K1** | Canonical Kernel (078–080) | governance 스키마 1 → 13 relation |
-| **K5** | Release / Safety / SLO (081–083) | safety NORMAL · SLO 8개 report-only |
-| **K2-a** | metric definition 레지스트리 (084) | 6,100 |
-| **K2-b** | numeric_fact writer | **168,417** · 패리티 11,139 전건 일치 |
-| **K2-c** | economic_claim (086) | 297 (판정 2 / 미판정 295) |
-| **K2-d** | 청구권 연속성 bridge | 483 (분할 380 / 역분할 103) |
-| **K2-e** | truth class 바인딩 (085) | 340만 항목 해소 |
-| **K2-f** | assertion writer | 첫 적재 **253** · chunk 계보 6,113 → **증가 중** |
-| **K3** | 섹터 playbook (087) | playbook 1 · driver 8 · 배정 10 |
+| 단계     | 내용                                                          | 라이브 결과                                            |
+| -------- | ------------------------------------------------------------- | ------------------------------------------------------ |
+| **K0**   | 결정을 산출물로 (freeze 커밋 · contracts · availability 봉투) | 완료                                                   |
+| **K1**   | Canonical Kernel (078–080)                                    | governance 스키마 1 → 13 relation                      |
+| **K5**   | Release / Safety / SLO (081–083)                              | safety NORMAL · SLO 8개 report-only                    |
+| **K2-a** | metric definition 레지스트리 (084)                            | 6,100                                                  |
+| **K2-b** | numeric_fact writer                                           | **168,417** · 패리티 11,139 전건 일치                  |
+| **K2-c** | economic_claim (086)                                          | 297 (판정 2 / 미판정 295)                              |
+| **K2-d** | 청구권 연속성 bridge                                          | 483 (분할 380 / 역분할 103)                            |
+| **K2-e** | truth class 바인딩 (085)                                      | 340만 항목 해소                                        |
+| **K2-f** | assertion writer                                              | 첫 적재 **253** · chunk 계보 6,113 → **증가 중**       |
+| **K3**   | 섹터 playbook (087)                                           | playbook 1 · driver 8 · 배정 10                        |
+| **K4**   | Market Intelligence Minimum (088–094)                         | replay 7 + canary 1 · coverage 100 · sealed exposure 2 |
 
-마이그레이션 **087/87 적용, pending 0.** 브레인 healthy · RestartCount 0 ·
-이미지 `sha256:06865eddd8c2…`.
+마이그레이션 **094/94 적용, pending 0.** API와 App 모두 healthy · RestartCount 0.
+운영 이미지는 API `sha256:30c174524197…`, App `sha256:052bdcf4ce25…`다.
 
 > 위 수치는 **첫 적재 시점**이다. 러너를 전부 파이프라인에 배선했으므로 증분이 계속
 > 붙는다 — 2026-08-08 재확인 시 assertion 253 → **255**, chunk 계보 6,113 → **6,157**
@@ -48,69 +49,74 @@
 
 ### ⚠️ 본문에서 이미 정정된 것 — 낡은 서술을 믿지 마라
 
-| 본문 서술 | 실제 |
-| --- | --- |
-| "K2-f assertion writer **차단**" (§남은 K2, §K2 최종 상태) | **틀렸다.** URL 다리를 안 봤을 뿐이다. §"K2-f — 차단이 아니었다" 참조. 완료됨 |
-| "브레인 크래시루프 미해결" (옛 꼬리말) | 2026-08-08 해소. 재시작 1,357회 → 0 |
-| "다음 세션: 브레인 복구 + K2" (옛 꼬리말) | 둘 다 완료 |
-| `governance.slo_*` 가 정본 이탈 (083 SQL 주석) | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
+| 본문 서술                                                  | 실제                                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| "K2-f assertion writer **차단**" (§남은 K2, §K2 최종 상태) | **틀렸다.** URL 다리를 안 봤을 뿐이다. §"K2-f — 차단이 아니었다" 참조. 완료됨        |
+| "브레인 크래시루프 미해결" (옛 꼬리말)                     | 2026-08-08 해소. 재시작 1,357회 → 0                                                  |
+| "다음 세션: 브레인 복구 + K2" (옛 꼬리말)                  | 둘 다 완료                                                                           |
+| `governance.slo_*` 가 정본 이탈 (083 SQL 주석)             | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
 
 ### 현재 위치 — K4 완료, K6부터
 
-| 단계 | 내용 | 상태 |
-| --- | --- | --- |
+| 단계   | 내용                        | 상태                                                 |
+| ------ | --------------------------- | ---------------------------------------------------- |
 | **K4** | Market Intelligence Minimum | **완료.** 7일 PIT replay + live canary, shadow p4.v2 |
-| K6 | Common Asset View | 미착수 |
-| K7 | Product Surface | 미착수. UI 전환과 p4.v1 폐기는 여기서 수행 |
-| K8 | Recommendation Shadow | 미착수 |
+| K6     | Common Asset View           | 미착수                                               |
+| K7     | Product Surface             | 미착수. UI 전환과 p4.v1 폐기는 여기서 수행           |
+| K8     | Recommendation Shadow       | 미착수                                               |
 
 **K4 는 K3 없이 시작하지 않는다** — 이건 지켜졌다. playbook 이 sign·materiality·
 magnitude 를 공급해야 exposure 를 발명 없이 쓸 수 있고, 그 playbook 이 이제 있다.
 
-K4 착수 시 반드시 아는 상태:
+K4 완료 시 운영 shadow 상태:
 
 ```
-analytics.impact_exposure_revision      0행   ← K4 의 본 과녁
-analytics.impact_shock                  0행
-analytics.impact_score_component        0행
-analytics.impact_path_v2          248,236행   전부 direction='unknown'
-governance.entity_playbook_current_v1   10행   ← K4 가 인용할 것
-governance.business_driver               8행   방향 포함
+analytics.impact_evaluation_revision    100행
+analytics.k4_coverage_serving_v2        100행
+analytics.k4_exposure_serving_v2          2행
+analytics.impact_score_component         16행
+analytics.impact_evaluation_evidence      4행
+inadmissible PIT D/E evidence             0행
+missing citation                          0행
+governance.entity_playbook_current_v2    10행
+governance.business_driver                8행
 ```
 
-`run-portfolio-snapshot.ts:18` 이 exposure 채우기를 명시적으로 보류한다 —
-*"filling it would mean inventing sign, materiality and economic magnitude."*
-K4 의 게이트는 **모든 exposure 행이 playbook revision + source-grounded driver 를
-인용**하는 것이다. 인용 없는 행은 INSERT 거부. 단순 `count > 0` 게이트는 쓰지 않는다.
+K4 seal guard는 **모든 accepted exposure가 playbook revision, executable driver rule,
+AIS, sealed derivation, exact identity, A/B/C evidence를 인용**하도록 강제한다. 인용 없는
+행과 PIT D/E evidence는 sealing 단계에서 거부한다. 기존 association 기반 248K path는
+수정하거나 exposure로 일괄 승격하지 않았다.
 
-### 아직 충족되지 않은 REQ (충족 *가능*해졌을 뿐)
+### REQ 상태
 
-| REQ | 상태 |
-| --- | --- |
-| `REQ-SEM-010` truth class 를 UI 에서 구분 | 데이터 원천(`content_pack_item_truth_v1`) 생성됨. **UI 가 아직 안 읽는다** — 도달성 감사의 "안 읽히는 뷰" 16개에 있음 |
-| `REQ-DOM-001` KPI 선택이 playbook revision 인용 | 인용 대상 생성됨. **인용을 강제하는 검사 없음** — KPI 선택 코드가 K4 |
+| REQ                                             | 상태                                                                                                                  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `REQ-SEM-010` truth class 를 UI 에서 구분       | 데이터 원천(`content_pack_item_truth_v1`) 생성됨. **UI 가 아직 안 읽는다** — 도달성 감사의 "안 읽히는 뷰" 16개에 있음 |
+| `REQ-DOM-001` KPI 선택이 playbook revision 인용 | K4 writer와 seal guard에서 **강제됨**. p4.v2 shadow serving까지 연결됐고 UI 전환은 K7                                 |
 
 ## 어디서 작업 중인가
 
 ```
-worktree   /home/jigoo/.hermes/worktrees/stock-insight-v2-kernel
-branch     feat/v2-canonical-kernel                   → master 병합 완료 (6734a8c)
-           fix/live-database-guard-timescale-chunks   → master 병합 완료 (dad8652)
-본 체크아웃  /home/jigoo/.hermes/workspace/stock-insight  ← P5 이후 master 가 최신
+K4 worktree  /home/jigoo/.hermes/worktrees/stock-insight-k4
+K4 branch    codex/k4-market-intelligence
+              → master 병합 완료 (808b6b71491ed3069f4ba0f8af7f997e5d3c685b)
+본 체크아웃   /home/jigoo/.hermes/workspace/stock-insight
+운영 master   a6f2c7792fab85607d1e035c5e5acc868172131e
+              (K4 병합 + 운영 이미지 pin, 실행 로그 커밋은 이 뒤에 추가됨)
 ```
 
 ## 🔧 브레인 크래시루프 — 해소 (2026-08-08)
 
 P5 에서 발견한 24시간짜리 장애(§아래)를 고쳤다. 사용자 결정: **근본 수정**.
 
-| 단계 | 상태 |
-| --- | --- |
-| probe 에서 TimescaleDB 청크 제외 (`TIMESCALE_CHUNK_EXCLUSION`) | ✅ `e127680` |
-| 다이제스트 4개 재핀 (reader/writer × relation/rls) | ✅ 도구 검증 **14개 전부 일치** |
-| repin 도구의 `$'` 치환 확장 결함 수정 | ✅ 함수 치환 + 미해소 플레이스홀더 검사 |
-| `live-database-guard.test.ts` 픽스처 갱신 | ✅ |
-| master 병합 | ✅ `dad8652` |
-| 이미지 빌드 → 배포 → 부팅 확인 | ✅ **복구 완료** |
+| 단계                                                           | 상태                                    |
+| -------------------------------------------------------------- | --------------------------------------- |
+| probe 에서 TimescaleDB 청크 제외 (`TIMESCALE_CHUNK_EXCLUSION`) | ✅ `e127680`                            |
+| 다이제스트 4개 재핀 (reader/writer × relation/rls)             | ✅ 도구 검증 **14개 전부 일치**         |
+| repin 도구의 `$'` 치환 확장 결함 수정                          | ✅ 함수 치환 + 미해소 플레이스홀더 검사 |
+| `live-database-guard.test.ts` 픽스처 갱신                      | ✅                                      |
+| master 병합                                                    | ✅ `dad8652`                            |
+| 이미지 빌드 → 배포 → 부팅 확인                                 | ✅ **복구 완료**                        |
 
 **복구 확인 (2026-08-08 01:53 KST)**
 
@@ -139,7 +145,7 @@ GRANT 를 되돌리는 쪽이 맞다.
 의 나머지 14개(연속 집계 내부, 잡 통계 뷰)는 범위에 남는다.
 
 **픽스처가 이 장애를 못 잡은 이유도 기록해 뒀다** — `live-database-guard.test.ts` 는
-가드가 *그 값과 일치하는 행* 을 받아들이는지만 단언하므로, 라이브와 어긋난 핀도 통과하고
+가드가 _그 값과 일치하는 행_ 을 받아들이는지만 단언하므로, 라이브와 어긋난 핀도 통과하고
 부팅에서만 실패한다. 잡을 수 있었던 것은 라이브 대상 repin 도구뿐이다.
 
 **왜 worktree 인가:** `ops/systemd/user/*.service` 의 `WorkingDirectory` 가 본 체크아웃
@@ -152,6 +158,7 @@ ccb1ddb5818e69fc28bfc62bd753f9a87bae99321e2c2765b5f4f2a37ccd0e1d
 ```
 
 재확인 명령:
+
 ```bash
 cd /home/jigoo/.hermes/workspace/stock-insight
 git ls-files -z | while IFS= read -r -d '' f; do sha256sum --binary "$f"; done | sha256sum
@@ -196,6 +203,7 @@ format:check 통과
 ```
 
 **K0-2 에서 내린 결정 (되짚지 말 것):**
+
 - `temporal.ts` 는 **건드리지 않았다.** 읽기 표면 계약으로 유지하고
   `informationSetFromTemporalQuery` 하나만 다리로 둔다
 - epistemic class 6종 렌더 스펙은 **바이트 단위로 불변** (테스트가 강제)
@@ -221,14 +229,15 @@ format:check 통과
 
 **K1 에서 계획과 달라진 것 (근거 있음):**
 
-| 변경 | 이유 |
-| --- | --- |
-| 078↔079 번호 교체 | information set 이 semantic_snapshot 을 FK 로 참조. 번호는 의존 순서를 따른다 |
+| 변경                                                                  | 이유                                                                                                                                                                                |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 078↔079 번호 교체                                                     | information set 이 semantic_snapshot 을 FK 로 참조. 번호는 의존 순서를 따른다                                                                                                       |
 | PIT 등급을 `source_contract_revision` 컬럼이 아니라 **별도 원장**으로 | 그 표에 `source_contract_revision_immutable` 트리거가 있고 각 행이 자기 계약에 대한 `content_hash` 를 갖는다. 백필하면 실패하거나 hash 가 내용을 기술하지 않는 리비전 69개가 남는다 |
-| **다이제스트 재핀 불필요** | guard 의 probe 가 전부 `has_table_privilege(current_user,…)` 로 걸린다 → app 롤에 GRANT 안 하면 핀이 안 움직인다. 리허설이 `noAppRoleReach: true` 로 실증 |
-| PIT 감사에 **알려진 예외 목록** | `run-v2-graph-publish.ts:1696-1697` 이 실제 위반인데 K7 소관. 순수 실패면 파이프라인을 즉시 깬다. 예외는 이유·담당과 함께 기록하고 신규 위반은 실패시키며, 예외 부패도 검사한다 |
+| **다이제스트 재핀 불필요**                                            | guard 의 probe 가 전부 `has_table_privilege(current_user,…)` 로 걸린다 → app 롤에 GRANT 안 하면 핀이 안 움직인다. 리허설이 `noAppRoleReach: true` 로 실증                           |
+| PIT 감사에 **알려진 예외 목록**                                       | `run-v2-graph-publish.ts:1696-1697` 이 실제 위반인데 K7 소관. 순수 실패면 파이프라인을 즉시 깬다. 예외는 이유·담당과 함께 기록하고 신규 위반은 실패시키며, 예외 부패도 검사한다     |
 
 **리허설이 정적 테스트가 놓친 결함 2개를 잡았다:**
+
 1. `ARRAY(SELECT DISTINCT unnest(...))` — PostgreSQL 은 CHECK 안 서브쿼리 금지.
    SQL 텍스트로는 멀쩡하고 실제 DB 가 표를 만들 때만 실패 → IMMUTABLE 함수로 분리
 2. 그 함수 파라미터명 `values` — 예약어라 SQL 함수 본문에서 식별자 불가
@@ -304,7 +313,7 @@ reachability           표 171 · 뷰 31 · 미읽힘 뷰 13 (신규 4 포함, �
 
 guard 의 probe(`live-database-guard.ts`)는 relation·column·sequence·schema·RLS 배열을
 전부 `has_table_privilege(current_user, …)` / `has_schema_privilege` 로 거른다. 078~083 은
-파이프라인 롤(si_*)에만 GRANT 하고 app 롤 상속 체인
+파이프라인 롤(si\_\*)에만 GRANT 하고 app 롤 상속 체인
 (`app_reader → stock_insight_reader`, `app_writer → stock_insight_writer → reader`) 밖이므로
 핀이 움직이지 않는다.
 
@@ -332,6 +341,7 @@ diff 가 비어야 정상이고, 비어 있지 않으면 중단 조건 #10 이�
 
 ②~④ 사이에 api-server 를 재시작하지 않는다.
 ```
+
 </details>
 
 ---
@@ -351,11 +361,11 @@ stock_insight_app_writer   relation_privileges_digest ≠ · rls_contract_digest
 
 정확히 세 관계를 제외하면 핀 `f3a18fad…` 이 773 항목으로 재현된다:
 
-| 관계 | 원인 |
-| --- | --- |
-| `market.scheduled_event` | 마이그레이션 074 가 app_reader 에 GRANT 하고 **재핀하지 않았다** |
-| `_timescaledb_internal._hyper_1_826_chunk` | **TimescaleDB 가 자동 생성** |
-| `_timescaledb_internal.compress_hyper_2_825_chunk` | 〃 |
+| 관계                                               | 원인                                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------- |
+| `market.scheduled_event`                           | 마이그레이션 074 가 app_reader 에 GRANT 하고 **재핀하지 않았다** |
+| `_timescaledb_internal._hyper_1_826_chunk`         | **TimescaleDB 가 자동 생성**                                     |
+| `_timescaledb_internal.compress_hyper_2_825_chunk` | 〃                                                               |
 
 ### 두 번째가 구조적 결함이다
 
@@ -377,16 +387,17 @@ stock-insight-api-1   Restarting (1)   RestartCount=1357
 
 **타임라인**
 
-| 시각 (KST) | 사건 |
-| --- | --- |
-| 2026-08-07 01:32 | 마이그레이션 **074** 적용 — app_reader 에 GRANT, 재핀 없음 |
-| (그 이후 어느 재시작) | 브레인이 부팅 검증에 실패하기 시작 |
-| 2026-08-08 01:33 | 내 마이그레이션 078~083 적용 |
-| 2026-08-08 01:40 | 발견. RestartCount **1357** |
+| 시각 (KST)            | 사건                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| 2026-08-07 01:32      | 마이그레이션 **074** 적용 — app_reader 에 GRANT, 재핀 없음 |
+| (그 이후 어느 재시작) | 브레인이 부팅 검증에 실패하기 시작                         |
+| 2026-08-08 01:33      | 내 마이그레이션 078~083 적용                               |
+| 2026-08-08 01:40      | 발견. RestartCount **1357**                                |
 
 **1357회 재시작은 5분 만에 쌓일 수 없다.** 074 적용(24시간 전)이 기점이다.
 
 **내 변경이 원인이 아님을 두 번 증명했다:**
+
 1. 적용 **전** repin 도구 실행 → 이미 어긋나 있었음
 2. 적용 **후** 다이제스트가 바이트 동일 (773 항목, `f3a18fad…`) — 신규 12개 관계 전부
    app 롤 도달 불가
@@ -408,8 +419,8 @@ stock-insight-api-1   Restarting (1)   RestartCount=1357
 ### 이번 실행에서 한 판단
 
 - **재핀하지 않는다.** 내가 만들지 않은 변경을 승인하는 것이고, 청크 때문에 어차피 다시
-  어긋난다. 도구 주석이 요구하는 규율 그대로 — *"설명할 수 없는 다이제스트 변경은 tripwire 가
-  일하는 중이다"* — 여기서는 설명이 되지만, 그 설명이 재핀보다 큰 문제를 드러낸다
+  어긋난다. 도구 주석이 요구하는 규율 그대로 — _"설명할 수 없는 다이제스트 변경은 tripwire 가
+  일하는 중이다"_ — 여기서는 설명이 되지만, 그 설명이 재핀보다 큰 문제를 드러낸다
 - **내 마이그레이션은 적용한다.** app 롤 도달을 바꾸지 않으므로(리허설 실증) 이 문제를
   악화시키지 않고, 적용이 api-server 재시작을 요구하지도 않는다
 - **guard probe 수정은 이번 범위 밖이다** — 보안 가드 변경이고 K0/K1/K5 와 별건이다
@@ -420,19 +431,19 @@ stock-insight-api-1   Restarting (1)   RestartCount=1357
 
 승인을 묻지 않는다. 아래만 멈추고 보고한다.
 
-| # | 조건 | 상태 |
-| --- | --- | --- |
-| 1 | P4 검증 실패 | ✅ 전부 통과 |
-| 2 | 리허설 DB 생성 불가 | ✅ 생성·검증·정리 완료 |
-| 3 | 백업/복원 검증 실패 | — |
-| 4 | `schema:status` 에 우리 6개 외 pending | ✅ 정확히 6개 |
-| 5 | in-flight 파이프라인 15분 초과 | — |
-| 6 | 마이그레이션이 non-additive | ✅ 정적 테스트가 강제 |
-| 7 | freeze 체크섬 실패 | ✅ 통과 (31/31) |
-| 8 | 본 체크아웃 tree hash 이동 | ✅ 불변 확인 |
-| 9 | 078~083 번호 충돌 | ✅ 없음 |
-| 10 | 다이제스트 변경이 설명 안 됨 | ✅ 리허설상 변경 없음 예상 |
-| 11 | 재핀 후 api-server 부팅 실패 | 🔴 **재핀 전부터 크래시루프 중** — 074 가 기점, 내 변경 무관 (§P5 발견 참조). 이미지 재배포 필요 = 범위 밖 |
+| #   | 조건                                   | 상태                                                                                                       |
+| --- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 1   | P4 검증 실패                           | ✅ 전부 통과                                                                                               |
+| 2   | 리허설 DB 생성 불가                    | ✅ 생성·검증·정리 완료                                                                                     |
+| 3   | 백업/복원 검증 실패                    | —                                                                                                          |
+| 4   | `schema:status` 에 우리 6개 외 pending | ✅ 정확히 6개                                                                                              |
+| 5   | in-flight 파이프라인 15분 초과         | —                                                                                                          |
+| 6   | 마이그레이션이 non-additive            | ✅ 정적 테스트가 강제                                                                                      |
+| 7   | freeze 체크섬 실패                     | ✅ 통과 (31/31)                                                                                            |
+| 8   | 본 체크아웃 tree hash 이동             | ✅ 불변 확인                                                                                               |
+| 9   | 078~083 번호 충돌                      | ✅ 없음                                                                                                    |
+| 10  | 다이제스트 변경이 설명 안 됨           | ✅ 리허설상 변경 없음 예상                                                                                 |
+| 11  | 재핀 후 api-server 부팅 실패           | 🔴 **재핀 전부터 크래시루프 중** — 074 가 기점, 내 변경 무관 (§P5 발견 참조). 이미지 재배포 필요 = 범위 밖 |
 
 ---
 
@@ -452,17 +463,17 @@ K0+K1+K5 는 제품 읽기 경로를 바꾸지 않으므로 이것으로 충분�
 
 ## 커밋 이력
 
-| # | 해시 | 내용 |
-| --- | --- | --- |
-| 1 | `600e419` | freeze 패키지 편입 — zip 제거로 자립화 |
-| 2 | `fc19147` | 목표 정본 재지시 + 대체된 계획문서 3개 SUPERSEDED |
-| 3 | `f1247e1` | analysis information set 계약 + truth class 14종 시각 구분 |
-| 4 | `5d35599` | portfolio-impact 404 → not_computed 봉투 (계약+서버+웹) |
-| 5 | `45a99bc` | 계획서 §9 실행 모델 + 실행 로그 |
-| 6 | `421ca90` | 마이그레이션 078~080 |
-| 7 | `1b8db11` | semantic type guard · PIT 감사 · temporal kernel |
-| 8 | `5a13f0f` | K1 완료 로그 |
-| 9 | `0ad6649` | 마이그레이션 081~083 + reachability 뷰 스캔 |
+| #   | 해시      | 내용                                                       |
+| --- | --------- | ---------------------------------------------------------- |
+| 1   | `600e419` | freeze 패키지 편입 — zip 제거로 자립화                     |
+| 2   | `fc19147` | 목표 정본 재지시 + 대체된 계획문서 3개 SUPERSEDED          |
+| 3   | `f1247e1` | analysis information set 계약 + truth class 14종 시각 구분 |
+| 4   | `5d35599` | portfolio-impact 404 → not_computed 봉투 (계약+서버+웹)    |
+| 5   | `45a99bc` | 계획서 §9 실행 모델 + 실행 로그                            |
+| 6   | `421ca90` | 마이그레이션 078~080                                       |
+| 7   | `1b8db11` | semantic type guard · PIT 감사 · temporal kernel           |
+| 8   | `5a13f0f` | K1 완료 로그                                               |
+| 9   | `0ad6649` | 마이그레이션 081~083 + reachability 뷰 스캔                |
 
 ### K2 · K3 (2026-08-08)
 
@@ -524,12 +535,12 @@ process.stdout.write(u.toString());')
 
 ### 리허설 하니스와 필요한 환경변수
 
-| 하니스 | 환경변수 | 무엇을 검증 |
-| --- | --- | --- |
-| `apps/api/scripts/run-kernel-db-rehearsal.mjs` | `KERNEL_REHEARSAL_ADMIN_DATABASE_URL` | 078–087 마이그레이션 SQL |
-| `apps/api/scripts/run-dart-numeric-fact-rehearsal.mjs` | `DART_REHEARSAL_ADMIN_DATABASE_URL` + `DATABASE_URL` | numeric_fact 적재 경로 |
-| `pnpm test:p6:db` | `P6_REHEARSAL_ADMIN_DATABASE_URL` | p6 |
-| `pnpm test:xg:db` | `XG_REHEARSAL_ADMIN_DATABASE_URL` | **리더 권한 회귀** — GRANT 를 바꿨으면 필수 |
+| 하니스                                                 | 환경변수                                             | 무엇을 검증                                 |
+| ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------------- |
+| `apps/api/scripts/run-kernel-db-rehearsal.mjs`         | `KERNEL_REHEARSAL_ADMIN_DATABASE_URL`                | 078–087 마이그레이션 SQL                    |
+| `apps/api/scripts/run-dart-numeric-fact-rehearsal.mjs` | `DART_REHEARSAL_ADMIN_DATABASE_URL` + `DATABASE_URL` | numeric_fact 적재 경로                      |
+| `pnpm test:p6:db`                                      | `P6_REHEARSAL_ADMIN_DATABASE_URL`                    | p6                                          |
+| `pnpm test:xg:db`                                      | `XG_REHEARSAL_ADMIN_DATABASE_URL`                    | **리더 권한 회귀** — GRANT 를 바꿨으면 필수 |
 
 `pnpm verify:release` 는 이것들을 포함하므로 환경변수 없이 돌리면 `Invalid URL` 로 죽는다.
 코드 실패가 아니다.
@@ -589,7 +600,7 @@ DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
 
 ---
 
-*이 꼬리말은 P5 시점의 것이고 낡았다. 최신 상태는 문서 맨 위 **⭐ 현재 상태** 를 보라.*
+_이 꼬리말은 P5 시점의 것이고 낡았다. 최신 상태는 문서 맨 위 **⭐ 현재 상태** 를 보라._
 
 ---
 
@@ -600,13 +611,13 @@ DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
 
 ### 산출
 
-| 파일 | 역할 |
-| --- | --- |
-| `apps/api/src/backfill/dart-numeric-fact.ts` | 순수 매핑 — 기간·개념·셀 주소·시간축 |
+| 파일                                              | 역할                                                  |
+| ------------------------------------------------- | ----------------------------------------------------- |
+| `apps/api/src/backfill/dart-numeric-fact.ts`      | 순수 매핑 — 기간·개념·셀 주소·시간축                  |
 | `apps/api/src/backfill/dart-numeric-fact-plan.ts` | 순수 계획 — fact/definition 행, revision 배정, 패리티 |
-| `apps/api/src/backfill/run-dart-numeric-fact.ts` | I/O 만 |
-| `apps/api/scripts/run_market_enrichment.sh` | DART 단계 뒤에 배선 |
-| 테스트 3개 | 64건 |
+| `apps/api/src/backfill/run-dart-numeric-fact.ts`  | I/O 만                                                |
+| `apps/api/scripts/run_market_enrichment.sh`       | DART 단계 뒤에 배선                                   |
+| 테스트 3개                                        | 64건                                                  |
 
 `pnpm --filter @stock-insight/api backfill:dart-numeric-fact:dry-run` / `:apply`
 
@@ -631,16 +642,16 @@ DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
 
 ### 정본 대비 판단
 
-| 판단 | 분류 | 근거 |
-| --- | --- | --- |
-| numeric_fact 를 raw object 에서 채움 | **A** | K2 조사 결론 그대로 |
-| `market.financial_fact` 재사용 안 함 | **A** | 접힌 표로는 definition registry 를 못 만든다 |
+| 판단                                   | 분류  | 근거                                                                   |
+| -------------------------------------- | ----- | ---------------------------------------------------------------------- |
+| numeric_fact 를 raw object 에서 채움   | **A** | K2 조사 결론 그대로                                                    |
+| `market.financial_fact` 재사용 안 함   | **A** | 접힌 표로는 definition registry 를 못 만든다                           |
 | `available_at` 을 `rcept_no` 에서 도출 | **B** | `source_revision.available_at` 은 수집 시각. 그대로 쓰면 컬럼이 무의미 |
-| 결산월을 profile snapshot 에서 읽음 | **A** | `public` 은 우리 소유 스키마가 아니다 |
-| 정정 그룹에 명세서 구분 추가 | **B** | 실 데이터가 가짜 정정 988건을 만들었다 |
-| 비표준 계정에 ordinal 차원 추가 | **B** | 실 데이터가 서로 다른 항목 599쌍을 합쳤다 |
-| 분기 CF/SCE 거부 | **A** | 실측: 111,935행 중 누적 필드 보유 0건 |
-| `run_market_enrichment.sh` 에 배선 | **A** | 일회성 백필이 아니다. `job-wiring-inventory` 가 강제 |
+| 결산월을 profile snapshot 에서 읽음    | **A** | `public` 은 우리 소유 스키마가 아니다                                  |
+| 정정 그룹에 명세서 구분 추가           | **B** | 실 데이터가 가짜 정정 988건을 만들었다                                 |
+| 비표준 계정에 ordinal 차원 추가        | **B** | 실 데이터가 서로 다른 항목 599쌍을 합쳤다                              |
+| 분기 CF/SCE 거부                       | **A** | 실측: 111,935행 중 누적 필드 보유 0건                                  |
+| `run_market_enrichment.sh` 에 배선     | **A** | 일회성 백필이 아니다. `job-wiring-inventory` 가 강제                   |
 
 ### 다음이 알아야 할 것
 
@@ -655,14 +666,14 @@ DATABASE_URL="$DB_URL" node ops/scripts/repin-live-database-digests.mjs
 
 ### 남은 K2
 
-| # | 작업 | 상태 |
-| --- | --- | --- |
-| K2-a | metric_definition 레지스트리 | 마이그레이션 084 작성 완료, **라이브 미적용** |
-| K2-b | numeric_fact writer | **완료**, 라이브 미적용 |
-| K2-c | `core.economic_claim` | 미착수 |
-| K2-d | corporate action 백필 | 미착수 (원천 미확인) |
-| K2-e | truth_class 메타데이터 | 미착수 |
-| K2-f | assertion writer | ~~차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
+| #    | 작업                         | 상태                                             |
+| ---- | ---------------------------- | ------------------------------------------------ |
+| K2-a | metric_definition 레지스트리 | 마이그레이션 084 작성 완료, **라이브 미적용**    |
+| K2-b | numeric_fact writer          | **완료**, 라이브 미적용                          |
+| K2-c | `core.economic_claim`        | 미착수                                           |
+| K2-d | corporate action 백필        | 미착수 (원천 미확인)                             |
+| K2-e | truth_class 메타데이터       | 미착수                                           |
+| K2-f | assertion writer             | ~~차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
 
 ### 적재 경로 실증 (커밋 `b0e5d10`)
 
@@ -776,11 +787,11 @@ HYPOTHESIS     207,486
 
 ### 첫 적재 소요 시간
 
-| 잡 | 행 | 시간 |
-| --- | --- | --- |
-| numeric_fact | 168,417 | **9초** |
-| 연속성 bridge | 483 | 0초 |
-| economic claim | 297 | 0초 |
+| 잡             | 행      | 시간    |
+| -------------- | ------- | ------- |
+| numeric_fact   | 168,417 | **9초** |
+| 연속성 bridge  | 483     | 0초     |
+| economic claim | 297     | 0초     |
 
 **계획이 걱정한 90분 예산 잠식은 없다.** revision 단계별 배치 적재가 168K 를 9초로
 줄였다. 손으로 돌린 것은 여전히 옳은 선택이었지만 — 시간을 모른 채 타이머에 맡기는
@@ -808,14 +819,14 @@ run-table-reachability-audit 안 읽히는 뷰 16개 보고
 
 ### K2 최종 상태
 
-| # | 작업 | 상태 |
-| --- | --- | --- |
-| K2-a | metric_definition 레지스트리 (084) | ✅ 라이브, 6,100건 |
-| K2-b | numeric_fact writer | ✅ 라이브, 168,417건 |
-| K2-c | economic_claim (086) | ✅ 라이브, 297건 (판정 2) |
-| K2-d | 연속성 bridge | ✅ 라이브, 483건 |
-| K2-e | truth class 바인딩 (085) | ✅ 라이브, 340만건 해소 |
-| K2-f | assertion writer | ~~❌ 차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
+| #    | 작업                               | 상태                                                |
+| ---- | ---------------------------------- | --------------------------------------------------- |
+| K2-a | metric_definition 레지스트리 (084) | ✅ 라이브, 6,100건                                  |
+| K2-b | numeric_fact writer                | ✅ 라이브, 168,417건                                |
+| K2-c | economic_claim (086)               | ✅ 라이브, 297건 (판정 2)                           |
+| K2-d | 연속성 bridge                      | ✅ 라이브, 483건                                    |
+| K2-e | truth class 바인딩 (085)           | ✅ 라이브, 340만건 해소                             |
+| K2-f | assertion writer                   | ~~❌ 차단~~ → **이 판정은 틀렸다.** ✅ 완료 (253건) |
 
 ### ~~K2-f 를 여는 조건~~ — 아래 진단은 틀렸다 (2026-08-08 정정)
 
@@ -829,8 +840,8 @@ run-table-reachability-audit 안 읽히는 뷰 16개 보고
 
 **완화하지 마라.** REQ-EVD-001·004 를 정면으로 어긴다. 필요한 것은 별도 슬라이스다 —
 `ingestion` 스택이 수집한 rss-news-bundle raw object 가 `knowledge.document` 가 되게
-하고 레거시는 레거시로 남기는 것. canonical/11 §2 가 *"raw/source revision + PIT quality"*
-다음에 *"event/assertion/conflict"* 를 둔 이유와 같다.
+하고 레거시는 레거시로 남기는 것. canonical/11 §2 가 _"raw/source revision + PIT quality"_
+다음에 _"event/assertion/conflict"_ 를 둔 이유와 같다.
 
 ### 착지 후 발견하고 고친 것 둘
 
@@ -980,14 +991,14 @@ claim 121건이 아직 assertion 아님
 
 ### K2 최종
 
-| # | 작업 | 상태 |
-| --- | --- | --- |
-| K2-a | metric_definition (084) | ✅ 6,100 |
-| K2-b | numeric_fact writer | ✅ 168,417 |
-| K2-c | economic_claim (086) | ✅ 297 |
-| K2-d | 연속성 bridge | ✅ 483 |
-| K2-e | truth class (085) | ✅ 340만 해소 |
-| K2-f | assertion writer | ✅ **253** (차단 아니었음) |
+| #    | 작업                    | 상태                       |
+| ---- | ----------------------- | -------------------------- |
+| K2-a | metric_definition (084) | ✅ 6,100                   |
+| K2-b | numeric_fact writer     | ✅ 168,417                 |
+| K2-c | economic_claim (086)    | ✅ 297                     |
+| K2-d | 연속성 bridge           | ✅ 483                     |
+| K2-e | truth class (085)       | ✅ 340만 해소              |
+| K2-f | assertion writer        | ✅ **253** (차단 아니었음) |
 
 ---
 
@@ -1048,7 +1059,7 @@ curated 항목이 우주에서 사라지면 러너가 **실패한다**(`staleCur
 ### driver 는 정의고 관측이 아니다
 
 정본 04 §3 이 각 driver 에 source·definition·horizon·sensitivity·lag·regime·
-uncertainty 를 준다. 그건 개념의 속성이다. 회사의 *값* 을 같은 행에 넣으면 정의와
+uncertainty 를 준다. 그건 개념의 속성이다. 회사의 _값_ 을 같은 행에 넣으면 정의와
 관측을 뒤섞는다. 관측은 K4 의 exposure 작업이고, **K3 없이 K4 를 시작하지 않는 이유가
 바로 K4 가 인용할 것이 있어야 하기 때문이다.**
 
@@ -1114,10 +1125,10 @@ dry-run → rehearsal(전부 ROLLBACK) → apply → apply 재실행 순으로 �
 rehearsal 직후 운영 ledger는 `receipt=0`, `evaluation=0`이었다. apply 결과 receipt 8~14가
 생겼고 두 번째 apply는 7건 모두 같은 receipt ID와 `idempotent=true`를 반환했다.
 
-| cutoff | 평가 | accepted | 정직한 coverage 결과 |
-| --- | ---: | ---: | --- |
-| 2026-08-02..07 KST EOD | 매일 10 | 0 | 매일 10 `missing_identity` |
-| 2026-08-08 KST EOD | 10 | 0 | 10 `unsupported_measurement` |
+| cutoff                 |    평가 | accepted | 정직한 coverage 결과         |
+| ---------------------- | ------: | -------: | ---------------------------- |
+| 2026-08-02..07 KST EOD | 매일 10 |        0 | 매일 10 `missing_identity`   |
+| 2026-08-08 KST EOD     |      10 |        0 | 10 `unsupported_measurement` |
 
 과거에 지금의 identity·rule·fact를 소급하지 않았기 때문에 0 accepted가 정상이다.
 
@@ -1126,9 +1137,9 @@ rehearsal 직후 운영 ledger는 `receipt=0`, `evaluation=0`이었다. apply �
 receipt 15. 10종목×3 executable driver rule = 30평가, accepted 2, rejected 28이다.
 accepted는 ARM의 source-grounded 두 측정뿐이다.
 
-| driver/rule | 방향 | 경제 magnitude | materiality |
-| --- | --- | ---: | ---: |
-| `capex_cycle/capex_yoy` | negative | USD 43,000,000 | 0.2792207792 |
+| driver/rule                  | 방향     |  경제 magnitude |  materiality |
+| ---------------------------- | -------- | --------------: | -----------: |
+| `capex_cycle/capex_yoy`      | negative |  USD 43,000,000 | 0.2792207792 |
 | `fab_fixed_cost/net_ppe_yoy` | negative | USD 456,000,000 | 0.9764453961 |
 
 두 exposure 모두 playbook, driver rule, AIS, sealed derivation, exact identity와 current/comparison
@@ -1166,3 +1177,107 @@ v2 exposure                          2
 기존 association 기반 248K path는 수정·승격하지 않았다. 유효한 citation이 없는 path step은
 p4.v2 bridge view에서 0건이고, 인용 없는 path를 exposure처럼 서빙한 건도 0건이다.
 UI 전환과 p4.v1 폐기는 K7 Product Surface에서 수행한다.
+
+### 2026-08-10 최종 병합·운영 배포 영수증
+
+이 절은 K4의 최종 인계점이다. 위의 replay와 canary는 이미 성공한 정본 데이터이므로
+입력·코드 변화가 없는 최종 배포에서 다시 실행하지 않았다. 같은 영수증을 늘리기 위한
+중복 실행은 검증이 아니다.
+
+#### Git 병합과 정적 검증
+
+- 최신 `origin/master` `d25a87fc2144ccc3c98739a5c1fc33770a879d97`를 확인했다.
+  이 커밋은 K4 브랜치의 조상이어서 충돌성 병합 없이 fast-forward했다.
+- K4 구현과 Sigma 상태 수정은
+  `808b6b71491ed3069f4ba0f8af7f997e5d3c685b`로 master에 병합·push했다.
+- 운영 이미지 pin은 `a6f2c7792fab85607d1e035c5e5acc868172131e`로 별도 커밋·push했다.
+- 최종 검증: format 1,441 files, lint 0 errors(기존 접근성 warning 6), typecheck 11/11,
+  전체 test, design hard gate, build 7/7 통과.
+- Sigma는 관계 그래프용 WebGL renderer다. 투자 판단 모델이 아니다. 모바일/local 선택의
+  live-region이 `불러오는 중`에 남던 원인을 callback 유무에 따른 상태 전이로 고쳤다.
+  회귀 20/20과 실제 production browser 10/10을 통과했고, 브라우저 artifact SHA-256은
+  `2fe31ce6406488dec3c9cd8f1258eb8664e9cd75e229c2cacb8ec97ab6db7e6d`다.
+
+#### 백업·복구·스키마
+
+- 논리 백업:
+  `/home/jigoo/hermes-work/research-app-db/backups/logical/logical-20260809T170522Z`
+- dump 크기 `1,356,412,214` bytes. globals, metadata, SHA 합계를 확인했다.
+- 격리 restore 검증:
+  PostgreSQL 16.14, TimescaleDB 2.28.2, PostGIS 3.6.4, vector 0.8.5,
+  derivation 3,402,595, item 3,402,593, hypertable 9, invalid 0, job 7,
+  sequence 264. 검증용 container와 volume은 제거했다.
+- 운영 schema status는 total 94, applied 94, pending 0이다. 적용할 migration이 없어서
+  schema apply와 catalog digest repin은 수행하지 않았다.
+
+#### 이미지·배포·health
+
+- API `stock-insight-api:808b6b7`
+  `sha256:30c174524197a35c4de426203973746c388949fefe8c55a02c4458dd3419f150`
+- App `stock-insight-app:808b6b7`
+  `sha256:052bdcf4ce2542fa4e044fd2d8ff8f1ae2ceb3280030ffff78388af92c42f3f2`
+- 두 이미지 모두 `linux/amd64`. release compose 계약은
+  `compose_contract=PASS project=stock-insight services=api,app`이다.
+- DB는 재기동하지 않고 API와 App만 `--no-build --force-recreate`로 배포했다.
+- API health는 DB status `ok`, App health도 `ok`. 두 container 모두 healthy,
+  `RestartCount=0`이다.
+
+#### 실제 로그인 검증
+
+- 공개 URL `https://stock.jigooo.com`에서 safety fingerprint가 끝난 뒤 로그인 control이
+  활성화되는 것을 확인했다. 과거의 fingerprint 대기 고착은 재현되지 않았고 browser error는 0이다.
+- 일회용 live QA 계정을 만들어 공개 로그인 화면으로 로그인했고
+  `/workspace/today` redirect와 app health 200을 확인했다.
+- 검증 직후 identity/bootstrap/local-account/app_user를 역순 삭제했다.
+  `cleanupVerified=true`, `temporaryAccountRemaining=false`다. 자격 증명은 남기지 않았다.
+
+#### p4.v2의 정확한 운영 상태
+
+내부 signed route의 live readback은 다음과 같다.
+
+```json
+{
+  "p4v2Route": "PASS",
+  "status": 404,
+  "availability": "no_portfolio_snapshot",
+  "snapshot_count": 0,
+  "coverage_count": 100,
+  "exposure_count": 2,
+  "score_count": 16,
+  "evidence_count": 4,
+  "inadmissible_evidence_count": 0,
+  "missing_citation_count": 0,
+  "aggregateImpactPresent": false
+}
+```
+
+이 404는 route나 K4 ledger 실패가 아니다. 운영 `personalization.portfolio_snapshot`이
+0행이라 controller가 의도대로 `no_portfolio_snapshot`을 반환한 것이다. 따라서 현재
+사용자별 `availability: available` 200 봉투가 있다고 말하면 안 된다. 다음 작업에서 먼저
+portfolio snapshot 입력/writer를 연결해야 한다. K4 shadow ledger와 p4.v2의 citation,
+PIT, unit 비합산 계약은 라이브다. p4.v1과 현재 UI는 그대로 유지한다.
+
+#### 검증 cohort와 시간축
+
+- Samsung `--offset 17 --limit 1`은 OpenDART 경로의 단건 표적 smoke다.
+- 10종목은 주문·추천이 아닌 고정 shadow 검증 cohort다.
+- 실제 1주를 기다렸다고 기록하지 않았다. `2026-08-02..08` KST EOD cutoff 7개를 PIT로
+  재생하고 live canary 1회를 별도로 실행했다.
+- 최종 배포에는 입력·semantic 변화가 없어 성공한 replay/canary를 중복 실행하지 않았다.
+
+#### 다음 세션 실행 순서
+
+1. **K6 Common Asset View** — portfolio snapshot 입력/writer의 정본과 p4.v2 available
+   envelope까지 연결한다. 현재 `snapshot_count=0`이 명시적 시작점이다.
+2. **K7 Product Surface** — 현재 UI를 p4.v2로 전환하고 검증 뒤 p4.v1을 폐기한다.
+3. **K8 Recommendation Shadow** — 주문과 분리된 recommendation shadow를 진행한다.
+
+K4 replay, Samsung smoke, 10종목 canary를 코드나 입력 변화 없이 다시 돌리지 않는다.
+K6는 위 live readback과 이 문서의 최종 Git SHA부터 확인하고 시작한다.
+
+#### 정리 상태
+
+- K4 임시 Docker/restore/Sigma container 0, 임시 browser tab 0, 임시 로그인 계정 0.
+- host의 `k4-*` patch/SQL/helper와 `run_k4_verify_release.sh` 잔여 0.
+- 다른 프로젝트와 운영 서비스의 container/process는 소유 범위 밖이라 종료하지 않았다.
+  남은 `cloudflared`, Docker, PostgreSQL, Node process는 현재 서비스 소유다.
