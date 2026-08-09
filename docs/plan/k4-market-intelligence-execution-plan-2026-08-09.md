@@ -126,4 +126,3 @@
   K6 Common Asset View, K7 Product Surface, K8 Recommendation Shadow. Record that
   historical replay plus one canary replaced the literal live-week wait; do not
   claim a live week was observed.
-
