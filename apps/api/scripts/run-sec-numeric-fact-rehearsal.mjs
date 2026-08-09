@@ -7,7 +7,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
-import { additiveAppMigrations } from '@stock-insight/db-schema';
 
 import { legacyBootstrapSql } from './sec-numeric-fact-rehearsal-bootstrap.mjs';
 import {
@@ -15,6 +14,7 @@ import {
   parseLastJson,
   runC2Rehearsal,
 } from './sec-numeric-fact-rehearsal-lib.mjs';
+import { additiveAppMigrations } from '@stock-insight/db-schema';
 
 const { Pool } = pg;
 const REQUIRED_MIGRATION = '090_numeric_fact_revision_guard';
