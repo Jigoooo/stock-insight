@@ -203,17 +203,59 @@ export const PLAYBOOK_SCOPES: readonly PlaybookScope[] = [
     },
     curated: {},
     adjacent: {
-      // Refiners: they buy the commodity rather than extract it.
+      // Still near misses HERE — neither owns reserves — but each now has its own
+      // playbook below, so the exclusion routes them rather than dropping them.
       '2911':
-        'petroleum refining; buys crude and sells product, so throughput and the crack spread are its economics and it owns no reserves',
-      '192': 'KSIC 192 석유 정제품 제조업; same as SIC 2911 — refining margin, not an orebody',
-      '19210': 'KSIC 19210 원유 정제처리업; refining, no reserves',
-      // Regulated utilities: revenue is a tariff on a rate base, fuel passed through.
+        'petroleum refining; buys crude and sells product, so throughput and the crack spread are its economics and it owns no reserves. Governed by the refining playbook instead.',
+      '192':
+        'KSIC 192 석유 정제품 제조업; same as SIC 2911. Governed by the refining playbook instead.',
+      '19210':
+        'KSIC 19210 원유 정제처리업; refining, no reserves. Governed by the refining playbook instead.',
       '4911':
-        'SIC 4911 electric services; a regulated utility earns a tariff on a rate base with fuel cost passed through, which has no reserve, grade or cost curve',
-      '35120': 'KSIC 35120 송전 및 배전업; regulated transmission and distribution, same reason',
-      '35200': 'KSIC 35200 연료용 가스 제조 및 배관공급업; regulated gas distribution, same reason',
-      '4931': 'SIC 4931 electric and other services combined; regulated utility, same reason',
+        'SIC 4911 electric services; a regulated utility earns a tariff on a rate base with fuel passed through, which has no reserve, grade or cost curve. Governed by the utility playbook instead.',
+      '35120':
+        'KSIC 35120 송전 및 배전업; regulated transmission and distribution. Governed by the utility playbook instead.',
+      '35200':
+        'KSIC 35200 연료용 가스 제조 및 배관공급업; regulated gas distribution. Governed by the utility playbook instead.',
+      '4931':
+        'SIC 4931 electric and other services combined; regulated utility. Governed by the utility playbook instead.',
+    },
+  },
+  {
+    // Not a canonical/04 §5 sector. It exists because narrowing Resources to extractive
+    // producers left three refiners with no frame at all, and a company governed by
+    // nothing is worse than one governed by an approximate frame that says it is one.
+    playbookKey: 'refining',
+    codes: {
+      '2911': 'SIC 2911 is Petroleum Refining; the code says it outright',
+      '192': 'KSIC 192 is 석유 정제품 제조업',
+      '19210': 'KSIC 19210 is 원유 정제처리업',
+    },
+    curated: {},
+    adjacent: {
+      '1000':
+        'metal mining; extracts rather than processes, and owns reserves this frame has no place for',
+      '2860': 'SIC 2860 industrial organic chemicals; downstream of a refinery rather than one',
+      '4911': 'electric services; a regulated utility takes no spread',
+    },
+  },
+  {
+    // Also not canonical/04 §5, and for the same reason: six regulated utilities were
+    // left without a frame when Resources narrowed.
+    playbookKey: 'utility',
+    codes: {
+      '4911': 'SIC 4911 is Electric Services; the code says it outright',
+      '4931': 'SIC 4931 is Electric & Other Services Combined',
+      '35120': 'KSIC 35120 is 송전 및 배전업',
+      '35200': 'KSIC 35200 is 연료용 가스 제조 및 배관공급업',
+    },
+    curated: {},
+    adjacent: {
+      '2911': 'petroleum refining; takes a market spread rather than an allowed return',
+      '4813':
+        'SIC 4813 telephone communications; regulated in places but not on a rate base of this kind',
+      '4924':
+        'SIC 4924 natural gas distribution; the same economics, and no company in this universe carries it',
     },
   },
   {

@@ -351,6 +351,77 @@ describe('K4 cutoff-scoped canonical input loading', () => {
     );
   });
 
+  it('reports an exposure whose event predates the price history instead of failing the run', async () => {
+    // market_ts.ohlcv holds about a month while a filing event can be months older, so
+    // an exposure with no session before its event is a coverage fact rather than a
+    // contradiction. It used to throw, which took the whole analytics stage down for
+    // every other company — measured 2026-08-11 on 006280, whose cash fact is
+    // available_at 2026-05-15 while its bars start 2026-07-14.
+    const client = new FakeClient((sql) => {
+      if (sql.includes('k4_market_outcome_bars')) {
+        // Every bar is AFTER the event, so no anchor exists.
+        return [
+          {
+            series_role: 'security',
+            session_date: '2026-08-05',
+            close: '100',
+            known_at: '2026-08-05T00:00:00.000Z',
+          },
+        ];
+      }
+      throw new Error(`unexpected query: ${sql}`);
+    });
+    const { outcomes, unanchoredExposureKeys } = await loadK4OutcomePlans(client, {
+      informationSet: {
+        informationSetId: 'k4:20260811:fixture',
+        validCutoff: '2026-08-11T14:59:59.999Z',
+        sourceAvailableCutoff: '2026-08-11T14:59:59.999Z',
+        systemKnownCutoff: '2026-08-11T14:59:59.999Z',
+        marketObservationCutoff: '2026-08-11T14:59:59.999Z',
+        semanticSnapshotId: 'snapshot',
+      },
+      expectations: [],
+      surprises: [],
+      filingEvents: [
+        {
+          eventKey: 'event:old',
+          eventType: 'regulatory_filing_numeric_fact',
+          issuerEntityId: 101,
+          sourceRevisionId: 1,
+          availableAt: '2026-05-15T00:00:00.000Z',
+          knownAt: '2026-05-15T00:00:00.000Z',
+          locator: {},
+        },
+      ],
+      shocks: [],
+      evaluations: [],
+      exposures: [
+        {
+          exposureKey: 'exposure:unanchored',
+          evaluationKey: 'evaluation:1',
+          shockKey: 'shock:1',
+          eventKey: 'event:old',
+          securityEntityId: 1,
+          issuerEntityId: 101,
+          channelClass: 'operational_capacity',
+          sign: 'positive',
+          horizon: 'short',
+          economicMagnitude: 1,
+          economicMagnitudeUnit: 'currency',
+          materiality: 0.5,
+          uncertainty: 0.5,
+          epistemicConfidence: 0.5,
+          scoreComponents: [],
+        },
+      ],
+      valuations: [],
+      pathCitations: [],
+      coverage: [],
+    });
+    assert.deepEqual(outcomes, []);
+    assert.deepEqual(unanchoredExposureKeys, ['exposure:unanchored']);
+  });
+
   it('fails closed when no sealed semantic snapshot existed by the cutoff', async () => {
     const client = new FakeClient((sql) => {
       if (sql.includes('k4_semantic_snapshot')) return [];
@@ -398,7 +469,7 @@ describe('K4 cutoff-scoped outcome loading', () => {
         },
       ];
     });
-    const outcomes = await loadK4OutcomePlans(client, {
+    const { outcomes, unanchoredExposureKeys } = await loadK4OutcomePlans(client, {
       informationSet: {
         informationSetId: 'k4:20260808:fixture',
         validCutoff: '2026-08-08T14:59:59.999Z',
@@ -446,6 +517,8 @@ describe('K4 cutoff-scoped outcome loading', () => {
       coverage: [],
     });
     assert.equal(outcomes.length, 3);
+    // Every exposure had a session before its event, so nothing is unanchored here.
+    assert.deepEqual(unanchoredExposureKeys, []);
     assert.equal(outcomes[0]?.outcomeState, 'evaluated');
     assert.equal(outcomes[0]?.anchorSessionDate, '2026-07-31');
     assert.deepEqual(

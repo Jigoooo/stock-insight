@@ -446,11 +446,24 @@ UNION ALL SELECT * FROM kr_benchmark
 ORDER BY series_role, session_date
 `;
 
+export type K4OutcomeLoad = {
+  outcomes: K4OutcomePlan[];
+  /**
+   * Exposures with no session before their event, so no baseline to measure against.
+   *
+   * Returned rather than thrown, and counted rather than dropped: the number moving is
+   * how anyone notices that price history has fallen behind the filing dates it is
+   * meant to bracket.
+   */
+  unanchoredExposureKeys: string[];
+};
+
 export async function loadK4OutcomePlans(
   client: K4QueryClient,
   plan: K4MarketIntelligencePlan,
-): Promise<K4OutcomePlan[]> {
+): Promise<K4OutcomeLoad> {
   const outcomes: K4OutcomePlan[] = [];
+  const unanchored: string[] = [];
   for (const exposure of plan.exposures) {
     const event = plan.filingEvents.find((candidate) => candidate.eventKey === exposure.eventKey);
     if (!event) throw new Error(`K4 exposure ${exposure.exposureKey} has no filing event`);
@@ -482,7 +495,19 @@ export async function loadK4OutcomePlans(
       .sort()
       .at(-1);
     if (!anchorSessionDate) {
-      throw new Error(`K4 exposure ${exposure.exposureKey} has no pre-event market anchor`);
+      // No session before the event, so there is no baseline to measure a reaction
+      // against. This is a COVERAGE fact, not a contradiction: market_ts.ohlcv holds
+      // roughly a month of history while a filing event can be months older, so any
+      // exposure whose event predates the price series lands here by construction.
+      // Measured 2026-08-11: 006280's cash fact is available_at 2026-05-15 and its bars
+      // start 2026-07-14.
+      //
+      // It used to throw, which took the whole analytics stage down for every other
+      // company — the same failure core-identity-sync fixed when one unresolvable
+      // ticker killed the nightly run. The exposure is recorded as unanchored and
+      // reported; an outcome invented without a baseline would be worse than none.
+      unanchored.push(exposure.exposureKey);
+      continue;
     }
     outcomes.push(
       ...planK4OutcomeRows({
@@ -494,5 +519,8 @@ export async function loadK4OutcomePlans(
       }),
     );
   }
-  return outcomes.sort((left, right) => left.outcomeKey.localeCompare(right.outcomeKey));
+  return {
+    outcomes: outcomes.sort((left, right) => left.outcomeKey.localeCompare(right.outcomeKey)),
+    unanchoredExposureKeys: unanchored.sort(),
+  };
 }

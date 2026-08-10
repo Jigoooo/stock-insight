@@ -8,6 +8,7 @@ import {
 import {
   loadK4MarketIntelligenceInput,
   loadK4OutcomePlans,
+  type K4OutcomeLoad,
   withK4MarketIntelligenceTransaction,
   type K4QueryClient,
 } from './k4-market-intelligence-store.ts';
@@ -15,7 +16,6 @@ import {
   persistK4MarketIntelligencePlan,
   type K4PersistenceOptions,
   type K4PersistenceResult,
-  type K4OutcomePlan,
 } from './k4-market-intelligence-writer.ts';
 import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
@@ -150,6 +150,15 @@ export type K4RunSummary = {
   acceptedEvaluationCount: number;
   coverage: K4MarketIntelligencePlan['coverage'];
   outcomeCount: number;
+  /**
+   * Exposures whose event predates the price history we hold, so no baseline exists to
+   * measure a market reaction against.
+   *
+   * Reported rather than fatal. market_ts.ohlcv carries roughly a month while a filing
+   * event can be months older, so this is a coverage fact — and the number moving is
+   * how anyone sees market data falling behind the filings it is meant to bracket.
+   */
+  unanchoredExposureCount: number;
   persistence: K4PersistenceResult | null;
 };
 
@@ -161,7 +170,7 @@ type LoadInput = (
 type LoadOutcomes = (
   client: K4QueryClient,
   plan: K4MarketIntelligencePlan,
-) => Promise<K4OutcomePlan[]>;
+) => Promise<K4OutcomeLoad>;
 
 type PersistPlan = (
   client: K4QueryClient,
@@ -188,7 +197,7 @@ export async function executeK4MarketIntelligenceJob(input: {
       securityLimit: input.args.securityLimit,
     });
     const planned = plan(canonicalInput);
-    const outcomes = await loadOutcomes(input.client, planned);
+    const { outcomes, unanchoredExposureKeys } = await loadOutcomes(input.client, planned);
     const requestDigest = digestK4MarketIntelligencePlan({
       runKind: input.args.runKind,
       cutoff,
@@ -211,6 +220,7 @@ export async function executeK4MarketIntelligenceJob(input: {
         acceptedEvaluationCount,
         coverage: planned.coverage,
         outcomeCount: outcomes.length,
+        unanchoredExposureCount: unanchoredExposureKeys.length,
         persistence: null,
       });
       continue;
@@ -237,6 +247,7 @@ export async function executeK4MarketIntelligenceJob(input: {
       acceptedEvaluationCount,
       coverage: planned.coverage,
       outcomeCount: outcomes.length,
+      unanchoredExposureCount: unanchoredExposureKeys.length,
       persistence,
     });
   }

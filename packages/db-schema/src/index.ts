@@ -112,6 +112,7 @@ import { bankMeasurementRulesMigrationSql } from './migrations/110_bank_measurem
 import { lifeScienceCashRunwayRuleMigrationSql } from './migrations/111_life_science_cash_runway_rule.ts';
 import { resourcesPlaybookMigrationSql } from './migrations/112_resources_playbook.ts';
 import { cryptoPlaybookMigrationSql } from './migrations/113_crypto_playbook.ts';
+import { refiningAndUtilityPlaybooksMigrationSql } from './migrations/114_refining_and_utility_playbooks.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1171,6 +1172,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: cryptoPlaybookMigrationSql,
   },
+  {
+    id: '114_refining_and_utility_playbooks',
+    description:
+      'Two non-canonical playbooks for the nine companies migration 112 left without a frame; refiners take a spread and utilities earn an allowed return, so one frame could not cover both.',
+    tables: [],
+    sql: refiningAndUtilityPlaybooksMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1291,4 +1299,5 @@ export {
   lifeScienceCashRunwayRuleMigrationSql,
   resourcesPlaybookMigrationSql,
   cryptoPlaybookMigrationSql,
+  refiningAndUtilityPlaybooksMigrationSql,
 };
