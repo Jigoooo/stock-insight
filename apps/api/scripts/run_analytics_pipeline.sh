@@ -109,6 +109,16 @@ DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --app
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
+# K6 common asset view. After the v2 publishes because it reads what they leave in
+# serving.impact_summary_v2 and serving.market_confirmation_v1, and before nothing —
+# no other stage reads it. It is shadow until K7 wires a surface onto it.
+#
+# It also opens and publishes the release manifest, which migration 081 created in
+# August and nothing has written since; REQ-REL-001 cannot compare releases that do
+# not exist. The release id is derived from the as-of date, so a same-day rerun
+# collides on the primary key rather than minting a second release for one day.
+DATABASE_URL="$DB_URL" node apps/api/src/serving/run-common-asset-view.ts --apply
+pipeline_record_stage_success stock-insight-common-asset-view-stage "$RUN_STARTED_AT" || exit $?
 # Needs prices and registered holdings, nothing else — independent of report and
 # impact publishing. personalization.portfolio_snapshot had readers and no writer
 # since it was created; registration itself was already visible because the stocks

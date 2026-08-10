@@ -60,13 +60,13 @@
 | K4 shadow 상태 블록의 서빙 뷰 이름 3건                     | **틀렸다.** 존재하지 않는 이름이었다. 위 블록에서 정정                                |
 | `canonical/00 §4` 의 truth class 13종                      | 정본의 의미는 **14종**(`contracts/truth-classes.json`). [`canonical-errata.md`](./canonical-errata.md) E-001 |
 
-### 현재 위치 — K4 완료, K6부터
+### 현재 위치 — K4·K6 완료, K7부터
 
 | 단계   | 내용                        | 상태                                                 |
 | ------ | --------------------------- | ---------------------------------------------------- |
 | **K4** | Market Intelligence Minimum | **exposure 경로 완료** — 7일 PIT replay + live canary, shadow p4.v2. expectation/surprise 는 2026-08-10 에 producer 를 붙여 도달 가능해졌다. **valuation 은 여전히 미착지** — §"K4 의 빠진 절반" |
-| K6     | Common Asset View           | 미착수                                               |
-| K7     | Product Surface             | 미착수. UI 전환과 p4.v1 폐기는 여기서 수행           |
+| K6     | Common Asset View           | **패킷 계약 완료** — 12블록 · 297자산 · 릴리스 매니페스트 첫 writer. **12블록 중 4개는 담을 내용이 없다**(§K6). shadow — 읽는 코드 0 |
+| K7     | Product Surface             | 미착수. UI 전환과 p4.v1 폐기, app_reader grant + 다이제스트 재핀, IA §9 결정 3 의 생산자 작업이 여기 |
 | K8     | Recommendation Shadow       | 미착수                                               |
 
 **K4 는 K3 없이 시작하지 않는다** — 이건 지켜졌다. playbook 이 sign·materiality·
@@ -1715,3 +1715,138 @@ OpenDART 가 빈 응답에서 실제 재무 데이터로 바뀐 것이다. 형�
 `coverage_ledger` 의 `expected_artifact_count` 가 5,548행 중 2,529행에서 NULL 이라
 24시간 창 안에 비율 비교 가능한 revision 이 사실상 생기지 않는다. 게이지가 아니라
 원장 쪽 문제다.
+
+## K6 — Common Asset View 착지 (2026-08-10, 099·100)
+
+### 무엇이 배달됐는지부터 — "12블록 가동" 이 아니다
+
+`serving.common_asset_view` 는 정본 06 §2 의 12블록을 담는 패킷이다. **그중 넷은 담을
+내용이 없다.** 그래서 이 단계의 산출물은 **패킷 계약과 정직한 상태 기계**이지 열두 개의
+살아 있는 블록이 아니다. 나중에 "K6 완료" 를 12블록 가동으로 읽지 마라 — 마이그레이션
+099 헤더가 같은 문장을 담고 있다.
+
+`block_state` 는 다섯 값이고, `REQ-PROD-021` 의 `NOT_COMPARABLE`/`INSUFFICIENT_COVERAGE`
+와 **일부러 겹치지 않는다.** 그쪽은 "이 KPI 를 동종과 비교할 수 있는가" 라는 좁은 질문의
+답이고, 블록이 생산자를 갖지 못한 것은 다른 주어에 대한 다른 사실이다. 어휘를 빌려 쓰면
+`INSUFFICIENT_COVERAGE` 가 두 가지를 뜻하게 되고, 그건 아무것도 뜻하지 않는 것이다.
+
+| 상태 | 뜻 | 고치는 방법 |
+| --- | --- | --- |
+| `available` | 내용이 있다 | — |
+| `partial` | 블록 자체 기준 미달 | 커버리지 확대 |
+| `unverified_only` | 소스는 있는데 검증을 통과한 것이 없다 | 검증 경로 구축 |
+| `not_produced` | 생산자는 있는데 아무것도 안 냈다 | 생산자 수리 |
+| `no_eligible_source` | 계약이 읽어도 되는 소스가 없다 | 새 생산자 |
+
+마지막 둘의 구분이 load-bearing 이다. 블록 7 은 `valuation_estimate_revision` 이 0행이고
+`k4-market-intelligence-writer` 가 그 writer 다 — 돌리면 된다. 블록 9 는
+`analytics.scenario_set` 이 비었고 내용이 있는 유일한 thesis 표가
+`personalization.thesis_revision` 인데 `REQ-REC-001` 이 이 뷰의 조회를 금지한다 —
+**생산자를 더 돌려도 고쳐지지 않는다.** 하나로 뭉갰다면 K7 이 "네 블록이 비었다" 를
+물려받았을 텐데, 실제로는 주인이 다른 네 가지 작업이다.
+
+### 라이브 영수증 (2026-08-10)
+
+```
+패킷        297 자산 × 12블록 = 3,564 블록 / 빌드 · 4초
+릴리스      common-asset-view:2026-08-10:N · published 1 · superseded 5
+
+블록별 census
+  1 identity              available 297
+  2 business context      available  10 · partial 287
+  3 comparable facts      available 272 · not_produced  25
+  4 events/surprise       available   2 · partial 175 · not_produced 120
+  5 expectation           available   2 · not_produced 295
+  6 exposure              partial    50 · unverified_only 245 · not_produced 2
+  7 valuation             not_produced 297
+  8 market reaction       available 253 · not_produced  44
+  9 thesis                no_eligible_source 297
+ 10 catalysts             unverified_only 28 · not_produced 269
+ 11 coverage              partial   182 · not_produced 115
+ 12 derivation            partial   297
+```
+
+### 세 개의 실제 결함 — 전부 라이브에서 드러났다
+
+**1. 주체 grain 불일치.** 첫 실행에서 블록 3 이 297건 전부 `not_produced` 였다. 직전에
+294개 엔티티에 데이터가 있는 것을 확인한 뒤였다. 패킷 주체는 `security_master` 의
+**Stock**(297)인데 `world.numeric_fact`(294)·`coverage_ledger`(182)·
+`expectation_revision` 은 전부 **Company**(발행사)에 걸려 있다. 088 의 결함과 같은
+것이다 — 정확히 그 교훈을 store 주석에 인용해 놓고 같은 데 걸렸다.
+`core.security_issuer_identity` 로 발행사를 해석해 issuer-grained 소스를 다시 키잉하자
+블록 3 이 **272 available** 이 됐다.
+
+**2. `superseded` 가 도달 불가능한 상태였다 (→ 100).** 081 은 네 부분을 만들었는데
+하나가 나머지와 어긋나 있었다.
+
+```
+release_state CHECK    'building','published','superseded','failed' 허용
+append-only 트리거      published -> superseded 허용
+published_at            한번 설정되면 불변
+CHECK (release_state='published') = (published_at IS NOT NULL)   ← 이것
+```
+
+published 를 superseded 로 옮기면 좌변은 false 가 되고 우변은 true 로 남아 행이 거부된다.
+`published_at` 은 지울 수도 없다 — 트리거가 얼려둔다. **`superseded` 는 적힌 순간부터
+도달 불가능했다.** 매니페스트에 행을 넣은 것이 아무도 없어서 아무도 부딪히지 않았고,
+K6 가 첫 writer 다. 100 이 짝 규칙을 정본 의도대로 고친다 —
+`(release_state IN ('published','superseded')) = (published_at IS NOT NULL)`.
+`building`/`failed` 는 여전히 NULL 이어야 하므로 단순 NOT NULL 보다 엄격하다.
+
+릴리스 ID 를 as-of 에 고정하려던 첫 설계도 여기서 뒤집혔다. 매니페스트는 append-only +
+supersedes 체인이라 **재실행은 새 릴리스가 이전을 물러나게 하는 것**이 설계된 동작이고,
+ID 를 재사용하면 하루 두 번째 실행에서 PK 충돌로 파이프라인 단계가 죽는다.
+
+**3. 리빌드마다 digest 가 움직였다.** 소스가 그대로인 연속 3회 빌드가 297건 전부 다른
+패킷 digest 를 냈고, 움직인 블록은 12 하나였다. 블록 12 가 `releaseId` 를 담고 있었는데
+릴리스 ID 는 빌드마다 새로 나고 **자산별 정보량이 0** 이다. 항상 움직이는 digest 는
+"실제로 뭐가 바뀌었나" 에 답할 수 없고 그게 digest 의 유일한 용도다. 릴리스는 행 컬럼
+(`common_asset_view.release_id`)에 두고 payload 에서 뺐다. 이후 재실행 2회에서
+**297/297 digest 동일**.
+
+### 게이트
+
+`REQ-REC-001` 은 소스 텍스트가 아니라 **플래너에게** 물어서 확인한다. 빌더에서
+`personalization` 을 grep 하는 것은 게이트가 아니다 — 뷰·함수·동의어를 거치면 그 단어는
+등장하지 않는다. PostgreSQL 은 답을 이미 알고 있으므로(EXPLAIN 이 뷰를 기반 relation
+까지 펼친다) 빌더의 쿼리 16개를 라이브에 EXPLAIN 으로 돌려 실제 접근 relation 집합을
+확인한다. `personalization.portfolio_snapshot` 에 대해 이 방식이 실제로 탐지하는지
+역방향으로 확인했다. 연결이 없으면 skip 한다 — 못 도는데 조용히 통과하는 검사는 없는
+것만 못하다.
+
+**잘린 목록은 잘렸다고 말한다.** store 주석이 "모든 잘린 목록은 `truncated` 와 실제
+총계를 payload 에 싣는다" 고 약속했는데 코드가 하지 않고 있었다. 없는 안전장치를
+주장하는 주석은 없는 주석보다 나쁘다. 지금은 354개 블록이
+`{"kept": 40, "field": "numericFacts", "total": 1110}` 를 단다 — 40이 전부처럼 보이던
+것이 "1,110 중 40" 이 됐다.
+
+### 대역 외 쓰기 — 기록해 둔다
+
+개발 중 `governance.release_manifest` 에 psql 로 직접 `UPDATE` 를 한 번 실행했다.
+리비전 체계 이전 형식으로 만들어진 내 개발 산출물 `common-asset-view:2026-08-10` 을
+`superseded` 로 내리는 작업이었다. append-only 거버넌스 원장에 대한 대역 외 쓰기이고,
+먼저 승인을 받았어야 했다.
+
+**남은 흔적**: 그 행은 리비전 체계 이전이라 후속 릴리스 `:1` 의
+`supersedes_release_id` 가 NULL 이다 — **체인 머리에 끊긴 자리가 하나 있다.** 체인을
+감사하는 사람이 나중에 설명 없는 불연속을 만나게 되므로 여기 적어둔다.
+
+같은 이유로 하루치에 리비전이 6개 쌓여 있다(`common_asset_view` 1,782행 ·
+블록 21,384행 · 릴리스 6개). 실제 의미는 하루 1빌드 297건이고,
+`common_asset_view_current_v1` 은 297을 정확히 돌려준다. 표는 누적 설계(연 36,500행)라
+용량 문제는 아니지만 **이력이 깨끗하지는 않다.**
+
+### 아직 남은 것
+
+**`common_asset_view` 를 읽는 코드는 없다.** K6 는 전부 shadow 이고, 표면을 이 위로
+옮기는 것은 K7 이다. 081 이 남긴 메모("K6/K7 grant and re-pin together when a read path
+actually consumes the release pointer")대로 **`stock_insight_app_reader` 에 grant 하지
+않았고 `EXPECTED_CATALOG_DIGESTS` 도 건드리지 않았다.** 읽는 경로가 없으므로 grant 할
+이유가 없고, "마무리 삼아" 지금 grant 하면 카탈로그 다이제스트가 움직여 브레인이 부팅에서
+crashloop 한다 — 059 가 2026-08-03 에 한 그대로다. grant 는 다이제스트 재핀과 같은
+커밋에서, K7 소관이다.
+
+블록 6 의 `unverified_only` 245건은 IA 문서 §9 결정 3 이 K7 으로 넘긴 작업 그 자체다.
+강한 경제적 predicate 가 전부 정책행이 없어 `quarantined_unverified` 에 머무는 상태이고,
+패킷은 그것을 **버리지 않고 표시해서** 내보낸다. 격리 행을 빼면 소비자가 "관계 없음" 과
+"승인된 관계 없음" 을 구분할 방법이 사라진다 — 정반대의 사실이다.

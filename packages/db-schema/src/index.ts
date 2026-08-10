@@ -97,6 +97,8 @@ import { pipelineWrapperHealthMigrationSql } from './migrations/095_pipeline_wra
 import { wrapperFailureStreakSloMigrationSql } from './migrations/096_wrapper_failure_streak_slo.ts';
 import { sloBreachSafetyStateMigrationSql } from './migrations/097_slo_breach_safety_state.ts';
 import { sourceShapeRevisionMigrationSql } from './migrations/098_source_shape_revision.ts';
+import { commonAssetViewMigrationSql } from './migrations/099_common_asset_view.ts';
+import { releaseManifestSupersessionMigrationSql } from './migrations/100_release_manifest_supersession.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1051,6 +1053,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: sourceShapeRevisionMigrationSql,
   },
+  {
+    id: '099_common_asset_view',
+    description:
+      'K6 packet contract: twelve blocks per asset with a per-block state that separates underived from unverified from ineligible, so the four empty blocks read as four different problems.',
+    tables: [],
+    sql: commonAssetViewMigrationSql,
+  },
+  {
+    id: '100_release_manifest_supersession',
+    description:
+      "Makes 'superseded' reachable: 081's published_at pairing CHECK contradicted its own state machine, so no release could ever retire its predecessor.",
+    tables: [],
+    sql: releaseManifestSupersessionMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1156,4 +1172,6 @@ export {
   wrapperFailureStreakSloMigrationSql,
   sloBreachSafetyStateMigrationSql,
   sourceShapeRevisionMigrationSql,
+  commonAssetViewMigrationSql,
+  releaseManifestSupersessionMigrationSql,
 };

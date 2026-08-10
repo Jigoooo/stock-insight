@@ -216,6 +216,11 @@ test('analytics runs all seventeen stages in order with an adjacent receipt per 
     ['run-report-publish.ts', 'stock-insight-report-publish-stage'],
     ['run-feed-build.ts', 'stock-insight-feed-build-stage'],
     ['run-probability-calibration.ts', 'stock-insight-probability-calibration-stage'],
+    // Added 2026-08-10 (K6): serving.common_asset_view. Sits after the v2 publishes
+    // because it reads serving.impact_summary_v2 and serving.market_confirmation_v1,
+    // and nothing reads it in turn — it stays shadow until K7 wires a surface on.
+    // It is also the first writer governance.release_manifest has ever had.
+    ['run-common-asset-view.ts', 'stock-insight-common-asset-view-stage'],
     // Added 2026-08-03: personalization.portfolio_snapshot had readers and no
     // writer. It needs only prices and registered holdings, so it sits late and
     // depends on neither report nor impact publishing.

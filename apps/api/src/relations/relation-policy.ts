@@ -196,6 +196,17 @@ export function getRelationBuilderPolicy(predicate: string): RelationBuilderPoli
   return policy;
 }
 
+/**
+ * The same lookup for readers that must survive an unpoliced predicate rather than
+ * refuse to run. A builder asking for a policy it does not have is a bug and should
+ * throw; a serving projection meeting a predicate with no policy row is describing
+ * the live graph, where eight predicates sit exactly that way and can never reach an
+ * accepted revision. K6 needs to label those, not crash on them.
+ */
+export function findRelationBuilderPolicy(predicate: string): RelationBuilderPolicy | undefined {
+  return POLICY_BY_PREDICATE.get(predicate);
+}
+
 export type RelationCandidateInput = {
   predicate: string;
   /** DISTINCT source revision ids gathered by the builder (dedup enforced here). */
