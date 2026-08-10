@@ -145,6 +145,13 @@ DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
   apps/api/src/ingest/run-congress-bills.ts --pages 2 --apply
 pipeline_record_stage_success stock-insight-congress-bills-stage "$RUN_STARTED_AT" || exit $?
 
+# The KSIC code→name table. Idempotent and cheap: it fills only empty labels, so a
+# rerun after the first is a no-op unless a new KSIC code arrived. Without it every
+# Korean taxonomy node reads as a bare number — DART reports the code and never its
+# name — and a sector playbook cannot be written against '66121'.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-ksic-classification-table.ts --apply
+pipeline_record_stage_success stock-insight-ksic-classification-table-stage "$RUN_STARTED_AT" || exit $?
+
 # SEC submissions, for the SIC that companyfacts does not carry. Self-limiting: the
 # target list is filers whose classification is still UNCLASSIFIED, so a run costs one
 # request per genuinely unclassified US filer and shrinks to zero as the gap closes.

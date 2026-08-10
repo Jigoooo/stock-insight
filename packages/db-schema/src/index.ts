@@ -104,6 +104,7 @@ import { taxonomyMembershipTemporalityMigrationSql } from './migrations/102_taxo
 import { secSubmissionsSourceMigrationSql } from './migrations/103_sec_submissions_source.ts';
 import { taxonomyIndexNameRestoreMigrationSql } from './migrations/104_taxonomy_index_name_restore.ts';
 import { taxonomyNodeLabelHonestyMigrationSql } from './migrations/105_taxonomy_node_label_honesty.ts';
+import { ksicClassificationTableSourceMigrationSql } from './migrations/106_ksic_classification_table_source.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1107,6 +1108,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: taxonomyNodeLabelHonestyMigrationSql,
   },
+  {
+    id: '106_ksic_classification_table_source',
+    description:
+      'Registers the KSIC code-name table as an unlicensed third-party mirror, with the revision recorded because the 9th and 10th disagree on 50 codes this database holds.',
+    tables: [],
+    sql: ksicClassificationTableSourceMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1219,4 +1227,5 @@ export {
   secSubmissionsSourceMigrationSql,
   taxonomyIndexNameRestoreMigrationSql,
   taxonomyNodeLabelHonestyMigrationSql,
+  ksicClassificationTableSourceMigrationSql,
 };
