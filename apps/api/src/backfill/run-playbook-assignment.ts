@@ -1,22 +1,26 @@
 import pg, { type PoolClient } from 'pg';
 
 import {
-  assignSemiconductorPlaybook,
+  PLAYBOOK_SCOPES,
+  assignPlaybooks,
   type PlaybookAssignmentRow,
   type TaxonomyMember,
 } from './playbook-assignment.ts';
 
 /**
- * Assigns the semiconductor playbook to the companies it governs, so an analysis
- * of one of them has a revision to cite (REQ-DOM-001).
+ * Assigns every sector playbook to the companies it governs, so an analysis of one of
+ * them has a revision to cite (REQ-DOM-001).
  *
  * Idempotent by open assignment: a company already governed is left alone, and a
  * company that has left the universe keeps its closed history rather than being
  * deleted.
+ *
+ * One pass over the taxonomy, all playbooks. The first version ran for 'semiconductor'
+ * alone with the key as a module constant, which made a second sector a copy of the
+ * file rather than a row in a table.
  */
 
 const JOB_NAME = 'stock-insight-playbook-assignment';
-const PLAYBOOK_KEY = 'semiconductor';
 
 /**
  * Migration 088 made the issuer Company the canonical assignment subject and added a
@@ -26,12 +30,15 @@ const PLAYBOOK_KEY = 'semiconductor';
  * identity yet resolves to NULL here and is reported rather than assigned.
  */
 const MEMBERS_SQL = `
-SELECT m.entity_id, e.canonical_name, tn.taxonomy_node_id, tr.taxonomy_system, tn.code,
+SELECT m.entity_id, e.canonical_name, internal.identifier_value AS entity_key,
+       tn.taxonomy_node_id, tr.taxonomy_system, tn.code,
        identity.issuer_entity_id, identity.security_issuer_identity_id
   FROM core.entity_taxonomy_membership m
   JOIN core.taxonomy_node tn ON tn.taxonomy_node_id = m.taxonomy_node_id
   JOIN core.taxonomy_release tr ON tr.taxonomy_release_id = tn.taxonomy_release_id
   JOIN core.entity e ON e.entity_id = m.entity_id
+  JOIN core.entity_identifier internal
+    ON internal.entity_id = m.entity_id AND internal.identifier_type = 'INTERNAL_KEY'
   LEFT JOIN LATERAL (
     SELECT sii.security_issuer_identity_id, sii.issuer_entity_id
       FROM core.security_issuer_identity sii
@@ -52,8 +59,11 @@ SELECT sector_playbook_id, revision_no
 `;
 
 const EXISTING_SQL = `
-SELECT entity_id FROM governance.playbook_assignment
- WHERE sector_playbook_id = $1 AND valid_to IS NULL
+SELECT playbook.playbook_key, assignment.entity_id
+  FROM governance.playbook_assignment assignment
+  JOIN governance.sector_playbook playbook
+    ON playbook.sector_playbook_id = assignment.sector_playbook_id
+ WHERE assignment.valid_to IS NULL
 `;
 
 const INSERT_SQL = `
@@ -86,28 +96,40 @@ async function run(): Promise<void> {
   const client = await pool.connect();
 
   try {
-    const playbook = await client.query<{ sector_playbook_id: string; revision_no: number }>(
-      PLAYBOOK_SQL,
-      [PLAYBOOK_KEY],
-    );
-    const active = playbook.rows[0];
-    if (!active) throw new Error(`no active playbook for ${PLAYBOOK_KEY}`);
+    // Every playbook this repository knows about, resolved to its active revision. A
+    // scope with no active playbook row is a bug in the migration series, not a
+    // condition to skip past quietly.
+    const activeByKey = new Map<string, { sectorPlaybookId: number; revisionNo: number }>();
+    for (const scope of PLAYBOOK_SCOPES) {
+      const playbook = await client.query<{ sector_playbook_id: string; revision_no: number }>(
+        PLAYBOOK_SQL,
+        [scope.playbookKey],
+      );
+      const active = playbook.rows[0];
+      if (!active) throw new Error(`no active playbook for ${scope.playbookKey}`);
+      activeByKey.set(scope.playbookKey, {
+        sectorPlaybookId: Number(active.sector_playbook_id),
+        revisionNo: active.revision_no,
+      });
+    }
 
     const [members, existing] = await Promise.all([
       client.query<{
         entity_id: string;
         canonical_name: string;
+        entity_key: string;
         taxonomy_node_id: string;
         taxonomy_system: string;
         code: string;
         issuer_entity_id: string | null;
         security_issuer_identity_id: string | null;
       }>(MEMBERS_SQL, [validFrom]),
-      client.query<{ entity_id: string }>(EXISTING_SQL, [active.sector_playbook_id]),
+      client.query<{ playbook_key: string; entity_id: string }>(EXISTING_SQL),
     ]);
 
     const readings: TaxonomyMember[] = members.rows.map((row) => ({
       entityId: Number(row.entity_id),
+      entityKey: row.entity_key,
       entityName: row.canonical_name,
       taxonomyNodeId: Number(row.taxonomy_node_id),
       taxonomySystem: row.taxonomy_system,
@@ -117,41 +139,60 @@ async function run(): Promise<void> {
         row.security_issuer_identity_id == null ? null : Number(row.security_issuer_identity_id),
     }));
 
-    const decided = assignSemiconductorPlaybook(readings);
-    const alreadyGoverned = new Set(existing.rows.map((row) => Number(row.entity_id)));
+    const decided = assignPlaybooks(readings);
+    const alreadyGoverned = new Set(
+      existing.rows.map((row) => `${row.playbook_key}:${row.entity_id}`),
+    );
     // A security whose issuer identity has not been minted yet cannot be assigned
     // without inventing the subject, so it is counted and named instead of written.
     const withoutIssuer = decided.assignments.filter((row) => row.issuerEntityId == null);
     const resolved = decided.assignments.filter((row) => row.issuerEntityId != null);
-    // Several securities can share one issuer; the issuer is assigned once.
-    const byIssuer = new Map<number, PlaybookAssignmentRow>();
+    // Several securities can share one issuer; the issuer is assigned once per playbook.
+    const byIssuer = new Map<string, PlaybookAssignmentRow>();
     for (const row of resolved) {
-      if (!byIssuer.has(row.issuerEntityId!)) byIssuer.set(row.issuerEntityId!, row);
+      const key = `${row.playbookKey}:${row.issuerEntityId!}`;
+      if (!byIssuer.has(key)) byIssuer.set(key, row);
     }
-    const toWrite: PlaybookAssignmentRow[] = [...byIssuer.values()].filter(
-      (row) => !alreadyGoverned.has(row.issuerEntityId!),
+    const toWrite: PlaybookAssignmentRow[] = [...byIssuer.entries()]
+      .filter(([key]) => !alreadyGoverned.has(key))
+      .map(([, row]) => row);
+
+    const perPlaybook = Object.fromEntries(
+      PLAYBOOK_SCOPES.map((scope) => [
+        `${scope.playbookKey}@${activeByKey.get(scope.playbookKey)!.revisionNo}`,
+        {
+          governed: decided.assignments.filter((row) => row.playbookKey === scope.playbookKey)
+            .length,
+          byTaxonomy: decided.assignments.filter(
+            (row) => row.playbookKey === scope.playbookKey && row.assignmentBasis === 'taxonomy',
+          ).length,
+          curated: decided.assignments
+            .filter(
+              (row) => row.playbookKey === scope.playbookKey && row.assignmentBasis === 'curated',
+            )
+            .map((row) => row.entityName),
+          toWrite: toWrite.filter((row) => row.playbookKey === scope.playbookKey).length,
+        },
+      ]),
     );
 
     const summary = {
       job: JOB_NAME,
       mode: apply ? 'apply' : rehearse ? 'rehearse' : 'dry-run',
-      playbook: `${PLAYBOOK_KEY}@${active.revision_no}`,
       taxonomyMemberships: readings.length,
-      governed: decided.assignments.length,
-      byTaxonomy: decided.assignments.filter((row) => row.assignmentBasis === 'taxonomy').length,
-      curated: decided.assignments
-        .filter((row) => row.assignmentBasis === 'curated')
-        .map((row) => row.entityName),
+      playbooks: perPlaybook,
       alreadyGoverned: alreadyGoverned.size,
       issuersResolved: byIssuer.size,
-      withoutIssuerIdentity: withoutIssuer.map((row) => row.entityName),
+      withoutIssuerIdentity: withoutIssuer.map((row) => `${row.playbookKey}: ${row.entityName}`),
       toWrite: toWrite.length,
       // Companies one node away that were looked at and not assigned. Reported so
       // the decision is visible rather than inferable from an absence.
       nearMisses: decided.nearMisses.map(
-        (miss) => `${miss.entityName} (${miss.code}): ${miss.reason}`,
+        (miss) => `${miss.playbookKey} — ${miss.entityName} (${miss.code}): ${miss.reason}`,
       ),
-      staleCurations: decided.unmatchedCurations,
+      staleCurations: decided.unmatchedCurations.map(
+        (entry) => `${entry.playbookKey}: ${entry.entityKey}`,
+      ),
     };
 
     if (!apply && !rehearse) {
@@ -160,7 +201,7 @@ async function run(): Promise<void> {
     }
     if (decided.unmatchedCurations.length > 0) {
       throw new Error(
-        `a curated assignment names a company that is not in the universe: ${decided.unmatchedCurations.join(', ')}`,
+        `a curated assignment names a company that is not in the universe: ${summary.staleCurations.join(', ')}`,
       );
     }
 
@@ -169,7 +210,7 @@ async function run(): Promise<void> {
       let written = 0;
       for (const row of toWrite) {
         const result = await client.query(INSERT_SQL, [
-          active.sector_playbook_id,
+          activeByKey.get(row.playbookKey)!.sectorPlaybookId,
           row.issuerEntityId,
           row.assignmentBasis,
           row.taxonomyNodeId,

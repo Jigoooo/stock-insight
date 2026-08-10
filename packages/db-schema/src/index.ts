@@ -105,6 +105,8 @@ import { secSubmissionsSourceMigrationSql } from './migrations/103_sec_submissio
 import { taxonomyIndexNameRestoreMigrationSql } from './migrations/104_taxonomy_index_name_restore.ts';
 import { taxonomyNodeLabelHonestyMigrationSql } from './migrations/105_taxonomy_node_label_honesty.ts';
 import { ksicClassificationTableSourceMigrationSql } from './migrations/106_ksic_classification_table_source.ts';
+import { driverStageVocabularyMigrationSql } from './migrations/107_driver_stage_vocabulary.ts';
+import { bankPlaybookMigrationSql } from './migrations/108_bank_playbook.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1115,6 +1117,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: ksicClassificationTableSourceMigrationSql,
   },
+  {
+    id: '107_driver_stage_vocabulary',
+    description:
+      "Adds funding, net_interest_income, regulatory_capital and liquidity to the driver stage vocabulary; a bank's spread is not a product P&L's revenue.",
+    tables: [],
+    sql: driverStageVocabularyMigrationSql,
+  },
+  {
+    id: '108_bank_playbook',
+    description:
+      'The bank playbook, narrowed to deposit-taking lenders because KSIC 64992 is a legal form holding six bank groups and eight industrials.',
+    tables: [],
+    sql: bankPlaybookMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1228,4 +1244,6 @@ export {
   taxonomyIndexNameRestoreMigrationSql,
   taxonomyNodeLabelHonestyMigrationSql,
   ksicClassificationTableSourceMigrationSql,
+  driverStageVocabularyMigrationSql,
+  bankPlaybookMigrationSql,
 };
