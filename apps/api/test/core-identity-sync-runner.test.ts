@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all sixteen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all seventeen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -196,6 +196,11 @@ test('analytics runs all sixteen stages in order with an adjacent receipt per co
     // precedes everything analytical because REQ-DOM-001 is about what those
     // stages are allowed to assume.
     ['run-playbook-assignment.ts', 'stock-insight-playbook-assignment-stage'],
+    // Added 2026-08-10 (F1): K4 read expectations and never wrote one, so
+    // analytics.surprise_revision was unreachable and REQ-EXP-001 held only in
+    // fixtures. The producer must precede the canary that consumes it, and it
+    // shares the canary's audited wrapper clock so both see the same PIT cutoff.
+    ['run-k4-prior-model-expectation.ts', 'stock-insight-k4-prior-model-expectation-stage'],
     // K4 canary follows identity/playbook resolution and uses the audited wrapper
     // clock as its explicit PIT cutoff. It precedes feature/graph publication so
     // downstream readers can consume only a completed canonical evaluation.
@@ -246,5 +251,5 @@ test('analytics runs all sixteen stages in order with an adjacent receipt per co
       new RegExp(`^pipeline_record_stage_success ${receipt} `),
     );
   }
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 12/);
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 13/);
 });

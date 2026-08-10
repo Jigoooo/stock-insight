@@ -70,6 +70,13 @@ pipeline_record_stage_success stock-insight-playbook-assignment-stage "$RUN_STAR
 K4_CANARY_CUTOFF=$(
   node -e 'const value = new Date(process.argv[1]); if (Number.isNaN(value.valueOf())) process.exit(64); process.stdout.write(value.toISOString())' "$RUN_STARTED_AT"
 )
+# Must precede the K4 canary: the market-intelligence writer reads expectations and
+# refuses to invent one, so without a producer analytics.surprise_revision is
+# unreachable and REQ-EXP-001 can only hold in fixtures. The model is a random walk
+# with drift over an evenly spaced annual run, and it emits nothing when the run has
+# a gap or fewer than three priors.
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-prior-model-expectation.ts --live --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-k4-prior-model-expectation-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-market-intelligence.ts --canary --cutoff "$K4_CANARY_CUTOFF" --apply
 pipeline_record_stage_success stock-insight-k4-market-intelligence-canary-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
@@ -152,6 +159,7 @@ SELECT CASE WHEN
      'stock-insight-feed-build-stage',
      'stock-insight-probability-calibration-stage',
      'stock-insight-v2-graph-publish-stage',
+     'stock-insight-k4-prior-model-expectation-stage',
      'stock-insight-k4-market-intelligence-canary-stage',
      'stock-insight-v2-l5-publish-stage',
      'stock-insight-portfolio-snapshot-stage',
@@ -162,7 +170,7 @@ SELECT CASE WHEN
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 12
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 13
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
   AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1

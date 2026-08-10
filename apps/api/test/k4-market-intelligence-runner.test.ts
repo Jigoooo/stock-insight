@@ -544,6 +544,12 @@ describe('K4 executable wiring', () => {
     assert.match(analyticsPipeline, /run-k4-market-intelligence\.ts/);
     assert.match(analyticsPipeline, /--canary --cutoff "\$K4_CANARY_CUTOFF" --apply/);
     assert.match(analyticsPipeline, /stock-insight-k4-market-intelligence-canary-stage/);
-    assert.match(analyticsPipeline, /\) = 12/);
+    // The expectation producer must run before the canary reads expectations.
+    assert.ok(
+      analyticsPipeline.indexOf('run-k4-prior-model-expectation.ts') <
+        analyticsPipeline.indexOf('run-k4-market-intelligence.ts --canary'),
+    );
+    assert.match(analyticsPipeline, /stock-insight-k4-prior-model-expectation-stage/);
+    assert.match(analyticsPipeline, /\) = 13/);
   });
 });

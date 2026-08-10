@@ -55,12 +55,15 @@
 | "브레인 크래시루프 미해결" (옛 꼬리말)                     | 2026-08-08 해소. 재시작 1,357회 → 0                                                  |
 | "다음 세션: 브레인 복구 + K2" (옛 꼬리말)                  | 둘 다 완료                                                                           |
 | `governance.slo_*` 가 정본 이탈 (083 SQL 주석)             | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
+| "K4 완료" (§현재 위치)                                     | **절반만 맞았다.** exposure 경로는 완료, expectation/surprise 는 2026-08-10 까지 라이브 0행이었다. §"K4 의 빠진 절반" 참조 |
+| K4 shadow 상태 블록의 서빙 뷰 이름 3건                     | **틀렸다.** 존재하지 않는 이름이었다. 위 블록에서 정정                                |
+| `canonical/00 §4` 의 truth class 13종                      | 정본의 의미는 **14종**(`contracts/truth-classes.json`). [`canonical-errata.md`](./canonical-errata.md) E-001 |
 
 ### 현재 위치 — K4 완료, K6부터
 
 | 단계   | 내용                        | 상태                                                 |
 | ------ | --------------------------- | ---------------------------------------------------- |
-| **K4** | Market Intelligence Minimum | **완료.** 7일 PIT replay + live canary, shadow p4.v2 |
+| **K4** | Market Intelligence Minimum | **exposure 경로 완료** — 7일 PIT replay + live canary, shadow p4.v2. expectation/surprise 는 2026-08-10 에 producer 를 붙여 도달 가능해졌다. **valuation 은 여전히 미착지** — §"K4 의 빠진 절반" |
 | K6     | Common Asset View           | 미착수                                               |
 | K7     | Product Surface             | 미착수. UI 전환과 p4.v1 폐기는 여기서 수행           |
 | K8     | Recommendation Shadow       | 미착수                                               |
@@ -71,16 +74,23 @@ magnitude 를 공급해야 exposure 를 발명 없이 쓸 수 있고, 그 playbo
 K4 완료 시 운영 shadow 상태:
 
 ```
-analytics.impact_evaluation_revision    100행
-analytics.k4_coverage_serving_v2        100행
-analytics.k4_exposure_serving_v2          2행
-analytics.impact_score_component         16행
-analytics.impact_evaluation_evidence      4행
-inadmissible PIT D/E evidence             0행
-missing citation                          0행
-governance.entity_playbook_current_v2    10행
-governance.business_driver                8행
+analytics.impact_evaluation_revision              100행
+analytics.k4_portfolio_impact_coverage_v2         100행
+analytics.k4_portfolio_impact_exposure_v2           2행
+analytics.impact_score_component                   16행
+analytics.impact_evaluation_evidence                4행
+inadmissible PIT D/E evidence                       0행
+missing citation                                    0행
+governance.entity_playbook_current_v1              10행
+governance.security_playbook_measurement_rule_current_v2  30행
+governance.business_driver                          8행
 ```
+
+> **2026-08-10 이름 정정.** 이 블록은 원래 `k4_coverage_serving_v2`,
+> `k4_exposure_serving_v2`, `entity_playbook_current_v2` 라고 적혀 있었다. **셋 다 존재하지
+> 않는 이름이다** — 그대로 조회하면 `relation does not exist` 로 막힌다. 수치는 전부
+> 맞았고 이름만 틀렸다. `entity_playbook_current` 의 현재 뷰는 **v1** 이고, K4 가 추가한
+> v2 는 별개의 `security_playbook_measurement_rule_current_v2`(30행)다.
 
 K4 seal guard는 **모든 accepted exposure가 playbook revision, executable driver rule,
 AIS, sealed derivation, exact identity, A/B/C evidence를 인용**하도록 강제한다. 인용 없는
@@ -1281,3 +1291,110 @@ K6는 위 live readback과 이 문서의 최종 Git SHA부터 확인하고 시�
 - host의 `k4-*` patch/SQL/helper와 `run_k4_verify_release.sh` 잔여 0.
 - 다른 프로젝트와 운영 서비스의 container/process는 소유 범위 밖이라 종료하지 않았다.
   남은 `cloudflared`, Docker, PostgreSQL, Node process는 현재 서비스 소유다.
+
+---
+
+## K4 의 빠진 절반 — prior-model expectation writer (2026-08-10)
+
+### 무엇이 빠져 있었나
+
+2026-08-10 정본 대조 검증에서 나왔다. `analytics.expectation_revision` ·
+`surprise_revision` · `valuation_estimate_revision` 이 셋 다 **라이브 0행**이었고, 원인은
+"입력이 없어서"가 아니라 **쓰기 주체가 없어서**였다.
+
+- 소비자는 있었다 — `k4-market-intelligence-store.ts` 의 `EXPECTATION_SQL` 이
+  `expectation_kind IN ('prior_model','analyst_consensus','company_guidance')` 로 읽는다.
+- 생산자는 없었다 — 저장소 전체에 `INSERT INTO analytics.expectation_revision` 이 0건.
+- 따라서 planner 의 `expectations` 는 항상 빈 배열, `surprises` 도 항상 비었고,
+  `k4-market-intelligence-writer.ts` 의 `INSERT INTO analytics.surprise_revision` 은
+  **도달 불가 코드**였다. `REQ-EXP-001` 은 fixture 에서만 성립했다.
+
+계획 정본 `v2-final-implementation-plan-2026-08-07.md:591-597` 이 이 표를 K4 산출물로
+명시했으므로, "K4 완료"는 exposure 경로에 대해서만 참이었다.
+
+### 무엇을 만들었나
+
+`prior_model.annual_drift.v1` — 방어 가능한 가장 약한 baseline이다.
+
+| 성질 | 내용 |
+| --- | --- |
+| 모델 | drift 있는 random walk. `expected = 마지막 prior + mean(연간 변화)` |
+| dispersion | 연간 변화의 모집단 표준편차 |
+| 최소 근거 | prior 관측 **3개** 미만이면 아무것도 만들지 않는다 |
+| 연도 연결 | 회계연도는 매년 며칠씩 밀리므로 정확한 달력 일치가 아니라 **350~380일 허용창**. 중간에 빠진 해가 있으면 체인이 끊기고 만들지 않는다 |
+| 기간 basis | 관측에서 유도한다(instant / 분기 / 연간). YTD 같은 애매한 창은 만들지 않는다 |
+| PIT | 입력은 **actual 이 알려지기 전에 알려진** fact 만. `as_of=available_at=known_at=` prior 중 최신 `known_at` |
+| 인용 | expectation 마다 sealed derivation 1개, 입력 numeric fact 를 전부 인용 |
+| 멱등 | `expectation_key` 는 cutoff 에 의존하지 않는다. 재실행은 0행 |
+| 실패 처리 | metric definition 이 없거나 모호하면 **던지지 않고 건너뛰되 개수·키를 보고**한다 |
+
+파일: `apps/api/src/analytics/k4-prior-model-expectation.ts` (순수 플래너) ·
+`k4-prior-model-expectation-writer.ts` (writer + job) ·
+`run-k4-prior-model-expectation.ts` (러너).
+테스트 21개(플래너 14 · writer 7). `analytics.expectation_revision` 의 AIS FK 때문에
+producer 가 canary 보다 먼저 돌아야 하므로 `ensureInformationSet` 을 export 해 공유한다.
+
+### 배선
+
+`run_analytics_pipeline.sh` 에서 **K4 canary 바로 앞**에 넣었고 stage 수를 12 → 13 으로
+올렸다. 두 stage 는 같은 `K4_CANARY_CUTOFF` 를 쓰므로 PIT cutoff 가 하나다.
+`job-wiring-inventory.test.ts` 가 배선 없는 러너를 잡으므로 EXEMPT 로 빠지지 않았다.
+
+### 라이브 영수증 (2026-08-10)
+
+dry-run → rehearse(ROLLBACK) → apply → apply 재실행 순으로 돌렸다.
+
+```
+dry-run    plannedCount 4
+rehearse   inserted 4 · unresolved 0 · 전부 ROLLBACK
+apply      inserted 4 · skipped 0 · unresolved 0
+apply 재실행  inserted 0 · skipped 4       ← 멱등
+```
+
+적재된 4행은 전부 `expectation_kind='prior_model'`, derivation `status='sealed'`,
+인용 numeric fact 4~5건, dispersion 기록됨.
+
+```
+10  us-gaap:InventoryNet                                    USD  2026-06-27
+11  us-gaap:PropertyPlantAndEquipmentNet                    USD  2026-06-27
+12  us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax  USD  2026-06-27
+13  ifrs-full:Revenue                                       KRW  2026-03-31
+```
+
+**도달성 확인:** 같은 cutoff 로 실제 입력을 읽어 `planK4MarketIntelligence` 까지 돌린 결과
+`expectationsLoaded=4 → surprises=4`. 즉 `surprise_revision` 경로가 **도달 가능해졌다.**
+K4 canary 는 `--apply` 전용이라 이 확인은 쓰기 없이 플래너까지만 돌렸고, 실제 canary 는
+다음 파이프라인 주기에 새 stage 뒤에서 돈다.
+
+> **`REQ-EXP-001` 을 관측했다고 적지 마라.** 계획된 surprise 4건은 **전부
+> `direction: positive`** 였다. 요구사항이 말하는 "좋은 actual + 나쁜 surprise 공존"의
+> 실제 사례는 라이브에서 아직 나오지 않았다. 지금 성립한 것은 **경로의 도달 가능성**이고,
+> 그 케이스는 fixture(`k4-prior-model-expectation.test.ts`)에서만 확인돼 있다.
+
+**IFRS YTD 혼입 여부 확인:** ifrs-full 발행사는 같은 concept 으로 분기와 누계를 함께
+낸다. 적재된 KRW expectation 의 인용 4건을 실제로 조회한 결과 전부 1분기 창
+(`01-01…03-31`, 89~90일)이고 누계(180·272·364일)는 basis 필터에서 빠졌다.
+이 성질을 테스트로 고정해 뒀다.
+
+> **살펴볼 입력 이상치:** KRW expectation 의 target actual 은 `2026-01-01…03-31` 89일
+> 창에 **133.9조**다. 인용된 직전 1분기들이 77.8 → 63.7 → 71.9 → 79.1조이고 FY2025
+> 전체가 333.6조이므로, 한 분기가 직전 연간의 40%가 된다. 모델이 아니라 **수집된 fact
+> 쪽을 의심할 값**이다. F1 범위 밖이라 손대지 않았고, expectation 은 이 actual 을 쓰지
+> 않고 과거 4개 분기만으로 만들어졌다(surprise 계산에서만 대비된다).
+>
+> **아직 0행인 것:** `analytics.valuation_estimate_revision`. valuation writer 는
+> `k4-market-intelligence-writer.ts:919` 에 있으나 plan 이 valuation 을 만들지 않는다.
+> 이건 이번 범위 밖이고, 정본 05 §6 은 **여전히 미착지**다. 완료로 적지 마라.
+>
+> `analytics.surprise_revision` 도 canary 가 실제로 돌기 전까지는 0행이다. 위 4건은
+> "계획된 surprise"이지 적재된 행이 아니다.
+
+### 남은 결정과 부채
+
+| 항목 | 상태 |
+| --- | --- |
+| **스냅샷 없음일 때 404** — `personalization.portfolio_snapshot` 0행이라 p4.v1/v2 둘 다 맨 404 | **위반 아님.** 계획의 "404 대신 미계산 봉투" 게이트는 "스냅샷은 있고 impact 미계산" 분기에서 충족돼 있다. `REQ-SRC-001` 은 `08-data-acquisition.md:128` 소속의 **소스 수집 coverage** 규칙이고 API 봉투를 규정하지 않으며, `07-product-planes.md §1` 도 HTTP 표면을 규정하지 않는다. **정본 미정의 분기** → K6 착수 시 봉투로 갈지 404 로 갈지 정하고 여기에 적어라 |
+| **10종목 cohort 크기 하드코딩** — `impact-v2-read-model.ts` 가 `coverageRows.length !== 10` 이면 throw, 계약도 `.max(10)` + available 이면 정확히 10 | **K7 필수 제거 항목.** 검증용 cohort 크기가 서빙 계약에 박혀 있어 cohort 가 바뀌면 500 이다 |
+| **`REQ-SEM-010`** — `serving.content_pack_item_truth_v1` 는 있으나 읽는 앱 코드 0건, `truth-visual-language.ts` 미존재 | **K7 유지.** 계획이 6→14종 확장을 K7 로 잡아 둔 상태라 드리프트가 아니다. 다만 REQ 는 열려 있다 |
+| **정본 truth class 13 vs 14** | [`canonical-errata.md`](./canonical-errata.md) E-001. 동결 번들은 고치지 않는다 |
+| `CLAUDE.md` 의 "54 additive migrations" | **94** 로 정정함 |

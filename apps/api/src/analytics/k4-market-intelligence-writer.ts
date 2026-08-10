@@ -204,12 +204,11 @@ function countBy(values: readonly string[]): Record<string, number> {
   return counts;
 }
 
-async function ensureInformationSet(
+export async function ensureInformationSet(
   client: K4PersistenceClient,
-  plan: K4MarketIntelligencePlan,
+  informationSet: K4MarketIntelligencePlan['informationSet'],
   runKind: K4PersistenceOptions['runKind'],
 ): Promise<void> {
-  const informationSet = plan.informationSet;
   if (!informationSet.semanticSnapshotId) {
     throw new Error('K4 persistence requires the exact semantic snapshot id');
   }
@@ -353,7 +352,7 @@ async function ensureEvent(client: K4PersistenceClient, event: K4FilingEventPlan
   return eventRevisionId;
 }
 
-async function insertSealedDerivation(
+export async function insertSealedDerivation(
   client: K4PersistenceClient,
   input: {
     key: string;
@@ -590,7 +589,7 @@ export async function persistK4MarketIntelligencePlan(
     };
   }
 
-  await ensureInformationSet(client, plan, options.runKind);
+  await ensureInformationSet(client, plan.informationSet, options.runKind);
   const eventRevisionIds = new Map<string, number>();
   for (const event of plan.filingEvents) {
     eventRevisionIds.set(event.eventKey, await ensureEvent(client, event));

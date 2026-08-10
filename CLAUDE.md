@@ -19,7 +19,7 @@ Three deployables, pinned by image digest:
 - `apps/api` (`@stock-insight/api`) — the brain's read models, ingestion, backfill and analytics jobs. Run on a timer by `ops/systemd/user/*`, not by the request path.
 - `deploy/stock-edge` — nginx ingress for `stock.jigooo.com` and `insight-api.jigooo.com`, behind a Cloudflare tunnel owned by a separate repo.
 
-Shared packages: `@stock-insight/contracts` (API + internal-context contracts), `db-schema` (54 additive migrations), `api-client`, `ui`.
+Shared packages: `@stock-insight/contracts` (API + internal-context contracts), `db-schema` (94 additive migrations), `api-client`, `ui`.
 
 `apps/web/src` follows FSD: `pages` (route-facing composition), `widgets`, `features`, `entities`, `shared`.
 
