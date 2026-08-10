@@ -107,6 +107,8 @@ import { taxonomyNodeLabelHonestyMigrationSql } from './migrations/105_taxonomy_
 import { ksicClassificationTableSourceMigrationSql } from './migrations/106_ksic_classification_table_source.ts';
 import { driverStageVocabularyMigrationSql } from './migrations/107_driver_stage_vocabulary.ts';
 import { bankPlaybookMigrationSql } from './migrations/108_bank_playbook.ts';
+import { lifeSciencePlaybookMigrationSql } from './migrations/109_life_science_playbook.ts';
+import { bankMeasurementRulesMigrationSql } from './migrations/110_bank_measurement_rules.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1131,6 +1133,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: bankPlaybookMigrationSql,
   },
+  {
+    id: '109_life_science_playbook',
+    description:
+      'The life science playbook and the pipeline/regulatory stages it needs; no curated exclusions because the database carries no evidence of what these companies do.',
+    tables: [],
+    sql: lifeSciencePlaybookMigrationSql,
+  },
+  {
+    id: '110_bank_measurement_rules',
+    description:
+      'Rules for the three bank drivers the filings actually tag; capital, duration and the provision charge are left unruled because no tagged concept means what they mean.',
+    tables: [],
+    sql: bankMeasurementRulesMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1246,4 +1262,6 @@ export {
   ksicClassificationTableSourceMigrationSql,
   driverStageVocabularyMigrationSql,
   bankPlaybookMigrationSql,
+  lifeSciencePlaybookMigrationSql,
+  bankMeasurementRulesMigrationSql,
 };

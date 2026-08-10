@@ -155,6 +155,34 @@ export const PLAYBOOK_SCOPES: readonly PlaybookScope[] = [
       '66199': 'KSIC 66199 other financial support services; payments, not deposit taking',
     },
   },
+  {
+    playbookKey: 'life_science',
+    // Every code here names a business rather than a legal form, so there is nothing
+    // to curate. That is the difference from KSIC 64992 지주회사, where the code could
+    // not tell a bank group from a shipbuilder.
+    codes: {
+      '2834': 'SIC 2834 is Pharmaceutical Preparations; the code says it outright',
+      '2836': 'SIC 2836 is Biological Products; the code says it outright',
+      '211': 'KSIC 211 is 기초 의약 물질 및 생물학적 제제 제조업',
+      '21100': 'KSIC 21100 is the 기초 의약 물질 leaf; 셀트리온 sits here',
+      '212': 'KSIC 212 is 의약품 제조업',
+      '21212': 'KSIC 21212 is the 완제 의약품 leaf; 한미약품 sits here',
+    },
+    curated: {},
+    adjacent: {
+      // Adjacent by branch or by intuition, and each with economics this playbook does
+      // not describe. Recorded so the decision is visible rather than inferable.
+      '21299':
+        'KSIC 21299 other pharmaceutical manufacturing; a residual bucket that names no development pipeline',
+      '2830':
+        'SIC 2830 drugs at the two-digit level; too coarse to say whether a company develops or distributes',
+      '3841':
+        'SIC 3841 surgical and medical instruments; devices clear a different regulatory path with no trial readout of this kind',
+      '5122': 'SIC 5122 drugs and proprietaries wholesale; distribution economics, no pipeline',
+      '8731':
+        'SIC 8731 commercial physical and biological research; contract research, paid per study rather than owning the asset',
+    },
+  },
 ];
 
 export function assignPlaybooks(members: readonly TaxonomyMember[]): {
