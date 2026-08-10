@@ -1,0 +1,20 @@
+[Unit]
+Description=Stock Insight semantic SLO observation and safety state downgrade
+OnFailure=stock-insight-pipeline-alert@%n.service
+
+StartLimitIntervalSec=1h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/jigoo/.hermes/workspace/stock-insight
+ExecStart=/home/jigoo/.hermes/workspace/stock-insight/apps/api/scripts/run_slo_observation.sh
+TimeoutStartSec=15min
+Restart=on-failure
+RestartSec=5min
+UMask=0077
+NoNewPrivileges=true
+Nice=15
+
+[Install]
+WantedBy=default.target

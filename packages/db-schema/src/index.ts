@@ -94,6 +94,8 @@ import { p4V2ServingMigrationSql } from './migrations/092_p4_v2_serving.ts';
 import { k4RunReceiptPrivilegeHardeningMigrationSql } from './migrations/093_k4_run_receipt_privilege_hardening.ts';
 import { k4SemanticSnapshotReconstructionMigrationSql } from './migrations/094_k4_semantic_snapshot_reconstruction.ts';
 import { pipelineWrapperHealthMigrationSql } from './migrations/095_pipeline_wrapper_health.ts';
+import { wrapperFailureStreakSloMigrationSql } from './migrations/096_wrapper_failure_streak_slo.ts';
+import { sloBreachSafetyStateMigrationSql } from './migrations/097_slo_breach_safety_state.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1027,6 +1029,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: pipelineWrapperHealthMigrationSql,
   },
+  {
+    id: '096_wrapper_failure_streak_slo',
+    description:
+      'Adds the SLO the 2026-08-08 outage needed. expected_runs stayed clean through it because attempts kept being made and failing, so the streak is measured directly instead.',
+    tables: [],
+    sql: wrapperFailureStreakSloMigrationSql,
+  },
+  {
+    id: '097_slo_breach_safety_state',
+    description:
+      'Promotes the six SLOs a 23-day replay corroborated to CAUTION, and records why expected_runs and coverage_ledger.delta were left report-only.',
+    tables: [],
+    sql: sloBreachSafetyStateMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1129,4 +1145,6 @@ export {
   k4RunReceiptPrivilegeHardeningMigrationSql,
   k4SemanticSnapshotReconstructionMigrationSql,
   pipelineWrapperHealthMigrationSql,
+  wrapperFailureStreakSloMigrationSql,
+  sloBreachSafetyStateMigrationSql,
 };

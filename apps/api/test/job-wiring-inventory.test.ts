@@ -60,6 +60,15 @@ const EXEMPT = new Map<string, string>([
     'run-ecos-vintage.ts',
     'manual — collector works and reaches the graph; timer cadence undecided',
   ],
+  // Migration 082 makes recovery a human decision on purpose: "a transition back
+  // records who decided the condition had cleared", because an automatic recovery
+  // would let a flapping SLO walk the product in and out of INFORMATION_ONLY
+  // unattended. A timer here would be exactly that automation. The downgrade half
+  // IS wired, in run_slo_observation.sh.
+  [
+    'run-safety-state-recovery.ts',
+    'manual by design — 082 requires a named person to decide a recovery',
+  ],
 ]);
 
 async function collectJobs(dir: URL, found: string[] = []): Promise<string[]> {

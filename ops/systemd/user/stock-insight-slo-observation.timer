@@ -1,0 +1,11 @@
+[Unit]
+Description=Stock Insight SLO observation, hourly and independent of every pipeline
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+Unit=stock-insight-slo-observation.service
+
+[Install]
+WantedBy=timers.target

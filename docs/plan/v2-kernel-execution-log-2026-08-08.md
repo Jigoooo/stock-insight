@@ -14,7 +14,7 @@
 | -------- | ------------------------------------------------------------- | ------------------------------------------------------ |
 | **K0**   | 결정을 산출물로 (freeze 커밋 · contracts · availability 봉투) | 완료                                                   |
 | **K1**   | Canonical Kernel (078–080)                                    | governance 스키마 1 → 13 relation                      |
-| **K5**   | Release / Safety / SLO (081–083)                              | safety NORMAL · SLO 정의 8개. **관측 0행 — producer 없음** |
+| **K5**   | Release / Safety / SLO (081–083)                              | safety NORMAL · SLO 정의 9개 · **관측자·downgrade rule 착지(095–097)** |
 | **K2-a** | metric definition 레지스트리 (084)                            | 6,100                                                  |
 | **K2-b** | numeric_fact writer                                           | **168,417** · 패리티 11,139 전건 일치                  |
 | **K2-c** | economic_claim (086)                                          | 297 (판정 2 / 미판정 295)                              |
@@ -55,7 +55,7 @@
 | "브레인 크래시루프 미해결" (옛 꼬리말)                     | 2026-08-08 해소. 재시작 1,357회 → 0                                                  |
 | "다음 세션: 브레인 복구 + K2" (옛 꼬리말)                  | 둘 다 완료                                                                           |
 | `governance.slo_*` 가 정본 이탈 (083 SQL 주석)             | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
-| "SLO 8개 report-only" (§완료 표)                           | **돌고 있지 않다.** `slo_observation` 0행, 쓰는 코드 0건. `REQ-SAFE-002` 미작동 |
+| "SLO 8개 report-only" (§완료 표)                           | 2026-08-10 해소. 관측자·downgrade rule·복구 러너가 착지했고 6개가 CAUTION 으로 승격됐다. §"SLO 관측자" 참조 |
 | "K4 완료" (§현재 위치)                                     | **절반만 맞았다.** exposure 경로는 완료, expectation/surprise 는 2026-08-10 까지 라이브 0행이었다. §"K4 의 빠진 절반" 참조 |
 | K4 shadow 상태 블록의 서빙 뷰 이름 3건                     | **틀렸다.** 존재하지 않는 이름이었다. 위 블록에서 정정                                |
 | `canonical/00 §4` 의 truth class 13종                      | 정본의 의미는 **14종**(`contracts/truth-classes.json`). [`canonical-errata.md`](./canonical-errata.md) E-001 |
@@ -1569,3 +1569,109 @@ K5 가 스키마와 정의 8개를 만들었지만 관측을 만든 적이 없�
 그래서 wrapper 연속 실패를 알려 줄 장치가 없다. 이번 2일 중단은 `migration_runs` 에
 `failed` 로 6번 정확히 기록돼 있었고 아무도 보지 않았을 뿐이다. §"운영 규약" 의 조회를
 트리거 전에 돌리는 것이 현재 유일한 방어선이다.
+
+---
+
+## 관측 복구 — wrapper health 와 SLO observer (2026-08-10)
+
+2일 중단이 눈에 안 띈 이유를 닫는 작업이다. 알림이 아니라 **조회와 로그로 드러나게** 한다.
+
+### A. wrapper 함대 상태
+
+`governance.pipeline_wrapper_health_v1`(095)와 `pipeline_common.sh` 의 fail-open 훅.
+훅은 `pipeline_start_wrapper_attempt` 안에서 불리므로 **입력 게이트보다 먼저** 돌고,
+막힌 wrapper 도 함대 상태를 남긴다. 감시 대상이 죽어도 신호가 나오는 것이 요점이다.
+
+```
+{"event":"pipeline_fleet_health","wrappers":[{"wrapper":"analytics","status":"completed",
+ "consecutiveFailures":0,...}, ...]}
+```
+
+**`ops` 가 아니라 `governance` 인 이유**: `ops` 는 이 DB 를 공유하는 레거시 research app
+소유 영역이고 `packages/db-schema` 가 거기에 뷰를 만든 전례가 0건이다. 083 이 SLO 원장에
+대해 내린 판단과 같다.
+
+**GRANT 은 파이프라인 롤과 `si_readapi` 까지만.** 앱 롤에 주면 `EXPECTED_CATALOG_DIGESTS`
+가 움직여 재핀 없이는 브레인이 크래시루프한다 — 059 가 2026-08-03 에 그렇게 냈다.
+
+**실측으로 잡은 결함**: 훅을 도달 불가 DB 에 대고 돌리니 **2분간 wrapper 를 붙잡았다.**
+`statement_timeout` 은 세션이 생긴 뒤에야 적용되고 연결 자체는 무한정 기다린다.
+`PGCONNECT_TIMEOUT` 과 `timeout` 을 둘 다 걸어 3.5초로 줄였다.
+
+**관측 범위는 4/6 이다.** `news` 와 `fundamentals` 는 타이머는 돌지만
+`pipeline_start_wrapper_attempt` 를 부르지 않아 감사 행이 없다. 뷰 `COMMENT` 에 적었다.
+
+### B. SLO 관측자 — 재생이 두 가지를 반증했다
+
+관측자(`run-slo-observation.ts`)는 `--as-of`/`--from --to` 를 받는다. 창은 과거를
+돌아보는 것이라 **주말을 기다릴 필요가 없다** — 2026-07-20..08-11 을 일 단위로 재생해
+베이스라인을 지금 만들었다. 재생은 dry-run 전용이다. 과거 창의 계산값을 append-only
+원장에 넣으면 `slo_current_v1` 의 최신성 판단이 왜곡되고 되돌릴 수 없다.
+
+**① `ops.pipeline.expected_runs` 는 이 장애를 구조적으로 못 잡는다.**
+중단 구간 전체에서 clean 이다. 그 기간에도 wrapper 시도는 매일 18·18·12건 있었다 —
+타이머는 계속 돌았고 실패했을 뿐이다. 이 게이지는 "스케줄러가 발화했나"를 재지
+"무언가 성공했나"를 재지 않는다. 임계값을 4로 올려도 마찬가지다. **승격하지 않았다.**
+
+**② `servable`·`freshness` 는 재생 불가다.** 처음 재생에서 31일 전부 breach 였는데
+라이브는 clean 이었다. 원인은 PIT 위반 — published 659건이 전부 당일 것이고 이전은 전부
+`superseded` 인데 쿼리가 **현재 status 를 과거 창에 적용**했다. 상태 이력이 없어 과거
+servability 는 복원 불가라, 이제 과거 cutoff 를 **거부**한다.
+
+**③ 측정 결함 하나 더**: `expected_runs` 가 191건을 세고 있었다.
+`source_system='pipeline-wrapper'` 가 stage 영수증까지 포함한다. 정확한 판별자는
+`summary->>'wrapper_attempt'` 이고 28건이다.
+
+### 새 SLO — 096
+
+`expected_runs` 가 못 잡는 것을 잡는 게이지다.
+
+```
+ops.pipeline.wrapper_failure_streak  artifact_count  at_most 0 wrappers
+  = 최근 두 정착 시도가 모두 실패한 wrapper 수
+```
+
+재생 결과 08-09·08-10 에 `value=2 [analytics, market-enrichment]` 로 **정확히 잡는다.**
+23일 중 13일이 breach 였고, 전부 실제 고장으로 확인됐다 — 07-21~23 은
+`source_revision` 과 `claim` 양쪽이 0행인 실제 수집 중단 구간이다.
+**게이지가 시끄러운 게 아니라 파이프라인이 그만큼 자주 깨져 있었다.**
+
+`slo_kind` 는 `artifact_count` 를 쓴다. CHECK 이 canonical/08 §8 의 다섯 축으로 묶여
+있고, 여섯 번째를 추가하면 정본이 규정하지 않은 측정 축을 규정한다고 주장하게 된다.
+
+### 승격 — 097
+
+| SLO | 상태 | 근거 |
+| --- | --- | --- |
+| `wrapper_failure_streak` | **CAUTION** (required **6**) | 장애를 잡았다. 시간당 관측이므로 6시간 지속 |
+| `source_revision.growth` | CAUTION | 3일 수집 중단을 정확히 잡고 재개 즉시 clean |
+| `claim.growth` | CAUTION | 같은 3일, 같은 복귀 |
+| `relation_evidence.growth` | CAUTION | 23일 clean. 일주일 0행은 명백 |
+| `content_pack.servable` | CAUTION | 라이브 659. 0은 명백 |
+| `content_pack.freshness` | CAUTION | 라이브 2.5h / 48h 천장 |
+| `expected_runs` | report-only | **장애를 못 잡음이 재생으로 증명됨** |
+| `coverage_ledger.delta` | report-only | 23일 내내 관측 불가. 승격할 근거가 없다 |
+| `parser_drift` | report-only | 측정이 아직 없다 |
+
+전부 `CAUTION` 인 이유: `INFORMATION_ONLY`·`HALTED` 는 `recommendation_allowed: false` 다.
+safety state 를 읽는 소비자가 아직 없으므로 오늘 폭발 반경은 0이고, 아무도 보정하지 않은
+정지를 미리 장전하는 것보다 상태를 기록하는 편이 정직하다.
+
+### 라이브 영수증
+
+```
+slo_observation      7 관측 적재 (전부 clean) · 2 skip (근거 명시)
+slo_current_v1       9행 · CAUTION 6 · report-only 3
+downgrade rule       decision=None (breach 없음)
+safety_state         global NORMAL · recommendation_allowed=t  ← 변화 없음
+복구 러너            NORMAL→CAUTION 요청을 "not a recovery" 로 거부
+```
+
+### 아직 남은 것
+
+**`REQ-SAFE-002` 는 이제 기계가 다 있지만 소비자가 없다.** `safety_state` 를 읽는 코드가
+저장소에 하나도 없어서, CAUTION 으로 내려가도 제품 동작은 그대로다. `REQ-SAFE-003`
+("추천은 safety state 가 허용하는 경우에만 발행한다")을 배선하는 것은 K8 이다.
+"SLO 가 이제 작동한다"를 "제품이 이제 반응한다"로 읽지 마라.
+
+`parser_drift` 탐지기와 `coverage_delta` 관측은 착지하지 않았다.
