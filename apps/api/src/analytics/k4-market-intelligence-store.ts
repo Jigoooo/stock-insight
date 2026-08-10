@@ -287,7 +287,9 @@ export async function loadK4MarketIntelligenceInput(
     K4_SHADOW_COHORT_V1.map(({ ticker }) => ticker),
   ]);
   if (universe.rows.length !== options.securityLimit) {
-    throw new Error(`K4 requires exactly 10 securities, found ${universe.rows.length}`);
+    throw new Error(
+      `K4 requires the whole cohort: ${options.securityLimit} securities, found ${universe.rows.length}`,
+    );
   }
   const securities = universe.rows.map((row) => ({
     securityEntityId: Number(row.security_entity_id),

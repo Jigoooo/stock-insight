@@ -14,6 +14,7 @@ import {
   type K4QueryClient,
 } from '../src/analytics/k4-market-intelligence-store.ts';
 import {
+  K4_SHADOW_COHORT_SIZE,
   K4_SHADOW_COHORT_V1,
   K4_SHADOW_COHORT_VERSION,
 } from '../src/analytics/k4-shadow-cohort.ts';
@@ -54,7 +55,7 @@ describe('K4 market-intelligence CLI', () => {
     assert.equal(buildK4RunCutoffs(args).length, 7);
   });
 
-  it('accepts exactly one write mode and bounded ten-security selection', () => {
+  it('accepts exactly one write mode and a selection matching the cohort', () => {
     assert.equal(
       parseK4MarketIntelligenceArgs([
         '--from',
@@ -63,7 +64,7 @@ describe('K4 market-intelligence CLI', () => {
         '2026-08-08',
         '--rehearse',
         '--security-limit',
-        '10',
+        String(K4_SHADOW_COHORT_SIZE),
       ]).mode,
       'rehearse',
     );
@@ -87,9 +88,9 @@ describe('K4 market-intelligence CLI', () => {
           '--to',
           '2026-08-08',
           '--security-limit',
-          '9',
+          String(K4_SHADOW_COHORT_SIZE - 1),
         ]),
-      /exactly 10/i,
+      /exactly the cohort/i,
     );
   });
 

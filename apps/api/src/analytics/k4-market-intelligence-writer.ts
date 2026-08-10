@@ -7,7 +7,7 @@ import {
   type K4MarketIntelligencePlan,
   type K4ShockPlan,
 } from './k4-market-intelligence-plan.ts';
-import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
+import { K4_SHADOW_COHORT_SIZE, K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
 export type K4PersistenceResult = {
   receiptId: number;
@@ -75,8 +75,20 @@ function validateK4PersistencePlan(
   outcomes: readonly K4OutcomePlan[],
 ): void {
   const coverageIds = new Set(plan.coverage.map((row) => row.securityEntityId));
-  if (plan.coverage.length !== 10 || coverageIds.size !== 10) {
-    throw new Error('K4 persistence requires exact ten-security coverage');
+  // Two different properties, so two different errors. Size says the whole cohort was
+  // evaluated; the set says no security was evaluated twice. They were one condition
+  // while the cohort was ten hand-picked tickers that could not collide — a wider
+  // cohort resolved through issuers can, which is the grain hazard that already bit
+  // the common asset view's numeric facts.
+  if (plan.coverage.length !== K4_SHADOW_COHORT_SIZE) {
+    throw new Error(
+      `K4 persistence requires the whole cohort: ${K4_SHADOW_COHORT_SIZE} securities, got ${plan.coverage.length}`,
+    );
+  }
+  if (coverageIds.size !== plan.coverage.length) {
+    throw new Error(
+      `K4 coverage names ${plan.coverage.length} rows but only ${coverageIds.size} distinct securities`,
+    );
   }
 
   const evaluationKeys = new Set<string>();

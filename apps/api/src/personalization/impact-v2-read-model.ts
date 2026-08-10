@@ -1,3 +1,4 @@
+import { K4_SHADOW_COHORT_SIZE } from '../analytics/k4-shadow-cohort.ts';
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -450,8 +451,15 @@ export async function getPersonalizationPortfolioImpactV2(
       coverage: [],
     });
   }
-  if (coverageRows.length !== 10) {
-    throw new Error(`Portfolio impact v2 requires exactly 10 coverage rows`);
+  // Compared against the cohort definition, not a literal and not a number the
+  // response carries. What this defends is that an `available` answer covers the
+  // whole evaluated cohort — a short answer means rows were dropped between
+  // evaluation and serving, and the reader has no way to see that. A count supplied
+  // by the same response would be self-certifying and defend nothing.
+  if (coverageRows.length !== K4_SHADOW_COHORT_SIZE) {
+    throw new Error(
+      `Portfolio impact v2 covers the whole cohort: expected ${K4_SHADOW_COHORT_SIZE} rows, got ${coverageRows.length}`,
+    );
   }
   const coverage = coverageRows.map((row) => {
     if (requiredText(row.portfolio_snapshot_id, 'coverage snapshot id') !== snapshotId) {

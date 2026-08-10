@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { K4_SHADOW_COHORT_SIZE } from '../src/analytics/k4-shadow-cohort.ts';
 import {
   getPersonalizationPortfolioImpactV2,
   type PersonalizationImpactV2QueryExecutor,
@@ -168,7 +169,7 @@ describe('p4.v2 portfolio impact read model', () => {
     assert.equal(calls, 1);
   });
 
-  it('fails closed on incomplete score decomposition or incomplete ten-security coverage', async () => {
+  it('fails closed on incomplete score decomposition or coverage short of the cohort', async () => {
     const malformed = exposureRow(1, 'USD');
     malformed.score_components.pop();
     await assert.rejects(
@@ -186,7 +187,8 @@ describe('p4.v2 portfolio impact read model', () => {
       queryRows: async <TRow extends Record<string, unknown>>(sql: string) => {
         coverageCall += 1;
         if (coverageCall === 1) return [{ portfolio_snapshot_id: snapshotId }] as unknown as TRow[];
-        if (sql.includes('coverage')) return coverageRows().slice(0, 9) as unknown as TRow[];
+        if (sql.includes('coverage'))
+          return coverageRows().slice(0, K4_SHADOW_COHORT_SIZE - 1) as unknown as TRow[];
         return [] as unknown as TRow[];
       },
     };
@@ -198,7 +200,7 @@ describe('p4.v2 portfolio impact read model', () => {
         horizon: null,
         knownAt,
       }),
-      /exactly 10/i,
+      /whole cohort/i,
     );
   });
 });

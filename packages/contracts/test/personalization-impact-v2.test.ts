@@ -129,10 +129,21 @@ describe('p4.v2 unit-aware portfolio impact contract', () => {
     assert.equal(personalizationPortfolioImpactV2Schema.safeParse(pitE).success, false);
   });
 
-  it('requires complete ten-security coverage whenever computation is available', () => {
-    const incomplete = response();
-    incomplete.coverage.pop();
-    assert.equal(personalizationPortfolioImpactV2Schema.safeParse(incomplete).success, false);
+  it('refuses an available response that covers nothing', () => {
+    const empty = { ...response(), coverage: [] };
+    assert.equal(personalizationPortfolioImpactV2Schema.safeParse(empty).success, false);
+  });
+
+  it('does not pin the coverage count, because it cannot check one honestly', () => {
+    // This used to require exactly ten rows, which made growing the K4 cohort by one
+    // security a 500 from the serving path rather than a longer answer — the v2 plan
+    // lists removing it as a K7 requirement. The count invariant did not disappear:
+    // it moved to impact-v2-read-model, which compares against the cohort definition.
+    // A schema can only compare a response against itself, and a response certifying
+    // its own size defends nothing.
+    const shorter = response();
+    shorter.coverage.pop();
+    assert.equal(personalizationPortfolioImpactV2Schema.safeParse(shorter).success, true);
   });
 
   it('allows not_computed only with no groups and no partial coverage', () => {

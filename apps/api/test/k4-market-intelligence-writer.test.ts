@@ -391,7 +391,7 @@ describe('K4 market-intelligence persistence', () => {
     assert.ok(!roles.has('expected'));
   });
 
-  it('rejects an incomplete ten-security plan before any database statement', async () => {
+  it('rejects a plan that does not cover the whole cohort, before any database statement', async () => {
     const client = new FakeWriterClient();
     const invalid = plan();
     invalid.coverage.pop();
@@ -402,7 +402,7 @@ describe('K4 market-intelligence persistence', () => {
         requestDigest,
         planDigest,
       }),
-      /ten-security coverage/i,
+      /whole cohort/i,
     );
     assert.deepEqual(client.calls, []);
   });

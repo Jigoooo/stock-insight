@@ -17,7 +17,7 @@ import {
   type K4PersistenceResult,
   type K4OutcomePlan,
 } from './k4-market-intelligence-writer.ts';
-import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
+import { K4_SHADOW_COHORT_SIZE, K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
 type Mode = 'dry-run' | 'rehearse' | 'apply';
 
@@ -97,8 +97,8 @@ export function parseK4MarketIntelligenceArgs(argv: readonly string[]): K4Market
   }
   if (selectedModes.length > 1) throw new Error('select exactly one K4 write mode');
   const mode = selectedModes[0] ?? 'dry-run';
-  if (!Number.isSafeInteger(securityLimit) || securityLimit !== 10) {
-    throw new Error('K4 evaluates exactly 10 securities');
+  if (!Number.isSafeInteger(securityLimit) || securityLimit !== K4_SHADOW_COHORT_SIZE) {
+    throw new Error(`K4 evaluates exactly the cohort: ${K4_SHADOW_COHORT_SIZE} securities`);
   }
   if (canary) {
     if (mode !== 'apply') throw new Error('canary requires independent --apply');

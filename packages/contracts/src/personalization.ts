@@ -288,15 +288,20 @@ export const personalizationPortfolioImpactV2Schema = z
         exposures: z.array(portfolioImpactExposureV2Schema).min(1).max(1_000),
       }),
     ),
-    coverage: z.array(portfolioImpactCoverageV2Schema).max(10),
+    // Bounded, not pinned. The exact count belongs to whoever can compare it against
+    // the cohort definition — the read model does, this schema does not, and a
+    // response asserting its own size would certify itself. See the removed refine
+    // below: it said "available means exactly ten", which made growing the cohort by
+    // one row a 500 instead of a longer answer.
+    coverage: z.array(portfolioImpactCoverageV2Schema).max(1_000),
   })
   .strict()
   .superRefine((response, context) => {
-    if (response.availability === 'available' && response.coverage.length !== 10) {
+    if (response.availability === 'available' && response.coverage.length === 0) {
       context.addIssue({
         code: 'custom',
         path: ['coverage'],
-        message: 'available p4.v2 coverage requires exactly ten securities',
+        message: 'available p4.v2 coverage cannot be empty',
       });
     }
     if (response.availability === 'not_computed') {
