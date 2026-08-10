@@ -104,6 +104,63 @@ AIS, sealed derivation, exact identity, A/B/C evidence를 인용**하도록 강�
 | `REQ-SEM-010` truth class 를 UI 에서 구분       | 데이터 원천(`content_pack_item_truth_v1`) 생성됨. **UI 가 아직 안 읽는다** — 도달성 감사의 "안 읽히는 뷰" 16개에 있음 |
 | `REQ-DOM-001` KPI 선택이 playbook revision 인용 | K4 writer와 seal guard에서 **강제됨**. p4.v2 shadow serving까지 연결됐고 UI 전환은 K7                                 |
 
+## ⏱ 운영 규약 — 타이머를 기다려서 배우지 않는다
+
+**원칙: 어떤 작업이 되는지 확인하려고 타이머를 기다리지 않는다. 직접 돌려서 확인한다.**
+
+2026-08-10 에 이 규약이 왜 필요한지 증명됐다. K4 stage 를 배선하고 "내일 07:46 에 돈다"고
+적었는데, 실제로는 **analytics 파이프라인이 이틀째 한 번도 완주하지 못한 상태**였다
+(§"파이프라인 2일 중단" 참조). 기다렸으면 내일도 안 돌았고, 그 사실을 하루 더 늦게 알았다.
+
+### 순서 — 이 순서를 건너뛰지 마라
+
+1. **선행조건을 먼저 조회한다.** 트리거 전에 상류 wrapper 상태를 본다.
+   이 조회 하나가 위 2일 중단을 드러냈다.
+
+   ```sql
+   SELECT DISTINCT ON (job_name) job_name, status, finished_at, now()-finished_at AS age
+     FROM public.migration_runs
+    WHERE job_name LIKE 'stock-insight-%-wrapper'
+    ORDER BY job_name, started_at DESC, id DESC;
+   ```
+
+   `status<>'completed'` 인 상류가 있으면 **그것부터 고친다.** 하류를 먼저 돌리면
+   입력 게이트에서 막히거나, 더 나쁘게는 낡은 입력으로 돈다.
+
+2. **실패한 상류는 로그에서 정확한 실패 지점을 꺼낸다.** `migration_runs.error` 는 실패한
+   명령만 알려주고 원인은 안 알려준다. 스택은 journal 에 있다.
+
+   ```bash
+   journalctl --user -u stock-insight-<wrapper>.service --since "<시각>" --no-pager | tail -40
+   ```
+
+3. **고친 뒤 dry-run → rehearse → apply.** 모든 러너는 dry-run 이 기본이어야 하고
+   `--rehearse`(쓰고 롤백)를 지원해야 한다. 새 러너를 이 계약 없이 만들지 마라.
+
+4. **stage 단위가 아니라 서비스 단위로 돌린다.** 노드 명령만 따로 돌리면 파이프라인
+   스크립트의 DB assertion·`pipeline_record_stage_success`·stage 수 검증이 안 돈다.
+   그것들이 바로 배선 결함을 잡는 장치다.
+
+   ```bash
+   systemctl --user start stock-insight-<name>.service
+   journalctl --user -u stock-insight-<name>.service -f
+   ```
+
+5. **exit code 로 끝났다고 말하지 않는다.** `REQ-SAFE-001` · `REQ-OPS-001`. 적재됐다는
+   주장은 원장을 세어서 증명한다. 프로세스가 0 으로 끝난 것과 의미상 건강한 것은 다르다.
+
+### 다시 돌리면 안 되는 것
+
+- 코드·입력 변화 없이 성공한 **K4 replay / canary**. 같은 영수증을 늘리는 것은 검증이 아니다.
+- 입력이 바뀌었으면 다시 돌려도 된다. 2026-08-10 의 expectation 적재가 그 예다.
+
+### 아직 없는 것 — 결정 필요
+
+wrapper 가 **연속 실패해도 아무것도 알리지 않는다.** 위 2일 중단은 `migration_runs` 에
+`failed` 로 정확히 기록돼 있었고, 아무도 보지 않았을 뿐이다. `REQ-SAFE-002` 는 semantic
+SLO 실패가 safety state 를 낮춘다고 규정하지만 **wrapper 연속 실패는 SLO 에 없다.**
+알림을 붙일지는 결정 사항이라 여기 적어만 둔다.
+
 ## 어디서 작업 중인가
 
 ```
@@ -1398,3 +1455,51 @@ K4 canary 는 `--apply` 전용이라 이 확인은 쓰기 없이 플래너까지
 | **`REQ-SEM-010`** — `serving.content_pack_item_truth_v1` 는 있으나 읽는 앱 코드 0건, `truth-visual-language.ts` 미존재 | **K7 유지.** 계획이 6→14종 확장을 K7 로 잡아 둔 상태라 드리프트가 아니다. 다만 REQ 는 열려 있다 |
 | **정본 truth class 13 vs 14** | [`canonical-errata.md`](./canonical-errata.md) E-001. 동결 번들은 고치지 않는다 |
 | `CLAUDE.md` 의 "54 additive migrations" | **94** 로 정정함 |
+
+---
+
+## 파이프라인 2일 중단 — SEC digest 의 문자열 길이 초과 (2026-08-10)
+
+### 어떻게 드러났나
+
+K4 stage 를 배선하고 "내일 07:46 타이머에 돈다"고 적은 뒤, 타이머를 기다리지 않고
+바로 돌리려 선행조건을 조회한 것이 시작이다. §"운영 규약" 1번이 이 순서다.
+
+```
+stock-insight-knowledge-wrapper          completed   49분 전
+stock-insight-ohlcv-wrapper              completed    2시간 전
+stock-insight-market-enrichment-wrapper  failed       3시간 전   ← 게이트 차단
+```
+
+analytics 파이프라인의 입력 assertion 은 세 wrapper 의 **최신 행이 `completed`** 일 것을
+요구한다. market-enrichment 가 실패로 남아 있어 analytics 는 **08-08·08-09 양일, 매일 3회
+재시도 전부** `wrapper_failed: db-assertion:analytics-input` 으로 즉시 죽었다.
+2일간 한 번도 완주하지 못했고, 그동안 K4 canary·도달성 감사·source contract 감사도
+같이 멈춰 있었다.
+
+### 원인 두 개, 활성은 하나
+
+| | 실패 지점 | 상태 |
+| --- | --- | --- |
+| A | `run-dart-supply-disclosure.ts:480` — `source 145 requires exactly one current applicable contract; got 2` | **이미 해소.** `ingestion.source_contract_current_v1` 의 source 145 현재 계약이 1건으로 돌아와 있다. 08-09 저녁 실행은 DART 를 통과했다 |
+| B | `sec-numeric-fact-runner.ts:339` — `RangeError: Invalid string length` | **활성.** 이번에 고쳤다 |
+
+### B 의 정체
+
+`digest()` 가 `sha256(JSON.stringify(canonical(value)))` 였고, `buildSecCanonicalPlan` 이
+**plan 전체(모든 fact)** 를 한 번에 넘겼다. SEC 적재가 늘면서 그 문자열 하나가 Node 의
+최대 문자열 길이를 넘겼다. 배치 크기를 줄이는 것은 나중에 같은 자리에서 다시 터지는
+미봉책이라, **문자열을 만들지 않는 쪽**으로 고쳤다.
+
+`writeCanonicalJson(value, write)` 이 `JSON.stringify(canonical(value))` 와 **바이트가
+동일한** 출력을 한 조각씩 흘려보내고, `canonicalDigest` 가 그걸 해시에 이어붙인다.
+digest 값이 움직이면 안 되므로 이전 구현과의 등가성을 테스트로 고정했다
+(`sec-numeric-fact-digest.test.ts`, 25 케이스).
+
+까다로웠던 지점 하나: 이전 구현은 정렬한 쌍을 `Object.fromEntries` 로 되조립했는데,
+객체 리터럴은 **정수형 키를 언제나 앞으로, 숫자 오름차순으로** 재배치한다. 그 재배치까지
+복제해야 digest 가 같았다. 등가성 테스트가 이걸 잡았다.
+
+체인 폭도 테스트로 묶었다 — 행 수를 10 에서 10만으로 늘려도 해시에 들어가는 **가장 긴
+조각의 길이가 변하지 않는다.** 결함이 "행 수에 비례해 자라는 문자열 하나"였으므로,
+그 성질이 사라졌다는 것을 직접 단언한다.
