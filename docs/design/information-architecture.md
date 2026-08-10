@@ -58,12 +58,32 @@ above-the-fold 10항목 + 하위 섹션 11개, Theme 상태 7개와 필수 정�
 필수 정보 7항목을 규정한다. 지금은 표면 자체가 없다.
 
 재설계 원칙과 충돌하지 않는다 — theme 은 "쓸데없는 정보"가 아니라 `today` 의
-"인사이트 분류"가 이미 부분적으로 하고 있는 일이다. **별도 화면을 새로 만들지, `today`
-안의 한 섹션으로 둘지가 열린 결정**이고, 어느 쪽이든 위 상태 7개와 정보 7항목은
-도달 가능해야 한다.
+"인사이트 분류"가 이미 부분적으로 하고 있는 일이다.
+
+**결정: K7 에서 생산자까지 만든 뒤 별도 화면으로 낸다.**
+
+배치보다 생산자가 먼저인 이유는 **생산자가 없기 때문**이다. 2026-08-10 실측:
+
+| 확인 | 값 |
+| --- | --- |
+| `analytics.theme` | 138행, `created_at` 전부 **2026-07-18** |
+| `analytics.theme_membership` | 396행, `valid_from` 전부 2026-07-18 |
+| `maturity` | `emerging` 138 / 138 — 정본 7상태 중 1개 |
+| `tier` | `adjacent` 396 / 396 — 대표·핵심·간접 중 1개 |
+| 쓰는 코드 | **없음.** migration 013 과 reachability audit 에만 등장 |
+
+`maturity` 는 계산된 적이 없다. `013_graph_analytics_foundation.ts` 의
+`DEFAULT 'emerging'` 이 그대로 남은 것이고, **7상태 분류기도 tier 분류기도 존재하지 않는다.**
+일회성 덤프를 화면에 그리면 23일 묵은 단일 상태 138개가 나온다.
+
+살아 있는 것은 `theme.definition` 과 `theme_membership.rationale_relation_ids`(멤버십 근거)
+둘뿐이다. K7 이 만들 것은 7상태 분류기와 tier 분류기이고, 정본이 "가격/실적/수급/attention
+confirmation 을 분리" 하라고 요구하므로 confirmation 축 4개를 각각 도출해야 한다.
 
 이 결정은 K6 에 영향을 주지 않는다. theme 은 정본 06 §2 의 12블록에 들어있지 않고
-별도 원장(`theme constitution`, `membership`)에서 온다.
+별도 원장(`theme constitution`, `membership`)에서 온다. **다만 §4 의 Discovery 이유
+분류와는 커플링돼 있다** — theme 생산자 산출물이 `SAME_THEME` 후보를 낳고, 그게 정본 01 §5
+이유 7종 중 한 칸이다.
 
 ## 4. 정본 06 §2 의 12블록 → 화면 × 깊이
 
@@ -90,6 +110,25 @@ above-the-fold 10항목 + 하위 섹션 11개, Theme 상태 7개와 필수 정�
 `REQ-PROD-021`(비교 불가는 `NOT_COMPARABLE`/`INSUFFICIENT_COVERAGE` 표시)을 지켜야 한다.
 **K6 빌더는 비교 가능 여부와 coverage 를 블록 3 에 함께 실어야 한다** — 그것 없이는
 화면이 `REQ-PROD-021` 을 만족할 수 없다.
+
+### 블록 6 에 실어야 할 것 — Discovery 이유와 신호 강도
+
+Discovery 이유 노출 자체는 K7 이지만(§9 결정 3) **서빙 계약은 K6 에서 넓혀야 한다.**
+안 그러면 K7 이 서빙을 다시 손대게 되고, 배선을 두 번 한다.
+
+`serving.relation_current_v1` 은 지금 `ISSUED_BY` 254행뿐이고 이유 분류 전체가
+`knowledge.*` 에만 있다. K6 빌더가 블록 6 에 실을 것:
+
+| 항목 | 왜 필요한가 |
+| --- | --- |
+| `predicate` | 정본 01 §5 의 이유 분류가 여기서 나온다 |
+| `relation_kind` | `structural` / `statistical` 구분. `REQ-PROD-030` 의 근거 |
+| `confidence` · `evidence_count` | 근거 강도 |
+| **`revision_status`** | **승인/격리 구분.** 안 실으면 화면이 격리된 후보를 사실처럼 그린다 |
+| 신호 강도 | `RELATION_BUILDER_POLICIES` 의 `relationClass`·`promotionEligible` 에서 파생. 강한 경제적 이유와 약한 연관(ETF·공통보유)을 가른다 |
+
+`revision_status` 는 **필터가 아니라 라벨**이다. K6 는 격리 행을 빼지 않고 표시해서 내보내고,
+소비자가 강한 이유 자리에 그리지 않는다. 두 단언을 하나로 합치면 서로를 깨뜨린다 — §10 참조.
 
 ## 5. coverage 를 어디에 둘 것인가 — `484661e` 의 재해석
 
@@ -134,10 +173,14 @@ private 데이터 금지)을 지키므로, 그 플래그를 무시하고 렌더�
    한다(`REQ-ARCH-001`).
 6. `personalization.*` 을 조인하지 않는다(`REQ-REC-001`). 개인 데이터는 화면에서
    합성하고 common asset view 에는 넣지 않는다.
+7. 블록 6 에 **relation 의 `predicate`·`relation_kind`·`confidence`·`evidence_count`·
+   `revision_status` 와 신호 강도**를 싣는다(§4). 노출은 K7 이지만 서빙 계약은 여기서
+   넓혀야 배선을 두 번 하지 않는다.
 
-## 8. K7 으로 넘긴 배선 — 결정된 것
+## 8. K7 으로 넘긴 것 — 결정된 배선과 생산자
 
-화면 구성은 여기서 정하고 배선은 K7 에서 한다. 아래는 이미 결정됐으므로 K7 이 받아간다.
+화면 구성은 여기서 정하고 K7 이 받아간다. 8-1~8-3 은 배선이고, **8-4 는 배선이 아니라
+생산자 개발**이다 — §9 의 결정 1·3 이 K7 범위를 넓혔다.
 
 ### 8-1. Market Home 시장 지표 — 있는 데이터로 교체
 
@@ -183,21 +226,127 @@ card` 였는데 real 인 적이 없었다. 지금은 **"기사 출처가 아닌 
 를 단언하므로, K7 이 og:image 핫링크를 붙여도 그대로 통과하고 번들 이미지로 되돌아가면
 실패한다.
 
-## 9. 열린 결정
+### 8-4. §9 결정에서 K7 으로 넘어온 생산자 작업
 
-- **Theme 표면**: 별도 화면인가, `today` 의 섹션인가. 어느 쪽이든 상태 7개와 정보
-  7항목은 도달 가능해야 한다.
-- **깊이 모드의 노출 방식**: 전역 토글인가, 화면별 펼치기인가. `REQ-PROD-002` 는
-  모드가 존재할 것을 요구하지 UI 형태를 규정하지 않는다.
-- **Discovery 의 이유 7종**(정본 01 §5: competitor/peer, supplier/customer, substitute,
-  same theme, common factor, event beneficiary, ETF/ownership 약한 신호): 현재 `radar` 는
-  "시장 변화" 중심이라 이유 분류가 없다. 어느 깊이에 넣을지 미정.
+§9 의 결정 1·3 은 배선이 아니라 **생산자 개발**을 K7 에 추가한다. 기존 K7 항목(정본 표면
+배선, p4.v1→v2, release manifest 통일, 10종목 하드코딩 제거)과 별개다.
+
+**(a) Theme 생산자** — 7상태 분류기(`FORMING`~`BREAKING`) + tier 분류기(대표/핵심/간접).
+정본 01 §4 가 "가격/실적/수급/attention confirmation 을 분리" 하라고 요구하므로
+confirmation 축 4개를 각각 도출해야 한다. **`SAME_THEME` 정책행은 여기 속한다** —
+`minSourceRevisions` 와 `absenceSemantics` 가 이 생산자가 무엇을 근거로 내놓는지에
+달려 있어서 (b) 배치에 섞으면 근거 정의가 없는 빌더에 정책행을 쓰게 된다.
+
+**(b) relation 정책행 + 생산자** — `apps/api/src/relations/relation-policy.ts` 의
+`RELATION_BUILDER_POLICIES` 에 `PEER_OF`·`SAME_INDUSTRY`·`EXPOSES`·`AFFECTS`·
+`ACCELERATES`·`DECELERATES` 행 추가, 그리고 각각의 후보 생산자.
+
+`absenceSemantics` 는 load-bearing 이다 — `relation-retraction.ts` 가 읽어 retraction
+가능 여부를 정하고 `absence-semantics-contract.test.ts` 가 둘을 묶는다. 공시 기반은
+`unknown_not_disclosed`(미공시 공급관계는 부재가 아니라 미상), 매 실행 전체 쌍을
+평가하는 빌더만 `closed_world`. 정책 파일 헤더의 경고 그대로다: 이 필드는 몇 달간
+의도만 서술했고 코드는 양방향으로 반대로 흘렀다.
+
+**(c) supplier/customer 커버리지 확대** — `run-dart-supply-disclosure.ts` 는 이미 승인
+관계를 만들고 있지만 20행이다. DART `document.xml` 예산이 ~120 req/day 이고 대상이
+188 issuer × 2 req 이라 하루에 안 끝난다. 커서 기반 다일 수집이므로 **시간이 해결한다** —
+신규 개발이 아니라 운영 항목이다.
+
+**(d) 깊이 모드 전역 토글** — 클라이언트 저장. 마이그레이션·GRANT·디지털 핀 갱신 없음.
+
+## 9. 닫힌 결정 (2026-08-10)
+
+이 세 건은 원래 "어느 화면·어느 깊이에 둘 것인가" 로 적혀 있었다. 결정 전에 각 전제를
+DB 로 실측했고 **셋 다 전제가 틀렸다** — 둘은 배치 질문이 아니라 **생산자가 없는 데이터**에
+대한 질문이었다. 배치부터 정했으면 만들 수 없는 답이 나왔을 것이다.
+
+### 결정 1 — Theme: K7 에서 생산자 개발 후 별도 화면
+
+근거와 실측은 §3. 요약하면 7상태 분류기도 tier 분류기도 존재하지 않고, 지금 데이터는
+2026-07-18 일회성 덤프다.
+
+### 결정 2 — 깊이 모드: 전역 토글 + 클라이언트 저장
+
+배치는 이미 제약으로 닫혀 있었다. §7 #1(K6 는 12블록을 깊이와 무관하게 전부 적재)과
+`REQ-REC-001`(common asset view 에 `personalization.*` 조인 금지)이 함께 걸리면,
+**깊이는 깊이-불변 패킷 위의 렌더 타임 선택**이다. 결정이 아니라 제약이다.
+
+열려 있던 것은 노출 형태와 저장 위치뿐이었다. 전역 토글로 하되 **선호는 클라이언트에
+저장한다.** `personalization.user_profile` 에는 해당 컬럼이 없어서(`locale`·`timezone`·
+`risk_preference`·`preferred_markets`·`preferred_horizons`·`personalization_opt_in`)
+서버 저장을 택하면 신규 마이그레이션 + `stock_insight_app_reader` GRANT +
+`EXPECTED_CATALOG_DIGESTS`(`apps/api-server/src/db/live-database-guard.ts`) 갱신이
+한 묶음이 된다. 2026-08-03 마이그레이션 059 가 마지막 항목을 빠뜨려 브레인이
+crashloop 했다. 기기 간 동기화를 포기하는 대신 그 경로 전체를 피한다.
+
+### 결정 3 — Discovery: 강한 이유 생산자를 되살린 뒤 노출
+
+**"동결" 이 아니라 "미승인" 이다.** `revision_status` 를 보기 전에는 stale 로 읽었는데,
+실제로는 정본 01 §5 의 강한 경제적 이유가 **전부 `quarantined_unverified`** 다.
+
+| revision_status | 내용 |
+| --- | --- |
+| `accepted` | `SAME_ETF_BASKET` 29,271 · `PRODUCT_SIMILARITY` 10,445 · `COMMON_OWNER` 1,391 · `MACRO_COMOVEMENT` 226 · **`SUPPLIES` 10 · `CUSTOMER_OF` 10** |
+| `quarantined_unverified` | `AFFECTS` 616 · `SAME_INDUSTRY` 418 · `SAME_THEME` 410 · `PEER_OF` 174 · `SUPPLY_CHAIN` 169 · `EXPOSES` 107 · `ACCELERATES`+`DECELERATES` 21 |
+
+**승인된 인과 관계는 20행이 전부다.** 나머지 41,333 은 ETF·공통보유·텍스트유사도 —
+정본이 "약한 신호로 별도 표시" 하라는 그 부류다. `run-dart-supply-disclosure.ts` 헤더가
+이 상태를 이미 적어뒀다: "`AFFECTS`, `SUPPLY_CHAIN` and `EXPOSES` all stand at zero
+accepted revisions because nothing legitimate ever fed them."
+
+막고 있는 것은 B6 정책 게이트다. `apps/api/src/relations/relation-policy.ts` 의
+`RELATION_BUILDER_POLICIES` 에 정책행이 있는 predicate 는 11개뿐이고,
+`PEER_OF`·`SAME_INDUSTRY`·`SAME_THEME`·`SUPPLY_CHAIN`·`EXPOSES`·`AFFECTS`·
+`ACCELERATES`·`DECELERATES` 는 **정책행이 아예 없다** → fail-closed → 영원히 미승인.
+
+2026-07-19 시딩 행은 `policyReasons` 가 비어 있어 정책 도입(2026-08-05) 이전 경로로
+**보인다** — 확인된 이력이 아니라 추정이다. 어느 쪽이든 결론은 같다. 이 행들은 정책이
+요구하는 DISTINCT `ingestion.source_revision` 근거가 없으므로 승격 대상이 아니고
+**재도출**이 필요하다.
+
+**정본 §5 이유 7종 → 필요한 작업**
+
+| 정본 이유 | predicate | 정책행 | 생산자 | 작업 |
+| --- | --- | --- | --- | --- |
+| supplier/customer | `SUPPLIES`·`CUSTOMER_OF` | ✅ | ✅ | 커버리지 확대만 (§8-4) |
+| common factor (통계) | `MACRO_COMOVEMENT` | ✅ | ✅ | 없음 |
+| ETF/ownership 약한 신호 | `SAME_ETF_BASKET`·`COMMON_OWNER`·`HELD_BY`·`OWNS` | ✅ | ✅ | 없음 |
+| competitor/peer | `PEER_OF`·`SAME_INDUSTRY` | ❌ | ❌ | 정책행 + 생산자 신규 |
+| same theme | `SAME_THEME` | ❌ | ❌ | **결정 1 에 종속** |
+| common factor (구조) | `EXPOSES`·`AFFECTS` | ❌ | ❌ | 정책행 + 생산자 |
+| event beneficiary/victim | `ACCELERATES`·`DECELERATES` | ❌ | ❌ | 정책행 + 생산자 |
+| **substitute/complement** | — | — | — | **데이터 소스 없음 → 미노출 확정** |
+
+`PRODUCT_SIMILARITY` 2,921건을 substitute 로 쓸 수 없다. `relation_kind: statistical`,
+`methodology: tnic-reference` — 텍스트 유사도이고, `REQ-PROD-030`(embedding proximity 만으로
+"관련 기업" 또는 economic exposure 라고 표현 금지)이 정확히 이걸 막는다. 화면에 빈 칸을
+만들지 않고 **정본 갭으로 기록한다.**
 
 ## 10. 이 문서가 지켜지는지 확인하는 법
 
 §4 의 배치표가 **K6 빌더의 계약 테스트**가 되어야 한다. "화면 X 는 블록 Y 를 요구한다"
 가 테스트로 바뀌지 않으면 이 표는 장식이다. K6 착수 시 이 문서의 표를 그대로
 `common-asset-view` 테스트의 기대값으로 옮긴다.
+
+**격리된 relation 이 화면에 새지 않는지** — §9 결정 3 이 만든 가장 중요한 회귀다.
+**두 개의 별개 단언이고, 하나로 합치면 서로를 깨뜨린다.**
+
+1. **패킷 완전성(K6 빌더)**: common asset view 는 relation 항목마다 `revision_status` 를
+   **싣는다.** 격리 행을 빼는 게 아니라 표시해서 내보낸다 — 안 실으면 소비자가 구분할
+   방법이 없다.
+2. **렌더 게이트(소비자)**: `revision_status <> 'accepted'` 인 relation 을 **강한 경제적
+   이유로 그리면 실패.** 약한 신호(ETF·공통보유·텍스트유사도)를 강한 이유 자리에 그려도
+   실패. `REQ-PROD-030` 이 이 단언의 근거다.
+
+1 을 2 로 오해해 빌더 단언으로 구현하면, §4 가 넓히라고 한 그 투영이 자기 게이트에 걸린다.
+
+전체 그림 재확인은 쿼리 하나면 된다:
+
+```sql
+select i.predicate, r.revision_status, count(*)
+from knowledge.relation_revision r join knowledge.relation_identity i using(relation_identity_id)
+group by 1,2 order by 1,2;
+```
 
 UI 쪽은 `docs/design/ux-constitution.md` 의 하드 불변식이 이미 잡는다 — 특히
 **상태 진실성**("loading / error / empty / ready / stale 을 구분한다. API 오류를 empty 로
