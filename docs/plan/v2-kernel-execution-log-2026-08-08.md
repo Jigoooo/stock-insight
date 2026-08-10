@@ -1926,3 +1926,84 @@ playbook 이 배정된 증권            10 / 297
 이번 변경이 없앤 것은 **라이브 500 위험**이다. 코호트를 바꾸는 순간 서빙이 터지던
 상태는 해소됐고, K4 는 이제 유니버스 전체에 대해 종목별 거부 사유를 남긴다 — K6 의
 블록 census 와 같은 종류의 게이지가 하나 더 생긴 셈이다.
+
+## 섹터 분류 백필 (2026-08-10, 101·102)
+
+### 수집이 아니라 매핑이었다
+
+블록 4·5·7 의 선행 조건을 "섹터 플레이북 확충" 으로 적었고, 그 앞에 분류가 있다는 것을
+실측으로 확인했다. 178/297 이 UNCLASSIFIED 였고 나는 이것을 "178종목 신규 수집" 으로
+추정했다. **76% 는 수집이 아니라 매핑이었다.**
+
+```
+internal-company-profile-snapshot  348 종목 커버
+  KR 222  전부 profile.industryCode (KSIC) 보유   ← DB 안에 이미 있었다
+  US 126  전무                                    ← 이 소스는 DART 기반
+```
+
+`public.company_profiles.profile_json->>'industryCode'` 로 DB 안에서 바로 읽힌다.
+파일도 신규 수집도 필요 없었다. 그리고 분류 체계는 이미 둘 다 모델링돼 있다 —
+`taxonomy_release` 1=SIC, 2=KSIC.
+
+US 43 은 진짜로 없다. `sec-edgar` 는 companyfacts 를 적재하고 SIC 은 submissions 에
+있는데 그쪽을 수집하지 않는다. `governance.source_shape_revision` 으로 페이로드 필드를
+직접 확인했지 추정하지 않았다.
+
+### 결과
+
+```
+분류됨        119 → 288
+미분류        178 →  68   (전부 US, 명시적 UNCLASSIFIED)
+멤버십 없음    59 →   0
+이력 보존           135행 (valid_to)
+```
+
+### 세 가지가 드러났다
+
+**1. 계약 테스트가 이미 라이브에서 빨간불이었다.** `taxonomy-coverage.test.ts` 가
+"one membership per Stock" 을 단언하는데 Stock 356 중 297 만 멤버십을 갖고 있었다.
+`STOCK_INSIGHT_IDENTITY_TEST_DB_URL` 이 설정된 적이 없어 **항상 skip** 됐고 아무도
+몰랐다. env 로 게이팅된 검사는 그 env 가 없으면 검사가 아니다.
+
+**2. 내 job 이 멤버십 없는 종목을 이미 분류된 것으로 오판했다.**
+`currentlyUnclassified` 를 "UNCLASSIFIED 멤버십이 존재하는가" 로 판정했는데, 멤버십이
+아예 없으면 false 다 — 이미 분류된 것과 같은 값이다. KR 34 를 조용히 건너뛰고 있었고,
+상태를 `absent`/`unclassified`/`classified` 셋으로 쪼개서 고쳤다. 부재는 분류가 아니다.
+
+**3. 021 이 말한 "temporal membership" 이 스키마상 불가능했다.**
+
+```
+021 주석  "Later source changes require a new taxonomy release + temporal membership"
+실제       valid_to 없음 + uq_entity_taxonomy_system 이 (entity, system) 당 1행 영구 강제
+∴          유일한 표현이 제자리 UPDATE
+```
+
+제자리 UPDATE 는 "오늘까지 이 회사 업종을 몰랐다" 를 지운다. 이 저장소가 relation_revision·
+expectation_revision·source_shape_revision·coverage_ledger 를 두는 이유와 정반대다.
+102 가 `valid_to` 를 넣고 유니크를 **"영구" → "현재"** 로 옮겼다.
+
+### 피한 것 둘
+
+**`GRANT ... TO stock_insight_app_reader` 를 쓸 뻔했다.** 새 뷰
+`core.entity_taxonomy_current_v1` 에 grant 하면 리더의 도달 집합이 늘어
+`EXPECTED_CATALOG_DIGESTS` 가 움직이고 브레인이 부팅에서 crashloop 한다 — 059 가 한
+그대로다. 읽는 코드가 없으므로 grant 하지 않았고 이유를 마이그레이션에 적었다.
+
+**인덱스 이름을 바꿀 뻔했다.** 021 은 `CREATE UNIQUE INDEX IF NOT EXISTS
+uq_entity_taxonomy_system` 이다. 102 가 새 이름으로 부분 인덱스를 만들면 021 재적용이
+옛 무조건 인덱스를 다시 만들려다 재분류된 첫 행에서 터진다. 이름을 유지하니 021 의 그
+구문이 no-op 이 되고 재적용 안전성 테스트가 산다.
+
+### 테스트를 숫자에서 성질로
+
+`source_reported == 119` 같은 핀은 커버리지가 늘 때마다 깨진다. 대신 셋을 단언한다.
+
+- 종목당 **현재** 멤버십 정확히 1개 (닫힌 행은 이력이지 충돌이 아니다)
+- `fabricated_codes == 0` — 모든 현재 분류가 legacy import **또는** 불변
+  ingestion revision 으로 추적된다. 출처가 하나 늘었지 검사가 느슨해진 것이 아니다
+- `unmapped_reported_codes == 0` — 소스가 코드를 보고하는데 UNCLASSIFIED 로 남은 종목이 없다
+
+마지막이 이 백필이 세운 성질이고 커버리지가 늘어도 유지된다.
+
+파이프라인은 18단계가 됐고 분류는 playbook assignment **앞**에 있다 — 플레이북은 섹터로
+배정되므로 분류되지 않은 종목은 받을 수 없다.

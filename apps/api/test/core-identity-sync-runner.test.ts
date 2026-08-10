@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all seventeen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all eighteen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -191,6 +191,10 @@ test('analytics runs all seventeen stages in order with an adjacent receipt per 
     // not automatically common equity in its issuer, and until this table is
     // joinable nothing downstream can tell.
     ['run-economic-claim.ts', 'stock-insight-economic-claim-stage'],
+    // Added 2026-08-10 (K7): maps DART industry codes onto the taxonomy. Sits before
+    // playbook assignment because a playbook is assigned by sector, and an
+    // unclassified stock cannot receive one.
+    ['run-industry-classification.ts', 'stock-insight-industry-classification-stage'],
     // Added 2026-08-08 (K3): gives every governed company a playbook revision to
     // cite. Follows the identity sync because it reads taxonomy membership, and
     // precedes everything analytical because REQ-DOM-001 is about what those

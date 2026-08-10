@@ -99,6 +99,8 @@ import { sloBreachSafetyStateMigrationSql } from './migrations/097_slo_breach_sa
 import { sourceShapeRevisionMigrationSql } from './migrations/098_source_shape_revision.ts';
 import { commonAssetViewMigrationSql } from './migrations/099_common_asset_view.ts';
 import { releaseManifestSupersessionMigrationSql } from './migrations/100_release_manifest_supersession.ts';
+import { dartIndustryTaxonomyReleaseMigrationSql } from './migrations/101_dart_industry_taxonomy_release.ts';
+import { taxonomyMembershipTemporalityMigrationSql } from './migrations/102_taxonomy_membership_temporality.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1067,6 +1069,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: releaseManifestSupersessionMigrationSql,
   },
+  {
+    id: '101_dart_industry_taxonomy_release',
+    description:
+      'A second KSIC release fed by DART company profiles, because 135 of the 178 explicit UNCLASSIFIED stocks already have a code in this database that was never mapped.',
+    tables: [],
+    sql: dartIndustryTaxonomyReleaseMigrationSql,
+  },
+  {
+    id: '102_taxonomy_membership_temporality',
+    description:
+      "Gives industry classification a valid_to so a stock can stop being UNCLASSIFIED without erasing that it once was; uniqueness moves from 'ever' to 'now'.",
+    tables: [],
+    sql: taxonomyMembershipTemporalityMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1174,4 +1190,6 @@ export {
   sourceShapeRevisionMigrationSql,
   commonAssetViewMigrationSql,
   releaseManifestSupersessionMigrationSql,
+  dartIndustryTaxonomyReleaseMigrationSql,
+  taxonomyMembershipTemporalityMigrationSql,
 };

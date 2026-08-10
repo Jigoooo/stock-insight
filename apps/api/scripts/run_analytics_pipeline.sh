@@ -58,6 +58,13 @@ pipeline_record_stage_success stock-insight-core-identity-sync-stage "$RUN_START
 # and assuming common equity (canonical/03 §2).
 DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-economic-claim.ts --apply
 pipeline_record_stage_success stock-insight-economic-claim-stage "$RUN_STARTED_AT" || exit $?
+# Must precede playbook assignment: a playbook is assigned by sector, and a stock the
+# taxonomy has never classified cannot receive one. 178 of 297 stocks sat at explicit
+# UNCLASSIFIED while 135 of them had a DART industry code already in this database,
+# unmapped — and 59 more had no membership at all, which reads the same as classified
+# to any check that looks for an UNCLASSIFIED row.
+DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-industry-classification.ts --apply
+pipeline_record_stage_success stock-insight-industry-classification-stage "$RUN_STARTED_AT" || exit $?
 # Must follow the identity sync for the same reason: it reads taxonomy membership,
 # which that stage maintains. Gives every governed company a playbook revision to
 # cite, which is the whole of REQ-DOM-001 — without one an analysis reinvents the
