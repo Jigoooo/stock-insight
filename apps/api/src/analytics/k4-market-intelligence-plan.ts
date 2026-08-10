@@ -291,14 +291,6 @@ function expectationPeriod(expectation: K4ExpectationInput): string {
   );
 }
 
-function calendarYearAfter(value: string): string {
-  const date = new Date(value);
-  const originalMonth = date.getUTCMonth();
-  date.setUTCFullYear(date.getUTCFullYear() + 1);
-  if (date.getUTCMonth() !== originalMonth) date.setUTCDate(0);
-  return date.toISOString();
-}
-
 function selectorMatches(rule: K4RuleInput, fact: K4FactInput): boolean {
   return rule.inputConceptSelectors.some(
     (selector) =>
@@ -328,6 +320,65 @@ function expectationPassesCutoff(
   );
 }
 
+/**
+ * How far apart two period ends may sit and still be a year-over-year pair.
+ *
+ * The removed `calendarYearAfter` demanded the prior period end fall on the same calendar
+ * date one year earlier. Measured against live data on 2026-08-10, that finds ZERO
+ * pairs for AMD, Broadcom, Intel, Micron, Marvell and NVIDIA, and works only for ARM:
+ *
+ *   MICRON  InventoryNet  2026-05-28  vs  2025-05-29   one day apart
+ *
+ * They keep 52/53-week fiscal years, so every period end drifts a day or two annually
+ * and lands on the same calendar date only by accident. ARM closes on the calendar
+ * year, which is why it was the one that worked — and why the defect looked like data
+ * sparsity rather than a comparison rule.
+ *
+ * This is the second time this exact assumption has cost something. The prior-model
+ * expectation planner used the same exact-calendar match and found 0 annual pairs in
+ * live data; k4-prior-model-expectation.ts carries the same window for the same reason.
+ *
+ * The window is deliberately narrow. 350-380 days admits a 52/53-week drift and a leap
+ * day; it does not admit a period 18 months back, which would be a different comparison
+ * wearing a year-over-year label.
+ */
+const MINIMUM_ANNUAL_GAP_DAYS = 350;
+const MAXIMUM_ANNUAL_GAP_DAYS = 380;
+const IDEAL_ANNUAL_GAP_DAYS = 365;
+const MILLISECONDS_PER_DAY = 86_400_000;
+
+function annualGapDays(earlier: string, later: string): number {
+  return Math.round((Date.parse(later) - Date.parse(earlier)) / MILLISECONDS_PER_DAY);
+}
+
+/**
+ * The best annual predecessor of `current`, or null.
+ *
+ * Nearest-to-365 rather than first-found: a company with both a 358-day and a 371-day
+ * candidate has one that is more nearly a year, and picking by array order would make
+ * the answer depend on how the rows came back.
+ */
+function nearestAnnualPredecessor<Fact>(
+  candidates: readonly Fact[],
+  currentAt: string,
+  atOf: (fact: Fact) => string | null,
+): Fact | null {
+  let best: Fact | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    const at = atOf(candidate);
+    if (at === null) continue;
+    const gap = annualGapDays(at, currentAt);
+    if (gap < MINIMUM_ANNUAL_GAP_DAYS || gap > MAXIMUM_ANNUAL_GAP_DAYS) continue;
+    const distance = Math.abs(gap - IDEAL_ANNUAL_GAP_DAYS);
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
 function comparablePair(
   facts: readonly K4FactInput[],
   method: K4RuleInput['comparisonMethod'],
@@ -338,29 +389,35 @@ function comparablePair(
       right.numericFactId - left.numericFactId,
   );
   for (const current of ordered) {
+    const sameConcept = ordered.filter(
+      (candidate) =>
+        candidate.numericFactId !== current.numericFactId &&
+        candidate.conceptNamespace === current.conceptNamespace &&
+        candidate.conceptKey === current.conceptKey,
+    );
     if (method === 'period_end_year_over_year_delta' && current.instantAt) {
-      const comparison = ordered.find(
-        (candidate) =>
-          candidate.numericFactId !== current.numericFactId &&
-          candidate.conceptNamespace === current.conceptNamespace &&
-          candidate.conceptKey === current.conceptKey &&
-          candidate.instantAt !== null &&
-          calendarYearAfter(candidate.instantAt) === current.instantAt,
+      const comparison = nearestAnnualPredecessor(
+        sameConcept,
+        current.instantAt,
+        (candidate) => candidate.instantAt,
       );
       if (comparison) return [current, comparison];
     }
     if (method === 'duration_year_over_year_delta' && current.periodStart && current.periodEnd) {
-      const comparison = ordered.find(
+      // Both ends must land in the window. A prior period that starts a year back but
+      // ends fifteen months back is a longer period, and differencing it against a
+      // shorter one measures the length as much as the change.
+      const currentStart = `${current.periodStart}T00:00:00.000Z`;
+      const currentEnd = `${current.periodEnd}T00:00:00.000Z`;
+      const comparison = nearestAnnualPredecessor(
+        sameConcept.filter((candidate) => {
+          if (candidate.periodStart === null || candidate.periodEnd === null) return false;
+          const startGap = annualGapDays(`${candidate.periodStart}T00:00:00.000Z`, currentStart);
+          return startGap >= MINIMUM_ANNUAL_GAP_DAYS && startGap <= MAXIMUM_ANNUAL_GAP_DAYS;
+        }),
+        currentEnd,
         (candidate) =>
-          candidate.numericFactId !== current.numericFactId &&
-          candidate.conceptNamespace === current.conceptNamespace &&
-          candidate.conceptKey === current.conceptKey &&
-          candidate.periodStart !== null &&
-          candidate.periodEnd !== null &&
-          calendarYearAfter(`${candidate.periodStart}T00:00:00.000Z`).slice(0, 10) ===
-            current.periodStart &&
-          calendarYearAfter(`${candidate.periodEnd}T00:00:00.000Z`).slice(0, 10) ===
-            current.periodEnd,
+          candidate.periodEnd === null ? null : `${candidate.periodEnd}T00:00:00.000Z`,
       );
       if (comparison) return [current, comparison];
     }

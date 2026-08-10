@@ -98,6 +98,69 @@ function baseInput() {
   };
 }
 
+describe('year-over-year pairing tolerates a 52/53-week fiscal calendar', () => {
+  const acceptedOf = (facts: ReturnType<typeof fact>[]) =>
+    planK4MarketIntelligence({ ...baseInput(), facts }).evaluations.filter(
+      (evaluation) => evaluation.evaluationDisposition === 'accepted',
+    );
+
+  it('pairs period ends that are a year apart to the day, not to the date', () => {
+    // Micron's real inventory period ends, measured 2026-08-10. Exact calendar
+    // matching found ZERO pairs for AMD, Broadcom, Intel, Micron, Marvell and NVIDIA —
+    // they keep 52/53-week fiscal years, so every period end drifts a day or two and
+    // lands on the same calendar date only by accident. Only ARM, which closes on the
+    // calendar year, worked. This fixture used to be 12/31 vs 12/31, which is exactly
+    // the one calendar that passes, so nothing caught it.
+    const accepted = acceptedOf([
+      fact(1, 120, '2026-05-28T23:59:59.999Z'),
+      fact(2, 100, '2025-05-29T23:59:59.999Z'),
+    ]);
+    assert.equal(accepted.length, 1);
+    assert.equal(accepted[0]?.measurementValue, 20);
+  });
+
+  it('still pairs a clean calendar year end', () => {
+    assert.equal(
+      acceptedOf([
+        fact(1, 120, '2025-12-31T23:59:59.999Z'),
+        fact(2, 100, '2024-12-31T23:59:59.999Z'),
+      ]).length,
+      1,
+    );
+  });
+
+  it('refuses a gap that is not a year', () => {
+    // The window is narrow on purpose. Eighteen months back is a different comparison
+    // wearing a year-over-year label, and a leap-day drift is not.
+    assert.equal(
+      acceptedOf([
+        fact(1, 120, '2026-05-28T23:59:59.999Z'),
+        fact(2, 100, '2024-11-28T23:59:59.999Z'),
+      ]).length,
+      0,
+    );
+    assert.equal(
+      acceptedOf([
+        fact(1, 120, '2026-05-28T23:59:59.999Z'),
+        fact(2, 100, '2026-02-26T23:59:59.999Z'),
+      ]).length,
+      0,
+    );
+  });
+
+  it('picks the candidate nearest a year rather than the first one in the list', () => {
+    // Two in-window candidates exist. Picking by array order would make the answer
+    // depend on how the rows came back from the database.
+    const accepted = acceptedOf([
+      fact(1, 120, '2026-05-28T23:59:59.999Z'),
+      fact(2, 90, '2025-06-12T23:59:59.999Z'), // 350 days — in window, further from 365
+      fact(3, 100, '2025-05-29T23:59:59.999Z'), // 364 days — nearest
+    ]);
+    assert.equal(accepted.length, 1);
+    assert.equal(accepted[0]?.measurementValue, 20);
+  });
+});
+
 describe('K4 seven-cutoff replay planning', () => {
   it('builds all seven KST end-of-day cutoffs without pretending a live week elapsed', () => {
     assert.deepEqual(
