@@ -1651,7 +1651,7 @@ ops.pipeline.wrapper_failure_streak  artifact_count  at_most 0 wrappers
 | `content_pack.freshness` | CAUTION | 라이브 2.5h / 48h 천장 |
 | `expected_runs` | report-only | **장애를 못 잡음이 재생으로 증명됨** |
 | `coverage_ledger.delta` | report-only | 23일 내내 관측 불가. 승격할 근거가 없다 |
-| `parser_drift` | report-only | 측정이 아직 없다 |
+| `parser_drift` | report-only | 첫 관측이 **실제 드리프트를 잡았다**(아래). 승격은 이력이 쌓인 뒤 |
 
 전부 `CAUTION` 인 이유: `INFORMATION_ONLY`·`HALTED` 는 `recommendation_allowed: false` 다.
 safety state 를 읽는 소비자가 아직 없으므로 오늘 폭발 반경은 0이고, 아무도 보정하지 않은
@@ -1674,4 +1674,44 @@ safety_state         global NORMAL · recommendation_allowed=t  ← 변화 없�
 ("추천은 safety state 가 허용하는 경우에만 발행한다")을 배선하는 것은 K8 이다.
 "SLO 가 이제 작동한다"를 "제품이 이제 반응한다"로 읽지 마라.
 
-`parser_drift` 탐지기와 `coverage_delta` 관측은 착지하지 않았다.
+### parser drift 탐지기 — 착지 (098)
+
+`ingestion.source` 에 shape 컬럼이 없어 관측 자체가 불가능하던 항목이다.
+`governance.source_shape_revision`(098)과 `run-source-shape.ts` 가 그 입력을 만든다.
+
+**shape 의 정의**: 페이로드가 노출하는 **필드 이름의 집합**. 값도 크기도 아니다.
+JSON 은 정렬된 key path 이고 배열 인덱스는 `[]` 로 접는다 — 피드가 10건 대신 9건을
+실어도 드리프트가 아니고, `publishedAt` 이 `published_at` 이 되면 드리프트다.
+구분자 파일은 헤더 컬럼이다. 값 타입은 일부러 안 본다: 숫자가 문자열로 오는 것은 값
+문제이고, 그걸 섞으면 모든 그런 페이로드가 스키마 변경으로 읽혀 게이지가 잠긴다.
+
+**읽을 수 없으면 행을 만들지 않는다.** shape 를 지어내면 실제로 보지도 않은 소스에
+대해 "드리프트 없음" 을 보고하게 되고, 그게 이 SLO 가 잡으려는 실패 그 자체다.
+미해석 건수와 이유를 요약에 싣는다.
+
+```
+적재     6,999 / 7,000   (json_key_paths 6,961 · delimited_header 38)
+미해석          1        raw object unreadable: ENOENT /tmp/immutability-fixture
+rehearse       200건 쓰고 ROLLBACK, 이후 행수 0
+```
+
+**첫 관측이 실제 드리프트를 잡았다.**
+
+```
+ingestion.parser.drift  observed=1  drifted=[opendart]
+  prior : list[], status
+  newest: list[].account_id, account_nm, bsns_year, corp_code, thstrm_amount,
+          frmtrm_amount, … 18개 필드, status
+```
+
+OpenDART 가 빈 응답에서 실제 재무 데이터로 바뀐 것이다. 형태 비교가 이를 정확히
+집었고, 값이나 건수가 아니라 필드 집합을 보기 때문에 잡힌 것이다.
+
+승격하지 않았다 — 정의는 `at_most 0` 이고 지금 1이다. 이 드리프트가 정상적인 상태
+전환인지 진짜 계약 변경인지는 이력이 며칠 쌓여야 구분된다. 그때까지 report-only 로
+관측만 남긴다.
+
+`coverage_delta` 관측은 여전히 착지하지 않았다. 측정은 구현돼 있으나
+`coverage_ledger` 의 `expected_artifact_count` 가 5,548행 중 2,529행에서 NULL 이라
+24시간 창 안에 비율 비교 가능한 revision 이 사실상 생기지 않는다. 게이지가 아니라
+원장 쪽 문제다.

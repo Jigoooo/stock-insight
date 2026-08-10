@@ -96,6 +96,7 @@ import { k4SemanticSnapshotReconstructionMigrationSql } from './migrations/094_k
 import { pipelineWrapperHealthMigrationSql } from './migrations/095_pipeline_wrapper_health.ts';
 import { wrapperFailureStreakSloMigrationSql } from './migrations/096_wrapper_failure_streak_slo.ts';
 import { sloBreachSafetyStateMigrationSql } from './migrations/097_slo_breach_safety_state.ts';
+import { sourceShapeRevisionMigrationSql } from './migrations/098_source_shape_revision.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1043,6 +1044,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: sloBreachSafetyStateMigrationSql,
   },
+  {
+    id: '098_source_shape_revision',
+    description:
+      'Records the derived payload shape per source revision so ingestion.parser.drift, defined over a table with no shape column, finally has an input.',
+    tables: [],
+    sql: sourceShapeRevisionMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1147,4 +1155,5 @@ export {
   pipelineWrapperHealthMigrationSql,
   wrapperFailureStreakSloMigrationSql,
   sloBreachSafetyStateMigrationSql,
+  sourceShapeRevisionMigrationSql,
 };

@@ -59,6 +59,7 @@ const REPLAYABLE: Record<string, boolean> = {
   'ops.pipeline.expected_runs': true,
   'governance.coverage_ledger.delta': true,
   'ops.pipeline.wrapper_failure_streak': true,
+  'ingestion.parser.drift': true,
   'serving.content_pack.servable': false,
   'serving.content_pack.freshness': false,
 };
@@ -318,6 +319,55 @@ const MEASUREMENTS: Record<
     return {
       observedValue: Number(row.observed),
       detail: { distinctRelations: Number(row.relations), arrivalProxy: 'recorded_at' },
+    };
+  },
+
+  'ingestion.parser.drift': async (client, window) => {
+    // Drift is the two most recent shaped revisions of one source disagreeing, where
+    // the newer of them landed inside the window. Comparing against "the newest shape
+    // now" would report a change forever after it happened.
+    const rows = (
+      await client.query(
+        `WITH ordered AS (
+           SELECT source_id, shape_digest, revision_ingested_at,
+                  row_number() OVER (PARTITION BY source_id
+                                     ORDER BY revision_ingested_at DESC,
+                                              source_shape_revision_id DESC) AS recency
+             FROM governance.source_shape_revision
+            WHERE revision_ingested_at < $2::timestamptz
+         )
+         SELECT newest.source_id, source.provider_key,
+                newest.shape_digest <> prior.shape_digest AS drifted,
+                newest.revision_ingested_at
+           FROM ordered newest
+           JOIN ordered prior
+             ON prior.source_id = newest.source_id AND prior.recency = 2
+           JOIN ingestion.source source ON source.source_id = newest.source_id
+          WHERE newest.recency = 1
+            AND newest.revision_ingested_at >= $1::timestamptz`,
+        [window.start, window.end],
+      )
+    ).rows;
+    const drifted = rows.filter((row) => row.drifted === true);
+    // Sources with only one shaped revision have nothing to compare against. They are
+    // not drift, and saying so keeps a count of zero from meaning "all clear" when it
+    // means "nothing was comparable".
+    const comparableTotal = (
+      await client.query(
+        `SELECT count(*)::int AS comparable
+           FROM (SELECT source_id FROM governance.source_shape_revision
+                  WHERE revision_ingested_at < $1::timestamptz
+                  GROUP BY source_id HAVING count(*) >= 2) source_with_history`,
+        [window.end],
+      )
+    ).rows[0]!;
+    return {
+      observedValue: drifted.length,
+      detail: {
+        driftedSources: drifted.map((row) => String(row.provider_key)).sort(),
+        comparedInWindow: rows.length,
+        sourcesWithShapeHistory: Number(comparableTotal.comparable),
+      },
     };
   },
 

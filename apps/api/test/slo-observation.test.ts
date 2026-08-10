@@ -171,11 +171,14 @@ describe('SLO observation sweep', () => {
   });
 
   it('names a definition with no measurement rather than passing over it', async () => {
+    // A definition can be seeded before its measurement exists — ingestion.parser.drift
+    // was in exactly that state from migration 083 until 098 gave it a ledger to read.
+    // Whatever is in that state next must be named, not skipped over.
     const db = client({
       'FROM governance.slo_definition': [
         {
-          slo_key: 'ingestion.parser.drift',
-          slo_kind: 'parser_drift',
+          slo_key: 'ingestion.future.gauge',
+          slo_kind: 'coverage_delta',
           subject: 'ingestion.source',
           comparison: 'at_most',
           threshold: 0,
@@ -186,7 +189,7 @@ describe('SLO observation sweep', () => {
     });
     const { observations, skipped } = await observeSlos(db, cutoff);
     assert.deepEqual(observations, []);
-    assert.equal(skipped[0]?.sloKey, 'ingestion.parser.drift');
+    assert.equal(skipped[0]?.sloKey, 'ingestion.future.gauge');
     assert.match(skipped[0]!.reason, /no measurement implemented/);
   });
 

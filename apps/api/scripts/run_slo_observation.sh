@@ -19,6 +19,11 @@ trap 'rc=$?; trap - EXIT; if ((rc != 0)); then pipeline_finish_wrapper_attempt "
 
 cd "$ROOT"
 
+# Shape first: ingestion.parser.drift reads the ledger this fills, and a shape
+# recorded after the observation would be measured a cycle late.
+DATABASE_URL="$DB_URL" node apps/api/src/ops/run-source-shape.ts --apply
+pipeline_record_stage_success stock-insight-source-shape-stage "$RUN_STARTED_AT" || exit $?
+
 # Measure, then decide. Migration 082 keeps the two apart and so does this: the
 # observer is a gauge that never fails the run, the downgrade rule reads the ledger
 # it wrote rather than re-measuring.
