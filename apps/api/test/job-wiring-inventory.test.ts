@@ -41,6 +41,16 @@ const EXEMPT = new Map<string, string>([
   ['run-phase35.ts', 'one-shot backfill, ran 2026-07-07'],
   // Applying a migration is a decision, not a timer. Deliberately manual.
   ['run-schema-migrations.ts', 'manual by design — applying migrations is a decision'],
+  // Reports what the classification would yield as SAME_INDUSTRY edges and refuses
+  // --apply outright. It has no pipeline caller because it writes nothing: the policy
+  // row, the evidence ledger rows and the retraction in run-v2-graph-publish must land
+  // in one change, and absence-semantics-contract.test.ts fails the moment a
+  // closed_world policy is declared without its retraction. Wiring a timer to a job
+  // that cannot persist would schedule a report nobody reads.
+  [
+    'run-same-industry-relations.ts',
+    'reports only; persistence, policy and retraction land together in a later change',
+  ],
   // A semantic snapshot asserts an exact PIT cutoff and whether the observation
   // is live or a historical reconstruction. A timer must not invent either.
   [
