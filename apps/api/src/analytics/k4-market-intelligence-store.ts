@@ -7,7 +7,6 @@ import {
   type K4RuleInput,
 } from './k4-market-intelligence-plan.ts';
 import { type K4OutcomePlan } from './k4-market-intelligence-writer.ts';
-import { K4_SHADOW_COHORT_V1 } from './k4-shadow-cohort.ts';
 
 export type K4QueryResult = {
   rows: Array<Record<string, unknown>>;
@@ -62,18 +61,14 @@ SELECT semantic_snapshot_id
 
 const SECURITY_UNIVERSE_SQL = `
 /* k4_security_universe */
-WITH k4_shadow_cohort AS (
-  SELECT selector.market, selector.ticker,
-         selector.cohort_ordinal
-    FROM unnest($3::text[], $4::text[]) WITH ORDINALITY
-      AS selector(market, ticker, cohort_ordinal)
-), requested AS (
-  SELECT cohort.cohort_ordinal,
+WITH requested AS (
+  -- The served universe, not a hand-picked list. K4 used to take ten (market,
+  -- ticker) pairs passed in as arrays, which made it structurally a semiconductor
+  -- validation harness rather than a market-intelligence stage. Ordering by the
+  -- entity id keeps the selection reproducible under a limit.
+  SELECT row_number() OVER (ORDER BY security.security_entity_id) AS cohort_ordinal,
          security.security_entity_id
-    FROM k4_shadow_cohort cohort
-    JOIN core.v_security_universe security
-      ON security.market=cohort.market
-     AND security.ticker=cohort.ticker
+    FROM core.v_security_universe security
 )
 SELECT requested.security_entity_id,
        identity.issuer_entity_id,
@@ -97,7 +92,6 @@ SELECT requested.security_entity_id,
       FROM governance.playbook_assignment assignment
       JOIN governance.sector_playbook playbook
         ON playbook.sector_playbook_id=assignment.sector_playbook_id
-       AND playbook.playbook_key='semiconductor'
        AND playbook.playbook_state='active'
        AND playbook.effective_from <= $1::timestamptz
        AND (playbook.effective_to IS NULL OR playbook.effective_to > $1::timestamptz)
@@ -117,7 +111,6 @@ SELECT requested.security_entity_id,
       FROM governance.playbook_assignment assignment
       JOIN governance.sector_playbook playbook
         ON playbook.sector_playbook_id=assignment.sector_playbook_id
-       AND playbook.playbook_key='semiconductor'
        AND playbook.playbook_state='active'
        AND playbook.effective_from <= $1::timestamptz
        AND (playbook.effective_to IS NULL OR playbook.effective_to > $1::timestamptz)
@@ -130,7 +123,7 @@ SELECT requested.security_entity_id,
               assignment.playbook_assignment_id DESC
      LIMIT 1
   ) legacy_security_assignment ON true
- WHERE requested.cohort_ordinal <= $2
+ WHERE $2::integer IS NULL OR requested.cohort_ordinal <= $2::integer
  ORDER BY requested.cohort_ordinal
 `;
 
@@ -164,7 +157,6 @@ SELECT identity.security_entity_id,
         OR assignment.security_issuer_identity_id=identity.security_issuer_identity_id)
   JOIN governance.sector_playbook playbook
     ON playbook.sector_playbook_id=assignment.sector_playbook_id
-   AND playbook.playbook_key='semiconductor'
   JOIN governance.business_driver driver
     ON driver.sector_playbook_id=playbook.sector_playbook_id
   JOIN governance.business_driver_measurement_rule rule
@@ -269,7 +261,7 @@ function selectors(value: unknown): K4RuleInput['inputConceptSelectors'] {
 
 export async function loadK4MarketIntelligenceInput(
   client: K4QueryClient,
-  options: { cutoff: string; securityLimit: 10 },
+  options: { cutoff: string; securityLimit: number | null },
 ): Promise<K4MarketIntelligenceInput> {
   const cutoff = new Date(options.cutoff);
   if (Number.isNaN(cutoff.valueOf()) || cutoff.toISOString() !== options.cutoff) {
@@ -283,13 +275,18 @@ export async function loadK4MarketIntelligenceInput(
   const universe = await client.query(SECURITY_UNIVERSE_SQL, [
     options.cutoff,
     options.securityLimit,
-    K4_SHADOW_COHORT_V1.map(({ market }) => market),
-    K4_SHADOW_COHORT_V1.map(({ ticker }) => ticker),
   ]);
-  if (universe.rows.length !== options.securityLimit) {
+  // A bound that came back short means the universe shrank under us, and a run that
+  // silently evaluated fewer securities than asked for would report complete coverage
+  // of an incomplete set. Unbounded runs take whatever the universe holds, but never
+  // nothing.
+  if (options.securityLimit !== null && universe.rows.length !== options.securityLimit) {
     throw new Error(
-      `K4 requires the whole cohort: ${options.securityLimit} securities, found ${universe.rows.length}`,
+      `K4 asked for ${options.securityLimit} securities and the universe returned ${universe.rows.length}`,
     );
+  }
+  if (universe.rows.length === 0) {
+    throw new Error('K4 found no securities in the served universe');
   }
   const securities = universe.rows.map((row) => ({
     securityEntityId: Number(row.security_entity_id),

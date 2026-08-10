@@ -1,4 +1,3 @@
-import { K4_SHADOW_COHORT_SIZE } from '../analytics/k4-shadow-cohort.ts';
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -451,16 +450,13 @@ export async function getPersonalizationPortfolioImpactV2(
       coverage: [],
     });
   }
-  // Compared against the cohort definition, not a literal and not a number the
-  // response carries. What this defends is that an `available` answer covers the
-  // whole evaluated cohort — a short answer means rows were dropped between
-  // evaluation and serving, and the reader has no way to see that. A count supplied
-  // by the same response would be self-certifying and defend nothing.
-  if (coverageRows.length !== K4_SHADOW_COHORT_SIZE) {
-    throw new Error(
-      `Portfolio impact v2 covers the whole cohort: expected ${K4_SHADOW_COHORT_SIZE} rows, got ${coverageRows.length}`,
-    );
-  }
+  // No size check here any more, and none is possible honestly. This used to demand
+  // exactly ten rows, which worked only because the cohort was a fixed ten and made
+  // growing it a 500. The coverage query already selects every security evaluated
+  // under one information set, so the rows ARE the evaluated set by construction —
+  // there is no upstream count for this path to compare against. "The whole requested
+  // universe was evaluated" is checked where the request lives: the K4 store.
+  // What remains checkable here is snapshot identity, asserted per row below.
   const coverage = coverageRows.map((row) => {
     if (requiredText(row.portfolio_snapshot_id, 'coverage snapshot id') !== snapshotId) {
       throw new Error('Portfolio impact v2 crossed snapshot identity');

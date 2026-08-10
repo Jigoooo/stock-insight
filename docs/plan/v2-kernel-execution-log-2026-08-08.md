@@ -1850,3 +1850,79 @@ crashloop 한다 — 059 가 2026-08-03 에 한 그대로다. grant 는 다이�
 강한 경제적 predicate 가 전부 정책행이 없어 `quarantined_unverified` 에 머무는 상태이고,
 패킷은 그것을 **버리지 않고 표시해서** 내보낸다. 격리 행을 빼면 소비자가 "관계 없음" 과
 "승인된 관계 없음" 을 구분할 방법이 사라진다 — 정반대의 사실이다.
+
+## K7 — 10종목 하드코딩 제거 (2026-08-10)
+
+### 무엇이 박혀 있었나
+
+숫자 10 이 다섯 곳, 섹터 이름이 세 곳.
+
+```
+러너 인자 검사       securityLimit !== 10           (타입 자체가 리터럴 `securityLimit: 10`)
+store 유니버스 쿼리   (market,ticker) 쌍 10개를 배열로 받아 unnest
+영속화 가드          plan.coverage.length !== 10
+p4.v2 read model     coverageRows.length !== 10  → "requires exactly 10 coverage rows"
+와이어 계약          .max(10) + available 이면 정확히 10
+store 쿼리 3곳       playbook.playbook_key='semiconductor'
+```
+
+앞의 다섯은 코호트가 한 종목만 늘어도 **서빙 500** 이었다. 뒤의 셋은 그보다 깊다 —
+K4 는 코호트가 제한된 게 아니라 **구조적으로 반도체 전용**이었다.
+
+### 검사를 지운 게 아니라 비교 대상이 있는 자리로 옮겼다
+
+| 검사 | 옮긴 곳 | 비교 대상 |
+| --- | --- | --- |
+| 요청한 만큼 평가됐나 | **store** | 요청 bound vs 유니버스가 돌려준 행수 |
+| 같은 증권이 두 번 들어갔나 | **writer** | coverage 길이 vs distinct 집합 |
+| 평가가 coverage 밖을 가리키나 | **writer** | 기존 유지 |
+| 스냅샷이 섞였나 | **read model** | 응답이 이름한 스냅샷 |
+| 개수 | **삭제** | — |
+
+read model 의 개수 검사는 지웠다. coverage 쿼리가 이미 한 information set 아래
+평가된 증권을 전부 돌려주므로 **그 행들이 곧 평가된 집합**이고, 비교할 상류 숫자가
+이 경로에 없다. 와이어 계약의 정확 개수 refine 도 지웠다 — 스키마는 응답을 자기
+자신하고만 비교할 수 있고, 자기 크기를 스스로 증명하는 응답은 아무것도 지키지 않는다.
+
+`securityLimit` 은 `number | null` 이 됐다. 생략하면 서빙 유니버스 전체이고, 주면
+경계이며 store 가 짧게 돌아온 유니버스를 거부한다.
+
+### 실측 — 넓히는 것만으로는 블록 4·5 가 안 채워진다
+
+착수 전 나는 "하드코딩을 걷으면 K4 를 297 로 넓힐 수 있고 블록 4·5 가 함께 채워진다"
+고 추정했다. **틀렸다.**
+
+```
+전체 유니버스 실행 (cutoff 2026-08-09)   356 종목 · 376 평가 · 1.7초
+  missing_identity              346
+  unsupported_measurement         6
+  no_recent_observation           3
+  ambiguous_driver_attribution    1
+  accepted                        2
+```
+
+비용은 문제가 아니었다 — 356 종목이 1.7초다. 문제는 **평가가 통과하지 못하는 것**이고
+원인은 코호트 크기가 아니다.
+
+```
+sector_playbook                    1 개 (semiconductor)
+business_driver                    8
+business_driver_measurement_rule   3
+playbook 이 배정된 증권            10 / 297
+```
+
+`missing_identity` 는 발행사 식별 **또는 섹터 플레이북**이 없다는 뜻이고, 플레이북이
+10종목에만 있으니 346건이 여기 떨어진다. 즉 **블록 4·5·7 의 선행 조건은 코호트 확대가
+아니라 섹터 플레이북 확충**이다. 그건 배선이 아니라 도메인 모델링이다 — 플레이북마다
+`value_chain`·`key_indicators`·`financial_bridge`·`valuation_methods`·`peer_dimensions` 를
+정의하고 business driver 와 측정 규칙을 붙여야 한다.
+
+### 부수적으로 확인한 것
+
+측정 규칙의 `effective_from` 이 2026-08-09 다. 그 이전 cutoff 로 돌리면 규칙이 0건이라
+전 종목이 `unsupported_measurement` 로 떨어진다. PIT 동작으로 정상이고, 08-08 로 돌려
+전멸을 보고 원인을 오해할 뻔했다.
+
+이번 변경이 없앤 것은 **라이브 500 위험**이다. 코호트를 바꾸는 순간 서빙이 터지던
+상태는 해소됐고, K4 는 이제 유니버스 전체에 대해 종목별 거부 사유를 남긴다 — K6 의
+블록 census 와 같은 종류의 게이지가 하나 더 생긴 셈이다.

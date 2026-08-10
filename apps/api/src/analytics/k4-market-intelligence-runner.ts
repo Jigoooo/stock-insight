@@ -17,7 +17,7 @@ import {
   type K4PersistenceResult,
   type K4OutcomePlan,
 } from './k4-market-intelligence-writer.ts';
-import { K4_SHADOW_COHORT_SIZE, K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
+import { K4_SHADOW_COHORT_VERSION } from './k4-shadow-cohort.ts';
 
 type Mode = 'dry-run' | 'rehearse' | 'apply';
 
@@ -27,7 +27,7 @@ export type K4ReplayArgs = {
   from: string;
   to: string;
   kstCutoffTime: string;
-  securityLimit: 10;
+  securityLimit: number | null;
 };
 
 export type K4CanaryArgs = {
@@ -35,7 +35,7 @@ export type K4CanaryArgs = {
   runKind: 'canary';
   cutoff: string;
   kstCutoffTime: string;
-  securityLimit: 10;
+  securityLimit: number | null;
 };
 
 export type K4MarketIntelligenceArgs = K4ReplayArgs | K4CanaryArgs;
@@ -51,7 +51,7 @@ export function parseK4MarketIntelligenceArgs(argv: readonly string[]): K4Market
   let to: string | undefined;
   let cutoff: string | undefined;
   let kstCutoffTime = '23:59:59.999';
-  let securityLimit = 10;
+  let securityLimit: number | null = null;
   let canary = false;
   const selectedModes: Mode[] = [];
   for (let index = 0; index < argv.length; index += 1) {
@@ -97,8 +97,13 @@ export function parseK4MarketIntelligenceArgs(argv: readonly string[]): K4Market
   }
   if (selectedModes.length > 1) throw new Error('select exactly one K4 write mode');
   const mode = selectedModes[0] ?? 'dry-run';
-  if (!Number.isSafeInteger(securityLimit) || securityLimit !== K4_SHADOW_COHORT_SIZE) {
-    throw new Error(`K4 evaluates exactly the cohort: ${K4_SHADOW_COHORT_SIZE} securities`);
+  // No default and no fixed size. Omitting --security-limit evaluates the whole
+  // served universe; passing one bounds it and the store then refuses a universe
+  // that came back smaller than asked for, so a truncated run cannot pass as a
+  // complete one. The old check demanded exactly ten, which is why K4 could not
+  // grow past its validation cohort.
+  if (securityLimit !== null && (!Number.isSafeInteger(securityLimit) || securityLimit <= 0)) {
+    throw new Error('--security-limit must be a positive integer when given');
   }
   if (canary) {
     if (mode !== 'apply') throw new Error('canary requires independent --apply');
@@ -113,7 +118,7 @@ export function parseK4MarketIntelligenceArgs(argv: readonly string[]): K4Market
       runKind: 'canary',
       cutoff,
       kstCutoffTime,
-      securityLimit: 10,
+      securityLimit,
     };
   }
   if (cutoff) throw new Error('--cutoff is reserved for canary');
@@ -124,7 +129,7 @@ export function parseK4MarketIntelligenceArgs(argv: readonly string[]): K4Market
     from,
     to,
     kstCutoffTime,
-    securityLimit: 10,
+    securityLimit,
   };
   buildK4DailyCutoffs(replay);
   return replay;
@@ -150,7 +155,7 @@ export type K4RunSummary = {
 
 type LoadInput = (
   client: K4QueryClient,
-  options: { cutoff: string; securityLimit: 10 },
+  options: { cutoff: string; securityLimit: number | null },
 ) => Promise<K4MarketIntelligenceInput>;
 
 type LoadOutcomes = (

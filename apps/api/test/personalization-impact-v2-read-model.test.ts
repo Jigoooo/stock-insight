@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { K4_SHADOW_COHORT_SIZE } from '../src/analytics/k4-shadow-cohort.ts';
 import {
   getPersonalizationPortfolioImpactV2,
   type PersonalizationImpactV2QueryExecutor,
@@ -81,7 +80,9 @@ function exposureRow(id: number, unit: string) {
   };
 }
 
-function executor(overrides: { exposures?: Record<string, unknown>[] } = {}) {
+function executor(
+  overrides: { exposures?: Record<string, unknown>[]; coverage?: Record<string, unknown>[] } = {},
+) {
   const calls: Array<{ sql: string; parameters: readonly unknown[] }> = [];
   const queryExecutor: PersonalizationImpactV2QueryExecutor = {
     queryRows: async <TRow extends Record<string, unknown>>(
@@ -96,7 +97,7 @@ function executor(overrides: { exposures?: Record<string, unknown>[] } = {}) {
         return (overrides.exposures ?? [exposureRow(1, 'USD'), exposureRow(2, 'shares')]) as TRow[];
       }
       if (sql.includes('k4_portfolio_impact_coverage_v2')) {
-        return coverageRows() as unknown as TRow[];
+        return (overrides.coverage ?? coverageRows()) as unknown as TRow[];
       }
       throw new Error(`unexpected query: ${sql}`);
     },
@@ -169,7 +170,7 @@ describe('p4.v2 portfolio impact read model', () => {
     assert.equal(calls, 1);
   });
 
-  it('fails closed on incomplete score decomposition or coverage short of the cohort', async () => {
+  it('fails closed on an incomplete score decomposition', async () => {
     const malformed = exposureRow(1, 'USD');
     malformed.score_components.pop();
     await assert.rejects(
@@ -182,25 +183,38 @@ describe('p4.v2 portfolio impact read model', () => {
       }),
       /score|component/i,
     );
-    let coverageCall = 0;
-    const shortCoverage: PersonalizationImpactV2QueryExecutor = {
-      queryRows: async <TRow extends Record<string, unknown>>(sql: string) => {
-        coverageCall += 1;
-        if (coverageCall === 1) return [{ portfolio_snapshot_id: snapshotId }] as unknown as TRow[];
-        if (sql.includes('coverage'))
-          return coverageRows().slice(0, K4_SHADOW_COHORT_SIZE - 1) as unknown as TRow[];
-        return [] as unknown as TRow[];
-      },
-    };
+  });
+
+  it('serves a coverage set of any size, because the size is not its to police', async () => {
+    // This path used to demand exactly ten rows, which is what made growing the K4
+    // cohort a 500 rather than a longer answer. There is no honest count to compare
+    // against here: the coverage query already returns every security evaluated under
+    // one information set, so the rows ARE the evaluated set. "The whole requested
+    // universe was evaluated" is checked in the K4 store, where the request lives.
+    for (const size of [1, 3, 10]) {
+      const response = await getPersonalizationPortfolioImpactV2(
+        executor({ coverage: coverageRows().slice(0, size) }).queryExecutor,
+        { userScope, eventId: null, scenarioId: null, horizon: null, knownAt },
+      );
+      assert.equal(response.coverage.length, size);
+    }
+  });
+
+  it('still refuses coverage that crossed snapshot identity', async () => {
+    // The check that remains, and the one with a real comparand: every coverage row
+    // must belong to the snapshot the response names.
+    const crossed = coverageRows();
+    const first = crossed[0];
+    if (first) first.portfolio_snapshot_id = '22222222-2222-4222-8222-222222222222';
     await assert.rejects(
-      getPersonalizationPortfolioImpactV2(shortCoverage, {
+      getPersonalizationPortfolioImpactV2(executor({ coverage: crossed }).queryExecutor, {
         userScope,
         eventId: null,
         scenarioId: null,
         horizon: null,
         knownAt,
       }),
-      /whole cohort/i,
+      /snapshot identity/i,
     );
   });
 });

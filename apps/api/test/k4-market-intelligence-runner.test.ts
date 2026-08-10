@@ -14,7 +14,6 @@ import {
   type K4QueryClient,
 } from '../src/analytics/k4-market-intelligence-store.ts';
 import {
-  K4_SHADOW_COHORT_SIZE,
   K4_SHADOW_COHORT_V1,
   K4_SHADOW_COHORT_VERSION,
 } from '../src/analytics/k4-shadow-cohort.ts';
@@ -50,24 +49,30 @@ describe('K4 market-intelligence CLI', () => {
       from: '2026-08-02',
       to: '2026-08-08',
       kstCutoffTime: '23:59:59.999',
-      securityLimit: 10,
+      // No bound unless one is asked for. K4 evaluates the served universe; the
+      // default used to be ten, which is how a validation cohort became the product.
+      securityLimit: null,
     });
     assert.equal(buildK4RunCutoffs(args).length, 7);
   });
 
-  it('accepts exactly one write mode and a selection matching the cohort', () => {
-    assert.equal(
-      parseK4MarketIntelligenceArgs([
-        '--from',
-        '2026-08-02',
-        '--to',
-        '2026-08-08',
-        '--rehearse',
-        '--security-limit',
-        String(K4_SHADOW_COHORT_SIZE),
-      ]).mode,
-      'rehearse',
-    );
+  it('accepts exactly one write mode and any positive selection bound', () => {
+    // Any bound, not one magic number. The check used to demand exactly ten, which
+    // meant the validation cohort could never grow into the served universe.
+    for (const bound of ['1', '10', '297']) {
+      assert.equal(
+        parseK4MarketIntelligenceArgs([
+          '--from',
+          '2026-08-02',
+          '--to',
+          '2026-08-08',
+          '--rehearse',
+          '--security-limit',
+          bound,
+        ]).securityLimit,
+        Number(bound),
+      );
+    }
     assert.throws(
       () =>
         parseK4MarketIntelligenceArgs([
@@ -88,9 +93,9 @@ describe('K4 market-intelligence CLI', () => {
           '--to',
           '2026-08-08',
           '--security-limit',
-          String(K4_SHADOW_COHORT_SIZE - 1),
+          '0',
         ]),
-      /exactly the cohort/i,
+      /positive integer/i,
     );
   });
 
@@ -189,7 +194,7 @@ describe('K4 fixed shadow cohort', () => {
 });
 
 describe('K4 cutoff-scoped canonical input loading', () => {
-  it('reconstructs ten-security coverage while admitting only cutoff-valid issuer rules', async () => {
+  it('reconstructs universe coverage while admitting only cutoff-valid issuer rules', async () => {
     const client = new FakeClient((sql) => {
       if (sql.includes('k4_semantic_snapshot')) {
         return [{ semantic_snapshot_id: 'snapshot-before-cutoff' }];
@@ -285,22 +290,64 @@ describe('K4 cutoff-scoped canonical input loading', () => {
     assert.match(sql, /construction_mode='live_observed'/);
     assert.match(sql, /construction_mode='historical_reconstruction'/);
     assert.match(sql, /knowledge_cutoff <= \$1::timestamptz/);
-    assert.match(sql, /k4_shadow_cohort/);
-    assert.match(sql, /WITH ORDINALITY/);
+    // The selection is the served universe, ordered by entity id so a bounded run is
+    // reproducible. It used to be ten (market, ticker) pairs unnested WITH ORDINALITY.
+    assert.match(sql, /FROM core\.v_security_universe security/);
+    assert.match(sql, /row_number\(\) OVER \(ORDER BY security\.security_entity_id\)/);
+    assert.doesNotMatch(sql, /playbook_key='semiconductor'/);
     assert.match(sql, /legacy_security_assignment/);
     assert.match(sql, /issuer_assignment/);
     assert.match(sql, /candidate\.known_at <= \$1::timestamptz/);
+    // Cutoff and bound, nothing else. The ticker arrays are gone: passing the cohort
+    // in as data is what made the sector a caller's choice rather than the data's.
     const universeCall = client.calls.find((call) => call.sql.includes('k4_security_universe'))!;
-    assert.deepEqual(universeCall.params.slice(2), [
-      K4_SHADOW_COHORT_V1.map(({ market }) => market),
-      K4_SHADOW_COHORT_V1.map(({ ticker }) => ticker),
-    ]);
+    assert.deepEqual(universeCall.params, ['2026-08-08T14:59:59.999Z', 10]);
     assert.doesNotMatch(sql, /market\.financial_fact/);
     assert.equal(
       client.calls.every(
         (call) => call.params.length === 0 || call.params[0] === input.informationSet.validCutoff,
       ),
       true,
+    );
+  });
+
+  it('refuses a bounded run whose universe came back short', async () => {
+    // The check the read model used to make, moved to the only place that knows what
+    // was requested. A run that silently evaluated fewer securities than asked for
+    // would report complete coverage of an incomplete set.
+    const client = new FakeClient((sql) => {
+      if (sql.includes('k4_semantic_snapshot')) return [{ semantic_snapshot_id: 'snapshot-1' }];
+      if (sql.includes('k4_security_universe')) {
+        return Array.from({ length: 7 }, (_, index) => ({
+          security_entity_id: index + 1,
+          issuer_entity_id: index + 101,
+          security_issuer_identity_id: index + 201,
+          sector_playbook_id: 10,
+        }));
+      }
+      throw new Error('loader continued past the short universe');
+    });
+    await assert.rejects(
+      loadK4MarketIntelligenceInput(client, {
+        cutoff: '2026-08-08T14:59:59.999Z',
+        securityLimit: 10,
+      }),
+      /asked for 10 securities and the universe returned 7/,
+    );
+  });
+
+  it('refuses to run against an empty universe', async () => {
+    const client = new FakeClient((sql) => {
+      if (sql.includes('k4_semantic_snapshot')) return [{ semantic_snapshot_id: 'snapshot-1' }];
+      if (sql.includes('k4_security_universe')) return [];
+      throw new Error('loader continued past the empty universe');
+    });
+    await assert.rejects(
+      loadK4MarketIntelligenceInput(client, {
+        cutoff: '2026-08-08T14:59:59.999Z',
+        securityLimit: null,
+      }),
+      /no securities in the served universe/,
     );
   });
 

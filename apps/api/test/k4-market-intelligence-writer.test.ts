@@ -391,7 +391,10 @@ describe('K4 market-intelligence persistence', () => {
     assert.ok(!roles.has('expected'));
   });
 
-  it('rejects a plan that does not cover the whole cohort, before any database statement', async () => {
+  it('rejects an evaluation whose security is not in coverage, before any database statement', async () => {
+    // "The whole requested universe was evaluated" moved to the store, which is the
+    // only place that knows what was requested. What the writer still owns is that
+    // the plan is internally consistent: every evaluation names a covered security.
     const client = new FakeWriterClient();
     const invalid = plan();
     invalid.coverage.pop();
@@ -402,7 +405,43 @@ describe('K4 market-intelligence persistence', () => {
         requestDigest,
         planDigest,
       }),
-      /whole cohort/i,
+      /outside requested coverage/i,
+    );
+    assert.deepEqual(client.calls, []);
+  });
+
+  it('rejects an empty coverage plan', async () => {
+    const client = new FakeWriterClient();
+    const empty = plan();
+    empty.coverage = [];
+    empty.evaluations = [];
+    await assert.rejects(
+      persistK4MarketIntelligencePlan(client, empty, {
+        runKind: 'replay',
+        cutoff,
+        requestDigest,
+        planDigest,
+      }),
+      /non-empty coverage/i,
+    );
+    assert.deepEqual(client.calls, []);
+  });
+
+  it('rejects the same security appearing twice in coverage', async () => {
+    // Ten hand-picked tickers could not collide. A universe resolved through issuers
+    // can, which is the grain hazard that already bit the common asset view.
+    const client = new FakeWriterClient();
+    const duplicated = plan();
+    const first = duplicated.coverage[0];
+    if (first) duplicated.coverage.push({ ...first });
+    await assert.rejects(
+      persistK4MarketIntelligencePlan(client, duplicated, {
+        runKind: 'replay',
+        cutoff,
+        requestDigest,
+        planDigest,
+      }),
+      /distinct securities/i,
     );
     assert.deepEqual(client.calls, []);
   });
