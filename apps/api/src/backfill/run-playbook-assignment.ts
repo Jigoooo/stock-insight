@@ -48,7 +48,19 @@ SELECT m.entity_id, e.canonical_name, internal.identifier_value AS entity_key,
      ORDER BY sii.valid_from DESC, sii.security_issuer_identity_id DESC
      LIMIT 1
   ) identity ON true
- ORDER BY m.entity_id
+UNION ALL
+-- Tokens. They hold no taxonomy membership — core.entity_taxonomy_membership is built
+-- for securities — so a query driven by that table cannot see Bitcoin at all. They come
+-- in with a NULL node and are assigned by curation only, which is honest: there is no
+-- industry code to reason from, and the crypto playbook says so.
+SELECT e.entity_id, e.canonical_name, internal.identifier_value AS entity_key,
+       NULL::bigint AS taxonomy_node_id, NULL::text AS taxonomy_system, ''::text AS code,
+       e.entity_id AS issuer_entity_id, NULL::bigint AS security_issuer_identity_id
+  FROM core.entity e
+  JOIN core.entity_identifier internal
+    ON internal.entity_id = e.entity_id AND internal.identifier_type = 'INTERNAL_KEY'
+ WHERE e.entity_type = 'Token'
+ ORDER BY 1
 `;
 
 const PLAYBOOK_SQL = `

@@ -109,6 +109,9 @@ import { driverStageVocabularyMigrationSql } from './migrations/107_driver_stage
 import { bankPlaybookMigrationSql } from './migrations/108_bank_playbook.ts';
 import { lifeSciencePlaybookMigrationSql } from './migrations/109_life_science_playbook.ts';
 import { bankMeasurementRulesMigrationSql } from './migrations/110_bank_measurement_rules.ts';
+import { lifeScienceCashRunwayRuleMigrationSql } from './migrations/111_life_science_cash_runway_rule.ts';
+import { resourcesPlaybookMigrationSql } from './migrations/112_resources_playbook.ts';
+import { cryptoPlaybookMigrationSql } from './migrations/113_crypto_playbook.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1147,6 +1150,27 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: bankMeasurementRulesMigrationSql,
   },
+  {
+    id: '111_life_science_cash_runway_rule',
+    description:
+      'The one life science driver the filings can measure; it reads the cash balance and is named for that rather than for the runway it only informs.',
+    tables: [],
+    sql: lifeScienceCashRunwayRuleMigrationSql,
+  },
+  {
+    id: '112_resources_playbook',
+    description:
+      'The extractive resources playbook; refiners and regulated utilities are excluded by name because neither owns reserves, and their nine companies are a recorded coverage gap.',
+    tables: [],
+    sql: resourcesPlaybookMigrationSql,
+  },
+  {
+    id: '113_crypto_playbook',
+    description:
+      'The crypto protocol playbook, and the one type the assignment guard widens by: a token has no issuer company because the asset is the subject.',
+    tables: [],
+    sql: cryptoPlaybookMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1264,4 +1288,7 @@ export {
   bankPlaybookMigrationSql,
   lifeSciencePlaybookMigrationSql,
   bankMeasurementRulesMigrationSql,
+  lifeScienceCashRunwayRuleMigrationSql,
+  resourcesPlaybookMigrationSql,
+  cryptoPlaybookMigrationSql,
 };

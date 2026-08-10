@@ -76,6 +76,14 @@ export type NearMiss = {
 
 export type PlaybookScope = {
   playbookKey: string;
+  /**
+   * Entities excluded by identifier rather than by code, each with the reason.
+   *
+   * Needed because a token carries no industry code: `adjacent` is keyed by code and a
+   * token's code is empty, so a code-keyed exclusion would silently match every token
+   * at once. Six of the 24 Token rows are not protocols and each needs its own sentence.
+   */
+  adjacentEntities?: Record<string, string>;
   /** Codes that mean "this company is in this sector" with no further argument needed. */
   codes: Record<string, string>;
   /**
@@ -183,6 +191,75 @@ export const PLAYBOOK_SCOPES: readonly PlaybookScope[] = [
         'SIC 8731 commercial physical and biological research; contract research, paid per study rather than owning the asset',
     },
   },
+  {
+    playbookKey: 'resources',
+    // Extractive only. canonical/04 §5's minimums — reserves, grade, recovery, NAV —
+    // all presuppose an orebody, and the refiners and utilities that share the 'energy'
+    // banner own none.
+    codes: {
+      '1000': 'SIC 1000 is Metal Mining; the code says it outright',
+      '1090': 'SIC 1090 is Miscellaneous Metal Ores; the code says it outright',
+      '1400': 'SIC 1400 is Mining & Quarrying of Nonmetallic Minerals; the code says it outright',
+    },
+    curated: {},
+    adjacent: {
+      // Refiners: they buy the commodity rather than extract it.
+      '2911':
+        'petroleum refining; buys crude and sells product, so throughput and the crack spread are its economics and it owns no reserves',
+      '192': 'KSIC 192 석유 정제품 제조업; same as SIC 2911 — refining margin, not an orebody',
+      '19210': 'KSIC 19210 원유 정제처리업; refining, no reserves',
+      // Regulated utilities: revenue is a tariff on a rate base, fuel passed through.
+      '4911':
+        'SIC 4911 electric services; a regulated utility earns a tariff on a rate base with fuel cost passed through, which has no reserve, grade or cost curve',
+      '35120': 'KSIC 35120 송전 및 배전업; regulated transmission and distribution, same reason',
+      '35200': 'KSIC 35200 연료용 가스 제조 및 배관공급업; regulated gas distribution, same reason',
+      '4931': 'SIC 4931 electric and other services combined; regulated utility, same reason',
+    },
+  },
+  {
+    playbookKey: 'crypto',
+    // No codes: a token has no industry classification, and inventing one would be a
+    // classification this repository never made. Every assignment here is curated.
+    codes: {},
+    curated: {
+      'CRYPTO:BTC':
+        'Bitcoin. A protocol with a fixed supply schedule and no upgradeable fee mechanism; supply, emission and finality are the whole of what there is to measure.',
+      'CRYPTO:ETH':
+        'Ethereum. Protocol fees, a burn mechanism and an upgrade path that has changed issuance more than once — every canonical/04 §5 minimum applies literally.',
+      'CRYPTO:SOL':
+        'Solana. L1 with protocol fees, staking issuance and a published upgrade cadence.',
+      'CRYPTO:ADA': 'Cardano. L1 with a fixed maximum supply and treasury-routed fees.',
+      'CRYPTO:AVAX': 'Avalanche. L1 with a burn mechanism and subnet-level dependency surface.',
+      'CRYPTO:DOT': 'Polkadot. L1 with inflationary issuance and parachain dependency.',
+      'CRYPTO:BNB': 'BNB. Chain token with a scheduled burn against a chain it also secures.',
+      'CRYPTO:TRX': 'TRON. L1 with resource-model fees and staking issuance.',
+      'CRYPTO:XRP': 'XRP. Ledger token with a fixed supply and an escrow release schedule.',
+      'CRYPTO:LINK': 'Chainlink. Oracle protocol; the dependency surface driver is what it sells.',
+      'CRYPTO:UNI':
+        'Uniswap. Application protocol whose fee switch is the value-capture question in its purest form.',
+      'CRYPTO:NEAR': 'NEAR. L1 with inflationary issuance and a burn share.',
+      'CRYPTO:SUI': 'Sui. L1 with staking issuance and a published unlock schedule.',
+      'CRYPTO:DOGE':
+        'Dogecoin. Perpetual fixed-amount issuance and no fee capture, which the playbook is built to state rather than hide.',
+      'CRYPTO:ZEC': 'Zcash. L1 with a halving schedule and a development-fund routing decision.',
+      'CRYPTO:HYPE': 'HYPE. Exchange protocol token with fee routing to holders.',
+      'CRYPTO:LEO': 'LEO. Exchange token with a buyback-and-burn commitment.',
+      'CRYPTO:RAIN':
+        'RAIN. Protocol token carried in the crypto universe with its own supply schedule.',
+    },
+    adjacent: {},
+    adjacentEntities: {
+      'CRYPTO:ERROR':
+        "an error placeholder that became an entity — canonical_name is 'coingecko_global'. This is a data defect, not a classification question, and it is named here so it stops being invisible.",
+      'CRYPTO:GLOBAL':
+        'total crypto market capitalisation; an aggregate with no supply schedule, no contract and no fees',
+      'CRYPTO:ETH.D': 'Ethereum dominance; a ratio between two aggregates, not an asset',
+      'CRYPTO:FNG': 'Fear & Greed index; a sentiment measure, not a protocol',
+      'CRYPTO:SPY':
+        'Macro:SPY — a US equity ETF typed as a Token; wrong entity type, not a protocol',
+      'CRYPTO:QQQ': 'Macro:QQQ — the same',
+    },
+  },
 ];
 
 export function assignPlaybooks(members: readonly TaxonomyMember[]): {
@@ -240,7 +317,7 @@ export function assignPlaybooks(members: readonly TaxonomyMember[]): {
         continue;
       }
 
-      const adjacent = scope.adjacent[member.code];
+      const adjacent = scope.adjacentEntities?.[member.entityKey] ?? scope.adjacent[member.code];
       if (adjacent) {
         nearMisses.push({
           entityId: member.entityId,

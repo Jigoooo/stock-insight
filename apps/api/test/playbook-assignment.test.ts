@@ -15,9 +15,39 @@ function member(overrides: Partial<TaxonomyMember> = {}): TaxonomyMember {
   };
 }
 
-/** Every curated company, so a scope's curations never read as stale in an unrelated test. */
+/** Every curated subject, so a scope's curations never read as stale in an unrelated test. */
 function allCurated(): TaxonomyMember[] {
+  const tokens = [
+    'BTC',
+    'ETH',
+    'SOL',
+    'ADA',
+    'AVAX',
+    'DOT',
+    'BNB',
+    'TRX',
+    'XRP',
+    'LINK',
+    'UNI',
+    'NEAR',
+    'SUI',
+    'DOGE',
+    'ZEC',
+    'HYPE',
+    'LEO',
+    'RAIN',
+  ].map((symbol, index) =>
+    member({
+      entityId: 200 + index,
+      entityKey: `CRYPTO:${symbol}`,
+      entityName: symbol,
+      code: '',
+      taxonomySystem: '',
+      taxonomyNodeId: 0,
+    }),
+  );
   return [
+    ...tokens,
     member({ entityId: 90, entityKey: 'KR:005930', entityName: '삼성전자', code: '264' }),
     member({ entityId: 91, entityKey: 'KR:055550', entityName: '신한지주', code: '64992' }),
     member({ entityId: 92, entityKey: 'KR:086790', entityName: '086790', code: '64992' }),
@@ -171,5 +201,58 @@ describe('curations are keyed by identifier, not by name', () => {
     ]);
     assert.equal(assignments.length, 0);
     assert.equal(nearMisses.length, 1);
+  });
+});
+
+describe('a token has no industry code, so every crypto assignment is curated', () => {
+  const token = (symbol: string, entityId: number) =>
+    member({
+      entityId,
+      entityKey: `CRYPTO:${symbol}`,
+      entityName: symbol,
+      code: '',
+      taxonomySystem: '',
+      taxonomyNodeId: 0,
+    });
+
+  it('assigns protocol tokens by identifier', () => {
+    const { assignments } = assignPlaybooks([token('BTC', 300), token('ETH', 301)]);
+    const crypto = assignments.filter((row) => row.playbookKey === 'crypto');
+    assert.equal(crypto.length, 2);
+    assert.ok(crypto.every((row) => row.assignmentBasis === 'curated'));
+    assert.ok(crypto.every((row) => row.taxonomyNodeId === null));
+  });
+
+  it('keeps indices, aggregates and misfiled ETFs out', () => {
+    // Six of the 24 Token rows are not protocols. CRYPTO:ERROR is an error placeholder
+    // that became an entity; SPY and QQQ are US equity ETFs typed as tokens.
+    const { assignments, nearMisses } = assignPlaybooks([
+      token('ERROR', 310),
+      token('GLOBAL', 311),
+      token('ETH.D', 312),
+      token('FNG', 313),
+      token('SPY', 314),
+      token('QQQ', 315),
+    ]);
+    assert.equal(assignments.length, 0);
+    assert.equal(nearMisses.length, 6);
+    assert.ok(nearMisses.every((miss) => miss.playbookKey === 'crypto'));
+    // Each exclusion carries its own sentence rather than one shared reason.
+    assert.equal(new Set(nearMisses.map((miss) => miss.reason)).size, 6);
+  });
+
+  it('names the error placeholder as a data defect rather than a classification call', () => {
+    const { nearMisses } = assignPlaybooks([token('ERROR', 320)]);
+    assert.match(nearMisses[0]?.reason ?? '', /data defect/);
+  });
+
+  it('does not let an empty code match every token at once', () => {
+    // The exclusions are keyed by identifier, not by code. A code-keyed exclusion would
+    // match on the empty string and silently drop every token in the universe.
+    const { assignments, nearMisses } = assignPlaybooks([token('BTC', 330), token('SPY', 331)]);
+    assert.equal(assignments.length, 1);
+    assert.equal(assignments[0]?.entityId, 330);
+    assert.equal(nearMisses.length, 1);
+    assert.equal(nearMisses[0]?.entityId, 331);
   });
 });
