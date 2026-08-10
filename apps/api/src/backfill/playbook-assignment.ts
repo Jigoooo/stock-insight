@@ -23,6 +23,9 @@
  */
 
 export type TaxonomyMember = {
+  /** Issuer resolved through the exact temporal identity; null when none exists yet. */
+  issuerEntityId?: number | null;
+  securityIssuerIdentityId?: number | null;
   entityId: number;
   entityName: string;
   taxonomyNodeId: number;
@@ -31,6 +34,9 @@ export type TaxonomyMember = {
 };
 
 export type PlaybookAssignmentRow = {
+  /** Migration 088 requires the subject to be the issuer Company, not the security. */
+  issuerEntityId?: number | null;
+  securityIssuerIdentityId?: number | null;
   entityId: number;
   entityName: string;
   assignmentBasis: 'taxonomy' | 'curated';
@@ -94,6 +100,8 @@ export function assignSemiconductorPlaybook(members: readonly TaxonomyMember[]):
           assignmentBasis: 'taxonomy',
           taxonomyNodeId: member.taxonomyNodeId,
           rationale: codeReason,
+          issuerEntityId: member.issuerEntityId ?? null,
+          securityIssuerIdentityId: member.securityIssuerIdentityId ?? null,
         });
       }
       continue;
@@ -111,6 +119,8 @@ export function assignSemiconductorPlaybook(members: readonly TaxonomyMember[]):
           // pointing at the node would suggest the code carried it.
           taxonomyNodeId: null,
           rationale: curatedReason,
+          issuerEntityId: member.issuerEntityId ?? null,
+          securityIssuerIdentityId: member.securityIssuerIdentityId ?? null,
         });
       }
       continue;

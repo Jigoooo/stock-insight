@@ -18,12 +18,29 @@ import {
 const JOB_NAME = 'stock-insight-playbook-assignment';
 const PLAYBOOK_KEY = 'semiconductor';
 
+/**
+ * Migration 088 made the issuer Company the canonical assignment subject and added a
+ * guard that rejects a Stock subject outright. Taxonomy membership is recorded against
+ * the security, so each member is resolved through the exact temporal
+ * `core.security_issuer_identity` row the guard also checks. A security with no issuer
+ * identity yet resolves to NULL here and is reported rather than assigned.
+ */
 const MEMBERS_SQL = `
-SELECT m.entity_id, e.canonical_name, tn.taxonomy_node_id, tr.taxonomy_system, tn.code
+SELECT m.entity_id, e.canonical_name, tn.taxonomy_node_id, tr.taxonomy_system, tn.code,
+       identity.issuer_entity_id, identity.security_issuer_identity_id
   FROM core.entity_taxonomy_membership m
   JOIN core.taxonomy_node tn ON tn.taxonomy_node_id = m.taxonomy_node_id
   JOIN core.taxonomy_release tr ON tr.taxonomy_release_id = tn.taxonomy_release_id
   JOIN core.entity e ON e.entity_id = m.entity_id
+  LEFT JOIN LATERAL (
+    SELECT sii.security_issuer_identity_id, sii.issuer_entity_id
+      FROM core.security_issuer_identity sii
+     WHERE sii.security_entity_id = m.entity_id
+       AND sii.valid_from <= $1::timestamptz
+       AND sii.known_from <= $1::timestamptz
+     ORDER BY sii.valid_from DESC, sii.security_issuer_identity_id DESC
+     LIMIT 1
+  ) identity ON true
  ORDER BY m.entity_id
 `;
 
@@ -42,8 +59,8 @@ SELECT entity_id FROM governance.playbook_assignment
 const INSERT_SQL = `
 INSERT INTO governance.playbook_assignment
   (sector_playbook_id, entity_id, assignment_basis, taxonomy_node_id, rationale,
-   valid_from, assigned_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+   valid_from, assigned_by, security_issuer_identity_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (sector_playbook_id, entity_id, valid_from) DO NOTHING
 `;
 
@@ -83,7 +100,9 @@ async function run(): Promise<void> {
         taxonomy_node_id: string;
         taxonomy_system: string;
         code: string;
-      }>(MEMBERS_SQL),
+        issuer_entity_id: string | null;
+        security_issuer_identity_id: string | null;
+      }>(MEMBERS_SQL, [validFrom]),
       client.query<{ entity_id: string }>(EXISTING_SQL, [active.sector_playbook_id]),
     ]);
 
@@ -93,12 +112,24 @@ async function run(): Promise<void> {
       taxonomyNodeId: Number(row.taxonomy_node_id),
       taxonomySystem: row.taxonomy_system,
       code: row.code,
+      issuerEntityId: row.issuer_entity_id == null ? null : Number(row.issuer_entity_id),
+      securityIssuerIdentityId:
+        row.security_issuer_identity_id == null ? null : Number(row.security_issuer_identity_id),
     }));
 
     const decided = assignSemiconductorPlaybook(readings);
     const alreadyGoverned = new Set(existing.rows.map((row) => Number(row.entity_id)));
-    const toWrite: PlaybookAssignmentRow[] = decided.assignments.filter(
-      (row) => !alreadyGoverned.has(row.entityId),
+    // A security whose issuer identity has not been minted yet cannot be assigned
+    // without inventing the subject, so it is counted and named instead of written.
+    const withoutIssuer = decided.assignments.filter((row) => row.issuerEntityId == null);
+    const resolved = decided.assignments.filter((row) => row.issuerEntityId != null);
+    // Several securities can share one issuer; the issuer is assigned once.
+    const byIssuer = new Map<number, PlaybookAssignmentRow>();
+    for (const row of resolved) {
+      if (!byIssuer.has(row.issuerEntityId!)) byIssuer.set(row.issuerEntityId!, row);
+    }
+    const toWrite: PlaybookAssignmentRow[] = [...byIssuer.values()].filter(
+      (row) => !alreadyGoverned.has(row.issuerEntityId!),
     );
 
     const summary = {
@@ -112,6 +143,8 @@ async function run(): Promise<void> {
         .filter((row) => row.assignmentBasis === 'curated')
         .map((row) => row.entityName),
       alreadyGoverned: alreadyGoverned.size,
+      issuersResolved: byIssuer.size,
+      withoutIssuerIdentity: withoutIssuer.map((row) => row.entityName),
       toWrite: toWrite.length,
       // Companies one node away that were looked at and not assigned. Reported so
       // the decision is visible rather than inferable from an absence.
@@ -137,12 +170,13 @@ async function run(): Promise<void> {
       for (const row of toWrite) {
         const result = await client.query(INSERT_SQL, [
           active.sector_playbook_id,
-          row.entityId,
+          row.issuerEntityId,
           row.assignmentBasis,
           row.taxonomyNodeId,
           row.rationale,
           validFrom,
           JOB_NAME,
+          row.securityIssuerIdentityId,
         ]);
         written += result.rowCount ?? 0;
       }
