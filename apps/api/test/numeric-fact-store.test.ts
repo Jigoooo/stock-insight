@@ -184,6 +184,107 @@ describe('provider-neutral numeric-fact store', () => {
     );
   });
 
+  it('accepts a unit that differs only in case, because the definition key folds case', async () => {
+    // SEC filings spell the same custom unit both ways — `reporting_Unit` and
+    // `reporting_unit`. `boundedDefinitionKey` lowercases, so both land on one
+    // definition key on purpose, and whichever draft sorts first supplies the row's
+    // `unit`. Comparing that field case-sensitively made the key and the drift check
+    // contradict each other: on 2026-08-10 the SEC apply died with
+    // `unit expected reporting_Unit, got reporting_unit` and took the
+    // market-enrichment wrapper — and therefore the analytics pipeline — down with it.
+    const planned = definition({
+      definitionKey: 'sec.us-gaap.numberofreportablesegments.duration_annual.reporting_unit',
+      unit: 'reporting_Unit',
+      currency: null,
+    });
+    const stored = {
+      definition_key: planned.definitionKey,
+      revision_no: 1,
+      concept_namespace: planned.conceptNamespace,
+      concept_key: planned.conceptKey,
+      canonical_concept: planned.canonicalConcept,
+      display_name: planned.displayName,
+      definition_scope: planned.definitionScope,
+      issuer_entity_id: null,
+      source_id: planned.sourceId,
+      period_basis: planned.periodBasis,
+      accounting_basis: planned.accountingBasis,
+      unit: 'reporting_unit',
+      currency: null,
+      comparability_group_key: planned.comparabilityGroupKey,
+      comparability_group_version: planned.comparabilityGroupVersion,
+      effective_from: new Date(planned.effectiveFrom),
+      numerator_description: null,
+      denominator_description: null,
+      inclusions: [],
+      exclusions: [],
+      scale_power: 0,
+      supersedes_metric_definition_id: null,
+      definition_state: 'active',
+      effective_to: null,
+      notes: null,
+    };
+    const db = client(() => ({ rows: [stored] }));
+    assert.equal(await ensureMetricDefinitions(db, [planned], { createdBy: 'test' }), 0);
+
+    // Currency reaches the key through the same lowercasing, so it folds too.
+    const currencyPlanned = definition({ currency: 'usd' });
+    const currencyStored = { ...stored, definition_key: currencyPlanned.definitionKey };
+    const currencyDb = client(() => ({
+      rows: [
+        {
+          ...currencyStored,
+          unit: currencyPlanned.unit,
+          currency: 'USD',
+          comparability_group_key: currencyPlanned.comparabilityGroupKey,
+        },
+      ],
+    }));
+    assert.equal(
+      await ensureMetricDefinitions(currencyDb, [currencyPlanned], { createdBy: 'test' }),
+      0,
+    );
+  });
+
+  it('still rejects a unit that differs by more than case', async () => {
+    const planned = definition({ unit: 'shares' });
+    const db = client(() => ({
+      rows: [
+        {
+          definition_key: planned.definitionKey,
+          revision_no: 1,
+          concept_namespace: planned.conceptNamespace,
+          concept_key: planned.conceptKey,
+          canonical_concept: planned.canonicalConcept,
+          display_name: planned.displayName,
+          definition_scope: planned.definitionScope,
+          issuer_entity_id: null,
+          source_id: planned.sourceId,
+          period_basis: planned.periodBasis,
+          accounting_basis: planned.accountingBasis,
+          unit: 'currency',
+          currency: planned.currency,
+          comparability_group_key: planned.comparabilityGroupKey,
+          comparability_group_version: planned.comparabilityGroupVersion,
+          effective_from: new Date(planned.effectiveFrom),
+          numerator_description: null,
+          denominator_description: null,
+          inclusions: [],
+          exclusions: [],
+          scale_power: 0,
+          supersedes_metric_definition_id: null,
+          definition_state: 'active',
+          effective_to: null,
+          notes: null,
+        },
+      ],
+    }));
+    await assert.rejects(
+      () => ensureMetricDefinitions(db, [planned], { createdBy: 'test' }),
+      /unit expected shares, got currency/,
+    );
+  });
+
   it('verifies definition labels, canonical concept, and normalized effective timestamp', async () => {
     const planned = definition();
     const stored = {

@@ -159,6 +159,11 @@ SELECT definition_key, revision_no, concept_namespace, concept_key,
  WHERE revision_no = 1 AND definition_key = ANY($1::text[])
 `;
 
+/** Case-folded the same way the definition key is, so the two cannot disagree. */
+function foldedUnit(value: unknown): string | null {
+  return value == null ? null : String(value).toLowerCase();
+}
+
 function definitionMismatch(
   planned: MetricDefinitionRow,
   existing: DefinitionDbRow,
@@ -186,8 +191,14 @@ function definitionMismatch(
     ],
     ['period_basis', planned.periodBasis, existing.period_basis],
     ['accounting_basis', planned.accountingBasis, existing.accounting_basis],
-    ['unit', planned.unit, existing.unit],
-    ['currency', planned.currency, existing.currency ?? null],
+    // Unit and currency reach the definition key through `boundedDefinitionKey`, which
+    // lowercases. Two spellings of one unit therefore share a key by design, and the
+    // row keeps whichever draft sorted first — SEC files both `reporting_Unit` and
+    // `reporting_unit`. Comparing case-sensitively made the key and this check
+    // contradict each other and stopped the whole SEC apply. The rule is: this check is
+    // exactly as case-sensitive as the key that decided these are the same definition.
+    ['unit', foldedUnit(planned.unit), foldedUnit(existing.unit)],
+    ['currency', foldedUnit(planned.currency), foldedUnit(existing.currency ?? null)],
     ['comparability_group_key', planned.comparabilityGroupKey, existing.comparability_group_key],
     [
       'comparability_group_version',
