@@ -46,6 +46,21 @@ describe('B3 SIC/KSIC taxonomy contract', () => {
                 WHERE membership.source_reference = 'ingestion.source_revision:' || revision.source_revision_id
                   AND record.provider_record_key = 'profile:' || profile.entity_key
                   AND btrim(profile.profile_json->>'industryCode') = membership.code
+             )
+             -- The SEC branch checks the chain, not the code: submissions payloads are
+             -- immutable files on disk and SQL cannot reopen them. What it proves is
+             -- that the named revision is real, belongs to sec-edgar-submissions, and
+             -- was captured for THIS entity's issuer CIK. A membership citing another
+             -- filer's revision, or a revision that does not exist, still fails.
+             AND NOT EXISTS (
+               SELECT 1
+                 FROM ingestion.source_revision revision
+                 JOIN ingestion.source_record_identity record ON record.source_record_identity_id=revision.source_record_identity_id
+                 JOIN ingestion.source source ON source.source_id=record.source_id AND source.provider_key='sec-edgar-submissions'
+                 JOIN core.security_issuer_identity issuer_identity ON issuer_identity.security_entity_id=membership.entity_id
+                 JOIN core.entity_identifier cik ON cik.entity_id=issuer_identity.issuer_entity_id AND cik.identifier_type='CIK'
+                WHERE membership.source_reference = 'ingestion.source_revision:' || revision.source_revision_id
+                  AND record.provider_record_key = 'submissions:' || cik.identifier_value
              )) AS fabricated_codes,
           -- The property the DART backfill establishes, stated so it survives coverage
           -- growth: no stock sits at UNCLASSIFIED while a source reports a code for it.
@@ -83,8 +98,8 @@ describe('B3 SIC/KSIC taxonomy contract', () => {
           (SELECT count(*)::int FROM core.taxonomy_release) AS releases,
           (SELECT count(*)::int FROM core.taxonomy_crosswalk) AS crosswalks
       `);
-        assert.equal(result.rows[0]!.releases, 3);
-        assert.equal(result.rows[0]!.provisional, 3);
+        assert.equal(result.rows[0]!.releases, 4);
+        assert.equal(result.rows[0]!.provisional, 4);
         assert.equal(result.rows[0]!.crosswalks, 0);
       } finally {
         await pool.end();

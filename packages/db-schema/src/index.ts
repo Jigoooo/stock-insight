@@ -101,6 +101,8 @@ import { commonAssetViewMigrationSql } from './migrations/099_common_asset_view.
 import { releaseManifestSupersessionMigrationSql } from './migrations/100_release_manifest_supersession.ts';
 import { dartIndustryTaxonomyReleaseMigrationSql } from './migrations/101_dart_industry_taxonomy_release.ts';
 import { taxonomyMembershipTemporalityMigrationSql } from './migrations/102_taxonomy_membership_temporality.ts';
+import { secSubmissionsSourceMigrationSql } from './migrations/103_sec_submissions_source.ts';
+import { taxonomyIndexNameRestoreMigrationSql } from './migrations/104_taxonomy_index_name_restore.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1083,6 +1085,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: taxonomyMembershipTemporalityMigrationSql,
   },
+  {
+    id: '103_sec_submissions_source',
+    description:
+      'Registers the SEC submissions endpoint as its own source and opens the SIC release it feeds; companyfacts carries no classification at all.',
+    tables: [],
+    sql: secSubmissionsSourceMigrationSql,
+  },
+  {
+    id: '104_taxonomy_index_name_restore',
+    description:
+      "Restores uq_entity_taxonomy_system's original name so migration 021's IF NOT EXISTS stays a no-op on replay instead of rebuilding the unconditional index.",
+    tables: [],
+    sql: taxonomyIndexNameRestoreMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1192,4 +1208,6 @@ export {
   releaseManifestSupersessionMigrationSql,
   dartIndustryTaxonomyReleaseMigrationSql,
   taxonomyMembershipTemporalityMigrationSql,
+  secSubmissionsSourceMigrationSql,
+  taxonomyIndexNameRestoreMigrationSql,
 };

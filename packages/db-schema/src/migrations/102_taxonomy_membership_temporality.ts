@@ -33,18 +33,10 @@ ALTER TABLE core.entity_taxonomy_membership
   ADD CONSTRAINT entity_taxonomy_membership_valid_range_check
   CHECK (valid_to IS NULL OR valid_to > valid_from);
 
--- The uniqueness moves from "ever" to "now". A partial index is a different index —
--- PostgreSQL cannot add a predicate in place — so it is dropped and rebuilt.
---
--- THE NAME IS DELIBERATELY UNCHANGED. Migration 021 creates this index with
--- CREATE UNIQUE INDEX IF NOT EXISTS, and taxonomy-coverage.test.ts replays 021 to
--- prove the frozen import stays safe to reapply after the legacy source changes.
--- Under a new name, 021's replay would try to build the old unconditional index over a
--- table that now holds superseded rows, and fail on the first entity that has been
--- reclassified. Keeping the name makes that statement a no-op, which is what it should
--- be: the index already exists, in its current form.
+-- The uniqueness moves from "ever" to "now". Rebuilt rather than altered because a
+-- partial index is a different index; PostgreSQL cannot add a predicate in place.
 DROP INDEX IF EXISTS core.uq_entity_taxonomy_system;
-CREATE UNIQUE INDEX IF NOT EXISTS uq_entity_taxonomy_system
+CREATE UNIQUE INDEX IF NOT EXISTS uq_entity_taxonomy_system_current
   ON core.entity_taxonomy_membership (entity_id, ((metadata ->> 'taxonomy_system')))
   WHERE valid_to IS NULL;
 

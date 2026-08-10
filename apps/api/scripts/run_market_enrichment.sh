@@ -145,6 +145,13 @@ DATABASE_URL="$DB_URL" node --env-file="$ENV_FILE" \
   apps/api/src/ingest/run-congress-bills.ts --pages 2 --apply
 pipeline_record_stage_success stock-insight-congress-bills-stage "$RUN_STARTED_AT" || exit $?
 
+# SEC submissions, for the SIC that companyfacts does not carry. Self-limiting: the
+# target list is filers whose classification is still UNCLASSIFIED, so a run costs one
+# request per genuinely unclassified US filer and shrinks to zero as the gap closes.
+# 250ms apart, matching sec-edgar-fetcher's answer to SEC's rate guidance.
+DATABASE_URL="$DB_URL" node apps/api/src/ingest/run-sec-submissions.ts --apply
+pipeline_record_stage_success stock-insight-sec-submissions-stage "$RUN_STARTED_AT" || exit $?
+
 # B3 — supply/customer disclosure out of 사업보고서. LAST on purpose, and Sunday
 # only.
 #

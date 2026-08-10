@@ -9,10 +9,11 @@
 // public.company_profiles.profile_json->>'industryCode'. Nothing needed collecting.
 // The codes were never mapped.
 //
-// The remaining 43 are US stocks. SEC keeps SIC in its submissions endpoint and this
-// repository ingests companyfacts, whose payload carries no classification at all —
-// verified against governance.source_shape_revision rather than assumed. Closing that
-// gap is a collector change and is deliberately not attempted here.
+// The US side comes from SEC submissions, collected by run-sec-submissions.ts. Its
+// payload is where `sic` lives; companyfacts, which this repository already ingested,
+// carries no classification at all — verified against governance.source_shape_revision
+// rather than assumed. Both sides land here so one job owns "what does the taxonomy
+// currently say, and what do sources currently report".
 //
 // WHY A NEW RELEASE, AND WHY THE OLD ROW IS CLOSED RATHER THAN EDITED. Migration 021
 // froze the baseline and said what comes next: "Later source changes require a new
@@ -32,6 +33,9 @@
 // pipeline; this reads whatever it currently holds.
 
 import pg from 'pg';
+
+import { readRawObjectVerified } from '../ingest/raw-object-store.ts';
+import { readSic } from '../ingest/run-sec-submissions.ts';
 
 export type IndustryClassificationArgs = { mode: 'dry-run' | 'apply' };
 
@@ -80,6 +84,8 @@ export type ClassificationCandidate = {
   code: string | null;
   sourceRevisionId: number | null;
   currentState: CurrentState;
+  /** Which system the reported code belongs to. KSIC from DART, SIC from SEC. */
+  taxonomySystem: 'KSIC' | 'SIC' | null;
 };
 
 /**
@@ -97,6 +103,9 @@ SELECT stock.entity_id,
        stock.country_code,
        nullif(btrim(profile.profile_json->>'industryCode'), '') AS code,
        revision.source_revision_id,
+       sec.source_revision_id AS sec_source_revision_id,
+       sec.object_uri AS sec_object_uri,
+       sec.content_hash AS sec_content_hash,
        CASE
          WHEN current.taxonomy_node_id IS NULL THEN 'absent'
          WHEN current.code = 'UNCLASSIFIED' THEN 'unclassified'
@@ -130,39 +139,92 @@ SELECT stock.entity_id,
      ORDER BY revision.revision_no DESC
      LIMIT 1
   ) revision ON TRUE
+  -- The SEC side. Its code is not in a column: submissions payloads are immutable raw
+  -- objects on disk, so the loader reads and hash-verifies them. Only the newest
+  -- revision per filer is offered, for the same reason the profile side takes the
+  -- newest — an older capture is history, not a competing answer.
+  LEFT JOIN LATERAL (
+    SELECT revision.source_revision_id, object.object_uri, object.content_hash
+      FROM core.security_issuer_identity issuer_identity
+      JOIN core.entity_identifier cik
+        ON cik.entity_id = issuer_identity.issuer_entity_id AND cik.identifier_type = 'CIK'
+      JOIN ingestion.source source ON source.provider_key = 'sec-edgar-submissions'
+      JOIN ingestion.source_record_identity record
+        ON record.source_id = source.source_id
+       AND record.provider_record_key = 'submissions:' || cik.identifier_value
+      JOIN ingestion.source_revision revision
+        ON revision.source_record_identity_id = record.source_record_identity_id
+      JOIN ingestion.raw_object object ON object.raw_object_id = revision.raw_object_id
+     WHERE issuer_identity.security_entity_id = stock.entity_id
+     ORDER BY revision.revision_no DESC
+     LIMIT 1
+  ) sec ON TRUE
  WHERE stock.entity_type = 'Stock'
  ORDER BY identifier.identifier_value
 `;
 
 export async function loadClassificationCandidates(
   client: QueryClient,
+  readRawObject: (ref: { objectUri: string; contentHash: string }) => Promise<Buffer>,
 ): Promise<ClassificationCandidate[]> {
   const { rows } = await client.query<Record<string, unknown>>(CANDIDATE_SQL);
-  return rows.map((row) => ({
-    entityId: Number(row.entity_id),
-    entityKey: String(row.entity_key),
-    countryCode: String(row.country_code ?? ''),
-    code: row.code == null ? null : String(row.code).trim(),
-    sourceRevisionId: row.source_revision_id == null ? null : Number(row.source_revision_id),
-    currentState: String(row.current_state) as CurrentState,
-  }));
+  const candidates: ClassificationCandidate[] = [];
+  for (const row of rows) {
+    const base = {
+      entityId: Number(row.entity_id),
+      entityKey: String(row.entity_key),
+      countryCode: String(row.country_code ?? ''),
+      currentState: String(row.current_state) as CurrentState,
+    };
+    const profileCode = row.code == null ? null : String(row.code).trim();
+    if (profileCode) {
+      candidates.push({
+        ...base,
+        code: profileCode,
+        sourceRevisionId: Number(row.source_revision_id),
+        taxonomySystem: 'KSIC',
+      });
+      continue;
+    }
+    if (row.sec_object_uri != null && row.sec_content_hash != null) {
+      // Hash-verified, not just read. A raw object whose bytes no longer match its
+      // registered hash is not evidence, and silently classifying from one would make
+      // the provenance chain a decoration.
+      const payload = await readRawObject({
+        objectUri: String(row.sec_object_uri),
+        contentHash: String(row.sec_content_hash),
+      });
+      const sic = readSic(JSON.parse(payload.toString('utf8')));
+      if (sic) {
+        candidates.push({
+          ...base,
+          code: sic.sic,
+          sourceRevisionId: Number(row.sec_source_revision_id),
+          taxonomySystem: 'SIC',
+        });
+        continue;
+      }
+    }
+    candidates.push({ ...base, code: null, sourceRevisionId: null, taxonomySystem: null });
+  }
+  return candidates;
 }
 
 /**
- * KSIC codes arrive at three widths — 3, 4 and 5 digits — because DART reports at
- * whichever level it classified the company. Measured on the live snapshot: 42 at
- * three digits, 21 at four, 72 at five.
+ * Codes arrive at several widths. KSIC reports at 3, 4 or 5 digits depending on how
+ * finely DART classified the company — measured live: 42 at three, 21 at four, 72 at
+ * five. SIC is 3 or 4.
  *
  * The width IS the hierarchy level, so it is recorded rather than normalised away.
- * Padding everything to five digits would invent precision the source never claimed,
- * and truncating to three would throw away the precision it did.
+ * Padding to a common width would invent precision the source never claimed, and
+ * truncating would throw away the precision it did.
  */
-export function ksicHierarchyLevel(code: string): number {
+export function industryHierarchyLevel(code: string): number {
   return code.length;
 }
 
-/** A code the taxonomy can hold: digits only, and no wider than KSIC goes. */
-export function isUsableKsicCode(code: string): boolean {
+/** A code the taxonomy can hold: digits only, within the widths the two systems use. */
+export function isUsableIndustryCode(code: string): boolean {
   return /^[0-9]{2,5}$/.test(code);
 }
 
@@ -198,13 +260,13 @@ export function planIndustryClassification(
       if (candidate.currentState === 'absent') toMarkUnclassified.push(candidate);
       continue;
     }
-    if (!isUsableKsicCode(candidate.code)) {
+    if (!isUsableIndustryCode(candidate.code)) {
       // Reported, never guessed at. A code we cannot read is a coverage fact worth
       // surfacing, not a row worth inventing.
       rejected.push({
         entityKey: candidate.entityKey,
         code: candidate.code,
-        reason: 'not a 2-5 digit KSIC code',
+        reason: 'not a 2-5 digit industry code',
       });
       if (candidate.currentState === 'absent') toMarkUnclassified.push(candidate);
       continue;
@@ -215,10 +277,14 @@ export function planIndustryClassification(
   return { candidates: [...candidates], toClassify, toMarkUnclassified, leftAlone, rejected };
 }
 
+// One release per system, both opened by migrations 101 and 103 for the same reason:
+// migration 021 froze the baseline import and later source changes get their own
+// release rather than an edit to it.
 const RELEASE_SQL = `
-SELECT taxonomy_release_id
+SELECT taxonomy_system, taxonomy_release_id
   FROM core.taxonomy_release
- WHERE taxonomy_system = 'KSIC' AND release_version = 'dart-company-profile-v1'
+ WHERE (taxonomy_system = 'KSIC' AND release_version = 'dart-company-profile-v1')
+    OR (taxonomy_system = 'SIC'  AND release_version = 'sec-submissions-v1')
 `;
 
 export type ClassificationPersistence = {
@@ -232,25 +298,41 @@ export async function applyIndustryClassification(
   client: QueryClient,
   plan: ClassificationPlan,
 ): Promise<ClassificationPersistence> {
-  const { rows } = await client.query<{ taxonomy_release_id: string }>(RELEASE_SQL);
-  const releaseId = rows[0]?.taxonomy_release_id;
-  if (!releaseId) {
-    throw new Error('KSIC dart-company-profile-v1 release is missing; apply migration 101 first');
+  const { rows } = await client.query<{ taxonomy_system: string; taxonomy_release_id: string }>(
+    RELEASE_SQL,
+  );
+  const releaseOf = new Map(rows.map((row) => [row.taxonomy_system, row.taxonomy_release_id]));
+  for (const system of ['KSIC', 'SIC'] as const) {
+    if (!releaseOf.has(system)) {
+      throw new Error(`${system} source release is missing; apply migrations 101 and 103 first`);
+    }
   }
 
-  const codes = [...new Set(plan.toClassify.map((candidate) => candidate.code))]
-    .filter((code): code is string => code !== null)
-    .sort();
-  const nodeResult = await client.query<{ taxonomy_node_id: string }>(
-    `INSERT INTO core.taxonomy_node
-       (taxonomy_release_id, code, label, hierarchy_level, node_status, metadata)
-     SELECT $1::bigint, code, 'KSIC ' || code, length(code), 'source_reported',
-            jsonb_build_object('provider', 'opendart', 'policy', 'b3-v1')
-       FROM unnest($2::text[]) AS code
-     ON CONFLICT (taxonomy_release_id, code) DO NOTHING
-     RETURNING taxonomy_node_id`,
-    [releaseId, codes],
-  );
+  const provider: Record<string, string> = { KSIC: 'opendart', SIC: 'sec-edgar-submissions' };
+  let nodesInserted = 0;
+  for (const system of ['KSIC', 'SIC'] as const) {
+    const codes = [
+      ...new Set(
+        plan.toClassify
+          .filter((candidate) => candidate.taxonomySystem === system)
+          .map((candidate) => candidate.code),
+      ),
+    ]
+      .filter((code): code is string => code !== null)
+      .sort();
+    if (codes.length === 0) continue;
+    const inserted = await client.query<{ taxonomy_node_id: string }>(
+      `INSERT INTO core.taxonomy_node
+         (taxonomy_release_id, code, label, hierarchy_level, node_status, metadata)
+       SELECT $1::bigint, code, $3 || ' ' || code, length(code), 'source_reported',
+              jsonb_build_object('provider', $4::text, 'policy', 'b3-v1')
+         FROM unnest($2::text[]) AS code
+       ON CONFLICT (taxonomy_release_id, code) DO NOTHING
+       RETURNING taxonomy_node_id`,
+      [releaseOf.get(system), codes, system, provider[system]],
+    );
+    nodesInserted += inserted.rows.length;
+  }
 
   // Close the membership being superseded before opening its replacement. The unique
   // index allows one live classification per (entity, system), so these cannot both be
@@ -260,15 +342,16 @@ export async function applyIndustryClassification(
   // Only UNCLASSIFIED rows are closed; `absent` stocks have nothing to close. A stock
   // already carrying a real code never reaches here — this job maps codes the taxonomy
   // never had, it does not arbitrate between two sources that disagree.
-  const supersededIds = plan.toClassify
-    .filter((candidate) => candidate.currentState === 'unclassified')
-    .map((candidate) => candidate.entityId);
+  const supersededIds = plan.toClassify.filter(
+    (candidate) => candidate.currentState === 'unclassified',
+  );
   const closedResult = await client.query<{ entity_taxonomy_membership_id: string }>(
     `UPDATE core.entity_taxonomy_membership membership
         SET valid_to = now()
-      WHERE membership.entity_id = ANY($1::bigint[])
+       FROM unnest($1::bigint[], $2::text[]) AS superseded(entity_id, taxonomy_system)
+      WHERE membership.entity_id = superseded.entity_id
         AND membership.valid_to IS NULL
-        AND membership.metadata->>'taxonomy_system' = 'KSIC'
+        AND membership.metadata->>'taxonomy_system' = superseded.taxonomy_system
         AND EXISTS (
           SELECT 1
             FROM core.taxonomy_node node
@@ -276,7 +359,10 @@ export async function applyIndustryClassification(
              AND node.code = 'UNCLASSIFIED'
         )
       RETURNING membership.entity_taxonomy_membership_id`,
-    [supersededIds],
+    [
+      supersededIds.map((candidate) => candidate.entityId),
+      supersededIds.map((candidate) => candidate.taxonomySystem),
+    ],
   );
 
   // One statement, so a membership can never reference a node from a different release
@@ -293,21 +379,27 @@ export async function applyIndustryClassification(
             now(),
             now(),
             jsonb_build_object(
-              'taxonomy_system', 'KSIC',
+              'taxonomy_system', candidate.taxonomy_system,
               'policy', 'b3-v1',
               'source_revision_id', candidate.source_revision_id
             )
-       FROM unnest($2::bigint[], $3::text[], $4::bigint[])
-         AS candidate(entity_id, code, source_revision_id)
+       FROM unnest($1::bigint[], $2::text[], $3::bigint[], $4::text[])
+         AS candidate(entity_id, code, source_revision_id, taxonomy_system)
+       JOIN core.taxonomy_release release
+         ON release.taxonomy_system = candidate.taxonomy_system
+        AND release.release_version = CASE candidate.taxonomy_system
+              WHEN 'KSIC' THEN 'dart-company-profile-v1'
+              ELSE 'sec-submissions-v1' END
        JOIN core.taxonomy_node node
-         ON node.taxonomy_release_id = $1::bigint AND node.code = candidate.code
+         ON node.taxonomy_release_id = release.taxonomy_release_id
+        AND node.code = candidate.code
      ON CONFLICT (entity_id, taxonomy_node_id) DO NOTHING
      RETURNING entity_taxonomy_membership_id`,
     [
-      releaseId,
       plan.toClassify.map((candidate) => candidate.entityId),
       plan.toClassify.map((candidate) => candidate.code),
       plan.toClassify.map((candidate) => candidate.sourceRevisionId),
+      plan.toClassify.map((candidate) => candidate.taxonomySystem),
     ],
   );
 
@@ -343,7 +435,7 @@ export async function applyIndustryClassification(
   );
 
   return {
-    nodesInserted: nodeResult.rows.length,
+    nodesInserted,
     closedMemberships: closedResult.rows.length,
     membershipsInserted: membershipResult.rows.length,
     unclassifiedInserted: unclassifiedResult.rows.length,
@@ -358,7 +450,10 @@ async function main(): Promise<void> {
   const pool = new pg.Pool({ connectionString, max: 1 });
   const client = await pool.connect();
   try {
-    const candidates = await loadClassificationCandidates(client as unknown as QueryClient);
+    const candidates = await loadClassificationCandidates(
+      client as unknown as QueryClient,
+      readRawObjectVerified,
+    );
     const plan = planIndustryClassification(candidates);
 
     let persistence: Awaited<ReturnType<typeof applyIndustryClassification>> | null = null;
