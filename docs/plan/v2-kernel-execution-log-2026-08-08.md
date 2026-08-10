@@ -14,7 +14,7 @@
 | -------- | ------------------------------------------------------------- | ------------------------------------------------------ |
 | **K0**   | 결정을 산출물로 (freeze 커밋 · contracts · availability 봉투) | 완료                                                   |
 | **K1**   | Canonical Kernel (078–080)                                    | governance 스키마 1 → 13 relation                      |
-| **K5**   | Release / Safety / SLO (081–083)                              | safety NORMAL · SLO 8개 report-only                    |
+| **K5**   | Release / Safety / SLO (081–083)                              | safety NORMAL · SLO 정의 8개. **관측 0행 — producer 없음** |
 | **K2-a** | metric definition 레지스트리 (084)                            | 6,100                                                  |
 | **K2-b** | numeric_fact writer                                           | **168,417** · 패리티 11,139 전건 일치                  |
 | **K2-c** | economic_claim (086)                                          | 297 (판정 2 / 미판정 295)                              |
@@ -55,6 +55,7 @@
 | "브레인 크래시루프 미해결" (옛 꼬리말)                     | 2026-08-08 해소. 재시작 1,357회 → 0                                                  |
 | "다음 세션: 브레인 복구 + K2" (옛 꼬리말)                  | 둘 다 완료                                                                           |
 | `governance.slo_*` 가 정본 이탈 (083 SQL 주석)             | 이탈 아니다. 정본은 SLO 스키마명을 정하지 않는다. `index.ts` 의 084 설명에 정정 있음 |
+| "SLO 8개 report-only" (§완료 표)                           | **돌고 있지 않다.** `slo_observation` 0행, 쓰는 코드 0건. `REQ-SAFE-002` 미작동 |
 | "K4 완료" (§현재 위치)                                     | **절반만 맞았다.** exposure 경로는 완료, expectation/surprise 는 2026-08-10 까지 라이브 0행이었다. §"K4 의 빠진 절반" 참조 |
 | K4 shadow 상태 블록의 서빙 뷰 이름 3건                     | **틀렸다.** 존재하지 않는 이름이었다. 위 블록에서 정정                                |
 | `canonical/00 §4` 의 truth class 13종                      | 정본의 의미는 **14종**(`contracts/truth-classes.json`). [`canonical-errata.md`](./canonical-errata.md) E-001 |
@@ -1503,3 +1504,68 @@ digest 값이 움직이면 안 되므로 이전 구현과의 등가성을 테스
 체인 폭도 테스트로 묶었다 — 행 수를 10 에서 10만으로 늘려도 해시에 들어가는 **가장 긴
 조각의 길이가 변하지 않는다.** 결함이 "행 수에 비례해 자라는 문자열 하나"였으므로,
 그 성질이 사라졌다는 것을 직접 단언한다.
+
+### 하나를 고칠 때마다 다음이 드러났다 — 결함 7개
+
+타이머를 기다리지 않고 직접 돌린 덕에, 가려져 있던 결함이 차례로 나왔다. **앞의 것을
+고치기 전에는 뒤의 것을 볼 수조차 없었다.**
+
+| # | 결함 | 어디서 | 왜 지금까지 안 드러났나 |
+| --- | --- | --- | --- |
+| 1 | `source 145 requires exactly one current applicable contract; got 2` | DART 수집 | 자연 해소됨 |
+| 2 | `RangeError: Invalid string length` — 93만 fact plan 을 한 문자열로 해싱 | SEC digest | SEC 적재가 자라며 넘음 |
+| 3 | `unit expected reporting_Unit, got reporting_unit` | definition drift 검사 | 2 를 고쳐야 도달 |
+| 4 | 같은 원인이 `comparability_group_key` 에서 재발 | definition drift 검사 | 3 을 고쳐야 도달 |
+| 5 | `playbook assignment subject must be an issuer Company, got Stock` | 배정 러너 | **088 이 심은 회귀.** analytics 가 08-07 이후 안 돌아 드러날 기회가 없었다 |
+| 6 | `derivation step input must reference an earlier step in the same derivation` | K4 surprise writer | expectation 생산자가 없어 **한 번도 실행된 적 없는 경로** |
+| 7 | 같은 교차 인용이 K4 valuation writer 에도 | K4 valuation writer | valuation 이 계획된 적 없어 잠복. **테스트가 잡았다** |
+
+3·4 는 필드 하나씩 19분 실행으로 발견하다 시간을 버린 사례다. 방법을 바꿔
+`unit` 문자열이 들어가는 필드를 **열거로 확정**하고(`definition_key`·`unit`·`currency`·
+`comparability_group_key` 넷뿐), 충돌을 내는 CIK 하나로 좁혀 1분 안에 확인했다.
+전체 실행을 피드백 루프로 쓰지 마라.
+
+5 는 **되돌릴 수 없는 성질**을 처음 마주한 자리이기도 하다. F1 이 적재한 expectation 은
+append-only 라 지울 수 없고 `EXPECTATION_SQL` 이 매 cutoff 마다 읽는다. 즉 F1 커밋을
+revert 해도 원래 상태로 돌아가지 않고, 6 을 고치기 전까지 analytics 는 매번 실패했다.
+**앞으로 고치는 것만 가능했다.**
+
+### 완주 영수증 (2026-08-10)
+
+```
+market-enrichment  completed  11:32:59 → 11:53:34   factsWritten 500,314
+analytics          completed  12:35:02 → 12:37:49   stage 17/17
+```
+
+```
+wrapper                     latest      연속실패   정지시간
+analytics-wrapper           completed        0     00:00:58
+market-enrichment-wrapper   completed        0     00:45:13
+knowledge-wrapper           completed        0     01:51:47
+ohlcv-wrapper               completed        0     05:27:54
+```
+
+`stock-insight-k4-prior-model-expectation-stage` 가 canary 앞에서 정상 기록됐다.
+
+```
+expectation_revision          4
+surprise_revision             4   ← 처음 적재됨. 전부 sealed derivation
+impact_evaluation_revision  130   (canary 30 추가)
+impact_exposure_revision      4
+valuation_estimate_revision   0   ← 여전히 미착지
+```
+
+> **`REQ-EXP-001` 은 아직 관측되지 않았다.** 적재된 surprise 4건이 **전부
+> `direction: positive`** 다. 경로는 살아 있고 원장에 행이 들어갔지만, "좋은 actual +
+> 나쁜 surprise 공존"의 실제 사례는 라이브에서 나오지 않았다. fixture 에서만 확인돼 있다.
+
+### 아직 producer 가 없는 것 — F1 과 같은 구조
+
+`governance.slo_observation` 이 **0행**이고 쓰는 코드가 저장소 어디에도 없다.
+K5 가 스키마와 정의 8개를 만들었지만 관측을 만든 적이 없어 `slo_current_v1` 은 정의만
+비추고 `REQ-SAFE-002` 는 작동하지 않는다. 이 절 위의 "K5 … SLO 8개 report-only" 는
+마치 돌고 있는 것처럼 읽히므로 그렇게 읽지 마라.
+
+그래서 wrapper 연속 실패를 알려 줄 장치가 없다. 이번 2일 중단은 `migration_runs` 에
+`failed` 로 6번 정확히 기록돼 있었고 아무도 보지 않았을 뿐이다. §"운영 규약" 의 조회를
+트리거 전에 돌리는 것이 현재 유일한 방어선이다.
