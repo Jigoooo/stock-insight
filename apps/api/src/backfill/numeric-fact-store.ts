@@ -199,7 +199,14 @@ function definitionMismatch(
     // exactly as case-sensitive as the key that decided these are the same definition.
     ['unit', foldedUnit(planned.unit), foldedUnit(existing.unit)],
     ['currency', foldedUnit(planned.currency), foldedUnit(existing.currency ?? null)],
-    ['comparability_group_key', planned.comparabilityGroupKey, existing.comparability_group_key],
+    // Same rule as unit/currency: the group key embeds the unit verbatim, so it
+    // inherits the key's case folding. unit, currency and comparability_group_key are
+    // the complete set of fields carrying the unit string — nothing else derives from it.
+    [
+      'comparability_group_key',
+      foldedUnit(planned.comparabilityGroupKey),
+      foldedUnit(existing.comparability_group_key),
+    ],
     [
       'comparability_group_version',
       planned.comparabilityGroupVersion,

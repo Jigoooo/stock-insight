@@ -196,6 +196,8 @@ describe('provider-neutral numeric-fact store', () => {
       definitionKey: 'sec.us-gaap.numberofreportablesegments.duration_annual.reporting_unit',
       unit: 'reporting_Unit',
       currency: null,
+      comparabilityGroupKey:
+        'sec-regulator:us-gaap:NumberOfReportableSegments:duration_annual:reporting_Unit:-',
     });
     const stored = {
       definition_key: planned.definitionKey,
@@ -211,6 +213,9 @@ describe('provider-neutral numeric-fact store', () => {
       accounting_basis: planned.accountingBasis,
       unit: 'reporting_unit',
       currency: null,
+      // The group key embeds the unit verbatim, so it varies in exactly the same way.
+      comparability_group_key:
+        'sec-regulator:us-gaap:NumberOfReportableSegments:duration_annual:reporting_unit:-',
       comparability_group_key: planned.comparabilityGroupKey,
       comparability_group_version: planned.comparabilityGroupVersion,
       effective_from: new Date(planned.effectiveFrom),
