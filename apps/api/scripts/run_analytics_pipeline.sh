@@ -71,6 +71,12 @@ pipeline_record_stage_success stock-insight-industry-classification-stage "$RUN_
 # sector's KPIs each run and nothing records that the list moved.
 DATABASE_URL="$DB_URL" node apps/api/src/backfill/run-playbook-assignment.ts --apply
 pipeline_record_stage_success stock-insight-playbook-assignment-stage "$RUN_STARTED_AT" || exit $?
+# Must follow the classification for the obvious reason and must run EVERY time for a
+# less obvious one: the predicate declares closed_world, so this job's output is what
+# says a pair is still peers. Skipping it does not freeze the graph, it leaves a
+# reclassified pair asserted — retraction only happens on a run.
+DATABASE_URL="$DB_URL" node apps/api/src/relations/run-same-industry-relations.ts --apply
+pipeline_record_stage_success stock-insight-same-industry-relations-stage "$RUN_STARTED_AT" || exit $?
 # The cutoff is the audited database clock captured at wrapper start, normalized
 # to the canonical ISO form required by the PIT runner. This keeps the live
 # canary explicit and reproducible instead of letting the job consult now().

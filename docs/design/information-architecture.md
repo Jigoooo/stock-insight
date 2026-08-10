@@ -311,11 +311,35 @@ accepted revisions because nothing legitimate ever fed them."
 | supplier/customer | `SUPPLIES`·`CUSTOMER_OF` | ✅ | ✅ | 커버리지 확대만 (§8-4) |
 | common factor (통계) | `MACRO_COMOVEMENT` | ✅ | ✅ | 없음 |
 | ETF/ownership 약한 신호 | `SAME_ETF_BASKET`·`COMMON_OWNER`·`HELD_BY`·`OWNS` | ✅ | ✅ | 없음 |
-| competitor/peer | `PEER_OF`·`SAME_INDUSTRY` | ❌ | ❌ | 정책행 + 생산자 신규 |
+| competitor/peer | `SAME_INDUSTRY` | ✅ | ✅ | **완료 (2026-08-11)** — 아래 |
+| competitor/peer | `PEER_OF` | ❌ | ❌ | 플레이북 `peer_dimensions` 데이터 부재로 대기 |
 | same theme | `SAME_THEME` | ❌ | ❌ | **결정 1 에 종속** |
 | common factor (구조) | `EXPOSES`·`AFFECTS` | ❌ | ❌ | 정책행 + 생산자 |
 | event beneficiary/victim | `ACCELERATES`·`DECELERATES` | ❌ | ❌ | 정책행 + 생산자 |
 | **substitute/complement** | — | — | — | **데이터 소스 없음 → 미노출 확정** |
+
+#### `SAME_INDUSTRY` — 2026-08-11 완료, 남긴 것 2건
+
+정본 §5 의 7종 중 처음으로 재도출된 강한 이유다. 분류 체계에서 **도출**하고
+`entity_taxonomy_membership` 이 세계 전체이므로 `closed_world` 로 선언했다.
+
+측정: 356 분류 → 602 방향 간선 / 62 코드, **accepted 276 · quarantined 326**,
+singleton 107, 제외 코드 6종(KSIC 64992 지주회사 15개 포함).
+`hierarchy` 로 승인했으므로 `relationSignalTier` 가 structural 로 읽고,
+`REQ-PROD-030` 이 막는 exposure 자리에는 들어갈 수 없다.
+
+**남긴 것 1 — `sec-edgar-submissions` 소스 계약 미승인.** 34개 미국 종목의 분류가
+`provisional_review_required` 계약을 인용해서 `guard_accepted_relation_revision` 이
+근거로 인정하지 않는다. 빌더가 같은 판단을 먼저 하도록 만들어서 quarantine 되지만
+(안 그러면 guard 가 RAISE 하고 실행 전체가 죽는다), **계약 승인은 별도 결정**이다.
+승인하면 34종목이 quarantine → accepted 로 이동한다.
+`unqualifiedEvidenceClassifications` 로 매 실행 보고된다.
+
+**남긴 것 2 — 분류의 `valid_from` 이 수집 시각이다.** DART·SEC 어느 쪽도 분류의
+발효일을 발행하지 않아서 `run-industry-classification.ts` 가 실행 시각을 쓴다.
+"그 이전에 대한 근거가 없다" 는 뜻이라 정직하지만, 간선이 "2026-08-10 부터 동종"
+이라고 말하게 된다. 고치려면 분류 잡을 바꿔야 하므로 이 변경의 주제가 아니다.
+`run-pit-now-audit.ts` 가 현재 잡지 못하는 부류다.
 
 `PRODUCT_SIMILARITY` 2,921건을 substitute 로 쓸 수 없다. `relation_kind: statistical`,
 `methodology: tnic-reference` — 텍스트 유사도이고, `REQ-PROD-030`(embedding proximity 만으로

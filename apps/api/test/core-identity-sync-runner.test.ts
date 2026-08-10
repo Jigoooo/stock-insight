@@ -200,6 +200,13 @@ test('analytics runs all eighteen stages in order with an adjacent receipt per c
     // precedes everything analytical because REQ-DOM-001 is about what those
     // stages are allowed to assume.
     ['run-playbook-assignment.ts', 'stock-insight-playbook-assignment-stage'],
+    // Added 2026-08-11: SAME_INDUSTRY, derived from the taxonomy this stage block
+    // maintains rather than asserted. It follows the classification for the obvious
+    // reason and precedes the graph publishes because they read accepted relations.
+    // It must run every time, not only when the classification moves: the predicate
+    // declares closed_world, so retraction only happens on a run and a skipped run
+    // leaves a reclassified pair standing as peers.
+    ['run-same-industry-relations.ts', 'stock-insight-same-industry-relations-stage'],
     // Added 2026-08-10 (F1): K4 read expectations and never wrote one, so
     // analytics.surprise_revision was unreachable and REQ-EXP-001 held only in
     // fixtures. The producer must precede the canary that consumes it, and it

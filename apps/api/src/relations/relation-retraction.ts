@@ -89,7 +89,33 @@ export function canonicalPairKey(left: number, right: number): string {
   return left < right ? `${left}:${right}` : `${right}:${left}`;
 }
 
-/** Accepted edges of one predicate as of now, with what a retraction must carry forward. */
+/**
+ * Accepted edges of one predicate as of now, with what a retraction must carry forward.
+ *
+ * THE `newer` PREDICATE MUST MATCH SNAPSHOT_EDGE_SELECTOR_SQL, AND FOR A WHILE IT DID
+ * NOT. This read hid an accepted revision behind ANY newer revision; the snapshot hides
+ * it only behind an affirmative later verdict, because 'quarantined_unverified' means
+ * "we could not verify it this run", and a transient evidence gap must not delete a
+ * relation that was established.
+ *
+ * The two definitions disagreeing opens a hole that neither one contains. A pair goes
+ * accepted, then quarantines on an evidence gap, then genuinely stops holding: the
+ * snapshot still serves the old acceptance, and retraction cannot see it to contradict
+ * it, so the edge is served forever. Measured 2026-08-11 the live count was 0 — the hole
+ * is reachable, not yet reached — and SAME_INDUSTRY is what makes it likely, because
+ * quarantine there is a routine transition rather than a rare fault: 326 of 602 pairs
+ * quarantine on any given run, every one of them for thin evidence rather than for
+ * ceasing to share a code.
+ *
+ * The invariant, stated once so it stops being two half-statements: RETRACTION MUST BE
+ * ABLE TO REACH EVERYTHING THE GRAPH SERVES. relation-retraction-selector.test.ts holds
+ * the two SQL texts to it.
+ *
+ * The PIT clauses of the snapshot selector are deliberately NOT copied. That selector
+ * answers "what did the graph look like at an instant"; this one answers "what is
+ * standing right now that a run may contradict", and a retraction is always issued as
+ * of now.
+ */
 export const ACCEPTED_IDENTITIES_SQL = `
 SELECT identity_row.relation_identity_id,
        identity_row.subject_entity_id,
@@ -110,6 +136,7 @@ WHERE identity_row.predicate = $1
     SELECT 1 FROM knowledge.relation_revision newer
     WHERE newer.relation_identity_id = revision.relation_identity_id
       AND newer.revision_no > revision.revision_no
+      AND newer.revision_status IN ('accepted', 'rejected', 'superseded')
   )
 ORDER BY identity_row.relation_identity_id
 `;

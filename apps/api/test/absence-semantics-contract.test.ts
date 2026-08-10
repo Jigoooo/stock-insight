@@ -41,33 +41,56 @@ describe('absence semantics is the retraction switch', () => {
     }
   });
 
-  it('has retraction wired for every closed_world predicate', async () => {
-    // The other direction, and the one that let MEASURED_BY promise a retraction
-    // it did not have. Declaring closed_world without wiring retraction leaves an
-    // edge standing after the source stopped listing it.
-    const publisher = await readFile(
-      new URL('../src/analytics/run-v2-graph-publish.ts', import.meta.url),
-      'utf8',
-    );
+  /**
+   * Which file is answerable for each closed-world predicate's retraction.
+   *
+   * This used to be a single hardcoded path — run-v2-graph-publish — because for a
+   * while every builder lived inside the publisher. SAME_INDUSTRY is derived by its own
+   * job instead, and the helpers in relation-retraction.ts are importable from
+   * anywhere, so the contract is "a named owner calls retraction for this predicate",
+   * not "the publisher does". The map has to be updated deliberately, which is the
+   * point: a new closed_world predicate with no owner fails the next assertion rather
+   * than quietly inheriting a promise nobody keeps.
+   */
+  const RETRACTION_OWNERS: Record<string, string> = {
+    MACRO_COMOVEMENT: '../src/analytics/run-v2-graph-publish.ts',
+    MEASURED_BY: '../src/analytics/run-v2-graph-publish.ts',
+    PRODUCT_SIMILARITY: '../src/analytics/run-v2-graph-publish.ts',
+    SAME_ETF_BASKET: '../src/analytics/run-v2-graph-publish.ts',
+    SAME_INDUSTRY: '../src/relations/run-same-industry-relations.ts',
+  };
+
+  it('names an owner for every closed_world predicate and no others', () => {
     const declared = RELATION_BUILDER_POLICIES.filter(
       (policy) => policy.absenceSemantics === 'closed_world',
-    ).map((policy) => policy.predicate);
+    )
+      .map((policy) => policy.predicate)
+      .sort();
+    // Both directions. A predicate that starts declaring closed_world without an owner
+    // fails here, and an owner left behind after a predicate reverts to
+    // unknown_not_disclosed fails here too — that stale entry would otherwise keep
+    // asserting a retraction the policy no longer permits.
+    assert.deepEqual(declared, Object.keys(RETRACTION_OWNERS).sort());
+  });
 
-    // SAME_ETF_BASKET joined on 2026-08-06, once EnumerationScope could express
-    // the thing that kept it out: its enumeration is complete per basket, not
-    // globally, so retraction needs to name the baskets the run evaluated.
-    assert.deepEqual(declared.sort(), [
-      'MACRO_COMOVEMENT',
-      'MEASURED_BY',
-      'PRODUCT_SIMILARITY',
-      'SAME_ETF_BASKET',
-    ]);
-
-    for (const predicate of declared) {
+  it('has retraction wired for every closed_world predicate', async () => {
+    // The other direction from the switch, and the one that let MEASURED_BY promise a
+    // retraction it did not have. Declaring closed_world without wiring retraction
+    // leaves an edge standing after the source stopped listing it.
+    for (const [predicate, ownerPath] of Object.entries(RETRACTION_OWNERS)) {
+      const owner = await readFile(new URL(ownerPath, import.meta.url), 'utf8');
       assert.match(
-        publisher,
-        new RegExp(`'${predicate}',`),
-        `${predicate} declares closed_world, so the publisher must retract it`,
+        owner,
+        new RegExp(`'${predicate}'`),
+        `${predicate} declares closed_world, so ${ownerPath} must name it`,
+      );
+      // Naming the predicate is not wiring it. The owner has to reach one of the two
+      // retraction entry points — grepping for the predicate alone would pass on a
+      // file that merely mentions it in a comment.
+      assert.match(
+        owner,
+        /retractEdges(NotIn)?\(/,
+        `${ownerPath} names ${predicate} but never calls a retraction entry point`,
       );
     }
   });

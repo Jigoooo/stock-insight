@@ -51,6 +51,24 @@ export type ClassifiedSecurity = {
   code: string;
   /** The ingestion revision that reported this classification, when there is one. */
   sourceRevisionId: number | null;
+  /**
+   * Whether that revision can back an ACCEPTED relation, which is a stricter question
+   * than whether it exists.
+   *
+   * knowledge.guard_accepted_relation_revision requires the revision's source contract
+   * to be `approved` and effective at collection time. Counting a revision the ledger
+   * will refuse does not produce a slightly-optimistic candidate — the guard raises and
+   * aborts the whole run, which is how this was found: 34 classifications cite
+   * sec-edgar-submissions, whose contract is still provisional_review_required, and the
+   * first --apply died on the 35th row rather than quarantining it.
+   *
+   * So the builder asks the same question the guard asks, and a classification behind an
+   * unapproved contract contributes no qualifying revision. Its pairs quarantine, which
+   * is the same outcome the untraceable legacy import already gets.
+   */
+  evidenceQualifies: boolean;
+  /** When this classification began holding — core.entity_taxonomy_membership.valid_from. */
+  validFrom: string;
 };
 
 export type SameIndustryCandidate = {
@@ -62,6 +80,16 @@ export type SameIndustryCandidate = {
   distinctSourceRevisionIds: number[];
   /** Members of this code minus one; the degree each endpoint would carry. */
   degree: number;
+  /**
+   * When the pair began sharing a code: the LATER of the two classifications.
+   *
+   * REQ-PIT-003 forbids stamping a business fact with the run's clock, and this is a
+   * business fact — a reader asking "were these peers in March" must not be told yes
+   * because a job happened to run today. Taking the later side is what the claim
+   * actually means: co-membership begins when the SECOND side is classified, and the
+   * earlier date would assert the pair held while one member was still unclassified.
+   */
+  validFrom: string;
 };
 
 export type SameIndustryPlan = {
@@ -70,6 +98,13 @@ export type SameIndustryPlan = {
   skippedCodes: { code: string; members: number; reason: string }[];
   /** Codes whose group is a single security, so there is no pair to make. */
   singletonCodes: number;
+  /**
+   * Classifications that cite a revision the ledger will not accept as evidence,
+   * counted rather than silently discounted. This is the number that tells an operator
+   * approving the sec-edgar-submissions source contract would move 34 US securities
+   * from quarantine to accepted — a decision, not a defect.
+   */
+  unqualifiedEvidenceClassifications: number;
 };
 
 /**
@@ -79,6 +114,21 @@ export type SameIndustryPlan = {
  */
 function groupKey(security: ClassifiedSecurity): string {
   return `${security.taxonomySystem}:${security.code}`;
+}
+
+/**
+ * Compared as instants rather than as strings. The caller normalises to ISO-8601 UTC,
+ * where lexicographic order happens to agree, but a single offset-bearing timestamp
+ * slipping through would silently pick the earlier date — and picking the earlier date
+ * is precisely the PIT error this field exists to avoid.
+ */
+function laterInstant(left: string, right: string): string {
+  const leftAt = Date.parse(left);
+  const rightAt = Date.parse(right);
+  if (!Number.isFinite(leftAt) || !Number.isFinite(rightAt)) {
+    throw new Error(`classification valid_from is not a parsable instant: ${left} / ${right}`);
+  }
+  return leftAt >= rightAt ? left : right;
 }
 
 export function planSameIndustryCandidates(
@@ -128,16 +178,25 @@ export function planSameIndustryCandidates(
           // half an edge as whole.
           distinctSourceRevisionIds: [
             ...new Set(
-              [subject.sourceRevisionId, object.sourceRevisionId].filter(
-                (id): id is number => id !== null,
-              ),
+              [subject, object]
+                .filter((side) => side.evidenceQualifies)
+                .map((side) => side.sourceRevisionId)
+                .filter((id): id is number => id !== null),
             ),
           ],
           degree,
+          validFrom: laterInstant(subject.validFrom, object.validFrom),
         });
       }
     }
   }
 
-  return { candidates, skippedCodes, singletonCodes };
+  return {
+    candidates,
+    skippedCodes,
+    singletonCodes,
+    unqualifiedEvidenceClassifications: securities.filter(
+      (security) => security.sourceRevisionId !== null && !security.evidenceQualifies,
+    ).length,
+  };
 }

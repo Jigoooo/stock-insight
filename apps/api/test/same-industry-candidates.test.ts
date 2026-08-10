@@ -14,6 +14,8 @@ function security(overrides: Partial<ClassifiedSecurity> = {}): ClassifiedSecuri
     taxonomySystem: 'SIC',
     code: '3674',
     sourceRevisionId: 100,
+    evidenceQualifies: true,
+    validFrom: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -111,6 +113,69 @@ describe('the candidate carries what a policy will need, and asserts nothing abo
       security({ entityId: 2, sourceRevisionId: null }),
     ]);
     assert.deepEqual(candidates[0]?.distinctSourceRevisionIds, []);
+  });
+
+  it('counts none from a revision whose source contract is not approved', () => {
+    // The guard refuses this evidence and RAISEs, which aborts the whole run rather
+    // than quarantining one candidate. So the builder has to reach the same verdict
+    // first — the failure mode being prevented is not a wrong edge, it is a dead job.
+    const { candidates } = planSameIndustryCandidates([
+      security({ entityId: 1, sourceRevisionId: 100, evidenceQualifies: false }),
+      security({ entityId: 2, sourceRevisionId: 101, evidenceQualifies: false }),
+    ]);
+    assert.deepEqual(candidates[0]?.distinctSourceRevisionIds, []);
+  });
+
+  it('still counts the approved side when only one side is unapproved', () => {
+    // Half an edge, which the policy minimum of two then quarantines. Dropping both
+    // sides would be just as wrong as counting both.
+    const { candidates } = planSameIndustryCandidates([
+      security({ entityId: 1, sourceRevisionId: 100 }),
+      security({ entityId: 2, sourceRevisionId: 101, evidenceQualifies: false }),
+    ]);
+    assert.deepEqual(candidates[0]?.distinctSourceRevisionIds, [100]);
+  });
+
+  it('separates an unapproved contract from a missing revision in the report', () => {
+    // Two different findings. One is fixed by approving a source contract, the other by
+    // recollecting the classification; a single "no evidence" count would hide which.
+    const plan = planSameIndustryCandidates([
+      security({ entityId: 1, sourceRevisionId: 100, evidenceQualifies: false }),
+      security({ entityId: 2, sourceRevisionId: null, evidenceQualifies: false }),
+    ]);
+    assert.equal(plan.unqualifiedEvidenceClassifications, 1);
+  });
+
+  it('begins the pair when the LATER side was classified, not the earlier', () => {
+    // REQ-PIT-003. Stamping the earlier date asserts the two were peers while one of
+    // them was still unclassified — a claim nothing observed.
+    const { candidates } = planSameIndustryCandidates([
+      security({ entityId: 1, validFrom: '2026-03-01T00:00:00.000Z' }),
+      security({ entityId: 2, sourceRevisionId: 101, validFrom: '2026-07-15T00:00:00.000Z' }),
+    ]);
+    assert.equal(candidates.length, 2);
+    assert.ok(candidates.every((row) => row.validFrom === '2026-07-15T00:00:00.000Z'));
+  });
+
+  it('gives both directions of a pair the same start date', () => {
+    // The two rows are one undirected claim. Different dates would let a reader see the
+    // pair from one side and not the other at the same instant.
+    const { candidates } = planSameIndustryCandidates([
+      security({ entityId: 1, validFrom: '2026-02-02T00:00:00.000Z' }),
+      security({ entityId: 2, sourceRevisionId: 101, validFrom: '2026-05-05T00:00:00.000Z' }),
+    ]);
+    assert.equal(new Set(candidates.map((row) => row.validFrom)).size, 1);
+  });
+
+  it('refuses a classification date it cannot parse instead of picking one', () => {
+    assert.throws(
+      () =>
+        planSameIndustryCandidates([
+          security({ entityId: 1, validFrom: 'not-a-date' }),
+          security({ entityId: 2, sourceRevisionId: 101 }),
+        ]),
+      /not a parsable instant/,
+    );
   });
 
   it('reports the per-endpoint degree a superhub rule would read', () => {

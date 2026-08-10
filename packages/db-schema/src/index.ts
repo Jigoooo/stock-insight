@@ -113,6 +113,8 @@ import { lifeScienceCashRunwayRuleMigrationSql } from './migrations/111_life_sci
 import { resourcesPlaybookMigrationSql } from './migrations/112_resources_playbook.ts';
 import { cryptoPlaybookMigrationSql } from './migrations/113_crypto_playbook.ts';
 import { refiningAndUtilityPlaybooksMigrationSql } from './migrations/114_refining_and_utility_playbooks.ts';
+import { sameIndustryOntologyApprovalMigrationSql } from './migrations/115_same_industry_ontology_approval.ts';
+import { sameIndustryOntologyEffectiveFromMigrationSql } from './migrations/116_same_industry_ontology_effective_from.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1179,6 +1181,20 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: refiningAndUtilityPlaybooksMigrationSql,
   },
+  {
+    id: '115_same_industry_ontology_approval',
+    description:
+      "Approves SAME_INDUSTRY as hierarchy rather than the vocabulary import's association, because the signal tier that decides whether it may serve as a Discovery reason reads that field.",
+    tables: [],
+    sql: sameIndustryOntologyApprovalMigrationSql,
+  },
+  {
+    id: '116_same_industry_ontology_effective_from',
+    description:
+      "Moves the approved SAME_INDUSTRY meaning's effective_from off the approval date, which postdated every edge it was meant to approve and made the accepted-revision guard reject all of them.",
+    tables: [],
+    sql: sameIndustryOntologyEffectiveFromMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1300,4 +1316,6 @@ export {
   resourcesPlaybookMigrationSql,
   cryptoPlaybookMigrationSql,
   refiningAndUtilityPlaybooksMigrationSql,
+  sameIndustryOntologyApprovalMigrationSql,
+  sameIndustryOntologyEffectiveFromMigrationSql,
 };

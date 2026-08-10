@@ -159,6 +159,38 @@ export const RELATION_BUILDER_POLICIES: readonly RelationBuilderPolicy[] = [
     absenceSemantics: 'unknown_not_disclosed',
   },
   {
+    // Two securities carrying the same industry classification code.
+    //
+    // Hierarchy, not association: both sit under one node of a classification tree. The
+    // class is load-bearing — relationSignalTier maps hierarchy to 'structural' and
+    // association to 'weak', and canonical/01 §5 needs competitor/peer admissible as a
+    // Discovery REASON while REQ-PROD-030 keeps it out of the exposure slot. Migration
+    // 115 corrects the same field on the ontology row for the same reason.
+    //
+    // minSourceRevisions is 2 because an edge rests on TWO classifications, one per
+    // side, each tracing to the DART profile or SEC submissions revision that reported
+    // it. One revision can only ever justify half an edge, and the legacy baseline
+    // import supplies none at all — 304 of 602 live candidates quarantine here, which
+    // is the intended outcome rather than a gap to route around.
+    //
+    // The degree cap is 30. Measured 2026-08-11 the widest admitted group is 11
+    // securities (10 per endpoint) and the universe yields 602 directed edges across 62
+    // codes, so 30 admits everything real and still refuses a code so coarse that
+    // co-membership stops meaning anything.
+    predicate: 'SAME_INDUSTRY',
+    relationClass: 'hierarchy',
+    minSourceRevisions: 2,
+    requiresModelConfig: false,
+    superhubDegreeCap: 30,
+    promotionEligible: true,
+    // run-same-industry-relations reads every current classification and evaluates
+    // every pair within a code on each run, so a pair that stops appearing has been
+    // reclassified — a verdict, not a silence. Retraction is wired in that job with
+    // planRetractionsNotInFromDatabase, scoped to the codes the run actually evaluated
+    // so a classification outage retracts nothing instead of retracting everything.
+    absenceSemantics: 'closed_world',
+  },
+  {
     predicate: 'SAME_ETF_BASKET',
     relationClass: 'association',
     minSourceRevisions: 1,
