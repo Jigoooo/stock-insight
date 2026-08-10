@@ -40,16 +40,6 @@ import type {
 
 type SelectRecord = (item: ResearchFeedItem, opener: HTMLButtonElement) => void;
 
-function headlineThumbnailUrl(item: ResearchFeedItem) {
-  if (item.affectedEntityKeys.includes('KR:005930')) {
-    return '/media/news/semiconductor-memory.jpg';
-  }
-  if (item.market === 'MACRO') {
-    return '/media/news/treasury-rates.jpg';
-  }
-  return '/media/news/ai-data-center.jpg';
-}
-
 export function TodayView({
   data,
   interactive,
@@ -151,9 +141,6 @@ export function TodayView({
                   onClick={(event) => onSelectRecord(item, event.currentTarget)}
                 >
                   <span className={styles.headlineCardContent}>
-                    <span className={styles.headlineThumbnail} aria-hidden="true">
-                      <img src={headlineThumbnailUrl(item)} alt="" decoding="async" />
-                    </span>
                     <span className={styles.headlineMeta}>
                       <span className={styles.market}>{marketLabel(item.market)}</span>
                       <time>{formatDate(item.publishedAt, true)}</time>

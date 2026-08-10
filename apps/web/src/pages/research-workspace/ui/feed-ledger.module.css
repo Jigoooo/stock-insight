@@ -95,7 +95,7 @@
 
 .headlineCard[data-slot='button-control'] {
   width: 100%;
-  min-height: 384px;
+  min-height: 232px;
   display: block;
   padding: 0;
   overflow: hidden;
@@ -117,21 +117,6 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-
-.headlineThumbnail {
-  height: 152px;
-  display: block;
-  overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
-}
-
-.headlineThumbnail img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
 }
 
 .headlineMeta {
@@ -558,11 +543,7 @@
   }
 
   .headlineCard[data-slot='button-control'] {
-    min-height: 356px;
-  }
-
-  .headlineThumbnail {
-    height: 168px;
+    min-height: 188px;
   }
 
   .connectionRow[data-slot='button-control'] {

@@ -135,7 +135,55 @@ private 데이터 금지)을 지키므로, 그 플래그를 무시하고 렌더�
 6. `personalization.*` 을 조인하지 않는다(`REQ-REC-001`). 개인 데이터는 화면에서
    합성하고 common asset view 에는 넣지 않는다.
 
-## 8. 열린 결정
+## 8. K7 으로 넘긴 배선 — 결정된 것
+
+화면 구성은 여기서 정하고 배선은 K7 에서 한다. 아래는 이미 결정됐으므로 K7 이 받아간다.
+
+### 8-1. Market Home 시장 지표 — 있는 데이터로 교체
+
+`sampleMarketIndicators`(KOSPI·NASDAQ·금)는 `dataState: 'sample'` 과
+`basisLabel: '화면 구성 확인용 예시'` 로 정직하게 표시된 **레이아웃 스캐폴드**다.
+테스트도 그 정직함을 단언한다. 오류가 아니라 실데이터 대기 상태다.
+
+실제로 있는 거시 계열은 **금리와 고용**이다 — `fred:DGS2`·`DGS10`(미 국채 2·10년),
+`fred:PAYEMS`·`UNRATE`·`ICSA`(고용), `ecos:*`(한은 금리). K7 에서 이쪽으로 교체한다.
+
+**FX 와 원자재는 수집 자체가 없다.** 정본 01 §2 는 "금리·FX·원자재·정책" 을 필수로
+요구하므로 **수집기 신규 개발**이 필요하다. K7 배선이 아니라 별도 기능이다.
+
+### 8-2. 뉴스 썸네일 — og:image 핫링크
+
+RSS 수집이 지금 가져오는 필드는 여섯 개뿐이다(`governance.source_shape_revision` 실측):
+
+```
+items[].kind · region · source · title · url · when
+```
+
+이미지가 없다. 기사 URL 은 있으므로 K7 에서 **기사별 fetch 로 `og:image` URL 을 추출**해
+`source_revision.payload_metadata` 에 보관한다.
+
+**이미지 자체는 저장하지 않는다 — 핫링크만 한다.** 뉴스 소스 13개가 전부
+`redistribution: internal_only` · `license_status: review_required` 이고, 이미지를 받아
+서빙하는 것은 복제·재배포라 `run-source-contract-audit.ts` 가 실패시키는 부류다
+(지금은 `enforcement: shadow` 라 기록만 하지만 승격되면 막힌다). URL 만 보관하면
+계약 안에 있다. 저장하려면 코드가 아니라 언론사별 이용약관 검토가 선행돼야 한다.
+
+핫링크의 대가는 받아들인다 — 사용자 IP 가 언론사에 노출되고, 원본이 바뀌거나
+referer 차단이면 안 뜬다. **그래서 이미지 없는 카드 상태가 반드시 필요하고**, 그것을
+지금 만들어 뒀다(§8-3).
+
+### 8-3. 지금 처리한 것 — 가짜 썸네일 제거
+
+`headlineThumbnailUrl` 이 엔티티 키로 번들 이미지 3장을 돌려쓰고 있었다.
+`KR:005930` 이면 메모리 사진, `MACRO` 면 국채 사진. 기사와 무관한 그림이 기사의
+그림처럼 붙어 있었고 라벨도 없었다. 함수·이미지 3장·CSS·카드 높이를 정리했다.
+
+e2e 는 단언을 뒤집었다. 이전 테스트 이름은 `shows a real thumbnail on every headline
+card` 였는데 real 인 적이 없었다. 지금은 **"기사 출처가 아닌 이미지를 붙이지 않는다"**
+를 단언하므로, K7 이 og:image 핫링크를 붙여도 그대로 통과하고 번들 이미지로 되돌아가면
+실패한다.
+
+## 9. 열린 결정
 
 - **Theme 표면**: 별도 화면인가, `today` 의 섹션인가. 어느 쪽이든 상태 7개와 정보
   7항목은 도달 가능해야 한다.
@@ -145,7 +193,7 @@ private 데이터 금지)을 지키므로, 그 플래그를 무시하고 렌더�
   same theme, common factor, event beneficiary, ETF/ownership 약한 신호): 현재 `radar` 는
   "시장 변화" 중심이라 이유 분류가 없다. 어느 깊이에 넣을지 미정.
 
-## 9. 이 문서가 지켜지는지 확인하는 법
+## 10. 이 문서가 지켜지는지 확인하는 법
 
 §4 의 배치표가 **K6 빌더의 계약 테스트**가 되어야 한다. "화면 X 는 블록 Y 를 요구한다"
 가 테스트로 바뀌지 않으면 이 표는 장식이다. K6 착수 시 이 문서의 표를 그대로

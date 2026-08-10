@@ -37,12 +37,22 @@ test('separates briefing panels and headline cards as distinct surfaces', async 
   expect(cardGap).toBeGreaterThanOrEqual(12);
 });
 
-test('shows a real thumbnail on every headline card', async ({ page }) => {
+test('never illustrates a headline with an image the article did not carry', async ({ page }) => {
+  // This used to assert three bundled JPEGs were present. They were picked by entity
+  // key — KR:005930 got a memory-chip photo, MACRO got a treasury photo — so the
+  // picture had nothing to do with the article it sat on. The RSS payload carries
+  // only kind/region/source/title/url/when, so there was no real image to show.
+  //
+  // The invariant now runs the other way, and survives K7 adding og:image hotlinks:
+  // a headline may carry an image only if it came from the article's own origin.
   const headlineCards = page.getByTestId('today-headline-news').locator('li');
   await expect(headlineCards).toHaveCount(3);
-  await expect(headlineCards.locator('img')).toHaveCount(3);
-  for (let index = 0; index < 3; index += 1) {
-    await expect(headlineCards.nth(index).locator('img')).toBeVisible();
+  const images = headlineCards.locator('img');
+  for (let index = 0; index < (await images.count()); index += 1) {
+    const source = await images.nth(index).getAttribute('src');
+    expect(source, 'headline imagery must not be served from our own bundle').not.toMatch(
+      /^\/media\//,
+    );
   }
 });
 
