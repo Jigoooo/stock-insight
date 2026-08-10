@@ -216,7 +216,6 @@ describe('provider-neutral numeric-fact store', () => {
       // The group key embeds the unit verbatim, so it varies in exactly the same way.
       comparability_group_key:
         'sec-regulator:us-gaap:NumberOfReportableSegments:duration_annual:reporting_unit:-',
-      comparability_group_key: planned.comparabilityGroupKey,
       comparability_group_version: planned.comparabilityGroupVersion,
       effective_from: new Date(planned.effectiveFrom),
       numerator_description: null,
