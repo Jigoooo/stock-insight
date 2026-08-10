@@ -603,38 +603,51 @@ export async function persistK4MarketIntelligencePlan(
     if (!expectation?.expectationRevisionId) {
       throw new Error(`surprise ${surprise.surpriseKey} has no exact expectation revision`);
     }
-    const expectationStep = requireOne(
-      (
-        await client.query(
-          `/* k4_read_expectation_derivation_step */
-           SELECT step.derivation_step_id
-             FROM knowledge.derivation derivation
-             JOIN knowledge.derivation_step step USING (derivation_id)
-            WHERE derivation.derivation_key=$1 AND derivation.status='sealed'
-            ORDER BY step.step_no DESC
-            LIMIT 1`,
-          [expectation.derivationKey],
-        )
-      ).rows,
-      'expectation derivation step',
-    );
+    // Migration 031 makes a derivation a self-contained DAG: a derivation_input may
+    // only reference an earlier step of the *same* derivation. Citing the
+    // expectation's step from here was therefore rejected outright — the path simply
+    // had never run, because nothing produced expectations until 2026-08-10.
+    //
+    // Cross-artifact lineage belongs in the ledger, and it is guaranteed there:
+    // surprise_revision.expectation_revision_id and expectation_revision.derivation_id
+    // are both NOT NULL, so surprise → expectation → derivation → facts always
+    // traverses. What this derivation cites is what it actually consumed: the actual
+    // observation and the facts the expectation was computed from.
+    const expectationBasis = (
+      await client.query(
+        `/* k4_read_expectation_basis_facts */
+         SELECT input.numeric_fact_id
+           FROM knowledge.derivation derivation
+           JOIN knowledge.derivation_step step USING (derivation_id)
+           JOIN knowledge.derivation_input input USING (derivation_step_id)
+          WHERE derivation.derivation_key=$1 AND derivation.status='sealed'
+            AND input.numeric_fact_id IS NOT NULL
+          ORDER BY step.step_no, input.input_no`,
+        [expectation.derivationKey],
+      )
+    ).rows.map((row) => positiveId(row.numeric_fact_id, 'expectation basis numeric fact id'));
+    if (expectationBasis.length === 0) {
+      throw new Error(`surprise ${surprise.surpriseKey} has no expectation basis facts`);
+    }
     const derivation = await insertSealedDerivation(client, {
       key: `k4:derivation:${surprise.surpriseKey}:v1`,
       kind: 'calculation',
       method: 'actual-minus-expectation',
       outputType: 'surprise_revision',
       outputLocator: { surprise_key: surprise.surpriseKey },
-      parameters: { formula: 'actual_value - expected_value', unit: surprise.unit },
+      parameters: {
+        formula: 'actual_value - expected_value',
+        unit: surprise.unit,
+        expectation_key: expectation.expectationKey,
+        expectation_derivation_key: expectation.derivationKey,
+      },
       inputs: [
         { kind: 'numeric_fact', numericFactId: surprise.actualNumericFactId, role: 'actual' },
-        {
-          kind: 'derivation_step',
-          derivationStepId: positiveId(
-            expectationStep.derivation_step_id,
-            'expectation derivation step id',
-          ),
-          role: 'expected',
-        },
+        ...expectationBasis.map((numericFactId) => ({
+          kind: 'numeric_fact' as const,
+          numericFactId,
+          role: 'expected_basis',
+        })),
       ],
     });
     await client.query(
@@ -893,6 +906,14 @@ export async function persistK4MarketIntelligencePlan(
   for (const valuation of plan.valuations) {
     const basis = evaluationDerivations.get(valuation.evaluationKey);
     if (!basis) throw new Error('valuation has no accepted driver derivation');
+    // Same kernel rule as the surprise derivation: migration 031 forbids citing a step
+    // of another derivation, so the valuation cites the driver measurement's own
+    // evidence facts. The evaluation link itself is carried by the ledger.
+    const basisEvidence =
+      plan.evaluations.find((row) => row.evaluationKey === valuation.evaluationKey)?.evidence ?? [];
+    if (basisEvidence.length === 0) {
+      throw new Error(`valuation ${valuation.valuationEstimateKey} has no driver evidence`);
+    }
     const derivation = await insertSealedDerivation(client, {
       key: `k4:derivation:${valuation.valuationEstimateKey}:v1`,
       kind: 'inference',
@@ -904,14 +925,14 @@ export async function persistK4MarketIntelligencePlan(
         upper_estimate: valuation.upperEstimate,
         estimate_unit: valuation.estimateUnit,
         horizon: valuation.horizon,
+        driver_evaluation_key: valuation.evaluationKey,
+        driver_derivation_step_id: basis.derivationStepId,
       },
-      inputs: [
-        {
-          kind: 'derivation_step',
-          derivationStepId: basis.derivationStepId,
-          role: 'driver_measurement',
-        },
-      ],
+      inputs: basisEvidence.map((evidence) => ({
+        kind: 'numeric_fact' as const,
+        numericFactId: evidence.numericFactId,
+        role: `driver_measurement_${evidence.inputRole}`,
+      })),
     });
     await client.query(
       `/* k4_insert_valuation */

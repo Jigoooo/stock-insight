@@ -247,8 +247,8 @@ class FakeWriterClient implements K4PersistenceClient {
           return [{ derivation_digest: 'd'.repeat(64) }];
         case 'k4_seal_derivation':
           return [{ derivation_id: 21 }];
-        case 'k4_read_expectation_derivation_step':
-          return [{ derivation_step_id: 23 }];
+        case 'k4_read_expectation_basis_facts':
+          return [{ numeric_fact_id: 91 }, { numeric_fact_id: 92 }];
         case 'k4_insert_shock':
           return [{ impact_shock_id: 31 }];
         case 'k4_read_channel':
@@ -364,6 +364,31 @@ describe('K4 market-intelligence persistence', () => {
       false,
       'append-only writer reads must not require UPDATE privileges',
     );
+  });
+
+  it('never cites another derivation from the surprise derivation', async () => {
+    // Migration 031 makes a derivation a self-contained DAG — a derivation_input may
+    // only reference an earlier step of the same derivation. The surprise writer used
+    // to cite the expectation's step across derivations, which the kernel rejects with
+    // `derivation step input must reference an earlier step in the same derivation`.
+    // Nothing produced expectations until 2026-08-10, so the path had never executed
+    // and the defect only surfaced once the analytics pipeline was unblocked.
+    const client = new FakeWriterClient();
+    await persistK4MarketIntelligencePlan(client, plan(), {
+      runKind: 'replay',
+      cutoff,
+      requestDigest,
+      planDigest,
+    });
+    const inputs = client.calls.filter((call) => call.tag === 'k4_insert_derivation_input');
+    assert.ok(inputs.length > 0);
+    // param 4 is source_derivation_step_id, param 2 is input_kind.
+    assert.deepEqual([...new Set(inputs.map((call) => call.params[2]))], ['numeric_fact']);
+    assert.deepEqual([...new Set(inputs.map((call) => call.params[4]))], [null]);
+    // The expectation's own basis facts are what the surprise cites instead.
+    const roles = new Set(inputs.map((call) => call.params[5]));
+    assert.ok(roles.has('expected_basis'));
+    assert.ok(!roles.has('expected'));
   });
 
   it('rejects an incomplete ten-security plan before any database statement', async () => {
