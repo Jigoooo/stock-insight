@@ -93,6 +93,7 @@ import { k4MarketIntelligenceRunReceiptMigrationSql } from './migrations/091_k4_
 import { p4V2ServingMigrationSql } from './migrations/092_p4_v2_serving.ts';
 import { k4RunReceiptPrivilegeHardeningMigrationSql } from './migrations/093_k4_run_receipt_privilege_hardening.ts';
 import { k4SemanticSnapshotReconstructionMigrationSql } from './migrations/094_k4_semantic_snapshot_reconstruction.ts';
+import { pipelineWrapperHealthMigrationSql } from './migrations/095_pipeline_wrapper_health.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1019,6 +1020,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: k4SemanticSnapshotReconstructionMigrationSql,
   },
+  {
+    id: '095_pipeline_wrapper_health',
+    description:
+      'Names the wrapper fleet health question once as a view, after six consecutive analytics failures and five market-enrichment failures sat correctly recorded and unread for two days.',
+    tables: [],
+    sql: pipelineWrapperHealthMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1120,4 +1128,5 @@ export {
   p4V2ServingMigrationSql,
   k4RunReceiptPrivilegeHardeningMigrationSql,
   k4SemanticSnapshotReconstructionMigrationSql,
+  pipelineWrapperHealthMigrationSql,
 };

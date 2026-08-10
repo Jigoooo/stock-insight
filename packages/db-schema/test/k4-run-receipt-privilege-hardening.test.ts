@@ -6,8 +6,11 @@ import { k4RunReceiptPrivilegeHardeningMigrationSql } from '../src/migrations/09
 
 describe('093 K4 run receipt privilege hardening', () => {
   it('is registered after the p4.v2 serving migration', () => {
-    assert.equal(additiveAppMigrations.at(-2)?.id, '093_k4_run_receipt_privilege_hardening');
-    assert.equal(additiveAppMigrations.at(-3)?.id, '092_p4_v2_serving');
+    const index = additiveAppMigrations.findIndex(
+      ({ id }) => id === '093_k4_run_receipt_privilege_hardening',
+    );
+    assert.notEqual(index, -1);
+    assert.equal(additiveAppMigrations[index - 1]?.id, '092_p4_v2_serving');
   });
 
   it('revokes the raw receipt from public and both runtime app roles', () => {

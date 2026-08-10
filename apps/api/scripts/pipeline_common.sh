@@ -186,11 +186,53 @@ SQL
   fi
 }
 
+# One line naming the state of every wrapper, printed by whichever wrapper is
+# running. Between 2026-08-08 and 08-10 the analytics wrapper failed six times and
+# market-enrichment five; every failure was recorded correctly and nobody read it
+# for two days.
+#
+# WHY IT LIVES HERE. This is called from pipeline_start_wrapper_attempt, which runs
+# *before* pipeline_require_db_assertion. A wrapper blocked at its input gate still
+# prints the fleet's state on its way down — an audit that only runs inside a
+# healthy pipeline cannot report the pipeline being unhealthy.
+#
+# WHY IT CANNOT FAIL. Six wrappers pass through here. If this reported an error
+# upward it would turn a reporting gap into a fleet-wide outage, which is strictly
+# worse than the problem it exists to surface. Every failure path — missing view,
+# unreachable database, slow query — is swallowed, and the function always returns 0.
+#
+# WHY BOTH TIMEOUTS. statement_timeout only starts once a session exists. Measured
+# against an unreachable host this call sat for two minutes on the TCP timeout
+# before returning cleanly — harmless to correctness, but it would have delayed
+# every wrapper start by that much. `timeout` bounds the whole attempt including
+# the connect, and connect_timeout gives psql the earlier, quieter exit.
+pipeline_report_fleet_health() {
+  local health
+  health="$(
+    PGCONNECT_TIMEOUT=3 timeout 10 \
+    psql "$DB_URL" -X -v ON_ERROR_STOP=0 -qAt \
+      -c '\timing off' \
+      -c "SET LOCAL statement_timeout = '5s'" \
+      -c "SELECT coalesce(jsonb_agg(jsonb_build_object(
+              'wrapper', regexp_replace(job_name, '^stock-insight-|-wrapper$', '', 'g'),
+              'status', latest_status,
+              'consecutiveFailures', consecutive_failures,
+              'lastSuccessAt', last_success_at) ORDER BY consecutive_failures DESC, job_name),
+            '[]'::jsonb)::text
+         FROM governance.pipeline_wrapper_health_v1" 2>/dev/null | tail -n 1
+  )" || health=""
+  if [[ -n "$health" && "$health" != "[]" ]]; then
+    echo "{\"event\":\"pipeline_fleet_health\",\"wrappers\":$health}"
+  fi
+  return 0
+}
+
 pipeline_start_wrapper_attempt() {
   local job_name="$1"
   local started_at="$2"
   local attempt_token attempt_token_hash run_id
   pipeline_begin_step "wrapper-start:$job_name"
+  pipeline_report_fleet_health || true
   pipeline_resolve_provenance "$job_name" || return $?
   if ! attempt_token="$(openssl rand -hex 32)" || [[ ! "$attempt_token" =~ ^[0-9a-f]{64}$ ]]; then
     echo "$job_name wrapper attempt token generation failed" >&2

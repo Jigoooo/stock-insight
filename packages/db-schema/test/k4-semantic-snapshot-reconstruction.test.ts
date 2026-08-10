@@ -6,8 +6,14 @@ import { k4SemanticSnapshotReconstructionMigrationSql } from '../src/migrations/
 
 describe('094 K4 semantic snapshot reconstruction', () => {
   it('is registered after K4 receipt privilege hardening', () => {
-    assert.equal(additiveAppMigrations.at(-1)?.id, '094_k4_semantic_snapshot_reconstruction');
-    assert.equal(additiveAppMigrations.at(-2)?.id, '093_k4_run_receipt_privilege_hardening');
+    // Anchored on this migration's own position rather than the tail. A
+    // tail-relative index asserts "nothing was ever added after me", which is a
+    // claim this test has no business making — 095 broke both of these at once.
+    const index = additiveAppMigrations.findIndex(
+      ({ id }) => id === '094_k4_semantic_snapshot_reconstruction',
+    );
+    assert.notEqual(index, -1);
+    assert.equal(additiveAppMigrations[index - 1]?.id, '093_k4_run_receipt_privilege_hardening');
   });
 
   it('separates honest creation time from a reconstructed knowledge cutoff', () => {
