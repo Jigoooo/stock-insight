@@ -103,6 +103,7 @@ import { dartIndustryTaxonomyReleaseMigrationSql } from './migrations/101_dart_i
 import { taxonomyMembershipTemporalityMigrationSql } from './migrations/102_taxonomy_membership_temporality.ts';
 import { secSubmissionsSourceMigrationSql } from './migrations/103_sec_submissions_source.ts';
 import { taxonomyIndexNameRestoreMigrationSql } from './migrations/104_taxonomy_index_name_restore.ts';
+import { taxonomyNodeLabelHonestyMigrationSql } from './migrations/105_taxonomy_node_label_honesty.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1099,6 +1100,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: taxonomyIndexNameRestoreMigrationSql,
   },
+  {
+    id: '105_taxonomy_node_label_honesty',
+    description:
+      "Clears labels that only restate the code ('KSIC 66121'); an empty label is a visible gap, a synthetic one looks answered.",
+    tables: [],
+    sql: taxonomyNodeLabelHonestyMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1210,4 +1218,5 @@ export {
   taxonomyMembershipTemporalityMigrationSql,
   secSubmissionsSourceMigrationSql,
   taxonomyIndexNameRestoreMigrationSql,
+  taxonomyNodeLabelHonestyMigrationSql,
 };

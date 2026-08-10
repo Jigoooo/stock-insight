@@ -86,6 +86,17 @@ export type ClassificationCandidate = {
   currentState: CurrentState;
   /** Which system the reported code belongs to. KSIC from DART, SIC from SEC. */
   taxonomySystem: 'KSIC' | 'SIC' | null;
+  /**
+   * The source's own name for the code, when it gives one.
+   *
+   * SEC returns sicDescription ("Air Transportation, Scheduled") next to the code, and
+   * the first version of this job threw it away and synthesised "SIC 4512" instead.
+   * That reads like a label and carries nothing: a reviewer looking at a node needs to
+   * know what the code MEANS, and inventing a name that only restates the number is
+   * worse than admitting we have none. DART's profile gives no name, so KSIC nodes
+   * stay unlabelled until a KSIC name table arrives.
+   */
+  codeLabel: string | null;
 };
 
 /**
@@ -183,6 +194,7 @@ export async function loadClassificationCandidates(
         code: profileCode,
         sourceRevisionId: Number(row.source_revision_id),
         taxonomySystem: 'KSIC',
+        codeLabel: null,
       });
       continue;
     }
@@ -201,11 +213,18 @@ export async function loadClassificationCandidates(
           code: sic.sic,
           sourceRevisionId: Number(row.sec_source_revision_id),
           taxonomySystem: 'SIC',
+          codeLabel: sic.description,
         });
         continue;
       }
     }
-    candidates.push({ ...base, code: null, sourceRevisionId: null, taxonomySystem: null });
+    candidates.push({
+      ...base,
+      code: null,
+      sourceRevisionId: null,
+      taxonomySystem: null,
+      codeLabel: null,
+    });
   }
   return candidates;
 }
@@ -289,6 +308,7 @@ SELECT taxonomy_system, taxonomy_release_id
 
 export type ClassificationPersistence = {
   nodesInserted: number;
+  labelsFilled: number;
   closedMemberships: number;
   membershipsInserted: number;
   unclassifiedInserted: number;
@@ -310,28 +330,64 @@ export async function applyIndustryClassification(
 
   const provider: Record<string, string> = { KSIC: 'opendart', SIC: 'sec-edgar-submissions' };
   let nodesInserted = 0;
+  let labelsFilled = 0;
   for (const system of ['KSIC', 'SIC'] as const) {
-    const codes = [
-      ...new Set(
-        plan.toClassify
-          .filter((candidate) => candidate.taxonomySystem === system)
-          .map((candidate) => candidate.code),
-      ),
-    ]
-      .filter((code): code is string => code !== null)
-      .sort();
-    if (codes.length === 0) continue;
+    // One row per code, keeping whichever label the source supplied. A code reported
+    // by two companies with two spellings takes the first; disagreeing labels for one
+    // code is a source problem, and picking arbitrarily is better than inventing a
+    // third name to reconcile them.
+    const labelled = new Map<string, string | null>();
+    for (const candidate of plan.candidates) {
+      if (candidate.taxonomySystem !== system || candidate.code === null) continue;
+      if (!labelled.has(candidate.code)) labelled.set(candidate.code, candidate.codeLabel);
+    }
+    // Nodes are only created for codes being written now; labels are repaired for any
+    // code this system reports, including ones whose node already exists.
+    const writing = new Set(
+      plan.toClassify
+        .filter((candidate) => candidate.taxonomySystem === system)
+        .map((candidate) => candidate.code),
+    );
+    const codes = [...labelled.keys()].filter((code) => writing.has(code)).sort();
     const inserted = await client.query<{ taxonomy_node_id: string }>(
       `INSERT INTO core.taxonomy_node
          (taxonomy_release_id, code, label, hierarchy_level, node_status, metadata)
-       SELECT $1::bigint, code, $3 || ' ' || code, length(code), 'source_reported',
+       SELECT $1::bigint, entry.code, coalesce(entry.label, ''), length(entry.code),
+              'source_reported',
               jsonb_build_object('provider', $4::text, 'policy', 'b3-v1')
-         FROM unnest($2::text[]) AS code
+         FROM unnest($2::text[], $3::text[]) AS entry(code, label)
        ON CONFLICT (taxonomy_release_id, code) DO NOTHING
        RETURNING taxonomy_node_id`,
-      [releaseOf.get(system), codes, system, provider[system]],
+      [
+        releaseOf.get(system),
+        codes,
+        codes.map((code) => labelled.get(code) ?? null),
+        provider[system],
+      ],
     );
     nodesInserted += inserted.rows.length;
+
+    // Fill a label we did not have when the node was first created. ON CONFLICT DO
+    // NOTHING above means an existing node keeps whatever label it was born with, and
+    // the first version of this job was born with none — so without this the gap would
+    // persist for every code already inserted.
+    //
+    // Only ever fills an empty one. Overwriting a label a source previously gave would
+    // let today's spelling silently rewrite yesterday's.
+    const named = [...labelled.keys()].filter((code) => (labelled.get(code) ?? null) !== null);
+    if (named.length > 0) {
+      const relabelled = await client.query<{ taxonomy_node_id: string }>(
+        `UPDATE core.taxonomy_node node
+            SET label = entry.label
+           FROM unnest($2::text[], $3::text[]) AS entry(code, label)
+          WHERE node.taxonomy_release_id = $1::bigint
+            AND node.code = entry.code
+            AND btrim(node.label) = ''
+          RETURNING node.taxonomy_node_id`,
+        [releaseOf.get(system), named, named.map((code) => labelled.get(code))],
+      );
+      labelsFilled += relabelled.rows.length;
+    }
   }
 
   // Close the membership being superseded before opening its replacement. The unique
@@ -436,6 +492,7 @@ export async function applyIndustryClassification(
 
   return {
     nodesInserted,
+    labelsFilled,
     closedMemberships: closedResult.rows.length,
     membershipsInserted: membershipResult.rows.length,
     unclassifiedInserted: unclassifiedResult.rows.length,
