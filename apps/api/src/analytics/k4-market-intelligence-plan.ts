@@ -458,6 +458,20 @@ function scoreComponents(
   }));
 }
 
+/**
+ * 평가의 논리적 정체성.
+ *
+ * 한 드라이버 밑에 규칙이 하나뿐이던 시절에는 `driverKey` 로 충분했다. 회계기준별
+ * 분할(ifrs-full/KRW · us-gaap/USD)이 들어오면서 한 드라이버가 여러 규칙을 갖는 것이
+ * 스키마상 정당해졌고, `impact_evaluation_revision` 은 이미 행마다
+ * `business_driver_measurement_rule_id` 와 `rule_key` 를 싣는다. 즉 행의 정체성은
+ * 규칙 단위인데 키만 드라이버 단위로 남아 있었다 — 그래서 같은 키가 두 번 나왔다.
+ * 규칙이 없는 호출(신원 미해결·규칙 미해결)은 예전처럼 `coverage` 를 쓴다.
+ */
+function evaluationScope(rule?: K4RuleInput): string {
+  return rule ? `${rule.driverKey}:${rule.ruleKey}` : 'coverage';
+}
+
 function rejection(
   informationSetId: string,
   security: K4SecurityInput,
@@ -465,7 +479,7 @@ function rejection(
   reasonDetail: string,
   rule?: K4RuleInput,
 ): EvaluationPlan {
-  const logicalDriver = rule?.driverKey ?? 'coverage';
+  const logicalDriver = evaluationScope(rule);
   return {
     evaluationKey: `k4:evaluation:${informationSetId}:${security.securityEntityId}:${logicalDriver}`,
     securityEntityId: security.securityEntityId,
@@ -691,7 +705,8 @@ export function planK4MarketIntelligence(
             : 1
           : clamp01(Math.abs(measurementValue) / Math.abs(comparison.value));
       const direction = policyDirection as Direction;
-      const evaluationKey = `k4:evaluation:${input.informationSet.informationSetId}:${item.securityEntityId}:${measurementRule.driverKey}`;
+      const scope = evaluationScope(measurementRule);
+      const evaluationKey = `k4:evaluation:${input.informationSet.informationSetId}:${item.securityEntityId}:${scope}`;
       const evidence: EvidencePlan[] = [
         {
           numericFactId: current.numericFactId,
@@ -727,7 +742,7 @@ export function planK4MarketIntelligence(
       });
       const eventKey = `k4:filing:${item.issuerEntityId}:${current.sourceRevisionId}`;
       const shockKey = `${eventKey}:${measurementRule.driverKey}:${current.numericFactId}:${comparison.numericFactId}`;
-      const exposureKey = `k4:exposure:${input.informationSet.informationSetId}:${item.securityEntityId}:${measurementRule.driverKey}`;
+      const exposureKey = `k4:exposure:${input.informationSet.informationSetId}:${item.securityEntityId}:${scope}`;
       filingEvents.set(eventKey, {
         eventKey,
         eventType: 'regulatory_filing_numeric_fact',
@@ -774,7 +789,7 @@ export function planK4MarketIntelligence(
         if (range.upperEstimate < range.lowerEstimate)
           throw new Error('valuation range is reversed');
         valuations.push({
-          valuationEstimateKey: `k4:valuation:${input.informationSet.informationSetId}:${item.securityEntityId}:${measurementRule.driverKey}`,
+          valuationEstimateKey: `k4:valuation:${input.informationSet.informationSetId}:${item.securityEntityId}:${scope}`,
           securityEntityId: item.securityEntityId,
           methodKey: range.methodKey,
           lowerEstimate: range.lowerEstimate,

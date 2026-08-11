@@ -116,6 +116,7 @@ import { refiningAndUtilityPlaybooksMigrationSql } from './migrations/114_refini
 import { sameIndustryOntologyApprovalMigrationSql } from './migrations/115_same_industry_ontology_approval.ts';
 import { sameIndustryOntologyEffectiveFromMigrationSql } from './migrations/116_same_industry_ontology_effective_from.ts';
 import { defaultPrivilegeVisibilityMigrationSql } from './migrations/117_default_privilege_visibility.ts';
+import { k4FiscalYearComparisonWindowMigrationSql } from './migrations/118_k4_fiscal_year_comparison_window.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1202,6 +1203,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
       'Revokes the standing ALTER DEFAULT PRIVILEGES that handed stock_insight_app_reader SELECT on every future table in six schemas, personalization included, so a new table can no longer open itself and crashloop the boot guard. Revoke only: existing grants are untouched.',
     tables: [],
     sql: defaultPrivilegeVisibilityMigrationSql,
+  },
+  {
+    id: '118_k4_fiscal_year_comparison_window',
+    description:
+      "Widens the K4 acceptance guard's year-over-year test from calendar-exact to the planner's 350-380 day window, so 52/53-week fiscal filers (AMD, Broadcom, Intel, Micron, Marvell, NVIDIA) stop being rejected by a rule the planner abandoned on 2026-08-10. Replaces 089's function only; no table or constraint changes.",
+    tables: [],
+    sql: k4FiscalYearComparisonWindowMigrationSql,
   },
 ];
 
