@@ -20,6 +20,7 @@ describe('named read query metrics', () => {
       'record.detail',
       'relations.graph',
       'impact.brief',
+      'assetView.packet',
     ]);
   });
 

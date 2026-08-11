@@ -20,29 +20,22 @@
 import { findRelationBuilderPolicy } from '../relations/relation-policy.ts';
 import { canonicalDigest } from '../shared/canonical-json.ts';
 
-export const COMMON_ASSET_VIEW_BLOCK_KEYS = [
-  'identity_economic_claim',
-  'business_sector_context',
-  'comparable_financial_facts',
-  'recent_events_surprise',
-  'expectation_priced_in',
-  'exposure_impact',
-  'valuation_market_implied',
-  'market_reaction_tradability',
-  'multi_horizon_thesis',
-  'catalysts_risks_counter_evidence',
-  'coverage_freshness_uncertainty',
-  'derivation_release_manifest',
-] as const;
+import {
+  commonAssetViewBlockKeys,
+  type CommonAssetViewBlockKey,
+  type CommonAssetViewBlockState,
+  type CommonAssetViewCoverageState,
+} from '@stock-insight/contracts/common-asset-view';
 
-export type CommonAssetViewBlockKey = (typeof COMMON_ASSET_VIEW_BLOCK_KEYS)[number];
+/**
+ * 블록 어휘의 단일 출처는 계약이다. 여기에 12개 문자열을 한 벌 더 적어 두면 계약과
+ * 빌더가 서로 다른 목록을 들고도 각자 초록이 되는 날이 오고, 그때 깨지는 것은
+ * 타입이 아니라 파싱이다. 재수출은 기존 호출자(store · runner · test)의 import
+ * 경로를 그대로 두기 위한 것이다.
+ */
+export const COMMON_ASSET_VIEW_BLOCK_KEYS = commonAssetViewBlockKeys;
 
-export type CommonAssetViewBlockState =
-  | 'available'
-  | 'partial'
-  | 'unverified_only'
-  | 'not_produced'
-  | 'no_eligible_source';
+export type { CommonAssetViewBlockKey, CommonAssetViewBlockState };
 
 export type CommonAssetViewBlock = {
   blockNo: number;
@@ -912,4 +905,79 @@ export function planCommonAssetView(facts: AssetSourceFacts): CommonAssetViewPla
       blocks.map((entry) => [entry.blockKey, entry.blockState, entry.payloadDigest]),
     ),
   };
+}
+
+/**
+ * 정본 06 §6 의 coverage-aware gate. 12블록 구성에서 다섯 단어 중 하나를 고른다.
+ *
+ * 왜 읽기 모델이 아니라 이 파일인가. 이것은 I/O 도 시계도 없는 순수 파생이고, 같은
+ * 블록 조합은 언제 계산해도 같은 단어를 낸다. 순수 판정을 순수 파일에 두면 DB 없이
+ * 테스트할 수 있고, 나중에 빌더가 이것을 컬럼에 기록하기로 하면 호출자만 늘리면 된다.
+ *
+ * **오늘 그 기록자는 없다.** 이 함수의 호출자는 읽기 모델과 테스트뿐이고,
+ * `serving.common_asset_view` 에 coverage_state 컬럼이 없으며 `packet_digest` 가
+ * 이 값을 덮지 않는다. 그러므로 파일 위치와 무관하게 **요청마다 재계산되고, 이 판정이
+ * 언제 바뀌었는지 물을 수 있는 자리도 아직 없다.** 계약 required 필드가 297종목을
+ * 세 등급으로 가르면서(실측 WATCH 145 · INFORMATION_ONLY 118 · PARTIAL_COVERAGE 34)
+ * 스냅샷도 revision 도 없이 이 파일의 편집만으로 조용히 바뀔 수 있다는 뜻이다.
+ * 빌더가 이 값을 쓰게 되는 변경에서 digest 대상으로 들어와야 한다.
+ *
+ * ## 게이트 블록
+ *
+ * §6 의 필수 minimum 을 12블록에 대응시킨다:
+ *
+ * | §6 minimum | 블록 |
+ * | --- | --- |
+ * | identity/economic claim | 1 `identity_economic_claim` |
+ * | financial/economic state | 3 `comparable_financial_facts` |
+ * | market state | 8 `market_reaction_tradability` |
+ * | material event/news coverage | 4 `recent_events_surprise` |
+ * | counter-evidence search | 10 `catalysts_risks_counter_evidence` |
+ * | PIT quality | 11 `coverage_freshness_uncertainty` |
+ *
+ * 두 항목은 게이트에 넣지 않았고, 넣지 않은 이유가 넣는 것보다 중요하다.
+ *
+ * **expectation coverage (블록 5)** — §6 이 "expectation coverage가 필요한
+ * claim이면" 이라고 조건부로 쓴다. 패킷만 보고 이 자산의 claim 이 expectation 을
+ * 필요로 하는지 판정할 수단이 없으므로, 하드 게이트로 만들면 필요하지 않은
+ * 자산까지 함께 강등된다. 없는 근거로 내리는 강등은 정직한 강등이 아니다.
+ *
+ * **rights state** — 12블록 중 어디에도 대응 블록이 없다. 모델링되지 않은
+ * 게이트이며, 여기서 통과시키는 것이 아니라 **아직 재지 않는다**. 권리 상태를
+ * 나르는 블록이 생기면 이 목록에 들어와야 한다.
+ *
+ * ## 사다리
+ *
+ * 다섯 단어는 강한 쪽에서 약한 쪽 순서다. 어떤 블록 조합이든 정확히 하나로
+ * 떨어지고, 바닥은 `INSUFFICIENT_DATA` 다 — `coverageState` 는 계약 required 8개에
+ * 들어 있어 `null` 이 될 수 없으므로 전역(total)이어야 한다.
+ */
+export function deriveCoverageState(
+  blocks: readonly Pick<CommonAssetViewBlock, 'blockKey' | 'blockState'>[],
+): CommonAssetViewCoverageState {
+  const stateOf = (key: CommonAssetViewBlockKey): CommonAssetViewBlockState | null =>
+    blocks.find((entry) => entry.blockKey === key)?.blockState ?? null;
+  const holds = (key: CommonAssetViewBlockKey): boolean => stateOf(key) === 'available';
+
+  // 정체성이 없으면 나머지 열한 블록은 누구에 대한 사실인지 말할 수 없다.
+  // `REQ-UNC-001` 의 바닥.
+  if (!holds('identity_economic_claim')) return 'INSUFFICIENT_DATA';
+
+  // PIT 품질을 증언할 관측 자체가 없는 경우. 강등이 아니라 상한이다 — 패킷은
+  // 여전히 정보를 주지만, 그 위에서 어떤 것도 등급 매겨질 수 없다. 실측
+  // 2026-08-11 기준 115종목이 여기 해당한다.
+  if (stateOf('coverage_freshness_uncertainty') === 'not_produced') return 'INFORMATION_ONLY';
+
+  const core = holds('comparable_financial_facts') && holds('market_reaction_tradability');
+  if (!core) {
+    // 정체성은 있는데 재무·시장 상태 중 하나라도 비면 부분 커버리지.
+    return holds('comparable_financial_facts') || holds('market_reaction_tradability')
+      ? 'PARTIAL_COVERAGE'
+      : 'INFORMATION_ONLY';
+  }
+
+  const contextual = holds('recent_events_surprise') && holds('catalysts_risks_counter_evidence');
+  // 여섯 게이트가 모두 서야 조사 대상이다. 반증 탐색(블록 10)이 `unverified_only`
+  // 인 채로 조사 대상이라 부르면, 검증되지 않은 주장 위에 조사를 세우는 것이다.
+  return contextual ? 'RESEARCH_CANDIDATE' : 'WATCH';
 }

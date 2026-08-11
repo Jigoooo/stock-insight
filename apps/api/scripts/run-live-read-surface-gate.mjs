@@ -32,6 +32,10 @@ const env = {
 const tests = [
   'test/default-privilege-contract.test.ts',
   'test/live-common-asset-view-privacy.test.ts',
+  // The read half. The privacy test above EXPLAINs loadAssetSourceFacts — the BUILDER
+  // store — so without this line the gate named for the common asset view watched only
+  // the write side, and getCommonAssetView had no executable coverage anywhere.
+  'test/live-common-asset-view-read.test.ts',
 ];
 
 const result = spawnSync(process.execPath, ['--test', ...tests], {

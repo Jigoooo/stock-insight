@@ -246,6 +246,10 @@ describe('v3 research API client', () => {
             stockDetail: null,
             relation: relations,
             impactBrief: null,
+            // 필드를 빼면 파싱이 깨진다. 계약이 `.nullable()` 이지 `.optional()` 이
+            // 아니기 때문이고, 그것이 의도다 — 키가 없는 응답은 "패킷이 없다"와
+            // "이 필드를 모르는 서버다"를 클라이언트가 구분할 수 없게 만든다.
+            commonAssetView: null,
             partialFailures: {},
           }),
         );

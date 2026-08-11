@@ -11,6 +11,7 @@ export const namedReadQueryIds = [
   'record.detail',
   'relations.graph',
   'impact.brief',
+  'assetView.packet',
 ] as const;
 
 export type ReadQueryId = (typeof namedReadQueryIds)[number];

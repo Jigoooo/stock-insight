@@ -8,6 +8,10 @@ import {
   type StockDetailResponse,
   type StockListResponse,
 } from '@stock-insight/contracts';
+import {
+  commonAssetViewPacketSchema,
+  type CommonAssetViewPacket,
+} from '@stock-insight/contracts/common-asset-view';
 import { geoSnapshotSchema, type GeoSnapshot } from '@stock-insight/contracts/geo-api-contract';
 import {
   decisionHistoryPageSchema,
@@ -90,6 +94,7 @@ export type WorkspaceViewBundleV2 =
 const briefingPartialFailuresSchema = z.object({
   relation: z.string().min(1).optional(),
   impact: z.string().min(1).optional(),
+  commonAssetView: z.string().min(1).optional(),
 });
 
 export const entityBriefingV2Schema = z.object({
@@ -98,6 +103,17 @@ export const entityBriefingV2Schema = z.object({
   stockDetail: stockDetailResponseSchema.nullable(),
   relation: entityRelationGraphSchema.nullable(),
   impactBrief: impactBriefResponseSchema.nullable(),
+  /**
+   * 12블록 공통 자산 패킷(`serving.common_asset_view`).
+   *
+   * `null` 은 두 가지를 뜻할 수 있고 둘 다 정상이다: 이 종목의 패킷이 아직 지어지지
+   * 않았거나(297 빌드 대상 밖), 조회가 실패해 `partialFailures.commonAssetView` 가
+   * 채워졌거나. 후자만 실패다.
+   *
+   * 이 필드가 붙는 것만으로 컨트롤러 · BFF 프록시 · api-client 는 바뀌지 않는다 —
+   * 셋 다 이 스키마로 파싱하므로 새 필드가 타입까지 달고 자동으로 도착한다.
+   */
+  commonAssetView: commonAssetViewPacketSchema.nullable(),
   partialFailures: briefingPartialFailuresSchema,
 });
 
@@ -107,7 +123,8 @@ export type EntityBriefingV2 = {
   stockDetail: StockDetailResponse | null;
   relation: EntityRelationGraph | null;
   impactBrief: ImpactBriefResponse | null;
-  partialFailures: { relation?: string; impact?: string };
+  commonAssetView: CommonAssetViewPacket | null;
+  partialFailures: { relation?: string; impact?: string; commonAssetView?: string };
 };
 
 export const recordBriefingV2Schema = z.object({

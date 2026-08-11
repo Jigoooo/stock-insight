@@ -101,6 +101,7 @@ export type {
 } from './workspace/record-detail';
 export { getEntityBriefingV2, getRecordBriefingV2 } from './workspace/briefing-v2';
 export type { WorkspaceBriefingDependencies } from './workspace/briefing-v2';
+export { getCommonAssetView } from './serving/common-asset-view-read-model';
 export { getResearchFeedPage, getWorkspaceToday } from './workspace/read-model';
 export type {
   GetResearchFeedPageOptions,

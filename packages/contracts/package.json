@@ -15,6 +15,7 @@
     "./crypto-research": "./src/crypto-research.ts",
     "./internal-context": "./src/internal-context.ts",
     "./workspace-read-v2": "./src/workspace-read-v2.ts",
+    "./common-asset-view": "./src/common-asset-view.ts",
     "./analysis-information-set": "./src/analysis-information-set.ts",
     "./semantic-type-guard": "./src/semantic-type-guard.ts"
   },

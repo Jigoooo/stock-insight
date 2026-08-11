@@ -18,7 +18,8 @@ import {
   type DepthLevel,
 } from '../src/shared/depth/depth-mode.ts';
 
-const cavPlanUrl = new URL('../../api/src/serving/common-asset-view-plan.ts', import.meta.url);
+import { commonAssetViewBlockKeys } from '@stock-insight/contracts/common-asset-view';
+
 const sourceRoot = new URL('../src/', import.meta.url);
 
 /** 깊이 모드를 읽어도 되는 유일한 두 파일. 정규식 예외가 아니라 눈에 보이는 목록. */
@@ -89,18 +90,18 @@ describe('깊이 3모드 — 단조성', () => {
 });
 
 describe('깊이 3모드 — 배정표 완전성', () => {
-  it('CAV blockKey 정본과 배정표 사본이 같다', async () => {
-    const source = await readFile(cavPlanUrl, 'utf8');
-    const literal = /export const COMMON_ASSET_VIEW_BLOCK_KEYS = \[([\s\S]*?)\] as const;/.exec(
-      source,
-    );
-    assert.ok(literal?.[1], 'COMMON_ASSET_VIEW_BLOCK_KEYS 리터럴을 찾지 못했다');
-
-    const canonical = [...literal[1].matchAll(/'([a-z0-9_]+)'/g)].map((match) => match[1]);
-    // 정규식이 조용히 0개를 매치하면 이 테스트는 영원히 통과하는 장식이 된다.
-    assert.ok(canonical.length > 0, 'blockKey 를 하나도 추출하지 못했다');
-    assert.equal(canonical.length, 12, '정본 06 §2 는 12블록이다');
-    assert.deepEqual(canonical, [...COMMON_ASSET_VIEW_BLOCK_KEYS]);
+  // 여기 있던 것은 `apps/api` 의 리터럴을 정규식으로 긁어 프런트 사본과 비교하는
+  // 표류 테스트였다. 2026-08-11 CAV 읽기 경로가 blockKey 어휘를 계약 패키지로
+  // 옮기면서 사본이 사라졌고(`depth-assignment.ts` 는 이제 계약을 재수출한다),
+  // 비교할 두 벌이 없으므로 테스트도 지웠다. 어긋날 수 없게 만드는 것이 어긋남을
+  // 잡는 것보다 낫다.
+  //
+  // 배정표가 계약을 따라가는지는 아래 "표에 정확히 1회" 테스트가 지킨다 — 계약이
+  // 블록을 하나 더 들고 오면 배정표에 행이 없어서 그쪽이 깨진다. 여기 남은 것은
+  // 계약 자체가 12블록이라는 정본 06 §2 의 수 하나뿐이다. (재수출이 같은 배열인지
+  // 재는 단언은 두지 않았다 — 참조 동등은 항상 참이라 절대 깨지지 않는 장식이다.)
+  it('계약이 정본 06 §2 의 12블록을 든다', () => {
+    assert.equal(commonAssetViewBlockKeys.length, 12);
   });
 
   it('DEEP_DIVE_SECTION_ID 정본과 배정표 사본이 같다', () => {

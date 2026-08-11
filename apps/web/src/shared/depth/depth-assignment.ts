@@ -6,10 +6,14 @@
  *
  * 출처:
  * - CAV 블록 12개: `docs/design/information-architecture.md` §4 배치표를 그대로 전사.
- *   키 목록의 정본은 `apps/api/src/serving/common-asset-view-plan.ts` 의
- *   `COMMON_ASSET_VIEW_BLOCK_KEYS` 이고, 여기 사본이 그것과 어긋나면
- *   `test/depth-mode-contract.test.ts` 가 깨진다. (프런트는 `apps/api` 를 import
- *   할 수 없어서 사본 + 계약 테스트로 묶는다.)
+ *   키 목록의 정본은 `@stock-insight/contracts/common-asset-view` 의
+ *   `commonAssetViewBlockKeys` 이고, 여기서 **그대로 재수출**한다.
+ *
+ *   2026-08-11 이전에는 여기 사본이 있었고 계약 테스트가 `apps/api` 의 리터럴을
+ *   긁어 비교했다. 사유는 "프런트는 `apps/api` 를 import 할 수 없어서" 였는데,
+ *   CAV 읽기 경로가 어휘를 계약 패키지로 옮기면서 그 사유가 사라졌다. 프런트는
+ *   계약을 import 할 수 있으므로 사본을 둘 이유가 없고, 동기화를 강제하는 테스트도
+ *   필요 없다 — 어긋날 두 벌이 애초에 없는 편이 어긋남을 잡는 테스트보다 낫다.
  * - Deep dive 섹션 12개: 정본은 `@/pages/research-workspace/model/stock-deep-dive`
  *   의 `DEEP_DIVE_SECTION_IDS`. `shared` 는 `pages` 를 import 할 수 없으므로(FSD)
  *   여기서도 사본을 두고 계약 테스트가 동기화를 강제한다. IA §4 의 "대응 정본 01
@@ -22,26 +26,15 @@
 
 import type { DepthLevel } from './depth-mode';
 
-/**
- * `apps/api/src/serving/common-asset-view-plan.ts` 의 사본. 계약 테스트가 동기화를
- * 강제한다.
- */
-export const COMMON_ASSET_VIEW_BLOCK_KEYS = [
-  'identity_economic_claim',
-  'business_sector_context',
-  'comparable_financial_facts',
-  'recent_events_surprise',
-  'expectation_priced_in',
-  'exposure_impact',
-  'valuation_market_implied',
-  'market_reaction_tradability',
-  'multi_horizon_thesis',
-  'catalysts_risks_counter_evidence',
-  'coverage_freshness_uncertainty',
-  'derivation_release_manifest',
-] as const;
+import {
+  commonAssetViewBlockKeys,
+  type CommonAssetViewBlockKey,
+} from '@stock-insight/contracts/common-asset-view';
 
-export type CommonAssetViewBlockKey = (typeof COMMON_ASSET_VIEW_BLOCK_KEYS)[number];
+/** 계약이 정본이다. 여기는 배정표가 쓰는 이름으로 재수출만 한다. */
+export const COMMON_ASSET_VIEW_BLOCK_KEYS = commonAssetViewBlockKeys;
+
+export type { CommonAssetViewBlockKey };
 
 /**
  * `@/pages/research-workspace/model/stock-deep-dive` 의 `DEEP_DIVE_SECTION_IDS`
