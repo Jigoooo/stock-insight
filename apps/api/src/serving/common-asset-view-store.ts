@@ -256,12 +256,32 @@ export async function loadAssetSourceFacts(
         WHERE expectation.target_entity_id = ANY($1::bigint[])`,
         [issuerIds],
       ),
-    // Both endpoints, because "who is exposed to me" and "who am I exposed to" are
-    // the same block from the reader's side.
+    // OUTBOUND ONLY — the subject endpoint. This comment used to say "both endpoints,
+    // because 'who is exposed to me' and 'who am I exposed to' are the same block from
+    // the reader's side", and the sentiment is right while the description was not: the
+    // WHERE clause below filters `identity.subject_entity_id` and nothing else.
+    //
+    // It has been harmless so far because the predicate that carries this block emits
+    // both directions of every pair. Measured 2026-08-11: accepted SAME_INDUSTRY has 89
+    // distinct subjects and the same 89 as objects, so no inbound-only edge exists to be
+    // missed. That is a property of the builder, not of this query, and a future
+    // directional predicate would break it silently.
+    //
+    // Corrected rather than fixed, deliberately. Adding the inbound half would change
+    // which relations 297 packets carry, which is a separate decision from the promotion
+    // rule this change is about — and it now matters more, because promotion reads the
+    // OBJECT endpoint's entity type. A comment that claims coverage the SQL does not have
+    // is how the next author assumes an inbound edge was considered.
     () =>
       client.query<SourceRow>(
+        // object 쪽 core.entity 는 **LEFT** JOIN 이다. INNER 로 붙이면 객체 엔티티가
+        // 없는 관계 행이 조용히 사라지는데, 관계를 목록에서 지우는 것은 099 가
+        // "격리 행도 빼지 않고 표시해서 내보낸다" 로 정한 원칙과 반대다. 유형을
+        // 못 읽은 행은 사라지는 대신 `object_entity_type = NULL` 로 실려 나가고,
+        // 판정 쪽에서 fail-closed(자산 아님)로 취급된다.
         `SELECT identity.subject_entity_id AS entity_id, identity.predicate,
-              identity.object_entity_id, revision.relation_kind, revision.revision_status,
+              identity.object_entity_id, object.entity_type AS object_entity_type,
+              revision.relation_kind, revision.revision_status,
               revision.confidence,
               (SELECT count(*) FROM knowledge.relation_evidence_ledger ledger
                 WHERE ledger.relation_identity_id = identity.relation_identity_id) AS evidence_count
@@ -273,6 +293,7 @@ export async function loadAssetSourceFacts(
             ORDER BY revision_no DESC
             LIMIT 1
          ) revision ON TRUE
+         LEFT JOIN core.entity object ON object.entity_id = identity.object_entity_id
         WHERE identity.subject_entity_id = ANY($1::bigint[])`,
         [entityIds],
       ),
@@ -424,6 +445,10 @@ export async function loadAssetSourceFacts(
           relationKind: String(relation.relation_kind),
           revisionStatus: String(relation.revision_status),
           objectEntityId: Number(relation.object_entity_id),
+          objectEntityType:
+            relation.object_entity_type === null || relation.object_entity_type === undefined
+              ? null
+              : String(relation.object_entity_type),
           confidence: relation.confidence === null ? null : Number(relation.confidence),
           evidenceCount: Number(relation.evidence_count),
         }),

@@ -156,29 +156,170 @@ describe('relation signal tiers keep proximity out of the exposure slot', () => 
   });
 
   it('calls a predicate with no policy row unpoliced rather than guessing', () => {
-    // These are exactly canonical/01 §5's strong Discovery reasons. They hold no
-    // policy row, so they can never reach an accepted revision, and a tier of
+    // These are exactly canonical/01 §5's strong Discovery reasons. A tier of
     // 'economic' here would let the screen show a candidate as established.
+    //
+    // 2026-08-11 정정 — 여기 있던 "정책 행이 없으므로 승인 리비전에 절대 도달할 수
+    // 없다" 는 거짓이고, 통과하는 단언의 근거로 쓰이고 있었다. 라이브 실측:
+    // 술어 24종 중 정책 등재 12종, 정책 행 없는 12종 중 `ISSUED_BY` 가
+    // 254 간선 · 254 subject 를 `accepted` 로 갖는다. 정책 행의 부재가 막는 것은
+    // 승인이 아니라 **등급 상승**이다.
     for (const predicate of ['PEER_OF', 'SUPPLY_CHAIN', 'SAME_THEME', 'EXPOSES', 'AFFECTS']) {
       assert.equal(relationSignalTier(predicate), 'unpoliced', predicate);
     }
+    // 승인된 unpoliced 술어가 실제로 존재한다는 것을 단언으로 못박는다.
+    // 이것이 `acceptedUnpolicedCount` 분기가 죽은 코드가 아닌 이유다.
+    assert.equal(relationSignalTier('ISSUED_BY'), 'unpoliced');
   });
 });
 
 describe('exposure block', () => {
+  // 기본 상대는 자산(Stock)이다. 자산 아닌 상대를 보려면 `objectEntityType` 을 넘긴다 —
+  // 라이브에서 그 자리에 실제로 오는 값은 Industry(CLASSIFIED_AS)·Metric(MEASURED_BY) 이다.
   const relation = (over: Partial<AssetSourceFacts['relations'][number]>) => ({
     predicate: 'SUPPLIES',
     relationKind: 'structural',
     revisionStatus: 'accepted',
     objectEntityId: 7,
+    objectEntityType: 'Stock',
     confidence: 0.9,
     evidenceCount: 2,
     ...over,
   });
 
-  it('is available only when an accepted economic relation exists', () => {
+  it('reaches available on an accepted economic relation', () => {
     const block = blockOf(bareFacts({ relations: [relation({})] }), 'exposure_impact');
     assert.equal(block?.blockState, 'available');
+    assert.equal(block?.payload.exposureTier, 'accepted_economic');
+  });
+
+  it('reaches available on an accepted same-industry relation too', () => {
+    // SAME_INDUSTRY 는 relation-policy 에서 hierarchy → relationSignalTier 'structural'.
+    // 옛 판정은 'economic' 만 물어서 승인된 동종 간선을 가진 종목을 available 에서
+    // 막았다. canonical/01 §5 는 competitor/peer 를 Discovery 이유의 첫 항목으로 둔다.
+    const block = blockOf(
+      bareFacts({ relations: [relation({ predicate: 'SAME_INDUSTRY' })] }),
+      'exposure_impact',
+    );
+    assert.equal(block?.blockState, 'available');
+    assert.equal(block?.payload.exposureTier, 'accepted_structural');
+    assert.equal(block?.payload.acceptedStructuralCount, 1);
+    // 099 의 CHECK (block_state <> 'available' OR evidence_count > 0) 은 새 경로에서도 성립해야 한다.
+    assert.ok((block?.evidenceCount ?? 0) > 0);
+  });
+
+  it('refuses to call a taxonomy-only subject available', () => {
+    // CLASSIFIED_AS 도 hierarchy 라 signalTier 는 'structural' 이지만 그 객체는 자산이
+    // 아니라 Industry 분류 노드다. 2026-08-11 라이브에서 블록6 available 193 subject 중
+    // **119 가 이 상태**였다 — 노출 근거가 하나도 없는데 available 로 영속화돼 있었다.
+    // 정본 01 §5 의 이유 7종 어디에도 "산업 분류 노드에 속한다" 는 없다.
+    const block = blockOf(
+      bareFacts({
+        relations: [relation({ predicate: 'CLASSIFIED_AS', objectEntityType: 'Industry' })],
+      }),
+      'exposure_impact',
+    );
+    assert.equal(block?.payload.exposureTier, 'accepted_non_asset_only');
+    assert.equal(block?.blockState, 'partial');
+    assert.equal(block?.payload.acceptedStructuralCount, 0);
+    assert.equal(block?.payload.acceptedStructuralNonAssetCount, 1);
+    // 간선은 목록에서 빠지지 않는다. 바뀌는 것은 승격 여부뿐이다(099 원칙).
+    assert.ok(block);
+    assert.equal((block.payload.relations as unknown[]).length, 1);
+  });
+
+  it('separates a real peer from a taxonomy link inside the same signal tier', () => {
+    // 같은 subject 가 둘 다 가진 경우. 자산을 지목하는 쪽만 승격을 지탱하고,
+    // 분류 링크는 세어져서 사유 문자열에 단서로 남는다 — 부기에 구멍을 내지 않는다.
+    const block = blockOf(
+      bareFacts({
+        relations: [
+          relation({ predicate: 'SAME_INDUSTRY' }),
+          relation({
+            predicate: 'CLASSIFIED_AS',
+            objectEntityId: 11,
+            objectEntityType: 'Industry',
+          }),
+        ],
+      }),
+      'exposure_impact',
+    );
+    assert.equal(block?.payload.exposureTier, 'accepted_structural');
+    assert.equal(block?.blockState, 'available');
+    assert.equal(block?.payload.acceptedStructuralCount, 1);
+    assert.equal(block?.payload.acceptedStructuralNonAssetCount, 1);
+    assert.match(block?.stateReason ?? '', /non-asset nodes/);
+  });
+
+  it('treats an unknown object entity type as not-an-asset (fail-closed)', () => {
+    // 쿼리가 LEFT JOIN 이라 상대를 못 찾으면 행은 남고 유형만 null 로 온다.
+    // 모르는 것을 자산으로 봐주면 이번에 고친 것과 같은 종류의 거짓이 다시 생긴다.
+    const block = blockOf(
+      bareFacts({
+        relations: [relation({ predicate: 'SAME_INDUSTRY', objectEntityType: null })],
+      }),
+      'exposure_impact',
+    );
+    assert.equal(block?.payload.exposureTier, 'accepted_non_asset_only');
+    assert.equal(block?.payload.acceptedStructuralCount, 0);
+  });
+
+  it('keeps the accepted counts adding up to the accepted set', () => {
+    // 좁히기가 만들 수 있었던 부기 구멍을 못박는다:
+    // accepted = economic + structural(asset) + structural(non-asset) + weak + unpoliced.
+    const block = blockOf(
+      bareFacts({
+        relations: [
+          relation({ predicate: 'SUPPLIES' }),
+          relation({ predicate: 'SAME_INDUSTRY', objectEntityId: 8 }),
+          relation({ predicate: 'CLASSIFIED_AS', objectEntityId: 9, objectEntityType: 'Industry' }),
+          relation({ predicate: 'SAME_ETF_BASKET', objectEntityId: 10 }),
+          relation({ predicate: 'ISSUED_BY', objectEntityId: 11, objectEntityType: 'Company' }),
+          relation({
+            predicate: 'PEER_OF',
+            objectEntityId: 12,
+            revisionStatus: 'quarantined_unverified',
+          }),
+        ],
+      }),
+      'exposure_impact',
+    );
+    assert.ok(block);
+    const p = block.payload as Record<string, number>;
+    const accepted = (block.payload.relations as { revisionStatus: string }[]).filter(
+      (r) => r.revisionStatus === 'accepted',
+    ).length;
+    assert.equal(accepted, 5);
+    assert.equal(
+      p.acceptedEconomicCount +
+        p.acceptedStructuralCount +
+        p.acceptedStructuralNonAssetCount +
+        p.acceptedWeakCount +
+        p.acceptedUnpolicedCount,
+      accepted,
+    );
+    assert.equal(p.quarantinedCount, 1);
+  });
+
+  it('does not demote an accepted relation because a quarantined one sits beside it', () => {
+    // 이번 변경의 동기. 옛 판정은 목록 전체에 `.some(status !== 'accepted')` 를 걸어서
+    // 격리 후보 1건만 있어도 승인 간선을 가진 종목을 unverified_only 로 내렸다.
+    const block = blockOf(
+      bareFacts({
+        relations: [
+          relation({ predicate: 'SAME_INDUSTRY' }),
+          relation({
+            predicate: 'PEER_OF',
+            objectEntityId: 9,
+            revisionStatus: 'quarantined_unverified',
+          }),
+        ],
+      }),
+      'exposure_impact',
+    );
+    assert.equal(block?.blockState, 'available');
+    assert.equal(block?.payload.exposureTier, 'accepted_structural');
+    assert.equal(block?.payload.quarantinedCount, 1);
   });
 
   it('refuses to call a quarantined candidate an exposure', () => {
@@ -189,6 +330,8 @@ describe('exposure block', () => {
       'exposure_impact',
     );
     assert.equal(block?.blockState, 'unverified_only');
+    assert.equal(block?.payload.exposureTier, 'unverified_only');
+    assert.equal(block?.payload.quarantinedCount, 1);
   });
 
   it('refuses to call ETF co-membership an exposure', () => {
@@ -197,6 +340,49 @@ describe('exposure block', () => {
       'exposure_impact',
     );
     assert.equal(block?.blockState, 'partial');
+    assert.equal(block?.payload.exposureTier, 'accepted_weak_only');
+    assert.equal(block?.payload.acceptedWeakCount, 1);
+  });
+
+  it('does not claim nothing was accepted while an unpoliced predicate is accepted', () => {
+    // ISSUED_BY 는 정책 행이 없어 tier 'unpoliced' 인데 라이브 297개 view 중 254개가
+    // 이 술어의 승인 간선을 갖는다. "승인된 리비전이 없다" 는 그들에게 거짓이다.
+    const block = blockOf(
+      bareFacts({
+        relations: [
+          relation({ predicate: 'ISSUED_BY' }),
+          relation({
+            predicate: 'SAME_THEME',
+            objectEntityId: 9,
+            revisionStatus: 'quarantined_unverified',
+          }),
+        ],
+      }),
+      'exposure_impact',
+    );
+    assert.equal(block?.blockState, 'unverified_only');
+    assert.equal(block?.payload.acceptedUnpolicedCount, 1);
+    assert.match(block?.stateReason ?? '', /no policy row/);
+  });
+
+  it('calls an accepted-but-unpoliced-only subject unpoliced rather than unverified', () => {
+    const block = blockOf(
+      bareFacts({ relations: [relation({ predicate: 'ISSUED_BY' })] }),
+      'exposure_impact',
+    );
+    assert.equal(block?.payload.exposureTier, 'unpoliced_only');
+    assert.equal(block?.blockState, 'partial');
+    assert.equal(block?.payload.quarantinedCount, 0);
+  });
+
+  it('labels impact summaries with no relation row rather than blaming weak associations', () => {
+    const block = blockOf(
+      bareFacts({ impactSummaries: [{ impactKey: 'KR:005930', horizon: null, sign: null }] }),
+      'exposure_impact',
+    );
+    assert.equal(block?.payload.exposureTier, 'no_relation_row');
+    assert.equal(block?.blockState, 'partial');
+    assert.doesNotMatch(block?.stateReason ?? '', /weak association/);
   });
 
   it('carries quarantined relations rather than dropping them', () => {
