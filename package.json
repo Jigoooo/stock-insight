@@ -37,9 +37,10 @@
     "typecheck:market-connections:fixture": "tsc -p e2e/fixtures/market-connections-view/tsconfig.json --noEmit",
     "test:p6:db": "pnpm --filter @stock-insight/api test:p6-db-rehearsal",
     "test:xg:db": "pnpm --filter @stock-insight/api test:xg-reader-privileges",
+    "test:read-surface:db": "pnpm --filter @stock-insight/api test:live-read-surface",
     "test:select-controls:browser": "node scripts/run-select-controls-browser-gate.mjs",
     "audit:design": "pnpm --filter @stock-insight/web audit:design",
-    "verify:release": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:design:hard && pnpm test:p6:db && pnpm test:xg:db && pnpm build && pnpm test:auth:visual:production && pnpm test:select-controls:browser && pnpm test:workspace:visual:production && pnpm test:design:browser:production && pnpm test:p3d:browser:production && pnpm test:sigma:browser:production && pnpm test:motion:browser:production",
+    "verify:release": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:design:hard && pnpm test:p6:db && pnpm test:xg:db && pnpm test:read-surface:db && pnpm build && pnpm test:auth:visual:production && pnpm test:select-controls:browser && pnpm test:workspace:visual:production && pnpm test:design:browser:production && pnpm test:p3d:browser:production && pnpm test:sigma:browser:production && pnpm test:motion:browser:production",
     "test:e2e": "PLAYWRIGHT_EXCLUDE_MOTION_PERFORMANCE=1 playwright test && PLAYWRIGHT_WORKERS=1 playwright test e2e/motion-performance.spec.ts",
     "test:e2e:headed": "playwright test --headed"
   },

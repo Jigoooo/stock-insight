@@ -24,15 +24,51 @@ import pg from 'pg';
 // third. Migration 117 removed all six default privileges; this test is what keeps them
 // from being reintroduced.
 //
-// WHAT THIS TEST DOES NOT YET DO, stated because the mistake above was a header that was
-// true about its file and false about the world. It does not run in `pnpm test`. The
-// turbo `test` task declares no `env` or `passThroughEnv` and turbo runs in strict env
-// mode, so DATABASE_URL never reaches the child process and this skips — silently, inside
-// a suite that reports green. That is not specific to this file: measured 2026-08-11,
-// 47 tests in this package skip that way, and running them directly with the URL exported
-// passes 1309 of 1354 with zero failures. There is also no `.github/workflows` directory,
-// so there is no CI to fail in. Until a runner exports the URL and asserts `skipped 0`,
-// this file is a check you can run, not a gate that runs itself.
+// WHAT MAKES THIS RUN, AND WHAT STILL DOES NOT, stated at this length because the mistake
+// above was a header that was true about its file and false about the world.
+//
+// Until 2026-08-11 this did not run in `pnpm test` at all: the turbo `test` task declared
+// no `env` or `passThroughEnv` and turbo runs in strict env mode, so DATABASE_URL never
+// reached the child process and this skipped — silently, inside a suite that reported
+// green. That was not specific to this file; 47 tests in this package skipped that way.
+// `turbo.json` now lists DATABASE_URL and STOCK_INSIGHT_LIVE_READ_DB_URL (with the other
+// live keys the tests here read) under the `test` task, so with a URL in the environment
+// the count measured through turbo is 45 skipped, 1309 of 1354 passing, zero failures.
+//
+// 키를 어느 목록에 두느냐가 그 다음 문제이고, 둘의 차이가 이 문단의 전부다.
+// `passThroughEnv` 는 어떤 변수가 자식 프로세스에 **닿는지**만 선언하고 값은 캐시 키에
+// 들어가지 않는다. 그 상태로는 URL 없는 실행이 URL 있는 캐시를 재생할 수 있고, 더 나쁘게는
+// URL 을 제대로 넣은 실행이 오래된 no-DB 캐시를 재생해 DB 계약 테스트를 조용히 건너뛴다.
+// `env` 는 값이 해시에 들어가므로 URL 상태가 바뀌면 캐시가 무효화된다. 그래서 키들은
+// `env` 에 있고, `pnpm test` 의 초록은 최소한 "이 URL 상태로 실제 실행된 결과" 를 뜻한다.
+//
+// 확인 방법은 해시 값이 아니라 **분리 여부**다. URL 을 넣은 실행과 `env -u DATABASE_URL`
+// 실행이 `@stock-insight/api#test` 에 대해 서로 다른 해시를 내면 참이고, 같으면 거짓이다.
+// 특정 해시 문자열을 여기 적지 않는 이유는 그것이 증거가 못 되기 때문이다 — 이 파일 자신이
+// 그 해시의 입력이라 숫자를 적는 순간 무효가 되고, 값은 머신과 워킹트리에 따라 달라진다.
+// 내구성 있는 단언은 live-read-surface-gate-runner.test.ts 가 갖고 있다: 키가 `env` 에
+// 있을 것 **그리고** `passThroughEnv` 로 돌아가 있지 않을 것.
+//
+// 대가는 명시해 둔다: `env` 는 `test` 태스크 전체에 걸리므로 DB 를 전혀 쓰지 않는
+// 패키지(web·ui·contracts)의 test 캐시도 DATABASE_URL 변화에 무효화된다. 캐시 적중률을
+// 정확성과 맞바꾼 것이고, 이 방향이 맞다. `build` 는 건드리지 않았다 — 빌드 산출물은
+// 이 키들에 의존하지 않는다.
+//
+// 그래도 `pnpm test` 를 단독 게이트로 부르지는 않는다. 캐시는 정직해졌지만 URL 이
+// 애초에 환경에 없으면 이 파일은 여전히 (이제는 정직하게) skip 되기 때문이다.
+//
+// The gate is `pnpm test:read-surface:db`, in the `verify:release` chain. It bypasses
+// turbo, injects the URL under both key names, runs this file plus
+// live-common-asset-view-privacy.test.ts, and fails unless the suite reports `skipped 0` —
+// so it cannot pass by not running. live-read-surface-gate-runner.test.ts asserts that
+// chain membership on every ordinary test run, which is what `test:core-release` lacks:
+// that gate is real, correct, and referenced by nothing, so it has never failed a release.
+// That same runner test pins both filenames and the `skipped 0` assertion, so the
+// paragraph above fails a test rather than quietly going stale if the runner is edited —
+// which is the only reason it is safe to describe another file's contents from here.
+//
+// Still true, and not fixed here: there is no `.github/workflows` directory, so no CI
+// fails on any of this. Everything above depends on someone running `verify:release`.
 //
 // Beyond the outage, personalization was among the six. REQ-SEM-003 and REQ-REC-001 hold
 // that private per-user derivations are readable only by explicit decision — three of

@@ -22,7 +22,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "oxlint src",
+    "lint": "oxlint src test",
     "format": "oxfmt src package.json tsconfig.json",
     "format:check": "oxfmt --check src package.json tsconfig.json"
   },

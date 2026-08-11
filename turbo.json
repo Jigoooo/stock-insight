@@ -8,7 +8,23 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "STOCK_INSIGHT_LIVE_DB_URL",
+        "STOCK_INSIGHT_LIVE_READ_DB_URL",
+        "STOCK_INSIGHT_LIVE_READER_DB_URL",
+        "STOCK_INSIGHT_LIVE_USER_ID",
+        "STOCK_INSIGHT_LIVE_WRITE_DB_URL",
+        "STOCK_INSIGHT_LIVE_WRITER_DB_URL",
+        "STOCK_INSIGHT_IDENTITY_TEST_DB_URL",
+        "STOCK_INSIGHT_KNOWLEDGE_TEST_DB_URL",
+        "STOCK_INSIGHT_MIGRATION_TEST_DB_URL",
+        "STOCK_INSIGHT_OUTBOX_TEST_DB_URL",
+        "STOCK_INSIGHT_RELATION_TEST_DB_URL",
+        "STOCK_INSIGHT_SOURCE_REVISION_TEST_DB_URL",
+        "STOCK_INSIGHT_TEMPORAL_MIGRATION_TEST_DB_URL"
+      ]
     },
     "build": {
       "dependsOn": ["^build"],

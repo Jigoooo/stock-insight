@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.ts",
     "test:core-release": "node scripts/run-core-release-gate.mjs",
+    "test:live-read-surface": "node scripts/run-live-read-surface-gate.mjs",
     "test:knowledge-db-rehearsal": "node scripts/run-knowledge-revision-rehearsal.mjs",
     "test:p6-db-rehearsal": "node scripts/run-p6-db-rehearsal.mjs",
     "test:xg-reader-privileges": "node scripts/run-xg-reader-privilege-rehearsal.mjs",
@@ -76,7 +77,7 @@
     "analytics:v2-l5:apply": "node src/analytics/run-v2-analytics-publish.ts --apply",
     "ops:outbox:dry-run": "node src/ops/run-outbox-delivery.ts",
     "ops:outbox:apply": "node src/ops/run-outbox-delivery.ts --apply --loop",
-    "lint": "oxlint src",
+    "lint": "oxlint src test",
     "format": "oxfmt src package.json tsconfig.json",
     "format:check": "oxfmt --check src package.json tsconfig.json",
     "test:kernel-db-rehearsal": "node scripts/run-kernel-db-rehearsal.mjs"
