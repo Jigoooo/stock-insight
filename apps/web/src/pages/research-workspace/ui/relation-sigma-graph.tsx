@@ -21,7 +21,25 @@ import { ButtonGroup } from '@/shared/ui/button-group';
 import { Combobox } from '@/shared/ui/combobox';
 import { ErrorState } from '@/shared/ui/feedback';
 import { useMotionPreferences } from '@/shared/ui/motion';
+import { TruthLegend, truthBindingForContentPackItem } from '@/shared/ui/truth';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
+
+/**
+ * 관계 지도의 간선이 어떤 종류의 진술인가 — `REQ-SEM-010`.
+ *
+ * `buildRelationGraph()` 는 검증되지 않은 간선에서 던지므로 **그려지는 간선은
+ * 전부 하나의 종류**(085 의 `relation` → RELATION)다. 그래서 간선마다 스타일을
+ * 나누지 않는다 — 존재하지 않는 구분을 그리는 일이고, sigma 에서 파선을 그리려면
+ * 커스텀 edge program 이 필요한데 그 값을 치를 구분이 여기엔 없다. 구분은 이
+ * 화면과 다른 화면 사이에 있고, 그래서 표시는 범례 한 줄이다.
+ *
+ * ⚠️ `epistemicClassForTruthClass('RELATION')` 은 null 이다. RELATION 은 겹치는
+ * 다섯 클래스에 들지 않아 `resolveEdgeRenderSpec()` 경로로는 닿을 수 없고,
+ * 진술 종류 스펙을 직접 쓴다.
+ */
+const RELATION_TRUTH = truthBindingForContentPackItem('relation');
+const RELATION_BASIS =
+  '기준 시각까지 사람이 확인한 관계만 그립니다. 추론된 연결은 이 지도에 들어오지 않습니다.';
 
 type RelationRenderer = Sigma<
   RelationGraphNodeAttributes,
@@ -506,6 +524,17 @@ export function RelationSigmaGraph({
           <RotateCcw aria-hidden="true" size={16} />
         </IconButton>
       </ButtonGroup>
+
+      <TruthLegend
+        entries={[
+          {
+            basis: RELATION_BASIS,
+            binding: RELATION_TRUTH,
+            itemCount: source.edges.length,
+          },
+        ]}
+        title="이 지도가 그리는 것"
+      />
 
       <nav className={styles.graphNodeList} aria-label="관계 노드 목록">
         {source.nodes.map((node) => (

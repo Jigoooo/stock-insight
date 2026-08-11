@@ -9,11 +9,38 @@ import {
   sourceAttributionLabel,
 } from '@/pages/research-workspace/model/presentation';
 import { TextLink } from '@/shared/ui/link';
+import { TruthClaimRow, truthBindingForContentPackItem } from '@/shared/ui/truth';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type {
   EntityRelationGraph,
   ResearchRecordDetail,
 } from '@stock-insight/contracts/research-workspace';
+
+/**
+ * 출처 행이 어떤 종류의 진술인가 — `REQ-SEM-010`.
+ *
+ * 085 의 `evidence:source_revision` 바인딩이 그대로 적용된다: 대상이 보관된
+ * 원문 그 자체다. 이 목록의 각 행은 `sourceKey` · 원문 링크 · 내용 해시 ·
+ * 기준 시점 바인딩을 들고 있으므로 SOURCE 로 부르는 데 무리가 없다.
+ */
+const SOURCE_TRUTH = truthBindingForContentPackItem('evidence', 'source_revision');
+const SOURCE_BASIS = '기준 시점에 묶인 원문 자료를 그대로 가리킵니다.';
+
+/**
+ * 검증 근거 행은 **분류할 수 없다.**
+ *
+ * 085 는 근거의 종류를 `evidence_kind`(source_revision / model_config /
+ * identity_mapping)로 가르는데, `ResearchRecordDetail.evidence` 는 그 필드를
+ * 싣지 않는다(`evidenceId` · `claim` · `sourceKeys` · `quality` 가 전부). 그래서
+ * SOURCE 라고 붙이면 근거가 아닌 모델 설정까지 원문으로 보이게 만든다.
+ * 085 주석대로 지어낸 클래스보다 인정된 공백이 낫다 — `undecided` 다.
+ *
+ * ⚠️ 같은 이유로 `not_a_truth_object` 는 이 화면에서 **도달하지 않는다.**
+ * DTO 가 하위 종류를 실어야 갈라진다.
+ */
+const EVIDENCE_TRUTH = truthBindingForContentPackItem('evidence');
+const EVIDENCE_BASIS =
+  '근거의 하위 종류가 화면 응답에 실리지 않아 어떤 진술인지 아직 가를 수 없습니다.';
 
 function formatDate(value: string | null | undefined, withTime = false) {
   if (!value) return '기준 없음';
@@ -175,16 +202,22 @@ export function EvidenceInspector({
                     description="이 기록에 묶인 근거가 확인되면 이곳에 표시됩니다."
                   />
                 ) : (
-                  <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
-                    {detail.evidence.map((item) => (
-                      <li key={item.evidenceId} className={styles.evidenceItem}>
-                        <strong>{presentResearchSummary(item.claim)}</strong>
-                        <span>
-                          {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
-                        </span>
-                      </li>
-                    ))}
-                  </StructuredList>
+                  <TruthClaimRow
+                    basis={EVIDENCE_BASIS}
+                    binding={EVIDENCE_TRUTH}
+                    itemCount={detail.evidence.length}
+                  >
+                    <StructuredList className={styles.evidenceList} aria-label="검증 근거 목록">
+                      {detail.evidence.map((item) => (
+                        <li key={item.evidenceId} className={styles.evidenceItem}>
+                          <strong>{presentResearchSummary(item.claim)}</strong>
+                          <span>
+                            {confidenceLabel(item.quality)} · 출처 {item.sourceKeys.length}개
+                          </span>
+                        </li>
+                      ))}
+                    </StructuredList>
+                  </TruthClaimRow>
                 )}
               </section>
               <section>
@@ -196,33 +229,39 @@ export function EvidenceInspector({
                     description="원문 출처가 확인되면 이름과 기준 시점 상태를 보여드립니다."
                   />
                 ) : (
-                  <StructuredList className={styles.sourceList} aria-label="출처 목록">
-                    {detail.sources.map((source) => (
-                      <li key={source.sourceKey}>
-                        {source.url ? (
-                          <TextLink
-                            href={source.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            motion="quiet"
-                          >
-                            <span>{sourceAttributionLabel(source.attributionText)}</span>
-                            <small>
-                              {sourceBindingLabel(source.bindingState)} ·{' '}
-                              {source.publishedAt
-                                ? formatDate(source.publishedAt)
-                                : '발행일 미확인'}
-                            </small>
-                          </TextLink>
-                        ) : (
-                          <div className={styles.sourceMissing}>
-                            <span>{sourceAttributionLabel(source.attributionText)}</span>
-                            <small>링크 없음</small>
-                          </div>
-                        )}
-                      </li>
-                    ))}
-                  </StructuredList>
+                  <TruthClaimRow
+                    basis={SOURCE_BASIS}
+                    binding={SOURCE_TRUTH}
+                    itemCount={detail.sources.length}
+                  >
+                    <StructuredList className={styles.sourceList} aria-label="출처 목록">
+                      {detail.sources.map((source) => (
+                        <li key={source.sourceKey}>
+                          {source.url ? (
+                            <TextLink
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              motion="quiet"
+                            >
+                              <span>{sourceAttributionLabel(source.attributionText)}</span>
+                              <small>
+                                {sourceBindingLabel(source.bindingState)} ·{' '}
+                                {source.publishedAt
+                                  ? formatDate(source.publishedAt)
+                                  : '발행일 미확인'}
+                              </small>
+                            </TextLink>
+                          ) : (
+                            <div className={styles.sourceMissing}>
+                              <span>{sourceAttributionLabel(source.attributionText)}</span>
+                              <small>링크 없음</small>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </StructuredList>
+                  </TruthClaimRow>
                 )}
               </section>
               {detail.limitations.length > 0 && (

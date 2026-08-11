@@ -11,6 +11,7 @@ import {
 } from '../model/workspace-shell-state';
 
 import type { WorkspaceNavigationItem, WorkspaceSectionId } from '@/features/workspace-navigation';
+import { DepthModeToggle } from '@/shared/depth';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from '@/shared/ui/sheet';
 
 export type WorkspaceShellProps = {
@@ -153,6 +154,9 @@ export function WorkspaceShell({
             <WorkspaceBrand mode="mobile" />
             {navigation}
             <SheetFooter className={styles.mobileActions} data-testid="workspace-mobile-actions">
+              {/* 390px 상단바에 3옵션 토글을 더 얹으면 가로가 넘친다(UX 헌법 4번).
+                  모바일에서는 로그아웃과 같은 자리에 둔다. */}
+              <DepthModeToggle />
               {contextualActions}
               {onLogout ? (
                 <WorkspaceLogoutAction className={styles.mobileLogout} onLogout={onLogout} />

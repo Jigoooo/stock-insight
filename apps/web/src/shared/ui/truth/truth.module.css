@@ -1,0 +1,118 @@
+/*
+ * 진술 종류의 시각 언어 — REQ-SEM-010.
+ *
+ * 색을 쓰지 않는다. `TruthClassRenderSpec` 에는 색 필드가 없고, 14종에 색을 하나씩
+ * 붙이면 배지 무지개가 되어 포털처럼 보인다. 구분자는 한국어 칩 라벨(1차)과
+ * 좌측 규칙선의 dash 패턴(중복 단서)이다. WCAG 1.4.1 · UX 헌법 1번.
+ */
+
+.row {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--color-border-strong);
+}
+
+.row[data-truth-rule='dashed'] {
+  border-left-style: dashed;
+}
+
+.row[data-truth-rule='dotted'] {
+  border-left-style: dotted;
+}
+
+/* 주장이 아니면 선을 긋지 않는다. 들여쓰기는 유지해 정렬이 흔들리지 않는다. */
+.row[data-truth-rule='none'] {
+  border-left-color: color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.mark {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.body {
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  /* 390px에서 긴 라벨이 잘려 사라지는 대신 줄바꿈한다. UX 헌법 4번·7번. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.chip[data-truth-state='undecided'],
+.chip[data-truth-state='not_a_truth_object'] {
+  color: var(--color-text-tertiary);
+  border-style: dashed;
+  background: transparent;
+}
+
+.swatch {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+
+.explanation {
+  min-width: 0;
+}
+
+.explanationText {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.legend {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.legendTitle {
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.legendList {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}

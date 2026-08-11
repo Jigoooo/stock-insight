@@ -8,6 +8,7 @@ import type {
   WorkspaceNavigationMode,
   WorkspaceSectionId,
 } from '@/features/workspace-navigation';
+import { DepthModeToggle } from '@/shared/depth';
 import { Button, IconButton } from '@/shared/ui/button';
 import { SheetTrigger } from '@/shared/ui/sheet';
 
@@ -92,6 +93,7 @@ export function WorkspaceTopbar({
       <div className={styles.searchSlot}>{search}</div>
       {mode !== 'mobile' ? (
         <div className={styles.contextualActions}>
+          <DepthModeToggle />
           {contextualActions}
           {onLogout ? <WorkspaceLogoutAction compact onLogout={onLogout} /> : null}
         </div>

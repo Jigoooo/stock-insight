@@ -20,10 +20,28 @@ import { stockInspectorWidthStorageKey } from '@/pages/research-workspace/model/
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
 import { Button } from '@/shared/ui/button';
 import { TextLink } from '@/shared/ui/link';
+import { TruthClaimRow, truthBindingForContentPackItem } from '@/shared/ui/truth';
 import { PropertyList, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { EntityRelationGraph } from '@stock-insight/contracts/research-workspace';
 
 export type StockBriefingInspectorState = 'error' | 'loading' | 'ready';
+
+/**
+ * `detail.paths` 가 어떤 종류의 진술인가 — `REQ-SEM-010`.
+ *
+ * 이 목록은 `analytics.impact_path_v2` 에서 온 봉인된 전파 경로이고,
+ * 마이그레이션 085 는 그 종류를 EXPOSURE 가 아니라 HYPOTHESIS 로 묶었다 —
+ * 248,236행이 전부 `direction=unknown` 이라 부호 없는 노출은 노출이 아니기
+ * 때문이다. 여기서 EXPOSURE 라고 말하면 파이프라인이 데이터에서 거부한 주장을
+ * 화면이 대신 해버린다.
+ *
+ * ⚠️ 이 값은 **행마다 조회한 결과가 아니다.** DTO 는 `item_kind` 를 싣지 않으므로
+ * "이 목록이 그리는 항목의 종류는 impact_path 다" 를 코드가 단언하는 것이고,
+ * 085 의 바인딩이 개정되면 조용히 어긋난다.
+ */
+const IMPACT_PATH_TRUTH = truthBindingForContentPackItem('impact_path');
+const IMPACT_PATH_BASIS =
+  '규칙으로 이어 붙인 연결이며 방향과 크기가 확인되지 않아 가설로 분류됩니다.';
 
 function priceLabel(detail: StockBriefingDetail) {
   const { currency, latestPrice } = detail.stock;
@@ -161,16 +179,22 @@ export function StockBriefingInspector({
                 <section aria-labelledby="stock-inspector-paths">
                   <h3 id="stock-inspector-paths">영향 경로</h3>
                   {detail.paths.length > 0 && (
-                    <StructuredList>
-                      {detail.paths.map((path) => (
-                        <li key={path.id}>
-                          <strong>{path.label}</strong>
-                          {path.summary ? (
-                            <span>{presentResearchSummary(path.summary)}</span>
-                          ) : null}
-                        </li>
-                      ))}
-                    </StructuredList>
+                    <TruthClaimRow
+                      basis={IMPACT_PATH_BASIS}
+                      binding={IMPACT_PATH_TRUTH}
+                      itemCount={detail.paths.length}
+                    >
+                      <StructuredList>
+                        {detail.paths.map((path) => (
+                          <li key={path.id}>
+                            <strong>{path.label}</strong>
+                            {path.summary ? (
+                              <span>{presentResearchSummary(path.summary)}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </StructuredList>
+                    </TruthClaimRow>
                   )}
                   {detail.partialFailures.impact && (
                     <LocalFailure
