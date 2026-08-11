@@ -2,6 +2,7 @@ import { buildK4DailyCutoffs } from './k4-market-intelligence-plan.ts';
 import {
   loadK4MarketIntelligenceInput,
   withK4MarketIntelligenceTransaction,
+  type K4ConceptScope,
   type K4QueryClient,
 } from './k4-market-intelligence-store.ts';
 import {
@@ -20,6 +21,13 @@ export type K4PriorModelExpectationArgs = {
   mode: 'dry-run' | 'rehearse' | 'apply';
   runKind: 'replay' | 'canary';
   cutoffs: string[];
+  /**
+   * `rules` — the historical read, bounded by `input_concept_selectors`.
+   * `universe` — the regulator/canonical concepts the subject actually has annual
+   * history for. See `UNIVERSE_CONCEPT_SQL`; the default stays `rules` so an
+   * unflagged run issues the same statements it always did.
+   */
+  conceptScope: K4ConceptScope;
 };
 
 export type K4PriorModelExpectationPersistence = {
@@ -39,6 +47,13 @@ export type K4PriorModelExpectationPersistence = {
 export type K4PriorModelExpectationSummary = {
   cutoff: string;
   mode: K4PriorModelExpectationArgs['mode'];
+  /**
+   * Reported because the information-set id digests only the cutoff and the semantic
+   * snapshot, so a `rules` run and a `universe` run at the same cutoff share one id
+   * while reading different inputs. Until that is resolved, the summary is the only
+   * place the two are told apart.
+   */
+  conceptScope: K4ConceptScope;
   informationSetId: string;
   plannedCount: number;
   persistence: K4PriorModelExpectationPersistence | null;
@@ -66,6 +81,7 @@ export function parseK4PriorModelExpectationArgs(
   let cutoff: string | undefined;
   let live = false;
   let kstCutoffTime = '23:59:59.999';
+  let conceptScope: K4ConceptScope = 'rules';
   const modes: Array<K4PriorModelExpectationArgs['mode']> = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -90,6 +106,15 @@ export function parseK4PriorModelExpectationArgs(
       index += 1;
       continue;
     }
+    if (argument === '--concept-scope') {
+      const value = valueAfter(argv, index, argument);
+      if (value !== 'rules' && value !== 'universe') {
+        throw new Error('--concept-scope must be rules or universe');
+      }
+      conceptScope = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`unknown K4 prior-model expectation argument: ${String(argument)}`);
   }
   if (modes.length > 1) throw new Error('select exactly one prior-model expectation write mode');
@@ -97,11 +122,21 @@ export function parseK4PriorModelExpectationArgs(
   if (live) {
     if (from || to) throw new Error('live prior-model expectations cannot use a replay range');
     if (!cutoff) throw new Error('live prior-model expectations require --cutoff');
-    return { mode, runKind: 'canary', cutoffs: [canonicalIso(cutoff, 'live cutoff')] };
+    return {
+      mode,
+      runKind: 'canary',
+      cutoffs: [canonicalIso(cutoff, 'live cutoff')],
+      conceptScope,
+    };
   }
   if (cutoff) throw new Error('--cutoff requires --live');
   if (!from || !to) throw new Error('prior-model expectation replay requires --from and --to');
-  return { mode, runKind: 'replay', cutoffs: buildK4DailyCutoffs({ from, to, kstCutoffTime }) };
+  return {
+    mode,
+    runKind: 'replay',
+    cutoffs: buildK4DailyCutoffs({ from, to, kstCutoffTime }),
+    conceptScope,
+  };
 }
 
 function positiveId(value: unknown, label: string): number {
@@ -256,12 +291,17 @@ export async function executeK4PriorModelExpectationJob(input: {
 }): Promise<K4PriorModelExpectationSummary[]> {
   const summaries: K4PriorModelExpectationSummary[] = [];
   for (const cutoff of input.args.cutoffs) {
-    const loaded = await loadK4MarketIntelligenceInput(input.client, { cutoff, securityLimit: 10 });
+    const loaded = await loadK4MarketIntelligenceInput(input.client, {
+      cutoff,
+      securityLimit: 10,
+      conceptScope: input.args.conceptScope,
+    });
     const plans = planK4PriorModelExpectations(loaded);
     if (input.args.mode === 'dry-run') {
       summaries.push({
         cutoff,
         mode: 'dry-run',
+        conceptScope: input.args.conceptScope,
         informationSetId: loaded.informationSet.informationSetId,
         plannedCount: plans.length,
         persistence: null,
@@ -282,6 +322,7 @@ export async function executeK4PriorModelExpectationJob(input: {
     summaries.push({
       cutoff,
       mode: input.args.mode,
+      conceptScope: input.args.conceptScope,
       informationSetId: loaded.informationSet.informationSetId,
       plannedCount: plans.length,
       persistence,

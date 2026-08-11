@@ -94,6 +94,24 @@ DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-market-intelligence.ts
 pipeline_record_stage_success stock-insight-k4-market-intelligence-canary-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-feature-snapshot.ts --apply
 pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED_AT" || exit $?
+# 블록 7 — 밸류에이션 밴드. analytics.valuation_estimate_revision 은 099 가 만든 뒤
+# 생산자가 없어 297종목 전부 not_produced 였다.
+#
+# 의존성은 위 K4 카나리가 아니라 **입력 두 가지**다: world.numeric_fact(주식수·자본·
+# 이익)와 market_ts.ohlcv(일봉). 둘 다 이 파이프라인보다 앞선 래퍼가 채우고
+# analytics-input 단언이 이미 신선도를 본다. K4 카나리가 쓰는 것을 이 잡은 쓰지 않고,
+# K4 카나리도 이 잡의 출력을 읽지 않는다 — `run-k4-market-intelligence.ts` 는
+# `K4SecurityInput.valuationRange` 를 저장소가 채워줄 때만 밸류에이션을 계획하는데
+# 저장소는 그것을 채우지 않는다.
+#
+# 같은 컷오프를 쓰는 것은 편의가 아니라 요건이다. information_set_id 는 컷오프와
+# 시맨틱 스냅샷의 다이제스트이므로, 다른 컷오프를 주면 이 잡이 같은 날의 두 번째
+# governance.analysis_information_set 행을 만든다.
+#
+# common asset view 보다 **앞**에 있어야 한다. 그 잡이 이 테이블을 읽어 블록 7 을
+# 세운다.
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-valuation-band.ts --live --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-k4-valuation-band-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
 pipeline_record_stage_success stock-insight-graph-inference-stage "$RUN_STARTED_AT" || exit $?
 # v2 impact publishing runs before report publishing on purpose.
@@ -184,6 +202,10 @@ SELECT CASE WHEN
      'stock-insight-v2-graph-publish-stage',
      'stock-insight-k4-prior-model-expectation-stage',
      'stock-insight-k4-market-intelligence-canary-stage',
+     -- 목록에 없는 단계는 실행 여부가 단언되지 않는다. 블록 7 의 생산자가 조용히
+     -- 빠지면 블록은 다시 297종목 not_produced 로 돌아가고, 그 회귀는 아무것도
+     -- 실패시키지 않는다.
+     'stock-insight-k4-valuation-band-stage',
      'stock-insight-v2-l5-publish-stage',
      'stock-insight-portfolio-snapshot-stage',
      -- Listed, unlike the reachability gauge above it, because the whole point of
@@ -193,10 +215,37 @@ SELECT CASE WHEN
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 13
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 14
+  -- 착지 게이지. 목표치가 아니라 >= 1 인 이유: 아무도 재보지 않은 임계값은 결국
+  -- 낮춰진다. 이 숫자가 재는 것은 밴드가 몇 개냐가 아니라 생산자가 살아 있느냐
+  -- 다. 실측 커버리지(2026-08-12: 종목 52개 · 밴드 81개)는 요약 JSON 이 말한다.
+  --
+  -- 2026-08-12 정정 — 실행 범위가 없던 줄이다. 이 테이블은 append-only 이므로
+  -- 81 행이 있는 지금 전역 count 는 **영원히 참**이고, 생산자가 내일 죽어도 초록이다.
+  -- 이웃 단언들과 같은 모양(finished_at >= RUN_STARTED_AT)으로 묶는다.
+  --
+  -- 0 이 나오는 정상 실행은 없다: K4_CANARY_CUTOFF 는 매 실행 pipeline_db_now 의
+  -- 마이크로초 시각이고 밸류에이션 키에 information_set_id 가 들어가므로, 실행마다
+  -- 키가 새로 생기고 첫 리비전이 새로 쓰인다.
+  --
+  -- 이 SQL 은 통째로 쉘의 큰따옴표 문자열 하나다. 주석 안이라도 큰따옴표나
+  -- 역따옴표를 쓰면 안 된다 — 큰따옴표는 인자를 그 자리에서 끊고 역따옴표는 명령
+  -- 치환이 되며, 둘 다 단언 전체를 문법 오류로 죽인다. 2026-08-12 에 두 번 죽였다.
+  AND (SELECT count(*) FROM analytics.valuation_estimate_revision
+       WHERE created_at >= '${RUN_STARTED_AT}'::timestamptz) >= 1
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
-  AND (SELECT count(*) FROM personalization.user_feed_item WHERE feed_date=current_date) >= 1
+  -- 2026-08-12 정정 — 여기 있던 feed_date=current_date 는 **시간대 두 개를 섞고
+  -- 있었다.** feed_date 는 run-feed-build 가 사용자 프로필 시간대로 찍는 날짜이고
+  -- (now() AT TIME ZONE profile.timezone)::date, current_date 는 세션 시간대(UTC)의
+  -- 날짜다. 실측(2026-08-11 18:31 UTC): 방금 쓴 20 행의 feed_date 는 2026-08-12(KST)
+  -- 인데 current_date 는 2026-08-11 이라 게이지가 0 을 본다.
+  --
+  -- 즉 이 단언은 KST 자정 이후(15:00~24:00 UTC)에 도는 실행에서는 산출이 멀쩡해도
+  -- 반드시 실패한다. 날짜 대신 실행 범위로 묶는다 — 재는 것은 어느 날짜냐가 아니라
+  -- 이번 실행이 피드를 만들었느냐이고, 그 질문에는 시간대가 없다.
+  AND (SELECT count(*) FROM personalization.user_feed_item
+       WHERE generated_at >= '${RUN_STARTED_AT}'::timestamptz) >= 1
   AND EXISTS (SELECT 1 FROM serving.probability_scorecard_v1)
   AND EXISTS (
     SELECT 1 FROM ops.pipeline_run_claim claim

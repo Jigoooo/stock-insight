@@ -148,7 +148,23 @@ export type AssetSourceFacts = {
   expectations: { expectationRevisionId: number; metricKey: string }[];
   relations: RelationFact[];
   impactSummaries: { impactKey: string; horizon: string | null; sign: string | null }[];
-  valuations: { valuationRevisionId: number }[];
+  /**
+   * 밸류에이션 밴드. **목표주가가 아니다.**
+   *
+   * 그 구별을 지키는 것은 문구가 아니라 `estimateUnit` 이다. `run-k4-valuation-band`
+   * 는 단위가 `ratio` 인 배수 밴드만 만든다 — "자기 이력에서 장부가의 0.8~1.4배로
+   * 거래돼 왔다" 는 관측 서술이다. 통화 단위 밴드가 여기 들어오면 그것은 다른
+   * 생산자가 만든 다른 주장이므로, 아래 `planValuation` 이 단위를 payload 에 반드시
+   * 함께 싣는다.
+   */
+  valuations: {
+    valuationRevisionId: number;
+    methodKey: string;
+    lowerEstimate: number;
+    upperEstimate: number;
+    estimateUnit: string;
+    horizon: string;
+  }[];
   marketConfirmation: { asOf: string; direction: string | null; strength: number | null } | null;
   scenarios: { scenarioSetId: number }[];
   forwardAssertions: {
@@ -712,19 +728,36 @@ function planValuation(facts: AssetSourceFacts): CommonAssetViewBlock {
       7,
       'valuation_market_implied',
       'not_produced',
-      'analytics.valuation_estimate_revision is empty; k4-market-intelligence-writer is its producer and has emitted nothing',
+      'analytics.valuation_estimate_revision holds no band for this security; run-k4-valuation-band is its producer',
       {},
       0,
     );
   }
+  // 정렬 키가 리비전 id 가 아니라 `methodKey` 인 이유: id 는 실행 순서를 반영하므로
+  // 같은 밴드가 다음 컷오프에 다른 자리에 온다. 그러면 payload digest 가 내용이
+  // 그대로인데도 움직인다.
   const payload = {
-    valuations: [...valuations].sort((a, b) => a.valuationRevisionId - b.valuationRevisionId),
+    valuations: [...valuations]
+      .sort(
+        (a, b) =>
+          a.methodKey.localeCompare(b.methodKey) || a.valuationRevisionId - b.valuationRevisionId,
+      )
+      .map((valuation) => ({
+        valuationRevisionId: valuation.valuationRevisionId,
+        methodKey: valuation.methodKey,
+        lowerEstimate: valuation.lowerEstimate,
+        upperEstimate: valuation.upperEstimate,
+        // 단위는 선택 항목이 아니다. 비율 밴드와 통화 밴드가 같은 두 숫자로 보이는
+        // 순간 이 블록은 목표주가 구간과 구별되지 않는다.
+        estimateUnit: valuation.estimateUnit,
+        horizon: valuation.horizon,
+      })),
   };
   return block(
     7,
     'valuation_market_implied',
     'available',
-    'valuation revisions resolved',
+    `${valuations.length} valuation bands resolved`,
     payload,
     valuations.length,
   );

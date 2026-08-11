@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all eighteen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs all nineteen stages in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -217,6 +217,12 @@ test('analytics runs all eighteen stages in order with an adjacent receipt per c
     // downstream readers can consume only a completed canonical evaluation.
     ['run-k4-market-intelligence.ts', 'stock-insight-k4-market-intelligence-canary-stage'],
     ['run-feature-snapshot.ts', 'stock-insight-feature-snapshot-stage'],
+    // Added 2026-08-12 (block 7): analytics.valuation_estimate_revision had a table
+    // since migration 099 and no producer, so all 297 packets read not_produced. It
+    // depends on world.numeric_fact and market_ts.ohlcv, both filled by earlier
+    // wrappers, and on nothing this pipeline writes — but it must precede
+    // run-common-asset-view.ts, which reads what it leaves behind.
+    ['run-k4-valuation-band.ts', 'stock-insight-k4-valuation-band-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
     // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected
     // report block used to take every impact path down with it. The two are
@@ -267,5 +273,8 @@ test('analytics runs all eighteen stages in order with an adjacent receipt per c
       new RegExp(`^pipeline_record_stage_success ${receipt} `),
     );
   }
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 13/);
+  // 이 상한은 위 목록이 아니라 파이프라인의 `job_name IN (...)` 목록을 잰다. 둘은
+  // 다른 집합이다 — 게이지 성격의 단계(reachability audit 등)는 위에는 있고 저기에는
+  // 없다. 2026-08-07: 13. 2026-08-12: 14.
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 14/);
 });

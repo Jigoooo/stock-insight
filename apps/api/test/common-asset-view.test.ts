@@ -139,6 +139,53 @@ describe('the four empty blocks are empty for different reasons', () => {
   });
 });
 
+describe('the valuation block carries a band, and a band is not a target price', () => {
+  const band = {
+    valuationRevisionId: 12,
+    methodKey: 'own_history_pbr_band',
+    lowerEstimate: 0.8,
+    upperEstimate: 1.4,
+    estimateUnit: 'ratio',
+    horizon: 'trailing_annual_history',
+  };
+
+  it('projects the numbers a reader needs, not just the row id', () => {
+    // 이 블록이 `available` 인데 payload 가 id 뿐이던 것이 블록 7 의 원래 결함이다.
+    // "밴드가 있다" 와 "밴드" 는 다르다.
+    const block = blockOf(bareFacts({ valuations: [band] }), 'valuation_market_implied');
+    assert.equal(block?.blockState, 'available');
+    const payload = block?.payload as { valuations: Record<string, unknown>[] };
+    assert.deepEqual(payload.valuations[0], band);
+  });
+
+  it('always ships the unit next to the two numbers', () => {
+    // 단위 없는 0.8–1.4 는 통화 금액으로도 읽힌다. 그 순간 이 블록은 CLAUDE.md 가
+    // 이름으로 금지한 목표주가 구간과 구별되지 않는다.
+    const block = blockOf(bareFacts({ valuations: [band] }), 'valuation_market_implied');
+    const payload = block?.payload as { valuations: { estimateUnit?: unknown }[] };
+    for (const valuation of payload.valuations) {
+      assert.equal(typeof valuation.estimateUnit, 'string');
+      assert.ok(String(valuation.estimateUnit).length > 0);
+    }
+  });
+
+  it('orders by method so the payload digest does not move with insert order', () => {
+    const ascending = blockOf(
+      bareFacts({
+        valuations: [band, { ...band, valuationRevisionId: 3, methodKey: 'own_history_per_band' }],
+      }),
+      'valuation_market_implied',
+    );
+    const descending = blockOf(
+      bareFacts({
+        valuations: [{ ...band, valuationRevisionId: 3, methodKey: 'own_history_per_band' }, band],
+      }),
+      'valuation_market_implied',
+    );
+    assert.equal(ascending?.payloadDigest, descending?.payloadDigest);
+  });
+});
+
 describe('relation signal tiers keep proximity out of the exposure slot', () => {
   it('treats disclosure-backed supply relations as economic', () => {
     assert.equal(relationSignalTier('SUPPLIES'), 'economic');
@@ -744,7 +791,19 @@ describe('release identity', () => {
   it('moves the release digest when any packet in it moves', () => {
     const one = planCommonAssetView(bareFacts({ subjectEntityId: 1 }));
     const changed = planCommonAssetView(
-      bareFacts({ subjectEntityId: 1, valuations: [{ valuationRevisionId: 5 }] }),
+      bareFacts({
+        subjectEntityId: 1,
+        valuations: [
+          {
+            valuationRevisionId: 5,
+            methodKey: 'own_history_pbr_band',
+            lowerEstimate: 0.8,
+            upperEstimate: 1.4,
+            estimateUnit: 'ratio',
+            horizon: 'trailing_annual_history',
+          },
+        ],
+      }),
     );
     assert.notEqual(releaseDigestOf([one]), releaseDigestOf([changed]));
   });

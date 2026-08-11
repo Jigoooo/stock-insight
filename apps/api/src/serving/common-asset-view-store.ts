@@ -306,11 +306,40 @@ export async function loadAssetSourceFacts(
         WHERE asset_entity_id = ANY($1::bigint[])`,
         [entityIds],
       ),
+    // id 만 실어 오던 쿼리다. 블록 7 이 `available` 이 되어도 payload 가
+    // `[{valuationRevisionId: 12}]` 뿐이면 화면에 그릴 것이 없다 — 밴드가 있다는
+    // 사실만 있고 밴드가 없다.
+    //
+    // `method_key`·`lower/upper_estimate`·`estimate_unit`·`horizon` 을 함께 싣는다.
+    // 단위를 반드시 함께 싣는 이유: 이 생산자의 밴드는 **비율**이고, 단위 없는
+    // 0.48–0.64 는 통화 금액으로도 읽힌다. 그러면 제품 경계가 금지한 목표주가 구간과
+    // 구별되지 않는다.
+    //
+    // `metadata` 는 싣지 않는다. 표본 수·개념·플레이북 선언까지 패킷에 실으면 297
+    // 종목 × 2 밴드의 payload 가 그만큼 커지고, digest 가 그 전부를 서약하게 된다.
+    // 밴드를 그리는 데 필요한 것은 위 다섯 컬럼이고, 나머지는 계보로 남는다.
+    //
+    // `DISTINCT ON` 이 없으면 **컷오프마다 쌓인 밴드가 전부** 실린다. 키는
+    // `k4:valuation:{information_set_id}:{security}:{method}` 라 매일 새 행이 생기고,
+    // payload 에는 `asOf` 도 `informationSetId` 도 없고 `horizon` 은 전부 같다 —
+    // 소비자는 날짜도 순서도 없이 겹치는 밴드를 받는다. 정보집합이 하나인 오늘은
+    // 무해하고 내일부터 매일 조용히 나빠진다.
+    //
+    // 정렬은 세 겹이다: 최신 컷오프(`as_of_at`) → 그 키의 꼭대기 리비전
+    // (`revision_no`) → id. 두 번째가 superseded 된 리비전을 걷어낸다. 세 번째는
+    // 장식이 아니라 전순서를 만드는 것이다 — 동점이 남으면 Postgres 의 선택이
+    // 비결정적이고, `planValuation` 이 정렬 키를 id 가 아니라 methodKey 로 고른
+    // 이유(디제스트가 내용 그대로인데 움직이는 것)가 여기서 되살아난다.
     () =>
       client.query<SourceRow>(
-        `SELECT security_entity_id AS entity_id, valuation_estimate_revision_id
+        `SELECT DISTINCT ON (security_entity_id, method_key)
+              security_entity_id AS entity_id, valuation_estimate_revision_id,
+              method_key, lower_estimate::text, upper_estimate::text,
+              estimate_unit, horizon
          FROM analytics.valuation_estimate_revision
-        WHERE security_entity_id = ANY($1::bigint[])`,
+        WHERE security_entity_id = ANY($1::bigint[])
+        ORDER BY security_entity_id, method_key, as_of_at DESC, revision_no DESC,
+              valuation_estimate_revision_id DESC`,
         [entityIds],
       ),
     () =>
@@ -484,6 +513,11 @@ export async function loadAssetSourceFacts(
       })),
       valuations: (valuationsByEntity.get(entityId) ?? []).map((valuation) => ({
         valuationRevisionId: Number(valuation.valuation_estimate_revision_id),
+        methodKey: String(valuation.method_key),
+        lowerEstimate: Number(valuation.lower_estimate),
+        upperEstimate: Number(valuation.upper_estimate),
+        estimateUnit: String(valuation.estimate_unit),
+        horizon: String(valuation.horizon),
       })),
       marketConfirmation: confirmation
         ? {

@@ -21,6 +21,10 @@ import { describe, it } from 'node:test';
  * the thing worth seeing.
  * Measured 2026-08-07 (later): 44 jobs, 37 wired, 7 exempt — run-source-contract-audit
  * joined the analytics pipeline.
+ * Measured 2026-08-12: 64 jobs, 55 wired, 9 exempt — run-k4-valuation-band joined the
+ * analytics pipeline as block 7's producer. The exempt list did not move; the 44 → 64
+ * drift between this line and the one above it is five days of jobs nobody re-counted,
+ * which is exactly what re-measuring instead of editing in place is for.
  */
 
 const SRC = new URL('../src/', import.meta.url);

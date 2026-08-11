@@ -51,6 +51,23 @@ test('impact publishing still follows the graph it reads', () => {
   );
 });
 
+test('the valuation band is produced before the packet that reads it', () => {
+  // 블록 7 은 analytics.valuation_estimate_revision 을 읽는다. 순서가 뒤집히면 패킷은
+  // 하루 전 밴드를 싣고 — 첫 실행에서는 아무것도 못 싣고 — 297종목 not_produced 가
+  // 그대로 유지되는데, 아무것도 실패하지 않으므로 회귀가 보이지 않는다.
+  assert.ok(
+    stepLine('run-k4-valuation-band.ts') < stepLine('run-common-asset-view.ts'),
+    'the valuation band producer must run before the common asset view builder',
+  );
+});
+
+test('the valuation band shares the K4 canary cutoff', () => {
+  // information_set_id 는 컷오프와 시맨틱 스냅샷의 다이제스트다. 다른 컷오프를 주면
+  // 같은 날에 두 번째 governance.analysis_information_set 행이 생기고, 계보가
+  // 잡 목록이 된다.
+  assert.match(wrapper, /run-k4-valuation-band\.ts --live --cutoff "\$K4_CANARY_CUTOFF"/);
+});
+
 test('the reason for the ordering is recorded next to it', () => {
   // Without this, the next person tidying the file has no way to know the order
   // is load-bearing and will sort the steps back together.

@@ -7,6 +7,7 @@ import {
   type K4RuleInput,
 } from './k4-market-intelligence-plan.ts';
 import { type K4OutcomePlan } from './k4-market-intelligence-writer.ts';
+import { K4_PRIOR_MODEL_MINIMUM_PRIOR_OBSERVATIONS } from './k4-prior-model-expectation.ts';
 
 export type K4QueryResult = {
   rows: Array<Record<string, unknown>>;
@@ -42,7 +43,22 @@ export async function withK4MarketIntelligenceTransaction<T>(
   }
 }
 
-const SEMANTIC_SNAPSHOT_SQL = `
+/**
+ * 내보내는 이유: 블록 7 의 밸류에이션 밴드 생산자가 **같은 컷오프에서 같은
+ * information_set_id** 를 만들어야 하기 때문이다. 다른 SQL 로 스냅샷을 고르거나 다른
+ * 방식으로 다이제스트를 뜨면 같은 컷오프의 두 생산자가 서로 다른 정보집합 행을
+ * 만들고, `governance.analysis_information_set` 이 계보가 아니라 잡 목록이 된다.
+ * 문장을 복사하는 대신 하나를 공유한다.
+ */
+export function k4InformationSetId(cutoff: string, semanticSnapshotId: string): string {
+  const digest = createHash('sha256')
+    .update(`${cutoff}\n${semanticSnapshotId}`)
+    .digest('hex')
+    .slice(0, 20);
+  return `k4:${cutoff.slice(0, 10).replaceAll('-', '')}:${digest}`;
+}
+
+export const K4_SEMANTIC_SNAPSHOT_SQL = `
 /* k4_semantic_snapshot */
 SELECT semantic_snapshot_id
   FROM governance.semantic_snapshot
@@ -209,6 +225,54 @@ SELECT fact.numeric_fact_id, fact.entity_id, fact.concept_namespace, fact.concep
           fact.revision_no DESC, fact.numeric_fact_id DESC
 `;
 
+/**
+ * The concept set the rules do not know about.
+ *
+ * `input_concept_selectors` names the handful of concepts a sector playbook measures a
+ * business driver with. That is the right scope for driver evaluation and the wrong
+ * scope for the prior model, which needs no rule at all: it needs a subject, a concept
+ * and enough annual history. Filtering the fact read by the rule selectors meant the
+ * prior model never saw a fact outside 23 concept keys, so it was starved by the
+ * selector rather than by the data — measured 2026-08-11: 8 expectations against
+ * roughly 26k annual-cadence series. Widening it to the gates below moved the same
+ * cutoff from 8 planned expectations to 249.
+ *
+ * The widened set is an intersection of two gates:
+ *
+ *   - `definition_scope IN ('regulator','canonical')` — the same gate block 3 applies in
+ *     `serving/common-asset-view-store.ts` when it decides what is comparable. Using the
+ *     same gate is the point: if block 3 can say "this metric is comparable across peers"
+ *     while block 5 has no expectation for it, that hole has no explanation. This gate is
+ *     deliberately no narrower than block 3's, which additionally requires a
+ *     comparability group; a wider expectation population leaves no comparable metric
+ *     uncovered.
+ *   - at least `$3` distinct fiscal years of observation for that exact subject. This is
+ *     only a pre-filter — `planK4PriorModelExpectations` still enforces the real guards
+ *     (minimum priors, accepted PIT classes, no bridged gap year), so this number must
+ *     never be stricter than the planner's minimum.
+ *
+ * The year count is basis-agnostic on purpose. The planner chains year over year for
+ * instant, quarterly and annual bases alike. Measured on the first universe-scope run
+ * (2026-08-11): of the 130 expectations that exist afterwards, 65 are quarterly and 35
+ * instant against 30 annual — a gate that counted only annual-duration facts would have
+ * dropped 100 of them before the planner ever weighed them.
+ */
+const UNIVERSE_CONCEPT_SQL = `
+/* k4_universe_concept_keys */
+SELECT DISTINCT fact.concept_key
+  FROM world.numeric_fact fact
+  JOIN governance.metric_definition definition
+    ON definition.concept_namespace=fact.concept_namespace
+   AND definition.concept_key=fact.concept_key
+   AND definition.definition_scope IN ('regulator','canonical')
+ WHERE fact.entity_id=ANY($2::bigint[])
+   AND fact.available_at <= $1::timestamptz
+   AND fact.known_at <= $1::timestamptz
+ GROUP BY fact.entity_id, fact.concept_namespace, fact.concept_key
+HAVING count(DISTINCT date_part('year',
+         coalesce(fact.instant_at::date, fact.period_end))) >= $3::integer
+`;
+
 const EXPECTATION_SQL = `
 /* k4_expectations */
 SELECT DISTINCT ON (expectation.expectation_key)
@@ -259,15 +323,30 @@ function selectors(value: unknown): K4RuleInput['inputConceptSelectors'] {
   });
 }
 
+/**
+ * Which concepts the fact read is allowed to see.
+ *
+ * `rules` is the historical behaviour and stays the default: the concept keys the
+ * measurement rules name, plus the four revenue spellings. `universe` unions the rule
+ * keys with `UNIVERSE_CONCEPT_SQL`. It is a union rather than a replacement because a
+ * rule may name an issuer-scope concept that the regulator/canonical gate excludes, and
+ * narrowing driver evaluation is not what widening the prior model is for.
+ */
+export type K4ConceptScope = 'rules' | 'universe';
+
 export async function loadK4MarketIntelligenceInput(
   client: K4QueryClient,
-  options: { cutoff: string; securityLimit: number | null },
+  options: {
+    cutoff: string;
+    securityLimit: number | null;
+    conceptScope?: K4ConceptScope;
+  },
 ): Promise<K4MarketIntelligenceInput> {
   const cutoff = new Date(options.cutoff);
   if (Number.isNaN(cutoff.valueOf()) || cutoff.toISOString() !== options.cutoff) {
     throw new Error('K4 cutoff must be a canonical ISO timestamp');
   }
-  const snapshot = await client.query(SEMANTIC_SNAPSHOT_SQL, [options.cutoff]);
+  const snapshot = await client.query(K4_SEMANTIC_SNAPSHOT_SQL, [options.cutoff]);
   const semanticSnapshotId = snapshot.rows[0]?.semantic_snapshot_id;
   if (typeof semanticSnapshotId !== 'string') {
     throw new Error('no sealed semantic snapshot existed by the K4 cutoff');
@@ -321,30 +400,37 @@ export async function loadK4MarketIntelligenceInput(
     horizon: String(row.horizon) as K4RuleInput['horizon'],
     channelClass: 'operational_capacity',
   }));
-  const conceptKeys = [
-    ...new Set([
-      ...rules.flatMap((rule) =>
-        rule.inputConceptSelectors.flatMap((selector) => selector.conceptKeys),
-      ),
-      'Revenue',
-      'Revenues',
-      'SalesRevenueNet',
-      'RevenueFromContractWithCustomerExcludingAssessedTax',
-    ]),
+  const ruleConceptKeys = [
+    ...rules.flatMap((rule) =>
+      rule.inputConceptSelectors.flatMap((selector) => selector.conceptKeys),
+    ),
+    'Revenue',
+    'Revenues',
+    'SalesRevenueNet',
+    'RevenueFromContractWithCustomerExcludingAssessedTax',
   ];
+  // The widened read is a separate query behind an explicit scope, so the default path
+  // issues exactly the statements it always issued.
+  const universeConceptKeys =
+    options.conceptScope === 'universe' && issuerIds.length
+      ? (
+          await client.query(UNIVERSE_CONCEPT_SQL, [
+            options.cutoff,
+            issuerIds,
+            K4_PRIOR_MODEL_MINIMUM_PRIOR_OBSERVATIONS,
+          ])
+        ).rows.map((row) => String(row.concept_key))
+      : [];
+  const conceptKeys = [...new Set([...ruleConceptKeys, ...universeConceptKeys])];
   const factRows = issuerIds.length
     ? await client.query(NUMERIC_FACT_SQL, [options.cutoff, issuerIds, conceptKeys])
     : { rows: [] };
   const expectationRows = issuerIds.length
     ? await client.query(EXPECTATION_SQL, [options.cutoff, issuerIds])
     : { rows: [] };
-  const digest = createHash('sha256')
-    .update(`${options.cutoff}\n${semanticSnapshotId}`)
-    .digest('hex')
-    .slice(0, 20);
   return {
     informationSet: {
-      informationSetId: `k4:${options.cutoff.slice(0, 10).replaceAll('-', '')}:${digest}`,
+      informationSetId: k4InformationSetId(options.cutoff, semanticSnapshotId),
       validCutoff: options.cutoff,
       sourceAvailableCutoff: options.cutoff,
       systemKnownCutoff: options.cutoff,
