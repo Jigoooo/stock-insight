@@ -159,7 +159,30 @@ const EXPECTED_CATALOG_DIGESTS = {
     // removed historical raw-ledger SELECT grants and added the five views; 093
     // closed the separately inherited market_intelligence_run_receipt grant.
     // Every other reader digest and all seven writer digests stayed identical.
-    relation_privileges_digest: '16aa94f6c223c8f4237d6987bddfbbee15bd4fd03aafa8187b5568b2fcd595ed',
+    //
+    // Re-pinned 2026-08-11 for migration 099. It created four relations in serving —
+    // the tables common_asset_view and common_asset_view_block, and the views
+    // common_asset_view_current_v1 and common_asset_view_block_coverage_v1 — and the
+    // reader can SELECT all four.
+    //
+    // 099's own header says "NO grant to stock_insight_app_reader and NO
+    // EXPECTED_CATALOG_DIGESTS change". That sentence is false, and it is false for a
+    // reason worth writing down rather than correcting in place: 099 issues no GRANT
+    // statement, but migration 007 line 159 left standing
+    //   ALTER DEFAULT PRIVILEGES IN SCHEMA serving GRANT SELECT ON TABLES
+    //     TO stock_insight_app_reader
+    // so every relation created in serving since 007 is granted to the reader at CREATE
+    // time by the server. pg_class.relacl on all four carries
+    // `stock_insight_app_reader=r/research_app`. Writing "no GRANT" in a migration that
+    // creates a table in serving describes the file, not the database. Migration 117
+    // revokes those default privileges so the next author's claim can be true.
+    //
+    // Proved the same way as the 065 and 085 re-pins above, and actually run rather than
+    // asserted: recomputing this array on the live database as the reader while excluding
+    // exactly those four relations reproduces the previous pin
+    // 16aa94f6c…595ed byte for byte. 249 entries became 253 — four relations, one SELECT
+    // entry each, nothing else moved.
+    relation_privileges_digest: 'f89525cc1af76c9bbb6a1ff1a374ef4fb72fdf55eb4259814a722782c6d9aa3f',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
@@ -176,7 +199,21 @@ const EXPECTED_CATALOG_DIGESTS = {
     // Re-pinned 2026-08-09 with the relation array above. It moved because 092
     // and 093 removed reader reach to raw tables; views themselves are excluded
     // from this table-only RLS array.
-    rls_contract_digest: '696567691692b6512690f835cdcdf8871fab4ee85029333e4e8332950a6756de',
+    //
+    // Re-pinned 2026-08-11 with the relation array above, and it moved by a smaller
+    // amount than that array did. 085 was one view and left this digest alone; 099
+    // created two TABLES as well, and this array is gated on relkind IN ('r','p'), so
+    // serving.common_asset_view and serving.common_asset_view_block enter it while the
+    // two _v1 views do not. Excluding exactly those two tables reproduces the previous
+    // pin 696567691…756de byte for byte — verified against the live database, not
+    // reasoned about. 185 entries became 187. Neither table carries a policy of its own,
+    // so both entries read `rls=false|force=false|policies=`.
+    //
+    // All seven stock_insight_app_writer digests are untouched by this landing. The
+    // writer has no pg_default_acl entry — all six rows in pg_default_acl name
+    // stock_insight_app_reader as the grantee — so nothing granted it reach to the four
+    // new relations, and it holds none.
+    rls_contract_digest: '7daeb13d9adecb526a40380af897ead251f41cc242664bf6b8db2046ee0756a9',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },

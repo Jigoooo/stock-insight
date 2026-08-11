@@ -25,12 +25,25 @@ const EXPECTED_CATALOG_DIGESTS = {
     // constant rather than an import, so moving the pin fails here and forces a
     // conscious update. That failure is the mechanism, not an inconvenience: it is
     // the last checkpoint before a re-pin ships without anyone looking at it.
-    relation_privileges_digest: '16aa94f6c223c8f4237d6987bddfbbee15bd4fd03aafa8187b5568b2fcd595ed',
+    //
+    // Moved again 2026-08-09 by migrations 092/093, and 2026-08-11 by migration 099 —
+    // whose four serving relations reached the reader through the ALTER DEFAULT
+    // PRIVILEGES that migration 007 left standing in serving, with no GRANT in 099
+    // itself. The guard's own comment carries the arithmetic and the reproduction proof.
+    // The mechanism described above did its job here: this fixture failed first, which
+    // is how the re-pin got looked at. Migration 117 removed that default privilege in
+    // the same landing, so the next relation created in serving will not move this
+    // digest on its own.
+    relation_privileges_digest: 'f89525cc1af76c9bbb6a1ff1a374ef4fb72fdf55eb4259814a722782c6d9aa3f',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
     schema_privileges_digest: '2045de5d8e33dc7986b8588c175cef4eaf920e99b9ed7ccd825c46d8479d58b7',
-    rls_contract_digest: '696567691692b6512690f835cdcdf8871fab4ee85029333e4e8332950a6756de',
+    // Moved 2026-08-11 with the relation array above, by the two TABLES migration 099
+    // created. This array is relkind IN ('r','p'), so the two _v1 views 099 also added
+    // stayed out of it — which is why it moved by two entries where the array above
+    // moved by four.
+    rls_contract_digest: '7daeb13d9adecb526a40380af897ead251f41cc242664bf6b8db2046ee0756a9',
     security_definer_body_digest:
       'fea0137346051512445d7a4422a9c6194ea442e362958907606ca11e5f0de3bd',
   },
