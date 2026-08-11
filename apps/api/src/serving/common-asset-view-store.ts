@@ -13,6 +13,8 @@
 
 import type { AssetSourceFacts, CommonAssetViewPlan } from './common-asset-view-plan.ts';
 
+import { containsActionAdvice } from '../shared/action-advice.ts';
+
 export type QueryClient = {
   query: <Row extends Record<string, unknown>>(
     text: string,
@@ -383,6 +385,27 @@ export async function loadAssetSourceFacts(
     const confirmation = confirmationsByEntity.get(entityId)?.[0];
     const truncation: Record<string, { kept: number; total: number }> = {};
 
+    // 제품 경계는 **여기서** 선다.
+    //
+    // `knowledge.event` 는 증권사 리포트 헤드라인을 그대로 싣고 있어서
+    // `서울보증보험 iM증권 목표가 56000 Buy` 같은 제목이 사건 제목으로 존재한다.
+    // 라이브 실측(2026-08-11): 사건이 실린 177종목 중 127종목의 상위 5건 안에
+    // 목표가·Buy·매수 문구가 들어 있었다. CLAUDE.md 가 이름으로 금지한 것이
+    // 그대로 화면에 나가고 있었다는 뜻이다.
+    //
+    // 읽기 모델이 아니라 빌더인 이유는 `AssetSourceFacts.actionAdviceExcludedEvents`
+    // 주석에 적었다 — digest 정직성이 그 선택을 정한다.
+    //
+    // **자르기 전에 거른다.** 매핑된 결과를 거르면 `truncation.recentEvents.total`
+    // 이 걸러진 것까지 세게 되고, 그러면 "확인된 사건 N건 중 최근 M건" 이 더는
+    // 서빙되지 않는 총계를 말한다.
+    const eventRows = [...(eventsByEntity.get(entityId) ?? [])].sort((a, b) =>
+      String(b.known_at).localeCompare(String(a.known_at)),
+    );
+    const eligibleEventRows = eventRows.filter(
+      (event) => !containsActionAdvice(event.summary_text),
+    );
+
     batch.set(entityId, {
       subjectEntityId: entityId,
       asOfDate,
@@ -416,9 +439,7 @@ export async function loadAssetSourceFacts(
         'numericFacts',
       ),
       recentEvents: capped(
-        [...(eventsByEntity.get(entityId) ?? [])].sort((a, b) =>
-          String(b.known_at).localeCompare(String(a.known_at)),
-        ),
+        eligibleEventRows,
         MAX_EVENTS_PER_ASSET,
         (event) => ({
           eventKey: String(event.event_key),
@@ -428,6 +449,7 @@ export async function loadAssetSourceFacts(
         truncation,
         'recentEvents',
       ),
+      actionAdviceExcludedEvents: eventRows.length - eligibleEventRows.length,
       surprises: (surprisesByEntity.get(entityId) ?? []).map((surprise) => ({
         surpriseRevisionId: Number(surprise.surprise_revision_id),
         magnitude:

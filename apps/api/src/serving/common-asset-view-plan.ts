@@ -131,6 +131,19 @@ export type AssetSourceFacts = {
   playbook: { playbookKey: string; assignedAt: string } | null;
   numericFacts: NumericFactSummary[];
   recentEvents: { eventKey: string; knownAt: string; title: string | null }[];
+  /**
+   * 제품 경계(CLAUDE.md: 목표주가·매수/매도 문구 금지) 때문에 `recentEvents` 에서
+   * 빠진 사건 수. **0 이 아닐 때만 payload 로 나간다.**
+   *
+   * 왜 빌더에서 세고 빌더에서 빼는가. 읽기 시점에 거르면 서빙된 패킷이 저장된
+   * 패킷과 달라지고 `packetDigest` 가 서빙된 것을 서술하지 않게 된다. 빌더에서
+   * 빼면 패킷 자체가 깨끗해지고 digest 는 정직하게 유지되며, 이 읽기 경로뿐
+   * 아니라 모든 소비자가 같은 혜택을 받는다.
+   *
+   * 왜 개수를 남기는가. `truncation` 과 같은 이유다 — 조용히 사라진 사건은
+   * "없었다" 로 읽히지만, 세어서 남기면 **이유 있는 부재**가 된다.
+   */
+  actionAdviceExcludedEvents: number;
   surprises: { surpriseRevisionId: number; magnitude: number | null }[];
   expectations: { expectationRevisionId: number; metricKey: string }[];
   relations: RelationFact[];
@@ -361,19 +374,37 @@ function planComparableFacts(facts: AssetSourceFacts): CommonAssetViewBlock {
 }
 
 function planRecentEvents(facts: AssetSourceFacts): CommonAssetViewBlock {
-  const { recentEvents, surprises } = facts;
+  const { recentEvents, surprises, actionAdviceExcludedEvents } = facts;
+  // 0 이면 키를 아예 싣지 않는다. `withTruncation` 이 자르지 않은 목록에
+  // `truncated` 를 붙이지 않는 것과 같은 규칙이고, 실무적으로도 297개 패킷
+  // 전부의 블록4 digest 를 이유 없이 움직이지 않게 한다.
+  const exclusion = actionAdviceExcludedEvents > 0 ? { actionAdviceExcludedEvents } : ({} as const);
   if (recentEvents.length === 0) {
-    return block(
-      4,
-      'recent_events_surprise',
-      'not_produced',
-      'knowledge.event has no event for this subject',
-      {},
-      0,
-    );
+    // 사건이 있었는데 전부 제품 경계에 걸린 경우와, 애초에 사건이 없는 경우는
+    // 다른 사실이다. 전자에 `not_produced` 를 쓰면 그 사유("has no event")가
+    // 거짓말이 된다. `no_eligible_source` 는 "이 계약이 읽어도 되는 소스가
+    // 없다" 이고, 그것이 정확히 여기서 일어난 일이다.
+    return actionAdviceExcludedEvents > 0
+      ? block(
+          4,
+          'recent_events_surprise',
+          'no_eligible_source',
+          `all ${actionAdviceExcludedEvents} events for this subject restate buy/sell or target-price wording the read-only product may not carry`,
+          exclusion,
+          0,
+        )
+      : block(
+          4,
+          'recent_events_surprise',
+          'not_produced',
+          'knowledge.event has no event for this subject',
+          {},
+          0,
+        );
   }
   const payload = withTruncation(
     {
+      ...exclusion,
       events: [...recentEvents].sort((a, b) => b.knownAt.localeCompare(a.knownAt)),
       surprises: [...surprises].sort((a, b) => a.surpriseRevisionId - b.surpriseRevisionId),
     },

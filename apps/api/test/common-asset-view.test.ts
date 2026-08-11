@@ -7,6 +7,7 @@ import {
   relationSignalTier,
   type AssetSourceFacts,
 } from '../src/serving/common-asset-view-plan.ts';
+import { loadAssetSourceFacts, type QueryClient } from '../src/serving/common-asset-view-store.ts';
 import {
   censusOf,
   parseCommonAssetViewArgs,
@@ -24,6 +25,7 @@ function bareFacts(overrides: Partial<AssetSourceFacts> = {}): AssetSourceFacts 
     playbook: null,
     numericFacts: [],
     recentEvents: [],
+    actionAdviceExcludedEvents: 0,
     surprises: [],
     expectations: [],
     relations: [],
@@ -505,6 +507,124 @@ describe('capped lists say they were capped', () => {
       planCommonAssetView(uncapped).packetDigest,
       planCommonAssetView(capped).packetDigest,
     );
+  });
+});
+
+describe('the product boundary is enforced in the builder, not in the reader', () => {
+  const advice = { eventKey: 'e1', knownAt: '2026-08-10T00:00:00.000Z', title: null };
+
+  it('names the exclusion in the payload instead of silently shrinking the list', () => {
+    // 조용히 뺀 사건은 "없었다" 로 읽힌다. `truncated` 와 같은 규칙으로 이유를 남긴다.
+    const block = blockOf(
+      bareFacts({ recentEvents: [advice], actionAdviceExcludedEvents: 3 }),
+      'recent_events_surprise',
+    );
+    assert.equal(block?.payload.actionAdviceExcludedEvents, 3);
+  });
+
+  it('says nothing when nothing was excluded', () => {
+    // 297개 패킷 전부에 `: 0` 을 실으면 이유 없이 블록4 digest 가 전부 움직인다.
+    const block = blockOf(bareFacts({ recentEvents: [advice] }), 'recent_events_surprise');
+    assert.equal(block?.payload.actionAdviceExcludedEvents, undefined);
+  });
+
+  it('does not claim the subject has no event when every event was excluded', () => {
+    // `not_produced` 의 사유는 "knowledge.event has no event" 이고, 사건이
+    // 있었는데 전부 걸린 경우에 그것은 거짓말이다.
+    const block = blockOf(
+      bareFacts({ recentEvents: [], actionAdviceExcludedEvents: 2 }),
+      'recent_events_surprise',
+    );
+    assert.equal(block?.blockState, 'no_eligible_source');
+    assert.match(block?.stateReason ?? '', /all 2 events/);
+    assert.equal(block?.payload.actionAdviceExcludedEvents, 2);
+  });
+
+  it('still reports a subject with no events at all as not_produced', () => {
+    const block = blockOf(bareFacts(), 'recent_events_surprise');
+    assert.equal(block?.blockState, 'not_produced');
+    assert.match(block?.stateReason ?? '', /has no event/);
+  });
+
+  it('moves the digest, because an excluded packet is not the same packet', () => {
+    assert.notEqual(
+      planCommonAssetView(bareFacts({ recentEvents: [advice] })).packetDigest,
+      planCommonAssetView(bareFacts({ recentEvents: [advice], actionAdviceExcludedEvents: 1 }))
+        .packetDigest,
+    );
+  });
+});
+
+describe('the store drops advice headlines before it caps the list', () => {
+  /** 로더가 부르는 15개 쿼리 중 정체성과 사건만 채우고 나머지는 빈 결과로 둔다. */
+  function clientWith(events: { event_key: string; summary_text: string }[]): QueryClient {
+    return {
+      query: async (text: string) => {
+        if (text.includes('core.security_master master')) {
+          return {
+            rows: [
+              {
+                entity_id: '1',
+                security_key: 'KR:000000',
+                primary_ticker: '000000',
+                canonical_name: '테스트',
+              },
+            ],
+          };
+        }
+        if (text.includes('FROM knowledge.event event')) {
+          return {
+            rows: events.map((event, index) => ({
+              entity_id: '1',
+              event_key: event.event_key,
+              summary_text: event.summary_text,
+              known_at: `2026-08-01T00:${String(index % 60).padStart(2, '0')}:00.000Z`,
+            })),
+          };
+        }
+        return { rows: [] };
+      },
+    } as unknown as QueryClient;
+  }
+
+  const load = (events: { event_key: string; summary_text: string }[]) =>
+    loadAssetSourceFacts(clientWith(events), {
+      entityIds: [1],
+      asOfDate: '2026-08-11',
+      releaseId: 'test',
+      semanticSnapshotId: 'test',
+    });
+
+  it('keeps reported market activity and drops the recommendation headline', async () => {
+    // 두 제목 모두 라이브 `knowledge.event` 의 실제 꼴이다.
+    const facts = (
+      await load([
+        { event_key: 'a', summary_text: '서울보증보험 iM증권 목표가 56000 Buy' },
+        { event_key: 'b', summary_text: '삼성전기 임원 순매수 14,851,645주' },
+      ])
+    ).get(1);
+    assert.deepEqual(
+      facts?.recentEvents.map((event) => event.eventKey),
+      ['b'],
+    );
+    assert.equal(facts?.actionAdviceExcludedEvents, 1);
+  });
+
+  it('counts the true total of eligible events, not of all events', async () => {
+    // 자른 뒤에 거르면 `truncation.recentEvents.total` 이 서빙되지 않는 사건까지
+    // 세고, 그러면 "확인된 사건 N건 중 최근 M건" 이 없는 총계를 말한다.
+    const advice = Array.from({ length: 30 }, (_, index) => ({
+      event_key: `advice-${index}`,
+      summary_text: `종목 증권사 목표가 ${index}000 Buy`,
+    }));
+    const plain = Array.from({ length: 25 }, (_, index) => ({
+      event_key: `plain-${index}`,
+      summary_text: `분기 실적 발표 ${index}`,
+    }));
+    const facts = (await load([...advice, ...plain])).get(1);
+    assert.equal(facts?.recentEvents.length, 20);
+    assert.equal(facts?.actionAdviceExcludedEvents, 30);
+    assert.deepEqual(facts?.truncation.recentEvents, { kept: 20, total: 25 });
   });
 });
 
