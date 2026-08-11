@@ -11,7 +11,12 @@ import type {
   ResearchWorkspaceViewOptions,
 } from '@/pages/research-workspace/model/workspace-view-payload';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
-import { workspaceViewBundleV2Schema } from '@stock-insight/contracts/workspace-read-v2';
+import {
+  entityBriefingV2Schema,
+  workspaceViewBundleV2Schema,
+  type EntityBriefingSurface,
+  type EntityBriefingV2,
+} from '@stock-insight/contracts/workspace-read-v2';
 
 // Every read here used to open its own PostgreSQL connection. They now go over
 // HTTP to the brain, so this process holds no database credentials.
@@ -153,6 +158,31 @@ export async function loadGeoMvtTile(
 
 export async function loadStockList(userId: string) {
   return brainRequest('/v1/stocks', { scope: scopeFor(userId) });
+}
+
+/**
+ * 종목 하나의 집계 브리핑 — Asset Deep Dive 페이지 로더가 쓴다.
+ *
+ * 브라우저의 `api.entityBriefing()` 과 **같은 brain 엔드포인트**이고 같은
+ * 스키마로 파싱한다. 다른 것은 호출 위치뿐이다: 페이지 진입은 라우트 로더에서
+ * 서버가 한 번 부르고, drawer 는 클릭 시점에 클라이언트가 부른다.
+ *
+ * 원점 왕복은 여기서도 **1회다**. BFF 의 `/api/entities/:key/briefing` 을 서버가
+ * 자기 자신에게 다시 HTTP 로 부르면 홉이 하나 늘고 Cloudflare PoP 경유로 약
+ * 600ms 가 붙는다(CLAUDE.md). 그래서 BFF 라우트를 거치지 않고 brain 을 직접
+ * 부른다 — `loadResearchWorkspaceView` 가 이미 쓰는 경로와 같다.
+ */
+export async function loadEntityBriefing(
+  userId: string,
+  entityKey: string,
+  surface: EntityBriefingSurface,
+): Promise<EntityBriefingV2> {
+  return entityBriefingV2Schema.parse(
+    await brainRequest(`/v1/entities/${encodeURIComponent(entityKey)}/briefing`, {
+      scope: scopeFor(userId),
+      query: { surface },
+    }),
+  );
 }
 
 // Composite view. Previously one PostgreSQL read-snapshot spanned every query in

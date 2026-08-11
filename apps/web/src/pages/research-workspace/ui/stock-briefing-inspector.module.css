@@ -212,3 +212,27 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* drawer 헤더의 "자세히 보기". 24×24 최소 타겟(UX 헌법 3번)을 넘기고,
+   390px 에서 제목 옆으로 밀려 나가지 않게 자기 줄을 갖는다. */
+.detailPageLink {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--color-accent);
+  font-size: 12.5px;
+  font-weight: 640;
+  text-decoration: none;
+}
+
+.detailPageLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 520px) {
+  .detailPageLink {
+    min-height: 44px;
+  }
+}

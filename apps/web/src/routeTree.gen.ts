@@ -60,6 +60,8 @@ import { Route as ApiStocksEntityKeyPricesRouteImport } from './routes/api/stock
 import { Route as ApiRecordsRecordKeyBriefingRouteImport } from './routes/api/records/$recordKey/briefing'
 import { Route as ApiEntitiesEntityKeyRelationsRouteImport } from './routes/api/entities/$entityKey/relations'
 import { Route as ApiEntitiesEntityKeyBriefingRouteImport } from './routes/api/entities/$entityKey/briefing'
+import { Route as AuthenticatedWorkspaceAssetsEntityKeyRouteImport } from './routes/_authenticated/workspace/assets.$entityKey'
+import { Route as AuthenticatedWorkspaceAssetsEntityKeyTabRouteImport } from './routes/_authenticated/workspace/assets.$entityKey.$tab'
 import { Route as ApiGeoTilesZXYRouteImport } from './routes/api/geo/tiles/$z/$x/$y'
 
 const SignupRoute = SignupRouteImport.update({
@@ -333,6 +335,18 @@ const ApiEntitiesEntityKeyBriefingRoute =
     path: '/api/entities/$entityKey/briefing',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedWorkspaceAssetsEntityKeyRoute =
+  AuthenticatedWorkspaceAssetsEntityKeyRouteImport.update({
+    id: '/assets/$entityKey',
+    path: '/assets/$entityKey',
+    getParentRoute: () => AuthenticatedWorkspaceRoute,
+  } as any)
+const AuthenticatedWorkspaceAssetsEntityKeyTabRoute =
+  AuthenticatedWorkspaceAssetsEntityKeyTabRouteImport.update({
+    id: '/$tab',
+    path: '/$tab',
+    getParentRoute: () => AuthenticatedWorkspaceAssetsEntityKeyRoute,
+  } as any)
 const ApiGeoTilesZXYRoute = ApiGeoTilesZXYRouteImport.update({
   id: '/api/geo/tiles/$z/$x/$y',
   path: '/api/geo/tiles/$z/$x/$y',
@@ -381,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/workspace/': typeof AuthenticatedWorkspaceIndexRoute
+  '/workspace/assets/$entityKey': typeof AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren
   '/api/entities/$entityKey/briefing': typeof ApiEntitiesEntityKeyBriefingRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/records/$recordKey/briefing': typeof ApiRecordsRecordKeyBriefingRoute
@@ -390,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
+  '/workspace/assets/$entityKey/$tab': typeof AuthenticatedWorkspaceAssetsEntityKeyTabRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
 }
 export interface FileRoutesByTo {
@@ -433,6 +449,7 @@ export interface FileRoutesByTo {
   '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/workspace': typeof AuthenticatedWorkspaceIndexRoute
+  '/workspace/assets/$entityKey': typeof AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren
   '/api/entities/$entityKey/briefing': typeof ApiEntitiesEntityKeyBriefingRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/records/$recordKey/briefing': typeof ApiRecordsRecordKeyBriefingRoute
@@ -442,6 +459,7 @@ export interface FileRoutesByTo {
   '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
+  '/workspace/assets/$entityKey/$tab': typeof AuthenticatedWorkspaceAssetsEntityKeyTabRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
 }
 export interface FileRoutesById {
@@ -488,6 +506,7 @@ export interface FileRoutesById {
   '/api/v1/impact': typeof ApiV1ImpactRouteWithChildren
   '/api/watchlist/$entityKey': typeof ApiWatchlistEntityKeyRoute
   '/_authenticated/workspace/': typeof AuthenticatedWorkspaceIndexRoute
+  '/_authenticated/workspace/assets/$entityKey': typeof AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren
   '/api/entities/$entityKey/briefing': typeof ApiEntitiesEntityKeyBriefingRoute
   '/api/entities/$entityKey/relations': typeof ApiEntitiesEntityKeyRelationsRoute
   '/api/records/$recordKey/briefing': typeof ApiRecordsRecordKeyBriefingRoute
@@ -497,6 +516,7 @@ export interface FileRoutesById {
   '/api/v1/impact/brief': typeof ApiV1ImpactBriefRoute
   '/api/v1/personal/feed': typeof ApiV1PersonalFeedRoute
   '/api/v1/reports/latest': typeof ApiV1ReportsLatestRoute
+  '/_authenticated/workspace/assets/$entityKey/$tab': typeof AuthenticatedWorkspaceAssetsEntityKeyTabRoute
   '/api/geo/tiles/$z/$x/$y': typeof ApiGeoTilesZXYRoute
 }
 export interface FileRouteTypes {
@@ -543,6 +563,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/workspace/'
+    | '/workspace/assets/$entityKey'
     | '/api/entities/$entityKey/briefing'
     | '/api/entities/$entityKey/relations'
     | '/api/records/$recordKey/briefing'
@@ -552,6 +573,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
+    | '/workspace/assets/$entityKey/$tab'
     | '/api/geo/tiles/$z/$x/$y'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -595,6 +617,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/workspace'
+    | '/workspace/assets/$entityKey'
     | '/api/entities/$entityKey/briefing'
     | '/api/entities/$entityKey/relations'
     | '/api/records/$recordKey/briefing'
@@ -604,6 +627,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
+    | '/workspace/assets/$entityKey/$tab'
     | '/api/geo/tiles/$z/$x/$y'
   id:
     | '__root__'
@@ -649,6 +673,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact'
     | '/api/watchlist/$entityKey'
     | '/_authenticated/workspace/'
+    | '/_authenticated/workspace/assets/$entityKey'
     | '/api/entities/$entityKey/briefing'
     | '/api/entities/$entityKey/relations'
     | '/api/records/$recordKey/briefing'
@@ -658,6 +683,7 @@ export interface FileRouteTypes {
     | '/api/v1/impact/brief'
     | '/api/v1/personal/feed'
     | '/api/v1/reports/latest'
+    | '/_authenticated/workspace/assets/$entityKey/$tab'
     | '/api/geo/tiles/$z/$x/$y'
   fileRoutesById: FileRoutesById
 }
@@ -1057,6 +1083,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEntitiesEntityKeyBriefingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/workspace/assets/$entityKey': {
+      id: '/_authenticated/workspace/assets/$entityKey'
+      path: '/assets/$entityKey'
+      fullPath: '/workspace/assets/$entityKey'
+      preLoaderRoute: typeof AuthenticatedWorkspaceAssetsEntityKeyRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceRoute
+    }
+    '/_authenticated/workspace/assets/$entityKey/$tab': {
+      id: '/_authenticated/workspace/assets/$entityKey/$tab'
+      path: '/$tab'
+      fullPath: '/workspace/assets/$entityKey/$tab'
+      preLoaderRoute: typeof AuthenticatedWorkspaceAssetsEntityKeyTabRouteImport
+      parentRoute: typeof AuthenticatedWorkspaceAssetsEntityKeyRoute
+    }
     '/api/geo/tiles/$z/$x/$y': {
       id: '/api/geo/tiles/$z/$x/$y'
       path: '/api/geo/tiles/$z/$x/$y'
@@ -1066,6 +1106,21 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedWorkspaceAssetsEntityKeyRouteChildren {
+  AuthenticatedWorkspaceAssetsEntityKeyTabRoute: typeof AuthenticatedWorkspaceAssetsEntityKeyTabRoute
+}
+
+const AuthenticatedWorkspaceAssetsEntityKeyRouteChildren: AuthenticatedWorkspaceAssetsEntityKeyRouteChildren =
+  {
+    AuthenticatedWorkspaceAssetsEntityKeyTabRoute:
+      AuthenticatedWorkspaceAssetsEntityKeyTabRoute,
+  }
+
+const AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren =
+  AuthenticatedWorkspaceAssetsEntityKeyRoute._addFileChildren(
+    AuthenticatedWorkspaceAssetsEntityKeyRouteChildren,
+  )
 
 interface AuthenticatedWorkspaceRouteChildren {
   AuthenticatedWorkspaceCryptoRoute: typeof AuthenticatedWorkspaceCryptoRoute
@@ -1078,6 +1133,7 @@ interface AuthenticatedWorkspaceRouteChildren {
   AuthenticatedWorkspaceThemesRoute: typeof AuthenticatedWorkspaceThemesRoute
   AuthenticatedWorkspaceTodayRoute: typeof AuthenticatedWorkspaceTodayRoute
   AuthenticatedWorkspaceIndexRoute: typeof AuthenticatedWorkspaceIndexRoute
+  AuthenticatedWorkspaceAssetsEntityKeyRoute: typeof AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren
 }
 
 const AuthenticatedWorkspaceRouteChildren: AuthenticatedWorkspaceRouteChildren =
@@ -1093,6 +1149,8 @@ const AuthenticatedWorkspaceRouteChildren: AuthenticatedWorkspaceRouteChildren =
     AuthenticatedWorkspaceThemesRoute: AuthenticatedWorkspaceThemesRoute,
     AuthenticatedWorkspaceTodayRoute: AuthenticatedWorkspaceTodayRoute,
     AuthenticatedWorkspaceIndexRoute: AuthenticatedWorkspaceIndexRoute,
+    AuthenticatedWorkspaceAssetsEntityKeyRoute:
+      AuthenticatedWorkspaceAssetsEntityKeyRouteWithChildren,
   }
 
 const AuthenticatedWorkspaceRouteWithChildren =

@@ -1,4 +1,5 @@
-import { ExternalLink, Newspaper } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
+import { ArrowRight, ExternalLink, Newspaper } from 'lucide-react';
 
 import { DetailInspectorFrame } from './detail-inspector-frame';
 import { RelationSigmaGraph } from './relation-sigma-graph';
@@ -134,6 +135,22 @@ export function StockBriefingInspector({
                   </span>
                   <h2 id="stock-inspector-summary">종목 요약</h2>
                   <strong>{detail.stock.displayName}</strong>
+                  {/*
+                    drawer 는 30초 답변으로 남고, 정본 01 §3 이 요구하는
+                    above-the-fold 10항목과 하위 탭 11개는 페이지가 받는다 —
+                    390px drawer 에 들어가지 않기 때문이다(UX 헌법 4번).
+
+                    `Link` 라서 클라이언트 전환이다. `window.location` 으로 보내면
+                    원점 왕복이 하나 더 붙는다(CLAUDE.md 성능 노트).
+                  */}
+                  <Link
+                    className={styles.detailPageLink}
+                    params={{ entityKey: detail.stock.entityKey }}
+                    to="/workspace/assets/$entityKey"
+                  >
+                    자세히 보기
+                    <ArrowRight aria-hidden="true" size={13} />
+                  </Link>
                 </div>
                 <PropertyList
                   className={styles.summaryMeta}

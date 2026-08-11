@@ -1,0 +1,65 @@
+/*
+ * 산업 입문. UX 헌법 4번(390px 가로 오버플로 금지) 때문에 모든 컨테이너가
+ * `min-width: 0` 으로 시작한다 — grid/flex 자식의 기본 `min-width: auto` 가
+ * 긴 낱말 하나로 부모를 밀어내는 것이 가로 오버플로의 가장 흔한 원인이다.
+ */
+
+.primer {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.primerBody {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.primerLead {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.expectationList {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.expectationList > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.expectationList dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.expectationList dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.primerAbsence {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  border-left: 2px dashed color-mix(in srgb, var(--color-border) 90%, transparent);
+  padding-left: 10px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.6;
+}

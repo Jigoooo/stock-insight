@@ -13,7 +13,10 @@ const productControlUrls = [
   new URL('../src/pages/auth/signup-page.tsx', import.meta.url),
   new URL('../src/pages/auth/login-page.tsx', import.meta.url),
   new URL('../src/pages/auth/auth-input-field.tsx', import.meta.url),
-  new URL('../src/entities/stock/ui/stock-detail.tsx', import.meta.url),
+  // `entities/stock/ui/stock-detail.tsx` 가 여기 있었다. 2026-08-11 에 지웠다 —
+  // 어떤 라우트도 렌더하지 않는 502줄짜리 죽은 화면이었고, 학습 카드 렌더 패턴만
+  // `pages/asset-deep-dive/ui/asset-learning-cards.tsx` 로 들어올렸다. 목록에
+  // 남겨 두면 `readFile` 이 던져 이 테스트가 없는 파일을 지키게 된다.
 ];
 
 const researchWorkspaceUrls = [

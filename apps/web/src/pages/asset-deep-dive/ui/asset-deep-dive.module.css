@@ -1,0 +1,315 @@
+/*
+ * Asset Deep Dive.
+ *
+ * UX 헌법 4번(390px 가로 오버플로 금지)이 이 파일의 유일한 강제 규칙이다.
+ * 모든 격자는 `minmax(0, …)` 로 시작하고 모든 컨테이너는 `min-width: 0` 을
+ * 갖는다 — grid/flex 자식의 기본 `min-width: auto` 가 긴 낱말 하나로 부모를
+ * 밀어내는 것이 가로 오버플로의 가장 흔한 원인이다.
+ */
+
+.page {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+  padding: clamp(16px, 2.4vw, 28px);
+}
+
+.identityLine {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.identityLine strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 660;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 탭 스트립. RouteTabs 자신이 overflow-x: auto 를 갖지만, 감싸는 자리도
+   min-width: 0 이어야 스크롤이 페이지가 아니라 스트립 안에서 일어난다. */
+.tabStrip {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tabStrip > nav {
+  max-width: none;
+}
+
+.section {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding-block: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.section:first-of-type {
+  border-top: 0;
+}
+
+.sectionHeader {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.sectionHeader h2,
+.sectionHeader h3 {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sectionHeader p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sectionBody {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.stateBadge {
+  flex: none;
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding-inline: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  font-size: 11.5px;
+  font-weight: 640;
+  white-space: nowrap;
+}
+
+.stateBadge[data-block-state='available'] {
+  border-color: color-mix(in srgb, var(--color-accent) 44%, var(--color-border));
+  color: var(--color-text-primary);
+}
+
+.blockNotice {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.comparability {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.comparabilityList {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.comparabilityList li {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.comparabilityList strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 660;
+}
+
+.comparabilityList span {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+/* 갭 목록. 부재를 이유와 함께 적는 자리라 시각적으로 죽이지 않는다 — 흐리게
+   깔면 "없음" 이 "중요하지 않음" 으로 읽힌다. */
+.gapList {
+  min-width: 0;
+  border-left: 2px dashed var(--color-border-strong, var(--color-border));
+  padding-left: 12px;
+}
+
+.eventList {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.eventList li {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.eventList strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.eventList time {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tickerList {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tickerList li {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding-inline: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 미검증 자료 구역. 검증된 자리와 섞이지 않게 시각적으로 분리한다. */
+.unverifiedRegion {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-panel, 10px);
+}
+
+.unverifiedRegion > strong {
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 660;
+}
+
+.unverifiedRegion > p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.backLink {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 520px) {
+  .backLink {
+    min-height: 44px;
+  }
+}
+
+/* 원문 그대로 옮긴 목록 앞에 붙는 단서. 흐리게 깔되 읽히지 않을 만큼은 아니다 —
+   이 문장이 안 읽히면 남의 의견이 우리 판단으로 읽힌다. */
+.sourceCaveat {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* 학습 카드. 390px 에서 한 열로 떨어지도록 `minmax(0, 1fr)` 로 시작한다 —
+   `auto-fit` 의 기본 최소값이 `auto` 라 긴 낱말 하나가 열을 밀어낸다. */
+.learningCards {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.learningCard {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel, 10px);
+}
+
+.learningCard > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.learningCard > p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.learningCardHead {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.learningCardQuality {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.learningCardSource {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.5;
+}

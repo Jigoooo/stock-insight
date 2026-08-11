@@ -1,12 +1,28 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
+/**
+ * Asset Deep Dive 는 저장소에서 가장 큰 화면(above-the-fold 10항목 + 하위 탭
+ * 11개)인데 이 매트릭스 밖에 있었다. 390/768/1180/1440 오버플로 · Axe ·
+ * reduced-motion 이 한 번도 돌지 않은 화면이고, UX 헌법 4·1·5 는 릴리스를
+ * 막는다. 그래서 부모(above-the-fold)와 자식 탭 하나를 둘 다 넣는다 — 탭
+ * 본문은 자식 라우트가 그리므로 부모만 넣으면 절반만 재는 것이 된다.
+ *
+ * 키를 고정하는 이유. 이 스펙은 목록에서 종목을 찾아 들어가지 않는다.
+ * 그러면 재는 대상이 데이터에 따라 달라지고, 실패했을 때 무엇이 깨졌는지
+ * 알 수 없다. `KR:005930` 이 없는 데이터베이스에서는 화면이 "패킷이 아직
+ * 없습니다" 를 그리며, 그것도 이 매트릭스가 재야 하는 정상 상태다.
+ */
+const assetRoute = '/workspace/assets/KR:005930';
+
 const routes = [
   '/workspace/today',
   '/workspace/radar',
   '/workspace/stocks',
   '/workspace/history',
   '/workspace/status',
+  assetRoute,
+  `${assetRoute}/events`,
   '/admin/invitations',
 ] as const;
 
@@ -123,9 +139,12 @@ async function gotoAuthenticatedRoute(page: Page, route: string, expectedPath = 
   await waitForFonts(page);
 
   const url = new URL(page.url());
-  expect(url.pathname, 'requested route redirected to login').not.toBe('/login');
-  expect(url.pathname, 'requested route must resolve to its canonical workspace path').toBe(
-    expectedPath,
+  // `KR:005930` 처럼 콜론이 든 경로 파라미터는 라우터가 `%3A` 로 정규화할 수도,
+  // 그대로 둘 수도 있다. 둘 다 같은 자원이므로 디코드해서 비교한다.
+  const pathname = decodeURIComponent(url.pathname);
+  expect(pathname, 'requested route redirected to login').not.toBe('/login');
+  expect(pathname, 'requested route must resolve to its canonical workspace path').toBe(
+    decodeURIComponent(expectedPath),
   );
 }
 
@@ -256,7 +275,9 @@ test.describe('authenticated workspace visual matrix', () => {
         await capture(
           page,
           testInfo,
-          `${route.slice(1).replaceAll('/', '-')}-${mode.viewport}-${colorScheme}`,
+          // 콜론은 파일 이름에 쓰기 나쁘다. 기존 경로에는 없으므로 이름이 바뀌는
+          // 것은 새로 들어온 자산 경로뿐이다.
+          `${route.slice(1).replaceAll('/', '-').replaceAll(':', '-')}-${mode.viewport}-${colorScheme}`,
           [page.locator('time'), page.getByTestId('admin-invitation-status').locator('code')],
         );
       });
@@ -285,7 +306,14 @@ test.describe('authenticated workspace visual matrix', () => {
     });
   }
 
-  for (const route of ['/workspace/today', '/workspace/radar', '/workspace/stocks'] as const) {
+  // reduced-motion 은 위 매트릭스와 **별개 배열**이다. 자산 화면은 깊이
+  // accordion 이 열리고 닫히는 유일한 화면이므로 여기에도 들어가야 한다.
+  for (const route of [
+    '/workspace/today',
+    '/workspace/radar',
+    '/workspace/stocks',
+    `${assetRoute}/events`,
+  ] as const) {
     test(`${route} reduced-motion has no running transform animation`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
       await gotoAuthenticatedRoute(page, route);

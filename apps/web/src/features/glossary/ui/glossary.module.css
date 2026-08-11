@@ -1,0 +1,146 @@
+/*
+ * 용어 주석과 용어 목록.
+ *
+ * UX 헌법 3번(타겟 24×24)과 4번(390px 가로 오버플로 금지)이 이 파일의 강제
+ * 규칙이다. 인라인 트리거는 본문 줄높이(약 21px)보다 작아지기 쉬우므로
+ * `shared/ui/link` 의 선례를 그대로 따른다 — `inline-flex` + `min-height`.
+ * 거기서는 32px 이고, 여기는 산문 한가운데라 줄간격을 덜 흔드는 24px 이다
+ * (헌법이 요구하는 최소값이고, 44px 는 권장치이지 강제가 아니다).
+ */
+
+/*
+ * 팝오버의 위치 기준은 **감싸는 span** 이다. `position: relative` 를 버튼에 두면
+ * 팝오버는 버튼의 형제라 기준이 되지 못하고, `top: 100%` 가 문서 전체를 기준으로
+ * 풀려 화면 밖 왼쪽 아래에 절대 배치된다 — 동작도 안 하고 가로 스크롤도 만든다
+ * (UX 헌법 4번). `inline-block` 은 그 기준을 낱말 하나에 또렷하게 묶는다.
+ */
+.annotated {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.term {
+  display: inline-flex;
+  min-width: 24px;
+  min-height: 24px;
+  justify-content: center;
+  align-items: center;
+  border: 0;
+  border-radius: var(--radius-xs);
+  padding: 0 2px;
+  cursor: help;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-align: start;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, currentcolor 55%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  outline: none;
+}
+
+.term:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.term[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--color-accent-strong) 10%, transparent);
+}
+
+/*
+ * `left` 와 `width` 는 컴포넌트가 열 때 인라인으로 정한다(`glossary-term.tsx` 의
+ * `clampPopover`) — CSS 는 트리거가 뷰포트 어디에 있는지 알 수 없고, 줄 오른쪽에
+ * 선 트리거에서 320px 팝오버가 390px 밖으로 나가면 UX 헌법 4번 위반이다.
+ * 여기 남는 값은 인라인이 오기 전의 안전한 기본값이자 상한이다.
+ */
+.termPopover {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  gap: 6px;
+  max-width: min(320px, calc(100vw - 24px));
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
+  border-radius: var(--radius-panel);
+  padding: 10px 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-text-primary) 9%, transparent);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.55;
+  text-decoration: none;
+  white-space: normal;
+}
+
+.termPopover b {
+  color: var(--color-text-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.termPopover p {
+  margin: 0;
+}
+
+.termSource {
+  overflow-wrap: anywhere;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+}
+
+/* 목록 ------------------------------------------------------------------- */
+
+.panel {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.panelIntro {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.panelList {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.panelList > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.panelList dt {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.panelList dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.panelSource {
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+}
