@@ -1088,16 +1088,98 @@ function sanitizeCompanyProfile(
   return sanitized;
 }
 
+/**
+ * 파이프라인이 실패한 자리를 카드 본문으로 옮겨 적은 문자열.
+ *
+ * `public.stock_learning_cards` 라이브 8행 실측(2026-08-11)에서 셋이 여기 걸린다:
+ * US:FIG · US:TSLA 는 본문 전문이 `API call failed after 3 retries: [Errno 32]
+ * Broken pipe` 이고, US:BMNR 은 제목이 `… (종합 단계 실패 — 원본 제공)` 이다.
+ * 260자 상한 아래라 잘리지도 않아 화면에는 설명문과 똑같은 자리·똑같은 서체로
+ * 앉는다 — UX 헌법 6번이 금지하는 "오류를 다른 상태로 위장" 이다.
+ */
+const CARD_PIPELINE_FAILURE_PATTERN =
+  /(?:API call failed|Traceback \(most recent call last\)|\[Errno\s*\d+\]|Broken pipe|ECONNRESET|ETIMEDOUT|after\s+\d+\s+retries|(?:종합|생성|수집|검증)\s*단계\s*실패|원본\s*제공)/iu;
+
+/**
+ * 카드가 종목이 아니라 **자기 실행에 대해** 말하는 1인칭 발화.
+ *
+ * 같은 8행에서 둘이 여기 걸린다: US:NVDA `주인님, 검증 결과를 충실히 반영해 최종
+ * 보고서를 작성했습니다. … 🌍`, US:PLTR `충분합니다. 보고서 작성합니다.`
+ * KR:005380 은 `… 지어내지 않겠습니다` 로 걸린다 — 정직한 고백이지만 종목 설명이
+ * 아니라 수집 과정에 대한 진술이고, 내부 도구 이름과 그 크레딧 상태까지 함께
+ * 데리고 나온다.
+ *
+ * 고쳐 쓰지 않고 **떨어뜨린다.** 문장을 다듬으면 기록을 위조하는 것이 되고,
+ * 화면에는 "실을 수 있는 것이 남지 않았습니다" 라는 이름 붙은 부재가 남는다.
+ */
+const CARD_ASSISTANT_VOICE_PATTERN =
+  /(?:주인님|보고서(?:를)?\s*(?:작성|정리)(?:합니다|했습니다|하겠습니다)|지어내지\s*않겠습니다)/iu;
+
+/**
+ * 카드가 종목을 **설명**하는 대신 그 종목에 대한 **입장**을 싣는 결론 문장.
+ *
+ * 2026-08-11 라이브 8행에서 위 두 게이트를 통과한 둘이 여기 걸린다.
+ *
+ *   KR:005930 `… "조건부 보유 논리" 가 있는 종목입니다 … 관망형 보유 판단이 …`
+ *   KR:452450 `… 고변동 소형 장비주" 로 보는 게 맞습니다 … 보유 판단은 …`
+ *
+ * 둘 다 260자 상한 아래라 잘리지 않고 전문이 렌더되며, 섹션 헤더가 "판단이
+ * 아니라 설명이며" 를 그린 바로 아래 문단에 앉는다. CLAUDE.md 의 제품 경계는
+ * 목표주가만이 아니라 **입장 표명 자체**를 금지한다.
+ *
+ * ## 왜 `containsActionAdvice` 를 넓히지 않는가
+ *
+ * 그 함수는 뉴스 제목·맥락·리스크·thesis 등 네 개 뉴스 읽기 모델이 공유한다.
+ * 거기서의 오탐은 정당한 보도를 조용히 떨어뜨리고, 2026-08-03 회귀가 정확히 그
+ * 대가였다. 뉴스 헤드라인과 장문 생성 산문은 기준이 다르다 — 그래서 이 패턴은
+ * 학습 카드 전용으로 여기 남는다.
+ *
+ * ## 왜 이 세 형태뿐인가
+ *
+ * `보유` 를 낱말만으로 막지 않는다. `보유 종목`(포트폴리오에 든 종목),
+ * `지분 보유`, `현금 보유` 는 서술적 용법이고 통과해야 한다. 그래서 **뒤에 오는
+ * 머리명사**가 판단어인 형태(`보유 논리` · `보유 판단`)만 막는다.
+ *
+ * `반영했고` 는 넣지 않았다. `원가 상승을 판가에 반영했고` 처럼 사업 서술로 쓰는
+ * 흔한 조각이라 낱말만으로는 오탐이 된다. 두 살아남은 카드는 아래 세 형태로
+ * 이미 각각 두 번씩 걸리므로 필요하지도 않다.
+ *
+ * `결론:` 도 넣지 않았다. 담화 표지일 뿐이고 `결론: 이 회사는 반도체 장비를
+ * 만듭니다` 는 막을 이유가 없다.
+ */
+const CARD_INVESTMENT_STANCE_PATTERN =
+  /(?:(?:보유|매수|매도|투자|접근)\s*(?:논리|판단|스탠스)|로\s*보는\s*게\s*맞(?:습니다|다)|(?:관망|비중)\s*형?\s*(?:보유|접근))/iu;
+
+function isUnusableCardText(value: string | undefined): boolean {
+  const text = value?.trim();
+  if (!text) return false;
+  return (
+    CARD_PIPELINE_FAILURE_PATTERN.test(text) ||
+    CARD_ASSISTANT_VOICE_PATTERN.test(text) ||
+    CARD_INVESTMENT_STANCE_PATTERN.test(text)
+  );
+}
+
 function sanitizeLearningCard(card: StockLearningCard): StockLearningCard | null {
   if (containsActionAdvice(card.title)) return null;
+  // 제목이나 본문 중 하나라도 파이프라인 사고를 옮겨 적은 것이면 카드 전체를
+  // 뺀다. 본문만 지우고 제목을 남기면 실패가 "아직 내용이 없는 카드" 로
+  // 위장되고, 그것이 정확히 이 게이트가 막는 것이다.
+  if (isUnusableCardText(card.title) || isUnusableCardText(card.bodyMarkdown)) return null;
 
   const safeBodyMarkdown = actionSafeText(card.bodyMarkdown);
-  const sanitized = { ...card, bullets: filterActionSafeTexts(card.bullets) };
+  const sanitized = {
+    ...card,
+    bullets: filterActionSafeTexts(card.bullets).filter((bullet) => !isUnusableCardText(bullet)),
+  };
   if (safeBodyMarkdown) {
     sanitized.bodyMarkdown = safeBodyMarkdown;
   } else {
     delete sanitized.bodyMarkdown;
   }
+  // 제목만 남은 카드는 아무것도 말하지 않는다. 빈 카드를 그리면 화면이 채워진
+  // 것처럼 보이지만 읽을 것은 없다.
+  if (!sanitized.bodyMarkdown && sanitized.bullets.length === 0) return null;
   return sanitized;
 }
 

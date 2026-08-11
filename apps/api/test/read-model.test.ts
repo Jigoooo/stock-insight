@@ -713,6 +713,159 @@ describe('stock read model fallback policy', () => {
     );
   });
 
+  it('drops every live learning card: pipeline accident, assistant voice, or investment stance', async () => {
+    // `public.stock_learning_cards` 라이브 8행 전부(2026-08-11 실측)에 판정을
+    // 못박는다. Asset Deep Dive 가 이 표의 첫 화면 소비자이므로, 어느 행이
+    // 살아남고 어느 행이 떨어지는지는 희망이 아니라 단언이어야 한다.
+    //
+    // 오늘 기준 **여덟 행이 전부 떨어진다.** 남은 둘(KR:005930 · KR:452450)은
+    // 파이프라인 오류도 1인칭 발화도 아니지만 종목에 대한 **입장**을 싣는다 —
+    // "조건부 보유 논리", "관망형 보유 판단", "…로 보는 게 맞습니다". 화면은
+    // 그 자리에 "실을 수 있는 것이 남지 않았습니다" 라는 이름 붙은 부재를
+    // 그린다. 기준을 낮춰 내용을 남기는 것은 이 게이트의 방향이 아니다.
+    const liveRows: {
+      entityKey: string;
+      title: string;
+      bodyMarkdown: string;
+      /** 이 행이 화면에 남아야 하는가. */
+      kept: boolean;
+    }[] = [
+      {
+        entityKey: 'KR:005930',
+        title: '삼성전자 학습 요약',
+        bodyMarkdown:
+          '결론: 삼성전자는 “조건부 보유 논리”가 있는 종목입니다. 다만 지금의 강세는 구조적 AI 메모리 사이클에 기반합니다. 신규 공격 접근보다는 관망형 보유 판단이 더 합리적입니다.',
+        // 투자 스탠스다. 섹션 헤더가 "판단이 아니라 설명이며" 를 그린 바로 아래
+        // 문단에서 종목에 대한 입장을 말한다.
+        kept: false,
+      },
+      {
+        entityKey: 'KR:452450',
+        title: '피아이이 학습 요약',
+        bodyMarkdown:
+          '결론: 피아이이는 “기술 옵션은 크지만, 지금은 실적 회복과 CB 오버행을 먼저 통과해야 하는 고변동 소형 장비주”로 보는 게 맞습니다. 보유 판단은 본업 수주 회복이 확인되는가에 달려 있습니다.',
+        kept: false,
+      },
+      {
+        entityKey: 'KR:005380',
+        title: '현대차 학습 요약',
+        bodyMarkdown:
+          '검증 결론: 웹 도구(Firecrawl)가 search·extract 모두 크레딧 소진으로 전면 차단. 외부 교차확인을 단 한 건도 수행하지 못했습니다. 지어내지 않겠습니다.',
+        // 정직한 고백이지만 종목이 아니라 자기 실행에 대한 진술이고, 내부 도구
+        // 이름과 그 크레딧 상태를 화면으로 데리고 나온다.
+        kept: false,
+      },
+      {
+        entityKey: 'US:FIG',
+        title: 'Figma, Inc. 학습 요약',
+        bodyMarkdown: 'API call failed after 3 retries: [Errno 32] Broken pipe',
+        kept: false,
+      },
+      {
+        entityKey: 'US:TSLA',
+        title: 'Tesla, Inc. 학습 요약',
+        bodyMarkdown: 'API call failed after 3 retries: [Errno 32] Broken pipe',
+        kept: false,
+      },
+      {
+        entityKey: 'US:NVDA',
+        title: 'NVIDIA Corporation 학습 요약',
+        bodyMarkdown:
+          '주인님, 검증 결과를 충실히 반영해 최종 보고서를 작성했습니다. 정정 2건은 사실관계를 바로잡았습니다. 🌍',
+        kept: false,
+      },
+      {
+        entityKey: 'US:PLTR',
+        title: 'Palantir Technologies (PLTR) 심층 투자 리서치',
+        bodyMarkdown: '충분합니다. 보고서 작성합니다.',
+        kept: false,
+      },
+      {
+        entityKey: 'US:BMNR',
+        title: 'BitMine Immersion Technologies, 심층 리서치 (종합 단계 실패 — 원본 제공)',
+        // 본문은 읽을 만하지만 제목이 내부 잡 단계 이름을 화면으로 내보낸다.
+        // 제목만 다듬으면 기록을 고쳐 쓰는 것이 되므로 카드째 뺀다.
+        bodyMarkdown:
+          '결론: BMNR은 ETH를 대량 보유하고 주식·우선주 발행으로 ETH-per-share를 키우려는 상장형 트레저리 회사입니다.',
+        kept: false,
+      },
+    ];
+
+    const readModel: StockReadModel = {
+      listStocks() {
+        return [stock];
+      },
+      getStockDetail() {
+        return {
+          ...detail,
+          learningCards: liveRows.map((row) => ({
+            cardKey: row.entityKey,
+            section: '심층 리서치',
+            title: row.title,
+            bodyMarkdown: row.bodyMarkdown,
+            bullets: [],
+            availability: 'text_only' as const,
+            sources: [],
+          })),
+        };
+      },
+    };
+
+    const response = await getStockDetail('KR:005930', { now, readModel });
+    assert.deepEqual(
+      response.data?.learningCards?.map((card) => card.cardKey),
+      liveRows.filter((row) => row.kept).map((row) => row.entityKey),
+    );
+    // 오늘 살아남는 행이 하나도 없다는 사실을 따로 못박는다. 위 `deepEqual` 은
+    // 표를 고치면 함께 조용히 바뀌지만, 이 줄은 "0장" 이 우연이 아니라 관측된
+    // 결과였음을 남긴다. `undefined`(카드 자체가 없음)와 `[]`(있었는데 전부
+    // 떨어짐)는 화면에서 다른 문구이므로 `[]` 인 것까지 확인한다.
+    assert.deepEqual(response.data?.learningCards, []);
+    // 격하가 아니라 제외인 이유: `text_only` 는 본문 렌더를 막지 않는다. 라이브
+    // 8장 중 7장이 이미 `text_only` 였고 그래서 오류 문자열이 화면에 있었다.
+    assert.doesNotMatch(
+      JSON.stringify(response),
+      /Broken pipe|주인님|보고서 작성합니다|단계 실패|지어내지 않겠습니다|보유 논리|보유 판단|보는 게 맞습니다/,
+    );
+  });
+
+  it('keeps learning cards that use 보유 descriptively rather than as a stance', async () => {
+    // 스탠스 게이트가 넓어지면 정상 문구를 조용히 떨어뜨린다. `보유` 는
+    // 포트폴리오·지분·현금 서술에 흔히 쓰이는 낱말이고, 그 용법은 통과해야
+    // 한다. 걸러야 하는 것은 뒤에 판단어(`논리`·`판단`·`스탠스`)가 붙은 형태다.
+    const descriptive = [
+      '이 종목은 국민연금이 5% 이상 보유 중인 보유 종목입니다.',
+      '현금 보유가 늘면서 순차입금은 줄었습니다.',
+      '원가 상승분을 판가에 반영했고 영업이익률은 유지됐습니다.',
+      '결론: 이 회사는 반도체 후공정 장비를 만듭니다.',
+    ];
+    const readModel: StockReadModel = {
+      listStocks() {
+        return [stock];
+      },
+      getStockDetail() {
+        return {
+          ...detail,
+          learningCards: descriptive.map((bodyMarkdown, index) => ({
+            cardKey: `descriptive-${index}`,
+            section: '심층 리서치',
+            title: '사업 설명',
+            bodyMarkdown,
+            bullets: [],
+            availability: 'text_only' as const,
+            sources: [],
+          })),
+        };
+      },
+    };
+
+    const response = await getStockDetail('KR:005930', { now, readModel });
+    assert.deepEqual(
+      response.data?.learningCards?.map((card) => card.bodyMarkdown),
+      descriptive,
+    );
+  });
+
   it('returns an error envelope instead of throwing when stock list read fails', async () => {
     const response = await getStockList({
       now,
