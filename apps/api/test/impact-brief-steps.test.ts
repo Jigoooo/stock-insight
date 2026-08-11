@@ -89,15 +89,33 @@ describe('impact brief steps', () => {
     );
 
     assert.match(source, /has no product wording; add it to STEP_RELATION_BY_PREDICATE/);
-    // Measured on snapshot 27: these five are the predicates impact paths
-    // actually walk. An unmapped one would take down the publish, so they are
-    // pinned here rather than discovered in production.
+    // 2026-08-12 갱신 — 이 목록은 "스냅샷 27 기준 다섯 개" 로 굳어 있었고, 그
+    // 낡음이 정확히 사고의 원인이다. SAME_INDUSTRY 빌더(9aebd29)가 스냅샷 40 에
+    // 276 간선을 넣었지만 이 핀은 27 을 재고 있었으므로 테스트는 초록이었고,
+    // 파이프라인은 프로덕션에서 죽었다.
+    //
+    // 이제 핀은 **스냅샷에 실제로 들어 있는 술어 전부**다(스냅샷 40 실측:
+    // PRODUCT_SIMILARITY 2862 · SAME_ETF_BASKET 2573 · COMMON_OWNER 1391 ·
+    // SAME_INDUSTRY 276 · ISSUED_BY 254 · HELD_BY 250 · CLASSIFIED_AS 119 ·
+    // MACRO_COMOVEMENT 25 · MEASURED_BY 20 · CUSTOMER_OF 10 · SUPPLIES 10).
+    // "경로가 걷는 술어" 가 아니라 "스냅샷에 있는 술어" 로 넓힌 이유: 경로 탐색이
+    // 어느 간선을 밟을지는 그날의 그래프가 정하고, 밟는 순간이 곧 publish 중단이다.
+    //
+    // CUSTOMER_OF · SUPPLIES 는 스냅샷 39·40 에 10 간선씩 있지만 39 의 어떤 경로도
+    // 밟지 않았다(실측). 그래서 아직 매핑이 없고, 이 핀에도 넣지 않는다 — 두
+    // 술어에는 정직한 기존 단어가 없어서 새 낱말을 골라야 하고, 그것은 제품 경계
+    // 결정이지 이 커밋이 지나가며 할 일이 아니다. 밟는 날 publish 가 멈추고,
+    // 멈추는 것이 이 throw 가 하려는 일이다.
     for (const predicate of [
       'SAME_ETF_BASKET',
       'PRODUCT_SIMILARITY',
       'CLASSIFIED_AS',
       'MACRO_COMOVEMENT',
       'MEASURED_BY',
+      'ISSUED_BY',
+      'HELD_BY',
+      'COMMON_OWNER',
+      'SAME_INDUSTRY',
     ]) {
       assert.match(
         source,

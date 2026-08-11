@@ -184,6 +184,23 @@ const STEP_RELATION_BY_PREDICATE: Readonly<Record<string, ImpactBriefStep['relat
   // holders are index funds, so it is weaker still. Same discipline that kept
   // MACRO_COMOVEMENT out of the word 영향.
   COMMON_OWNER: 'common_owner',
+  // Added 2026-08-12, the first pipeline run after the SAME_INDUSTRY builder
+  // (9aebd29) put 276 edges into the snapshot. Publishing died here, which is
+  // this throw doing its job.
+  //
+  // Reuses `same_classification` rather than minting an enum value. The word the
+  // product shows for this hop is already '같은 업종' and this predicate measures
+  // exactly that — two securities carry the same industry classification.
+  // CLASSIFIED_AS is a membership statement ("X is in class C") and SAME_INDUSTRY
+  // is a sameness statement about two peers, but the sentence the reader gets is
+  // the same one, and `toName`/`toEntityKey` still tell the two apart downstream
+  // (CLASSIFIED_AS lands on an industry node, SAME_INDUSTRY on a peer company).
+  // A second enum value would render identical Korean while rippling through the
+  // contract, the web label map, and every sealed pack's schema.
+  //
+  // Not causal, like every word above it: sharing an industry says nothing about
+  // one company moving the other.
+  SAME_INDUSTRY: 'same_classification',
 };
 
 /**
