@@ -117,6 +117,7 @@ import { sameIndustryOntologyApprovalMigrationSql } from './migrations/115_same_
 import { sameIndustryOntologyEffectiveFromMigrationSql } from './migrations/116_same_industry_ontology_effective_from.ts';
 import { defaultPrivilegeVisibilityMigrationSql } from './migrations/117_default_privilege_visibility.ts';
 import { k4FiscalYearComparisonWindowMigrationSql } from './migrations/118_k4_fiscal_year_comparison_window.ts';
+import { scenarioSetSubjectMigrationSql } from './migrations/119_scenario_set_subject.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1211,6 +1212,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: k4FiscalYearComparisonWindowMigrationSql,
   },
+  {
+    id: '119_scenario_set_subject',
+    description:
+      'Gives analytics.scenario_set a subject_entity_id plus information_set_id/derivation_id, and a CHECK that one of shock or subject anchors every row. Measured 2026-08-12: the existing shock anchor reaches zero subjects because world.event carries no target entity at all, so block 9 had no way to name what a thesis is about.',
+    tables: ['scenario_set'],
+    sql: scenarioSetSubjectMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1335,4 +1343,5 @@ export {
   sameIndustryOntologyApprovalMigrationSql,
   sameIndustryOntologyEffectiveFromMigrationSql,
   defaultPrivilegeVisibilityMigrationSql,
+  scenarioSetSubjectMigrationSql,
 };
