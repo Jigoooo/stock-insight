@@ -145,6 +145,15 @@ DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --app
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
+# 인용 검증. CAV 앞에 서야 하는 이유는 하나다: 블록 10 이 읽는 것이 정확히 이
+# 단계의 산출물이고, 순서를 뒤집으면 패킷은 어제의 검증 상태로 굳는다.
+#
+# 이 단계는 knowledge.assertion 에 리비전 2 를 쓰는 저장소 최초의 코드다. 그
+# 표의 모든 키가 지금까지 리비전 1 뿐이었으므로 독자들이 리비전을 무시하고도
+# 옳았고, 이 단계가 그 전제를 처음 깬다. CAV 저장소의 최신-리비전 필터는 같은
+# 커밋에 있다.
+DATABASE_URL="$DB_URL" node apps/api/src/knowledge/run-assertion-span-verification.ts --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-assertion-span-verification-stage "$RUN_STARTED_AT" || exit $?
 # K6 common asset view. After the v2 publishes because it reads what they leave in
 # serving.impact_summary_v2 and serving.market_confirmation_v1, and before nothing —
 # no other stage reads it. It is shadow until K7 wires a surface onto it.
@@ -221,10 +230,12 @@ SELECT CASE WHEN
      -- this stage is that its predecessor was a detector nobody noticed was off.
      -- Asserting it RAN is the part that was missing.
      'stock-insight-source-contract-audit-stage',
+     -- 블록 10 을 어둡게 두던 것은 생산자 부재였다. 이 단계가 그 자리다.
+     'stock-insight-assertion-span-verification-stage',
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 15
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 16
   -- 착지 게이지. 목표치가 아니라 >= 1 인 이유: 아무도 재보지 않은 임계값은 결국
   -- 낮춰진다. 이 숫자가 재는 것은 밴드가 몇 개냐가 아니라 생산자가 살아 있느냐
   -- 다. 실측 커버리지(2026-08-12: 종목 52개 · 밴드 81개)는 요약 JSON 이 말한다.
@@ -247,6 +258,33 @@ SELECT CASE WHEN
   -- 블록 9 착지 게이지. 봉인된 분기가 0이면 thesis 단계가 돌고도 아무것도 내지
   -- 않은 것이고, 화면은 297종목 no_eligible_source 로 되돌아간다.
   AND (SELECT count(*) FROM analytics.scenario_branch WHERE branch_state = 'sealed') >= 1
+  -- 블록 10 착지 게이지. **이웃들과 모양이 다른 이유가 있다 — 맞추지 말 것.**
+  --
+  -- 이웃 게이지들은 이번 실행이 무엇을 썼느냐를 센다(>= 1). 그 모양이 저기서
+  -- 통하는 이유는 실행마다 새 키가 생겨 반드시 새 행이 쓰이기 때문이다.
+  -- 인용 검증은 반대다: **입력을 소진한다.** 첫 실행이 밀린 것을 전부 올리고
+  -- 나면 다음 날 올릴 것은 새로 들어온 주장뿐이고, 뉴스가 없던 날은 0 이다.
+  -- 여기에 >= 1 을 쓰면 건강한 날에 빨개지고, 그때 사람이 손대는 것은 임계값이다.
+  --
+  -- 그래서 재는 것을 뒤집는다: **올릴 수 있는데 안 올라간 것이 있는가.** 0 이면
+  -- 생산자가 제 일을 다 한 것이고, 0 이 아니면 일감이 남았는데 멈춘 것이다.
+  -- 단계가 돌았다는 사실은 위의 job_name 목록이 이미 단언한다 — 여기는 그 단계가
+  -- 돌아서 무엇을 했는지를 단언한다.
+  --
+  -- 원문에 없는 문구를 인용한 주장(실측 2건)은 영원히 extracted 로 남는데, 그것은
+  -- 이 조건에 걸리지 않는다 — 매치되지 않으므로 애초에 올릴 수 있는 것이 아니다.
+  AND (SELECT count(*) FROM (
+         SELECT DISTINCT ON (assertion_key) verification_state,
+                literal_value->>'text' AS quoted,
+                (source_span_locator->>'documentChunkId')::bigint AS chunk_id
+           FROM knowledge.assertion
+          WHERE modality IN ('forecast','alleged')
+          ORDER BY assertion_key, revision_no DESC) latest
+        JOIN knowledge.document_chunk chunk ON chunk.chunk_id = latest.chunk_id
+       WHERE latest.verification_state = 'extracted'
+         AND latest.quoted IS NOT NULL
+         AND btrim(latest.quoted) <> ''
+         AND lower(chunk.content) LIKE '%' || lower(latest.quoted) || '%') = 0
   -- 2026-08-12 정정 — 여기 있던 feed_date=current_date 는 **시간대 두 개를 섞고
   -- 있었다.** feed_date 는 run-feed-build 가 사용자 프로필 시간대로 찍는 날짜이고
   -- (now() AT TIME ZONE profile.timezone)::date, current_date 는 세션 시간대(UTC)의

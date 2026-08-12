@@ -405,11 +405,20 @@ export async function loadAssetSourceFacts(
     // counter-evidence is something contested.
     () =>
       client.query<SourceRow>(
-        `SELECT subject_entity_id AS entity_id, assertion_key, predicate_key, modality,
+        // 키마다 **최신 리비전 하나**만 읽는다.
+        //
+        // 이 줄에는 원래 리비전 필터가 없었고, 오늘까지 그래도 옳았다 —
+        // `knowledge.assertion` 의 모든 키가 리비전 1 뿐이었기 때문이다. 인용 검증
+        // 생산자가 리비전 2 를 처음 쓰면서 그 전제가 깨진다. 필터가 없으면 승격된
+        // 주장이 두 번 실려, 블록 10 이 주장 수를 두 배로 세면서 그중 절반만
+        // 검증됐다고 보고한다. 승격이 커버리지를 **나쁘게** 보이게 하는 셈이다.
+        `SELECT DISTINCT ON (assertion_key)
+              subject_entity_id AS entity_id, assertion_key, predicate_key, modality,
               verification_state
          FROM knowledge.assertion
         WHERE subject_entity_id = ANY($1::bigint[])
-          AND modality IN ('forecast', 'alleged')`,
+          AND modality IN ('forecast', 'alleged')
+        ORDER BY assertion_key, revision_no DESC`,
         [entityIds],
       ),
     () =>

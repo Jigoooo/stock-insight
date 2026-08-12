@@ -65,6 +65,23 @@ test('the valuation band is produced before the packet that reads it', () => {
   );
 });
 
+test('spans are verified before the packet that reports whether they were', () => {
+  // 블록 10 이 읽는 것은 knowledge.assertion 의 verification_state 다. 순서가
+  // 뒤집히면 오늘 승격한 것이 내일 패킷에 나타나고, 그 하루 동안 화면은
+  // unverified_only 를 말하면서 원장은 verified_span 을 들고 있다. 아무것도
+  // 실패하지 않으므로 그 불일치는 사람이 두 곳을 나란히 열어봐야만 보인다.
+  assert.ok(
+    stepLine('run-assertion-span-verification.ts') < stepLine('run-common-asset-view.ts'),
+    '인용 검증은 그것을 읽는 패킷보다 먼저 돌아야 한다',
+  );
+});
+
+test('span verification shares the K4 canary cutoff', () => {
+  // 검증 시각이 곧 새 리비전의 known_at 이다. 다른 시계를 주면 같은 실행 안에서
+  // 원장의 두 부분이 서로 다른 시각을 주장한다.
+  assert.match(wrapper, /run-assertion-span-verification\.ts --cutoff "\$K4_CANARY_CUTOFF"/);
+});
+
 test('the valuation band shares the K4 canary cutoff', () => {
   // information_set_id 는 컷오프와 시맨틱 스냅샷의 다이제스트다. 다른 컷오프를 주면
   // 같은 날에 두 번째 governance.analysis_information_set 행이 생기고, 계보가

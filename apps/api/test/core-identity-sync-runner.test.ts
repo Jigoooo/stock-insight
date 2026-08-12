@@ -179,7 +179,7 @@ test('existing identity state is complete only when every current binding agrees
   assert.throws(() => classifyIdentityState({ ...newUsWithoutCik, tickerIdentifierOwner: 99 }));
 });
 
-test('analytics runs all nineteen stages in order with an adjacent receipt per command', async () => {
+test('analytics runs every stage in order with an adjacent receipt per command', async () => {
   const pipeline = await readFile(pipelineUrl, 'utf8');
   const lines = pipeline.split('\n').map((line) => line.trim());
   const expected = [
@@ -234,6 +234,13 @@ test('analytics runs all nineteen stages in order with an adjacent receipt per c
     ['run-report-publish.ts', 'stock-insight-report-publish-stage'],
     ['run-feed-build.ts', 'stock-insight-feed-build-stage'],
     ['run-probability-calibration.ts', 'stock-insight-probability-calibration-stage'],
+    // Added 2026-08-13 (block 10): 인용 검증. knowledge.assertion 의 주장 97건이
+    // 전부 extracted 에 머물러 있어 블록 10 은 승격 사다리의 첫 칸도 밟지 못했다.
+    // 이 잡은 그 표에 리비전 2 를 쓰는 저장소 최초의 코드다 — 지금까지 모든 키가
+    // 리비전 1 뿐이었으므로 독자들이 리비전을 무시하고도 옳았고, 그 전제가 여기서
+    // 깨진다. run-common-asset-view.ts 보다 앞이어야 하는 이유는 그 패킷이 읽는
+    // 것이 정확히 이 단계가 바꾸는 verification_state 이기 때문이다.
+    ['run-assertion-span-verification.ts', 'stock-insight-assertion-span-verification-stage'],
     // Added 2026-08-10 (K6): serving.common_asset_view. Sits after the v2 publishes
     // because it reads serving.impact_summary_v2 and serving.market_confirmation_v1,
     // and nothing reads it in turn — it stays shadow until K7 wires a surface on.
@@ -276,6 +283,6 @@ test('analytics runs all nineteen stages in order with an adjacent receipt per c
   }
   // 이 상한은 위 목록이 아니라 파이프라인의 `job_name IN (...)` 목록을 잰다. 둘은
   // 다른 집합이다 — 게이지 성격의 단계(reachability audit 등)는 위에는 있고 저기에는
-  // 없다. 2026-08-07: 13. 2026-08-12: 14.
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 15/);
+  // 없다. 2026-08-07: 13. 2026-08-12: 14. 2026-08-13: 16(인용 검증).
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 16/);
 });

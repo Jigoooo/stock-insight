@@ -25,6 +25,11 @@ import { describe, it } from 'node:test';
  * 블록 9 의 생산자로 analytics 파이프라인에 붙었다. 이 테스트가 그것을 즉시
  * 잡았다: 생산자를 만들고 배선을 잊은 상태로 커밋하려던 참이었다.
  *
+ * Measured 2026-08-13: run-assertion-span-verification 이 블록 10 의 생산자로
+ * analytics 파이프라인에 붙었다. 이 잡은 knowledge.assertion 에 리비전 2 를 쓰는
+ * 저장소 최초의 코드이고, 배선을 잊으면 블록 10 은 원장에 승격 경로가 있는 채로
+ * 영원히 unverified_only 를 말한다 — 정확히 이 테스트가 감시하는 모양이다.
+ *
  * Measured 2026-08-12: 64 jobs, 55 wired, 9 exempt — run-k4-valuation-band joined the
  * analytics pipeline as block 7's producer. The exempt list did not move; the 44 → 64
  * drift between this line and the one above it is five days of jobs nobody re-counted,
