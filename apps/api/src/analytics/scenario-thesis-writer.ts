@@ -1,3 +1,9 @@
+import { K4_SEMANTIC_SNAPSHOT_SQL, k4InformationSetId } from './k4-market-intelligence-store.ts';
+import {
+  ensureInformationSet,
+  insertSealedDerivation,
+  type K4PersistenceClient,
+} from './k4-market-intelligence-writer.ts';
 import {
   planScenarioThesis,
   type PlannedScenarioSet,
@@ -5,17 +11,6 @@ import {
   type ScenarioThesisSubject,
   type ValuationBandInput,
 } from './scenario-thesis-plan.ts';
-
-import {
-  K4_SEMANTIC_SNAPSHOT_SQL,
-  k4InformationSetId,
-  type K4QueryClient,
-} from './k4-market-intelligence-store.ts';
-import {
-  ensureInformationSet,
-  insertSealedDerivation,
-  type K4PersistenceClient,
-} from './k4-market-intelligence-writer.ts';
 
 export type ScenarioThesisArgs = {
   mode: 'dry-run' | 'apply';
