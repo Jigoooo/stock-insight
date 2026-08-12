@@ -109,11 +109,12 @@ test('aligns every briefing card to one 20px content rail', async ({ page }) => 
   const newsPanel = page.locator('[data-testid="today-news-list"]').last();
   const connectionPanel = page.locator('[data-testid="today-connection-summary"]').last();
   const railTargets = [
-    marketPanel
-      .locator('[aria-label="오늘의 주요 시장 지표 샘플"] li')
-      .first()
-      .locator('span')
-      .first(),
+    // aria-label 에 '샘플' 이 들어 있었다. 그 배지는 KOSPI·NASDAQ·금 세 줄의
+    // 예시를 정직하게 표시하던 장치였고 실데이터가 없던 동안에는 옳았다.
+    // 이제 정본 01 §2 네 축(금리·FX·원자재·정책)이 `market.macro_vintage` 에서
+    // 실제로 온다. 라벨을 따라 바꾼다 — 이 선택자가 화면보다 오래 살아남아
+    // 30초 타임아웃으로 죽어 있었다.
+    marketPanel.locator('[aria-label="오늘의 주요 시장 지표"] li').first().locator('span').first(),
     headlinePanel.locator('[aria-label="오늘의 핵심 카드 뉴스"] li').first().locator('button'),
     curatedPanel
       .locator('[aria-label="내 관심종목 큐레이터 뉴스"] li')

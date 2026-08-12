@@ -62,6 +62,22 @@ describe('retired hidden workspace surfaces', () => {
       'pages/dashboard/model/load-workspace-bootstrap.ts',
       'pages/dashboard/model/resolve-dashboard-bootstrap.ts',
       'server/workspace-bootstrap.ts',
+      // 남은 dashboard 트리 전체(16파일)와 그것만 붙잡고 있던 mock 네 벌.
+      //
+      // 하나의 죽은 섬이었다: mock 4개의 유일한 소비자가 dashboard-bootstrap 이고,
+      // dashboard 트리의 유일한 참조가 resolver 단위 테스트 3개였다. 프로덕션
+      // 코드는 어느 쪽도 부르지 않았다.
+      //
+      // mock 이 각 엔티티 배럴의 **첫 export** 였다는 것이 이 목록에서 가장
+      // 위험한 부분이었다 — 가짜 데이터가 공개 API 뒤에 서 있으면 새로 오는
+      // 사람이 그것을 진짜로 읽는다. 실제로 dashboard-bootstrap 이 그 mock 을
+      // 실제 contract 스키마로 parse 하고 있어서 진짜처럼 보였다.
+      'pages/dashboard/model/dashboard-bootstrap.ts',
+      'features/dashboard-navigation/index.ts',
+      'entities/insight/data/mock-insights.ts',
+      'entities/portfolio/data/mock-portfolio.ts',
+      'entities/stock/data/mock-stocks.ts',
+      'entities/theme/data/mock-themes.ts',
     ];
 
     for (const path of retiredFiles) {
