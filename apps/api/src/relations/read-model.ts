@@ -1,3 +1,4 @@
+import { MARKET_DATA_AS_OF_SQL } from '../shared/market-snapshots.ts';
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -211,11 +212,7 @@ const RELATIONS_SQL = `
   LIMIT 80
 `;
 
-const MARKET_AS_OF_SQL = `
-  SELECT max(coalesce(nullif(collected_at, ''), nullif(snapshot_date, ''))) AS market_data_as_of
-  FROM stock.market_snapshots
-  WHERE symbol IS NOT NULL
-`;
+const MARKET_AS_OF_SQL = MARKET_DATA_AS_OF_SQL;
 
 function toIso(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);

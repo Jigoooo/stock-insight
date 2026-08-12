@@ -3,6 +3,7 @@ import {
   containsActionAdvice,
   filterActionSafeTexts,
 } from '../shared/action-advice.ts';
+import { MARKET_SNAPSHOTS_RELATION } from '../shared/market-snapshots.ts';
 import { isProjectionFresh } from '../shared/projection-freshness.ts';
 import type { UserScope } from '../shared/user-scope.ts';
 
@@ -135,8 +136,7 @@ WITH normalized_candidates AS (
       change_pct,
       coalesce(nullif(collected_at, ''), snapshot_date, '') AS collected_sort,
       id
-    FROM stock.market_snapshots
-    WHERE symbol IS NOT NULL
+    FROM ${MARKET_SNAPSHOTS_RELATION}
   ) snapshot
   WHERE market IN ('KR', 'US')
   ORDER BY market, ticker, collected_sort DESC, id DESC
@@ -296,9 +296,8 @@ WITH normalized_candidates AS (
   SELECT
     snapshot_date::date AS day,
     avg(change_pct) AS average_change_pct
-  FROM stock.market_snapshots
-  WHERE symbol IS NOT NULL
-    AND upper(region) IN ('KR', 'US', 'KRX', 'KOSPI', 'KOSDAQ', 'NASDAQ', 'NYSE', 'AMEX')
+  FROM ${MARKET_SNAPSHOTS_RELATION}
+  WHERE upper(region) IN ('KR', 'US', 'KRX', 'KOSPI', 'KOSDAQ', 'NASDAQ', 'NYSE', 'AMEX')
     AND snapshot_date IS NOT NULL
     AND snapshot_date <> ''
     AND change_pct IS NOT NULL

@@ -1642,7 +1642,13 @@ describe('PostgreSQL dashboard read model', () => {
     assert.match(executedSql[0] ?? '', /stock\.candidates/i);
     assert.match(executedSql[0] ?? '', /regexp_replace\(ticker,/i);
     assert.match(executedSql[0] ?? '', /KS\|KQ/);
-    assert.match(executedSql[0] ?? '', /stock\.market_snapshots/i);
+    // 시세는 **정제 뷰**에서 읽는다. 원본 `stock.market_snapshots` 에는 수집기가
+    // 매일 적는 `snapshot_type='api_key_status'` 진단행이 섞여 있고, 그 행도
+    // symbol 을 갖기 때문에 `WHERE symbol IS NOT NULL` 로는 걸러지지 않는다.
+    // 라이브에서 그 탓에 「시장 데이터」 기준 시각이 18일 과대 표시됐다
+    // (표시 2026-08-12 / 실제 시세 2026-07-25).
+    assert.match(executedSql[0] ?? '', /serving\.market_snapshots_clean_v1/i);
+    assert.doesNotMatch(executedSql[0] ?? '', /\bstock\.market_snapshots\b/i);
     assert.match(executedSql[0] ?? '', /public\.v_user_feed_dedup/i);
     assert.match(executedSql[0] ?? '', /domain\s*=\s*'stock'/i);
     assert.match(executedSql[0] ?? '', /projection_updated_at/i);
