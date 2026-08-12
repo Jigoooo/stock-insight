@@ -293,18 +293,28 @@ SELECT CASE WHEN
   --
   -- 원문에 없는 문구를 인용한 주장(실측 2건)은 영원히 extracted 로 남는데, 그것은
   -- 이 조건에 걸리지 않는다 — 매치되지 않으므로 애초에 올릴 수 있는 것이 아니다.
+  --
+  -- modality 로 거르지 않는다. 처음에는 forecast/alleged 만 봤는데, 그것은 블록 10
+  -- 의 관심사이지 검증의 성질이 아니다. 좁혀 두면 factual 205건이 올릴 수 있는
+  -- 상태로 남아 있는데도 이 게이지가 0 을 보고한다 — 밀린 것이 있는데 없다고
+  -- 말하는 게이지는 없느니만 못하다.
   AND (SELECT count(*) FROM (
          SELECT DISTINCT ON (assertion_key) verification_state,
                 literal_value->>'text' AS quoted,
                 (source_span_locator->>'documentChunkId')::bigint AS chunk_id
            FROM knowledge.assertion
-          WHERE modality IN ('forecast','alleged')
           ORDER BY assertion_key, revision_no DESC) latest
         JOIN knowledge.document_chunk chunk ON chunk.chunk_id = latest.chunk_id
        WHERE latest.verification_state = 'extracted'
          AND latest.quoted IS NOT NULL
          AND btrim(latest.quoted) <> ''
-         AND lower(chunk.content) LIKE '%' || lower(latest.quoted) || '%') = 0
+         -- **LIKE 가 아니라 strpos 다.** 인용문에 %나 _가 들어 있으면 LIKE 는
+         -- 그것을 와일드카드로 읽는다. 실측 claim:17 의 인용문은 '1% 상승률' 이고,
+         -- LIKE 는 이것을 '1' + 아무거나 + ' 상승률' 로 느슨하게 맞춰 원문에 없는
+         -- 문구를 있다고 판정했다. 생산자는 자바스크립트 indexOf 로 문자 그대로
+         -- 보므로 올리지 않았고, 그래서 게이지만 혼자 밀린 일감 1건을 봤다.
+         -- strpos 는 문자 그대로 찾아 생산자와 같은 답을 낸다.
+         AND strpos(lower(chunk.content), lower(latest.quoted)) > 0) = 0
   -- 2026-08-12 정정 — 여기 있던 feed_date=current_date 는 **시간대 두 개를 섞고
   -- 있었다.** feed_date 는 run-feed-build 가 사용자 프로필 시간대로 찍는 날짜이고
   -- (now() AT TIME ZONE profile.timezone)::date, current_date 는 세션 시간대(UTC)의

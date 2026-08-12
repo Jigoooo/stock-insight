@@ -76,6 +76,13 @@ export function parseSpanVerificationArgs(argv: readonly string[]): SpanVerifica
  * 조각의 `available_at` 도 컷오프로 자른다 — 주장 자신의 시각만 보면 컷오프
  * 시점에 존재하지 않던 원문으로 대조하게 되고, 그것은 REQ-PIT-003 이 막으려는
  * 바로 그 미래 정보 사용이다.
+ *
+ * **modality 로 거르지 않는다.** 처음 이 쿼리는 `forecast`/`alleged` 만 봤다.
+ * 블록 10 이 그 둘만 읽기 때문이었는데, 그것은 **소비자의 관심사이지 이 검증의
+ * 성질이 아니다** — "인용한 문구가 원문에 있는가" 는 그 문구가 예측이든 사실
+ * 진술이든 똑같이 답할 수 있는 질문이다. 좁혀 두면 `factual` 205건이 올릴 수
+ * 있는 상태로 방치되고, 파이프라인의 백로그 게이지는 그 205건을 못 본 채
+ * 0 을 보고한다. 게이지가 "밀린 것 없음" 이라고 말하면서 밀린 것이 있는 상태다.
  */
 const CANDIDATE_SQL = `
   WITH latest AS (
@@ -85,8 +92,7 @@ const CANDIDATE_SQL = `
            (source_span_locator->>'documentChunkId')::bigint AS chunk_id,
            available_at
       FROM knowledge.assertion
-     WHERE modality IN ('forecast','alleged')
-       AND available_at <= $1::timestamptz
+     WHERE available_at <= $1::timestamptz
      ORDER BY assertion_key, revision_no DESC
   )
   SELECT latest.assertion_id::text,

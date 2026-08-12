@@ -78,13 +78,34 @@ export function parseMarketAnomalyArgs(argv: readonly string[]): MarketAnomalyAr
  */
 const CANDIDATE_SQL = `
   WITH snapshot AS (
-    SELECT asset_entity_id, market, ticker, as_of,
-           (features->>'ret_1d')::numeric        AS ret_1d,
-           (features->>'vol_20d')::numeric       AS vol_20d,
-           (features->>'volume_z_20d')::numeric  AS volume_z,
-           (features->>'event_count_7d')::int    AS event_count_7d
-      FROM serving.latest_feature_snapshot_v1
-     WHERE as_of <= $1::timestamptz
+    -- **as_of 는 시장 날짜가 아니라 잡이 돈 시각이다.**
+    --
+    -- run-feature-snapshot.ts 가 as_of 에 new Date() 를 넣는다. 그래서 이 값을
+    -- 관측일로 쓰면 파이프라인이 도는 날짜가 관측일이 되고, 실제로 움직인 봉의
+    -- 날짜와 어긋난다. 처음 이 쿼리는 그렇게 썼고 라이브에서 통과했다 — 그날
+    -- 스냅샷이 마침 하루 묵어 있어서 두 날짜가 우연히 같았기 때문이다.
+    -- 스냅샷을 새로 돌리자마자 market_factor 채널이 5건 전부 '못 뒤진 채널' 로
+    -- 떨어졌다. 시장이 조용해서가 아니라 달력이 어긋나서.
+    --
+    -- 2026-08-12 의 feed_date = current_date 버그와 같은 모양이다: 두 개의 서로
+    -- 다른 시계를 한 날짜인 것처럼 이었다.
+    --
+    -- 관측일은 **봉에서 온다.** serving.latest_price_v1 의 price_as_of 는 그
+    -- 종목의 마지막 일봉 시각이고, market/ticker 정규화도 그 뷰가 이미 한다 —
+    -- 여기서 다시 하면 정규화 규칙이 둘로 갈린다. 미국장과 한국장의 마지막 봉이
+    -- 다른 날일 수 있으므로 시장 전체 한 날짜로 뭉뚱그리지 않고 종목마다 읽는다.
+    SELECT snapshot.asset_entity_id, snapshot.market, snapshot.ticker,
+           price.price_as_of AS bar_at,
+           (snapshot.features->>'ret_1d')::numeric        AS ret_1d,
+           (snapshot.features->>'vol_20d')::numeric       AS vol_20d,
+           (snapshot.features->>'volume_z_20d')::numeric  AS volume_z,
+           (snapshot.features->>'event_count_7d')::int    AS event_count_7d
+      FROM serving.latest_feature_snapshot_v1 snapshot
+      JOIN serving.latest_price_v1 price
+        ON price.market = snapshot.market
+       AND price.ticker = snapshot.ticker
+     WHERE snapshot.as_of <= $1::timestamptz
+       AND price.price_as_of <= $1::timestamptz
   ),
   accepted_peer AS (
     SELECT DISTINCT identity.subject_entity_id AS a, identity.object_entity_id AS b
@@ -114,7 +135,7 @@ const CANDIDATE_SQL = `
   SELECT snapshot.asset_entity_id::text,
          snapshot.market,
          snapshot.ticker,
-         to_char(snapshot.as_of, 'YYYY-MM-DD') AS observation_date,
+         to_char(snapshot.bar_at, 'YYYY-MM-DD') AS observation_date,
          snapshot.ret_1d::text,
          snapshot.vol_20d::text,
          snapshot.volume_z::text,
@@ -126,7 +147,7 @@ const CANDIDATE_SQL = `
     FROM snapshot
     JOIN peer_move USING (asset_entity_id)
     LEFT JOIN serving.daily_change_v1 market
-      ON market.day = snapshot.as_of::date
+      ON market.day = snapshot.bar_at::date
    WHERE snapshot.ret_1d IS NOT NULL
      AND snapshot.vol_20d > 0
    ORDER BY snapshot.market, snapshot.ticker
