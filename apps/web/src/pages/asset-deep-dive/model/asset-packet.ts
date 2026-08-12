@@ -541,6 +541,64 @@ export function readMarketReaction(block: CommonAssetViewBlock): MarketReactionV
   };
 }
 
+// ── 블록 9 · 기간별 논지와 반대 논지 ─────────────────────────────────────────
+
+/**
+ * 세 갈래는 **가격 시나리오가 아니다.** 정본 05 §7 이 요구하는 것은 "한 종목의
+ * 원인을 하나로 고정하지 않는" 경쟁 해석이고, 생산자가 만드는 것도 자기 이력
+ * 배수 구간이라는 **준거틀이 아직 유효한가**를 두고 갈리는 세 읽기다.
+ *
+ * 그래서 라벨에 오름·내림이 없다. `bull`/`bear` 는 040 스키마의 어휘일 뿐이고
+ * 그대로 화면에 나가면 제품 경계(CLAUDE.md)가 금지한 방향 주장이 된다.
+ */
+const thesisBranchLabels: Record<string, string> = {
+  bull: '이력 구간이 더는 맞지 않는다는 해석',
+  base: '지금 확정되는 것만 말하는 해석',
+  bear: '이력 구간이 아직 맞는다는 해석',
+};
+
+export type ThesisBranchView = {
+  label: string;
+  narrative: string | null;
+  /** 무엇이 이 해석을 반증하는가. 정본 §7 이 서술과 함께 저장하라고 한 것. */
+  invalidationCondition: string | null;
+};
+
+export type ThesisView = {
+  title: string | null;
+  branches: ThesisBranchView[];
+  /** 이름을 옮기지 못한 갈래 수. 원문 enum 을 그리는 대신 센다. */
+  unnamedBranchCount: number;
+  /** 반증 조건 없이 온 갈래 수. 040 상 0이어야 하고, 아니면 결함이다. */
+  branchesWithoutInvalidation: number;
+};
+
+export function readThesis(block: CommonAssetViewBlock): ThesisView {
+  const payload = asRecord(block.payload);
+  const rows = asArray(payload.scenarios).map(asRecord);
+  const branches: ThesisBranchView[] = [];
+  let unnamedBranchCount = 0;
+  for (const row of rows) {
+    const kind = typeof row.branchKind === 'string' ? row.branchKind.trim() : '';
+    const label = thesisBranchLabels[kind];
+    if (label === undefined) {
+      unnamedBranchCount += 1;
+      continue;
+    }
+    branches.push({
+      label,
+      narrative: displayText(row.narrative),
+      invalidationCondition: displayText(row.invalidationCondition),
+    });
+  }
+  return {
+    title: displayText(rows[0]?.title),
+    branches,
+    unnamedBranchCount,
+    branchesWithoutInvalidation: asCount(payload.branchesWithoutInvalidation),
+  };
+}
+
 // ── 블록 10 · 촉매·리스크·반대 근거 ──────────────────────────────────────────
 
 const modalityLabels: Record<string, string> = {

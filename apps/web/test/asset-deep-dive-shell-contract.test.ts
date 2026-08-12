@@ -416,15 +416,13 @@ describe('comparability copy does not contradict itself on one screen', () => {
  * 주장이면 이유를 적어야 한다. 생산자가 들어오는 날 이 목록이 그 사람을 부른다.
  */
 const CHILDLESS_SECTIONS = new Map<string, string>([
-  [
-    'multi_horizon_thesis',
-    // `analytics.scenario_set` 0행 → 라이브 297/297 `no_eligible_source`.
-    // 저장소 경로도 아직 막혀 있다(`common-asset-view-store.ts` 가 시나리오에
-    // `impact_shock` 경유로만 닿는데 그 테이블이 2행이다). 시나리오 생산자가
-    // 착지하는 커밋이 이 항목을 지우고 리더를 붙여야 한다 — 블록 7 이 그 절차를
-    // 건너뛰어서 52종목이 빈 몸통을 받았다.
-    'analytics.scenario_set 이 0행이라 available 이 될 수 없다. 생산자가 들어오면 리더부터 붙인다.',
-  ],
+  // 비어 있다 — 12블록 전부 몸통을 갖는다.
+  //
+  // 마지막 항목은 `multi_horizon_thesis` 였고, 사유는 "analytics.scenario_set 이
+  // 0행이라 available 이 될 수 없다. 생산자가 들어오면 리더부터 붙인다" 였다.
+  // 그 생산자(`scenario-thesis-plan.ts`)가 착지해 52종목이 available 이 됐고,
+  // 같은 커밋에서 리더와 렌더를 붙여 이 항목을 지웠다. 블록 7 이 건너뛴 절차가
+  // 그것이다.
 ]);
 
 describe('a section that cannot fill its body says why', () => {

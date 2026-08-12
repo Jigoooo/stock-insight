@@ -16,11 +16,13 @@ import {
   readPeerComparison,
   readRecentEvents,
   readSectorContext,
+  readThesis,
   readValuation,
   type AssetBlockIndex,
 } from '@/pages/asset-deep-dive/model/asset-packet';
 import type { AssetTabDefinition, AssetTabId } from '@/pages/asset-deep-dive/model/asset-tabs';
 import { describeEventCoverage } from '@/pages/asset-deep-dive/model/event-coverage';
+import { describeThesis } from '@/pages/asset-deep-dive/model/thesis-copy';
 import { describeValuationBands } from '@/pages/asset-deep-dive/model/valuation-copy';
 import { formatDate } from '@/pages/research-workspace/ui/workspace-presenters';
 import { TextLink } from '@/shared/ui/link';
@@ -369,6 +371,7 @@ function MarketTab({ blocks }: TabProps) {
 function ValuationTab({ blocks }: TabProps) {
   const expectation = readExpectation(blocks.expectation_priced_in);
   const valuation = readValuation(blocks.valuation_market_implied);
+  const thesis = readThesis(blocks.multi_horizon_thesis);
   return (
     <>
       <AssetSection
@@ -394,7 +397,9 @@ function ValuationTab({ blocks }: TabProps) {
         blockKey="multi_horizon_thesis"
         headingLevel="h3"
         title="기간별 시나리오"
-      />
+      >
+        <PropertyList items={describeThesis(thesis)} />
+      </AssetSection>
     </>
   );
 }

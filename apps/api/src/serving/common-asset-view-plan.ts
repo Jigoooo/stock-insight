@@ -166,7 +166,13 @@ export type AssetSourceFacts = {
     horizon: string;
   }[];
   marketConfirmation: { asOf: string; direction: string | null; strength: number | null } | null;
-  scenarios: { scenarioSetId: number }[];
+  scenarios: {
+    scenarioSetId: number;
+    title: string;
+    branchKind: string;
+    narrative: string | null;
+    invalidationCondition: string | null;
+  }[];
   forwardAssertions: {
     assertionKey: string;
     predicateKey: string;
@@ -786,11 +792,16 @@ function planMarketReaction(facts: AssetSourceFacts): CommonAssetViewBlock {
 }
 
 /**
- * The one block that cannot be fixed by running a producer harder.
- * `analytics.scenario_set` / `scenario_branch` are empty, and the only populated
- * thesis table in the database is `personalization.thesis_revision`, which
- * REQ-REC-001 forbids this view from reading at all. So the fix is a new,
- * contract-eligible producer — not a rerun.
+ * 이 블록은 한동안 "생산자를 더 돌린다고 채워지지 않는" 유일한 블록이었다.
+ * `analytics.scenario_set` 이 비어 있었고, DB 에서 유일하게 채워진 thesis 테이블은
+ * `personalization.thesis_revision` 인데 REQ-REC-001 이 이 뷰의 읽기를 금지한다.
+ *
+ * 그래서 계약에 맞는 생산자를 새로 만들었다(`scenario-thesis-plan.ts`). 앵커는
+ * 자기 이력 밸류에이션 구간이고, 세 갈래는 가격 시나리오가 아니라 **준거틀에
+ * 대한 경쟁 해석**이다 — 정본 05 §7 의 "원인을 하나로 고정하지 않는다".
+ *
+ * 밴드가 없는 종목은 여전히 `no_eligible_source` 다. 297 중 52만 켜지는 것은
+ * 실패가 아니라 이 앵커가 닿는 범위이고, 그 사실을 사유에 적는다.
  */
 function planThesis(facts: AssetSourceFacts): CommonAssetViewBlock {
   const { scenarios } = facts;
@@ -799,12 +810,24 @@ function planThesis(facts: AssetSourceFacts): CommonAssetViewBlock {
       9,
       'multi_horizon_thesis',
       'no_eligible_source',
-      'analytics.scenario_set is empty and personalization.thesis_revision is barred by REQ-REC-001',
+      'no sealed scenario branch for this subject; the own-history valuation band anchor does not reach it',
       {},
       0,
     );
   }
-  const payload = { scenarios: [...scenarios].sort((a, b) => a.scenarioSetId - b.scenarioSetId) };
+  // 무효화 조건이 없는 분기는 정본 §7 의 "무엇을 반증할지" 를 못 지킨다. 040 이
+  // 봉인 단계에서 이미 막지만, 읽기 측이 그것을 다시 세어 payload 가 조용히 반쪽이
+  // 되는 일을 막는다.
+  const withoutInvalidation = scenarios.filter(
+    (scenario) => scenario.invalidationCondition === null,
+  ).length;
+  const payload = {
+    scenarios: [...scenarios].sort(
+      (left, right) =>
+        left.scenarioSetId - right.scenarioSetId || left.branchKind.localeCompare(right.branchKind),
+    ),
+    branchesWithoutInvalidation: withoutInvalidation,
+  };
   return block(
     9,
     'multi_horizon_thesis',

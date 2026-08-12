@@ -223,6 +223,7 @@ test('analytics runs all nineteen stages in order with an adjacent receipt per c
     // wrappers, and on nothing this pipeline writes — but it must precede
     // run-common-asset-view.ts, which reads what it leaves behind.
     ['run-k4-valuation-band.ts', 'stock-insight-k4-valuation-band-stage'],
+    ['run-scenario-thesis.ts', 'stock-insight-scenario-thesis-stage'],
     ['run-graph-inference.ts', 'stock-insight-graph-inference-stage'],
     // v2 publishing moved ahead of report publishing on 2026-08-03: a rejected
     // report block used to take every impact path down with it. The two are
@@ -276,5 +277,5 @@ test('analytics runs all nineteen stages in order with an adjacent receipt per c
   // 이 상한은 위 목록이 아니라 파이프라인의 `job_name IN (...)` 목록을 잰다. 둘은
   // 다른 집합이다 — 게이지 성격의 단계(reachability audit 등)는 위에는 있고 저기에는
   // 없다. 2026-08-07: 13. 2026-08-12: 14.
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 14/);
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 15/);
 });

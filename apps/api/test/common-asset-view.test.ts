@@ -88,9 +88,16 @@ describe('the four empty blocks are empty for different reasons', () => {
   it('calls a block with no contract-eligible source no_eligible_source', () => {
     const block = blockOf(bareFacts(), 'multi_horizon_thesis');
     assert.equal(block?.blockState, 'no_eligible_source');
-    // Naming REQ-REC-001 in the reason is what stops someone "fixing" this by
-    // joining personalization.thesis_revision, which is the one table that has data.
-    assert.match(block?.stateReason ?? '', /REQ-REC-001/);
+    // 사유가 REQ-REC-001 을 이름으로 들던 자리다. 그때는 `analytics.scenario_set` 이
+    // 0행이라 유일하게 데이터를 가진 thesis 테이블이 `personalization.thesis_revision`
+    // 이었고, 그 이름을 사유에 박아 두는 것이 "고치겠다" 며 개인 원장을 조인하는 것을
+    // 막는 장치였다.
+    //
+    // 이제 계약에 맞는 생산자가 있다(`scenario-thesis-plan.ts`, 52종목). 그러므로 이
+    // 갈래의 사유는 "읽을 수 있는 원장이 없다" 가 아니라 **"이 종목에는 봉인된 분기가
+    // 없다"** 여야 한다. 개인 원장 금지는 store 가 personalization 을 한 번도 언급하지
+    // 않는다는 사실과 그것을 지키는 digest 테스트가 계속 진다.
+    assert.match(block?.stateReason ?? '', /no sealed scenario branch/);
   });
 
   it('calls a source whose rows all failed verification unverified_only', () => {

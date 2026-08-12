@@ -349,21 +349,39 @@ export async function loadAssetSourceFacts(
         WHERE asset_entity_id = ANY($1::bigint[])`,
         [entityIds],
       ),
-    // scenario_set carries no entity column — it hangs off the shock that caused it,
-    // so the subject is reached through shock -> event revision -> event. The table
-    // is empty today (block 9 is no_eligible_source), and the join is written out
-    // properly anyway: a query that cannot light up when its source fills is a block
-    // that stays dark for a reason nobody remembers.
+    // 시나리오는 이제 **주체로** 조회한다(마이그레이션 119).
+    //
+    // 원래 이 자리는 shock -> event revision -> event 로 주체를 거슬러 찾았다.
+    // 그 경로는 두 가지로 닫혀 있었다. 첫째, 조인 대상이 틀렸다 —
+    // `world.event_revision.event_id` 는 `world.event` 를 가리키는데 쿼리는
+    // `knowledge.event` 를 조인해서 35행 중 0행이 매치했다. 둘째, 그것을 고쳐도
+    // `world.event` 에는 대상 엔티티 컬럼이 아예 없다. 즉 shock 앵커로는 주체에
+    // 닿을 수 없고, 그래서 119 가 `subject_entity_id` 를 더했다.
+    //
+    // `branch_state = 'sealed'` 를 반드시 건다. 040 은 무효화 조건을 쓴 분기만
+    // 봉인되게 하는데, 그 필터가 없으면 봉인되지 않은 초안이 확정 논지처럼
+    // 새어나간다 — 040 이 막으려던 바로 그 일이 읽기 측에서 벌어진다.
     () =>
       client.query<SourceRow>(
-        `SELECT event.target_entity_id AS entity_id, scenario.scenario_set_id
+        // id 만 싣지 않는다. 블록 7 이 그렇게 해서 `available` 인데 화면이 비었다 —
+        // 같은 실수를 한 블록 건너에서 반복하지 않는다. 분기의 서술과 **무효화
+        // 조건**을 함께 싣는다. 정본 05 §7 은 "각 가설이 무엇을 설명하고 무엇을
+        // 반증할지 함께 저장한다" 고 요구하므로 반증 조건이 빠진 payload 는
+        // thesis 가 아니다.
+        `SELECT scenario.subject_entity_id AS entity_id,
+                scenario.scenario_set_id,
+                scenario.title,
+                branch.branch_kind,
+                branch.narrative,
+                invalidation.invalidation_condition
          FROM analytics.scenario_set scenario
-         JOIN analytics.impact_shock shock
-           ON shock.impact_shock_id = scenario.impact_shock_id
-         JOIN world.event_revision revision
-           ON revision.event_revision_id = shock.event_revision_id
-         JOIN knowledge.event event ON event.event_id = revision.event_id
-        WHERE event.target_entity_id = ANY($1::bigint[])`,
+         JOIN analytics.scenario_branch branch
+           ON branch.scenario_set_id = scenario.scenario_set_id
+          AND branch.branch_state = 'sealed'
+         LEFT JOIN analytics.scenario_invalidation invalidation
+           ON invalidation.scenario_branch_id = branch.scenario_branch_id
+        WHERE scenario.subject_entity_id = ANY($1::bigint[])
+        ORDER BY scenario.scenario_set_id, branch.branch_kind`,
         [entityIds],
       ),
     // Forward-looking and contested claims only. A factual assertion is block 4's
@@ -526,8 +544,16 @@ export async function loadAssetSourceFacts(
             strength: confirmation.ret_20d === null ? null : Number(confirmation.ret_20d),
           }
         : null,
+      // 한 종목의 분기 여러 줄이 여기로 온다(설정당 3갈래). 무효화가 없는 줄은
+      // 040 상 봉인될 수 없으므로 `null` 이 오면 그건 데이터가 아니라 결함이다 —
+      // 감추지 않고 그대로 실어 플래너가 세게 한다.
       scenarios: (scenariosByEntity.get(entityId) ?? []).map((scenario) => ({
         scenarioSetId: Number(scenario.scenario_set_id),
+        title: String(scenario.title),
+        branchKind: String(scenario.branch_kind),
+        narrative: scenario.narrative === null ? null : String(scenario.narrative),
+        invalidationCondition:
+          scenario.invalidation_condition === null ? null : String(scenario.invalidation_condition),
       })),
       forwardAssertions: capped(
         assertionsByEntity.get(entityId) ?? [],

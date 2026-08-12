@@ -56,7 +56,11 @@ test('the valuation band is produced before the packet that reads it', () => {
   // 하루 전 밴드를 싣고 — 첫 실행에서는 아무것도 못 싣고 — 297종목 not_produced 가
   // 그대로 유지되는데, 아무것도 실패하지 않으므로 회귀가 보이지 않는다.
   assert.ok(
-    stepLine('run-k4-valuation-band.ts') < stepLine('run-common-asset-view.ts'),
+    stepLine('run-k4-valuation-band.ts') < stepLine('run-scenario-thesis.ts'),
+    'thesis 는 밴드의 해석이므로 밴드 뒤여야 한다',
+  );
+  assert.ok(
+    stepLine('run-scenario-thesis.ts') < stepLine('run-common-asset-view.ts'),
     'the valuation band producer must run before the common asset view builder',
   );
 });

@@ -112,6 +112,11 @@ pipeline_record_stage_success stock-insight-feature-snapshot-stage "$RUN_STARTED
 # 세운다.
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-k4-valuation-band.ts --live --cutoff "$K4_CANARY_CUTOFF" --apply
 pipeline_record_stage_success stock-insight-k4-valuation-band-stage "$RUN_STARTED_AT" || exit $?
+# thesis 는 밴드의 **해석**이므로 밴드 뒤가 아니면 성립하지 않는다. 앞에 두면
+# 같은 컷오프에서 어제 밴드를 읽어 오늘 논지를 쓰게 되고, 그 어긋남은 아무것도
+# 실패시키지 않은 채 payload 안에서만 조용히 남는다.
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-scenario-thesis.ts --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-scenario-thesis-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-graph-inference.ts --events 500 --apply
 pipeline_record_stage_success stock-insight-graph-inference-stage "$RUN_STARTED_AT" || exit $?
 # v2 impact publishing runs before report publishing on purpose.
@@ -206,6 +211,10 @@ SELECT CASE WHEN
      -- 빠지면 블록은 다시 297종목 not_produced 로 돌아가고, 그 회귀는 아무것도
      -- 실패시키지 않는다.
      'stock-insight-k4-valuation-band-stage',
+     -- 같은 이유로 thesis 도 목록에 든다. 블록 9 는 297종목이 전부
+     -- no_eligible_source 이던 자리라, 조용히 빠지면 "원래 비어 있던 블록" 으로
+     -- 읽히고 아무도 회귀를 눈치채지 못한다.
+     'stock-insight-scenario-thesis-stage',
      'stock-insight-v2-l5-publish-stage',
      'stock-insight-portfolio-snapshot-stage',
      -- Listed, unlike the reachability gauge above it, because the whole point of
@@ -215,7 +224,7 @@ SELECT CASE WHEN
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 14
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 15
   -- 착지 게이지. 목표치가 아니라 >= 1 인 이유: 아무도 재보지 않은 임계값은 결국
   -- 낮춰진다. 이 숫자가 재는 것은 밴드가 몇 개냐가 아니라 생산자가 살아 있느냐
   -- 다. 실측 커버리지(2026-08-12: 종목 52개 · 밴드 81개)는 요약 JSON 이 말한다.
@@ -235,6 +244,9 @@ SELECT CASE WHEN
        WHERE created_at >= '${RUN_STARTED_AT}'::timestamptz) >= 1
   AND (SELECT count(*) FROM serving.latest_feature_snapshot_v1) >= 250
   AND (SELECT count(*) FROM serving.market_confirmation_v1) >= 250
+  -- 블록 9 착지 게이지. 봉인된 분기가 0이면 thesis 단계가 돌고도 아무것도 내지
+  -- 않은 것이고, 화면은 297종목 no_eligible_source 로 되돌아간다.
+  AND (SELECT count(*) FROM analytics.scenario_branch WHERE branch_state = 'sealed') >= 1
   -- 2026-08-12 정정 — 여기 있던 feed_date=current_date 는 **시간대 두 개를 섞고
   -- 있었다.** feed_date 는 run-feed-build 가 사용자 프로필 시간대로 찍는 날짜이고
   -- (now() AT TIME ZONE profile.timezone)::date, current_date 는 세션 시간대(UTC)의

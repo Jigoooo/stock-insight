@@ -674,9 +674,9 @@ describe('K4 executable wiring', () => {
     // 최종 단언의 상한. 파이프라인의 `job_name IN (...)` 목록과 **함께** 움직여야
     // 한다 — 하나만 올리면 목록에 있는 단계 하나가 실행되지 않아도 통과한다.
     // 2026-08-07: 13. 2026-08-12: 14 (stock-insight-k4-valuation-band-stage 합류).
-    assert.match(analyticsPipeline, /\) = 14/);
+    assert.match(analyticsPipeline, /\) = 15/);
     assert.match(analyticsPipeline, /stock-insight-k4-valuation-band-stage/);
-    // 리터럴을 다시 적는 대신 **둘이 같은지**를 잰다. 앞의 `= 14` 만 보면 목록에
+    // 리터럴을 다시 적는 대신 **둘이 같은지**를 잰다. 앞의 `= 15` 만 보면 목록에
     // 이름을 하나 더 넣고 숫자를 안 올린 실수가 그대로 통과한다: 그러면 단계 하나가
     // 통째로 빠져도 count 가 상한에 닿는다.
     const finalAssertion = analyticsPipeline.slice(

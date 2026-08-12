@@ -20,10 +20,12 @@ import {
   readPeerComparison,
   readRecentEvents,
   readSectorContext,
+  readThesis,
   readValuation,
   type AssetBlockIndex,
 } from '@/pages/asset-deep-dive/model/asset-packet';
 import { describeEventCoverage } from '@/pages/asset-deep-dive/model/event-coverage';
+import { describeThesis } from '@/pages/asset-deep-dive/model/thesis-copy';
 import { describeValuationBands } from '@/pages/asset-deep-dive/model/valuation-copy';
 import { formatDate } from '@/pages/research-workspace/ui/workspace-presenters';
 import { PropertyList, StructuredList } from '@/shared/ui/workspace';
@@ -290,13 +292,16 @@ function ValuationSection({ blocks }: { blocks: AssetBlockIndex }) {
 }
 
 function ThesisSection({ blocks }: { blocks: AssetBlockIndex }) {
+  const thesis = readThesis(blocks.multi_horizon_thesis);
   return (
     <AssetSection
       block={blocks.multi_horizon_thesis}
       blockKey="multi_horizon_thesis"
       description="정본 01 §3 항목 8 — 현재 논지와 반대 논지."
       title="논지와 반대 논지"
-    />
+    >
+      <PropertyList items={describeThesis(thesis)} />
+    </AssetSection>
   );
 }
 
