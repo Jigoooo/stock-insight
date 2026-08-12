@@ -117,6 +117,16 @@ describe('the four empty blocks are empty for different reasons', () => {
     assert.equal(block?.blockState, 'unverified_only');
   });
 
+  /*
+    픽스처가 `verificationState: 'verified'` 였다. 그 값은 `knowledge.assertion` 의
+    CHECK 제약에 **없다** — 허용값은 extracted·verified_span·verified_semantics·
+    accepted·contradicted·superseded·retracted·quarantined 여덟 개다.
+
+    그래서 이 테스트는 라이브에서 절대 일어나지 않는 상태를 만들어 통과시키고
+    있었고, 같은 거짓 어휘를 쓰던 플래너의 필터가 **무슨 데이터가 오든 빈 배열**
+    이라는 사실을 가려 줬다. 블록 10 은 그 한 줄 때문에 영원히 unverified_only
+    였다. 픽스처가 코드의 오류를 재현하면 그 오류는 테스트로 보호된다.
+  */
   it('promotes that same block to available once anything is verified', () => {
     const block = blockOf(
       bareFacts({
@@ -125,7 +135,7 @@ describe('the four empty blocks are empty for different reasons', () => {
             assertionKey: 'a1',
             predicateKey: 'GUIDES',
             modality: 'forecast',
-            verificationState: 'verified',
+            verificationState: 'verified_span',
           },
         ],
       }),
@@ -742,7 +752,7 @@ describe('packet digest', () => {
           assertionKey: 'a',
           predicateKey: 'GUIDES',
           modality: 'forecast',
-          verificationState: 'verified',
+          verificationState: 'verified_span',
         },
       ],
     });

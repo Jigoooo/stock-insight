@@ -813,10 +813,18 @@ function planMarketReaction(facts: AssetSourceFacts): CommonAssetViewBlock {
  * `{ field: 'title+summary', documentChunkId }` 형태라 어느 문장을 인용했는지
  * 정확히 지목한다. 리터럴 값도 310건에 있다.
  *
- * 막힌 곳은 **원문 텍스트의 위치**다. `source_revision_id` 는
- * `ingestion.source_revision` 을 가리키는데 그 표에는 텍스트 컬럼이 없고
- * `payload_metadata` 가 `object_uri` 만 든다 — 본문은 blob 에 있다. 그러므로
- * span 검증기는 객체를 가져오는 I/O 작업이지 SQL 배선이 아니다.
+ * **원문은 blob 에 있지 않다.** 이 자리에 "`payload_metadata` 가 `object_uri` 만
+ * 들어서 본문은 blob 에 있고, 그러므로 span 검증기는 I/O 작업" 이라고 적혀
+ * 있었는데 틀렸다. 나는 `ingestion.source_revision` 만 보고 멈췄다 — locator 의
+ * `documentChunkId` 를 따라가면 `knowledge.document_chunk.content` 에 원문이 있고,
+ * 그 조인은 **315/315** 로 하나도 빠지지 않는다(2026-08-13 실측).
+ *
+ * 리터럴 대조도 된다: `literal_value` 는 `{"text": "..."}` 모양이고 310건 중
+ * **정확일치 289 · 대소문자무시 297** 이 청크 본문 안에 실재한다. 즉 span 검증기는
+ * SQL 로 쓸 수 있고, 매치 실패 13~21건은 버리는 것이 아니라 사유로 세면 된다.
+ *
+ * 아래 승격 필터가 오랫동안 `'verified'` 라는 **존재하지 않는 상태**를 보고 있었던
+ * 것도 같은 커밋에서 고쳤다 — 검증기가 있었어도 이 블록은 켜지지 않았을 것이다.
  *
  * 그 생산자가 착지하는 커밋이 이 블록의 상태를 `unverified_only` 에서 올리고,
  * 그때 `asset-above-the-fold.tsx` 의 미검증 영역(점선 테두리)도 함께 정리해야
@@ -884,7 +892,29 @@ function planCatalysts(facts: AssetSourceFacts): CommonAssetViewBlock {
   const described = [...forwardAssertions].sort((a, b) =>
     a.assertionKey.localeCompare(b.assertionKey),
   );
-  const verified = described.filter((assertion) => assertion.verificationState === 'verified');
+  /*
+    **`'verified'` 라는 상태는 존재하지 않는다.**
+
+    이 줄은 `verificationState === 'verified'` 였다. `knowledge.assertion` 의 CHECK
+    제약이 허용하는 값은 여덟 개이고 그 안에 `'verified'` 는 없다:
+
+      extracted · verified_span · verified_semantics · accepted
+      contradicted · superseded · retracted · quarantined
+
+    그래서 이 필터는 **무슨 데이터가 오든 빈 배열**이었고, 블록 10 은 승격
+    파이프라인이 무엇을 하든 영원히 `unverified_only` 였다. 오늘 이 블록이
+    "검증 경로가 없어서" 어둡다고 여러 번 진단했는데, 검증 경로가 생겨도 이 한
+    줄이 그것을 받지 못했을 것이다.
+
+    승격 사다리에서 **어디부터 화면에 올릴지**는 `verified_span` 이다 — 인용한
+    문장이 원문에 실제로 있다는 것이 확인된 단계다. 그 위 두 단계
+    (`verified_semantics`·`accepted`)는 더 강한 확인이므로 함께 센다.
+    `contradicted`·`retracted`·`quarantined` 는 반대 방향이라 제외한다.
+  */
+  const VERIFIED_STATES = new Set(['verified_span', 'verified_semantics', 'accepted']);
+  const verified = described.filter((assertion) =>
+    VERIFIED_STATES.has(assertion.verificationState),
+  );
   const payload = withTruncation(
     { assertions: described, verifiedCount: verified.length },
     facts,
