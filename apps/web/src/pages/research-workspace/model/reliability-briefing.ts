@@ -53,7 +53,14 @@ const levelWeight: Record<ReliabilityLevel, number> = {
   attention: 2,
 };
 
-const datasetLabels: Record<string, string> = {
+/**
+ * 데이터셋 원문 이름은 테이블 이름이다(`company_financials`, `ohlcv_1d`). 화면에
+ * 그대로 나가면 UX 헌법 7번 위반이라 이 표를 지난 것만 사람 말이 된다.
+ *
+ * `coverage-detail.ts` 가 같은 표를 쓴다 — 두 벌을 두면 한쪽만 갱신되어 같은
+ * 데이터셋이 두 화면에서 다른 이름으로 불린다.
+ */
+export const datasetLabels: Record<string, string> = {
   rss_news: '최근 뉴스',
   news_translation: '뉴스 번역',
   publication_records: '리서치 발행 정보',

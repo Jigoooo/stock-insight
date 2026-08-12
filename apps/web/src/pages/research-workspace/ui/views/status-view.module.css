@@ -249,3 +249,57 @@
     padding-inline: 17px;
   }
 }
+
+/*
+  IA §4 행 11 의 두 번째 화면 — `status(전체)` / `research`(상세).
+  위 요약 카드와 같은 리듬을 쓰되, 여기서는 자르지 않는다. 자르는 것이 요약의
+  일이고 자르지 않는 것이 이 자리의 일이다.
+*/
+.detailPanel {
+  display: grid;
+  gap: 21px;
+}
+
+.detailPanel section {
+  display: grid;
+  gap: 9px;
+}
+
+.detailPanel h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.detailPanel dl {
+  display: grid;
+  gap: 7px;
+}
+
+.detailPanel dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: 11px;
+}
+
+.detailPanel dt {
+  color: var(--muted-foreground);
+}
+
+.detailList {
+  display: grid;
+  gap: 5px;
+}
+
+.detailList ul {
+  display: grid;
+  gap: 3px;
+  padding-inline-start: 17px;
+  list-style: disc;
+}
+
+@media (max-width: 620px) {
+  .detailPanel dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+}

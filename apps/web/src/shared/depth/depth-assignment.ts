@@ -75,10 +75,18 @@ export type DepthAssignment = {
   /** 요약/배지 수준의 깊이. */
   depth: DepthLevel;
   /**
-   * 같은 항목의 **상세**가 따로 배정된 경우에만 있다(IA §4 블록 11:
-   * `essential`(배지) / `research`(상세)). 호출부가 배지를 그릴지 상세를 그릴지에
-   * 따라 `depth` 또는 `detailDepth` 를 골라 `DepthGate` 에 넘긴다 — 게이트는
-   * 이 구분을 모른다.
+   * 같은 항목의 **상세가 다른 화면에 따로 배정된** 경우에만 있다.
+   *
+   * IA §4 행 11 원문: 주 화면 `stock-detail(요약) · status(전체)`,
+   * 깊이 `essential`(배지) / `research`(상세). 즉 배지와 상세는 **한 화면 안의
+   * 두 슬롯이 아니라 두 화면**이다 — 배지는 종목 상세가, 전체는 전역 status
+   * 화면이 진다. IA §5 가 그 상세의 정체까지 지목한다: "삭제된 196줄에 해당하는
+   * 상세는 `research` 깊이로 되살린다"(`484661e` 가 status-view 에서 지운 196줄).
+   *
+   * 이 주석은 한동안 "호출부가 배지를 그릴지 상세를 그릴지에 따라 골라 넘긴다"
+   * 고 적어, IA 가 배정한 적 없는 **한 화면 안의 슬롯 축**을 발명했다. 그 축을
+   * 믿고 찾으면 `AssetSection` 에 슬롯이 하나뿐이라 "필드가 안 쓰인다"는 결론이
+   * 나오고, 실제 결함(두 번째 화면이 지어지지 않았다)은 보이지 않는다.
    */
   detailDepth?: DepthLevel;
   /** 어느 문서 줄에서 나왔는가. "판단:" 이면 문서가 못 박지 않은 행. */
@@ -234,9 +242,18 @@ export function assignmentFor(key: DepthAssignmentKey): DepthAssignment {
   return DEPTH_ASSIGNMENTS[key];
 }
 
-/** 어떤 화면이 어떤 항목을 담는지 — 테스트와 화면 조립이 같은 표를 쓴다. */
-export function assignmentKeysForSurface(surface: DepthSurface): readonly DepthAssignmentKey[] {
-  return (Object.keys(DEPTH_ASSIGNMENTS) as DepthAssignmentKey[]).filter((key) =>
-    DEPTH_ASSIGNMENTS[key].surfaces.includes(surface),
-  );
+/**
+ * 상세가 **다른 화면에** 따로 배정된 행에서만 부른다.
+ *
+ * 폴백이 없다. `assignment.detailDepth ?? assignment.depth` 는 표가 처음으로
+ * 하중을 받는 자리에서 표를 무력화한다 — 배정이 없는 키로 부르면 조용히 요약
+ * 깊이로 떨어져, 상세 화면을 짓지 않은 것과 지은 것이 코드에서 구별되지 않는다.
+ * 던지는 편이 그 구별을 남긴다.
+ */
+export function detailDepthFor(key: DepthAssignmentKey): DepthLevel {
+  const level = DEPTH_ASSIGNMENTS[key].detailDepth;
+  if (level === undefined) {
+    throw new Error(`${key}: 상세 깊이가 배정되지 않았습니다 (IA §4 의 해당 행을 확인하세요)`);
+  }
+  return level;
 }

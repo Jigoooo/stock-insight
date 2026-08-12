@@ -7,6 +7,7 @@ import {
   COMMON_ASSET_VIEW_BLOCK_KEYS,
   DEEP_DIVE_SECTION_IDS as DEPTH_TABLE_SECTION_IDS,
   DEPTH_ASSIGNMENTS,
+  detailDepthFor,
   type DepthAssignmentKey,
 } from '../src/shared/depth/depth-assignment.ts';
 import {
@@ -181,5 +182,64 @@ describe('깊이 3모드 — 분기 금지', () => {
     const barrel = await readFile(new URL('shared/depth/index.ts', sourceRoot), 'utf8');
     assert.doesNotMatch(barrel, /useDepthMode/);
     assert.match(barrel, /DepthGate/);
+  });
+});
+
+/**
+ * 표가 선언한 것을 화면이 **실제로 이행하는가.**
+ *
+ * 기존 세 묶음은 표의 모양(단조성·완전성)과 뷰의 금기(분기 금지)만 본다. 그
+ * 사이에 아무도 보지 않는 자리가 있었다: `detailDepth` 는 IA §4 행 11 을 전사해
+ * 선언돼 있었는데 **어느 화면도 그것을 조회하지 않았다.** 한 화면 안의 두 슬롯
+ * 이라고 오전사된 주석 때문에 아무도 두 번째 화면을 찾지 않았고, 라이브에서
+ * 종목 상세의 표준 모드와 연구 모드가 바이트 단위로 같아졌다(2026-08-12 실측).
+ *
+ * 모양만 보는 테스트는 그것을 잡을 수 없다. 선언마다 **조회하는 코드가 있는지**
+ * 를 보는 것이 그 틈이다.
+ */
+describe('깊이 3모드 — 선언한 것은 이행된다', () => {
+  it('detailDepth 가 배정된 키는 detailDepthFor 로 조회되는 화면을 갖는다', async () => {
+    const declared = (Object.keys(DEPTH_ASSIGNMENTS) as DepthAssignmentKey[]).filter(
+      (key) => DEPTH_ASSIGNMENTS[key].detailDepth !== undefined,
+    );
+    const sources = await readSourceTree(sourceRoot);
+    const unhonoured = declared.filter(
+      (key) => !sources.some(({ source }) => source.includes(`detailDepthFor('${key}')`)),
+    );
+
+    assert.deepEqual(
+      unhonoured,
+      [],
+      `이 키들은 상세 깊이를 배정받았지만 그것을 조회하는 화면이 없다. 화면을 짓거나, IA §4 를 다시 읽고 배정을 내려라:\n  ${unhonoured.join('\n  ')}`,
+    );
+  });
+
+  it('detailDepthFor 는 배정이 없는 키에서 조용히 요약 깊이로 떨어지지 않는다', () => {
+    // `?? assignment.depth` 폴백이 들어오면 이 단언이 먼저 깨진다. 그 한 줄이
+    // 표가 처음으로 하중을 받는 자리에서 표를 무력화한다.
+    assert.throws(
+      () => detailDepthFor('identity_economic_claim'),
+      /상세 깊이가 배정되지 않았습니다/,
+    );
+    assert.equal(detailDepthFor('coverage_freshness_uncertainty'), 'research');
+  });
+
+  it('배럴은 호출자가 없는 조회 함수를 내보내지 않는다', async () => {
+    // `assignmentKeysForSurface` 가 그렇게 살아 있었다 — 배럴 재수출이 유일한
+    // 참조라 "쓰이는 것처럼" 보였다. 배럴은 사용 증거가 아니다.
+    const barrel = await readFile(new URL('shared/depth/index.ts', sourceRoot), 'utf8');
+    const exported = [...barrel.matchAll(/^\s{2}([a-z][A-Za-z]+),$/gm)].map((match) => match[1]);
+    const sources = (await readSourceTree(sourceRoot)).filter(
+      ({ path }) => !path.includes('/shared/depth/'),
+    );
+    const unused = exported.filter(
+      (name) => !sources.some(({ source }) => new RegExp(`\\b${name}\\s*\\(`).test(source)),
+    );
+
+    assert.deepEqual(
+      unused,
+      [],
+      `배럴이 내보내는데 shared/depth 밖에서 아무도 부르지 않는다. 쓰거나 내려라:\n  ${unused.join('\n  ')}`,
+    );
   });
 });
