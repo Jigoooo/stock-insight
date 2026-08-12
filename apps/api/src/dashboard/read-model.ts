@@ -111,6 +111,11 @@ WITH normalized_candidates AS (
   FROM normalized_candidates
   WHERE market IN ('KR', 'US')
   ORDER BY market, ticker, created_sort DESC, id DESC
+), ohlcv_prices AS (
+  -- stocks/read-model.ts 가 이미 쓰는 경로다. 대시보드만 빠져 있었다 —
+  -- 시세 티커가 36개에 머물던 이유이고, latest_price_v1 은 363종목을 든다.
+  SELECT market, ticker, latest_price, currency, change_pct
+  FROM serving.latest_price_v1
 ), latest_snapshots AS (
   SELECT DISTINCT ON (market, ticker)
     market,
@@ -193,9 +198,11 @@ WITH normalized_candidates AS (
     candidate.market,
     candidate.name,
     candidate.category,
-    snapshot.latest_price,
-    snapshot.currency,
-    snapshot.change_pct,
+    -- OHLCV 를 먼저 본다. 스냅샷은 그것이 닿지 않는 종목의 보조다 —
+    -- stocks/read-model.ts 가 쓰는 것과 같은 순서다.
+    coalesce(ohlcv.latest_price, snapshot.latest_price) AS latest_price,
+    coalesce(ohlcv.currency, snapshot.currency) AS currency,
+    coalesce(ohlcv.change_pct, snapshot.change_pct) AS change_pct,
     candidate.primary_thesis,
     candidate.confidence,
     coalesce(watchlist.is_watched, false) AS is_watched,
@@ -207,6 +214,9 @@ WITH normalized_candidates AS (
     candidate.created_sort,
     candidate.score_eligible
   FROM latest_candidates candidate
+  LEFT JOIN ohlcv_prices ohlcv
+    ON ohlcv.market = candidate.market
+   AND ohlcv.ticker = candidate.ticker
   LEFT JOIN latest_snapshots snapshot
     ON snapshot.market = candidate.market
    AND snapshot.ticker = candidate.ticker
@@ -293,16 +303,15 @@ WITH normalized_candidates AS (
   FROM theme_counts
   CROSS JOIN theme_total
 ), trend_rows AS (
-  SELECT
-    snapshot_date::date AS day,
-    avg(change_pct) AS average_change_pct
-  FROM ${MARKET_SNAPSHOTS_RELATION}
-  WHERE upper(region) IN ('KR', 'US', 'KRX', 'KOSPI', 'KOSDAQ', 'NASDAQ', 'NYSE', 'AMEX')
-    AND snapshot_date IS NOT NULL
-    AND snapshot_date <> ''
-    AND change_pct IS NOT NULL
-  GROUP BY snapshot_date::date
-  ORDER BY snapshot_date::date DESC
+  -- 추세는 **살아있는 생산자**에서 온다(마이그레이션 120).
+  --
+  -- 이 자리는 레거시 스냅샷 표를 읽었다. 그 표는 이 저장소에 쓰는 코드가 없어
+  -- 시세가 2026-07-25 에 멈췄고, 추세가 36종목 표본으로 굳은 채 날마다 표본 수가
+  -- 40배씩 널뛰었다(07-19 n=1 / 07-17 n=3,755). market_ts.ohlcv 는 매일 채워지고
+  -- 있었는데 대시보드만 그쪽을 보지 않았다.
+  SELECT day, average_change_pct
+  FROM serving.daily_change_v1
+  ORDER BY day DESC
   LIMIT 8
 ), trend_payload AS (
   SELECT
@@ -318,10 +327,15 @@ WITH normalized_candidates AS (
     (SELECT count(*) FROM open_positions)::int AS position_count,
     (SELECT count(*) FROM feed_rows)::int AS related_issue_count,
     (SELECT count(*) FROM deep_reports WHERE deep_report_length > 0)::int AS cached_report_count,
-    (SELECT avg(snapshot.change_pct)
+    -- 관심종목 평균 등락도 같은 우선순위를 따른다. 여기만 스냅샷에 남으면
+    -- 목록의 등락률과 요약의 평균이 서로 다른 날짜를 말하게 된다.
+    (SELECT avg(coalesce(ohlcv.change_pct, snapshot.change_pct))
      FROM latest_snapshots snapshot
-     JOIN active_watchlist watchlist ON watchlist.entity_key = concat(snapshot.market, ':', snapshot.ticker)
-     WHERE snapshot.change_pct IS NOT NULL) AS average_change_pct,
+     FULL JOIN ohlcv_prices ohlcv
+       ON ohlcv.market = snapshot.market AND ohlcv.ticker = snapshot.ticker
+     JOIN active_watchlist watchlist
+       ON watchlist.entity_key = concat(coalesce(ohlcv.market, snapshot.market), ':', coalesce(ohlcv.ticker, snapshot.ticker))
+     WHERE coalesce(ohlcv.change_pct, snapshot.change_pct) IS NOT NULL) AS average_change_pct,
     (SELECT label FROM theme_counts ORDER BY item_count DESC, label ASC LIMIT 1) AS top_theme_label
 ), projection_freshness AS (
   SELECT max(source_at) AS projection_updated_at

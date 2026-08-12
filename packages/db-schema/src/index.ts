@@ -118,6 +118,7 @@ import { sameIndustryOntologyEffectiveFromMigrationSql } from './migrations/116_
 import { defaultPrivilegeVisibilityMigrationSql } from './migrations/117_default_privilege_visibility.ts';
 import { k4FiscalYearComparisonWindowMigrationSql } from './migrations/118_k4_fiscal_year_comparison_window.ts';
 import { scenarioSetSubjectMigrationSql } from './migrations/119_scenario_set_subject.ts';
+import { servingDailyChangeMigrationSql } from './migrations/120_serving_daily_change.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1219,6 +1220,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: ['scenario_set'],
     sql: scenarioSetSubjectMigrationSql,
   },
+  {
+    id: '120_serving_daily_change',
+    description:
+      'Adds serving.daily_change_v1 over market_ts.ohlcv (stock/1D, 60-day window) so the dashboard trend reads a producer that still runs. The legacy stock.market_snapshots has no writer in this repository and its quote rows stopped at 2026-07-25, which froze the trend at 36 tickers with sample counts swinging 1..3755 between days.',
+    tables: [],
+    sql: servingDailyChangeMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1344,4 +1352,5 @@ export {
   sameIndustryOntologyEffectiveFromMigrationSql,
   defaultPrivilegeVisibilityMigrationSql,
   scenarioSetSubjectMigrationSql,
+  servingDailyChangeMigrationSql,
 };
