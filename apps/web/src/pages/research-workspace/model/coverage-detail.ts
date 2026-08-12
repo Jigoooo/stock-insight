@@ -119,6 +119,26 @@ export function describeCoverageDetail(data: SystemStatus): CoverageDetailView {
     });
   }
 
+  /*
+    **"늦었다" 와 "수집기가 없다" 는 다르다** — REQ-SRC-001.
+
+    2026-08-13 실측: `serving.dataset_watermark_live_v1` 에서 `available` 이 아닌
+    데이터셋은 `market_snapshots` **하나뿐**이고(status `stale`, 워터마크 07-25,
+    허용 지연 30시간), 그 표에 쓰는 코드는 저장소에 **없다**. 참조는 일회성
+    backfill(`phase4.ts`)과 주석뿐이다. 수집기가 멈춘 것이 아니라 애초에 없었고,
+    그래서 이 행은 무슨 일이 있어도 영원히 `stale` 이다.
+
+    워터마크 뷰가 지연 시간만으로 상태를 계산하기 때문이다. 생산자가 없는
+    데이터셋을 "곧 갱신될 늦은 자료" 로 보고하는 셈이고, 계획서 R10 이 지목한
+    REQ-SRC-001 위반이다. **고칠 자리는 뷰이고 마이그레이션이 필요하다** —
+    여기서 "생산자 없음" 목록을 코드에 박으면 두 번째 진실의 원천이 생겨 갈라진다.
+
+    그때까지 이 화면의 수는 과장이 아니라 **축소**다: 하나가 늦었다고 말하는데
+    실제로는 하나가 아예 수집되지 않는다.
+
+    덧붙여 그 데이터셋은 2026-08-13 부로 제품이 읽지 않는다 — 진단행 오염을
+    고치면서 읽기 경로를 전부 `serving.market_snapshots_clean_v1` 로 옮겼다.
+  */
   const staleDatasetCount = data.datasets.filter(
     (dataset) => dataset.availability !== 'available',
   ).length;
