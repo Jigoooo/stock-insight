@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  deriveTodayBriefing,
-  sampleMarketIndicators,
-} from '../src/pages/research-workspace/model/today-briefing.ts';
+import { deriveTodayBriefing } from '../src/pages/research-workspace/model/today-briefing.ts';
 
 import type { ResearchFeedItem, WorkspaceToday } from '@stock-insight/contracts/research-workspace';
 
@@ -121,12 +118,33 @@ describe('Today briefing derivation', () => {
     assert.deepEqual(deriveTodayBriefing(workspaceToday({}), []).listItems, []);
   });
 
-  it('marks every hardcoded market indicator as non-live sample data', () => {
+  /**
+   * 하드코딩 지표가 전부 `dataState:'sample'` 인지 보던 단언이 여기 있었다.
+   * 그 상수(KOSPI·NASDAQ·금)는 「오늘의 시장 요약」이 정본 01 §2 네 축의
+   * 실데이터로 바뀌면서 사라졌다. 정직성은 없어진 것이 아니라 옮겨갔다 —
+   * 이제 행마다 `availability` 와 관측일·자격이 붙고, 그것을
+   * `today-view-structure.test.ts` 가 구조로 단언한다.
+   */
+
+  it('연결 패널이 headline·curated 항목을 재사용하지 않는다', () => {
+    // 한 화면에서 같은 뉴스가 세 번 나오던 것을 막는다. `connectionItems` 가
+    // 위 두 패널의 항목을 그대로 다시 쓰고 있었다 — 정본 01 §2 는 이 자리에
+    // "공통 opportunity 후보" 를 요구하고, 재탕은 후보도 새 정보도 아니다.
+    const mustOne = feedItem('must-1', 'market');
+    const mustTwo = feedItem('must-2', 'indirect');
+    const curated = feedItem('for-you-1', 'direct');
+    const remaining = feedItem('list-1', 'discovery');
+    const data = workspaceToday({ mustKnow: [mustOne, mustTwo], forYou: [curated] });
+
+    const result = deriveTodayBriefing(data, [mustOne, mustTwo, curated, remaining]);
+    const shown = new Set([
+      ...result.headlineItems.map(({ recordKey }) => recordKey),
+      ...result.curatedItems.map(({ recordKey }) => recordKey),
+    ]);
+
     assert.deepEqual(
-      sampleMarketIndicators.map(({ label }) => label),
-      ['KOSPI', 'NASDAQ', '금'],
+      result.connectionItems.filter(({ recordKey }) => shown.has(recordKey)),
+      [],
     );
-    assert.ok(sampleMarketIndicators.every((item) => item.dataState === 'sample'));
-    assert.ok(sampleMarketIndicators.every((item) => item.basisLabel.includes('예시')));
   });
 });
