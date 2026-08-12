@@ -801,6 +801,28 @@ function planMarketReaction(facts: AssetSourceFacts): CommonAssetViewBlock {
 }
 
 /**
+ * 블록 10 의 승격 경로 — 2026-08-13 실측.
+ *
+ * 이 블록이 `unverified_only` 인 이유는 생산자 부재가 아니라 `knowledge.assertion`
+ * 315건이 전부 `extracted` 에 머물러서다. 상태 기계는 이미 정의돼 있다:
+ *
+ *   extracted → verified_span → verified_semantics → accepted
+ *
+ * **`verified_span` 은 기계적으로 확인 가능한 단계다.** 315건 전부가
+ * `source_revision_id` 와 `source_span_locator` 를 갖고 있고, locator 는
+ * `{ field: 'title+summary', documentChunkId }` 형태라 어느 문장을 인용했는지
+ * 정확히 지목한다. 리터럴 값도 310건에 있다.
+ *
+ * 막힌 곳은 **원문 텍스트의 위치**다. `source_revision_id` 는
+ * `ingestion.source_revision` 을 가리키는데 그 표에는 텍스트 컬럼이 없고
+ * `payload_metadata` 가 `object_uri` 만 든다 — 본문은 blob 에 있다. 그러므로
+ * span 검증기는 객체를 가져오는 I/O 작업이지 SQL 배선이 아니다.
+ *
+ * 그 생산자가 착지하는 커밋이 이 블록의 상태를 `unverified_only` 에서 올리고,
+ * 그때 `asset-above-the-fold.tsx` 의 미검증 영역(점선 테두리)도 함께 정리해야
+ * 한다 — 검증된 주장이 생기면 그 영역의 존재 이유가 바뀐다.
+ */
+/**
  * 이 블록은 한동안 "생산자를 더 돌린다고 채워지지 않는" 유일한 블록이었다.
  * `analytics.scenario_set` 이 비어 있었고, DB 에서 유일하게 채워진 thesis 테이블은
  * `personalization.thesis_revision` 인데 REQ-REC-001 이 이 뷰의 읽기를 금지한다.
