@@ -432,6 +432,29 @@ export async function prepareLiveDev({
       // Cache directories are created lazily; nothing to shadow yet.
     }
   }
+  // The tunnel sandbox gets a fresh `--dir` under `--tmpfs /tmp` as its HOME, so
+  // cloudflared never saw the Access token the host already holds and demanded a
+  // browser login on **every** run. Worse, `waitForPostgresTunnel` allows five
+  // minutes, so the login had to be finished inside a window that opens when the
+  // process starts — a token obtained beforehand was of no use.
+  //
+  // Binding cloudflared's own credential store back to cloudflared does not widen
+  // the sandbox in any meaningful way: this directory holds the Access tokens for
+  // this one hostname and nothing else, and an unsandboxed cloudflared would read
+  // exactly it. What the sandbox is actually for stays intact — `~/.hermes/secrets`,
+  // the runtime pgpass and the workspace remain unmounted here, which is what the
+  // "tunnel sandbox must not see the secret directory" assertion pins.
+  //
+  // Read-only on purpose. The tunnel is allowed to *use* an identity, not to mint
+  // or replace one, and a login performed inside the sandbox would be written to a
+  // tmpfs that disappears with the run anyway. The cost is that an expired token
+  // can no longer be renewed from here, so it is checked before the sandbox starts
+  // and reported as itself instead of as a five-minute silence.
+  const hostCloudflaredDir = join(homeDir, '.cloudflared');
+  const tunnelTokenMount = (await sandboxPathIsReadable(hostCloudflaredDir))
+    ? ['--ro-bind', hostCloudflaredDir, join(tunnelSandboxHome, '.cloudflared')]
+    : [];
+
   return {
     ...common,
     backend: 'linux-bubblewrap',
@@ -453,6 +476,7 @@ export async function prepareLiveDev({
         '/dev',
         '--dir',
         tunnelSandboxHome,
+        ...tunnelTokenMount,
         cloudflared,
         'access',
         'tcp',
@@ -863,6 +887,50 @@ export async function waitForPostgresTunnel({
   throw new Error(
     `PostgreSQL tunnel was not ready after Cloudflare Access login on ${host}:${port}`,
   );
+}
+
+/**
+ * Reports the Access token the tunnel sandbox will read, before it starts.
+ *
+ * Without this the expired-token path looks exactly like the never-logged-in
+ * path: cloudflared prints a login URL, the five-minute budget runs out, and the
+ * script fails with "PostgreSQL tunnel was not ready" — which names the symptom
+ * and not one of the two very different causes.
+ *
+ * The mount is a directory bind, so a `cloudflared access login` run on the host
+ * *while the window is open* shows up inside the sandbox immediately. That is why
+ * this warns and continues instead of refusing to start.
+ */
+export async function describeAccessToken(
+  directory,
+  { readdir: read = readdir, now = Date.now } = {},
+) {
+  let entries;
+  try {
+    entries = await read(directory);
+  } catch {
+    return { state: 'missing' };
+  }
+  let latest = null;
+  for (const entry of entries) {
+    if (!entry.endsWith('-token')) continue;
+    let claims;
+    try {
+      const raw = await readFile(join(directory, entry), 'utf8');
+      const segment = raw.trim().split('.')[1];
+      if (!segment) continue;
+      claims = JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+    } catch {
+      continue;
+    }
+    const expiresAt = typeof claims?.exp === 'number' ? claims.exp * 1000 : null;
+    if (expiresAt === null) continue;
+    if (latest === null || expiresAt > latest) latest = expiresAt;
+  }
+  if (latest === null) return { state: 'missing' };
+  return latest > now()
+    ? { state: 'valid', expiresAt: new Date(latest).toISOString() }
+    : { state: 'expired', expiresAt: new Date(latest).toISOString() };
 }
 
 function exitCodeFor(code, signal) {
@@ -1285,6 +1353,21 @@ async function main() {
       : '  Process backend: macOS native process groups with child-specific environments\n',
   );
   process.stdout.write('  Mutations:       enabled (real production data)\n');
+
+  const accessToken = await describeAccessToken(join(homedir(), '.cloudflared'));
+  if (accessToken.state === 'valid') {
+    process.stdout.write(`  Access token:    valid until ${accessToken.expiresAt}\n`);
+  } else {
+    // Named rather than left to become a five-minute silence. The login window
+    // opens when the tunnel starts and closes 300s later, so the actionable
+    // sentence has to arrive before that, not after.
+    process.stdout.write(
+      `  Access token:    ${accessToken.state === 'expired' ? `expired ${accessToken.expiresAt}` : 'not found'} — the tunnel will ask for a browser login\n` +
+        `                   Run this in another terminal to finish it without the 5 minute window:\n` +
+        `                     cloudflared access login https://${prepared.hostname}\n`,
+    );
+  }
+
   if (process.argv.includes('--check')) {
     process.stdout.write(
       'Diagnostic only: Cloudflare SSO and an actual production DB connection were not tested.\n',
