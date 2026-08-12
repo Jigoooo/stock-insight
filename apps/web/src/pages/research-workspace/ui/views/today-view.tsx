@@ -12,10 +12,7 @@ import {
 } from '../workspace-presenters';
 
 import { presentResearchSummary } from '@/pages/research-workspace/model/presentation';
-import {
-  deriveTodayBriefing,
-  sampleMarketIndicators,
-} from '@/pages/research-workspace/model/today-briefing';
+import { deriveTodayBriefing } from '@/pages/research-workspace/model/today-briefing';
 import { Button } from '@/shared/ui/button';
 import {
   CursorPagination,
@@ -68,6 +65,7 @@ export function TodayView({
   onSelectRecord: SelectRecord;
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
+  const indicators = data.marketIndicators;
   const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
     data,
     items,
@@ -97,20 +95,37 @@ export function TodayView({
         data-testid="today-market-summary"
         aria-labelledby="today-market-summary-title"
       >
-        <PanelHeader meta={<span className={styles.sampleBadge}>샘플 데이터</span>}>
+        {/*
+          정본 01 §2 가 요구하는 금리·FX·원자재·정책 네 축이다. 이 자리는
+          KOSPI·NASDAQ·금 세 줄의 **샘플**이었는데, 그 값들은 우리가 수집하지 않는
+          것이고 정본이 요구한 축도 아니었다. 실제로 수집되는 것이 정본 축과 정확히
+          겹쳐서, 만들 것은 수집기가 아니라 배선이었다.
+
+          정직성 기계는 그대로 둔다 — 행마다 상태와 근거를 함께 적는다. 바뀐 것은
+          "이 화면은 예시입니다" 가 "이 값은 언제 관측된 무엇입니다" 로 바뀐 것뿐이다.
+        */}
+        <PanelHeader meta={`${indicators.length}개 지표`}>
           <h2 id="today-market-summary-title">오늘의 시장 요약</h2>
-          <p>하루의 배경을 빠르게 훑어보는 주요 지표입니다.</p>
+          <p>금리·환율·원자재·정책 금리를 관측 시각과 함께 봅니다.</p>
         </PanelHeader>
-        <ul className={styles.marketSummaryList} aria-label="오늘의 주요 시장 지표 샘플">
-          {sampleMarketIndicators.map((item) => (
-            <li key={item.id}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              <small data-direction={item.direction}>{item.change}</small>
-              <em>{item.basisLabel}</em>
-            </li>
-          ))}
-        </ul>
+        {indicators.length === 0 ? (
+          <p className={styles.marketSummaryEmpty}>
+            표시할 거시 지표를 불러오지 못했습니다. 아래 항목은 영향을 받지 않습니다.
+          </p>
+        ) : (
+          <ul className={styles.marketSummaryList} aria-label="오늘의 주요 시장 지표">
+            {indicators.map((item) => (
+              <li key={item.key} data-availability={item.availability}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+                {item.changeLabel ? (
+                  <small data-direction={item.direction}>{item.changeLabel}</small>
+                ) : null}
+                <em>{item.basisLabel}</em>
+              </li>
+            ))}
+          </ul>
+        )}
       </Panel>
 
       <Panel

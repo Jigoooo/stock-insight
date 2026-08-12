@@ -118,6 +118,26 @@ export const researchFeedPageSchema = z
 
 export type ResearchFeedPage = z.infer<typeof researchFeedPageSchema>;
 
+/**
+ * Market Home 거시 상태 — 정본 01 §2 의 금리·FX·원자재·정책 네 축.
+ *
+ * `availability` 는 계약의 공용 어휘를 그대로 쓴다. 이 자리는 한동안
+ * `dataState: 'sample'` 이라는 **이 화면 전용 낱말**을 들고 있었는데, 그것은
+ * 실데이터가 없던 동안의 임시 어휘였고 다른 화면의 상태와 비교할 수 없었다.
+ */
+export const marketIndicatorSchema = z.object({
+  key: boundedText(60),
+  label: boundedText(120),
+  value: boundedText(40),
+  changeLabel: boundedText(40).nullable(),
+  direction: z.enum(['up', 'down', 'flat']).nullable(),
+  availability: canonicalAvailabilitySchema,
+  observedOn: boundedText(10).nullable(),
+  basisLabel: boundedText(240),
+});
+
+export type MarketIndicator = z.infer<typeof marketIndicatorSchema>;
+
 export const workspaceTodaySchema = z
   .object({
     meta: workspaceSnapshotMetaSchema,
@@ -128,6 +148,7 @@ export const workspaceTodaySchema = z
       sourceCount: countSchema,
     }),
     lanes: z.array(researchFeedLaneSchema).length(3),
+    marketIndicators: z.array(marketIndicatorSchema).max(12),
     defaultRecordKey: boundedText(320).nullable(),
   })
   .superRefine(({ defaultRecordKey, lanes, summary }, context) => {

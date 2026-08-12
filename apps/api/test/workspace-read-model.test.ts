@@ -155,7 +155,10 @@ describe('workspace read model', () => {
     assert.equal(result.meta.freshness, 'available');
     assert.deepEqual(result.meta.sourceCoverage, { linked: 4, clickable: 2, total: 4 });
     assert.equal(result.summary.relationCount, 4);
-    assert.equal(calls.length, 3);
+    // 거시 지표 조회가 네 번째다. 정본 01 §2 의 금리·FX·원자재·정책 축은 발행
+    // 프로젝션과 무관한 시장 단위 자료라 별도 쿼리로 온다.
+    assert.equal(calls.length, 4);
+    assert.ok(calls.some(({ sql }) => sql.includes('macro_series_topic')));
     assert.deepEqual(calls[2]?.params, ['2026-07-16T13:05:26.678Z', userScope.userId]);
     assert.ok(calls.some(({ params }) => params.includes(userScope.userId)));
     assert.equal(

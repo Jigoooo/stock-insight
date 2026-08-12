@@ -21,7 +21,20 @@ describe('Today personal briefing structure', () => {
       offsets,
       [...offsets].sort((a, b) => a - b),
     );
-    assert.match(source, /샘플 데이터/);
+    // "샘플 데이터" 배지가 있던 자리다. 그 배지는 KOSPI·NASDAQ·금 세 줄의 예시를
+    // 정직하게 표시하던 장치였고, 실데이터가 없던 동안에는 옳았다. 이제 정본 01 §2
+    // 네 축(금리·FX·원자재·정책)이 `market.macro_vintage` 에서 실제로 온다.
+    //
+    // 정직성 기계는 사라지지 않았다 — 행마다 상태(`data-availability`)와 근거
+    // (`basisLabel`)를 여전히 함께 적는다. 바뀐 것은 "이 화면은 예시입니다" 가
+    // "이 값은 언제 관측된 무엇입니다" 로 바뀐 것뿐이다. 그래서 단언도 배지가
+    // 아니라 **행마다 상태와 근거가 붙는지**를 본다.
+    // 문구가 아니라 **구조**로 단언한다. 제거를 설명하는 주석에는 그 낱말이 그대로
+    // 들어가므로 문구로 단언하면 주석이 자기 단언을 깬다 — 이 저장소에서 오늘만
+    // 세 번 나온 모양이다.
+    assert.doesNotMatch(source, /sampleMarketIndicators|styles\.sampleBadge/);
+    assert.match(source, /data-availability=\{item\.availability\}/);
+    assert.match(source, /\{item\.basisLabel\}/);
     assert.match(source, /deriveTodayBriefing/);
   });
 

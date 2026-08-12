@@ -165,6 +165,19 @@ export const todayPreviewFixture = {
       { lane: 'for_you', scopeTotal: forYouItems.length, items: forYouItems, nextCursor: null },
       { lane: 'explore', scopeTotal: exploreItems.length, items: exploreItems, nextCursor: null },
     ],
+    // 프리뷰는 프로덕션이 그릴 수 있는 모양만 그린다. 라이브 실측값을 그대로 쓴다.
+    marketIndicators: [
+      {
+        key: 'usd-krw',
+        label: '원/달러 환율',
+        value: '1409.94원',
+        changeLabel: '-13.67',
+        direction: 'down' as const,
+        availability: 'available' as const,
+        observedOn: '2026-08-07',
+        basisLabel: '2026-08-07 관측 · 발표 시점 그대로 기록된 값',
+      },
+    ],
     defaultRecordKey: null,
   },
   defaultRecord: null,

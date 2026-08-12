@@ -1,4 +1,7 @@
+import { getMarketIndicators } from './macro-read-model.ts';
+
 import { MARKET_DATA_AS_OF_EXPR, MARKET_DATA_AS_OF_SQL } from '../shared/market-snapshots.ts';
+
 import type { UserScope } from '../shared/user-scope';
 
 import {
@@ -397,6 +400,24 @@ export async function getWorkspaceToday(
   if (linkedRecords < feedRows.length) qualityFlags.push('source_link_partial');
   if (clickableRecords < linkedRecords) qualityFlags.push('source_url_partial');
 
+  /*
+    거시 지표는 발행 프로젝션과 무관한 **시장 단위** 자료다. 그래서 실패를
+    격리한다 — 거시 조회가 넘어져도 오늘 브리핑 전체를 죽이지 않는다.
+
+    이 payload 안에 둔 것은 타협이다. 원래는 독립 엔드포인트가 맞다(거시는
+    발행과 아무 관계가 없다). 다만 오늘 그 결합의 실질적 위험은 하나뿐이다 —
+    `ops.publication_projection_status` 가 **완전히 비면** 위에서 예외가 나고
+    거시까지 함께 사라진다. 그 표에 행이 하나라도 있으면 이제 stale 로 내려가
+    화면이 산다. 그 전제가 깨지는 날(신규 설치·ops 초기화) 이 섹션을 별도
+    엔드포인트로 떼는 것이 다음 단계다.
+  */
+  const marketIndicators = await getMarketIndicators(executor, { now }).catch((error: unknown) => {
+    // 삼키되 **말은 한다.** 조용한 빈 배열은 "지표가 없다" 와 "조회가 실패했다" 를
+    // 같게 만들고, 실제로 그 둘을 구별하지 못해 한 번 헤맸다.
+    console.error('market indicators unavailable', error);
+    return [];
+  });
+
   return workspaceTodaySchema.parse({
     meta: {
       schemaVersion: 'v3',
@@ -432,6 +453,7 @@ export async function getWorkspaceToday(
       sourceCount,
     },
     lanes,
+    marketIndicators,
     defaultRecordKey: returnedItems[0]?.recordKey ?? null,
   });
 }

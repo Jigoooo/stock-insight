@@ -75,6 +75,7 @@ describe('research workspace v3 contracts', () => {
         { lane: 'for_you', scopeTotal: 0, items: [], nextCursor: null },
         { lane: 'explore', scopeTotal: 0, items: [], nextCursor: null },
       ],
+      marketIndicators: [],
       defaultRecordKey: feedItem.recordKey,
     });
 
@@ -102,6 +103,7 @@ describe('research workspace v3 contracts', () => {
           { lane: 'for_you', scopeTotal: 1, items: [feedItem], nextCursor: null },
           { lane: 'explore', scopeTotal: 0, items: [], nextCursor: null },
         ],
+        marketIndicators: [],
         defaultRecordKey: 'missing-record',
       }).success,
       false,

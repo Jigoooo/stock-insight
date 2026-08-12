@@ -70,6 +70,7 @@ function workspaceToday({
       { lane: 'for_you', scopeTotal: forYou.length, items: forYou, nextCursor: null },
       { lane: 'explore', scopeTotal: explore.length, items: explore, nextCursor: null },
     ],
+    marketIndicators: [],
     defaultRecordKey: mustKnow[0]?.recordKey ?? forYou[0]?.recordKey ?? null,
   };
 }
