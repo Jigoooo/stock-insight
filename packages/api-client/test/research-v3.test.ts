@@ -63,6 +63,8 @@ const workspace: WorkspaceToday = {
     { lane: 'explore', scopeTotal: 0, items: [], nextCursor: null },
   ],
   marketIndicators: [],
+  upcomingEvents: [],
+  upcomingEventTotal: 0,
   defaultRecordKey: item.recordKey,
 };
 

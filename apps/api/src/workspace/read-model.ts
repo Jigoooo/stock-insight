@@ -1,3 +1,4 @@
+import { getScheduledCalendar } from './calendar-read-model.ts';
 import { getMarketIndicators } from './macro-read-model.ts';
 
 import { MARKET_DATA_AS_OF_EXPR, MARKET_DATA_AS_OF_SQL } from '../shared/market-snapshots.ts';
@@ -418,6 +419,11 @@ export async function getWorkspaceToday(
     return [];
   });
 
+  const calendar = await getScheduledCalendar(executor, { now }).catch((error: unknown) => {
+    console.error('scheduled calendar unavailable', error);
+    return { events: [], totalUpcoming: 0 };
+  });
+
   return workspaceTodaySchema.parse({
     meta: {
       schemaVersion: 'v3',
@@ -454,6 +460,8 @@ export async function getWorkspaceToday(
     },
     lanes,
     marketIndicators,
+    upcomingEvents: calendar.events,
+    upcomingEventTotal: calendar.totalUpcoming,
     defaultRecordKey: returnedItems[0]?.recordKey ?? null,
   });
 }

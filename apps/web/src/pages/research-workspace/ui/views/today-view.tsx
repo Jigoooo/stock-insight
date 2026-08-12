@@ -66,6 +66,7 @@ export function TodayView({
 }) {
   const feedRef = useRef<HTMLDivElement>(null);
   const indicators = data.marketIndicators;
+  const upcoming = data.upcomingEvents;
   const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
     data,
     items,
@@ -125,6 +126,47 @@ export function TodayView({
               </li>
             ))}
           </ul>
+        )}
+      </Panel>
+
+      {/*
+        정본 01 §2 여섯 번째 섹션 — 예정 catalyst/calendar.
+        `market.scheduled_event` 는 매일 채워지고 있었는데 읽는 코드가 0개였다.
+        제목은 수집원이 쓴 영문이라 번역하지 않고 그대로 옮긴다 — 사건 목록이
+        이미 쓰는 방식이다. 우리가 분류한 종류·지역만 한국어로 바꾼다.
+      */}
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-upcoming-events"
+        aria-labelledby="today-upcoming-events-title"
+      >
+        <PanelHeader meta={`전체 ${data.upcomingEventTotal}건`}>
+          <h2 id="today-upcoming-events-title">예정된 일정</h2>
+          <p>통화정책 회의와 경제지표 발표를 먼저 봅니다.</p>
+        </PanelHeader>
+        {upcoming.length === 0 ? (
+          <p className={styles.marketSummaryEmpty}>
+            예정된 일정을 불러오지 못했습니다. 아래 항목은 영향을 받지 않습니다.
+          </p>
+        ) : (
+          <>
+            <ul className={styles.upcomingList} aria-label="예정된 일정">
+              {upcoming.map((event) => (
+                <li key={event.key}>
+                  <time dateTime={event.scheduledOn}>{event.scheduledOn}</time>
+                  <span>
+                    {event.kindLabel}
+                    {event.regionLabel ? ` · ${event.regionLabel}` : ''}
+                  </span>
+                  <strong>{event.title}</strong>
+                </li>
+              ))}
+            </ul>
+            <p className={styles.sourceCaveat}>
+              일정 제목은 수집처가 기록한 원문 그대로입니다. 전체 {data.upcomingEventTotal}건 중
+              통화정책·경제지표·실적 순으로 {upcoming.length}건만 실었습니다.
+            </p>
+          </>
         )}
       </Panel>
 

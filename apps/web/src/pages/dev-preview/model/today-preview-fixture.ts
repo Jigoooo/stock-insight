@@ -178,6 +178,16 @@ export const todayPreviewFixture = {
         basisLabel: '2026-08-07 관측 · 발표 시점 그대로 기록된 값',
       },
     ],
+    upcomingEvents: [
+      {
+        key: 'preview-bok',
+        scheduledOn: '2026-08-28',
+        kindLabel: '통화정책 회의',
+        regionLabel: '한국은행',
+        title: '한국은행 금통위',
+      },
+    ],
+    upcomingEventTotal: 132,
     defaultRecordKey: null,
   },
   defaultRecord: null,

@@ -138,6 +138,17 @@ export const marketIndicatorSchema = z.object({
 
 export type MarketIndicator = z.infer<typeof marketIndicatorSchema>;
 
+/** 정본 01 §2 여섯 번째 섹션 — 예정 catalyst/calendar. */
+export const scheduledEventSchema = z.object({
+  key: boundedText(40),
+  scheduledOn: boundedText(10),
+  kindLabel: boundedText(40),
+  regionLabel: boundedText(40).nullable(),
+  title: boundedText(240),
+});
+
+export type ScheduledEvent = z.infer<typeof scheduledEventSchema>;
+
 export const workspaceTodaySchema = z
   .object({
     meta: workspaceSnapshotMetaSchema,
@@ -149,6 +160,9 @@ export const workspaceTodaySchema = z
     }),
     lanes: z.array(researchFeedLaneSchema).length(3),
     marketIndicators: z.array(marketIndicatorSchema).max(12),
+    upcomingEvents: z.array(scheduledEventSchema).max(12),
+    /** 좁히기 전 전체 미래 일정 수. 자른 사실을 화면이 말할 수 있게 함께 싣는다. */
+    upcomingEventTotal: countSchema,
     defaultRecordKey: boundedText(320).nullable(),
   })
   .superRefine(({ defaultRecordKey, lanes, summary }, context) => {

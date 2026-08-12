@@ -71,6 +71,8 @@ function workspaceToday({
       { lane: 'explore', scopeTotal: explore.length, items: explore, nextCursor: null },
     ],
     marketIndicators: [],
+    upcomingEvents: [],
+    upcomingEventTotal: 0,
     defaultRecordKey: mustKnow[0]?.recordKey ?? forYou[0]?.recordKey ?? null,
   };
 }

@@ -619,3 +619,39 @@
   padding: 8px 20px;
   border-bottom: 1px solid var(--color-border);
 }
+
+/* 거시 지표·예정 일정 조회가 실패했을 때. 나머지 패널은 영향을 받지 않는다. */
+.marketSummaryEmpty {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+/* 예정 일정 — 날짜·종류·제목 세 칸. 제목은 수집 원문이라 길어질 수 있어 줄바꿈을 허용한다. */
+.upcomingList {
+  display: grid;
+  gap: 9px;
+}
+
+.upcomingList li {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 9rem) minmax(0, 1fr);
+  gap: 11px;
+  align-items: baseline;
+}
+
+.upcomingList time,
+.upcomingList span {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.upcomingList strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 620px) {
+  .upcomingList li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+}
