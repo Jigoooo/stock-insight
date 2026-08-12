@@ -309,6 +309,19 @@ WITH normalized_candidates AS (
   -- 시세가 2026-07-25 에 멈췄고, 추세가 36종목 표본으로 굳은 채 날마다 표본 수가
   -- 40배씩 널뛰었다(07-19 n=1 / 07-17 n=3,755). market_ts.ohlcv 는 매일 채워지고
   -- 있었는데 대시보드만 그쪽을 보지 않았다.
+  --
+  -- **이 엔드포인트를 읽는 화면은 오늘 없다** — 2026-08-13 실측.
+  -- `/v1/dashboard/today` → `/api/dashboard/today` 까지 HTTP 경로는 살아 있고
+  -- 200 을 돌려주는데, 호출하는 코드가 `routeTree.gen.ts` 의 등록 외에 0개다.
+  -- `pages/dashboard/**` 가 사라지면서 호출자만 같이 없어졌고 엔드포인트는 남았다.
+  -- 실제 today 화면은 `loadResearchWorkspaceView` 를 탄다.
+  --
+  -- 그러므로 위 수정이 고친 것은 **브레인이 내보내는 값**이지 사용자가 보는
+  -- 값이 아니다. 이 주석이 있는 이유는 다음 사람이 여기를 고치면서 화면이
+  -- 바뀔 것이라고 기대하지 않게 하기 위해서다. 화면에 붙이려면 소비자를 먼저
+  -- 만들어야 하고, 그때는 `sample_count` 도 같이 날라야 한다 — 뷰가 그 열을
+  -- 내는 이유가 "표본 1개인 날과 361개인 날이 같은 굵기로 그려지면 안 된다"
+  -- 이고, 지금 이 읽기 모델은 그 열을 버린다.
   SELECT day, average_change_pct
   FROM serving.daily_change_v1
   ORDER BY day DESC
