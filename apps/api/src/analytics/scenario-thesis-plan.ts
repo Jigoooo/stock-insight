@@ -171,12 +171,22 @@ export function planScenarioThesis(
   if (!primary) throw new Error('unreachable: usable bands were checked above');
   const setKey = `thesis:own-history:${subject.securityEntityId}:${options.asOfDate}`;
 
-  const observed = positions
-    .map(
-      ({ band, position }) =>
-        `${band.methodKey} 기준 현재 배수가 ${positionLabels[position as Exclude<BandPosition, 'unknown'>]}`,
-    )
-    .join('; ');
+  // **산출 방법 키를 서술에 넣지 않는다.** `own_history_pbr_band` 는 내부 키이고,
+  // 생산자가 그것을 산문에 섞으면 화면의 어떤 필터도 문장 한가운데서 그것을
+  // 안전하게 빼낼 수 없다(UX 헌법 7번). 방법의 정체는 `metadata.positions[]` 에
+  // 구조로 남고, 산문은 **몇 개가 어디를 가리키는가**만 말한다.
+  const observed = (() => {
+    const byPosition = new Map<string, number>();
+    for (const { position } of positions) {
+      byPosition.set(position, (byPosition.get(position) ?? 0) + 1);
+    }
+    return [...byPosition.entries()]
+      .map(
+        ([position, count]) =>
+          `산출 방법 ${count}개 기준 현재 배수가 ${positionLabels[position as Exclude<BandPosition, 'unknown'>]}`,
+      )
+      .join('; ');
+  })();
 
   const branchMeta = (kind: string) => ({
     reading: kind,

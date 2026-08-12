@@ -593,6 +593,61 @@ describe('valuation bands refuse to be read as a price', () => {
   });
 });
 
+describe('thesis narrative never carries a producer key', () => {
+  /**
+   * 라이브 반증(2026-08-12): 블록 9 가 켜진 날 156개 분기의 서술이
+   * `own_history_pbr_band 기준 현재 배수가...` 로 시작했다. 원장은 append-only 라
+   * 그 문장은 남고, 생산자만 고쳐서는 이미 쓰인 행이 화면에 계속 나간다.
+   *
+   * `displayText` 는 이것을 막지 못한다 — 키가 **문장 한가운데**에 있어 문자열
+   * 전체가 내부 키 모양이 아니기 때문이다. 두 가드 사이로 빠져나가는 세 번째
+   * 모양이고, 그래서 리더가 따로 치환한다.
+   */
+  it('replaces a valuation method key embedded mid-sentence', async () => {
+    await withViteServer(async (server) => {
+      const module = (await server.ssrLoadModule(
+        '/src/pages/asset-deep-dive/model/asset-packet.ts',
+      )) as {
+        readThesis: (block: { payload: Record<string, unknown> }) => {
+          branches: Array<{ narrative: string | null; invalidationCondition: string | null }>;
+        };
+      };
+
+      const view = module.readThesis({
+        payload: {
+          scenarios: [
+            {
+              title: '자기 이력 구간을 놓고 갈리는 해석',
+              branchKind: 'base',
+              narrative: 'own_history_pbr_band 기준 현재 배수가 이력 구간보다 높다',
+              invalidationCondition: 'own_history_per_band 관측이 구간 안으로 돌아오면 무효',
+            },
+          ],
+        },
+      });
+
+      const narrative = view.branches[0]?.narrative ?? '';
+      const condition = view.branches[0]?.invalidationCondition ?? '';
+      assert.doesNotMatch(narrative, /own_history_/);
+      assert.doesNotMatch(condition, /own_history_/);
+      assert.match(narrative, /주가순자산배수\(PBR\)/);
+      assert.match(condition, /주가수익배수\(PER\)/);
+    });
+  });
+
+  // 생산자 쪽도 같은 규칙을 진다. 리더의 치환은 이미 쓰인 행을 위한 방어이지
+  // 새 행을 아무렇게나 써도 된다는 허가가 아니다.
+  it('keeps the producer from writing method keys into prose', async () => {
+    const producer = await readFile(
+      new URL('../../api/src/analytics/scenario-thesis-plan.ts', import.meta.url),
+      'utf8',
+    );
+    const proseLine = producer.split('\n').find((line) => line.includes('기준 현재 배수가'));
+    assert.ok(proseLine, '서술 문장을 찾지 못했습니다');
+    assert.doesNotMatch(proseLine, /band\.methodKey/);
+  });
+});
+
 describe('displayText refuses enum values in a sentence slot', () => {
   /**
    * 두 가드 사이로 정확히 빠져나가던 모양을 막는다.

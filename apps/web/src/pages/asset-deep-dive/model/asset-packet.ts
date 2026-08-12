@@ -573,6 +573,32 @@ export type ThesisView = {
   branchesWithoutInvalidation: number;
 };
 
+/**
+ * 서술 안에 남아 있는 **산출 방법 키**를 사람 말로 바꾼다.
+ *
+ * 2026-08-12 에 쓰인 156개 분기는 서술 문장 한가운데에 `own_history_pbr_band` 를
+ * 그대로 담고 있다. 생산자는 그날 고쳐 더 이상 키를 산문에 넣지 않지만, 원장은
+ * append-only 라 이미 쓰인 문장은 남는다 — 그리고 그 문장은 라이브에서 화면까지
+ * 도달했다(UX 헌법 7번 위반).
+ *
+ * 이 파일 헤더가 선언한 역할이 정확히 이것이다: payload 의 내부 식별자는 여기
+ * 하나를 통과해야 화면에 간다. 표는 밸류에이션 블록이 쓰는 것과 같은 것을
+ * 손으로 베끼지 않고, 같은 이름을 두 자리에서 다르게 부르지 않는다.
+ */
+const valuationMethodNarrativeLabels: Record<string, string> = {
+  own_history_pbr_band: '주가순자산배수(PBR)',
+  own_history_per_band: '주가수익배수(PER)',
+};
+
+function redactMethodKeys(value: string | null): string | null {
+  if (value === null) return null;
+  let redacted = value;
+  for (const [key, label] of Object.entries(valuationMethodNarrativeLabels)) {
+    redacted = redacted.split(key).join(label);
+  }
+  return redacted;
+}
+
 export function readThesis(block: CommonAssetViewBlock): ThesisView {
   const payload = asRecord(block.payload);
   const rows = asArray(payload.scenarios).map(asRecord);
@@ -587,8 +613,8 @@ export function readThesis(block: CommonAssetViewBlock): ThesisView {
     }
     branches.push({
       label,
-      narrative: displayText(row.narrative),
-      invalidationCondition: displayText(row.invalidationCondition),
+      narrative: redactMethodKeys(displayText(row.narrative)),
+      invalidationCondition: redactMethodKeys(displayText(row.invalidationCondition)),
     });
   }
   return {
