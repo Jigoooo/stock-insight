@@ -211,4 +211,75 @@ describe('K4 prior-model expectation persistence', () => {
     assert.equal(args.cutoffs.length, 3);
     assert.equal(args.mode, 'dry-run');
   });
+
+  // 이 생산자는 `securityLimit: 10` 이 근거 없이 박혀 있어 6종목만 움직였다.
+  // 같은 로더를 쓰는 K4 러너는 이미 `number | null` 에 기본값 `null` 이다.
+  it('leaves the security limit unbounded unless one is asked for', () => {
+    assert.equal(
+      parseK4PriorModelExpectationArgs(['--live', '--cutoff', cutoff]).securityLimit,
+      null,
+    );
+    assert.equal(
+      parseK4PriorModelExpectationArgs(['--from', '2026-08-02', '--to', '2026-08-04'])
+        .securityLimit,
+      null,
+    );
+  });
+
+  it('parses --security-limit on both the live and the replay path', () => {
+    assert.equal(
+      parseK4PriorModelExpectationArgs(['--live', '--cutoff', cutoff, '--security-limit', '25'])
+        .securityLimit,
+      25,
+    );
+    assert.equal(
+      parseK4PriorModelExpectationArgs([
+        '--from',
+        '2026-08-02',
+        '--to',
+        '2026-08-04',
+        '--security-limit',
+        '25',
+      ]).securityLimit,
+      25,
+    );
+  });
+
+  // 검증이 분기 안에 있으면 한쪽 경로가 검증 없이 빠져나가므로 두 경로를 다 센다.
+  it('refuses a security limit that is not a positive whole number', () => {
+    for (const value of ['0', '-1', '2.5', 'ten']) {
+      assert.throws(
+        () =>
+          parseK4PriorModelExpectationArgs([
+            '--live',
+            '--cutoff',
+            cutoff,
+            '--security-limit',
+            value,
+          ]),
+        /--security-limit must be a positive integer/,
+        `live path accepted ${value}`,
+      );
+      assert.throws(
+        () =>
+          parseK4PriorModelExpectationArgs([
+            '--from',
+            '2026-08-02',
+            '--to',
+            '2026-08-04',
+            '--security-limit',
+            value,
+          ]),
+        /--security-limit must be a positive integer/,
+        `replay path accepted ${value}`,
+      );
+    }
+  });
+
+  it('requires a value after --security-limit', () => {
+    assert.throws(
+      () => parseK4PriorModelExpectationArgs(['--live', '--cutoff', cutoff, '--security-limit']),
+      /--security-limit requires a value/,
+    );
+  });
 });

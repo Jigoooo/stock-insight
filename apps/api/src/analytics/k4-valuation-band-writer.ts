@@ -288,9 +288,12 @@ export async function executeK4ValuationBandJob(input: {
 }): Promise<K4ValuationBandSummary[]> {
   const summaries: K4ValuationBandSummary[] = [];
   for (const cutoff of input.args.cutoffs) {
-    // `securityLimit` 이 없다. 기대 생산자가 10 종목으로 고정된 비대칭을 여기서
-    // 물려받지 않는다 — 밴드는 이미 가진 사실로 배수를 계산하는 싼 연산이고,
-    // 커버리지를 좁힐 이유가 없다.
+    // `securityLimit` 이 없다 — 밴드는 이미 가진 사실로 배수를 계산하는 싼
+    // 연산이고, 커버리지를 좁힐 이유가 없다.
+    //
+    // 한때 기대 생산자만 10 종목으로 고정돼 있어 이 자리에 "그 비대칭을 물려받지
+    // 않는다"고 적혀 있었다. 그 비대칭은 이제 없다: 기대 생산자도 `--security-limit`
+    // 를 받고 기본값이 무제한이다. 여기는 플래그조차 없다는 것만 다르다.
     const subjects = await loadK4ValuationBandSubjects(input.client, { cutoff });
     const { series, skips } = buildK4ValuationSeries(subjects);
     const prices = await loadK4ValuationBandPrices(input.client, {
