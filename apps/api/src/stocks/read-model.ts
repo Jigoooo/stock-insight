@@ -1197,9 +1197,15 @@ function sanitizeAnalysisJob(job: StockAnalysisJob | undefined): StockAnalysisJo
 
 function sanitizeStockDetail(detail: StockDetail): StockDetail {
   const safeReportMarkdown = actionSafeText(detail.deepReport.reportMarkdown);
+  // 출처 **라벨**도 게이트를 지나야 한다. 라벨은 기사 제목이라
+  // `Netflix … Should You Buy the Dip?` 같은 문장이 그대로 들어오고, 화면에서는
+  // 링크 텍스트로 렌더된다. 본문을 통째로 버리는 갈래조차 sources 는 그대로
+  // 통과시키고 있었으므로, **본문이 걸린 종목일수록** 라벨이 그대로 남았다.
+  // URL 은 건드리지 않는다 — 원문으로 가는 길까지 끊을 이유가 없다.
+  const sources = detail.deepReport.sources.filter((source) => !containsActionAdvice(source.label));
   const deepReport = safeReportMarkdown
-    ? { ...detail.deepReport, reportMarkdown: safeReportMarkdown }
-    : { status: 'missing' as const, sources: detail.deepReport.sources };
+    ? { ...detail.deepReport, reportMarkdown: safeReportMarkdown, sources }
+    : { status: 'missing' as const, sources };
 
   const learningCards = detail.learningCards
     ?.map(sanitizeLearningCard)

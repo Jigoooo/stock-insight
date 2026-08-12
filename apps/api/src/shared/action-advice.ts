@@ -83,8 +83,19 @@ const SAFE_BOUNDARY_PATTERN =
 // `순매수`·`장내매수`·`ARK Buys More Coinbase` 는 여전히 지나간다. 그것은 공시된
 // 매매 사실이지 권고가 아니고, 2026-08-03 에 그 구별을 잃었을 때 파이프라인
 // 전체가 멈췄다(`action-advice-gate-single-source.test.ts` 헤더).
+//
+// 손절·익절 갈래는 한동안 `손절가|익절가` 뿐이라 `손절매`·`손절선`·`익절 구간`
+// 이 전부 지나갔다. CLAUDE.md 는 stop-loss·take-profit 을 **이름으로** 금지하고
+// 영문 쪽은 이미 `stop[-\s]*loss|take[-\s]*profit` 로 넓게 잡고 있었으니, 한글
+// 쪽만 좁았던 것이다.
+//
+// 실측(2026-08-12, `knowledge.document`·`content.report`·`source_documents`·
+// `stock_learning_cards` 제목/요약 25,897건): 손절·익절 언급이 **0건**이다.
+// 그러므로 이 확장은 새로 잡는 것도 없고 오탐도 없다 — 관측된 누출을 막는 것이
+// 아니라 아직 도착하지 않은 어휘를 미리 닫는다. 뒤 머리명사 목록에만 붙어
+// 문맥을 보지 않으므로 2026-08-03 회귀와 같은 종류의 위험은 없다.
 const ACTION_ADVICE_PATTERN =
-  /(?:\b(?:buy|sell)\s*(?:now|recommendation|timing|signal)\b|\bshould\s+(?:you|i|we)\s+(?:buy|sell)\b|지금\s*(?:사세요|파세요|매수|매도)|(?:매수|매도)\s*(?:하세요|하라|추천|시점|타이밍|지시|신호)|(?:(?:목표|적정)\s*주가|목표가|적정가|손절가|익절가)\s*[0-9,.]*|(?:상승|하락)\s*여력|투자\s*의견\s*[:：]?\s*(?:적극\s*)?(?:매수|매도|비중\s*(?:확대|축소)|중립|보유|strong\s*buy|buy|sell|hold|overweight|underweight)|\bTP\s*(?:[0-9]|상향|하향|제시)|\b(?:target\s*price|stop[-\s]*loss|take[-\s]*profit)\b)/iu;
+  /(?:\b(?:buy|sell)\s*(?:now|recommendation|timing|signal)\b|\bshould\s+(?:you|i|we)\s+(?:buy|sell)\b|지금\s*(?:사세요|파세요|매수|매도)|(?:매수|매도)\s*(?:하세요|하라|추천|시점|타이밍|지시|신호)|(?:(?:목표|적정)\s*주가|목표가|적정가|(?:손절|익절)\s*(?:가|매|선|라인|구간|타이밍|시점))\s*[0-9,.]*|(?:상승|하락)\s*여력|투자\s*의견\s*[:：]?\s*(?:적극\s*)?(?:매수|매도|비중\s*(?:확대|축소)|중립|보유|strong\s*buy|buy|sell|hold|overweight|underweight)|\bTP\s*(?:[0-9]|상향|하향|제시)|\b(?:target\s*price|stop[-\s]*loss|take[-\s]*profit)\b)/iu;
 
 function stringify(value: unknown): string {
   if (typeof value === 'string') return value;

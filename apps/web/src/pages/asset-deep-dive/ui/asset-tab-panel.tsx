@@ -16,10 +16,12 @@ import {
   readPeerComparison,
   readRecentEvents,
   readSectorContext,
+  readValuation,
   type AssetBlockIndex,
 } from '@/pages/asset-deep-dive/model/asset-packet';
 import type { AssetTabDefinition, AssetTabId } from '@/pages/asset-deep-dive/model/asset-tabs';
 import { describeEventCoverage } from '@/pages/asset-deep-dive/model/event-coverage';
+import { describeValuationBands } from '@/pages/asset-deep-dive/model/valuation-copy';
 import { formatDate } from '@/pages/research-workspace/ui/workspace-presenters';
 import { TextLink } from '@/shared/ui/link';
 import { TruthClaimRow, truthBindingForContentPackItem } from '@/shared/ui/truth';
@@ -366,6 +368,7 @@ function MarketTab({ blocks }: TabProps) {
 
 function ValuationTab({ blocks }: TabProps) {
   const expectation = readExpectation(blocks.expectation_priced_in);
+  const valuation = readValuation(blocks.valuation_market_implied);
   return (
     <>
       <AssetSection
@@ -373,7 +376,9 @@ function ValuationTab({ blocks }: TabProps) {
         blockKey="valuation_market_implied"
         headingLevel="h3"
         title="밸류에이션"
-      />
+      >
+        <PropertyList items={describeValuationBands(valuation)} />
+      </AssetSection>
       <AssetSection
         block={blocks.expectation_priced_in}
         blockKey="expectation_priced_in"
@@ -515,7 +520,9 @@ function ProvenanceTab({ blocks, packet }: TabProps) {
             label: '의미 스냅샷',
             value: derivation.hasSemanticSnapshot ? '고정되어 있습니다.' : '고정되지 않았습니다.',
           },
-          { label: '릴리스', value: derivation.hasRelease ? '지정되어 있습니다.' : '없습니다.' },
+          // 릴리스는 블록 payload 가 아니라 **패킷 행**에 있다. payload 에서
+          // 찾던 동안 이 줄은 297패킷 전부에 "없습니다" 를 그렸다.
+          { label: '릴리스', value: packet.releaseId },
           { label: '패킷 개정', value: `${packet.revisionNo}차` },
         ]}
       />

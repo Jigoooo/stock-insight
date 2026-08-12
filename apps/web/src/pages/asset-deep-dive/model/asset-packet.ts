@@ -427,6 +427,93 @@ export function readExposure(block: CommonAssetViewBlock): ExposureView {
   };
 }
 
+// ── 블록 7 · 밸류에이션과 반영된 기대 ────────────────────────────────────────
+
+/**
+ * 이 블록에는 리더가 **없었다**. 파일이 블록 5 → 6 → 8 로 건너뛰었고, 그 사이
+ * 화면은 `<AssetSection ... />` 를 자식 없이 그렸다. 블록 7 이 297종목 전부
+ * `not_produced` 이던 동안에는 그래도 정직했다 — 고지가 부재를 말했으니까.
+ *
+ * 생산자가 착지하면서 그 전제가 깨졌다. 2026-08-12 실측으로 52종목이
+ * `available` 이고, 그 52종목에서 화면은 "확인됨" 배지 아래 **빈 몸통**을
+ * 그린다. 패킷은 밴드를 싣고 있는데 읽는 코드가 없어서다. 부재를 이유와 함께
+ * 그리는 것이 이 화면이 하는 일인데, 있는 것을 없는 것처럼 그리는 것은 그
+ * 반대다.
+ *
+ * 라이브 전수(2026-08-12, `analytics.valuation_estimate_revision`):
+ *   own_history_pbr_band / ratio / trailing_annual_history   247행
+ *   own_history_per_band / ratio / trailing_annual_history   177행
+ * 아래 세 표는 그 전수이고, 표에 없는 값이 오면 **이름 없이 그리지 않는다**
+ * (UX 헌법 7번). 새 방법이 생기면 표에 한 줄을 더하는 것이 배선이다.
+ */
+const valuationMethodLabels: Record<string, string> = {
+  own_history_pbr_band: '주가순자산배수(PBR)',
+  own_history_per_band: '주가수익배수(PER)',
+};
+
+const valuationHorizonLabels: Record<string, string> = {
+  trailing_annual_history: '지난 연간 재무 이력',
+};
+
+/**
+ * 단위는 선택 항목이 아니다. 생산자
+ * (`common-asset-view-plan.ts`)가 같은 문장을 먼저 남겼다 — 비율 밴드와 통화
+ * 밴드가 같은 두 숫자로 보이는 순간 이 블록은 가격 구간과 구별되지 않는다.
+ * 그래서 모르는 단위에서는 숫자를 **아예 내지 않고** 그 사실을 센다.
+ */
+const valuationUnitFormatters: Record<string, (value: number) => string> = {
+  ratio: (value) => `${value.toFixed(2)}배`,
+};
+
+export type ValuationBandView = {
+  methodLabel: string;
+  horizonLabel: string | null;
+  /** 단위를 모르면 `null`. 화면은 숫자 대신 그 사실을 적는다. */
+  rangeText: string | null;
+};
+
+export type ValuationView = {
+  bands: ValuationBandView[];
+  /** 이름 붙은 방법이 아니라 화면에 올리지 않은 밴드 수. */
+  unnamedMethodCount: number;
+  /** 단위를 몰라 숫자를 내지 못한 밴드 수. */
+  unitlessCount: number;
+};
+
+export function readValuation(block: CommonAssetViewBlock): ValuationView {
+  const rows = asArray(asRecord(block.payload).valuations).map(asRecord);
+  const bands: ValuationBandView[] = [];
+  let unnamedMethodCount = 0;
+  let unitlessCount = 0;
+
+  for (const row of rows) {
+    const methodKey = typeof row.methodKey === 'string' ? row.methodKey.trim() : '';
+    const methodLabel = valuationMethodLabels[methodKey];
+    if (methodLabel === undefined) {
+      // 원문 키를 대신 그리면 `own_history_pbr_band` 가 화면에 뜬다.
+      unnamedMethodCount += 1;
+      continue;
+    }
+    const unit = typeof row.estimateUnit === 'string' ? row.estimateUnit.trim() : '';
+    const format = valuationUnitFormatters[unit];
+    const lower = asFiniteNumber(row.lowerEstimate);
+    const upper = asFiniteNumber(row.upperEstimate);
+    const rangeText =
+      format !== undefined && lower !== null && upper !== null
+        ? `${format(lower)} ~ ${format(upper)}`
+        : null;
+    if (rangeText === null) unitlessCount += 1;
+    const horizon = typeof row.horizon === 'string' ? row.horizon.trim() : '';
+    bands.push({
+      methodLabel,
+      horizonLabel: valuationHorizonLabels[horizon] ?? null,
+      rangeText,
+    });
+  }
+
+  return { bands, unnamedMethodCount, unitlessCount };
+}
+
 // ── 블록 8 · 시장 반응 ───────────────────────────────────────────────────────
 
 const marketDirectionLabels: Record<string, string> = {
@@ -538,10 +625,23 @@ export function readCoverage(block: CommonAssetViewBlock): CoverageView {
 
 // ── 블록 12 · 도출과 릴리스 대장 ─────────────────────────────────────────────
 
+/**
+ * **릴리스는 이 블록의 payload 에 없다.** 생산자
+ * (`common-asset-view-plan.ts`)가 대문자로 못박아 둔 결정이고 이유도 적혀 있다 —
+ * 릴리스 id 는 한 빌드의 모든 패킷에서 같아서 특정 자산에 대한 정보가 0인데,
+ * digest 에 넣었더니 소스가 그대로인 세 번의 빌드가 297종목 전부에 대해 서로
+ * 다른 패킷 digest 를 만들었다. 항상 움직이는 digest 는 "뭔가 실제로 바뀌었나"
+ * 에 답할 수 없고, 그 질문이 digest 의 존재 이유다.
+ *
+ * 그래서 여기서 `payload.releaseId` 를 찾던 판정은 **구조적으로 항상 거짓**이었고,
+ * 화면은 297패킷 전부에 대해 "릴리스: 없습니다" 를 그렸다. 릴리스는 패킷 행에
+ * 실려서 이미 오고 있다(`common-asset-view-read-model.ts` 가 `releaseId` 로
+ * 싣고 계약이 `z.string().min(1)` 로 강제한다). 부재가 아니라 **거짓 부재**라,
+ * 정직한 빈칸을 그리는 이 화면에서 가장 나쁜 종류의 오류였다.
+ */
 export type DerivationView = {
   derivationCount: number;
   hasSemanticSnapshot: boolean;
-  hasRelease: boolean;
 };
 
 export function readDerivation(block: CommonAssetViewBlock): DerivationView {
@@ -549,6 +649,5 @@ export function readDerivation(block: CommonAssetViewBlock): DerivationView {
   return {
     derivationCount: asArray(payload.derivationIds).length,
     hasSemanticSnapshot: typeof payload.semanticSnapshotId === 'string',
-    hasRelease: typeof payload.releaseId === 'string',
   };
 }

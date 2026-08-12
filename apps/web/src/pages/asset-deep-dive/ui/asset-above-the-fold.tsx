@@ -20,9 +20,11 @@ import {
   readPeerComparison,
   readRecentEvents,
   readSectorContext,
+  readValuation,
   type AssetBlockIndex,
 } from '@/pages/asset-deep-dive/model/asset-packet';
 import { describeEventCoverage } from '@/pages/asset-deep-dive/model/event-coverage';
+import { describeValuationBands } from '@/pages/asset-deep-dive/model/valuation-copy';
 import { formatDate } from '@/pages/research-workspace/ui/workspace-presenters';
 import { PropertyList, StructuredList } from '@/shared/ui/workspace';
 import type { ResponseMeta, StockDetail } from '@stock-insight/contracts';
@@ -31,11 +33,16 @@ import type { CommonAssetViewPacket } from '@stock-insight/contracts/common-asse
 /**
  * 정본 01 §3 above-the-fold 10항목.
  *
- * 열 항목이 **전부 자리를 갖는다.** 오늘 라이브에서 7번(valuation)과 8번
- * (thesis)은 297종목 전부 비어 있고, 4번(peer-relative)과 9번(catalyst)은
- * 구조적 갭이다. 그래도 지우지 않는다 — 정직한 부재를 이유와 함께 그리는 것이
- * 이 화면이 하는 일이고, 빈 자리를 없애 화면을 꽉 차 보이게 만들면 "없다" 가
- * "묻지 않았다" 로 바뀐다.
+ * 열 항목이 **전부 자리를 갖는다.** 4번(peer-relative)과 9번(catalyst)은
+ * 구조적 갭이고 8번(thesis)은 297종목 전부 비어 있다. 그래도 지우지 않는다 —
+ * 정직한 부재를 이유와 함께 그리는 것이 이 화면이 하는 일이고, 빈 자리를 없애
+ * 화면을 꽉 차 보이게 만들면 "없다" 가 "묻지 않았다" 로 바뀐다.
+ *
+ * **7번(valuation)은 더 이상 이 목록에 없다.** 한때 여기에 "7번과 8번은 297종목
+ * 전부 비어 있다" 고 적혀 있었는데, 이 페이지가 착지한 뒤 밴드 생산자가 같은 날
+ * 따라 들어와 52종목이 `available` 이 됐다. 낡은 문장은 그 자체로 해롭지 않지만
+ * 이 문장은 해로웠다 — 감사가 "어차피 비어 있다"는 근거로 빈 몸통을 사소한
+ * 문제로 내리게 만들었다. 생산자가 착지하면 화면 쪽 전제 문장도 같이 늙는다.
  */
 
 /**
@@ -268,13 +275,17 @@ function DriverSection({
 }
 
 function ValuationSection({ blocks }: { blocks: AssetBlockIndex }) {
+  const block = blocks.valuation_market_implied;
+  const valuation = readValuation(block);
   return (
     <AssetSection
-      block={blocks.valuation_market_implied}
+      block={block}
       blockKey="valuation_market_implied"
       description="정본 01 §3 항목 7 — 밸류에이션과 시장이 반영한 기대."
       title="밸류에이션과 반영된 기대"
-    />
+    >
+      <PropertyList items={describeValuationBands(valuation)} />
+    </AssetSection>
   );
 }
 

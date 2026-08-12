@@ -399,6 +399,202 @@ describe('comparability copy does not contradict itself on one screen', () => {
   });
 });
 
+/**
+ * `available` 인데 몸통이 비는 조합을 막는다.
+ *
+ * `AssetSection` 은 `children` 이 있을 때만 몸통을 그리고 `BlockStateNotice` 는
+ * `available` 에서 `null` 을 돌려준다. 둘 다 각자는 옳은데, 자식 없이 쓴 섹션이
+ * `available` 이 되는 순간 화면에는 제목과 "확인됨" 배지만 남고 그 아래가 통째로
+ * 빈다. 패킷은 내용을 싣고 있는데 읽는 코드가 없어서다.
+ *
+ * 블록 7 이 실제로 그렇게 됐다. 페이지가 착지할 때는 297종목 전부
+ * `not_produced` 라 고지가 부재를 말해 정직했는데, 밴드 생산자가 같은 날 따라
+ * 들어와 52종목이 `available` 이 되면서 그 52종목에서 빈 몸통이 됐다. 화면 쪽
+ * 코드는 한 줄도 바뀌지 않았고, 깨진 테스트도 없었다.
+ *
+ * 그러므로 자식 없는 섹션은 **"이 블록은 available 이 될 수 없다"는 주장**이고,
+ * 주장이면 이유를 적어야 한다. 생산자가 들어오는 날 이 목록이 그 사람을 부른다.
+ */
+const CHILDLESS_SECTIONS = new Map<string, string>([
+  [
+    'multi_horizon_thesis',
+    // `analytics.scenario_set` 0행 → 라이브 297/297 `no_eligible_source`.
+    // 저장소 경로도 아직 막혀 있다(`common-asset-view-store.ts` 가 시나리오에
+    // `impact_shock` 경유로만 닿는데 그 테이블이 2행이다). 시나리오 생산자가
+    // 착지하는 커밋이 이 항목을 지우고 리더를 붙여야 한다 — 블록 7 이 그 절차를
+    // 건너뛰어서 52종목이 빈 몸통을 받았다.
+    'analytics.scenario_set 이 0행이라 available 이 될 수 없다. 생산자가 들어오면 리더부터 붙인다.',
+  ],
+]);
+
+describe('a section that cannot fill its body says why', () => {
+  it('lists every childless AssetSection with the reason it needs no body', async () => {
+    const sources = await Promise.all(
+      [
+        'pages/asset-deep-dive/ui/asset-above-the-fold.tsx',
+        'pages/asset-deep-dive/ui/asset-tab-panel.tsx',
+      ].map(read),
+    );
+    const undeclared: string[] = [];
+    for (const source of sources) {
+      for (const match of source.matchAll(/<AssetSection\b[^>]*?\/>/gs)) {
+        const blockKey = /blockKey="([^"]+)"/.exec(match[0])?.[1] ?? '(blockKey 없음)';
+        if (!CHILDLESS_SECTIONS.has(blockKey)) undeclared.push(blockKey);
+      }
+    }
+
+    assert.deepEqual(
+      [...new Set(undeclared)],
+      [],
+      `이 섹션들은 자식이 없다. 리더를 붙이거나, CHILDLESS_SECTIONS 에 "available 이 될 수 없는 이유" 와 함께 올려라:\n  ${undeclared.join('\n  ')}`,
+    );
+  });
+
+  it('drops an exemption once the block grows a body', async () => {
+    // 면제가 살아남는 흔한 방식은 리더가 생긴 뒤에도 목록에 남는 것이다. 그러면
+    // 이 테스트가 지키는 대상이 조용히 줄어든다.
+    const sources = await Promise.all(
+      [
+        'pages/asset-deep-dive/ui/asset-above-the-fold.tsx',
+        'pages/asset-deep-dive/ui/asset-tab-panel.tsx',
+      ].map(read),
+    );
+    const childless = new Set<string>();
+    for (const source of sources) {
+      for (const match of source.matchAll(/<AssetSection\b[^>]*?\/>/gs)) {
+        const blockKey = /blockKey="([^"]+)"/.exec(match[0])?.[1];
+        if (blockKey) childless.add(blockKey);
+      }
+    }
+    const stale = [...CHILDLESS_SECTIONS.keys()].filter((key) => !childless.has(key));
+
+    assert.deepEqual(
+      stale,
+      [],
+      `이제 몸통이 있다 — CHILDLESS_SECTIONS 에서 빼라:\n  ${stale.join('\n  ')}`,
+    );
+  });
+
+  // 블록 7 이 실제로 리더를 갖는지 못 박는다. 위 두 단언은 "자식이 있다" 까지만
+  // 보므로, 자식이 있는 척하는 빈 조각으로도 통과한다.
+  it('reads the valuation payload rather than only declaring a section', async () => {
+    const [model, fold, tabs] = await Promise.all([
+      read('pages/asset-deep-dive/model/asset-packet.ts'),
+      read('pages/asset-deep-dive/ui/asset-above-the-fold.tsx'),
+      read('pages/asset-deep-dive/ui/asset-tab-panel.tsx'),
+    ]);
+
+    assert.match(model, /export function readValuation/);
+    // 두 화면이 같은 블록을 그리므로 문구 원천은 하나여야 한다.
+    for (const source of [fold, tabs]) {
+      assert.match(source, /describeValuationBands\(valuation\)/);
+    }
+  });
+});
+
+describe('valuation bands refuse to be read as a price', () => {
+  /**
+   * 라이브 전수(2026-08-12, `analytics.valuation_estimate_revision` 424행):
+   * `own_history_pbr_band` 247 · `own_history_per_band` 177, 단위는 둘 다
+   * `ratio`, horizon 은 둘 다 `trailing_annual_history`. 픽스처가 그 모양이다.
+   */
+  async function readBands(rows: unknown[]) {
+    return withViteServer(async (server) => {
+      const module = (await server.ssrLoadModule(
+        '/src/pages/asset-deep-dive/model/asset-packet.ts',
+      )) as {
+        readValuation: (block: { payload: Record<string, unknown> }) => {
+          bands: Array<{
+            methodLabel: string;
+            horizonLabel: string | null;
+            rangeText: string | null;
+          }>;
+          unnamedMethodCount: number;
+          unitlessCount: number;
+        };
+      };
+      return module.readValuation({ payload: { valuations: rows } });
+    });
+  }
+
+  it('formats a ratio band with its unit and names the horizon', async () => {
+    const view = await readBands([
+      {
+        methodKey: 'own_history_pbr_band',
+        estimateUnit: 'ratio',
+        horizon: 'trailing_annual_history',
+        lowerEstimate: 1.2345,
+        upperEstimate: 2.5,
+      },
+    ]);
+
+    assert.equal(view.bands.length, 1);
+    assert.equal(view.bands[0].methodLabel, '주가순자산배수(PBR)');
+    assert.equal(view.bands[0].horizonLabel, '지난 연간 재무 이력');
+    assert.equal(view.bands[0].rangeText, '1.23배 ~ 2.50배');
+    assert.equal(view.unitlessCount, 0);
+    assert.equal(view.unnamedMethodCount, 0);
+  });
+
+  // 생산자 주석이 먼저 적은 규칙이다 — 비율 밴드와 통화 밴드가 같은 두 숫자로
+  // 보이는 순간 이 블록은 가격 구간과 구별되지 않는다.
+  it('emits no number at all when the unit is unknown', async () => {
+    const view = await readBands([
+      {
+        methodKey: 'own_history_per_band',
+        estimateUnit: 'KRW_PER_SHARE',
+        horizon: 'trailing_annual_history',
+        lowerEstimate: 61000,
+        upperEstimate: 82000,
+      },
+    ]);
+
+    assert.equal(view.bands.length, 1);
+    assert.equal(view.bands[0].rangeText, null);
+    assert.equal(view.unitlessCount, 1);
+  });
+
+  // UX 헌법 7번. 이름을 모르는 방법은 원문 키를 대신 그리지 않고 세기만 한다.
+  it('never renders an unlabelled method key', async () => {
+    const view = await readBands([
+      {
+        methodKey: 'ev_sales_cycle_adjusted',
+        estimateUnit: 'ratio',
+        horizon: 'trailing_annual_history',
+        lowerEstimate: 1,
+        upperEstimate: 2,
+      },
+    ]);
+
+    assert.equal(view.bands.length, 0);
+    assert.equal(view.unnamedMethodCount, 1);
+  });
+
+  it('states the meaning of the range before any number', async () => {
+    const copy = await withViteServer(async (server) => {
+      const module = (await server.ssrLoadModule(
+        '/src/pages/asset-deep-dive/model/valuation-copy.ts',
+      )) as {
+        describeValuationBands: (view: unknown) => Array<{ label: string; value: string }>;
+      };
+      return module.describeValuationBands({
+        bands: [
+          { methodLabel: '주가수익배수(PER)', horizonLabel: null, rangeText: '5.00배 ~ 9.00배' },
+        ],
+        unnamedMethodCount: 0,
+        unitlessCount: 0,
+      });
+    });
+
+    assert.equal(copy[0].label, '이 구간이 뜻하는 것');
+    assert.match(copy[0].value, /앞으로 얼마가 되어야 한다는 뜻이 아니고/);
+    // 제품 경계(CLAUDE.md): 가격 수준을 지시하는 어휘는 이 문구에 없어야 한다.
+    for (const item of copy) {
+      assert.doesNotMatch(item.value, /목표\s*주가|목표가|적정가|손절|익절|매수|매도/);
+    }
+  });
+});
+
 describe('displayText refuses enum values in a sentence slot', () => {
   /**
    * 두 가드 사이로 정확히 빠져나가던 모양을 막는다.
