@@ -126,7 +126,7 @@ function completeDetail(item: HistoryBriefingItem): HistoryBriefingDetail {
         summary: '수요와 재고 변화를 다음 공개 자료에서 다시 확인합니다.',
       },
     ],
-    checkpoints: ['다음 분기 공개 자료에서 재고와 수요 지표를 다시 확인'],
+    // checkpoints 를 뺐다 — 라이브가 채우지 않는 필드다.
     partialFailures: {},
   };
 }

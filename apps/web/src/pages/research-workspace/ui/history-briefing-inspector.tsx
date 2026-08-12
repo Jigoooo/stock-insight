@@ -140,16 +140,11 @@ function JudgmentDetail({
           )}
         </div>
       </div>
-      {detail.checkpoints.length > 0 && (
-        <section aria-labelledby="history-inspector-checkpoints">
-          <h3 id="history-inspector-checkpoints">다음 확인 조건</h3>
-          <StructuredList>
-            {detail.checkpoints.map((checkpoint) => (
-              <li key={checkpoint}>{checkpoint}</li>
-            ))}
-          </StructuredList>
-        </section>
-      )}
+      {/*
+        "다음 확인 조건" 섹션이 여기 있었다. `detail.checkpoints` 가 라이브에서
+        영원히 비어 프로덕션에서는 그려진 적이 없다 — 근거는
+        `history-briefing.ts` 의 같은 자리에 적었다.
+      */}
     </div>
   );
 }
@@ -179,19 +174,12 @@ function ObservationDetail({ detail }: { detail: HistoryBriefingDetail }) {
           <EvidenceList detail={detail} />
         </section>
       )}
-      {(evidenceState || detail.checkpoints.length > 0) && (
+      {evidenceState ? (
         <section aria-labelledby="history-inspector-observation-state">
           <h3 id="history-inspector-observation-state">확인 상태</h3>
-          {evidenceState ? <p>{evidenceState}</p> : null}
-          {detail.checkpoints.length > 0 && (
-            <StructuredList>
-              {detail.checkpoints.map((checkpoint) => (
-                <li key={checkpoint}>{checkpoint}</li>
-              ))}
-            </StructuredList>
-          )}
+          <p>{evidenceState}</p>
         </section>
-      )}
+      ) : null}
     </div>
   );
 }

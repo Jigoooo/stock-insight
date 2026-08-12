@@ -366,19 +366,33 @@ function CatalystRiskSection({
             이전 화면이 쓰던 리스크·체크포인트 목록입니다. 검증 경로를 통과하지 않았으므로 위 항목과
             같은 자리에 두지 않았습니다.
           </p>
+          {/*
+            두 목록은 서로 다른 것이다 — 리스크는 "무엇이 잘못될 수 있는가",
+            체크포인트는 "무엇을 확인해야 하는가". 라벨 없이 이어 붙이면 한
+            덩어리로 읽히고, 읽는 사람은 어느 줄이 어느 쪽인지 알 수 없다.
+            문구는 새로 만들지 않고 `stock-briefing-inspector` 가 이미 쓰는
+            것을 그대로 쓴다 — 같은 데이터가 두 화면에서 다른 이름으로 불리면
+            그것도 사용자가 풀어야 할 문제가 된다.
+          */}
           {risks.length > 0 ? (
-            <StructuredList>
-              {risks.map((risk) => (
-                <li key={risk}>{risk}</li>
-              ))}
-            </StructuredList>
+            <div>
+              <strong>확인할 리스크</strong>
+              <StructuredList>
+                {risks.map((risk) => (
+                  <li key={risk}>{risk}</li>
+                ))}
+              </StructuredList>
+            </div>
           ) : null}
           {checkpoints.length > 0 ? (
-            <StructuredList>
-              {checkpoints.map((checkpoint) => (
-                <li key={checkpoint}>{checkpoint}</li>
-              ))}
-            </StructuredList>
+            <div>
+              <strong>체크포인트</strong>
+              <StructuredList>
+                {checkpoints.map((checkpoint) => (
+                  <li key={checkpoint}>{checkpoint}</li>
+                ))}
+              </StructuredList>
+            </div>
           ) : null}
         </div>
       ) : null}

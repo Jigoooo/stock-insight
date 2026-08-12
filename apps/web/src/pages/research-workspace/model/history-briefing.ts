@@ -43,7 +43,12 @@ export type HistoryBriefingDetail = {
   changeSummary?: string;
   relatedNews: Array<{ id: string; title: string; url?: string }>;
   marketPaths: Array<{ id: string; label: string; summary?: string }>;
-  checkpoints: string[];
+  /*
+    `checkpoints` 가 여기 있었다. 라이브 경로에서 `[]` 로만 채워져 프로덕션에서는
+    "다음 확인 조건"·"확인 상태" 두 섹션이 한 번도 그려지지 않았고, 프리뷰
+    픽스처만 값을 넣어 e2e 가 그 위에서 통과했다. 같은 판단의 근거는
+    `market-connections.ts` 의 대응 자리에 적었다.
+  */
   partialFailures: {
     changes?: string;
     evidence?: string;
@@ -132,7 +137,6 @@ export function buildHistoryBriefingDetail(item: HistoryBriefingItem): HistoryBr
     originalEvidence,
     relatedNews: [],
     marketPaths: [],
-    checkpoints: [],
     partialFailures: {},
   };
 }

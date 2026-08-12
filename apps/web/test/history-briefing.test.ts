@@ -155,7 +155,6 @@ describe('history briefing model', () => {
     assert.equal(detail.availability, 'partial');
     assert.equal(detail.evidenceState, null);
     assert.equal(detail.changeSummary, undefined);
-    assert.deepEqual(detail.checkpoints, []);
     assert.deepEqual(detail.relatedNews, []);
     assert.deepEqual(detail.marketPaths, []);
     assert.deepEqual(detail.partialFailures, {});

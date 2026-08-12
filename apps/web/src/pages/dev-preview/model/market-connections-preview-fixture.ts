@@ -343,14 +343,9 @@ function detailFor(itemValue: MarketConnectionItem): Omit<MarketConnectionDetail
       },
     ],
     sources: sourcesByKey[itemValue.connectionKey] ?? [],
-    risks: [itemValue.riskSummary ?? '경로의 전달 시차와 데이터 범위를 확인해야 합니다.'],
-    counterEvidence: [
-      '같은 기간 일부 선행지표는 반대 방향이어서 현재 경로가 계속된다고 단정할 수 없습니다.',
-    ],
-    checkpoints: [
-      '다음 공개 일정에서 경로의 첫 단계와 마지막 단계가 함께 갱신되는지 확인합니다.',
-      `${itemValue.regionLabel ?? '관련 시장'}의 지역별 차이가 확대되는지 확인합니다.`,
-    ],
+    // 픽스처가 채우던 risks·counterEvidence·checkpoints 를 뺐다. 라이브 로더는
+    // 그 셋을 영원히 비워 두므로, 여기서 채우면 프리뷰가 프로덕션이 그릴 수
+    // 없는 화면을 보여준다 — 프리뷰의 일은 실제 모양을 미리 보는 것이다.
     relatedEvents: [relatedEvent(itemValue)],
     partialFailures: {},
   };

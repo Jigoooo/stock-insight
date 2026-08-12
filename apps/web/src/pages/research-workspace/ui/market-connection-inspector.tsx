@@ -217,45 +217,12 @@ function MarketConnectionDetailContent({
           </section>
         )}
 
-        {(detail.counterEvidence.length > 0 ||
-          detail.risks.length > 0 ||
-          detail.checkpoints.length > 0) && (
-          <section aria-labelledby="market-inspector-risks">
-            <h3 id="market-inspector-risks">반대 근거와 확인할 리스크</h3>
-            <div className={styles.riskBlocks}>
-              {detail.counterEvidence.length > 0 && (
-                <div>
-                  <strong>반대 근거</strong>
-                  <StructuredList>
-                    {detail.counterEvidence.map((evidence) => (
-                      <li key={evidence}>{evidence}</li>
-                    ))}
-                  </StructuredList>
-                </div>
-              )}
-              {detail.risks.length > 0 && (
-                <div>
-                  <strong>확인할 리스크</strong>
-                  <StructuredList>
-                    {detail.risks.map((risk) => (
-                      <li key={risk}>{risk}</li>
-                    ))}
-                  </StructuredList>
-                </div>
-              )}
-              {detail.checkpoints.length > 0 && (
-                <div>
-                  <strong>다음 체크포인트</strong>
-                  <StructuredList>
-                    {detail.checkpoints.map((checkpoint) => (
-                      <li key={checkpoint}>{checkpoint}</li>
-                    ))}
-                  </StructuredList>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        {/*
+          "반대 근거와 확인할 리스크" 섹션이 여기 있었다. 세 배열 모두 라이브
+          로더에서 영원히 비어 있어 프로덕션에서는 한 번도 그려진 적이 없고,
+          프리뷰 픽스처만 채워서 프리뷰와 e2e 에만 존재하는 화면이었다.
+          되살리는 조건은 `market-connections.ts` 의 같은 자리에 적었다.
+        */}
 
         <section aria-labelledby="market-inspector-meta">
           <h3 id="market-inspector-meta">데이터 기준 시각과 근거 수준</h3>

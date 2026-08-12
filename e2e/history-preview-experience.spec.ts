@@ -282,7 +282,6 @@ test('keeps 420px drawer and wide modal copy wrapped with HTTPS-only links', asy
       'section[aria-labelledby="history-inspector-original-judgment"] p',
       'section[aria-labelledby="history-inspector-original-evidence"] li',
       'section[aria-labelledby="history-inspector-changes"] p',
-      'section[aria-labelledby="history-inspector-checkpoints"] li',
     ].join(', '),
   );
   const geometries = await representativeText.evaluateAll((nodes) =>

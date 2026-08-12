@@ -548,6 +548,17 @@ export const stockDetailSchema = z.object({
     sources: z.array(z.object({ label: z.string().min(1), url: z.string().url() })).default([]),
   }),
   relatedNews: z.array(dashboardInsightSchema),
+  /**
+   * `stock.candidates` 의 수집 자유 텍스트다. 정본 01 §3 항목 9(촉매·리스크·
+   * 무효화 조건)의 **임시 대타**이지 그 자리 자체가 아니다 — 화면도 그렇게
+   * 다룬다(`asset-above-the-fold.tsx` 는 점선 영역 안 "아래는 검증되지 않은
+   * 정리입니다" 아래에 두고, 검증된 항목과 같은 자리에 섞지 않는다).
+   *
+   * **은퇴 조건**: `knowledge.assertion` 이 `verification_state='extracted'` 를
+   * 벗어나 CAV 블록 10 이 `available` 이 되면 이 lane 을 내린다. 그때까지는
+   * 이름을 `unverifiedRisks` 로 바꾸지 않는다 — 은퇴 예정인 lane 에 정식
+   * 이름을 주면 3 배포물을 흔들면서 수명만 늘린다.
+   */
   risks: z.array(z.string().min(1)),
   checkpoints: z.array(z.string().min(1)),
   companyProfile: stockCompanyProfileSchema.optional(),

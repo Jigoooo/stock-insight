@@ -314,9 +314,6 @@ describe('market connection live detail loader', () => {
       },
     ]);
     assert.equal(result.detail.sources[0]?.url, undefined);
-    assert.deepEqual(result.detail.risks, []);
-    assert.deepEqual(result.detail.counterEvidence, []);
-    assert.deepEqual(result.detail.checkpoints, []);
     assert.deepEqual(result.detail.relatedEvents, []);
     assert.deepEqual(result.detail.partialFailures, {});
     assert.equal(result.relation?.rootEntityKey, 'US:NVDA');
@@ -424,9 +421,6 @@ describe('market connections development preview', () => {
       assert.equal(result.detail.item.connectionKey, item.connectionKey);
       assert.ok(result.detail.paths.length > 0);
       assert.ok(result.detail.sources.length > 0 && result.detail.sources.length <= 3);
-      assert.ok(result.detail.risks.length > 0);
-      assert.ok(result.detail.counterEvidence.length > 0);
-      assert.ok(result.detail.checkpoints.length > 0);
       assert.ok(result.detail.relatedEvents.length > 0);
       assert.ok(result.detail.evidenceLevel);
       assert.ok(result.relation);

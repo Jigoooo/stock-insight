@@ -107,14 +107,12 @@ describe('history briefing inspector', () => {
   it('renders judgment detail in the approved review order', async () => {
     const html = await render(detail('judgment'));
 
-    assertOrder(html, [
-      '요약',
-      '당시 판단',
-      '당시 근거',
-      '지금 달라진 점',
-      '근거 상태',
-      '다음 확인 조건',
-    ]);
+    // "다음 확인 조건" 이 이 목록의 마지막이었다. `detail.checkpoints` 가 라이브
+    // 경로에서 영원히 비어 프로덕션에서는 그려진 적이 없고 프리뷰 픽스처만
+    // 채우고 있었다 — 순서 단언이 그 섹션을 승인된 것처럼 고정하고 있었던 셈이다.
+    assertOrder(html, ['요약', '당시 판단', '당시 근거', '지금 달라진 점', '근거 상태']);
+    // 섹션 id 로 못을 박는다. 문구로 단언하면 제거를 설명하는 위 주석이 단언을 깬다.
+    assert.doesNotMatch(html, /history-inspector-checkpoints/);
   });
 
   it('renders observations in the reduced order without calling them user judgments', async () => {

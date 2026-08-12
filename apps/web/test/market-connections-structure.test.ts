@@ -127,10 +127,17 @@ describe('market connections workspace structure', () => {
     );
     assert.match(
       inspector,
-      /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?personalEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?entities=\{personalEntities\}[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?detail\.counterEvidence\.length > 0 \|\|[\s\S]*?detail\.risks\.length > 0 \|\|[\s\S]*?detail\.checkpoints\.length > 0[\s\S]*?반대 근거와 확인할 리스크[\s\S]*?데이터 기준 시각과 근거 수준/,
+      /시장 변화 요약[\s\S]*?detail\.item\.whyNow &&[\s\S]*?왜 지금 중요한가[\s\S]*?personalEntities\.length > 0 &&[\s\S]*?연결된 내 보유·관심 종목[\s\S]*?entities=\{personalEntities\}[\s\S]*?detail\.paths\.length > 0 \|\| detail\.partialFailures\.impact[\s\S]*?시장 변화가 종목까지 이어지는 영향 경로[\s\S]*?detail\.sources\.length > 0 &&[\s\S]*?관련 뉴스·공시·근거 출처[\s\S]*?데이터 기준 시각과 근거 수준/,
     );
     assert.match(inspector, /detail\.availability === 'missing'/);
     assert.doesNotMatch(inspector, /일부 상세 데이터가 준비되지 않았습니다|styles\.partialState/);
+    // 라이브 로더가 세 배열을 영원히 비워 두어 프로덕션에서 한 번도 그려진 적이
+    // 없는데 프리뷰 픽스처만 채우던 섹션이다. 되살리려면 필드가 아니라 생산자가
+    // 먼저다 — `market-connections.ts` 참조.
+    //
+    // 문구가 아니라 **섹션 id** 로 못을 박는다. 제거를 설명하는 주석에는 그 문구가
+    // 그대로 들어가므로, 문구로 단언하면 주석이 자기 단언을 깬다.
+    assert.doesNotMatch(inspector, /market-inspector-risks/);
   });
 
   it('keeps partial failures in their owning sections and links only valid HTTPS sources', async () => {

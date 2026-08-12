@@ -59,9 +59,21 @@ export type MarketConnectionDetail = {
     publishedAt?: string;
     url?: string;
   }>;
-  risks: string[];
-  counterEvidence: string[];
-  checkpoints: string[];
+  /*
+    `risks` · `counterEvidence` · `checkpoints` 가 여기 있었다. 셋 다 `[]` 로
+    초기화된 뒤 최종 반환이 `availability`·`paths`·`partialFailures` 만 덮어
+    **프로덕션에서 영원히 빈 배열**이었다. 그런데 프리뷰 픽스처는 셋을 채웠고,
+    inspector 는 "반대 근거와 확인할 리스크" 라는 제목으로 그것을 그렸다.
+    사용자는 결코 볼 수 없는 화면을 프리뷰와 e2e 만 보고 있었던 셈이다.
+
+    죽은 코드보다 나쁘다 — 죽은 코드는 아무것도 주장하지 않는데 이쪽은 제품이
+    가진 적 없는 기능을 프리뷰에서 보여줬다. 미검증 고지로 감싸는 것도 답이
+    아니다. 그러면 "처리했다"는 기록만 남고 다음 사람이 그것을 완료로 읽는다.
+
+    되살리려면 필드가 아니라 **생산자**가 먼저다. 정본 01 §3 항목 9 의
+    catalyst/risk/invalidation 은 `knowledge.assertion` 이 `extracted` 를 벗어나
+    블록 10 이 `available` 이 되는 경로로 오지, 이 모델의 빈 배열로 오지 않는다.
+  */
   relatedEvents: MarketConnectionItem[];
   partialFailures: {
     relation?: string;
@@ -236,9 +248,6 @@ export async function loadMarketConnectionData(
               publishedAt: signal.occurredAt,
             },
           ],
-    risks: [],
-    counterEvidence: [],
-    checkpoints: [],
     relatedEvents: [],
     partialFailures: {},
   };
