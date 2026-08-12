@@ -1074,11 +1074,40 @@ function sanitizeGlossaryTerm(term: EntityGlossaryTerm): EntityGlossaryTerm | nu
   return containsActionAdvice(term.term, term.definition) ? null : term;
 }
 
+/**
+ * 출처·등기 설명은 **사업 설명이 아니다.**
+ *
+ * 화면은 `summaryText` 를 "무엇을 하는 회사인가" 자리에 그린다 — 정본 01 §3 항목 1이고
+ * REQ-PROD-003(처음 보는 종목을 5분 안에 파악)의 첫 질문이다. 그런데 라이브 348건이
+ * 무엇을 담고 있는지 재보니(2026-08-12) **한 건도 그 질문에 답하지 않는다**:
+ *
+ *   126건  "MICRON TECHNOLOGY INC SEC EDGAR 기업 프로필 (CIK 0000723125)"
+ *   222건  "현대오토에버(주) 기업 개황 (대표 류석문, 업종코드 582)"
+ *
+ * 앞의 126건은 **CIK 라는 원시 출처 식별자까지 노출**해 UX 헌법 7번으로 릴리스가
+ * 막힌다. 뒤의 222건은 대표 이름과 업종코드를 나열한 등기부 요약이라, 그 회사가
+ * 무엇을 파는지는 한 글자도 없다.
+ *
+ * 번역하거나 생성해서 채우지 않는다 — 정본 06 §9 가 "LLM 이 빈 데이터 필드를
+ * 서술로 보충" 하는 것을 NO-GO 로 지목한다. 대신 이 자리에서 **부재로 이름 붙인다.**
+ * 화면에는 이미 그 문구가 있다("한 줄 설명이 아직 연결되지 않았습니다").
+ *
+ * 출처 설명 자체를 버리는 것이 아니다 — 계보는 `sourceRefs` 가 진다. 버리는 것은
+ * 그것을 **사업 설명으로 읽히게 두는 일**뿐이다.
+ */
+const provenanceBlurbPattern = /(SEC EDGAR|CIK\s*[0-9]|기업 프로필|기업 개황|업종코드|corpCode)/i;
+
+function businessSummaryOrNull(value: string | undefined): string | null {
+  const safe = actionSafeText(value);
+  if (!safe) return null;
+  return provenanceBlurbPattern.test(safe) ? null : safe;
+}
+
 function sanitizeCompanyProfile(
   profile: StockCompanyProfile | undefined,
 ): StockCompanyProfile | undefined {
   if (!profile) return undefined;
-  const safeSummary = actionSafeText(profile.summaryText);
+  const safeSummary = businessSummaryOrNull(profile.summaryText);
   const sanitized = { ...profile };
   if (safeSummary) {
     sanitized.summaryText = safeSummary;
