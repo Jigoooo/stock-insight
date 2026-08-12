@@ -98,8 +98,39 @@ export type IndustryPrimer = {
   absenceReason: string;
 };
 
+/**
+ * 이 문장은 화면에 그대로 나가므로 내부 어휘를 쓰지 않는다. 아래 주석이
+ * **무엇이 실제로 남았는지**를 대신 진다.
+ *
+ * 2026-08-13 실측으로 원장을 열어보고 알게 된 것: 읽기 권한과 재핀만으로는
+ * 이 자리가 채워지지 않는다. `governance.entity_playbook_current_v1` 의 내용이
+ * 전부 **영문 엔지니어 산문과 내부 키**다. 반도체 행 실물:
+ *
+ *   key_indicators[0]  { key: 'product_generation_node',
+ *                        why: 'canonical/04 §5: product generation/node/interface.
+ *                              A part number without its node and interface cannot
+ *                              be compared across a transition.' }
+ *   peer_dimensions[0] 'node_and_interface_generation'
+ *   valuation_methods[0] { key: 'ev_sales_cycle_adjusted',
+ *                          note: 'cycle position must be stated; a trough multiple
+ *                                 on trough sales is not a valuation' }
+ *
+ * 권한만 열고 그대로 그리면 `canonical/04 §5:` 라는 내부 문서 참조와 영문 산문이
+ * 사용자 화면에 나간다 — UX 헌법 7번으로 릴리스가 막힌다. 그러므로 남은 일은
+ * 세 가지이고 **순서가 있다**:
+ *
+ *   1. 지표 키 → 한국어 이름 표(옮긴 것만 그리고 나머지는 센다).
+ *      이 저장소가 `valuationMethodLabels`·`datasetLabels`·`kindLabels` 에서
+ *      쓰는 것과 같은 패턴이다.
+ *   2. `why`·`note` 는 번역이 아니라 **한국어로 다시 쓰는 일**이다. 정본 06 §9 가
+ *      LLM 이 빈 필드를 서술로 보충하는 것을 NO-GO 로 지목하므로, 사람이 쓰거나
+ *      쓰기 전까지는 이름만 그린다.
+ *   3. 그 다음에 `governance.entity_playbook_current_v1` SELECT GRANT +
+ *      digest 재핀. 이 순서를 뒤집으면 권한만 열린 채 화면은 그대로이고,
+ *      재핀 사이에 멈추면 브레인이 부팅에 실패한다.
+ */
 const ABSENCE_REASON =
-  '이 산업의 판단표는 준비되어 있지만 아직 이 화면이 읽을 수 있는 자리에 놓이지 않았습니다. 읽기 권한을 열고 자료 묶음을 다시 고정하는 별도 작업이 필요하며, 그때까지는 배정된 산업 이름까지만 확인됩니다.';
+  '이 산업의 판단표는 준비되어 있지만 아직 이 화면이 읽을 수 있는 말로 옮겨지지 않았습니다. 지표 이름을 한국어로 정리하는 작업이 먼저 필요하며, 그때까지는 배정된 산업 이름까지만 확인됩니다.';
 
 export function buildIndustryPrimer({
   playbookKey,
