@@ -145,6 +145,15 @@ DATABASE_URL="$DB_URL" node apps/api/src/personalization/run-feed-build.ts --app
 pipeline_record_stage_success stock-insight-feed-build-stage "$RUN_STARTED_AT" || exit $?
 DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-probability-calibration.ts --apply
 pipeline_record_stage_success stock-insight-probability-calibration-stage "$RUN_STARTED_AT" || exit $?
+# 설명되지 않는 움직임 레이더(정본 01 §2 · 05 §9). feature snapshot 뒤여야 한다 —
+# ret_1d 와 vol_20d 의 정의를 그쪽이 소유하고, 이 단계는 그것을 다시 계산하지
+# 않는다. 두 번째 정의를 만들면 "그 종목이 오늘 얼마나 움직였나" 에 서로 다른
+# 답을 주는 자리가 둘이 되고, 반드시 갈라진다.
+#
+# 이 단계는 인과를 쓰지 않는다. 각 행이 말하는 것은 어디를 뒤졌고 무엇이
+# 나왔는가이고, 못 뒤진 채널은 이름으로 남는다(REQ-MKT-001 · REQ-SRC-001).
+DATABASE_URL="$DB_URL" node apps/api/src/analytics/run-market-anomaly.ts --cutoff "$K4_CANARY_CUTOFF" --apply
+pipeline_record_stage_success stock-insight-market-anomaly-stage "$RUN_STARTED_AT" || exit $?
 # 인용 검증. CAV 앞에 서야 하는 이유는 하나다: 블록 10 이 읽는 것이 정확히 이
 # 단계의 산출물이고, 순서를 뒤집으면 패킷은 어제의 검증 상태로 굳는다.
 #
@@ -232,10 +241,12 @@ SELECT CASE WHEN
      'stock-insight-source-contract-audit-stage',
      -- 블록 10 을 어둡게 두던 것은 생산자 부재였다. 이 단계가 그 자리다.
      'stock-insight-assertion-span-verification-stage',
+     -- 정본 01 §2 가 Market Home 필수 섹션으로 요구하는데 생산자가 없었다.
+     'stock-insight-market-anomaly-stage',
      'stock-insight-outbox-delivery-stage'
    )
      AND status='completed'
-     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 16
+     AND finished_at >= '${RUN_STARTED_AT}'::timestamptz) = 17
   -- 착지 게이지. 목표치가 아니라 >= 1 인 이유: 아무도 재보지 않은 임계값은 결국
   -- 낮춰진다. 이 숫자가 재는 것은 밴드가 몇 개냐가 아니라 생산자가 살아 있느냐
   -- 다. 실측 커버리지(2026-08-12: 종목 52개 · 밴드 81개)는 요약 JSON 이 말한다.
@@ -258,6 +269,15 @@ SELECT CASE WHEN
   -- 블록 9 착지 게이지. 봉인된 분기가 0이면 thesis 단계가 돌고도 아무것도 내지
   -- 않은 것이고, 화면은 297종목 no_eligible_source 로 되돌아간다.
   AND (SELECT count(*) FROM analytics.scenario_branch WHERE branch_state = 'sealed') >= 1
+  -- 레이더 착지 게이지. 이상치가 0인 날은 정상이므로 행 수를 세지 않는다 —
+  -- 조용한 시장에 빨개지는 게이지는 결국 꺼진다. 대신 **훑을 대상이 있었는가**를
+  -- 잰다: feature snapshot 이 살아 있으면 레이더는 매일 253종목을 뒤지고,
+  -- 그 입력이 죽으면 레이더는 조용한 것이 아니라 눈이 먼 것이다.
+  --
+  -- 마이그레이션 120 의 sample_count 가 여기서 처음 쓰인다. 표본이 얇은 날은
+  -- market_factor 채널이 못 뒤진 채널로 기록되므로, 그 날의 UNEXPLAINED 는
+  -- 시장이 설명하지 못한 것이 아니라 시장을 볼 수 없었던 것이다.
+  AND (SELECT count(*) FROM serving.daily_change_v1 WHERE sample_count >= 30) >= 1
   -- 블록 10 착지 게이지. **이웃들과 모양이 다른 이유가 있다 — 맞추지 말 것.**
   --
   -- 이웃 게이지들은 이번 실행이 무엇을 썼느냐를 센다(>= 1). 그 모양이 저기서

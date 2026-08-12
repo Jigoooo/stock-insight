@@ -182,7 +182,7 @@ const EXPECTED_CATALOG_DIGESTS = {
     // exactly those four relations reproduces the previous pin
     // 16aa94f6c…595ed byte for byte. 249 entries became 253 — four relations, one SELECT
     // entry each, nothing else moved.
-    relation_privileges_digest: '3c550a86320105dc158c31956249a6b683ee6015b52ad7c6ec58a9c19c7ee6b5',
+    relation_privileges_digest: 'df859aa0db59ef6034aeee70adec25e650b51f5e37d292aa1449d536487eae07',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '43e6b7768efa9be918cf1007a836d3e81f7e3d0e32da0f87064a6b6c21e99e94',
@@ -221,7 +221,7 @@ const EXPECTED_CATALOG_DIGESTS = {
     reachable_roles_digest: 'cbff6d032ebb3896e50c3dd128d7210a9a61d43ba8621bb0ff4f39387dec4909',
     // Re-pinned 2026-08-08, same change as the reader above: chunk exclusion plus
     // migration 074. The writer inherits the reader, so it moved identically.
-    relation_privileges_digest: 'b3a6f04f69925ec3ba366dde3f6e0be465f2ce29ad2020d4f328785a9eec8299',
+    relation_privileges_digest: 'b9357afa94ee98a0254e6e66f261ce6f1a9b4ae10bb24539b692e4b9d1bda017',
     extra_column_privileges_digest:
       '11161bae25339adab5e99a03df17d80ec4d85276aa33848bf9f6a75daa459e64',
     sequence_privileges_digest: '49ce5f147110b657e27887ecd8602cccf6925afb93b7b6c5d8757fa507799913',

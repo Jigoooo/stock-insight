@@ -65,6 +65,16 @@ test('the valuation band is produced before the packet that reads it', () => {
   );
 });
 
+test('the anomaly radar reads the snapshot that owns the move definition', () => {
+  // ret_1d 와 vol_20d 를 레이더가 다시 계산하지 않는다는 것이 이 순서의 요점이다.
+  // 앞에 두면 어제 스냅샷으로 오늘의 이상치를 판정하게 되고, 그 어긋남은 아무것도
+  // 실패시키지 않은 채 하루치 레이더를 통째로 틀리게 만든다.
+  assert.ok(
+    stepLine('run-feature-snapshot.ts') < stepLine('run-market-anomaly.ts'),
+    '레이더는 움직임의 정의를 소유한 스냅샷 뒤여야 한다',
+  );
+});
+
 test('spans are verified before the packet that reports whether they were', () => {
   // 블록 10 이 읽는 것은 knowledge.assertion 의 verification_state 다. 순서가
   // 뒤집히면 오늘 승격한 것이 내일 패킷에 나타나고, 그 하루 동안 화면은

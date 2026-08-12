@@ -675,7 +675,8 @@ describe('K4 executable wiring', () => {
     // 한다 — 하나만 올리면 목록에 있는 단계 하나가 실행되지 않아도 통과한다.
     // 2026-08-07: 13. 2026-08-12: 14 (stock-insight-k4-valuation-band-stage 합류).
     // 2026-08-13: 16 (stock-insight-assertion-span-verification-stage 합류).
-    assert.match(analyticsPipeline, /\) = 16/);
+    // 2026-08-13: 17 (stock-insight-market-anomaly-stage 합류).
+    assert.match(analyticsPipeline, /\) = 17/);
     assert.match(analyticsPipeline, /stock-insight-k4-valuation-band-stage/);
     // 리터럴을 다시 적는 대신 **둘이 같은지**를 잰다. 앞의 `= 15` 만 보면 목록에
     // 이름을 하나 더 넣고 숫자를 안 올린 실수가 그대로 통과한다: 그러면 단계 하나가

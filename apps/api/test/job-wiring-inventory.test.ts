@@ -25,6 +25,10 @@ import { describe, it } from 'node:test';
  * 블록 9 의 생산자로 analytics 파이프라인에 붙었다. 이 테스트가 그것을 즉시
  * 잡았다: 생산자를 만들고 배선을 잊은 상태로 커밋하려던 참이었다.
  *
+ * Measured 2026-08-13: run-market-anomaly 가 정본 01 §2 의 설명되지 않는 움직임
+ * 레이더로 합류했다. Market Home 의 필수 섹션인데 생산자가 없어 화면에 자리조차
+ * 없던 자리다.
+ *
  * Measured 2026-08-13: run-assertion-span-verification 이 블록 10 의 생산자로
  * analytics 파이프라인에 붙었다. 이 잡은 knowledge.assertion 에 리비전 2 를 쓰는
  * 저장소 최초의 코드이고, 배선을 잊으면 블록 10 은 원장에 승격 경로가 있는 채로

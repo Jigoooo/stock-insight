@@ -119,6 +119,7 @@ import { defaultPrivilegeVisibilityMigrationSql } from './migrations/117_default
 import { k4FiscalYearComparisonWindowMigrationSql } from './migrations/118_k4_fiscal_year_comparison_window.ts';
 import { scenarioSetSubjectMigrationSql } from './migrations/119_scenario_set_subject.ts';
 import { servingDailyChangeMigrationSql } from './migrations/120_serving_daily_change.ts';
+import { marketAnomalyLedgerMigrationSql } from './migrations/121_market_anomaly_ledger.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -239,6 +240,7 @@ export type AppTableName =
   | 'crypto_serving_event_revision'
   | 'crypto_serving_core_relation_revision'
   | 'crypto_serving_risk_exposure_revision'
+  | 'market_anomaly_revision'
   | 'scenario_set'
   | 'scenario_branch'
   | 'scenario_invalidation'
@@ -1227,6 +1229,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: [],
     sql: servingDailyChangeMigrationSql,
   },
+  {
+    id: '121_market_anomaly_ledger',
+    description:
+      'Adds analytics.market_anomaly_revision and serving.market_anomaly_current_v1 for the unexplained-move radar (canonical 01 section 2, 05 section 9). Each row records which time-scoped channels were searched and what they returned, never a causal claim, and names the channels that could not be searched at all so UNEXPLAINED cannot be misread as nothing-explains-it.',
+    tables: ['market_anomaly_revision'],
+    sql: marketAnomalyLedgerMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1353,4 +1362,5 @@ export {
   defaultPrivilegeVisibilityMigrationSql,
   scenarioSetSubjectMigrationSql,
   servingDailyChangeMigrationSql,
+  marketAnomalyLedgerMigrationSql,
 };

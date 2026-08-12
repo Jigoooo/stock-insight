@@ -234,6 +234,10 @@ test('analytics runs every stage in order with an adjacent receipt per command',
     ['run-report-publish.ts', 'stock-insight-report-publish-stage'],
     ['run-feed-build.ts', 'stock-insight-feed-build-stage'],
     ['run-probability-calibration.ts', 'stock-insight-probability-calibration-stage'],
+    // Added 2026-08-13: 설명되지 않는 움직임 레이더(정본 01 §2 · 05 §9). Market Home
+    // 필수 섹션인데 생산자가 없었다. run-feature-snapshot.ts 뒤여야 한다 — ret_1d 와
+    // vol_20d 의 정의를 그쪽이 소유하고, 이 단계는 다시 계산하지 않는다.
+    ['run-market-anomaly.ts', 'stock-insight-market-anomaly-stage'],
     // Added 2026-08-13 (block 10): 인용 검증. knowledge.assertion 의 주장 97건이
     // 전부 extracted 에 머물러 있어 블록 10 은 승격 사다리의 첫 칸도 밟지 못했다.
     // 이 잡은 그 표에 리비전 2 를 쓰는 저장소 최초의 코드다 — 지금까지 모든 키가
@@ -283,6 +287,6 @@ test('analytics runs every stage in order with an adjacent receipt per command',
   }
   // 이 상한은 위 목록이 아니라 파이프라인의 `job_name IN (...)` 목록을 잰다. 둘은
   // 다른 집합이다 — 게이지 성격의 단계(reachability audit 등)는 위에는 있고 저기에는
-  // 없다. 2026-08-07: 13. 2026-08-12: 14. 2026-08-13: 16(인용 검증).
-  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 16/);
+  // 없다. 2026-08-07: 13. 2026-08-12: 14. 2026-08-13: 16(인용 검증) → 17(레이더).
+  assert.match(pipeline, /count\(DISTINCT job_name\)[\s\S]*?\) = 17/);
 });
