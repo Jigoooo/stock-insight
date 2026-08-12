@@ -193,3 +193,73 @@ describe('workspace read model', () => {
     assert.equal(second.scopeTotal, 2);
   });
 });
+
+/**
+ * 오래된 발행 프로젝션은 **오류가 아니라 상태**다.
+ *
+ * `LATEST_RUN_SQL` 이 `projection_status = 'available'` 로 걸러서, 프로젝션이
+ * 만료되는 순간 0행 → `throw` → today 화면 전체가
+ * "워크스페이스를 불러오지 못했습니다" 로 죽었다. 라이브에서 실제로 죽어 있었다
+ * (2026-08-12 09:25Z): stock 행 47개가 invalid 22 · stale 25 로 `available` 이
+ * 하나도 없었고, 가장 최근 프로젝션의 `fresh_until` 은 같은 날 07:05Z 였다.
+ * 매일 그 시각에 죽고 다음 발행까지 돌아오지 않는 구조다.
+ *
+ * UX 헌법 6번이 뒤집힌 모양이다 — 그 조항은 오류를 부재로 위장하지 말라고 하는데
+ * 여기서는 반대로 상태여야 할 것이 오류가 됐다.
+ */
+describe('만료된 발행 프로젝션', () => {
+  function executorWithStatus(projectionStatus: string, freshUntil: string) {
+    const base = createExecutor();
+    const executor: WorkspaceRowQueryExecutor = {
+      async queryRows(sql, params = []) {
+        const rows = await base.executor.queryRows(sql, params);
+        if (sql.includes('publication_projection_status')) {
+          return rows.map((row) => ({
+            ...row,
+            projection_status: projectionStatus,
+            fresh_until: freshUntil,
+          }));
+        }
+        return rows;
+      },
+    };
+    return executor;
+  }
+
+  it('stale 프로젝션을 예외가 아니라 stale 로 돌려준다', async () => {
+    const today = await getWorkspaceToday(executorWithStatus('stale', '2026-07-17T07:05:26.678Z'), {
+      userScope,
+      now: new Date('2026-07-18T00:00:00.000Z'),
+    });
+
+    assert.equal(today.meta.freshness, 'stale');
+    // 내용이 사라지지 않는다. 오래된 브리핑은 기준 시각과 함께 읽을 수 있어야 한다.
+    assert.ok(today.lanes.length > 0);
+  });
+
+  // `invalid` 는 오래된 것이 아니라 **믿을 수 없는** 것이다. 둘을 같은 낱말로
+  // 뭉개면 깨진 프로젝션이 "조금 지난 자료" 로 읽힌다.
+  it('invalid 프로젝션은 stale 이 아니라 error 로 구분한다', async () => {
+    const today = await getWorkspaceToday(
+      executorWithStatus('invalid', '2999-01-01T00:00:00.000Z'),
+      { userScope, now: new Date('2026-07-16T14:00:00.000Z') },
+    );
+
+    assert.equal(today.meta.freshness, 'error');
+  });
+
+  it('SQL 이 projection_status 로 거르지 않는다', async () => {
+    const base = createExecutor();
+    await getWorkspaceToday(base.executor, {
+      userScope,
+      now: new Date('2026-07-16T14:00:00.000Z'),
+    });
+    const projectionCall = base.calls.find(({ sql }) =>
+      sql.includes('publication_projection_status'),
+    );
+
+    assert.ok(projectionCall);
+    // 이 필터가 돌아오면 만료 순간 화면이 다시 죽는다.
+    assert.doesNotMatch(projectionCall.sql, /projection_status\s*=\s*'available'/);
+  });
+});

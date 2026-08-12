@@ -66,12 +66,56 @@ type WorkspaceTodaySummaryRow = MarketAsOfRow & {
   watchlist_count: number | string;
 };
 
+/**
+ * 발행 프로젝션의 상태를 계약 어휘로 옮긴다.
+ *
+ * 세 갈래를 **서로 다르게** 유지하는 것이 요점이다(UX 헌법 6번).
+ * - `available` 이고 아직 유효 → `available`
+ * - `available` 인데 유효 시각이 지났거나 원장이 `stale` → `stale`(오래된 자료)
+ * - `invalid` → `error`. 오래된 것이 아니라 **믿을 수 없는** 것이다.
+ *
+ * `invalid` 를 `stale` 로 뭉개면 깨진 프로젝션이 "조금 지난 자료" 로 읽힌다.
+ * 라이브에 실제로 invalid 22행이 있으므로 가정이 아니라 현재 상태다.
+ */
+function projectionFreshness(
+  projectionStatus: string,
+  freshUntil: string,
+  now: Date,
+): 'available' | 'stale' | 'error' {
+  if (projectionStatus === 'invalid') return 'error';
+  return projectionStatus === 'available' && now.getTime() <= new Date(freshUntil).getTime()
+    ? 'available'
+    : 'stale';
+}
+
+/**
+ * **`projection_status` 로 거르지 않는다.** 거르면 오래된 데이터가 없는 데이터가 된다.
+ *
+ * 이 자리는 `WHERE ... AND projection_status = 'available'` 이었다. 그러면 발행
+ * 프로젝션이 만료되는 순간 0행이 되고, 아래 호출부가 그것을 예외로 바꾼다 —
+ * today 화면 전체가 "워크스페이스를 불러오지 못했습니다" 로 죽는다.
+ *
+ * 라이브에서 실제로 죽어 있었다(2026-08-12 09:25Z 확인). `ops.publication_
+ * projection_status` 의 stock 행 47개가 invalid 22 · stale 25 로, `available` 이
+ * **하나도 없었다.** 가장 최근 프로젝션의 `fresh_until` 이 같은 날 07:05Z 였으니,
+ * 매일 그 시각에 화면이 죽고 다음 발행까지 돌아오지 않는다.
+ *
+ * UX 헌법 6번이 뒤집힌 모양이다. 그 조항은 loading·error·empty·ready·stale 을
+ * 서로 구분하고 API 오류를 empty 로 위장하지 말라고 하는데, 여기서는 반대로
+ * **상태여야 할 것이 오류가 됐다.** 하루 지난 브리핑은 오류가 아니라 오래된
+ * 브리핑이고, 사용자는 기준 시각과 함께 그것을 읽을 수 있어야 한다.
+ *
+ * 신선도 판정은 이미 아래에 있다(`freshness = ... ? 'available' : 'stale'`).
+ * 그 분기는 이 필터 때문에 사실상 도달하지 못하고 있었다 — 상태를 계산해 놓고
+ * 그 상태가 될 수 있는 행을 SQL 이 먼저 버렸다.
+ *
+ * 행이 정말 0개일 때만 예외로 남는다. 그건 진짜 부재다.
+ */
 const LATEST_RUN_SQL = `
   SELECT analysis_run_id, analysis_revision, cutoff_at, source_watermark_at,
          fresh_until, projection_status
   FROM ops.publication_projection_status
   WHERE domain = 'stock'
-    AND projection_status = 'available'
   ORDER BY cutoff_at DESC, analysis_revision DESC
   LIMIT 1
 `;
@@ -355,10 +399,7 @@ export async function getWorkspaceToday(
   const clickableRecords = feedRows.filter((row) => toCount(row.clickable_source_count) > 0).length;
   const sourceCount = feedRows.reduce((sum, row) => sum + toCount(row.source_count), 0);
   const freshUntil = toIso(latestRun.fresh_until);
-  const freshness =
-    latestRun.projection_status === 'available' && now.getTime() <= new Date(freshUntil).getTime()
-      ? 'available'
-      : 'stale';
+  const freshness = projectionFreshness(latestRun.projection_status, freshUntil, now);
   const qualityFlags: string[] = [];
   if (linkedRecords < feedRows.length) qualityFlags.push('source_link_partial');
   if (clickableRecords < linkedRecords) qualityFlags.push('source_url_partial');
@@ -451,11 +492,7 @@ export async function getResearchFeedPage(
       schemaVersion: 'v3',
       visibility: 'internal',
       generatedAt: now.toISOString(),
-      freshness:
-        latestRun.projection_status === 'available' &&
-        now.getTime() <= new Date(freshUntil).getTime()
-          ? 'available'
-          : 'stale',
+      freshness: projectionFreshness(latestRun.projection_status, freshUntil, now),
       contentSnapshot: {
         analysisRunId: latestRun.analysis_run_id,
         analysisRevision: latestRun.analysis_revision,
