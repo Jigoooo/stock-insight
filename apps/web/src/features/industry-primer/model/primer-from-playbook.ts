@@ -1,3 +1,5 @@
+import { INDICATOR_KIND_LABELS, INDICATOR_LABELS } from './indicator-labels';
+
 /**
  * 산업 입문 — "이 산업을 처음 본다면".
  *
@@ -76,13 +78,17 @@ export const PRIMER_EXPECTATIONS: readonly PrimerExpectation[] = [
   },
 ];
 
+export type PrimerIndicator = { name: string; why: string; kindLabel: string | null };
+
 export type IndustryPrimerState =
   /** 플레이북 자체가 배정되지 않았다. */
   | 'not_assigned'
   /** 배정되어 있으나 이름을 아직 한국어로 옮기지 못했다. */
   | 'unnamed'
   /** 이름까지는 닿았고, 판단표 본문은 아직 이 읽기 경로에 없다. */
-  | 'named_absence';
+  | 'named_absence'
+  /** 지표까지 닿았다. */
+  | 'available';
 
 export type IndustryPrimer = {
   state: IndustryPrimerState;
@@ -91,6 +97,10 @@ export type IndustryPrimer = {
   /** 분류 라벨(예: `Semiconductors & Related Devices`). 있으면 보조로 쓴다. */
   taxonomyLabels: readonly string[];
   expectations: readonly PrimerExpectation[];
+  /** 한국어로 옮긴 핵심 지표. `state === 'available'` 일 때만 채워진다. */
+  indicators: readonly PrimerIndicator[];
+  /** 이름을 아직 옮기지 못한 지표 수. 원문 키를 흘리는 대신 센다. */
+  unnamedIndicatorCount: number;
   /**
    * 판단표 본문이 왜 없는지. 화면에 그대로 나가는 문장이라 내부 어휘를 쓰지
    * 않는다(테이블 이름·권한 이름 금지).
@@ -135,9 +145,11 @@ const ABSENCE_REASON =
 export function buildIndustryPrimer({
   playbookKey,
   taxonomyLabels = [],
+  keyIndicators = [],
 }: {
   playbookKey: string | null;
   taxonomyLabels?: readonly string[];
+  keyIndicators?: readonly { key: string; kind: string | null }[];
 }): IndustryPrimer {
   const key = playbookKey?.trim() ?? '';
   if (key.length === 0) {
@@ -146,17 +158,50 @@ export function buildIndustryPrimer({
       playbookLabel: null,
       taxonomyLabels,
       expectations: PRIMER_EXPECTATIONS,
+      indicators: [],
+      unnamedIndicatorCount: 0,
       absenceReason:
         '이 종목에는 산업 판단표가 배정되어 있지 않습니다. 아래 분류만으로 산업 위치를 읽어 주세요.',
     };
   }
 
   const playbookLabel = playbookDisplayName(key);
+  // 이름을 옮긴 지표만 그리고 나머지는 센다. 원문 키(`product_generation_node`)를
+  // 흘리는 것도, 조용히 빠뜨리는 것도 하지 않는다.
+  const indicators: PrimerIndicator[] = [];
+  let unnamedIndicatorCount = 0;
+  for (const item of keyIndicators) {
+    const label = INDICATOR_LABELS[item.key];
+    if (!label) {
+      unnamedIndicatorCount += 1;
+      continue;
+    }
+    indicators.push({
+      name: label.name,
+      why: label.why,
+      kindLabel: item.kind === null ? null : (INDICATOR_KIND_LABELS[item.kind] ?? null),
+    });
+  }
+
+  if (playbookLabel !== null && indicators.length > 0) {
+    return {
+      state: 'available',
+      playbookLabel,
+      taxonomyLabels,
+      expectations: PRIMER_EXPECTATIONS,
+      indicators,
+      unnamedIndicatorCount,
+      absenceReason: '',
+    };
+  }
+
   return {
     state: playbookLabel === null ? 'unnamed' : 'named_absence',
     playbookLabel,
     taxonomyLabels,
     expectations: PRIMER_EXPECTATIONS,
+    indicators: [],
+    unnamedIndicatorCount,
     absenceReason:
       playbookLabel === null
         ? `산업 판단표가 배정되어 있으나 이름을 아직 한국어로 옮기지 못했습니다. ${ABSENCE_REASON}`

@@ -128,7 +128,16 @@ export type AssetSourceFacts = {
   } | null;
   economicClaim: { claimKey: string; statement: string } | null;
   taxonomy: { nodeKey: string; label: string; taxonomyReleaseId: string }[];
-  playbook: { playbookKey: string; assignedAt: string } | null;
+  playbook: {
+    playbookKey: string;
+    assignedAt: string;
+    /**
+     * 산업 판단표의 지표 **키만** 싣는다. `why` 원문은 영문 엔지니어 산문이라
+     * 화면이 한국어로 다시 쓴 표를 따로 들고, 원문을 패킷에 실으면 297종목
+     * payload 가 커지면서 digest 가 화면이 쓰지 않는 문장까지 서약한다.
+     */
+    keyIndicators: { key: string; kind: string | null }[];
+  } | null;
   numericFacts: NumericFactSummary[];
   recentEvents: { eventKey: string; knownAt: string; title: string | null }[];
   /**

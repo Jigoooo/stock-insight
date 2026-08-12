@@ -40,21 +40,54 @@ export function IndustryPrimer({ primer }: { primer: IndustryPrimerView }) {
 
       <DepthGate at="standard" label="이 산업을 처음 본다면">
         <div className={styles.primerBody}>
-          <p className={styles.primerLead}>
-            처음 보는 산업이라면 아래 세 가지를 순서대로 확인하게 됩니다. 지금 이 화면이 그 표를
-            읽지 못하는 이유도 함께 적었습니다.
-          </p>
-          <dl className={styles.expectationList}>
-            {primer.expectations.map((expectation) => (
-              <div key={expectation.title}>
-                <dt>{expectation.title}</dt>
-                <dd>{expectation.description}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className={styles.primerAbsence} data-slot="industry-primer-absence">
-            {primer.absenceReason}
-          </p>
+          {primer.state === 'available' ? (
+            <>
+              {/*
+                지표 이름만 나열하면 판단표가 아니다. 정본 04 §5 가 지표마다
+                `why` 를 요구하는 이유가 그것이라, 여기서도 **왜 먼저 보는지**를
+                이름과 함께 그린다.
+              */}
+              <p className={styles.primerLead}>
+                이 산업에서는 아래 지표를 먼저 봅니다. 각 줄에 왜 그것을 먼저 보는지를 함께
+                적었습니다.
+              </p>
+              <dl className={styles.expectationList} data-slot="industry-primer-indicators">
+                {primer.indicators.map((indicator) => (
+                  <div key={indicator.name}>
+                    <dt>
+                      {indicator.name}
+                      {indicator.kindLabel ? <small> · {indicator.kindLabel}</small> : null}
+                    </dt>
+                    <dd>{indicator.why}</dd>
+                  </div>
+                ))}
+              </dl>
+              {primer.unnamedIndicatorCount > 0 ? (
+                <p className={styles.primerAbsence}>
+                  이 산업의 지표 {primer.unnamedIndicatorCount}개는 아직 한국어로 옮기지 못해 싣지
+                  않았습니다.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className={styles.primerLead}>
+                처음 보는 산업이라면 아래 세 가지를 순서대로 확인하게 됩니다. 지금 이 화면이 그 표를
+                읽지 못하는 이유도 함께 적었습니다.
+              </p>
+              <dl className={styles.expectationList}>
+                {primer.expectations.map((expectation) => (
+                  <div key={expectation.title}>
+                    <dt>{expectation.title}</dt>
+                    <dd>{expectation.description}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className={styles.primerAbsence} data-slot="industry-primer-absence">
+                {primer.absenceReason}
+              </p>
+            </>
+          )}
         </div>
       </DepthGate>
     </div>

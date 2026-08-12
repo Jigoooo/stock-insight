@@ -201,11 +201,24 @@ export type SectorContextView = {
   playbookLabel: string | null;
   hasPlaybook: boolean;
   assignedAt: string | null;
+  /**
+   * 산업 판단표의 지표 **키**. 화면이 한국어 이름으로 옮겨 그린다
+   * (`features/industry-primer`). 여기서 이름을 붙이지 않는 이유는 그 표가
+   * 산업 지식이라 프리머 기능이 소유하기 때문이다.
+   */
+  keyIndicators: { key: string; kind: string | null }[];
 };
 
 export function readSectorContext(block: CommonAssetViewBlock): SectorContextView {
   const payload = asRecord(block.payload);
   const playbook = asRecord(payload.playbook);
+  const keyIndicators = asArray(playbook.keyIndicators)
+    .map(asRecord)
+    .flatMap((item) =>
+      typeof item.key === 'string' && item.key.trim().length > 0
+        ? [{ key: item.key.trim(), kind: typeof item.kind === 'string' ? item.kind : null }]
+        : [],
+    );
   const playbookKey = typeof playbook.playbookKey === 'string' ? playbook.playbookKey.trim() : '';
   return {
     taxonomyLabels: asArray(payload.taxonomy)
@@ -215,6 +228,7 @@ export function readSectorContext(block: CommonAssetViewBlock): SectorContextVie
     playbookLabel: playbookKey.length > 0 ? playbookDisplayName(playbookKey) : null,
     hasPlaybook: playbookKey.length > 0,
     assignedAt: isoInstant(playbook.assignedAt),
+    keyIndicators,
   };
 }
 

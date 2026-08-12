@@ -132,6 +132,7 @@ function SectorSection({ blocks }: { blocks: AssetBlockIndex }) {
   const primer = buildIndustryPrimer({
     playbookKey: sector.playbookKey,
     taxonomyLabels: sector.taxonomyLabels,
+    keyIndicators: sector.keyIndicators,
   });
   return (
     <AssetSection

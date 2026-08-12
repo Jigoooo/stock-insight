@@ -189,7 +189,23 @@ export async function loadAssetSourceFacts(
       ),
     () =>
       client.query<SourceRow>(
-        `SELECT assignment.entity_id, playbook.playbook_key, assignment.valid_from
+        // 지표 키를 **패킷에 실어 보낸다.**
+        //
+        // 화면은 이 판단표를 읽지 못해 "읽을 수 있는 말로 옮겨지지 않았습니다" 를
+        // 그리고 있었고, 계획은 원인을 권한으로 봤다 — `sector_playbook` 에는
+        // `stock_insight_app_reader` GRANT 가 없다. 그런데 이 빌더는 소유자
+        // (`research_app`)로 돌아 이미 그 표를 읽는다. 그러니 브레인에 권한을
+        // 열 것이 아니라 **패킷이 지고 가면 된다** — GRANT 도 digest 재핀도
+        // 필요 없고, 재핀 사이에 브레인이 죽는 위험 자체가 사라진다.
+        //
+        // `why`·`note` 원문은 싣지 않는다. 영문 엔지니어 산문이고 화면은 그것을
+        // 한국어로 다시 쓴 표를 따로 들고 있다(`indicator-labels.ts`). 원문을
+        // 패킷에 실으면 297종목 payload 가 그만큼 커지면서 digest 가 그 전부를
+        // 서약하는데, 화면이 쓰지 않는 문장이다.
+        `SELECT assignment.entity_id, playbook.playbook_key, assignment.valid_from,
+                (SELECT jsonb_agg(jsonb_build_object('key', item->>'key', 'kind', item->>'kind')
+                                  ORDER BY item->>'key')
+                   FROM jsonb_array_elements(playbook.key_indicators) item) AS key_indicators
          FROM governance.playbook_assignment assignment
          JOIN governance.sector_playbook playbook
            ON playbook.sector_playbook_id = assignment.sector_playbook_id
@@ -470,7 +486,18 @@ export async function loadAssetSourceFacts(
         taxonomyReleaseId: String(node.taxonomy_release_id),
       })),
       playbook: playbook
-        ? { playbookKey: String(playbook.playbook_key), assignedAt: String(playbook.valid_from) }
+        ? {
+            playbookKey: String(playbook.playbook_key),
+            assignedAt: String(playbook.valid_from),
+            keyIndicators: Array.isArray(playbook.key_indicators)
+              ? (playbook.key_indicators as Array<{ key?: unknown; kind?: unknown }>).flatMap(
+                  (item) =>
+                    typeof item?.key === 'string'
+                      ? [{ key: item.key, kind: typeof item.kind === 'string' ? item.kind : null }]
+                      : [],
+                )
+              : [],
+          }
         : null,
       numericFacts: capped(
         metricsByEntity.get(entityId) ?? [],
