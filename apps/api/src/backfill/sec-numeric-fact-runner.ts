@@ -509,10 +509,14 @@ export async function executeSecNumericFactJob(options: {
   );
   const plan = buildSecCanonicalPlan(raw.revisions, options.args);
   const entityIds = [...new Set(plan.facts.map((fact) => fact.entityId))].sort((a, b) => a - b);
+  // 이 배치가 건드리는 그룹만 읽는다. 넘기지 않으면 엔티티 전량(2026-08-13
+  // 실측 556,285행 · 힙 1,471MB)을 올리고 OOM 으로 죽는다.
+  const restatementGroupKeys = [...new Set(plan.facts.map((fact) => fact.restatementGroupKey))];
   const initialExisting = await loadExistingNumericFactState(options.client, {
     entityIds,
     factKeyPrefix: 'sec:%',
     sourceProvider: 'sec-edgar',
+    restatementGroupKeys,
   });
   const initialAssignment = assignRevisions(plan.facts, initialExisting);
   const parity = await loadSecParityDiagnostics(options.client, plan.facts);
@@ -540,6 +544,7 @@ export async function executeSecNumericFactJob(options: {
           entityIds,
           factKeyPrefix: 'sec:%',
           sourceProvider: 'sec-edgar',
+          restatementGroupKeys,
         });
         const lockedAssignment = assignRevisions(plan.facts, lockedExisting);
         writes = lockedAssignment.writes;

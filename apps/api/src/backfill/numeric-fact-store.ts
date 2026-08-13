@@ -68,6 +68,13 @@ SELECT fact.fact_key AS fact_key,
  WHERE fact.entity_id = ANY($1::bigint[])
    AND fact.fact_key LIKE $2
    AND source.provider_key = $3
+   -- NULL 은 '제한하지 않음' 이다. 그런데 x = ANY(NULL) 은 참이 아니라 NULL 을
+   -- 돌려주므로, IS NULL 분기 없이 쓰면 생략 경로가 전량이 아니라 **전무**가
+   -- 된다 — 조용히 0행이 되고 모든 사실이 리비전 1 로 다시 쓰인다.
+   --
+   -- 이 SQL 은 통째로 템플릿 리터럴 하나다. 주석 안이라도 역따옴표를 쓰면
+   -- 리터럴이 그 자리에서 끊긴다. 2026-08-12 부터 이걸로 다섯 번 죽였다.
+   AND ($4::text[] IS NULL OR fact.restatement_group_key = ANY($4::text[]))
  ORDER BY fact.restatement_group_key, fact.revision_no, fact.numeric_fact_id
 `;
 
@@ -107,15 +114,45 @@ function rowToFact(row: Record<string, unknown>): NumericFactRow {
   };
 }
 
+/**
+ * **이 배치가 건드리는 리스테이트먼트 그룹만 읽는다.**
+ *
+ * 원래 조건은 엔티티 + 접두사뿐이었다. SEC 쪽 실측(2026-08-13)에서 그 뜻은
+ * "사실 556,285행 · 그룹 538,070개 · 메타데이터 305MB 를 통째로 자바스크립트
+ * 객체로 올린다" 였다 — 엔티티가 124개뿐이라 어떤 배치를 돌려도 전량이었다.
+ * 로더 하나가 힙 **1,471MB** 를 썼고, 그 위에 계획이 얹히면서
+ * `run-sec-numeric-fact.ts` 가 OOM 으로 죽었다(exit 134). 그 잡이
+ * `market-enrichment-wrapper` 를 죽이고, 그것이 analytics 입력 게이트를 막고,
+ * 발행이 멈추고, today 화면이 비었다 — dart 쪽과 **같은 사슬의 두 번째 고리**다.
+ *
+ * 소비자가 실제로 필요로 하는 것은 전량이 아니다. `assignRevisions` 는
+ * 배치에 있는 fact key 의 존재 여부와 배치에 있는 그룹의 최신 리비전만 본다.
+ * 나머지 53만 그룹은 읽어서 버린다.
+ *
+ * 그래서 그룹 키를 인자로 받는다. 넘기지 않으면 예전처럼 전량을 읽으므로
+ * **조용히 좁아지지 않는다** — 좁히는 쪽이 명시적으로 좁힌다.
+ */
 export async function loadExistingNumericFactState(
   client: NumericFactQueryClient,
-  scope: { entityIds: readonly number[]; factKeyPrefix: string; sourceProvider: string },
+  scope: {
+    entityIds: readonly number[];
+    factKeyPrefix: string;
+    sourceProvider: string;
+    /** 이 배치가 건드리는 그룹. 생략하면 전량(옛 동작). */
+    restatementGroupKeys?: readonly string[];
+  },
 ): Promise<ExistingNumericFactState> {
   if (scope.entityIds.length === 0) return { factKeys: new Set(), groups: new Map() };
+  // 빈 배열은 "그룹이 없다" 이지 "제한하지 않는다" 가 아니다. 그 둘을 섞으면
+  // 계획이 비었을 때 전량을 읽는다.
+  if (scope.restatementGroupKeys?.length === 0) {
+    return { factKeys: new Set(), groups: new Map() };
+  }
   const result = await client.query(EXISTING_FACTS_SQL, [
     scope.entityIds,
     scope.factKeyPrefix,
     scope.sourceProvider,
+    scope.restatementGroupKeys ?? null,
   ]);
   const factKeys = new Set<string>();
   const factIdsByGroup = new Map<string, Map<string, number>>();

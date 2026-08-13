@@ -334,10 +334,17 @@ async function run(): Promise<void> {
   try {
     const collected = await collectFacts(client, limitFilings);
     const entityIds = [...new Set(collected.facts.map((fact) => fact.entityId))];
+    // 이 배치가 건드리는 그룹만 읽는다. dart 는 오늘 345,639 그룹이고 아직
+    // SEC 만큼 크지 않지만, 좁히는 이유는 크기가 아니라 **읽어서 버리지 않는
+    // 것**이다. SEC 쪽은 같은 로더가 전량을 올려 OOM 으로 죽었다.
+    const restatementGroupKeys = [
+      ...new Set(collected.facts.map((fact) => fact.restatementGroupKey)),
+    ];
     let existing = await loadExistingNumericFactState(client, {
       entityIds,
       factKeyPrefix: 'dart:%',
       sourceProvider: 'opendart',
+      restatementGroupKeys,
     });
     let { writes, skips: revisionSkips } = assignRevisions(collected.facts, existing);
     const parityInputs = await loadParityInputs(client);
@@ -415,6 +422,7 @@ async function run(): Promise<void> {
           entityIds,
           factKeyPrefix: 'dart:%',
           sourceProvider: 'opendart',
+          restatementGroupKeys,
         });
         ({ writes, skips: revisionSkips } = assignRevisions(collected.facts, existing));
         parity = checkParity(

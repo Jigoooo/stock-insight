@@ -143,11 +143,45 @@ describe('provider-neutral numeric-fact store', () => {
       db.queries[0]!.sql,
       /ORDER BY fact\.restatement_group_key, fact\.revision_no, fact\.numeric_fact_id/,
     );
-    assert.deepEqual(db.queries[0]!.params, [[41], 'sec:%', 'sec-edgar']);
+    // 그룹 키를 넘기지 않으면 네 번째 파라미터가 null 이고, SQL 의 IS NULL 분기가
+    // 옛 동작(전량)을 유지한다. **`= ANY(NULL)` 은 참이 아니라 NULL 이므로**
+    // 그 분기가 없으면 생략 경로가 전무가 되고 모든 사실이 리비전 1 로 다시 쓰인다.
+    assert.deepEqual(db.queries[0]!.params, [[41], 'sec:%', 'sec-edgar', null]);
+    assert.match(db.queries[0]!.sql, /\$4::text\[\] IS NULL OR fact\.restatement_group_key = ANY/);
     assert.equal(
       state.groups.get(rowFact.restatementGroupKey)?.latestSemanticFingerprint,
       numericFactSemanticFingerprint(rowFact),
     );
+
+    // 좁히는 경로. 이것이 없으면 SEC 쪽 로더가 엔티티 전량을 올린다 —
+    // 2026-08-13 실측 556,285행 · 힙 1,471MB · OOM(exit 134). 좁히면
+    // 같은 측정에서 20,000 그룹에 79MB 였다.
+    db.queries.length = 0;
+    await loadExistingNumericFactState(db, {
+      entityIds: [41],
+      factKeyPrefix: 'sec:%',
+      sourceProvider: 'sec-edgar',
+      restatementGroupKeys: [rowFact.restatementGroupKey],
+    });
+    assert.deepEqual(db.queries[0]!.params, [
+      [41],
+      'sec:%',
+      'sec-edgar',
+      [rowFact.restatementGroupKey],
+    ]);
+
+    // 빈 배열은 "그룹이 없다" 이지 "제한하지 않는다" 가 아니다. 섞으면
+    // 계획이 비었을 때 전량을 읽는다 — 정확히 피하려는 그 상황이다.
+    db.queries.length = 0;
+    const empty = await loadExistingNumericFactState(db, {
+      entityIds: [41],
+      factKeyPrefix: 'sec:%',
+      sourceProvider: 'sec-edgar',
+      restatementGroupKeys: [],
+    });
+    assert.equal(db.queries.length, 0, '빈 그룹 목록으로 조회하면 안 된다');
+    assert.equal(empty.factKeys.size, 0);
+    assert.equal(empty.groups.size, 0);
   });
 
   it('fails closed when an existing definition key has drifted', async () => {
