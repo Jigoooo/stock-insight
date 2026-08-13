@@ -26,6 +26,10 @@
  * 행마다 들고 그에 맞게 판정한다.
  */
 
+// 추세는 계약 타입을 그대로 쓴다. 위 `MarketIndicator` 는 이 모듈이 계약보다
+// 먼저 생겨 지역 정의로 남았는데, 두 벌을 더 만들 이유가 없다.
+import type { MarketTrend } from '@stock-insight/contracts/research-workspace';
+
 export type MarketIndicator = {
   key: string;
   label: string;
@@ -227,4 +231,81 @@ export async function getMarketIndicators(
           : `${observedOn} 관측 · ${qualityLabels[latest.vintage_quality] ?? latest.vintage_quality}`,
     };
   });
+}
+
+/**
+ * 정본 01 §2 두 번째 섹션의 **factor** 축 — 시장 자체가 그날 어떻게 움직였는가.
+ *
+ * 위의 지표들이 금리·환율·정책을 다루는 동안, 정작 "그날 시장이 어디로 움직였나"
+ * 는 화면에 없었다. 레이더가 이미 그것을 `market_factor` 채널로 쓰고 있으므로
+ * 개념은 제품 안에 있었고, 화면에만 없었다.
+ *
+ * **`sample_count` 를 반드시 함께 나른다.** 마이그레이션 120 이 그 열을 낸 이유가
+ * 그것이고("표본 1개인 날의 평균과 361종목이 관측된 날의 평균이 같은 굵기로
+ * 그려지면 안 된다"), 그 열은 만들어진 뒤 읽는 곳이 없었다. 여기가 그 자리다.
+ *
+ * 스파크라인을 그리지 않는다 — 계획서가 "행마다 스파크라인·티커 테이프·
+ * 빨강초록 점멸" 을 포털 문법으로 지목해 금지했다. 날짜·값·표본을 글로 적는다.
+ */
+const MARKET_TREND_SQL = `
+  SELECT to_char(day, 'YYYY-MM-DD') AS day,
+         round(average_change_pct::numeric, 2)::text AS change_pct,
+         sample_count
+    FROM serving.daily_change_v1
+   WHERE day <= $1::date
+   ORDER BY day DESC
+   LIMIT 5
+`;
+
+type TrendRow = { day: string; change_pct: string; sample_count: number };
+
+/**
+ * 이 평균을 시장으로 인정하는 최소 표본. 레이더가 쓰는 값과 **같은 상수**여야
+ * 한다 — 두 곳이 갈리면 화면과 원장이 다른 날을 "시장" 이라고 부른다.
+ */
+export const MINIMUM_TREND_SAMPLE = 30;
+
+export async function getMarketTrend(
+  executor: MacroRowQueryExecutor,
+  options: { now: Date },
+): Promise<MarketTrend> {
+  const rows = await executor.queryRows<TrendRow>(MARKET_TREND_SQL, [toDay(options.now)]);
+  if (rows.length === 0) {
+    return {
+      availability: 'missing',
+      days: [],
+      basisLabel: '일별 시장 등락을 아직 계산하지 못했습니다.',
+    };
+  }
+
+  const days = rows.map((row) => {
+    const change = Number(row.change_pct);
+    return {
+      day: row.day,
+      changeLabel: `${change > 0 ? '+' : ''}${change.toFixed(2)}%`,
+      direction: (change > 0 ? 'up' : change < 0 ? 'down' : 'flat') as 'up' | 'down' | 'flat',
+      sampleCount: Number(row.sample_count),
+    };
+  });
+
+  /*
+    표본이 얇은 것은 **상태가 아니라 자격**이다.
+
+    처음엔 `partial` 을 쓰려 했는데 그런 상태는 계약 어휘에 없다
+    (available · stale · missing · error · collecting · text_only · unsupported).
+    없는 낱말을 만들지 않은 것이 결과적으로 옳다 — 얇은 표본은 데이터가 없는
+    것도(missing) 오래된 것도(stale) 아니다. **있고, 다만 좁다.**
+
+    그래서 상태는 `available` 로 두고 그 좁음을 근거 문장이 진다. 상태를 흐리는
+    대신 자격을 말하는 것이 이 화면이 다른 곳에서도 쓰는 방식이다.
+  */
+  const thin = days.filter((entry) => entry.sampleCount < MINIMUM_TREND_SAMPLE).length;
+  return {
+    availability: 'available',
+    days,
+    basisLabel:
+      thin > 0
+        ? `최근 ${days.length}거래일 · 그중 ${thin}일은 관측 종목이 ${MINIMUM_TREND_SAMPLE}개에 못 미쳐 시장 전체로 읽기 어렵습니다.`
+        : `최근 ${days.length}거래일 · 각 줄의 종목 수가 그날 평균의 근거입니다.`,
+  };
 }

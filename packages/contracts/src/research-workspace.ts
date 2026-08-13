@@ -138,6 +138,37 @@ export const marketIndicatorSchema = z.object({
 
 export type MarketIndicator = z.infer<typeof marketIndicatorSchema>;
 
+/**
+ * 정본 01 §2 두 번째 섹션의 **factor** 축 — 시장 자체가 그날 어떻게 움직였는가.
+ *
+ * 지표(marketIndicator)는 점 하나이고 이것은 여러 날의 계열이라 모양이 다르다.
+ * 같은 섹션이지만 같은 스키마에 억지로 넣지 않는다.
+ *
+ * **`sampleCount` 가 이 스키마의 존재 이유다.** 마이그레이션 120 이
+ * `serving.daily_change_v1` 에 그 열을 낸 이유를 헤더에 이렇게 적어뒀다:
+ * "표본 1개인 날의 평균과 361종목이 관측된 날의 평균이 같은 굵기로 그려지면
+ * 안 된다. 화면이 그 차이를 말할 수 있어야 한다." 그 열은 만들어진 뒤 한동안
+ * 읽는 곳이 없었다 — 이 필드가 그 자리다.
+ */
+export const marketTrendDaySchema = z.object({
+  day: boundedText(10),
+  /** 그날 관측된 종목들의 평균 등락률(%). 부호를 지우지 않는다. */
+  changeLabel: boundedText(16),
+  direction: z.enum(['up', 'down', 'flat']),
+  /** 그 평균이 몇 종목에서 나왔는지. 얇은 날과 두꺼운 날은 같은 말이 아니다. */
+  sampleCount: countSchema,
+});
+
+export type MarketTrendDay = z.infer<typeof marketTrendDaySchema>;
+
+export const marketTrendSchema = z.object({
+  availability: canonicalAvailabilitySchema,
+  days: z.array(marketTrendDaySchema).max(10),
+  basisLabel: boundedText(240),
+});
+
+export type MarketTrend = z.infer<typeof marketTrendSchema>;
+
 /** 정본 01 §2 여섯 번째 섹션 — 예정 catalyst/calendar. */
 export const scheduledEventSchema = z.object({
   key: boundedText(40),
@@ -221,6 +252,8 @@ export const workspaceTodaySchema = z
     // 필수다. `.optional()` 로 두면 "없다" 와 "안 실었다" 를 구별할 수 없고,
     // 마이그레이션 121 이 `unsearched_channels` 를 NOT NULL 로 만든 이유와 같다.
     unexplainedMoves: marketAnomalyScanSchema,
+    // 필수다. 같은 이유 — 없다와 안 실었다를 구별할 수 있어야 한다.
+    marketTrend: marketTrendSchema,
     defaultRecordKey: boundedText(320).nullable(),
   })
   .superRefine(({ defaultRecordKey, lanes, summary }, context) => {

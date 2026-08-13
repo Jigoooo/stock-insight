@@ -196,6 +196,21 @@ export const todayPreviewFixture = {
     // 행은 2026-08-11 라이브 최악 사례(CRIS)를 그대로 옮겼다. 이 섹션이
     // 감당해야 하는 것이 정확히 이 모양이다 — -46% 가 아무 확인도 없이 그려질 때
     // 그것이 "이상 신호" 로 읽히지 않아야 한다.
+    // 라이브 실측(2026-08-14) 그대로. 마지막 줄은 표본이 얇았던 날을 일부러
+    // 남겼다 — 화면이 그 차이를 말하는지 프리뷰에서 보이지 않으면, 마이그레이션
+    // 120 이 sample_count 를 낸 이유가 검증되지 않는다.
+    marketTrend: {
+      availability: 'available' as const,
+      days: [
+        { day: '2026-08-12', changeLabel: '+0.54%', direction: 'up' as const, sampleCount: 359 },
+        { day: '2026-08-11', changeLabel: '+0.25%', direction: 'up' as const, sampleCount: 361 },
+        { day: '2026-08-10', changeLabel: '+1.85%', direction: 'up' as const, sampleCount: 361 },
+        { day: '2026-08-07', changeLabel: '+0.69%', direction: 'up' as const, sampleCount: 361 },
+        { day: '2026-07-19', changeLabel: '-0.12%', direction: 'down' as const, sampleCount: 1 },
+      ],
+      basisLabel:
+        '최근 5거래일 · 그중 1일은 관측 종목이 30개에 못 미쳐 시장 전체로 읽기 어렵습니다.',
+    },
     unexplainedMoves: {
       availability: 'stale' as const,
       observedOn: '2026-08-11',

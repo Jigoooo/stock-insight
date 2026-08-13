@@ -1,5 +1,5 @@
 import { getScheduledCalendar } from './calendar-read-model.ts';
-import { getMarketIndicators } from './macro-read-model.ts';
+import { getMarketIndicators, getMarketTrend } from './macro-read-model.ts';
 import { getMarketAnomalyScan } from './market-anomaly-read-model.ts';
 
 import { MARKET_DATA_AS_OF_EXPR, MARKET_DATA_AS_OF_SQL } from '../shared/market-snapshots.ts';
@@ -420,6 +420,17 @@ export async function getWorkspaceToday(
     return [];
   });
 
+  // 같은 섹션(정본 §2-2)의 factor 축. 거시 지표가 금리·환율을 말하는 동안
+  // "그날 시장 자체가 어디로 움직였나" 는 화면에 없었다.
+  const marketTrend = await getMarketTrend(executor, { now }).catch((error: unknown) => {
+    console.error('market trend unavailable', error);
+    return {
+      availability: 'error' as const,
+      days: [],
+      basisLabel: '일별 시장 등락을 불러오지 못했습니다.',
+    };
+  });
+
   const calendar = await getScheduledCalendar(executor, { now }).catch((error: unknown) => {
     console.error('scheduled calendar unavailable', error);
     return { events: [], totalUpcoming: 0 };
@@ -483,6 +494,7 @@ export async function getWorkspaceToday(
     upcomingEvents: calendar.events,
     upcomingEventTotal: calendar.totalUpcoming,
     unexplainedMoves,
+    marketTrend,
     defaultRecordKey: returnedItems[0]?.recordKey ?? null,
   });
 }

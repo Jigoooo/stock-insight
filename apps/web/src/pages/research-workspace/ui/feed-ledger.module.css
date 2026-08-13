@@ -627,6 +627,57 @@
 }
 
 /*
+  최근 거래일 시장 평균 등락 — 날짜 · 값 · **표본 수** 세 칸.
+
+  표본 수가 값과 같은 줄에 있는 것이 요점이다. 별도 각주로 내리면 읽는 사람이
+  "+1.85%" 를 먼저 믿고 나중에 근거를 만나는데, 그 순서가 뒤바뀌면 얇은 날의
+  평균이 두꺼운 날과 같은 무게로 읽힌다.
+
+  방향은 색만으로 구분하지 않는다 — 부호가 값 안에 있어 색이 사라져도 뜻이 남는다
+  (WCAG 1.4.1 · UX 헌법 1번).
+*/
+.marketTrendList {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.marketTrendList li {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 5rem) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.marketTrendList span {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.marketTrendList strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.marketTrendList li[data-direction='up'] strong {
+  color: var(--color-accent-up, var(--color-text-primary));
+}
+
+.marketTrendList li[data-direction='down'] strong {
+  color: var(--color-accent-down, var(--color-text-primary));
+}
+
+.marketTrendList em {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-style: normal;
+}
+
+/*
   출처·범위 고지. **이 클래스는 여기 없었다.**
 
   `today-view.tsx` 는 이 파일에서 `styles` 를 가져오는데 `styles.sourceCaveat`

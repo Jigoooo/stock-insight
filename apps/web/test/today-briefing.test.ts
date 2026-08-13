@@ -70,6 +70,11 @@ function workspaceToday({
     marketIndicators: [],
     upcomingEvents: [],
     upcomingEventTotal: 0,
+    marketTrend: {
+      availability: 'missing',
+      days: [],
+      basisLabel: '일별 시장 등락을 아직 계산하지 못했습니다.',
+    },
     unexplainedMoves: {
       availability: 'missing',
       observedOn: null,

@@ -161,10 +161,13 @@ describe('workspace read model', () => {
     // 셋 다 정본 01 §2 가 요구하는 섹션이고, 발행 프로젝션과 무관한 시장 단위
     // 자료다. 개수만 세면 어느 섹션이 조용히 빠져도 통과하므로 아래에서
     // 이름으로도 확인한다.
-    assert.equal(calls.length, 6);
+    assert.equal(calls.length, 7);
     assert.ok(calls.some(({ sql }) => sql.includes('macro_series_topic')));
     assert.ok(calls.some(({ sql }) => sql.includes('scheduled_event')));
     assert.ok(calls.some(({ sql }) => sql.includes('market_anomaly_current_v1')));
+    // 정본 §2-2 의 factor 축. 거시 지표와 같은 섹션이지만 다른 조회다 —
+    // 지표는 점이고 추세는 계열이라 한 쿼리로 합칠 수 없다.
+    assert.ok(calls.some(({ sql }) => sql.includes('daily_change_v1')));
     assert.deepEqual(calls[2]?.params, ['2026-07-16T13:05:26.678Z', userScope.userId]);
     assert.ok(calls.some(({ params }) => params.includes(userScope.userId)));
     assert.equal(

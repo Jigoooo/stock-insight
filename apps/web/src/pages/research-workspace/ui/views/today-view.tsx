@@ -69,6 +69,7 @@ export function TodayView({
   const upcoming = data.upcomingEvents;
   // 프롭을 늘리지 않는다 — 이 뷰의 다른 섹션과 같이 data 에서 직접 꺼낸다.
   const moves = data.unexplainedMoves;
+  const trend = data.marketTrend;
   const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
     data,
     items,
@@ -111,6 +112,33 @@ export function TodayView({
           <h2 id="today-market-summary-title">오늘의 시장 요약</h2>
           <p>금리·환율·원자재·정책 금리를 관측 시각과 함께 봅니다.</p>
         </PanelHeader>
+        {/*
+          같은 섹션의 **factor** 축 — 그날 시장 자체가 어디로 움직였나.
+          위 지표들이 금리·환율을 말하는 동안 이것은 화면에 없었다.
+
+          스파크라인을 그리지 않는다. 계획서가 "행마다 스파크라인·티커 테이프·
+          빨강초록 점멸" 을 포털 문법으로 지목해 금지했다 — 흉내내면 "다른 앱과
+          똑같다" 가 보장된다. 날짜·값·**표본 수**를 글로 적는다.
+
+          표본 수가 이 목록의 핵심이다. 마이그레이션 120 이 그 열을 낸 이유가
+          "표본 1개인 날의 평균과 361종목이 관측된 날의 평균이 같은 굵기로
+          그려지면 안 된다" 이고, 그 열은 만들어진 뒤 읽는 곳이 없었다.
+        */}
+        {trend.days.length > 0 ? (
+          <ul className={styles.marketTrendList} aria-label="최근 거래일 시장 평균 등락">
+            {trend.days.map((day) => (
+              <li key={day.day} data-direction={day.direction}>
+                <span>{day.day}</span>
+                <strong>{day.changeLabel}</strong>
+                <em>{`${day.sampleCount.toLocaleString('ko-KR')}종목 기준`}</em>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.marketSummaryEmpty}>{trend.basisLabel}</p>
+        )}
+        {trend.days.length > 0 ? <p className={styles.sourceCaveat}>{trend.basisLabel}</p> : null}
+
         {indicators.length === 0 ? (
           <p className={styles.marketSummaryEmpty}>
             표시할 거시 지표를 불러오지 못했습니다. 아래 항목은 영향을 받지 않습니다.
