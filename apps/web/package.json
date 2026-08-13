@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "test": "node --test test/*.test.ts",
-    "test:design:hard": "node --test test/design-governance.test.ts test/design-profile-contract.test.ts test/design-audit.test.ts test/product-design-system.test.ts test/primitive-adoption-contract.test.ts test/shared-ui-boundary.test.ts test/depth-mode-contract.test.ts test/depth-gate-reachability.test.ts test/truth-class-contract.test.ts test/truth-visual-surface.test.ts",
+    "test:design:hard": "node --test test/design-governance.test.ts test/design-profile-contract.test.ts test/design-audit.test.ts test/product-design-system.test.ts test/primitive-adoption-contract.test.ts test/shared-ui-boundary.test.ts test/depth-mode-contract.test.ts test/depth-gate-reachability.test.ts test/truth-class-contract.test.ts test/truth-visual-surface.test.ts test/raw-entity-key-exposure.test.ts test/asset-exposure-language-boundary.test.ts",
     "audit:design": "node scripts/audit-design-profile.mjs",
     "audit:workspace:bundle": "node scripts/audit-workspace-bundle.mjs",
     "smoke:api": "node scripts/smoke-dashboard-api.mjs",

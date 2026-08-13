@@ -4,7 +4,12 @@ import { DetailInspectorFrame, type DetailInspectorPresentation } from './detail
 import { GeoMarketMap } from './geo-market-map';
 import styles from './market-connection-inspector.module.css';
 import { RelationSigmaGraph } from './relation-sigma-graph';
-import { formatDate, marketLabel, signalTypeLabel } from './workspace-presenters';
+import {
+  describeEntityKey,
+  formatDate,
+  marketLabel,
+  signalTypeLabel,
+} from './workspace-presenters';
 import {
   hasMarketConnectionGeoSection,
   marketConnectionGeoPrecisionLabel,
@@ -72,7 +77,19 @@ function EntityConnections({
         <li key={entity.entityKey}>
           <div>
             <strong>{entity.displayName}</strong>
-            <small>{entity.entityKey}</small>
+            {/*
+              **원시 entity key 를 그리지 않는다.** 여기는 `KR:005930` 을 그대로
+              찍고 있었다 — UX 헌법 7번이 릴리스 차단으로 못 박은 source key
+              노출이고, `asset-deep-dive-shell-contract.test.ts:229` 가 다른
+              화면에서 정확히 그 문자열(`/KR:|US:/`)을 금지한다.
+
+              이 저장소의 다른 표면은 entityKey 를 React key 나 비교에만 쓰고
+              화면에 내보내지 않는다. 여기만 예외였다.
+
+              대신 사람이 읽는 두 조각으로 나눈다 — 시장 이름과 종목 코드.
+              같은 정보를 잃지 않으면서 내부 표기법이 밖으로 나가지 않는다.
+            */}
+            <small>{describeEntityKey(entity.entityKey)}</small>
           </div>
           <div className={styles.entityStates}>
             {entity.holding && <span>보유</span>}

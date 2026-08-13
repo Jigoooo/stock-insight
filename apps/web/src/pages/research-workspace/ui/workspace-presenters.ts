@@ -191,3 +191,25 @@ export function whySurfacedLabel(item: ResearchFeedItem) {
   if (item.relevance.kind === 'discovery') return whySurfacedLabels.discovery;
   return whySurfacedLabels.market;
 }
+
+/**
+ * `KR:005930` → `한국 · 005930`.
+ *
+ * **원시 entity key 는 화면에 나가지 않는다**(UX 헌법 7번, 릴리스 차단).
+ * `KR:005930` 은 우리 내부 표기법이고 독자의 낱말이 아니다.
+ *
+ * 이 함수가 `marketLabel` 옆에 있는 이유: 2026-08-14 에 같은 노출이 **세 곳**에서
+ * 발견됐다(market-connection-inspector 1 · history-briefing-inspector 2). 한 파일
+ * 안에 helper 를 두면 다음 화면이 또 자기 것을 만들고, 그 셋이 갈라진다.
+ *
+ * 형식이 어긋난 값은 버리지 않고 코드만 남긴다 — 시장을 모른다고 종목까지 지우면
+ * 화면이 덜 정직해진다.
+ */
+export function describeEntityKey(entityKey: string): string {
+  const separator = entityKey.indexOf(':');
+  if (separator < 0) return entityKey;
+  const market = entityKey.slice(0, separator);
+  const ticker = entityKey.slice(separator + 1);
+  if (!ticker) return marketLabel(market);
+  return `${marketLabel(market)} · ${ticker}`;
+}

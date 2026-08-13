@@ -2,6 +2,7 @@ import { ExternalLink, History } from 'lucide-react';
 
 import { DetailInspectorFrame, type DetailInspectorPresentation } from './detail-inspector-frame';
 import styles from './history-briefing-inspector.module.css';
+import { describeEntityKey } from './workspace-presenters';
 
 import { historyInspectorWidthStorageKey } from '@/pages/research-workspace/model/detail-inspector-layout';
 import type { HistoryBriefingDetail } from '@/pages/research-workspace/model/history-briefing';
@@ -105,7 +106,7 @@ function JudgmentDetail({
   return (
     <div className={styles.readyContent} data-presentation={presentation}>
       <section className={styles.summary} aria-labelledby="history-inspector-summary">
-        <span>판단 기록 · {detail.item.entityKey}</span>
+        <span>판단 기록 · {describeEntityKey(detail.item.entityKey)}</span>
         <h2 id="history-inspector-summary">요약</h2>
         <strong>{detail.item.title}</strong>
       </section>
@@ -160,7 +161,7 @@ function ObservationDetail({ detail }: { detail: HistoryBriefingDetail }) {
   return (
     <div className={styles.readyContent} data-presentation="observation">
       <section className={styles.summary} aria-labelledby="history-inspector-observation-change">
-        <span>자동 시장 관찰 · {detail.item.entityKey}</span>
+        <span>자동 시장 관찰 · {describeEntityKey(detail.item.entityKey)}</span>
         <h2 id="history-inspector-observation-change">감지된 변화</h2>
         <strong>{detail.item.title}</strong>
         <p>{presentResearchSummary(detail.changeSummary ?? detail.item.thesis)}</p>
