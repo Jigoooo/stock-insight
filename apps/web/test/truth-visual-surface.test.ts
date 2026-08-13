@@ -255,9 +255,10 @@ describe('진술 종류 시각 언어 — 배선', () => {
     // 개수는 리터럴로 못 박지 않는다 — 목록이 소스에서 유도되므로 숫자를
     // 고정하면 표면이 늘 때마다 여기가 깨지고, 그 수리는 규율 확인이 아니라
     // 숫자 맞추기가 된다. 재는 것은 "하나도 없지는 않은가" 다.
-    // 2026-08-13 측정: 4개(stock-briefing-inspector · evidence-inspector ·
-    // relation-sigma-graph · asset-tab-panel). 네 번째는 손목록이 세 줄로
-    // 굳어 있는 동안 어느 테스트에도 걸리지 않았다.
+    // 2026-08-13 측정: 5개(stock-briefing-inspector · evidence-inspector ·
+    // relation-sigma-graph · asset-tab-panel · market-connection-inspector).
+    // 네 번째는 손목록이 세 줄로 굳어 있는 동안 어느 테스트에도 걸리지 않았고,
+    // 다섯 번째는 목록이 유도형이 된 뒤 붙어서 **곧바로** 이 검사에 들어왔다.
     assert.ok(sources.length > 0, '진술 종류를 붙인 표면이 하나도 없다');
     for (const [index, source] of sources.entries()) {
       assert.match(

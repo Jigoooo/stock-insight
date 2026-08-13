@@ -16,6 +16,7 @@ import {
 import { marketConnectionInspectorWidthStorageKey } from '@/pages/research-workspace/model/detail-inspector-layout';
 import { Button } from '@/shared/ui/button';
 import { TextLink } from '@/shared/ui/link';
+import { TruthClaimRow, truthBindingForContentPackItem } from '@/shared/ui/truth';
 import { DataTable, StructuredList, WorkspaceState } from '@/shared/ui/workspace';
 import type { RadarSignalPage } from '@stock-insight/contracts/research-workspace';
 
@@ -29,6 +30,18 @@ function isValidHttpsUrl(value?: string): value is string {
     return false;
   }
 }
+
+/**
+ * 이 화면의 출처 목록은 **보관된 원문**을 가리킨다 — 제목·URL·발행처·발행 시각.
+ * 085 의 `evidence:source_revision` 이 정확히 그것이고, `evidence-inspector`
+ * 가 같은 모양의 목록에 이미 같은 종류를 붙인다.
+ *
+ * 하위 종류를 모를 때 SOURCE 로 낙관하지 않는다는 규율은 여기서 어기지 않는다 —
+ * 이 목록은 모르는 게 아니라 **원문 자료임이 화면 계약에 박혀 있다**(url ·
+ * publishedAt · sourceName). 종류를 아는 것과 지어내는 것은 다르다.
+ */
+const SOURCE_TRUTH = truthBindingForContentPackItem('evidence', 'source_revision');
+const SOURCE_BASIS = '기준 시점에 묶인 원문 자료를 그대로 가리킵니다.';
 
 function evidenceLevelLabel(value: 'high' | 'medium' | 'low' | undefined) {
   if (value === 'high') return '높음';
@@ -188,32 +201,38 @@ function MarketConnectionDetailContent({
         {detail.sources.length > 0 && (
           <section aria-labelledby="market-inspector-sources">
             <h3 id="market-inspector-sources">관련 뉴스·공시·근거 출처</h3>
-            <StructuredList className={styles.sourceList}>
-              {detail.sources.map((source) => (
-                <li key={source.id}>
-                  {isValidHttpsUrl(source.url) ? (
-                    <TextLink href={source.url} target="_blank" rel="noreferrer" motion="quiet">
+            <TruthClaimRow
+              basis={SOURCE_BASIS}
+              binding={SOURCE_TRUTH}
+              itemCount={detail.sources.length}
+            >
+              <StructuredList className={styles.sourceList}>
+                {detail.sources.map((source) => (
+                  <li key={source.id}>
+                    {isValidHttpsUrl(source.url) ? (
+                      <TextLink href={source.url} target="_blank" rel="noreferrer" motion="quiet">
+                        <strong>{source.title}</strong>
+                        <ExternalLink aria-hidden="true" />
+                      </TextLink>
+                    ) : (
                       <strong>{source.title}</strong>
-                      <ExternalLink aria-hidden="true" />
-                    </TextLink>
-                  ) : (
-                    <strong>{source.title}</strong>
-                  )}
-                  {source.summary ? <p>{source.summary}</p> : null}
-                  {(source.sourceName || source.publishedAt) && (
-                    <small>
-                      {source.sourceName}
-                      {source.sourceName && source.publishedAt ? ' · ' : null}
-                      {source.publishedAt ? (
-                        <time dateTime={source.publishedAt}>
-                          {formatDate(source.publishedAt, true)}
-                        </time>
-                      ) : null}
-                    </small>
-                  )}
-                </li>
-              ))}
-            </StructuredList>
+                    )}
+                    {source.summary ? <p>{source.summary}</p> : null}
+                    {(source.sourceName || source.publishedAt) && (
+                      <small>
+                        {source.sourceName}
+                        {source.sourceName && source.publishedAt ? ' · ' : null}
+                        {source.publishedAt ? (
+                          <time dateTime={source.publishedAt}>
+                            {formatDate(source.publishedAt, true)}
+                          </time>
+                        ) : null}
+                      </small>
+                    )}
+                  </li>
+                ))}
+              </StructuredList>
+            </TruthClaimRow>
           </section>
         )}
 
