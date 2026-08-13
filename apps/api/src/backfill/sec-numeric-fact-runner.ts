@@ -1,5 +1,6 @@
 import {
   assignRevisions,
+  findRevisionStructureViolations,
   findSchemaViolations,
   type MetricDefinitionRow,
   type NumericFactRow,
@@ -74,6 +75,7 @@ export type SecNumericFactSummary = {
   definitionsRolledBack?: number;
   skips: Skip[];
   schemaViolations: ReturnType<typeof findSchemaViolations>;
+  revisionStructureViolations: ReturnType<typeof findRevisionStructureViolations>;
   parity: SecParityResult;
   digest: string;
   factsWritten?: number;
@@ -520,6 +522,11 @@ export async function executeSecNumericFactJob(options: {
     writes.map((write) => write.fact),
     plan.definitions,
   );
+  // dart 잡과 같은 이유로 리비전 사슬도 트랜잭션 밖에서 본다. DB 가드의 예외는
+  // 어느 사실인지 말하지 않고, 삽입이 배치라 한 행이 전부를 되돌린다.
+  // 2026-08-11 에 dart 쪽에서 정확히 그 일이 일어났고 원인을 특정하는 데
+  // 이틀이 걸렸다. 같은 코드 경로를 쓰는 이쪽에 방어가 없을 이유가 없다.
+  let structureViolations = findRevisionStructureViolations(writes, initialExisting);
   let definitionsInserted = 0;
   let factsWritten = 0;
   let runDigest = assignmentDigest(plan.digest, writes);
@@ -538,6 +545,7 @@ export async function executeSecNumericFactJob(options: {
         writes = lockedAssignment.writes;
         revisionSkips = lockedAssignment.skips;
         runDigest = assignmentDigest(plan.digest, writes);
+        structureViolations = findRevisionStructureViolations(writes, lockedExisting);
         violations = findSchemaViolations(
           writes.map((write) => write.fact),
           plan.definitions,
@@ -580,6 +588,7 @@ export async function executeSecNumericFactJob(options: {
         : {}),
     skips: combinedSkips,
     schemaViolations: violations,
+    revisionStructureViolations: structureViolations,
     parity,
     digest: runDigest,
     ...(options.args.mode === 'apply'
