@@ -148,17 +148,44 @@ export async function loadExistingNumericFactState(
   if (scope.restatementGroupKeys?.length === 0) {
     return { factKeys: new Set(), groups: new Map() };
   }
-  const result = await client.query(EXISTING_FACTS_SQL, [
-    scope.entityIds,
-    scope.factKeyPrefix,
-    scope.sourceProvider,
-    scope.restatementGroupKeys ?? null,
-  ]);
   const factKeys = new Set<string>();
   const factIdsByGroup = new Map<string, Map<string, number>>();
   const groups = new Map<string, GroupState>();
 
-  for (const row of result.rows) {
+  // 한 번에 던지는 그룹 키 수. 좁히기만 해서는 부족했다 — 2026-08-13 실측에서
+  // 배치 전체를 배열 하나로 넘기자 Postgres 가 병렬 계획을 골랐고 213MB 짜리
+  // 공유 메모리 세그먼트를 요구하다 죽었다:
+  //
+  //   could not resize shared memory segment ... No space left on device
+  //
+  // 원인은 디스크가 아니다(881GB 여유). 컨테이너의 /dev/shm 이 Docker 기본값
+  // 64MB 다. 그 값을 올리는 것은 별건이고 — 다른 병렬 쿼리에도 같은 함정이
+  // 남아 있다 — 이 로더가 인프라 설정에 기대지 않는 것이 먼저다.
+  //
+  // 나눠 읽으면 양쪽이 모두 유계가 된다: 자바스크립트 힙도, 서버 쪽 계획도.
+  // 결과는 합치는 쪽에서 같다 — 그룹 키로 자르므로 한 그룹의 모든 리비전은
+  // 반드시 같은 조각에 들어온다.
+  const CHUNK = 2000;
+  const groupKeys = scope.restatementGroupKeys;
+  const chunks: (readonly string[] | null)[] =
+    groupKeys === undefined
+      ? [null]
+      : Array.from({ length: Math.ceil(groupKeys.length / CHUNK) }, (_unused, index) =>
+          groupKeys.slice(index * CHUNK, (index + 1) * CHUNK),
+        );
+
+  const rows: Array<Record<string, unknown>> = [];
+  for (const chunk of chunks) {
+    const result = await client.query(EXISTING_FACTS_SQL, [
+      scope.entityIds,
+      scope.factKeyPrefix,
+      scope.sourceProvider,
+      chunk,
+    ]);
+    rows.push(...result.rows);
+  }
+
+  for (const row of rows) {
     const fact = rowToFact(row);
     const revisionNo = Number(row.revision_no);
     const factId = Number(row.numeric_fact_id);
