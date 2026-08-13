@@ -558,6 +558,13 @@ export async function executeSecNumericFactJob(options: {
         if (violations.length > 0) {
           throw new Error(`refusing numeric-fact write: ${JSON.stringify(violations)}`);
         }
+        // 이웃과 같은 모양. 이것이 없으면 --apply 에서 검사가 아무것도 막지
+        // 못하고 DB 가드가 트랜잭션 안에서 이름 없이 던진다.
+        if (structureViolations.length > 0) {
+          throw new Error(
+            `refusing numeric-fact write: revision chains would change immutable claim structure — ${JSON.stringify(structureViolations)}`,
+          );
+        }
         const definitionKeys = new Set(plan.definitions.map((item) => item.definitionKey));
         const missing = writes.find((write) => !definitionKeys.has(write.fact.definitionKey));
         if (missing)

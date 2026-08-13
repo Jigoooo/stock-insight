@@ -409,6 +409,15 @@ async function run(): Promise<void> {
         `refusing to write: ${violations.length} constraint rules would be violated — ${JSON.stringify(violations)}`,
       );
     }
+    // **바로 위 이웃과 같은 모양이어야 한다.** 이것이 없으면 --apply 경로에서
+    // 검사가 아무것도 막지 못한다: DB 가드가 트랜잭션 안에서 던지고, 요약은
+    // 출력되지 않으며, 운영자가 보는 것은 여전히 이름 없는 예외 하나다.
+    // 2026-08-11 에 이틀을 태운 시나리오가 정확히 그 경로다.
+    if (structureViolations.length > 0) {
+      throw new Error(
+        `refusing to write: ${structureViolations.length} revision chains would change immutable claim structure — ${JSON.stringify(structureViolations)}`,
+      );
+    }
 
     let written = 0;
     await withNumericFactWriteTransaction(
@@ -437,6 +446,12 @@ async function run(): Promise<void> {
         if (violations.length > 0) {
           throw new Error(
             `refusing to write: ${violations.length} constraint rules would be violated — ${JSON.stringify(violations)}`,
+          );
+        }
+        structureViolations = findRevisionStructureViolations(writes, existing);
+        if (structureViolations.length > 0) {
+          throw new Error(
+            `refusing to write: ${structureViolations.length} revision chains would change immutable claim structure — ${JSON.stringify(structureViolations)}`,
           );
         }
         await ensureMetricDefinitions(client, collected.definitions, { createdBy: JOB_NAME });
