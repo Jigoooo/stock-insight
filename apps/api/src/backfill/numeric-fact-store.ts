@@ -174,7 +174,11 @@ export async function loadExistingNumericFactState(
           groupKeys.slice(index * CHUNK, (index + 1) * CHUNK),
         );
 
-  const rows: Array<Record<string, unknown>> = [];
+  // **조각을 다시 하나로 모으지 않는다.** 처음엔 모든 조각의 행을 배열 하나에
+  // 모은 뒤 순회했는데, 그러면 나눠 읽은 의미가 사라지고 오히려 최고점이
+  // 올라간다 — 드라이버가 만든 행 배열과 내가 만든 배열이 동시에 살아 있다.
+  // 실측: 그 형태로 SEC 잡이 다시 힙 부족으로 죽었다. 조각을 받는 즉시
+  // 접어서 버린다 — 아래 누적 구조(factKeys · groups)만 남는다.
   for (const chunk of chunks) {
     const result = await client.query(EXISTING_FACTS_SQL, [
       scope.entityIds,
@@ -182,32 +186,30 @@ export async function loadExistingNumericFactState(
       scope.sourceProvider,
       chunk,
     ]);
-    rows.push(...result.rows);
-  }
-
-  for (const row of rows) {
-    const fact = rowToFact(row);
-    const revisionNo = Number(row.revision_no);
-    const factId = Number(row.numeric_fact_id);
-    factKeys.add(fact.factKey);
-    let ids = factIdsByGroup.get(fact.restatementGroupKey);
-    if (!ids) {
-      ids = new Map();
-      factIdsByGroup.set(fact.restatementGroupKey, ids);
-    }
-    ids.set(fact.factKey, factId);
-    const current = groups.get(fact.restatementGroupKey);
-    if (!current || revisionNo > current.maxRevision) {
-      groups.set(fact.restatementGroupKey, {
-        maxRevision: revisionNo,
-        latestFactId: factId,
-        latestFactKey: fact.factKey,
-        factIdsByKey: ids,
-        latestSemanticFingerprint: numericFactSemanticFingerprint(fact),
-        // 리비전 사슬 구조 검사가 비교할 대상. 이걸 싣지 않으면
-        // findRevisionStructureViolations 가 조용히 아무것도 못 잡는다.
-        latestStructure: immutableClaimStructure(fact),
-      });
+    for (const row of result.rows) {
+      const fact = rowToFact(row);
+      const revisionNo = Number(row.revision_no);
+      const factId = Number(row.numeric_fact_id);
+      factKeys.add(fact.factKey);
+      let ids = factIdsByGroup.get(fact.restatementGroupKey);
+      if (!ids) {
+        ids = new Map();
+        factIdsByGroup.set(fact.restatementGroupKey, ids);
+      }
+      ids.set(fact.factKey, factId);
+      const current = groups.get(fact.restatementGroupKey);
+      if (!current || revisionNo > current.maxRevision) {
+        groups.set(fact.restatementGroupKey, {
+          maxRevision: revisionNo,
+          latestFactId: factId,
+          latestFactKey: fact.factKey,
+          factIdsByKey: ids,
+          latestSemanticFingerprint: numericFactSemanticFingerprint(fact),
+          // 리비전 사슬 구조 검사가 비교할 대상. 이걸 싣지 않으면
+          // findRevisionStructureViolations 가 조용히 아무것도 못 잡는다.
+          latestStructure: immutableClaimStructure(fact),
+        });
+      }
     }
   }
   return { factKeys, groups };
