@@ -230,7 +230,7 @@ SELECT CASE WHEN
      -- 실패시키지 않는다.
      'stock-insight-k4-valuation-band-stage',
      -- 같은 이유로 thesis 도 목록에 든다. 블록 9 는 297종목이 전부
-     -- no_eligible_source 이던 자리라, 조용히 빠지면 "원래 비어 있던 블록" 으로
+     -- no_eligible_source 이던 자리라, 조용히 빠지면 '원래 비어 있던 블록' 으로
      -- 읽히고 아무도 회귀를 눈치채지 못한다.
      'stock-insight-scenario-thesis-stage',
      'stock-insight-v2-l5-publish-stage',

@@ -198,6 +198,25 @@ async function persistOne(
   plan: PlannedScenarioSet,
   options: { cutoff: string; informationSetId: string; numericFactIds: readonly number[] },
 ): Promise<{ branches: number; invalidations: number; sealed: number }> {
+  /*
+    **먼저 이미 있는지 본다.** 아래 시나리오 삽입은 ON CONFLICT DO NOTHING 이라
+    재실행에 안전한데, 그 위의 도출 삽입은 아니었다. 그래서 같은 날 두 번째
+    실행이 `derivation_derivation_key_key` 충돌로 죽었다 — 2026-08-13 에
+    파이프라인이 정확히 그렇게 멈췄다.
+
+    키가 `thesis:own-history:{entityId}:{asOfDate}` 라 같은 날은 같은 키다.
+    그것이 의도다 — 하루에 한 해석이고, 이미 봉인된 해석이 있으면 이 실행이
+    할 일은 없다. 그러므로 여기서 조용히 끝내는 것이 옳다.
+
+    도출을 먼저 만들고 나중에 시나리오에서 걸러내면, 아무것도 가리키지 않는
+    도출 행이 실행마다 하나씩 쌓인다. 커널은 그것을 막지 않는다.
+  */
+  const existing = await client.query<{ scenario_set_id: string }>(
+    `SELECT scenario_set_id::text FROM analytics.scenario_set WHERE scenario_set_key = $1`,
+    [plan.scenarioSetKey],
+  );
+  if (existing.rows.length > 0) return { branches: 0, invalidations: 0, sealed: 0 };
+
   // 커널이 빈 입력을 거부하는 것이 옳다 — 무엇으로부터 나왔는지 말하지 못하는
   // 도출은 감사 사슬을 끊는다. 이 thesis 의 입력은 자기가 읽은 밴드의 도출
   // 단계이고, 그것이 계보를 밴드 → 사실까지 잇는다.

@@ -186,7 +186,7 @@ type ClaimRow = QueryResultRow & {
   revision_no: number;
 };
 
-type ReportBlock = {
+export type ReportBlock = {
   block_id: string;
   block_type: 'fact' | 'reported_claim' | 'methodology_note';
   text: string;
@@ -207,17 +207,49 @@ function required(name: string): string {
   return value;
 }
 
-function validateBlocks(blocks: ReportBlock[]): string[] {
+/**
+ * **두 종류의 위반을 구분한다.** 둘 다 하드 실패로 묶어 두면 하나가 전부를 막는다.
+ *
+ * 인용 없는 사실형 블록은 **우리 코드의 결함**이다. 그런 블록이 있다는 것은
+ * 이 발행기가 잘못 조립했다는 뜻이고, 그 상태로 내보내면 근거 없는 문장이
+ * 제품에 실린다. 계속 하드 실패다.
+ *
+ * 행동 조언 문구는 다르다. **수집한 원문에 들어 있는 것**이고, 그런 원문이
+ * 들어오는 것은 결함이 아니라 예상된 입력이다. 2026-08-13 실측: 주장 블록
+ * 137건 중 1건이 걸렸다("카카오 GUIDES — 목표가 하향"). `목표가` 는
+ * CLAUDE.md 제품 경계가 이름으로 금지한 낱말이므로 게이트 판정은 옳다.
+ *
+ * 그런데 그 1건이 **682건(주장 137 + 이벤트 545)을 통째로 막았다.** 리포트가
+ * 한 줄도 발행되지 않고, 파이프라인이 거기서 끝나 뒤따르는 단계가 전부 멈춘다.
+ * 계획서가 기록한 2026-08-03 사고와 같은 모양이다 — 그때는 v2 발행을 앞으로
+ * 옮겨 그래프가 함께 죽는 것만 막았고, 리포트 자체는 이 상태로 남았다.
+ *
+ * 제외로 바꾸어도 **보호력은 그대로다** — 금지 문구는 여전히 제품에 닿지 않는다.
+ * 바뀌는 것은 폭발 반경뿐이다.
+ *
+ * 그리고 조용히 버리지 않는다(REQ-SRC-001). 제외한 수를 돌려주어 발행물이
+ * 스스로 "몇 건을 뺐다" 고 말하게 한다.
+ */
+export function partitionBlocks(blocks: ReportBlock[]): {
+  kept: ReportBlock[];
+  excludedForAdvice: number;
+  failures: string[];
+} {
   const failures: string[] = [];
+  const kept: ReportBlock[] = [];
+  let excludedForAdvice = 0;
   for (const block of blocks) {
     if (['fact', 'reported_claim'].includes(block.block_type) && block.citation_ids.length === 0) {
       failures.push(`${block.block_id}: fact-type block without citation`);
+      continue;
     }
     if (containsActionAdvice(block.text)) {
-      failures.push(`${block.block_id}: action-advice wording`);
+      excludedForAdvice += 1;
+      continue;
     }
+    kept.push(block);
   }
-  return failures;
+  return { kept, excludedForAdvice, failures };
 }
 
 async function run(): Promise<void> {
@@ -305,22 +337,35 @@ async function run(): Promise<void> {
         confidence: claim.extraction_confidence ?? 0.5,
       };
     });
+    // 제외 판정을 **본문 블록에만** 돌린다. 안내문은 아래에서 그 결과를 읽어
+    // 스스로를 서술하므로, 자기 자신을 세는 순환에 넣지 않는다.
+    const partitioned = partitionBlocks([...eventBlocks, ...claimBlocks]);
+    const keptEvents = partitioned.kept.filter((block) => block.block_id.startsWith('verified_'));
+    const keptClaims = partitioned.kept.filter((block) =>
+      block.block_id.startsWith('watch_claims'),
+    );
+    const gateFailures = partitioned.failures;
+
+    // 뺀 것을 발행물이 스스로 말한다(REQ-SRC-001). 조용히 줄어든 목록은
+    // "그런 주장이 없었다" 로 읽히고, 그건 사실에 대한 거짓 진술이다.
+    const excludedNote =
+      partitioned.excludedForAdvice > 0
+        ? ` 원문에 매매 판단 표현이 들어 있어 ${partitioned.excludedForAdvice}건은 싣지 않았습니다.`
+        : '';
     const noteBlock: ReportBlock = {
       block_id: 'coverage_note-1',
       block_type: 'methodology_note',
-      text: `검증 이벤트 ${eventBlocks.length}건·보고된 주장 ${claimBlocks.length}건. 모든 사실형 문장은 원문 인용을 가진다. 투자 판단·주문 지시가 아니라 변화 기록이다.`,
+      text: `검증 이벤트 ${keptEvents.length}건·보고된 주장 ${keptClaims.length}건. 모든 사실형 문장은 원문 인용을 가진다. 투자 판단·주문 지시가 아니라 변화 기록이다.${excludedNote}`,
       citation_ids: [],
       confidence: 1,
     };
 
-    const allBlocks = [...eventBlocks, ...claimBlocks, noteBlock];
-    const gateFailures = validateBlocks(allBlocks);
     const payload = {
       title: `일일 주식 지식 리포트 ${scheduledFor.toISOString().slice(0, 10)}`,
       thesis: '지식 계층(문서→이벤트/주장)에서 검증 가능한 변화만 발행한다.',
       sections: [
-        { section_key: 'verified_events', blocks: eventBlocks },
-        { section_key: 'watch_claims', blocks: claimBlocks },
+        { section_key: 'verified_events', blocks: keptEvents },
+        { section_key: 'watch_claims', blocks: keptClaims },
         { section_key: 'coverage_note', blocks: [noteBlock] },
       ],
       citation_map: citationMap,
@@ -328,8 +373,9 @@ async function run(): Promise<void> {
     };
     const contentHash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     const audit = {
-      events: eventBlocks.length,
-      claims: claimBlocks.length,
+      events: keptEvents.length,
+      claims: keptClaims.length,
+      excludedForAdvice: partitioned.excludedForAdvice,
       gateFailures,
       contentHash: contentHash.slice(0, 16),
     };
@@ -338,7 +384,9 @@ async function run(): Promise<void> {
       console.log(JSON.stringify({ mode: 'dry-run', jobName: JOB_NAME, audit }, null, 2));
       return;
     }
-    if (eventBlocks.length === 0) {
+    // 제외 **후**를 센다. 전부 제외돼 빈 리포트가 되는 경우를 빈 발행으로
+    // 잡아야 하고, 제외 전 개수로 재면 그 상황이 통과한다.
+    if (keptEvents.length === 0) {
       throw new Error('No recent document-backed events; refusing empty publish');
     }
     if (gateFailures.length > 0) {
