@@ -1,5 +1,18 @@
 services:
   postgres:
+    # Docker 의 기본 /dev/shm 은 64MB 다. Postgres 는 병렬 계획의 공유 해시·정렬을
+    # 거기에 두므로, 조금만 큰 병렬 쿼리도 그 한도를 넘는다. 2026-08-13 실측:
+    #
+    #   could not resize shared memory segment "/PostgreSQL.299022214"
+    #   to 213302304 bytes: No space left on device
+    #
+    # **이 메시지가 이 설정을 여기 적어두는 이유다.** 디스크는 881GB 여유였다.
+    # "No space left on device" 는 디스크를 먼저 의심하게 만들고, 실제 원인인
+    # 64MB 짜리 tmpfs 에 닿기까지 한참 걸린다. 그 잡(run-sec-numeric-fact)이
+    # market-enrichment 래퍼를 죽였고 그것이 analytics 입력 게이트를 막았다.
+    #
+    # 1g 는 상한이지 예약이 아니다 — tmpfs 는 실제로 쓴 만큼만 메모리를 차지한다.
+    shm_size: 1g
     environment:
       PGBACKREST_CONFIG: /home/postgres/pgbackrest/pgbackrest.conf
       PGBACKREST_STANZA: research-app
