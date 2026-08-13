@@ -351,7 +351,11 @@ export async function loadAssetSourceFacts(
         `SELECT DISTINCT ON (security_entity_id, method_key)
               security_entity_id AS entity_id, valuation_estimate_revision_id,
               method_key, lower_estimate::text, upper_estimate::text,
-              estimate_unit, horizon
+              estimate_unit, horizon,
+              -- 블록 12 가 모을 계보. 원장이 이미 들고 있는 것을 여기서 싣지
+              -- 않으면, 패킷은 "도출 id 를 기록하지 못했다" 고 297종목 전부에
+              -- 대해 말하게 된다 — 실제로는 기록돼 있는데도.
+              derivation_id::text AS valuation_derivation_id
          FROM analytics.valuation_estimate_revision
         WHERE security_entity_id = ANY($1::bigint[])
         ORDER BY security_entity_id, method_key, as_of_at DESC, revision_no DESC,
@@ -387,6 +391,7 @@ export async function loadAssetSourceFacts(
         `SELECT scenario.subject_entity_id AS entity_id,
                 scenario.scenario_set_id,
                 scenario.title,
+                scenario.derivation_id::text AS scenario_derivation_id,
                 branch.branch_kind,
                 branch.narrative,
                 invalidation.invalidation_condition
@@ -608,10 +613,28 @@ export async function loadAssetSourceFacts(
         state: String(entry.completeness_state),
         observedAt: new Date(String(entry.last_checked_at)).toISOString(),
       })),
-      // Derivation ids are resolved from the blocks that cite them rather than
-      // queried per asset: knowledge.derivation is 3.5M rows and an unfiltered join
-      // would dominate the whole job.
-      derivationIds: [],
+      /*
+        블록들이 인용한 도출을 모은다.
+
+        주석은 처음부터 "블록에서 모은다" 고 말했는데 **코드는 빈 배열이었다.**
+        그래서 블록 12 가 297종목 전부에 대해 "도출 id 를 기록하지 못했다" 고
+        말했다 — 원장에는 기록돼 있는데도. 계약이 required 로 요구하는 필드가
+        공허하게 통과하던 자리이고, 계획서 R7 이 지목한 그 자리다.
+
+        knowledge.derivation 3.5M행을 자산마다 조인하지 않는다는 원래 판단은
+        맞다. 그래서 조인하지 않고, 이미 읽은 원장 행이 들고 있는 것을 쓴다.
+        비용은 0이다.
+      */
+      derivationIds: [
+        ...new Set(
+          [
+            ...(valuationsByEntity.get(entityId) ?? []).map((row) => row.valuation_derivation_id),
+            ...(scenariosByEntity.get(entityId) ?? []).map((row) => row.scenario_derivation_id),
+          ]
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+            .sort(),
+        ),
+      ],
       truncation,
       releaseId,
       semanticSnapshotId,

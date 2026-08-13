@@ -14,11 +14,10 @@
  *   CAV 읽기 경로가 어휘를 계약 패키지로 옮기면서 그 사유가 사라졌다. 프런트는
  *   계약을 import 할 수 있으므로 사본을 둘 이유가 없고, 동기화를 강제하는 테스트도
  *   필요 없다 — 어긋날 두 벌이 애초에 없는 편이 어긋남을 잡는 테스트보다 낫다.
- * - Deep dive 섹션 12개: 정본은 `@/pages/research-workspace/model/stock-deep-dive`
- *   의 `DEEP_DIVE_SECTION_IDS`. `shared` 는 `pages` 를 import 할 수 없으므로(FSD)
- *   여기서도 사본을 두고 계약 테스트가 동기화를 강제한다. IA §4 의 "대응 정본 01
- *   §3 항목" 열이 조인 키다 — above-the-fold 항목이면 `essential`, 하위 섹션이면
- *   `standard`, research drawer 면 `research`.
+ * - Deep dive 섹션 12행은 **없앴다**(2026-08-13). 그 키로 조회하는 코드가 없었고,
+ *   정본 01 §3 의 하위 섹션은 `pages/asset-deep-dive` 의 11탭이 CAV 블록 위에서
+ *   덮는다. 사본을 두던 이유(FSD 상 `shared` 가 `pages` 를 import 할 수 없다)도
+ *   함께 사라졌다 — 맞출 두 벌이 없으면 동기화 테스트도 필요 없다.
  *
  * 각 행의 `source` 는 그 깊이가 어디서 나왔는지를 적는다. 문서가 못 박지 않아
  * 이 표가 **판단한** 행은 `source` 가 "판단:" 으로 시작한다.
@@ -36,27 +35,6 @@ export const COMMON_ASSET_VIEW_BLOCK_KEYS = commonAssetViewBlockKeys;
 
 export type { CommonAssetViewBlockKey };
 
-/**
- * `@/pages/research-workspace/model/stock-deep-dive` 의 `DEEP_DIVE_SECTION_IDS`
- * 사본. 계약 테스트가 동기화를 강제한다.
- */
-export const DEEP_DIVE_SECTION_IDS = [
-  'identity',
-  'performance',
-  'direct_relations',
-  'secondary_exposure',
-  'factor_exposure',
-  'active_events',
-  'historical_analog',
-  'scenario',
-  'counter_evidence',
-  'derivation',
-  'holding_judgment',
-  'invalidation',
-] as const;
-
-export type DeepDiveSectionId = (typeof DEEP_DIVE_SECTION_IDS)[number];
-
 /** IA §4 "주 화면" 열의 값들. */
 export const DEPTH_SURFACES = [
   'today',
@@ -67,7 +45,7 @@ export const DEPTH_SURFACES = [
 ] as const;
 export type DepthSurface = (typeof DEPTH_SURFACES)[number];
 
-export type DepthAssignmentKey = CommonAssetViewBlockKey | DeepDiveSectionId;
+export type DepthAssignmentKey = CommonAssetViewBlockKey;
 
 export type DepthAssignment = {
   /** 이 항목이 놓이는 화면. 첫 원소가 주 화면. */
@@ -165,77 +143,22 @@ const CAV_BLOCK_ASSIGNMENTS: Record<CommonAssetViewBlockKey, DepthAssignment> = 
  * 투영하는 블록과 정본 01 §3 상의 위치(above-the-fold vs 하위 섹션 vs research
  * drawer)로 깊이를 정한다.
  */
-const DEEP_DIVE_SECTION_ASSIGNMENTS: Record<DeepDiveSectionId, DepthAssignment> = {
-  identity: {
-    surfaces: ['stock-detail'],
-    depth: 'essential',
-    source: 'IA §4 블록 1 → 정본 01 §3 항목 1·2 (above-the-fold)',
-  },
-  performance: {
-    surfaces: ['stock-detail'],
-    depth: 'standard',
-    source: 'IA §4 블록 3 → 정본 01 §3 항목 6',
-  },
-  direct_relations: {
-    surfaces: ['stock-detail'],
-    depth: 'essential',
-    source: 'IA §4 블록 6 (exposure/impact, essential)',
-  },
-  secondary_exposure: {
-    surfaces: ['stock-detail'],
-    depth: 'standard',
-    source:
-      '판단: 블록 6 이지만 정본 01 §3 상 above-the-fold 가 아니라 하위 섹션(exposure/impact paths)이라 2차 경로는 한 번 펼쳐 닿게 둔다',
-  },
-  factor_exposure: {
-    surfaces: ['stock-detail'],
-    depth: 'research',
-    source:
-      '판단: 요인 노출은 정본 01 §3 의 10항목·11 하위 섹션 어디에도 이름이 없다. 파생 분석이라 research 로 둔다',
-  },
-  active_events: {
-    surfaces: ['stock-detail', 'today'],
-    depth: 'essential',
-    source: 'IA §4 블록 4 → 정본 01 §3 항목 5 (above-the-fold)',
-  },
-  historical_analog: {
-    surfaces: ['stock-detail'],
-    depth: 'research',
-    source: '판단: 과거 유사 사례는 정본 01 §3 항목에 없고 근거 추적 성격이라 research 로 둔다',
-  },
-  scenario: {
-    surfaces: ['stock-detail'],
-    depth: 'standard',
-    source: 'IA §4 블록 9 → 정본 01 §3 항목 8 (thesis·counter-thesis)',
-  },
-  counter_evidence: {
-    surfaces: ['stock-detail'],
-    depth: 'standard',
-    source:
-      '판단: 블록 10 이름에 counter-evidence 가 있지만 정본 01 §3 의 essential 항목 9 는 catalyst/risk/invalidation 이고 counter-thesis 는 항목 8(=블록 9, standard)이다. 항목 8 을 따른다',
-  },
-  derivation: {
-    surfaces: ['research-drawer'],
-    depth: 'research',
-    source: 'IA §4 블록 12 · 하위 섹션 provenance/derivation research drawer',
-  },
-  holding_judgment: {
-    surfaces: ['stock-detail'],
-    depth: 'essential',
-    source:
-      '판단: 보유 여부는 화면에서 합성하는 개인 데이터(REQ-REC-001 로 패킷에 없다). 사용자가 자기 보유를 확인하는 데 펼치기를 요구할 이유가 없어 essential',
-  },
-  invalidation: {
-    surfaces: ['stock-detail'],
-    depth: 'essential',
-    source: 'IA §4 블록 10 → 정본 01 §3 항목 9 (catalyst/risk/invalidation, above-the-fold)',
-  },
-};
 
-/** 표 하나. CAV 블록 12 + deep dive 섹션 12 = 24행, 키마다 정확히 한 행. */
+/**
+ * 표 하나. CAV 블록 12행, 키마다 정확히 한 행.
+ *
+ * **24행에서 12행이 됐다.** 뒤의 12행은 `stock-deep-dive.ts` 의 deep dive 섹션
+ * ID 사본이었는데, 그 키로 조회하는 코드가 없었다 — `assignmentFor()` 의 유일한
+ * 호출부(`asset-section.tsx`)가 받는 인자는 CAV 블록 키다. 정본 01 §3 의 하위
+ * 섹션은 `pages/asset-deep-dive` 의 11탭이 CAV 블록 위에서 덮고 있고, 그 화면의
+ * `asset-tabs.ts` 가 "표에 행을 더하지 않는 것이 배정을 어기는 게 아니라 배정을
+ * 그대로 쓰는 것" 이라고 관계를 적어뒀다.
+ *
+ * 선언만 있고 이행이 없는 행은 배정이 아니라 **약속**이다. 그것을 표에 두면
+ * 다음 사람이 "깊이가 배정돼 있다" 를 "깊이가 지켜진다" 로 읽는다.
+ */
 export const DEPTH_ASSIGNMENTS: Readonly<Record<DepthAssignmentKey, DepthAssignment>> = {
   ...CAV_BLOCK_ASSIGNMENTS,
-  ...DEEP_DIVE_SECTION_ASSIGNMENTS,
 };
 
 export function assignmentFor(key: DepthAssignmentKey): DepthAssignment {

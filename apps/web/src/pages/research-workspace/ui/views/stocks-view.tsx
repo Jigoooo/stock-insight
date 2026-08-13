@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { createLatestRequestGate } from '../../model/latest-request-gate';
 import {
   loadStockBriefingData,
   type StockBriefingDetail,
   type StockBriefingLoader,
   type StocksBriefingModel,
 } from '../../model/stock-briefing';
-import { createLatestRequestGate } from '../../model/stock-deep-dive';
 import { paginateStockRows } from '../../model/stock-table-pagination';
 import {
   StockBriefingInspector,

@@ -2,10 +2,8 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 
-import { DEEP_DIVE_SECTION_IDS } from '../src/pages/research-workspace/model/stock-deep-dive.ts';
 import {
   COMMON_ASSET_VIEW_BLOCK_KEYS,
-  DEEP_DIVE_SECTION_IDS as DEPTH_TABLE_SECTION_IDS,
   DEPTH_ASSIGNMENTS,
   detailDepthFor,
   type DepthAssignmentKey,
@@ -105,17 +103,26 @@ describe('깊이 3모드 — 배정표 완전성', () => {
     assert.equal(commonAssetViewBlockKeys.length, 12);
   });
 
-  it('DEEP_DIVE_SECTION_ID 정본과 배정표 사본이 같다', () => {
-    assert.ok(DEEP_DIVE_SECTION_IDS.length > 0);
-    assert.deepEqual([...DEPTH_TABLE_SECTION_IDS], [...DEEP_DIVE_SECTION_IDS]);
-  });
+  it('모든 blockKey 가 표에 정확히 1회 등장한다', () => {
+    /*
+      **표가 24행에서 12행이 됐다.**
 
-  it('모든 blockKey 와 섹션 ID 가 표에 정확히 1회 등장한다', () => {
-    const expected = [...COMMON_ASSET_VIEW_BLOCK_KEYS, ...DEEP_DIVE_SECTION_IDS];
+      뒤의 12행은 `stock-deep-dive.ts` 의 deep dive 섹션 ID 사본이었고, 그것을
+      조회하는 코드가 없었다 — `assignmentFor()` 의 유일한 호출부
+      (`asset-section.tsx:39`)가 받는 인자는 CAV 블록 키다. 정본 01 §3 의 하위
+      섹션은 `pages/asset-deep-dive` 의 11탭이 CAV 블록 위에서 이미 덮고 있고,
+      `asset-tabs.ts` 주석이 "표에 행을 더하지 않는 것이 배정을 어기는 게 아니라
+      배정을 그대로 쓰는 것" 이라고 그 관계를 적어뒀다.
+
+      **이 단언이 지키던 것은 그대로 지킨다** — 선언한 키와 표의 키가 정확히
+      일치한다는 것. 달라진 것은 정본이 두 벌에서 한 벌이 된 것뿐이고, 그래서
+      맞춰볼 사본도 사라졌다. 어긋날 두 벌이 없는 편이 어긋남을 잡는 테스트보다
+      낫다는 이 파일의 원래 원칙이 이제 표 전체에 적용된다.
+    */
+    const expected = [...COMMON_ASSET_VIEW_BLOCK_KEYS];
     const tableKeys = Object.keys(DEPTH_ASSIGNMENTS) as DepthAssignmentKey[];
 
-    // 두 네임스페이스가 겹치면 한쪽이 다른 쪽을 조용히 덮어쓴다.
-    assert.equal(new Set(expected).size, expected.length, 'blockKey 와 섹션 ID 가 충돌한다');
+    assert.equal(new Set(expected).size, expected.length, 'blockKey 가 중복된다');
     assert.equal(tableKeys.length, expected.length, '표 행 수가 정본 키 수와 다르다');
     assert.deepEqual([...tableKeys].sort(), [...expected].sort());
   });

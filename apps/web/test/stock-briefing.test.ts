@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  loadPreviewStockDeepDive,
   loadPreviewStockBriefing,
   stockBriefingDetailPreviewFixtures,
 } from '../src/pages/dev-preview/model/stock-deep-dive-preview-fixture.ts';
@@ -391,16 +390,6 @@ describe('stock briefing model', () => {
     assert.equal(
       stockBriefingStatusLabel(stock({ isHolding: false, isWatched: false })),
       '명시적 데이터 없음',
-    );
-  });
-
-  it('keeps the legacy preview deep dive partial while most legacy sections are missing', async () => {
-    const result = await loadPreviewStockDeepDive('KR:005930');
-
-    assert.equal(result.deepDive.availability, 'partial');
-    assert.equal(
-      result.deepDive.sections.filter(({ availability }) => availability === 'missing').length,
-      9,
     );
   });
 });

@@ -12,14 +12,6 @@ const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
 const DEFAULT_LIMIT = 100;
 const BATCH_SIZE = 12;
 
-// Local translation via LM Studio. Measured 2026-08-13 against gemini-3.1-flash-lite
-// on 48 production rows with a blind LLM judge: gemma-4-26b-a4b won 26-15-6 (63%),
-// beating gemma-4-31b-qat (56%) and qwen3.6-35b-a3b (49%). 22.8s per 12-row batch,
-// so a 100-row run costs ~3.4 minutes — fine for a timer job.
-const LOCAL_BASE = process.env.STOCK_INSIGHT_LOCAL_LLM_BASE?.trim() || 'http://localhost:1234/v1';
-const LOCAL_MODEL = process.env.STOCK_INSIGHT_LOCAL_LLM_MODEL?.trim() || 'google/gemma-4-26b-a4b';
-const LOCAL_TIMEOUT_MS = 300_000; // first call loads a 25.6GB model (~99s); later ~23s
-
 type PendingRow = QueryResultRow & {
   id: string | number | bigint;
   title: string;
@@ -125,88 +117,6 @@ async function geminiTranslate(
   throw lastError;
 }
 
-/**
- * Translate one batch on the local LM Studio model.
- *
- * The batch is re-keyed to positional indices ("0".."11") before the call and mapped
- * back afterwards. This is not cosmetic: with the real DB ids the model reproducibly
- * corrupted digits — id 26696 came back as 26996 on 3/3 runs, which
- * parseTranslationResponse correctly rejects, failing the whole batch. Short tokens
- * round-trip cleanly (4/4 batches, 12/12 rows each). Gemini copies long ids fine, so
- * this hardens the contract rather than working around one model.
- */
-async function localTranslate(
-  inputs: readonly TranslationInput[],
-  model: string,
-): Promise<TranslationOutput[]> {
-  const token = required('LMS_KEY');
-  const indexed = inputs.map((input, i) => ({
-    ...input,
-    id: String(i),
-  }));
-  const prompt = [
-    'Translate the following financial/news text into natural, concise Korean.',
-    'Preserve company names, tickers, numbers, and meaning. Do not add facts, advice, or commentary.',
-    'Return every id exactly once. summaryKo may be omitted only when summary is absent.',
-    JSON.stringify(indexed),
-  ].join('\n');
-  const body = {
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0,
-    max_tokens: 4096,
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'translations',
-        strict: true,
-        schema: {
-          type: 'object',
-          required: ['translations'],
-          properties: {
-            translations: {
-              type: 'array',
-              items: {
-                type: 'object',
-                required: ['id', 'titleKo'],
-                properties: {
-                  id: { type: 'string' },
-                  titleKo: { type: 'string' },
-                  summaryKo: { type: 'string' },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  };
-
-  const response = await fetch(`${LOCAL_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(LOCAL_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new Error(`Local translation failed with HTTP ${response.status}`);
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const text = payload.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Local translation returned no content');
-
-  // Validate against the indexed inputs, then restore the real ids.
-  const outputs = parseTranslationResponse(JSON.parse(text) as unknown, indexed);
-  if (outputs.length !== indexed.length) {
-    throw new Error(`Local model returned ${outputs.length}/${indexed.length} valid translations`);
-  }
-  return outputs.map((output) => {
-    const original = inputs[Number(output.id)];
-    if (!original) throw new Error(`Local model returned an out-of-range index: ${output.id}`);
-    return { ...output, id: original.id };
-  });
-}
-
 async function myMemoryTranslate(input: TranslationInput): Promise<TranslationOutput> {
   async function translate(value: string): Promise<string> {
     const endpoint = new URL('https://api.mymemory.translated.net/get');
@@ -266,7 +176,6 @@ async function run(): Promise<void> {
           pending: pending.length,
           koreanIdentity: identity.length,
           externalTranslation: external.length,
-          localModel: process.env.STOCK_INSIGHT_LOCAL_LLM_MODEL?.trim() || LOCAL_MODEL,
           model: process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL,
         }),
       );
@@ -277,23 +186,10 @@ async function run(): Promise<void> {
     const model = process.env.GEMINI_MODEL?.trim() || DEFAULT_MODEL;
     const translated: TranslationOutput[] = [...identity];
     const revisionById = new Map(pending.map((input) => [input.id, input.revisionFingerprint]));
-    const localModel = process.env.STOCK_INSIGHT_LOCAL_LLM_MODEL?.trim() || LOCAL_MODEL;
-    let local = 0;
     let gemini = 0;
     let fallback = 0;
 
-    // local -> gemini -> mymemory. The local model wins on quality (63% blind) and
-    // removes the rate limit and per-call cost; Gemini stays as the middle rung so a
-    // stopped LM Studio degrades instead of dropping the batch to per-item MyMemory.
     for (const batch of chunks(external, BATCH_SIZE)) {
-      try {
-        const outputs = await localTranslate(batch, localModel);
-        translated.push(...outputs);
-        local += outputs.length;
-        continue;
-      } catch {
-        // fall through to Gemini
-      }
       try {
         const outputs = await geminiTranslate(batch, apiKey, model);
         translated.push(...outputs);
@@ -334,10 +230,8 @@ async function run(): Promise<void> {
         translated: applied,
         staleSkipped,
         koreanIdentity: identity.length,
-        local,
         gemini,
         fallback,
-        localModel,
         model,
       }),
     );
