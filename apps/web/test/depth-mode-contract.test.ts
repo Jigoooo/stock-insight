@@ -149,6 +149,12 @@ describe('깊이 3모드 — 분기 금지', () => {
         /\bexpandedLevelsAt\b/,
         /\bDEPTH_MODES\b/,
         /\bdepthMode\b/,
+        // `\bdepthMode\b` 는 대소문자를 구분하므로 `DepthModeContext` 에 걸리지
+        // 않는다. 그런데 그 컨텍스트는 `depth-context.tsx` 가 그대로 export 하고,
+        // 배럴을 우회해 깊은 경로로 import 하면 뷰가 모드를 읽어 분기할 수 있다.
+        // 배럴 좁히기와 같은 논리다 — 우회하려면 이름으로 파고들어야 하고,
+        // 그때 이 가드가 봐야 한다.
+        /\bDepthModeContext\b/,
       ]) {
         if (forbidden.test(source)) found.push(`${relativeToWeb(path)}: ${forbidden.source}`);
       }

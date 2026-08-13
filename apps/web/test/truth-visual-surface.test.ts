@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -16,12 +16,41 @@ const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.ur
 
 const CLAIM_MARKER = 'TRUTH_CLAIM_BODY_MARKER';
 
-/** 진술 종류를 화면에 붙인 표면. 이 목록이 곧 "실제로 뜨는 종류"의 출처다. */
-const APPLIED_SURFACES = [
-  'pages/research-workspace/ui/stock-briefing-inspector.tsx',
-  'pages/research-workspace/ui/evidence-inspector.tsx',
-  'pages/research-workspace/ui/relation-sigma-graph.tsx',
-] as const;
+/**
+ * 진술 종류를 화면에 붙인 표면. 이 목록이 곧 "실제로 뜨는 종류"의 출처다.
+ *
+ * **손목록을 두지 않는다.** 원래 세 줄짜리 리터럴이었는데, 네 번째 표면
+ * (`asset-tab-panel.tsx`)이 붙는 동안 목록은 그대로였다. 그래서 그 표면의
+ * 분류 근거 문장·enum 노출·깊이 분기가 어느 테스트에도 걸리지 않았고,
+ * 아래 `basisTexts.length === 4` 단언은 "세 파일의 문장이 4개" 라서 통과하며
+ * 다섯 번째를 세지 않았다. 목록이 조용히 표류하는 동안 게이트는 초록이었다.
+ *
+ * 배럴 렌더러 목록에 이미 적용한 규율을 그대로 옮긴다 — src 를 훑어 truth
+ * 모듈을 import 하는 파일 집합을 구한다. 새 표면이 붙는 순간 목록이 스스로
+ * 늘어나고, 그 표면이 규율을 어기면 바로 이 테스트가 잡는다.
+ */
+async function collectTsx(dir: URL, found: string[] = []): Promise<string[]> {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) await collectTsx(new URL(`${entry.name}/`, dir), found);
+    else if (entry.name.endsWith('.tsx')) found.push(new URL(entry.name, dir).pathname);
+  }
+  return found;
+}
+
+async function appliedSurfaces(): Promise<string[]> {
+  const srcRoot = new URL('../src/', import.meta.url);
+  const files = await collectTsx(srcRoot);
+  const applied: string[] = [];
+  for (const path of files) {
+    // 모듈 자신은 제외한다 — 그것을 쓰는 쪽만 표면이다.
+    if (path.includes('/shared/ui/truth/')) continue;
+    const source = await readFile(path, 'utf8');
+    if (source.includes("from '@/shared/ui/truth'")) {
+      applied.push(path.slice(fileURLToPath(srcRoot).length));
+    }
+  }
+  return applied.sort();
+}
 
 type TruthModule = {
   TruthChip: ComponentType<{ binding: unknown }>;
@@ -220,31 +249,45 @@ describe('진술 종류 시각 언어 — 렌더', () => {
 });
 
 describe('진술 종류 시각 언어 — 배선', () => {
-  it('적용한 세 표면이 모두 진술 종류 표시를 쓴다', async () => {
-    const sources = await Promise.all(APPLIED_SURFACES.map(read));
-    assert.equal(sources.length, 3);
+  it('진술 종류를 붙인 표면은 전부 바인딩을 통해 붙인다', async () => {
+    const surfaces = await appliedSurfaces();
+    const sources = await Promise.all(surfaces.map(read));
+    // 개수는 리터럴로 못 박지 않는다 — 목록이 소스에서 유도되므로 숫자를
+    // 고정하면 표면이 늘 때마다 여기가 깨지고, 그 수리는 규율 확인이 아니라
+    // 숫자 맞추기가 된다. 재는 것은 "하나도 없지는 않은가" 다.
+    // 2026-08-13 측정: 4개(stock-briefing-inspector · evidence-inspector ·
+    // relation-sigma-graph · asset-tab-panel). 네 번째는 손목록이 세 줄로
+    // 굳어 있는 동안 어느 테스트에도 걸리지 않았다.
+    assert.ok(sources.length > 0, '진술 종류를 붙인 표면이 하나도 없다');
     for (const [index, source] of sources.entries()) {
       assert.match(
         source,
         /from '@\/shared\/ui\/truth'/,
-        `${APPLIED_SURFACES[index]}: 진술 종류 모듈을 쓰지 않는다`,
+        `${surfaces[index]}: 진술 종류 모듈을 쓰지 않는다`,
       );
       assert.match(
         source,
         /truthBindingForContentPackItem\(/,
-        `${APPLIED_SURFACES[index]}: 바인딩을 통하지 않고 붙였다`,
+        `${surfaces[index]}: 바인딩을 통하지 않고 붙였다`,
       );
     }
   });
 
   it('연구 깊이에 나가는 분류 근거 문장에도 내부 어휘가 없다', async () => {
-    const sources = await Promise.all(APPLIED_SURFACES.map(read));
+    const surfaces = await appliedSurfaces();
+    const sources = await Promise.all(surfaces.map(read));
     const basisTexts = sources.flatMap((source) => [
       ...source.matchAll(/const \w*_BASIS =\s*\n?\s*'([^']*)'/g),
     ]);
 
-    // 정규식이 조용히 0개를 매치하면 이 테스트는 장식이 된다.
-    assert.equal(basisTexts.length, 4, '분류 근거 문장 수가 4가 아니다');
+    // 정규식이 조용히 0개를 매치하면 이 테스트는 장식이 된다. 다만 개수를
+    // 리터럴로 못 박지 않는다 — 표면 목록이 스스로 늘어나는데 개수만 고정하면
+    // 새 표면을 추가할 때마다 여기가 깨지고, 그 수리는 규율 확인이 아니라
+    // 숫자 맞추기가 된다. 재는 것은 "표면마다 최소 하나는 있는가" 다.
+    assert.ok(
+      basisTexts.length >= surfaces.length,
+      `분류 근거 문장이 표면 수(${surfaces.length})보다 적다: ${basisTexts.length}`,
+    );
     for (const match of basisTexts) {
       const text = match[1] as string;
       assert.doesNotMatch(text, /[A-Z]{3,}/, `대문자 식별자 노출: ${text}`);
@@ -256,7 +299,7 @@ describe('진술 종류 시각 언어 — 배선', () => {
 
   it('뷰가 진술 종류를 직접 문자열로 그리지 않는다', async () => {
     const sources = await Promise.all([
-      ...APPLIED_SURFACES.map(read),
+      ...(await appliedSurfaces()).map(read),
       read('shared/ui/truth/truth-chip.tsx'),
       read('shared/ui/truth/truth-claim-row.tsx'),
       read('shared/ui/truth/truth-legend.tsx'),
@@ -274,7 +317,7 @@ describe('진술 종류 시각 언어 — 배선', () => {
       read('shared/ui/truth/truth-claim-row.tsx'),
       read('shared/ui/truth/truth-legend.tsx'),
       read('shared/ui/truth/truth-explanation.tsx'),
-      ...APPLIED_SURFACES.map(read),
+      ...(await appliedSurfaces()).map(read),
     ]);
     for (const source of sources) {
       for (const forbidden of [/\buseDepthMode\b/, /\bisExpandedAt\b/, /\bDEPTH_MODES\b/]) {
