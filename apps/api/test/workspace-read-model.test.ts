@@ -157,11 +157,14 @@ describe('workspace read model', () => {
     assert.equal(result.summary.relationCount, 4);
     // 거시 지표 조회가 네 번째다. 정본 01 §2 의 금리·FX·원자재·정책 축은 발행
     // 프로젝션과 무관한 시장 단위 자료라 별도 쿼리로 온다.
-    // 거시 지표와 예정 캘린더가 각각 한 번씩 더 조회한다. 둘 다 정본 01 §2 가
-    // 요구하는 섹션이고, 발행 프로젝션과 무관한 시장 단위 자료다.
-    assert.equal(calls.length, 5);
+    // 거시 지표·예정 캘린더·설명되지 않는 움직임이 각각 한 번씩 더 조회한다.
+    // 셋 다 정본 01 §2 가 요구하는 섹션이고, 발행 프로젝션과 무관한 시장 단위
+    // 자료다. 개수만 세면 어느 섹션이 조용히 빠져도 통과하므로 아래에서
+    // 이름으로도 확인한다.
+    assert.equal(calls.length, 6);
     assert.ok(calls.some(({ sql }) => sql.includes('macro_series_topic')));
     assert.ok(calls.some(({ sql }) => sql.includes('scheduled_event')));
+    assert.ok(calls.some(({ sql }) => sql.includes('market_anomaly_current_v1')));
     assert.deepEqual(calls[2]?.params, ['2026-07-16T13:05:26.678Z', userScope.userId]);
     assert.ok(calls.some(({ params }) => params.includes(userScope.userId)));
     assert.equal(

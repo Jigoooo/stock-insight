@@ -188,6 +188,57 @@ export const todayPreviewFixture = {
       },
     ],
     upcomingEventTotal: 132,
+    // 라이브가 **실제로 낼 수 있는 상태만** 그린다. 이 원장의 관측일은 마지막
+    // 완료된 봉의 날짜라 벽시계보다 뒤처지는 것이 정상이고, 그래서 `stale` 이
+    // 기본 모양이다. 같은 날짜에 `available` 을 적으면 프로덕션이 만들 수 없는
+    // 화면을 프리뷰가 보여준다.
+    //
+    // 행은 2026-08-11 라이브 최악 사례(CRIS)를 그대로 옮겼다. 이 섹션이
+    // 감당해야 하는 것이 정확히 이 모양이다 — -46% 가 아무 확인도 없이 그려질 때
+    // 그것이 "이상 신호" 로 읽히지 않아야 한다.
+    unexplainedMoves: {
+      availability: 'stale' as const,
+      observedOn: '2026-08-11',
+      items: [
+        {
+          key: 'market-anomaly:US:CRIS:2026-08-11',
+          name: 'Curis Inc',
+          marketLabel: '미국',
+          moveLabel: '-46.0%',
+          direction: 'down' as const,
+          magnitudeLabel: '일간 변동성의 4.1배',
+          stateLabel: '확인된 동시 발생 없음',
+          stateDetail: '뒤진 2개 채널에서 같은 시기에 확인된 것이 없습니다.',
+          checked: [
+            '같은 기간에 기록된 사건이 없습니다',
+            '그날 시장 전체 움직임과는 방향·폭이 맞지 않았습니다',
+          ],
+          unchecked: [
+            '테마 분류 기준이 아직 없어 이 채널은 확인하지 않습니다',
+            '그날 가격이 확인된 같은 업종 종목이 없어 확인하지 못했습니다',
+          ],
+        },
+        {
+          key: 'market-anomaly:KR:181710:2026-08-11',
+          name: 'NHN',
+          marketLabel: '국내',
+          moveLabel: '+26.1%',
+          direction: 'up' as const,
+          magnitudeLabel: '일간 변동성의 3.1배',
+          stateLabel: '일부 채널에서 확인됨',
+          stateDetail: '뒤진 3개 채널 중 1개에서 같은 시기에 확인된 것이 있습니다.',
+          checked: [
+            '같은 기간에 기록된 사건이 없습니다',
+            '같은 업종 종목도 같은 날 같은 방향으로 움직였습니다',
+            '그날 시장 전체 움직임과는 방향·폭이 맞지 않았습니다',
+          ],
+          unchecked: ['테마 분류 기준이 아직 없어 이 채널은 확인하지 않습니다'],
+        },
+      ],
+      scopeTotal: 9,
+      basisLabel:
+        '2026-08-11 관측 · 최신 거래일(2026-08-12)보다 뒤처져 있습니다. 종목 자신의 일간 변동성 2배를 넘은 움직임만 실었습니다.',
+    },
     defaultRecordKey: null,
   },
   defaultRecord: null,

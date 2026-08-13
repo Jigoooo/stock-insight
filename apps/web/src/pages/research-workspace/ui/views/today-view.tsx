@@ -67,6 +67,8 @@ export function TodayView({
   const feedRef = useRef<HTMLDivElement>(null);
   const indicators = data.marketIndicators;
   const upcoming = data.upcomingEvents;
+  // 프롭을 늘리지 않는다 — 이 뷰의 다른 섹션과 같이 data 에서 직접 꺼낸다.
+  const moves = data.unexplainedMoves;
   const { headlineItems, curatedItems, listItems, connectionItems } = deriveTodayBriefing(
     data,
     items,
@@ -127,6 +129,91 @@ export function TodayView({
             ))}
           </ul>
         )}
+      </Panel>
+
+      {/*
+        정본 01 §2 **다섯 번째** 섹션 — 설명되지 않는 움직임.
+
+        이 패널의 규율은 하나다: **움직인 이유를 말하지 않는다.** 원장이
+        인과를 저장하지 않고(REQ-MKT-001), 화면도 인과를 만들지 않는다.
+        여기 그려지는 것은 "어디를 뒤졌고 거기서 무엇이 나왔는가" 뿐이다.
+
+        제목에 "오늘" 을 쓰지 않는다 — 관측일은 마지막 완료된 봉의 날짜라
+        벽시계와 어긋난다. 날짜는 헤더 meta 가 진다.
+      */}
+      <Panel
+        className={styles.todayPanel}
+        data-testid="today-unexplained-move"
+        aria-labelledby="today-unexplained-move-title"
+      >
+        <PanelHeader meta={moves.observedOn ? `${moves.observedOn} 관측` : '관측일 미상'}>
+          <h2 id="today-unexplained-move-title">크게 움직인 종목과 확인 범위</h2>
+          <p>평소 변동폭을 크게 벗어난 움직임을 찾아, 어디를 확인했는지 함께 봅니다.</p>
+        </PanelHeader>
+        {/*
+          **`length` 가 아니라 `availability` 로 먼저 가른다.**
+
+          이 원장은 적중한 행만 저장하므로 0행은 "움직임이 없었다" 가 아니다.
+          실패에 "움직임이 없었습니다" 를 찍으면 시장에 대한 거짓 주장이 되고,
+          미계산에 "불러오지 못했습니다" 를 찍으면 거짓 실패 진술이 된다.
+          두 문장을 절대 섞지 않는다.
+        */}
+        {moves.availability === 'error' ? (
+          <p className={styles.marketSummaryEmpty}>
+            이 목록을 불러오지 못했습니다. 아래 항목은 영향을 받지 않습니다.
+          </p>
+        ) : moves.items.length === 0 ? (
+          <p className={styles.marketSummaryEmpty}>
+            이 계산이 아직 수행되지 않았습니다. 크게 움직인 종목이 없었다는 뜻은 아닙니다.
+          </p>
+        ) : (
+          <ul className={styles.anomalyList} aria-label="크게 움직인 종목과 확인 범위">
+            {moves.items.map((item) => (
+              <li key={item.key}>
+                <span className={styles.anomalyHead}>
+                  <span className={styles.anomalyName}>{item.name}</span>
+                  <span className={styles.anomalyMeta}>{item.marketLabel}</span>
+                  {/*
+                    부호가 라벨 안에 들어 있어 색이 사라져도 뜻이 남는다 —
+                    색만으로 구분하지 않는다(UX 헌법 1번).
+                  */}
+                  <span
+                    className={`${styles.anomalyMove} ${
+                      item.direction === 'up' ? styles.anomalyMoveUp : styles.anomalyMoveDown
+                    }`}
+                  >
+                    {item.moveLabel}
+                  </span>
+                  <span className={styles.anomalyMeta}>{item.magnitudeLabel}</span>
+                </span>
+                <span className={styles.anomalyState}>
+                  {item.stateLabel} — {item.stateDetail}
+                </span>
+                {item.checked.length > 0 ? (
+                  <ul className={styles.anomalyChecks} aria-label={`${item.name} 확인한 범위`}>
+                    {item.checked.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                {/*
+                  못 뒤진 채널은 확인한 것과 **다른 목록**으로 그린다. 섞으면
+                  "뒤졌는데 없었다" 와 "뒤지지 않았다" 가 같은 무게로 읽히고,
+                  그 구분이 이 섹션의 존재 이유다(REQ-SRC-001).
+                */}
+                {item.unchecked.length > 0 ? (
+                  <p className={styles.anomalyUnchecked}>
+                    {`${item.unchecked.length}개 채널은 확인하지 않았습니다 — ${item.unchecked.join(' · ')}.`}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className={styles.sourceCaveat}>
+          이 목록은 큰 움직임을 찾아 어디를 확인했는지 적은 것입니다. 움직인 이유를 말하지 않으며,
+          확인된 것이 없다는 것이 이상이 있다는 뜻도 아닙니다. {moves.basisLabel}
+        </p>
       </Panel>
 
       {/*

@@ -78,6 +78,13 @@ describe('research workspace v3 contracts', () => {
       marketIndicators: [],
       upcomingEvents: [],
       upcomingEventTotal: 0,
+      unexplainedMoves: {
+        availability: 'missing',
+        observedOn: null,
+        items: [],
+        scopeTotal: 0,
+        basisLabel: '이 계산이 아직 수행되지 않았습니다.',
+      },
       defaultRecordKey: feedItem.recordKey,
     });
 
@@ -108,6 +115,13 @@ describe('research workspace v3 contracts', () => {
         marketIndicators: [],
         upcomingEvents: [],
         upcomingEventTotal: 0,
+        unexplainedMoves: {
+          availability: 'missing',
+          observedOn: null,
+          items: [],
+          scopeTotal: 0,
+          basisLabel: '이 계산이 아직 수행되지 않았습니다.',
+        },
         defaultRecordKey: 'missing-record',
       }).success,
       false,

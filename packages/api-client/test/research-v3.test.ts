@@ -65,6 +65,13 @@ const workspace: WorkspaceToday = {
   marketIndicators: [],
   upcomingEvents: [],
   upcomingEventTotal: 0,
+  unexplainedMoves: {
+    availability: 'missing',
+    observedOn: null,
+    items: [],
+    scopeTotal: 0,
+    basisLabel: '이 계산이 아직 수행되지 않았습니다.',
+  },
   defaultRecordKey: item.recordKey,
 };
 

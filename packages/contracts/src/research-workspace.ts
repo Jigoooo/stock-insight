@@ -149,6 +149,61 @@ export const scheduledEventSchema = z.object({
 
 export type ScheduledEvent = z.infer<typeof scheduledEventSchema>;
 
+/**
+ * 정본 01 §2 다섯 번째 섹션 — 설명되지 않는 움직임.
+ *
+ * **이 스키마에는 인과를 담을 자리가 없다**(REQ-MKT-001). 각 항목이 말하는 것은
+ * "무엇이 이 움직임을 일으켰나" 가 아니라 "어디를 뒤졌고 거기서 무엇이 나왔나"
+ * 이고, 원장(`analytics.market_anomaly_revision`)이 정확히 그 모양으로 저장한다.
+ *
+ * 원시 어휘는 여기까지 오지 않는다. `explanation_state`(UNEXPLAINED/PARTIAL/
+ * EXPLAINED) · 채널 키(`theme_exposure` 등) · `subject_entity_id` ·
+ * `information_set_id` 는 전부 내부 어휘이고, 기본 UI 노출은 릴리스 차단이다
+ * (UX 헌법 7번). 읽기 모델이 문장으로 옮겨 싣는다.
+ */
+export const marketAnomalyItemSchema = z.object({
+  /** `anomaly_key`. React key 전용 — 렌더하지 않는다. */
+  key: boundedText(120),
+  name: boundedText(120),
+  marketLabel: boundedText(20),
+  moveLabel: boundedText(24),
+  direction: z.enum(['up', 'down']),
+  magnitudeLabel: boundedText(60),
+  stateLabel: boundedText(40),
+  stateDetail: boundedText(240),
+  /** 뒤진 채널이 무엇을 돌려줬는지. 인과문이 아니라 동시 발생 서술이다. */
+  checked: z.array(boundedText(160)).max(4),
+  /**
+   * 못 뒤진 채널과 **그 사유**. REQ-SRC-001 — 이 배열을 떨어뜨리면
+   * "안 뒤졌다" 가 "없다" 로 읽힌다. 사유를 채널마다 다르게 싣는 이유도 같다:
+   * 분류기가 아예 없는 채널과 그날 표본이 얇었던 채널은 다른 이야기다.
+   */
+  unchecked: z.array(boundedText(200)).max(4),
+});
+
+export type MarketAnomalyItem = z.infer<typeof marketAnomalyItemSchema>;
+
+/**
+ * **`availability` 를 함께 싣는 것이 이 스키마의 핵심이다.**
+ *
+ * 배열만 실으면 바로 옆 `upcomingEvents` 의 결함을 복제한다 — 화면이
+ * `length === 0` 하나로 성공-0건과 조회 실패를 같은 문장으로 뭉갠다.
+ *
+ * 그리고 이 원장은 **적중한 행만** 저장한다. "잡이 돌았고 이상치가 없었다" 는
+ * 행이 존재하지 않으므로, 0행은 "움직임이 없었다" 가 아니라 "아직 계산되지
+ * 않았다" 다. 그 둘을 구별하지 못하면 화면이 시장에 대해 거짓을 말한다.
+ */
+export const marketAnomalyScanSchema = z.object({
+  availability: canonicalAvailabilitySchema,
+  observedOn: boundedText(10).nullable(),
+  items: z.array(marketAnomalyItemSchema).max(12),
+  /** 좁히기 전 전체 이상치 수. 자른 사실을 화면이 말할 수 있게 함께 싣는다. */
+  scopeTotal: countSchema,
+  basisLabel: boundedText(240),
+});
+
+export type MarketAnomalyScan = z.infer<typeof marketAnomalyScanSchema>;
+
 export const workspaceTodaySchema = z
   .object({
     meta: workspaceSnapshotMetaSchema,
@@ -163,6 +218,9 @@ export const workspaceTodaySchema = z
     upcomingEvents: z.array(scheduledEventSchema).max(12),
     /** 좁히기 전 전체 미래 일정 수. 자른 사실을 화면이 말할 수 있게 함께 싣는다. */
     upcomingEventTotal: countSchema,
+    // 필수다. `.optional()` 로 두면 "없다" 와 "안 실었다" 를 구별할 수 없고,
+    // 마이그레이션 121 이 `unsearched_channels` 를 NOT NULL 로 만든 이유와 같다.
+    unexplainedMoves: marketAnomalyScanSchema,
     defaultRecordKey: boundedText(320).nullable(),
   })
   .superRefine(({ defaultRecordKey, lanes, summary }, context) => {

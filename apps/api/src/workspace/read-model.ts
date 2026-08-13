@@ -1,5 +1,6 @@
 import { getScheduledCalendar } from './calendar-read-model.ts';
 import { getMarketIndicators } from './macro-read-model.ts';
+import { getMarketAnomalyScan } from './market-anomaly-read-model.ts';
 
 import { MARKET_DATA_AS_OF_EXPR, MARKET_DATA_AS_OF_SQL } from '../shared/market-snapshots.ts';
 
@@ -424,6 +425,25 @@ export async function getWorkspaceToday(
     return { events: [], totalUpcoming: 0 };
   });
 
+  /*
+    같은 이유로 격리한다. **다만 빈 배열로 떨어지지 않는다** — 위 두 이웃이
+    저지른 실수를 복제하지 않기 위해서다.
+
+    이 원장은 적중한 행만 저장한다. 그래서 0행은 "크게 움직인 종목이 없었다" 가
+    아니라 "아직 계산되지 않았다" 이고, 조회 실패는 또 다른 이야기다. 셋을
+    빈 배열 하나로 뭉치면 화면이 시장에 대해 거짓을 말하게 된다(REQ-SRC-001).
+  */
+  const unexplainedMoves = await getMarketAnomalyScan(executor, { now }).catch((error: unknown) => {
+    console.error('market anomaly scan unavailable', error);
+    return {
+      availability: 'error' as const,
+      observedOn: null,
+      items: [],
+      scopeTotal: 0,
+      basisLabel: '이 목록을 불러오지 못했습니다.',
+    };
+  });
+
   return workspaceTodaySchema.parse({
     meta: {
       schemaVersion: 'v3',
@@ -462,6 +482,7 @@ export async function getWorkspaceToday(
     marketIndicators,
     upcomingEvents: calendar.events,
     upcomingEventTotal: calendar.totalUpcoming,
+    unexplainedMoves,
     defaultRecordKey: returnedItems[0]?.recordKey ?? null,
   });
 }
