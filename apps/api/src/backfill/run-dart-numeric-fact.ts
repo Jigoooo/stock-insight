@@ -7,6 +7,7 @@ import {
   assignRevisions,
   buildDartFactPlan,
   checkParity,
+  findRevisionStructureViolations,
   findSchemaViolations,
   type DartFactContext,
   type MetricDefinitionRow,
@@ -352,6 +353,10 @@ async function run(): Promise<void> {
       writes.map((write) => write.fact),
       collected.definitions,
     );
+    // 같은 이유로 리비전 사슬도 트랜잭션 밖에서 본다. DB 가드의 예외는
+    // 어느 사실인지도 어느 필드인지도 말하지 않아서, 2026-08-11 부터 이 잡이
+    // 매 실행 실패하는 동안 원인을 특정할 수 없었다.
+    let structureViolations = findRevisionStructureViolations(writes, existing);
 
     const summary = () => ({
       job: JOB_NAME,
@@ -365,8 +370,25 @@ async function run(): Promise<void> {
       definitions: collected.definitions.length,
       parity,
       schemaViolations: violations,
+      revisionStructureViolations: structureViolations,
       skips: [...collected.skips, ...revisionSkips],
     });
+
+    // 구조 충돌은 dry-run 에서도 보고한다. --apply 에서만 드러나면 운영자는
+    // 실패한 뒤에야 원인을 알게 되고, 그 시점에는 이미 배치가 되돌아간 뒤다.
+    if (structureViolations.length > 0 && !apply && !rehearse) {
+      console.log(
+        JSON.stringify(
+          {
+            ...summary(),
+            hint: '리비전 사슬 구조 충돌이 있다. 위 revisionStructureViolations 를 먼저 해결할 것.',
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
 
     if (!apply && !rehearse) {
       console.log(

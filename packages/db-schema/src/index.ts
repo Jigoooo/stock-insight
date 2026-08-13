@@ -120,6 +120,7 @@ import { k4FiscalYearComparisonWindowMigrationSql } from './migrations/118_k4_fi
 import { scenarioSetSubjectMigrationSql } from './migrations/119_scenario_set_subject.ts';
 import { servingDailyChangeMigrationSql } from './migrations/120_serving_daily_change.ts';
 import { marketAnomalyLedgerMigrationSql } from './migrations/121_market_anomaly_ledger.ts';
+import { numericFactDefinitionKeyFillMigrationSql } from './migrations/122_numeric_fact_definition_key_fill.ts';
 export type AppTableName =
   | 'company_profiles'
   | 'company_financials'
@@ -1236,6 +1237,13 @@ const additiveAppMigrationDefinitions: Array<Omit<AppMigration, 'executionMode'>
     tables: ['market_anomaly_revision'],
     sql: marketAnomalyLedgerMigrationSql,
   },
+  {
+    id: '122_numeric_fact_definition_key_fill',
+    description:
+      'Lets a numeric-fact revision fill a metric definition key that was never recorded, while still rejecting a change from one recorded key to another. The 187,964 dart facts written on 2026-08-08 carry no metricDefinitionKey, the table is append-only so they cannot be backfilled, and the first restatement to reach one of them on 2026-08-11 failed the guard -- which stopped run-dart-numeric-fact, then market-enrichment, then the analytics input gate, then publication, leaving the today screen with no news at all. Also names the offending fact_key in every exception this guard raises.',
+    tables: [],
+    sql: numericFactDefinitionKeyFillMigrationSql,
+  },
 ];
 
 export const additiveAppMigrations: AppMigration[] = additiveAppMigrationDefinitions.map(
@@ -1363,4 +1371,5 @@ export {
   scenarioSetSubjectMigrationSql,
   servingDailyChangeMigrationSql,
   marketAnomalyLedgerMigrationSql,
+  numericFactDefinitionKeyFillMigrationSql,
 };

@@ -1,4 +1,5 @@
 import {
+  immutableClaimStructure,
   numericFactSemanticFingerprint,
   type ExistingNumericFactState,
   type GroupState,
@@ -139,6 +140,9 @@ export async function loadExistingNumericFactState(
         latestFactKey: fact.factKey,
         factIdsByKey: ids,
         latestSemanticFingerprint: numericFactSemanticFingerprint(fact),
+        // 리비전 사슬 구조 검사가 비교할 대상. 이걸 싣지 않으면
+        // findRevisionStructureViolations 가 조용히 아무것도 못 잡는다.
+        latestStructure: immutableClaimStructure(fact),
       });
     }
   }

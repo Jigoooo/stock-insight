@@ -8,11 +8,13 @@ import {
 } from './dart-numeric-fact.ts';
 import {
   assignRevisions as assignSharedRevisions,
+  findRevisionStructureViolations as findSharedRevisionStructureViolations,
   findSchemaViolations as findSharedSchemaViolations,
   type ExistingNumericFactState,
   type MetricDefinitionRow,
   type NumericFactRow,
   type PlannedWrite,
+  type RevisionStructureViolation,
   type SchemaViolation,
   type Skip,
 } from './numeric-fact-plan.ts';
@@ -359,4 +361,16 @@ export function findSchemaViolations(
   definitions: readonly MetricDefinitionRow[],
 ): SchemaViolation[] {
   return findSharedSchemaViolations(facts, definitions);
+}
+
+/**
+ * 리비전 사슬 구조 검사는 provider 별 사정이 없다 — 공유 규칙을 그대로 통과시킨다.
+ * 여기 얇은 래퍼를 두는 이유는 이 파일이 dart 잡의 유일한 계획 표면이기 때문이고,
+ * 잡이 두 파일에서 나눠 import 하기 시작하면 다음 사람이 어느 쪽이 권위인지 모른다.
+ */
+export function findRevisionStructureViolations(
+  writes: readonly PlannedWrite[],
+  existing: ExistingNumericFactState,
+): RevisionStructureViolation[] {
+  return findSharedRevisionStructureViolations(writes, existing);
 }
